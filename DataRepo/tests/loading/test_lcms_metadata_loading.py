@@ -549,7 +549,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
     def test_read_from_file_xlsx(self):
         df = read_from_file("DataRepo/data/tests/small_obob_lcms_metadata/glucose.xlsx")
         self.assertIsNotNone(df)
-        expected_shape = (15, 11)
+        expected_shape = (15, 13)
         self.assertEqual(
             expected_shape,
             df.shape,
@@ -561,7 +561,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
         )
         self.assertIsNotNone(df)
-        expected_shape = (15, 11)
+        expected_shape = (15, 13)
         self.assertEqual(
             expected_shape,
             df.shape,
@@ -581,6 +581,8 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             "lc method",
             "lc description",
             "polarity",
+            "mz min",
+            "mz max",
         ]
         self.assertTrue(lcms_headers_are_valid(case_unordered_lcms_headers))
         self.assertFalse(
@@ -925,7 +927,11 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(PeakAnnotFileMismatches, type(aes.exceptions[0]))
+        self.assertEqual(
+            PeakAnnotFileMismatches,
+            type(aes.exceptions[0]),
+            msg=f"Exception should be PeakAnnotFileMismatches.  Got: [{type(aes.exceptions[0]).__name__}]",
+        )
 
     def test_LCMethodFixturesMissing(self):
         # Load everything but the LCMethod fixtures
@@ -939,7 +945,12 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_no_extras.tsv",
             )
         aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
+        excs = [type(exc).__name__ for exc in aes.exceptions]
+        self.assertEqual(
+            1,
+            len(aes.exceptions),
+            msg=f"Should be a single LCMethodFixturesMissing exception. Got: [{excs}]",
+        )
         self.assertEqual(LCMethodFixturesMissing, type(aes.exceptions[0]))
 
     def test_MissingRequiredLCMSValues(self):

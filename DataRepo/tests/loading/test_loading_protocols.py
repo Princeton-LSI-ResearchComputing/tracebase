@@ -59,10 +59,9 @@ class ProtocolLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_dataframe_as_animal_treatment(self.working_differently_df)
         aes = ar.exception
-        self.assertEqual(1, aes.num_errors)
-        self.assertEqual(0, aes.num_warnings)
+        self.assertEqual((1, 0), (aes.num_errors, aes.num_warnings))
         self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertEqual("description", aes.exceptions[0].consistent_field)
+        self.assertIn("description", aes.exceptions[0].differences.keys())
         # but the other first "working" protocols are still there]
         self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
 
@@ -154,11 +153,9 @@ class ProtocolLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
 
-        self.assertEqual(2, aes.num_errors)
-        self.assertEqual(0, aes.num_warnings)
-
+        self.assertEqual((2, 0), (aes.num_errors, aes.num_warnings))
         self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertEqual("description", aes.exceptions[0].consistent_field)
+        self.assertIn("description", aes.exceptions[0].differences.keys())
 
         self.assertEqual(RequiredValuesError, type(aes.exceptions[1]))
         self.assertEqual(2, len(aes.exceptions[1].missing.keys()))

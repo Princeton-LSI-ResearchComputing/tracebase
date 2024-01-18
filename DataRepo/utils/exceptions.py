@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import traceback
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
@@ -115,7 +115,7 @@ class DuplicatePeakGroup(Exception):
         """Initializes a DuplicatePeakGroup exception"""
 
         message = (
-            f"Duplicate data found when loading file [{adding_file}]:\n"
+            f"Duplicate peak group data found when loading file [{adding_file}]:\n"
             f"\tmsrun_sample: {msrun_sample}\n"
             f"\tsample: {sample}\n"
             f"\tpeak_group_name: {peak_group_name}\n"
@@ -135,7 +135,6 @@ class DuplicatePeakGroups(Exception):
 
     Attributes:
         adding_file: The peak annotation file in which the duplicate data was detected
-        msrun_sample: The MSRunSample in which the peak groups were measured
         duplicate_peak_groups: A list of DuplicatePeakGroup exceiptions
     """
 
@@ -147,16 +146,14 @@ class DuplicatePeakGroups(Exception):
         """Initializes a DuplicatePeakGroups exception"""
 
         message = (
-            f"Duplicate data found when loading file [{adding_file}]:\n"
+            f"Duplicate peak groups data skipped when loading file [{adding_file}]:\n"
             "\tpeak_groups:\n"
         )
         for duplicate_peak_group in duplicate_peak_groups:
             message += (
-                f"\t\tsample: {duplicate_peak_group.sample} | "
-                f"peak_group_name: {duplicate_peak_group.peak_group_name} | "
-                f"msrun_sample_date: {duplicate_peak_group.msrun_sample.date} | "
-                f"msrun_sample_researcher: {duplicate_peak_group.msrun_sample.researcher} | "
-                f"peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
+                f"\t\tpeak_group_name: {duplicate_peak_group.peak_group_name} | "
+                f"msrun_sample: {duplicate_peak_group.msrun_sample} | "
+                f"existing_peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
             )
         super().__init__(message)
         self.adding_file = adding_file
@@ -940,8 +937,34 @@ class ConflictingValueErrors(Exception):
         """Initializes a ConflictingValueErrors exception"""
 
         message = f"Conflicting values found when loading {model_name} records:\n"
+        diff_sum: Dict[str, dict] = {}
         for conflicting_value_error in conflicting_value_errors:
-            message += str(conflicting_value_error) + "\n"
+            if str(conflicting_value_error.differences) not in diff_sum.keys():
+                diff_sum[str(conflicting_value_error.differences)] = {
+                    "sum": "\tDifference(s):\n",
+                    "list": [],
+                }
+                for fld in conflicting_value_error.differences.keys():
+                    diff_sum[str(conflicting_value_error.differences)]["sum"] += (
+                        f"\t\t{fld} in\n"
+                        f"\t\t\tdatabase: [{str(conflicting_value_error.differences[fld]['orig'])}]\n"
+                        f"\t\t\tfile: [{str(conflicting_value_error.differences[fld]['new'])}]\n"
+                    )
+                diff_sum[str(conflicting_value_error.differences)]["sum"] += (
+                    "\tThe above differences were encountered with each the following existing DB records when loading "
+                    "the data:\n"
+                )
+            diff_sum[str(conflicting_value_error.differences)]["list"].append(
+                conflicting_value_error
+            )
+
+        for diff_key in diff_sum.keys():
+            message += diff_sum[diff_key]["sum"]
+            for cve in diff_sum[diff_key]["list"]:
+                # If we have actual location details
+                if cve.loc != "the load file data":
+                    message += f"\t\t{cve.loc}\n\t"
+                message += f"\t\t{str(model_to_dict(cve.rec))}\n"
         super().__init__(message)
         self.model_name = model_name
         self.conflicting_value_errors = conflicting_value_errors
@@ -951,30 +974,50 @@ class ConflictingValueError(Exception):
     def __init__(
         self,
         rec,
-        consistent_field,
-        existing_value,
-        differing_value,
+        differences,
         rownum=None,
         sheet=None,
         message=None,
         file=None,
+        col=None,
     ):
+        """Constructor
+
+        Args:
+            rec (Model): Matching existing database record that caused the unique constraint violation.
+            differences (Dict(str)): Dictionary keyed on field name and whose values are dics whose keys are "orig" and
+                "new", and the values are the value of the field in the database and file, respectively.  Example:
+                {
+                    "description": {
+                        "orig": "the database decription",
+                        "new": "the file description",
+                }
+            rownum (int): The row or line number with the data that caused the conflict.
+            sheet (str): The name of the excel sheet where the conflict was encountered.
+            message (str): The error message.
+            file (str): The name/path of the file where the conflict was encoutnered.
+        """
+        loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=col
+        )
         if not message:
-            loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
             message = (
-                f"Conflicting [{consistent_field}] field values encountered in {loc} in {type(rec).__name__} record "
+                f"Conflicting field values encountered in {loc} in {type(rec).__name__} record "
                 f"[{str(model_to_dict(rec))}]:\n"
-                f"\tdatabase: [{existing_value}]\n"
-                f"\tfile: [{differing_value}]"
             )
+            for fld in differences.keys():
+                message += (
+                    f"\t{fld} in\n"
+                    f"\t\tdatabase: [{differences[fld]['orig']}]\n"
+                    f"\t\tfile: [{differences[fld]['new']}]"
+                )
         super().__init__(message)
         self.rec = rec
-        self.consistent_field = consistent_field
-        self.existing_value = existing_value
-        self.differing_value = differing_value
+        self.differences = differences
         self.rownum = rownum
         self.sheet = sheet
         self.file = file
+        self.loc = loc
 
 
 class SaveError(Exception):
@@ -1494,7 +1537,7 @@ class MissingPeakAnnotationFiles(Exception):
             f"\t{nlt.join(missing_peak_annot_files)}\n\n"
         )
         if lcms_file is not None:
-            message += f"from the LCMS metadata file:\n\n\t{lcms_file}]"
+            message += f"from the LCMS metadata file:\n\n\t{lcms_file}\n\n"
         message += "were not supplied."
         if (
             unmatching_peak_annot_files is not None
@@ -1569,22 +1612,25 @@ class MixedPolarityErrors(Exception):
         self.mixed_polarity_dict = mixed_polarity_dict
 
 
-class PolarityConflictErrors(Exception):
-    def __init__(self, polarity_conflicts):
+class MzxmlConflictErrors(Exception):
+    def __init__(self, mzxml_conflicts):
         deets = []
-        for mzxml_file in polarity_conflicts.keys():
-            deets.append(
-                f"{mzxml_file}: {polarity_conflicts[mzxml_file]['mzxml_value']} vs LCMS "
-                f"{polarity_conflicts[mzxml_file]['sample_header']} row: "
-                f"{polarity_conflicts[mzxml_file]['lcms_value']}"
-            )
+        for mzxml_file in mzxml_conflicts.keys():
+            val = f"{mzxml_file}:\n"
+            for var in mzxml_conflicts[mzxml_file].keys():
+                val += (
+                    f"\t\t{var}: {mzxml_conflicts[mzxml_file][var]['mzxml_value']} vs LCMS "
+                    f"row [{mzxml_conflicts[mzxml_file][var]['sample_header']}]: "
+                    f"{mzxml_conflicts[mzxml_file][var]['lcms_value']}\n"
+                )
+            deets.append(val)
         nlt = "\n\t"
         message = (
-            "The following mzXML files have a polarity value that differs from the value supplied in the LCMS metadata "
+            "The following mzXML files have al least 1 value that differs from the value supplied in the LCMS metadata "
             f"file:\n\t{nlt.join(deets)}"
         )
         super().__init__(message)
-        self.polarity_conflicts = polarity_conflicts
+        self.mzxml_conflicts = mzxml_conflicts
 
 
 class NoSpaceAllowedWhenOneColumn(Exception):
@@ -1614,14 +1660,72 @@ class InfileDatabaseError(Exception):
         self.file = file
 
 
+class MzxmlParseError(Exception):
+    pass
+
+
+class AmbiguousMSRun(Exception):
+    def __init__(
+        self, pg_rec, peak_annot1, peak_annot2, col=None, rownum=None, sheet=None
+    ):
+        loc = generate_file_location_string(rownum=rownum, sheet=sheet, column=col)
+        message = (
+            f"When processing the peak data located in {loc} for sample [{pg_rec.msrun_sample.sample}] and compound(s) "
+            f"{pg_rec.name}, a duplicate peak group was found that was linked to MSRunSample: "
+            f"{model_to_dict(pg_rec.msrun_sample)}, but the peak annotation file it was loaded from [{peak_annot1}] "
+            f"was not the same as the current load file: [{peak_annot2}].  Either this is true duplicate peak data and "
+            "should be removed from this file or this data is a different scan (polarity and/or scan range), in which "
+            "case, both files should be loaded with a distinct polarity, mz_min, and mz_max.  If the mzXML file is "
+            "unavailable, mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr "
+            "data."
+        )
+        super().__init__(message)
+        self.pg_rec = pg_rec
+        self.peak_annot1 = peak_annot1
+        self.peak_annot2 = peak_annot2
+        self.rownum = rownum
+        self.sheet = sheet
+        self.loc = loc
+
+
+class AmbiguousMSRuns(Exception):
+    def __init__(self, ambig_dict, infile):
+        deets = ""
+        for orig_file in ambig_dict.keys():
+            deets += f"\tAmbiguous MSRun details between current [{infile}] and original [{orig_file}] load files:\n"
+            for amsre in ambig_dict[orig_file].values():
+                deets += (
+                    f"\t\tSample [{amsre.pg_rec.msrun_sample.sample}] "
+                    f"PeakGroup [{amsre.pg_rec.name}] "
+                    f"MSRun Polarity [{amsre.pg_rec.msrun_sample.polarity}] "
+                    f"MSRun MZ Min [{amsre.pg_rec.msrun_sample.mz_min}] "
+                    f"MSRun MZ Max [{amsre.pg_rec.msrun_sample.mz_max}]\n"
+                )
+        message = (
+            f"When processing the peak data located in {infile}, duplicate peak groups were found that link to "
+            "existing MSRunSample records, but the peak annotation file the original peak groups were loaded from were "
+            "not the same as the current load file.  Either they are true duplicate peak groups and should be removed "
+            "from this file or this data represents a different scan (polarity and/or scan range), in which case, both "
+            "files should be loaded with a distinct polarity or mz_min and mz_max.  If the mzXML file is unavailable, "
+            "mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr data.  The "
+            "conflicting MSRunSample records below were encountered associated with the following table data:\n"
+            f"{deets}"
+            "Use --polarity, --mz-min, and --mz-max to set different MSRun characteristics for an entire peak "
+            "annotations file or set per sample (header) values in the --lcms-file."
+        )
+        super().__init__(message)
+        self.ambig_dict = ambig_dict
+        self.infile = infile
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
-        loc_str += f"column {column} "
+        loc_str += f"column [{column}] "
     if loc_str != "" and rownum is not None:
         loc_str += "on "
     if rownum is not None:
-        loc_str += f"row {rownum} "
+        loc_str += f"row [{rownum}] "
     if loc_str != "" and sheet is not None:
         loc_str += "of "
     if sheet is not None:

@@ -48,12 +48,14 @@ class TissueLoadingTests(TracebaseTestCase):
 
         # First error
         self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertEqual("description", aes.exceptions[0].consistent_field)
+        self.assertIn("description", aes.exceptions[0].differences.keys())
         self.assertEqual(
             "a different description should cause an error",
-            aes.exceptions[0].differing_value,
+            aes.exceptions[0].differences["description"]["new"],
         )
-        self.assertEqual("a description", aes.exceptions[0].existing_value)
+        self.assertEqual(
+            "a description", aes.exceptions[0].differences["description"]["orig"]
+        )
         self.assertEqual(3, aes.exceptions[0].rownum)
 
         # Second error

@@ -275,19 +275,23 @@ class CompoundsLoader:
 
     def check_for_inconsistencies(self, rec, value_dict, index=None):
         mismatches = 0
+        differences = {}
         for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
             if orig_value != new_value:
                 mismatches += 1
-                self.aggregated_errors_obj.buffer_error(
-                    ConflictingValueError(
-                        rec,
-                        field,
-                        orig_value,
-                        new_value,
-                        index + 1,  # row number (starting from 1)
-                    )
+                if len(differences.keys()) == 0:
+                    differences[field] = {}
+                differences[field]["orig"] = orig_value
+                differences[field]["new"] = new_value
+        if len(differences.keys()) > 0:
+            self.aggregated_errors_obj.buffer_error(
+                ConflictingValueError(
+                    rec,
+                    differences,
+                    index + 1,  # row number (starting from 1)
                 )
+            )
         return mismatches
 
 

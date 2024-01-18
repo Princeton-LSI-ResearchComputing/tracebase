@@ -73,6 +73,6 @@ class MSRunSequence(Model):
 
     def __str__(self):
         return str(
-            f"MS run sequence using instrument {self.instrument} with {self.lc_method.name} by {self.researcher} on "
-            f"{self.date}"
+            f"MS run sequence on instrument [{self.instrument}] with LC protocol [{self.lc_method.name}], operated by "
+            f"{self.researcher} on {self.date}"
         )

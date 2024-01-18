@@ -270,6 +270,12 @@ class Command(BaseCommand):
                 study_lc_protocol = study_params["accucor_data"]["lc_protocol"]
                 study_instrument = study_params["accucor_data"]["instrument"]
                 study_polarity = study_params["accucor_data"]["polarity"]
+                study_mz_min = study_params["accucor_data"].get(
+                    "mz_min", None
+                )  # Optional
+                study_mz_max = study_params["accucor_data"].get(
+                    "mz_max", None
+                )  # Optional
                 study_date = study_params["accucor_data"]["date"]
                 study_researcher = study_params["accucor_data"]["researcher"]
                 study_new_researcher = study_params["accucor_data"]["new_researcher"]
@@ -294,6 +300,8 @@ class Command(BaseCommand):
                     )
                     instrument = accucor_info_dict.get("instrument", study_instrument)
                     polarity = accucor_info_dict.get("polarity", study_polarity)
+                    mz_min = accucor_info_dict.get("mz_min", study_mz_min)
+                    mz_max = accucor_info_dict.get("mz_max", study_mz_max)
                     date = accucor_info_dict.get("date", study_date)
                     researcher = accucor_info_dict.get("researcher", study_researcher)
                     new_researcher = accucor_info_dict.get(
@@ -327,6 +335,8 @@ class Command(BaseCommand):
                             lc_protocol_name=lc_protocol_name,
                             instrument=instrument,
                             polarity=polarity,
+                            mz_min=mz_min,
+                            mz_max=mz_max,
                             date=date,
                             researcher=researcher,
                             new_researcher=new_researcher,

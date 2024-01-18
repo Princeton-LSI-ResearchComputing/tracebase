@@ -277,20 +277,24 @@ def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None)
     from DataRepo.utils.exceptions import ConflictingValueError
 
     conflicting_value_errors = []
+    differences = {}
     for field, new_value in rec_dict.items():
         orig_value = getattr(rec, field)
         if orig_value != new_value:
-            conflicting_value_errors.append(
-                ConflictingValueError(
-                    rec,
-                    field,
-                    orig_value,
-                    new_value,
-                    rownum=rownum,
-                    sheet=sheet,
-                    file=file,
-                )
+            differences[field] = {
+                "orig": orig_value,
+                "new": new_value,
+            }
+    if len(differences.keys()) > 0:
+        conflicting_value_errors.append(
+            ConflictingValueError(
+                rec,
+                differences,
+                rownum=rownum,
+                sheet=sheet,
+                file=file,
             )
+        )
     return conflicting_value_errors
 
 
@@ -363,23 +367,22 @@ def handle_load_db_errors(
                     errs = check_for_inconsistencies(
                         rec, rec_dict, rownum=rownum, sheet=sheet, file=file
                     )
-                    if conflicts_list is not None:
-                        conflicts_list.extend(errs)
-                        return True
-                    elif aes:
-                        for err in errs:
-                            aes.buffer_error(err)
-                        return True
+                    if len(errs) > 0:
+                        if conflicts_list is not None:
+                            conflicts_list.extend(errs)
+                            return True
+                        elif aes:
+                            for err in errs:
+                                aes.buffer_error(err)
+                            return True
 
         elif aes is not None:
             # Repackage any IntegrityError with useful info
             aes.buffer_error(exc)
             return True
 
-        # Raise Integrity errors that are not handled above (i.e. when we were'nt supplied aes)
-        raise InfileDatabaseError(
-            exception, rec_dict, rownum=rownum, sheet=sheet, file=file
-        )
+        # Return False if we weren't able to handle the exception
+        return False
 
     elif isinstance(exception, ValidationError):
         if "is not a valid choice" in estr:

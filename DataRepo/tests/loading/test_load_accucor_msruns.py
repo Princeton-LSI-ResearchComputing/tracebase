@@ -25,6 +25,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    AmbiguousMSRuns,
     ConflictingValueError,
     DryRun,
     NoSamplesError,
@@ -36,7 +37,7 @@ from DataRepo.utils.accucor_data_loader import hash_file
 from DataRepo.utils.exceptions import (
     ConflictingValueErrors,
     DuplicatePeakGroup,
-    PolarityConflictErrors,
+    MzxmlConflictErrors,
 )
 
 
@@ -253,7 +254,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         Test loading two conflicting PeakGroups rasies ConflictingValueErrors
 
         Attempt to load two PeakGroups for the same Compound in the same MSRunSample
-        but from different peak annotation files
+        Note, when there are 2 different peak annotation files, that is an AmbiguousMSRuns error, but when other data
+        differs, it's a ConflictingValueErrors.  The formula for glucose was changed in the conflicting file.
         """
 
         self.load_glucose_data()
@@ -313,12 +315,18 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
         # Test the instance method "insert_peak_group" rasies and error
         # when inserting an exact duplicate PeakGroup
-        with self.assertRaises(DuplicatePeakGroup):
+        with self.assertRaises(Exception) as ar:
             adl.insert_peak_group(
                 peak_group_attrs,
                 msrun_sample=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
+        exc = ar.exception
+        self.assertEqual(
+            DuplicatePeakGroup,
+            type(exc),
+            msg=f"{DuplicatePeakGroup} expected. Got [{type(exc).__name__}: {exc}].",
+        )
 
     @tag("multi-msrun")
     def test_conflicting_peak_group(self):
@@ -437,9 +445,12 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
     @tag("multi-msrun")
-    def test_duplicate_compounds_one_msrun(self):
+    def test_ambiguous_msruns_error(self):
         """
-        Test that we do not allow the same compound to be measured from the
+        Tests that an AmbiguousMSRuns exception is raised when a duplicate sample.peak group is encountered and the
+        peak annotation file names differ
+
+        This also tests that we do not allow the same compound to be measured from the
         same sample run (MSRunSample) more than once
         """
         self.load_glucose_data()
@@ -459,14 +470,33 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         print(f"{aes}")
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueErrors))
-        # 2 samples in the accucor file, so 2 PeakGroup peak annotation file conflicts
-        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+        self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
 
-        # Check first file loaded
-        SAMPLES_COUNT = 2
-        PEAKDATA_ROWS = 7
-        MEASURED_COMPOUNDS_COUNT = 1  # Glucose
+    @tag("multi-msrun")
+    def test_resolve_ambiguous_msruns_error(self):
+        """
+        Tests that an AmbiguousMSRuns exception can be gotten around by adding a distinct scan range, identifying it as
+        an independent MSRun.
+        """
+        self.load_glucose_data()
+        call_command(
+            "load_accucor_msruns",
+            # We just need a different file name with the same data, so _2 is a copy of the original
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+            polarity="positive",
+            mz_min=0,
+            mz_max=500,
+        )
+
+        # Check both files loaded
+        SAMPLES_COUNT = 2  # Same number of original samples
+        PEAKDATA_ROWS = 7 * 2
+        MEASURED_COMPOUNDS_COUNT = 1 * 2  # Glucose, in 2 ranges
 
         self.assertEqual(
             PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
@@ -1043,6 +1073,8 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             "raw_file_name": "BAT-xz971.raw",
             "raw_file_sha1": "31bc554534cf9f1e568529d110caa85f1fd0a8c8",
             "polarity": MSRunSample.POSITIVE_POLARITY,
+            "mz_max": 502.9,
+            "mz_min": 1.0,
         }
         adl = AccuCorDataLoader(
             None,
@@ -1172,7 +1204,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(PolarityConflictErrors, type(aes.exceptions[0]))
+        self.assertEqual(MzxmlConflictErrors, type(aes.exceptions[0]))
 
     def create_AccuCorDataLoader_object(self):
         return AccuCorDataLoader(

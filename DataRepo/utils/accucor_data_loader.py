@@ -39,8 +39,11 @@ from DataRepo.models.researcher import (
     get_researchers,
     validate_researchers,
 )
+from DataRepo.models.utilities import handle_load_db_errors
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AmbiguousMSRun,
+    AmbiguousMSRuns,
     ConflictingValueError,
     ConflictingValueErrors,
     CorrectedCompoundHeaderMissing,
@@ -63,10 +66,11 @@ from DataRepo.utils.exceptions import (
     MixedPolarityErrors,
     MultipleAccucorTracerLabelColumnsError,
     MultipleMassNumbers,
+    MzxmlConflictErrors,
+    MzxmlParseError,
     NoSamplesError,
     NoTracerLabeledElements,
     PeakAnnotFileMismatches,
-    PolarityConflictErrors,
     ResearcherNotNew,
     SampleColumnInconsistency,
     SampleIndexNotFound,
@@ -145,6 +149,8 @@ class AccuCorDataLoader:
         lcms_metadata_df=None,
         instrument=None,
         polarity=None,
+        mz_min=None,
+        mz_max=None,
         date=None,
         lc_protocol_name=None,
         mzxml_files=None,
@@ -175,6 +181,8 @@ class AccuCorDataLoader:
         self.researcher = researcher
         self.instrument = instrument
         self.polarity = polarity
+        self.mz_min = mz_min
+        self.mz_max = mz_max
 
         # Modes
         self.allow_new_researchers = allow_new_researchers
@@ -211,7 +219,9 @@ class AccuCorDataLoader:
         self.missing_mzxmls = []
         self.mismatching_mzxmls = []
         self.mixed_polarities = {}
-        self.conflicting_polarities = {}
+        self.conflicting_mzxml_values = defaultdict(dict)
+        self.conflicting_archive_files = []
+        self.ambiguous_msruns = defaultdict(dict)
 
     def process_default_lcms_opts(self):
         """
@@ -234,6 +244,8 @@ class AccuCorDataLoader:
             "researcher": None,
             "instrument": None,
             "polarity": MSRunSample.POLARITY_DEFAULT,
+            "mz_min": None,
+            "mz_max": None,
             "peak_annot_file": self.peak_annotation_filename,
         }
 
@@ -247,6 +259,10 @@ class AccuCorDataLoader:
             lcms_defaults["instrument"] = self.instrument.strip()
         if self.polarity is not None and self.polarity.strip() != "":
             lcms_defaults["polarity"] = self.polarity.strip()
+        if self.mz_min is not None:
+            lcms_defaults["mz_min"] = self.mz_min
+        if self.mz_max is not None:
+            lcms_defaults["mz_max"] = self.mz_max
 
         # Check LCMS metadata (after having initialized the lcms defaults)
         if self.lcms_metadata_df is None and None in reqd_lcms_defaults.values():
@@ -508,11 +524,15 @@ class AccuCorDataLoader:
             # default value, and the global default value.
             # Precedence: mzXML > LCMS file > Command line default > global default.
             polarity = self.lcms_defaults["polarity"]
+            mz_min = self.lcms_defaults["mz_min"]
+            mz_max = self.lcms_defaults["mz_max"]
             if (
                 self.mzxml_files_dict is not None
                 and sample_header in self.mzxml_files_dict.keys()
             ):
                 parsed_polarity = None
+                parsed_mz_min = None
+                parsed_mz_max = None
                 path_obj = Path(str(self.mzxml_files_dict[sample_header]["path"]))
                 if path_obj.is_file():
                     self.mzxml_data[sample_header] = self.parse_mzxml(path_obj)
@@ -528,10 +548,38 @@ class AccuCorDataLoader:
                         != self.lcms_metadata[sample_header]["polarity"]
                     ):
                         # Add a polarity conflict
-                        self.conflicting_polarities[str(path_obj)] = {
+                        self.conflicting_mzxml_values[str(path_obj)]["polarity"] = {
                             "sample_header": sample_header,
                             "lcms_value": self.lcms_metadata[sample_header]["polarity"],
                             "mzxml_value": parsed_polarity,
+                        }
+                    parsed_mz_min = self.mzxml_data[sample_header]["mz_min"]
+                    if (
+                        sample_header in self.lcms_metadata.keys()
+                        and parsed_mz_min is not None
+                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+                        and self.lcms_metadata[sample_header]["mz_min"] is not None
+                        and parsed_mz_min != self.lcms_metadata[sample_header]["mz_min"]
+                    ):
+                        # Add a mz_min conflict
+                        self.conflicting_mzxml_values[str(path_obj)]["mz_min"] = {
+                            "sample_header": sample_header,
+                            "lcms_value": self.lcms_metadata[sample_header]["mz_min"],
+                            "mzxml_value": parsed_mz_min,
+                        }
+                    parsed_mz_max = self.mzxml_data[sample_header]["mz_max"]
+                    if (
+                        sample_header in self.lcms_metadata.keys()
+                        and parsed_mz_max is not None
+                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+                        and self.lcms_metadata[sample_header]["mz_max"] is not None
+                        and parsed_mz_max != self.lcms_metadata[sample_header]["mz_max"]
+                    ):
+                        # Add a mz_max conflict
+                        self.conflicting_mzxml_values[str(path_obj)]["mz_max"] = {
+                            "sample_header": sample_header,
+                            "lcms_value": self.lcms_metadata[sample_header]["mz_max"],
+                            "mzxml_value": parsed_mz_max,
                         }
                 else:
                     self.aggregated_errors_object.buffer_error(
@@ -539,6 +587,10 @@ class AccuCorDataLoader:
                     )
                 if parsed_polarity is not None:
                     polarity = parsed_polarity
+                if parsed_mz_min is not None:
+                    mz_min = parsed_mz_min
+                if parsed_mz_max is not None:
+                    mz_max = parsed_mz_max
 
             # A default file name is constructed (if missing in the LCMS metadata file, associated with a sample data
             # header).  It is used to match against the supplied bolus of mzXML files that are separately supplied.
@@ -567,6 +619,8 @@ class AccuCorDataLoader:
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
                     "polarity": polarity,
+                    "mz_min": mz_min,
+                    "mz_max": mz_max,
                     "date": self.lcms_defaults["date"],
                     "lc_protocol_name": self.lcms_defaults["lc_protocol_name"],
                     "lc_type": None,
@@ -599,10 +653,21 @@ class AccuCorDataLoader:
                 # Fill in default values for any key whose value is missing
                 for key in self.lcms_defaults.keys():
                     if self.lcms_metadata[sample_header][key] is None:
-                        # Special case for polarity (because it could have been parsed from the mzxml file)
+                        # Special case for polarity, mz_min, and mz_max (because they could have been parsed from the
+                        # mzxml file)
                         if polarity is not None and key == "polarity":
                             self.lcms_metadata[sample_header][key] = polarity
                             continue
+                        # No default needed for mz_min or mz_max unless there are multiple MSRuns for the same sample
+                        # and polarity, which will be handled later
+                        # TODO: Fill in placeholders for mz_min and mz_max if the above scenario is encountered.
+                        if key == "mz_min":
+                            self.lcms_metadata[sample_header][key] = mz_min
+                            continue
+                        if key == "mz_max":
+                            self.lcms_metadata[sample_header][key] = mz_max
+                            continue
+
                         if self.lcms_defaults[key] is None:
                             placeholders_needed = True
                             missing_header_defaults["default"][key] = True
@@ -666,6 +731,13 @@ class AccuCorDataLoader:
             self.lcms_defaults["instrument"] = MSRunSequence.INSTRUMENT_DEFAULT
         if self.lcms_defaults["polarity"] is None:
             self.lcms_defaults["polarity"] = MSRunSample.POLARITY_DEFAULT
+        # NOTE: The below placeholders will only work for 1 additional scan, but in the context of this script, which
+        # only loads a single peak annotation file, that should be fine.  Chances are very low that these values will
+        # conflict with real data.
+        if self.lcms_defaults["mz_min"] is None:
+            self.lcms_defaults["mz_min"] = 0
+        if self.lcms_defaults["mz_max"] is None:
+            self.lcms_defaults["mz_max"] = 1000
         # No need to fill in "peak_annot_file".  Without this file, nothing will load
 
     def sample_header_to_default_mzxml(self, sample_header):
@@ -749,10 +821,14 @@ class AccuCorDataLoader:
         # mzXML files.
 
     def get_missing_required_lcms_defaults(self):
-        optionals = ["polarity"]
-        # polarity will default to the value in the parsed mzXML file.  If the mzXML file is not supplied, it the
-        # supplied --polarity default will be used, and if that default is not supplied, it will default to
-        # MSRunSample.POLARITY_DEFAULT
+        optionals = ["polarity", "mz_min", "mz_max"]
+        # polarity, mz_min, and mz_max will default to the values parsed from the mzXML file.  In the case of polarity,
+        # if the mzXML file is not supplied, the supplied --polarity default will be used, and if that default is not
+        # supplied, it will default to MSRunSample.POLARITY_DEFAULT.  For mz_min and mz_max, if the mzXML file is not
+        # supplied, there will be no default value (i.e. it will be None).  If there are multiple scans of the same
+        # sample at the same polarity, a unique constraint violation error will be raised complaining that the peak
+        # annotation file linked to the peak group will conflict with the prior loaded record (this will be because the
+        # linked MSRunSample record is wrong).
         return [
             key
             for key in self.lcms_defaults.keys()
@@ -1193,27 +1269,53 @@ class AccuCorDataLoader:
 
         mode = "rb" if is_binary else "r"
 
-        if self.dry_run or self.validate:
-            # Don't store the file during dry-run or validation
-            try:
-                archivefile_rec = ArchiveFile.objects.get(**rec_dict)
-            except ObjectDoesNotExist:
-                rec_dict["file_location"] = None
-                archivefile_rec = ArchiveFile.objects.create(**rec_dict)
-        elif path_obj.is_file():
-            with path_obj.open(mode=mode) as f:
-                with_loc = {**rec_dict}
-                with_loc["file_location"] = File(f, name=path_obj.name)
-                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**with_loc)
-        elif checksum is not None:
-            # We allow a record to be created without an actual file if a checksum is provided
-            archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
-        else:
-            self.aggregated_errors_object.buffer_error(
-                FileNotFoundError(f"No such file: {str(path_obj)}")
-            )
-            # Placeholder record, so we can proceed to find more errors:
-            archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        try:
+            if self.dry_run or self.validate:
+                # Don't store the file during dry-run or validation
+                try:
+                    archivefile_rec = ArchiveFile.objects.get(**rec_dict)
+                except ObjectDoesNotExist:
+                    rec_dict["file_location"] = None
+                    archivefile_rec = ArchiveFile.objects.create(**rec_dict)
+            elif path_obj.is_file():
+                # When an ArchiveFile record is get_or_created, and you expect a `get` to occur, the handling of the
+                # `file_location` value results in an unexpected outcome. Instead of `getting` the record, since the
+                # path and name is the same, the DFjango code appends a small hash value to the file name before the
+                # file extension.  This results in the `get_or_create` method to try to "create" a record, because one
+                # of the field value differs.  This then results in a unique constraint violation, because the hash must
+                # be unique.  So to work around this, we will perform a `get_or_create` *without* the `file_location`
+                # value, and instead add that after, only *if* the record was created...
+                archivefile_rec, created = ArchiveFile.objects.get_or_create(**rec_dict)
+                if created:
+                    with path_obj.open(mode=mode) as f:
+                        archivefile_rec.file_location = File(f, name=path_obj.name)
+                        archivefile_rec.full_clean()
+                        archivefile_rec.save()
+            elif checksum is not None:
+                # We allow a record to be created without an actual file if a checksum is provided
+                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+            else:
+                self.aggregated_errors_object.buffer_error(
+                    FileNotFoundError(f"No such file: {str(path_obj)}")
+                )
+                # Placeholder record, so we can proceed to find more errors:
+                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        except Exception as e:
+            if not handle_load_db_errors(
+                e,
+                ArchiveFile,
+                rec_dict,
+                self.aggregated_errors_object,
+                self.conflicting_archive_files,
+            ):
+                self.aggregated_errors_object.buffer_error(e)
+            # There will be an exception raised (either as buffered above or via the error buffered in
+            # handle_load_db_errors), so in order to move forward and catch more errors, let's create a placeholder
+            # record without the actual file
+            rec_dict["filename"] = f"{path_obj.name}-placeholder"
+            rec_dict["checksum"] = f"{checksum_val}-placeholder"
+            rec_dict["file_location"] = None
+            archivefile_rec = ArchiveFile.objects.create(**rec_dict)
 
         return archivefile_rec
 
@@ -1256,6 +1358,8 @@ class AccuCorDataLoader:
                     "raw_file_name": <raw file base name parsed from mzXML file>,
                     "raw_file_sha1": <sha1 string parsed from mzXML file>,
                     "polarity": "positive" or "negative" (based on first polarity parsed from mzXML file),
+                    "mz_min": <float parsed from lowMz from the mzXML file>,
+                    "mz_max": <float parsed from highMz from the mzXML file>,
                 }
             If full_dict=True:
                 xmltodict.parse(xml_content)
@@ -1276,33 +1380,50 @@ class AccuCorDataLoader:
         if full_dict:
             return mzxml_dict
 
-        raw_file_type = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileType"]
-        raw_file_name = Path(
-            mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileName"]
-        ).name
-        raw_file_sha1 = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileSha1"]
-        if raw_file_type != "RAWData":
-            self.aggregated_errors_object.buffer_error(
-                ValueError(
-                    f"Unsupported file type [{raw_file_type}] encountered in mzXML file [{str(mzxml_path_obj)}].  "
-                    "Expected: [RAWData]."
+        try:
+            raw_file_type = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileType"]
+            raw_file_name = Path(
+                mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileName"]
+            ).name
+            raw_file_sha1 = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileSha1"]
+            if raw_file_type != "RAWData":
+                self.aggregated_errors_object.buffer_error(
+                    ValueError(
+                        f"Unsupported file type [{raw_file_type}] encountered in mzXML file [{str(mzxml_path_obj)}].  "
+                        "Expected: [RAWData]."
+                    )
                 )
-            )
-            raw_file_name = None
-            raw_file_sha1 = None
+                raw_file_name = None
+                raw_file_sha1 = None
 
-        polarity = MSRunSample.POLARITY_DEFAULT
-        symbol_polarity = ""
-        for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
-            if symbol_polarity == "":
-                symbol_polarity = entry_dict["@polarity"]
-            elif symbol_polarity != entry_dict["@polarity"]:
-                self.mixed_polarities[str(mzxml_path_obj)] = {
-                    "first": symbol_polarity,
-                    "different": entry_dict["@polarity"],
-                    "scan": entry_dict["@num"],
-                }
-                break
+            polarity = MSRunSample.POLARITY_DEFAULT
+            mz_min = None
+            mz_max = None
+            symbol_polarity = ""
+            for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
+                # Parse the mz_min
+                tmp_mz_min = float(entry_dict["@lowMz"])
+                # Get the min of the mins
+                if mz_min is None or tmp_mz_min < mz_min:
+                    mz_min = tmp_mz_min
+                # Parse the mz_max
+                tmp_mz_max = float(entry_dict["@highMz"])
+                # Get the max of the maxes
+                if mz_max is None or tmp_mz_max > mz_max:
+                    mz_max = tmp_mz_max
+                # Parse the polarity
+                # If we haven't run into a polarity conflict (yet)
+                if str(mzxml_path_obj) not in self.mixed_polarities.keys():
+                    if symbol_polarity == "":
+                        symbol_polarity = entry_dict["@polarity"]
+                    elif symbol_polarity != entry_dict["@polarity"]:
+                        self.mixed_polarities[str(mzxml_path_obj)] = {
+                            "first": symbol_polarity,
+                            "different": entry_dict["@polarity"],
+                            "scan": entry_dict["@num"],
+                        }
+        except KeyError as ke:
+            self.aggregated_errors_object.buffer_error(MzxmlParseError(str(ke)))
         if symbol_polarity == "+":
             polarity = MSRunSample.POSITIVE_POLARITY
         elif symbol_polarity == "-":
@@ -1319,6 +1440,8 @@ class AccuCorDataLoader:
             "raw_file_name": raw_file_name,
             "raw_file_sha1": raw_file_sha1,
             "polarity": polarity,
+            "mz_min": mz_min,
+            "mz_max": mz_max,
         }
 
     def insert_peak_group(
@@ -1326,6 +1449,8 @@ class AccuCorDataLoader:
         peak_group_attrs: PeakGroupAttrs,
         msrun_sample: MSRunSample,
         peak_annotation_file: ArchiveFile,
+        rownum=None,
+        col=None,
     ):
         """Insert a PeakGroup record
 
@@ -1376,33 +1501,45 @@ class AccuCorDataLoader:
                 existing_peak_group = PeakGroup.objects.get(
                     msrun_sample=msrun_sample, name=peak_group_attrs["name"]
                 )
-                conflicting_fields = []
-                existing_values = []
-                new_values = []
+                # TODO: Check more than just formula and peak_annotation_file.  Otherwise, if there are other
+                # differences, they will all be labeled inaccurately as AmbiguousMSRuns, though users should be able to
+                # figure it out.
+                differences = {}
                 if existing_peak_group.formula != peak_group_attrs["formula"]:
-                    conflicting_fields.append("formula")
-                    existing_values.append(existing_peak_group.formula)
-                    new_values.append(peak_group_attrs["formula"])
+                    differences["formula"] = {
+                        "orig": existing_peak_group.formula,
+                        "new": peak_group_attrs["formula"],
+                    }
                 if existing_peak_group.peak_annotation_file != peak_annotation_file:
-                    conflicting_fields.append("peak_annotation_file")
-                    existing_values.append(
-                        existing_peak_group.peak_annotation_file.filename
+                    differences["peak_annotation_file"] = {
+                        "orig": existing_peak_group.peak_annotation_file.filename,
+                        "new": peak_annotation_file.filename,
+                    }
+                if (
+                    len(differences.keys()) == 1
+                    and "peak_annotation_file" in differences.keys()
+                ):
+                    raise AmbiguousMSRun(
+                        pg_rec=existing_peak_group,
+                        peak_annot1=existing_peak_group.peak_annotation_file.filename,
+                        peak_annot2=peak_annotation_file.filename,
+                        col=col,
+                        rownum=rownum,
+                        sheet="absolte" if self.isocorr_format else "Corrected",
                     )
-                    new_values.append(peak_annotation_file.filename)
                 raise ConflictingValueError(
                     rec=existing_peak_group,
-                    consistent_field=conflicting_fields,
-                    existing_value=existing_values,
-                    differing_value=new_values,
+                    differences=differences,
+                    file=peak_annotation_file.filename,
+                    rownum=rownum,
+                    col=col,
+                    sheet="absolte" if self.isocorr_format else "Corrected",
                 )
 
             else:
                 self.aggregated_errors_object.buffer_error(ie)
 
-        """
-        associate the pre-vetted compounds with the newly inserted
-        PeakGroup
-        """
+        # Associate the pre-vetted compounds with the newly inserted PeakGroup
         for compound in peak_group_attrs["compounds"]:
             # Must save the compound before it can be linked
             compound.save()
@@ -1505,6 +1642,8 @@ class AccuCorDataLoader:
                 "msrun_sequence": sequences[sequence_key],
                 "sample": self.db_samples_dict[sample_data_header],
                 "polarity": self.lcms_metadata[sample_data_header]["polarity"],
+                "mz_min": self.lcms_metadata[sample_data_header]["mz_min"],
+                "mz_max": self.lcms_metadata[sample_data_header]["mz_max"],
                 "ms_data_file": ms_data_file,
                 "ms_raw_file": ms_raw_file,
             }
@@ -1549,7 +1688,7 @@ class AccuCorDataLoader:
             msrun_sample = sample_msrun_dict[sample_data_header]
 
             # Pass through the rows once to identify the PeakGroups
-            for _, corr_row in self.accucor_corrected_df.iterrows():
+            for idx, corr_row in self.accucor_corrected_df.iterrows():
                 try:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
                     peak_group_name = corr_row[self.compound_header]
@@ -1580,8 +1719,12 @@ class AccuCorDataLoader:
                                 peak_group_attrs=self.peak_group_dict[peak_group_name],
                                 msrun_sample=msrun_sample,
                                 peak_annotation_file=peak_annotation_file,
+                                rownum=idx + 2,
+                                col=sample_data_header,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
+                        except AmbiguousMSRun as amsr:
+                            self.ambiguous_msruns[amsr.peak_annot1][amsr.loc] = amsr
                         except DuplicatePeakGroup as dup_pg:
                             self.duplicate_peak_groups.append(dup_pg)
                         except ConflictingValueError as cve:
@@ -1780,7 +1923,23 @@ class AccuCorDataLoader:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
 
-        if len(self.duplicate_peak_groups) > 0:
+        if len(self.ambiguous_msruns.keys()) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                AmbiguousMSRuns(
+                    self.ambiguous_msruns,
+                    peak_annotation_file.filename,
+                )
+            )
+
+        # num_expected_peakgroups = number of sample columns times the number of peak groups expected to be loaded
+        num_expected_peakgroups = len(sample_msrun_dict.keys()) * len(
+            self.peak_group_dict.keys()
+        )
+        # If there are duplicate peakgroups and it's not all expected peakgroups
+        if (
+            len(self.duplicate_peak_groups) > 0
+            and len(self.duplicate_peak_groups) != num_expected_peakgroups
+        ):
             self.aggregated_errors_object.buffer_exception(
                 DuplicatePeakGroups(
                     adding_file=peak_annotation_file.filename,
@@ -1789,6 +1948,15 @@ class AccuCorDataLoader:
                 is_fatal=self.validate,
                 is_error=False,
             )
+
+        if len(self.conflicting_archive_files) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                ConflictingValueErrors(
+                    model_name="ArchiveFile",
+                    conflicting_value_errors=self.conflicting_archive_files,
+                ),
+            )
+
         if len(self.conflicting_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
                 ConflictingValueErrors(
@@ -1797,9 +1965,9 @@ class AccuCorDataLoader:
                 ),
             )
 
-        if len(self.conflicting_polarities.keys()) > 0:
+        if len(self.conflicting_mzxml_values.keys()) > 0:
             self.aggregated_errors_object.buffer_exception(
-                PolarityConflictErrors(self.conflicting_polarities),
+                MzxmlConflictErrors(self.conflicting_mzxml_values),
             )
 
         if len(self.mixed_polarities.keys()) > 0:

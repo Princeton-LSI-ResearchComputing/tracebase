@@ -100,9 +100,12 @@ class TissuesLoader:
                         self.aggregated_errors_object.buffer_error(
                             ConflictingValueError(
                                 tissue,
-                                "description",
-                                tissue.description,
-                                description,
+                                differences={
+                                    "description": {
+                                        "orig": tissue.description,
+                                        "new": description,
+                                    },
+                                },
                                 rownum=index + 2,
                             )
                         )

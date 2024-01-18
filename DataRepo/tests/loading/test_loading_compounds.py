@@ -232,7 +232,7 @@ class CompoundLoadingTests(TracebaseTestCase):
                     exc
                     for exc in aes.exceptions
                     if type(exc) == ConflictingValueError
-                    and exc.consistent_field == "compound"
+                    and "compound" in exc.differences.keys()
                 ]
             ),
             msg="Both exceptions are conflicting value errors about the compound field",
