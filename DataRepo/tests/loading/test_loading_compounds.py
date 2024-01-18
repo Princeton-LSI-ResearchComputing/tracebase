@@ -23,14 +23,6 @@ from DataRepo.utils import (  # AmbiguousCompoundDefinitionError,
 class LoadCompoundsTests(TracebaseTestCase):
     """Tests Loading of Compounds"""
 
-    @classmethod
-    def setUpTestData(cls):
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
-        super().setUpTestData()
-
-    def test_compound_loading(self):
-        """Test the compounds and synonyms are loaded"""
-
     def test_compound_loading_failure(self):
         """Test that an error during compound loading doesn't load any compounds"""
 
@@ -48,6 +40,34 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertIn("L-Lactic acid", aes.exceptions[1].dupe_dict.keys())
         self.assertEqual(Compound.objects.count(), 0)
 
+    def test_excel_with_compounds_sheet(self):
+        self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/data/tests/compounds/c182_compounds.xlsx",
+        )
+        Compound.objects.get(name__exact="C18:2")
+
+    def test_excel_with_generic_first_sheet_name(self):
+        """
+        If a sheet with the default "Compounds" sheet name doesn't exist, the loader should fall back to the first sheet
+        """
+        self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/data/tests/compounds/c182_sheet1.xlsx",
+        )
+        Compound.objects.get(name__exact="C18:2")
+
+    def test_excel_with_alternate_sheet_name(self):
+        self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/data/tests/compounds/c182_things.xlsx",
+            sheet="Things",
+        )
+        Compound.objects.get(name__exact="C18:2")
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
@@ -58,7 +78,6 @@ class CompoundLoadingTests(TracebaseTestCase):
             "DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv"
         )
 
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         try:
             call_command(
                 "load_compounds",
@@ -241,8 +260,7 @@ class CompoundLoadingTests(TracebaseTestCase):
     @tag("compound_for_row")
     def test_synonym_compound_mismatches(self):
         """
-        Test that an exception is raised when synonyms on one row refer to two
-        existing compound records in the database
+        Test that an exception is raised when synonyms on one row refer to two existing compound records in the database
         """
         # Somewhat of a useless test, because the save override in Compound always saves the compound name as a
         # synonym, so there will always be a ConflictingValueError.  And if the inconsistency is inside the file only,
@@ -354,7 +372,6 @@ class CompoundsLoaderTests(TracebaseTestCase):
 class CompoundValidationLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",

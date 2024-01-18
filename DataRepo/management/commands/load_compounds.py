@@ -6,13 +6,13 @@ from DataRepo.utils import (
     AggregatedErrors,
     CompoundsLoader,
     DryRun,
+    is_excel,
     read_from_file,
 )
 
 
 class Command(BaseCommand):
-    # Show this when the user types help
-    help = "Loads data from a compound list into the database"
+    help = "Loads data from a compound table into the database"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -23,6 +23,13 @@ class Command(BaseCommand):
                 "headers: 'Compound', 'Formula', 'HMDB ID', and 'Synonyms'; required."
             ),
             required=True,
+        )
+
+        parser.add_argument(
+            "--sheet",
+            type=str,
+            help="Name of excel sheet/tab.  Only used if --compounds is an excel spreadsheet.  Default: 'Compounds'.",
+            default="Compounds",
         )
 
         parser.add_argument(
@@ -43,22 +50,17 @@ class Command(BaseCommand):
             ),
         )
 
-        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
-        # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
+            "--defer-rollback",  # DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
             action="store_true",
             help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
+        saved_aes = None
         try:
-            action = "Loading"
-            if options["dry_run"]:
-                action = "Validating"
-            self.stdout.write(self.style.MIGRATE_HEADING(f"{action} compound data"))
-
-            self.compounds_df = read_from_file(options["compounds"], sheet="Compounds")
+            sheet = options["sheet"] if is_excel(options["compounds"]) else None
+            self.compounds_df = read_from_file(options["compounds"], sheet=sheet)
 
             # Initialize loader class
             loader = CompoundsLoader(
@@ -72,13 +74,12 @@ class Command(BaseCommand):
         except DryRun:
             pass
         except AggregatedErrors as aes:
-            aes.print_summary()
-            raise aes
+            saved_aes = aes
         except Exception as e:
-            aes2 = AggregatedErrors()
-            aes2.buffer_error(e)
-            if aes2.should_raise():
-                aes2.print_summary()
-                raise aes2
-
-        self.stdout.write(self.style.SUCCESS(f"{action} compound data completed"))
+            # Add this unanticipated error to a new aggregated errors object
+            saved_aes = AggregatedErrors()
+            saved_aes.buffer_error(e)
+        finally:
+            if saved_aes is not None and saved_aes.should_raise():
+                saved_aes.print_summary()
+                raise saved_aes
