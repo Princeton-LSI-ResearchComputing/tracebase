@@ -79,7 +79,7 @@ class Command(BaseCommand):
             # Add this unanticipated error to a new aggregated errors object
             saved_aes = AggregatedErrors()
             saved_aes.buffer_error(e)
-        finally:
-            if saved_aes is not None and saved_aes.should_raise():
-                saved_aes.print_summary()
-                raise saved_aes
+
+        if saved_aes is not None and saved_aes.should_raise():
+            saved_aes.print_summary()
+            raise saved_aes
