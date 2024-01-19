@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0030_auto_20240113_1215'),
+        ('DataRepo', '0031_delete_peakgroupset'),
     ]
 
     operations = [
