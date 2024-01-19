@@ -5,7 +5,6 @@ from DataRepo.models import (
     Animal,
     Compound,
     LCMethod,
-    PeakGroupSet,
     Protocol,
     Sample,
     Study,
@@ -56,15 +55,6 @@ def home(request):
     )
 
     # second list
-    card_grid[1].append(
-        {
-            "card_bg_color": "bg-card-1",
-            "card_body_title": str(PeakGroupSet.objects.all().count())
-            + " AccuCor Files",
-            "card_foot_url": reverse("peakgroupset_list"),
-        }
-    )
-
     comp_count = Compound.objects.all().count()
     tracer_count = (
         Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
@@ -96,7 +86,7 @@ def home(request):
         }
     )
 
-    card_grid[2].append(
+    card_grid[1].append(
         {
             "card_bg_color": "bg-card-1",
             "card_body_title": str(LCMethod.objects.count())
@@ -105,6 +95,7 @@ def home(request):
         }
     )
 
+    # third list
     card_grid[2].append(
         {
             "card_bg_color": "bg-card-2",

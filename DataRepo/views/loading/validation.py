@@ -11,9 +11,7 @@ from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
-from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
-from DataRepo.utils.file_utils import get_sheet_names, read_from_file
 
 
 class DataValidationView(FormView):
@@ -289,21 +287,6 @@ class DataValidationView(FormView):
                     "isocorr_format": is_isocorr,
                 }
             )
-
-    def get_mzxml_names(self, fp):
-        """
-        mzXML files are required for new submissions, but for now, we will simply compute the names based on the sample
-        columns
-
-        TODO: Add the ability to submit mzxml files.
-        """
-        sheet_names = get_sheet_names(fp)
-        sheet_name = "Corrected"
-        if "absolte" in sheet_names:
-            sheet_name = "absolte"
-        corrected_df = read_from_file(fp, sheet=sheet_name)
-
-        return [f"{smpl_hdr}.mzxml" for smpl_hdr in get_sample_headers(corrected_df)]
 
 
 def validation_disabled(request):

@@ -15,7 +15,6 @@ from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_data_label import PeakDataLabel
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.models.peak_group_label import PeakGroupLabel
-from DataRepo.models.peak_group_set import PeakGroupSet
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.researcher import Researcher, get_researchers
 from DataRepo.models.sample import Sample
@@ -41,7 +40,6 @@ __all__ = [
     "PeakData",
     "PeakGroup",
     "PeakGroupLabel",
-    "PeakGroupSet",
     "Protocol",
     "Researcher",
     "Sample",

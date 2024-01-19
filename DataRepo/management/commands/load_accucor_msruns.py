@@ -8,7 +8,12 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import AccuCorDataLoader, get_sheet_names, read_from_file
+from DataRepo.utils import (
+    AccuCorDataLoader,
+    get_sheet_names,
+    is_excel,
+    read_from_file,
+)
 from DataRepo.utils.exceptions import WrongExcelSheet
 from DataRepo.utils.lcms_metadata_parser import read_lcms_metadata_from_file
 
@@ -244,7 +249,9 @@ class Command(BaseCommand):
 
     def extract_dataframes_from_peakannotation_file(self, is_isocorr, peak_annot_file):
         # Validate the format (Accucor vs Isocorr) using the sheet names (returns None if not an excel file)
-        sheet_names = get_sheet_names(peak_annot_file)
+        sheet_names = None
+        if is_excel(peak_annot_file):
+            sheet_names = get_sheet_names(peak_annot_file)
         if is_isocorr:
             if sheet_names is not None and "absolte" not in sheet_names:
                 raise WrongExcelSheet("Isocorr", sheet_names[1], "absolte", 2)
