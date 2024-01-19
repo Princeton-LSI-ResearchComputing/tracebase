@@ -79,16 +79,6 @@ urlpatterns = [
         name="msrunsequence_detail",
     ),
     path(
-        "peakgroupsets/",
-        views.PeakGroupSetListView.as_view(),
-        name="peakgroupset_list",
-    ),
-    path(
-        "peakgroupsets/<int:pk>/",
-        views.PeakGroupSetDetailView.as_view(),
-        name="peakgroupset_detail",
-    ),
-    path(
         "archive_files/",
         views.ArchiveFileListView.as_view(),
         name="archive_file_list",

@@ -292,7 +292,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # Setup an AccuCorDataLoader object with minimal info
         # Required since using the "load_accucor_msruns" will not allow
         # multiple loads of the same accucor_file, meaning two PeakGroups will
-        # differ in PeakGroupSet and raise ConflictingValueErrors, not DuplicatePeakGroup
+        # differ in ArchiveFiles (peak annotation files) and raise ConflictingValueErrors, not DuplicatePeakGroup
         adl = AccuCorDataLoader(
             None,
             None,
@@ -301,7 +301,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
-            peak_annotation_filename="peak_group_set_filename.tsv",
+            peak_annotation_filename="peak_annotation_filename.tsv",
             mzxml_files=[],
             polarity="",
         )
@@ -348,7 +348,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
-            peak_annotation_filename="peak_group_set_filename.tsv",
+            peak_annotation_filename="peak_annotation_filename.tsv",
             mzxml_files=[],
             polarity="positive",
         )
