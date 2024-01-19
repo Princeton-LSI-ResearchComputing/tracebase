@@ -57,7 +57,6 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             "PeakData",
             "PeakGroup",
             "PeakGroupLabel",
-            "MSRun",
             "MSRunSample",
             "MSRunSequence",
             "ArchiveFile",

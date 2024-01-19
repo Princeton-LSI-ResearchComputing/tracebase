@@ -11,7 +11,6 @@ from DataRepo.models import (
     Infusate,
     InfusateTracer,
     MaintainedModel,
-    MSRun,
     MSRunSample,
     MSRunSequence,
     PeakData,
@@ -988,15 +987,6 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         cls.MSRUNSEQUENCE_COUNT = 1
 
         super().setUpTestData()
-
-    @MaintainedModel.no_autoupdates()
-    def test_no_msrun_recs_loaded(self):
-        """
-        Issue #712
-        Requirement: 1. None of the load scripts result in MSRun being loaded
-        TODO: This is a temporary test. Remove when MSRun is removed in issue #714
-        """
-        self.assertEqual(0, MSRun.objects.count())
 
     @MaintainedModel.no_autoupdates()
     def test_msrunsample_and_msrunsequence_are_loaded(self):
