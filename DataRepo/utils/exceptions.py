@@ -1396,21 +1396,21 @@ class NoMZXMLFiles(Exception):
 
 
 class PeakAnnotFileMismatches(Exception):
-    def __init__(self, incorrect_pgs_files, peak_group_set_filename):
+    def __init__(self, incorrect_pgs_files, peak_annotation_filename):
         bad_files_str = "\n\t".join(
             [
-                k + f" [{incorrect_pgs_files[k]} != {peak_group_set_filename}]"
+                k + f" [{incorrect_pgs_files[k]} != {peak_annotation_filename}]"
                 for k in incorrect_pgs_files.keys()
             ]
         )
         message = (
             "The following sample headers' peak annotation files in the LCMS metadata file do not match the supplied "
-            f"peak annotation file [{peak_group_set_filename}]:\n\t{bad_files_str}\n\nPlease ensure that the sample "
+            f"peak annotation file [{peak_annotation_filename}]:\n\t{bad_files_str}\n\nPlease ensure that the sample "
             "row in the LCMS metadata matches the supplied peak annotation file."
         )
         super().__init__(message)
         self.incorrect_pgs_files = incorrect_pgs_files
-        self.peak_group_set_filename = peak_group_set_filename
+        self.peak_annotation_filename = peak_annotation_filename
 
 
 class MismatchedSampleHeaderMZXML(Exception):

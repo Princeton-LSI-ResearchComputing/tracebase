@@ -11,7 +11,6 @@ from DataRepo.models import (
     Infusate,
     InfusateTracer,
     MaintainedModel,
-    MSRun,
     MSRunSample,
     MSRunSequence,
     PeakData,
@@ -292,7 +291,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # Setup an AccuCorDataLoader object with minimal info
         # Required since using the "load_accucor_msruns" will not allow
         # multiple loads of the same accucor_file, meaning two PeakGroups will
-        # differ in PeakGroupSet and raise ConflictingValueErrors, not DuplicatePeakGroup
+        # differ in ArchiveFiles (peak annotation files) and raise ConflictingValueErrors, not DuplicatePeakGroup
         adl = AccuCorDataLoader(
             None,
             None,
@@ -301,7 +300,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
-            peak_annotation_filename="peak_group_set_filename.tsv",
+            peak_annotation_filename="peak_annotation_filename.tsv",
             mzxml_files=[],
             polarity="",
         )
@@ -348,7 +347,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
-            peak_annotation_filename="peak_group_set_filename.tsv",
+            peak_annotation_filename="peak_annotation_filename.tsv",
             mzxml_files=[],
             polarity="positive",
         )
@@ -988,15 +987,6 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         cls.MSRUNSEQUENCE_COUNT = 1
 
         super().setUpTestData()
-
-    @MaintainedModel.no_autoupdates()
-    def test_no_msrun_recs_loaded(self):
-        """
-        Issue #712
-        Requirement: 1. None of the load scripts result in MSRun being loaded
-        TODO: This is a temporary test. Remove when MSRun is removed in issue #714
-        """
-        self.assertEqual(0, MSRun.objects.count())
 
     @MaintainedModel.no_autoupdates()
     def test_msrunsample_and_msrunsequence_are_loaded(self):

@@ -29,7 +29,7 @@
             <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.researcher }}, {{ peakgroup.msrun_sample.date }}</a></td>
             <td>
                 {% if peakgroup.peak_annotation_file %}
-                <a href="{% url 'peakgroupset_detail' peakgroup.peak_annotation_file.id %}">
+                <a href="{% url 'archive_file_detail' peakgroup.peak_annotation_file.id %}">
                     {{ peakgroup.peak_annotation_file.filename }}
                 </a>
                 {% endif %}

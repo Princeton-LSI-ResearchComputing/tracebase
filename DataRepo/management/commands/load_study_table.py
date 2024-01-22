@@ -29,7 +29,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--sheet",
             type=str,
-            help="Name of the excel sheet/tab.  Only used if --study-table is an excel spreadsheet.  Default: 'Study'.",
+            help="Name of excel sheet/tab.  Only used if --study-table is an excel spreadsheet.  Default: 'Study'.",
             default="Study",
         )
 
@@ -49,6 +49,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        saved_aes = None
         try:
             sheet = options["sheet"] if is_excel(options["study_table"]) else None
             study_table_df = read_from_file(options["study_table"], sheet=sheet)
@@ -68,15 +69,14 @@ class Command(BaseCommand):
 
         except DryRun:
             pass
-
         except AggregatedErrors as aes:
-            aes.print_summary()
-            if aes.should_raise():
-                raise aes
-
+            saved_aes = aes
         except Exception as e:
-            aes2 = AggregatedErrors()
-            aes2.buffer_error(e)
-            if aes2.should_raise():
-                aes2.print_summary()
-                raise aes2
+            # Add this error (which wasn't added to the aggregated errors, because it was unanticipated) to the
+            # other buffered errors
+            saved_aes = AggregatedErrors()
+            saved_aes.buffer_error(e)
+
+        if saved_aes is not None and saved_aes.should_raise():
+            saved_aes.print_summary()
+            raise saved_aes
