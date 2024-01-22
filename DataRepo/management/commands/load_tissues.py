@@ -6,13 +6,13 @@ from DataRepo.utils import (
     AggregatedErrors,
     DryRun,
     TissuesLoader,
+    is_excel,
     read_from_file,
 )
 
 
 class Command(BaseCommand):
-    # Show this when the user types help
-    help = "Loads data from a tissue list into the database"
+    help = "Loads data from a tissue table into the database"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -23,6 +23,13 @@ class Command(BaseCommand):
                 "Required headers: 'Tissue' & 'Description'"
             ),
             required=True,
+        )
+
+        parser.add_argument(
+            "--sheet",
+            type=str,
+            help="Name of excel sheet/tab.  Only used if --tissues is an excel spreadsheet.  Default: 'Tissues'.",
+            default="Tissues",
         )
 
         # optional "do work" argument; otherwise, only reports of possible work
@@ -43,52 +50,50 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        saved_aes = None
+        msg = "Done. Tissue records loaded: [%i], skipped: [%i], and erroneous: [%i]."
+        created = 0
+        skipped = 0
+        errors = 0
+
         try:
-            # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that
-            # were intended to be tab characters
+            sheet = options["sheet"] if is_excel(options["tissues"]) else None
             new_tissues = read_from_file(
-                options["tissues"], sheet="Tissues", keep_default_na=True
+                options["tissues"],
+                dtype={"Name": str, "Description": str},
+                sheet=sheet,
             )
 
             self.tissue_loader = TissuesLoader(
                 tissues=new_tissues,
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],
+                sheet=sheet,
+                file=options["tissues"],
             )
 
-            self.tissue_loader.load_tissue_data()
+            created, skipped, errors = self.tissue_loader.load_tissue_data()
         except DryRun:
             pass
         except AggregatedErrors as aes:
-            aes.print_summary()
-            raise aes
+            saved_aes = aes
         except Exception as e:
-            aes2 = AggregatedErrors()
-            aes2.buffer_error(e)
-            if aes2.should_raise():
-                aes2.print_summary()
-                raise aes2
+            # Add this unanticipated error to a new aggregated errors object
+            saved_aes = AggregatedErrors()
+            saved_aes.buffer_error(e)
 
-        self.print_notices(
-            self.tissue_loader.get_stats(), options["tissues"], options["verbosity"]
-        )
+        status = msg % (created, skipped, errors)
 
-    def print_notices(self, stats, opt, verbosity):
-        if verbosity >= 2:
-            for stat in stats["created"]:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Created tissue record - {stat['tissue']}:{stat['description']}"
-                    )
-                )
-            for stat in stats["skipped"]:
-                self.stdout.write(
-                    f"Skipped tissue record - {stat['tissue']}:{stat['description']}"
-                )
+        if saved_aes is not None and saved_aes.get_num_errors() > 0:
+            status_msg = self.style.ERROR(status)
+        elif saved_aes is not None and saved_aes.get_num_warnings() > 0:
+            status_msg = self.style.WARNING(status)
+        else:
+            status_msg = self.style.SUCCESS(status)
 
-        smry = "Complete"
-        smry += f", loaded {len(stats['created'])} new tissues and found "
-        smry += f"{len(stats['skipped'])} matching tissues"
-        smry += f" from {opt}"
+        if options["verbosity"] > 0:
+            self.stdout.write(status_msg)
 
-        self.stdout.write(self.style.SUCCESS(smry))
+        if saved_aes is not None and saved_aes.should_raise():
+            saved_aes.print_summary()
+            raise saved_aes

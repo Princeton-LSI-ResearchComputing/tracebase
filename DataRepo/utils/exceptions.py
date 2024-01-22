@@ -325,12 +325,14 @@ class LoadFileError(Exception):
     This exception is a wrapper for other exceptions, which adds file-related context
     """
 
-    def __init__(self, exception, line_num, sheet=None, file=None):
+    def __init__(self, exception, line_num=None, sheet=None, file=None):
         loc = generate_file_location_string(rownum=line_num, sheet=sheet, file=file)
         message = f"{type(exception).__name__} on {loc}: {exception}"
         super().__init__(message)
         self.exception = exception
         self.line_num = line_num
+        self.sheet = sheet
+        self.file = file
 
 
 class MultiLoadStatus(Exception):

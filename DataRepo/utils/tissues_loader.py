@@ -2,12 +2,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from DataRepo.models import Tissue
-from DataRepo.utils.exceptions import (
-    AggregatedErrors,
-    ConflictingValueError,
-    DryRun,
-    LoadFileError,
-)
+from DataRepo.models.utilities import handle_load_db_errors
+from DataRepo.utils.exceptions import AggregatedErrors, DryRun, LoadFileError
 
 
 class TissuesLoader:
@@ -20,6 +16,8 @@ class TissuesLoader:
         tissues,
         dry_run=True,
         defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
+        sheet=None,
+        file=None,
     ):
         self.aggregated_errors_object = AggregatedErrors()
         try:
@@ -28,9 +26,16 @@ class TissuesLoader:
             self.tissues.columns = self.tissues.columns.str.lower()
 
             # Tracking stats
-            self.notices = []  # List of strings that note what was done
-            self.created = []
-            self.existing = []  # Pre-existing, matching tissues
+            self.created = 0
+            self.existing = 0
+            self.erroneous = 0
+
+            # Error tracking
+            self.conflicting_value_errors = []
+
+            # Error reporting
+            self.sheet = sheet
+            self.file = file
 
             # Modes
             self.dry_run = dry_run
@@ -41,97 +46,80 @@ class TissuesLoader:
             raise self.aggregated_errors_object
 
     def load_tissue_data(self):
-        saved_aes = None
-
         with transaction.atomic():
             try:
                 self._load_data()
-            except AggregatedErrors as aes:
-                if self.defer_rollback:
-                    saved_aes = aes
-                else:
-                    # Raise here to cause a rollback
-                    raise aes
-
-        # If we were directed to defer rollback (in the event of an error), raise the exception here (outside of the
-        # atomic transaction block).  This assumes that the caller is handling rollback in their own atomic transaction
-        # block.
-        if saved_aes:
-            # Raise here to NOT cause a rollback
-            raise saved_aes
-
-    def _load_data(self):
-        for index, row in self.tissues.iterrows():
-            print(f"Loading tissues row {index+1}")
-            try:
-                with transaction.atomic():
-                    name = row["name"]
-                    description = row["description"]
-                    # Note, the tsv parser returns a "nan" object when there's no value, which is evaluated as "nan" in
-                    # string context, so change back to None
-                    if str(name) == "nan":
-                        name = None
-                    if str(description) == "nan":
-                        description = None
-                    # To aid in debugging the case where an editor entered spaces instead of a tab...
-                    if " " in str(name) and description is None:
-                        raise ValidationError(
-                            f"Tissue with name '{name}' cannot contain a space unless a description is provided.  "
-                            "Either the space(s) must be changed to a tab character or a description must be provided."
-                        )
-                    if description is None:
-                        description = ""
-                    # We will assume that the validation DB has up-to-date tissues
-                    tissue, created = Tissue.objects.get_or_create(name=name)
-                    if created:
-                        tissue.description = description
-                        tissue.full_clean()
-                        tissue.save()
-                        self.created.append(tissue)
-                        self.notices.append(
-                            f"Created new tissue {tissue}:{description}"
-                        )
-                    elif tissue.description == description:
-                        self.existing.append(tissue)
-                        self.notices.append(
-                            f"Matching tissue {tissue} already exists, skipping"
-                        )
-                    else:
-                        self.aggregated_errors_object.buffer_error(
-                            ConflictingValueError(
-                                tissue,
-                                differences={
-                                    "description": {
-                                        "orig": tissue.description,
-                                        "new": description,
-                                    },
-                                },
-                                rownum=index + 2,
-                            )
-                        )
             except Exception as e:
-                self.aggregated_errors_object.buffer_error(LoadFileError(e, index + 2))
+                # Add this unanticipated error to the other buffered errors
+                self.aggregated_errors_object.buffer_error(e)
+
+            if (
+                self.aggregated_errors_object.should_raise()
+                and not self.defer_rollback
+            ):
+                # Raise here to cause a rollback
+                raise self.aggregated_errors_object
+
+            if self.dry_run:
+                # Raise here to cause a rollback
+                raise DryRun()
 
         if self.aggregated_errors_object.should_raise():
+            # Raise here to NOT cause a rollback
             raise self.aggregated_errors_object
 
-        if self.dry_run:
-            raise DryRun()
+        return self.created, self.existing, self.erroneous
 
-    def get_stats(self):
-        stats = {}
+    def _load_data(self):
+        none_vals = ["", "nan"]
 
-        created = []
-        for tissue in self.created:
-            created.append({"tissue": tissue.name, "description": tissue.description})
+        for index, row in self.tissues.iterrows():
+            # Index starts at 0, headers are on row 1
+            rownum = index + 2
+            try:
+                name = (
+                    row["name"].strip()
+                    if row["name"].strip() not in none_vals
+                    else None
+                )
+                description = (
+                    row["description"].strip()
+                    if row["description"].strip() not in none_vals
+                    else None
+                )
 
-        skipped = []
-        for tissue in self.existing:
-            skipped.append({"tissue": tissue.name, "description": tissue.description})
+                rec_dict = {
+                    "name": name,
+                    "description": description,
+                }
 
-        stats = {
-            "created": created,
-            "skipped": skipped,
-        }
+                # We will assume that the validation DB has up-to-date tissues
+                tissue, created = Tissue.objects.get_or_create(**rec_dict)
+                if created:
+                    tissue.full_clean()
+                    tissue.save()
+                    self.created += 1
+                else:
+                    self.existing += 1
 
-        return stats
+            except Exception as e:
+                print(f"VALUES: {row['name']} {row['description']} TYPES: {type(row['name'])} {type(row['description'])}")
+                # Package IntegrityErrors and ValidationErrors with relevant details
+                if not handle_load_db_errors(
+                    # Data needed to yield useful errors to users
+                    e,
+                    Tissue,
+                    rec_dict,
+                    # What to do with the errors
+                    aes=self.aggregated_errors_object,
+                    conflicts_list=self.conflicting_value_errors,
+                    # How to report the location of the data causing the error
+                    rownum=rownum,
+                    sheet=self.sheet,
+                    file=self.file,
+                ):
+                    # If the error was not handled, buffer the original error
+                    self.aggregated_errors_object.buffer_error(
+                        LoadFileError(e, rownum, sheet=self.sheet, file=self.file)
+                    )
+                self.erroneous += 1
