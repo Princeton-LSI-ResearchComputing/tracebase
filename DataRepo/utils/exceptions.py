@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import traceback
 import warnings
 from typing import TYPE_CHECKING, Dict
@@ -16,7 +17,44 @@ class HeaderError(Exception):
 
 
 class RequiredValueError(Exception):
-    pass
+    def __init__(self, column, rownum, sheet=None, file=None, message=None):
+        if not message:
+            loc = generate_file_location_string(sheet=sheet, file=file)
+            message = f"Value required on {loc}."
+        super().__init__(message)
+        self.column = column
+        self.rownum = rownum
+        self.sheet = sheet
+        self.file = file
+        self.loc = loc
+
+
+class RequiredValueErrors(Exception):
+    """Missing values for a specific model object from a given file
+
+    Attributes:
+        model_name: The name of the model object type (Sample, PeakGroup, etc.)
+        required_value_errors: A list of RequiredValueError exceptions
+    """
+
+    def __init__(
+        self,
+        model_name: str,
+        required_value_errors: list[RequiredValueError],
+    ):
+        missing_dict = defaultdict(lambda: defaultdict(list))
+        for rve in required_value_errors:
+            missing_dict[rve.loc][str(rve.column)].append(rve.rownum)
+
+        message = f"Required values found missing when loading {model_name} records:\n"
+        for filesheet in missing_dict.keys():
+            message += f"\t{filesheet}:\n"
+            for colname in missing_dict[filesheet].keys():
+                deets = ", ".join([str(r) for r in missing_dict[filesheet][colname]])
+                message += f"\t\tColumn: [{colname}] on row(s): {deets}\n"
+        super().__init__(message)
+        self.model_name = model_name
+        self.required_value_errors = required_value_errors
 
 
 class RequiredHeadersError(HeaderError):
@@ -39,8 +77,9 @@ class HeaderConfigError(HeaderError):
 
 
 class RequiredValuesError(Exception):
-    def __init__(self, missing, message=None):
+    def __init__(self, missing, message=None, sheet=None, file=None):
         if not message:
+            loc = generate_file_location_string(sheet=sheet, file=file)
             nltab = "\n\t"
             deets = list(
                 map(
@@ -49,7 +88,7 @@ class RequiredValuesError(Exception):
                 )
             )
             message = (
-                "Missing required values have been detected in the following columns:\n\t"
+                f"Missing required values have been detected in {loc} in the following columns:\n\t"
                 f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
                 "dummy values to avoid this error."
             )
@@ -135,7 +174,7 @@ class DuplicatePeakGroups(Exception):
 
     Attributes:
         adding_file: The peak annotation file in which the duplicate data was detected
-        duplicate_peak_groups: A list of DuplicatePeakGroup exceiptions
+        duplicate_peak_groups: A list of DuplicatePeakGroup exceptions
     """
 
     def __init__(
@@ -928,7 +967,7 @@ class ConflictingValueErrors(Exception):
 
     Attributes:
         model_name: The name of the model object type (Sample, PeakGroup, etc.)
-        conflicting_value_errors: A list of ConflictingValueError exceiptions
+        conflicting_value_errors: A list of ConflictingValueError exceptions
     """
 
     def __init__(

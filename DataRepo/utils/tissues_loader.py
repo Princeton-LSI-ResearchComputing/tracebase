@@ -1,9 +1,9 @@
-from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from DataRepo.models import Tissue
 from DataRepo.models.utilities import handle_load_db_errors
-from DataRepo.utils.exceptions import AggregatedErrors, DryRun, LoadFileError
+from DataRepo.utils import get_one_column_dupes
+from DataRepo.utils.exceptions import AggregatedErrors, ConflictingValueErrors, DryRun, DuplicateValues, InfileDatabaseError, RequiredValueErrors
 
 
 class TissuesLoader:
@@ -32,6 +32,7 @@ class TissuesLoader:
 
             # Error tracking
             self.conflicting_value_errors = []
+            self.required_value_errors = []
 
             # Error reporting
             self.sheet = sheet
@@ -73,6 +74,11 @@ class TissuesLoader:
     def _load_data(self):
         none_vals = ["", "nan"]
 
+        print(f"TISSUE DATA: {self.tissues}")
+        dupes, _ = get_one_column_dupes(self.tissues, "name")
+        if len(dupes) > 0:
+            self.aggregated_errors_object.buffer_warning(DuplicateValues(dupes, ["name"]))
+
         for index, row in self.tissues.iterrows():
             # Index starts at 0, headers are on row 1
             rownum = index + 2
@@ -92,7 +98,7 @@ class TissuesLoader:
                     "name": name,
                     "description": description,
                 }
-
+                print(f"Loading: {rec_dict}")
                 # We will assume that the validation DB has up-to-date tissues
                 tissue, created = Tissue.objects.get_or_create(**rec_dict)
                 if created:
@@ -113,6 +119,7 @@ class TissuesLoader:
                     # What to do with the errors
                     aes=self.aggregated_errors_object,
                     conflicts_list=self.conflicting_value_errors,
+                    missing_list=self.required_value_errors,
                     # How to report the location of the data causing the error
                     rownum=rownum,
                     sheet=self.sheet,
@@ -120,6 +127,18 @@ class TissuesLoader:
                 ):
                     # If the error was not handled, buffer the original error
                     self.aggregated_errors_object.buffer_error(
-                        LoadFileError(e, rownum, sheet=self.sheet, file=self.file)
+                        InfileDatabaseError(
+                            e, rec_dict, rownum=rownum, sheet=self.sheet, file=self.file
+                        )
                     )
                 self.erroneous += 1
+
+        if len(self.conflicting_value_errors) > 0:
+            self.aggregated_errors_object.buffer_error(
+                ConflictingValueErrors(Tissue.__name__, self.conflicting_value_errors)
+            )
+
+        if len(self.required_value_errors) > 0:
+            self.aggregated_errors_object.buffer_error(
+                RequiredValueErrors(Tissue.__name__, self.required_value_errors)
+            )

@@ -27,7 +27,7 @@ from DataRepo.models.researcher import (
     validate_researchers,
 )
 from DataRepo.models.utilities import value_from_choices_label
-from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
+from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations, get_column_dupes
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
@@ -902,8 +902,8 @@ class SampleTableLoader:
         """
         sample_name_header = getattr(self.headers, "SAMPLE_NAME")
         study_name_header = getattr(self.headers, "STUDY_NAME")
-        sample_dupes, row_idxs = self.get_column_dupes(
-            data, [sample_name_header, study_name_header]
+        sample_dupes, row_idxs = get_column_dupes(
+            data, [sample_name_header, study_name_header], self.empty_animal_rows
         )
         if len(sample_dupes.keys()) > 0:
             # Custom message to explain the case with Study name
@@ -925,53 +925,6 @@ class SampleTableLoader:
                 DuplicateValues(sample_dupes, sample_name_header, message=message)
             )
             self.infile_sample_dupe_rows = row_idxs
-
-    def get_column_dupes(self, data, col_keys):
-        """
-        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate (combination) values.
-        Returns a dict keyed on the composite duplicate value (with embedded header names).  The value is a dict with
-        the keys "rowidxs" and "vals". rowidxs has a list of indexes of the rows containing the combo value and vals
-        contains a dict of the column name and value pairs.
-        """
-        val_locations = defaultdict(dict)
-        dupe_dict = defaultdict(dict)
-        all_rows_with_dupes = []
-        for rowidx, row in enumerate(data):
-            # Ignore rows where the animal name is empty
-            if rowidx in self.empty_animal_rows:
-                continue
-
-            # Ignore empty combos
-            empty_combo = True
-            for ck in col_keys:
-                val = row[ck]
-                if val is not None or not isinstance(val, str) or val == "":
-                    empty_combo = False
-                    break
-            if empty_combo:
-                continue
-
-            composite_val = ", ".join(
-                list(map(lambda ck: f"{ck}: [{str(row[ck])}]", col_keys))
-            )
-
-            if len(val_locations[composite_val].keys()) > 0:
-                val_locations[composite_val]["rowidxs"].append(rowidx)
-            else:
-                val_locations[composite_val]["rowidxs"] = [rowidx]
-                val_locations[composite_val]["vals"] = {}
-                for ck in col_keys:
-                    val_locations[composite_val]["vals"][ck] = row[ck]
-
-        # Now create the dupe dict to contain values encountered more than once
-        for val in val_locations.keys():
-            row_list = val_locations[val]["rowidxs"]
-            if len(row_list) > 1:
-                dupe_dict[val]["rowidxs"] = row_list
-                dupe_dict[val]["vals"] = val_locations[val]["vals"]
-                all_rows_with_dupes += row_list
-
-        return dupe_dict, all_rows_with_dupes
 
     def identify_empty_animal_rows(self, data):
         """

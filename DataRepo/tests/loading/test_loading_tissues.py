@@ -43,8 +43,8 @@ class TissueLoadingTests(TracebaseTestCase):
                 verbosity=2,
             )
         aes = ar.exception
-        self.assertEqual(3, aes.num_errors)
-        self.assertEqual(0, aes.num_warnings)
+        self.assertEqual(3, aes.num_errors)  # ConflictingValueErrors
+        self.assertEqual(1, aes.num_warnings)  # DuplicateValues
 
         # First error
         self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))

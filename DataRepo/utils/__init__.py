@@ -50,6 +50,8 @@ from DataRepo.utils.file_utils import (
     headers_are_as_expected,
     is_excel,
     read_from_file,
+    get_column_dupes,
+    get_one_column_dupes,
 )
 from DataRepo.utils.infusate_name_parser import (
     IsotopeParsingError,
@@ -82,6 +84,8 @@ __all__ = [
     "DuplicatePeakGroups",
     "DuplicateValues",
     "read_from_file",
+    "get_column_dupes",
+    "get_one_column_dupes",
     "get_sheet_names",
     "headers_are_as_expected",
     "HeaderError",

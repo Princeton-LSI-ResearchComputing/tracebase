@@ -1,4 +1,5 @@
 import importlib
+import re
 import warnings
 
 from chempy import Substance
@@ -302,9 +303,11 @@ def handle_load_db_errors(
     rec_dict,
     aes=None,
     conflicts_list=None,
+    missing_list=None,
     rownum=None,
     sheet=None,
     file=None,
+    rec_to_file_col=None,
 ):
     """
     The purpose of this function is to provide helpful information in an exception (i.e. repackage an IntegrityError or
@@ -315,13 +318,15 @@ def handle_load_db_errors(
     validation error (triggered by a full_clean).  It will either buffer a ConflictingValue error in either the supplied
     conflicts_list or AggregatedErrors object, or raise an exception.
 
+    rec_to_file_col is optional.  Use it if you want to map keys from the rec_dict to column header names in the file.
+
     Raises: ValueError or InfileDatabaseError (buffers InfileDatabaseError and ConflictingValueError)
 
     Returns: boolean indicating whether an error was handled(/buffered).
     """
     # This was moved here (from its prior global location at the top) to avoid circular import
-    from DataRepo.utils.exceptions import InfileDatabaseError
-
+    from DataRepo.utils.exceptions import InfileDatabaseError, RequiredValueError
+    print(f"PROCESSING EXCEPTION: {type(exception).__name__}: {exception}")
     # Either aes or conflicts_list is required
     if aes is None and conflicts_list is None:
         raise ValueError(
@@ -373,7 +378,22 @@ def handle_load_db_errors(
                             for err in errs:
                                 aes.buffer_error(err)
                             return True
-
+        elif "violates not-null constraint" in estr:
+            regexp = re.compile(r"^null value in column \"(?P<colname>[^\"]+)\"")
+            match = re.search(regexp, estr)
+            if match:
+                colname = match.group("colname")
+                # Convert the database column name to the file column header, if available
+                if rec_to_file_col is not None and colname in rec_to_file_col.keys():
+                    colname = rec_to_file_col[colname]
+                err = RequiredValueError(column=colname, rownum=rownum, sheet=sheet, file=file)
+                if missing_list is not None:
+                    missing_list.append(err)
+                    return True
+                elif aes:
+                    for err in errs:
+                        aes.buffer_error(err)
+                    return True
         elif aes is not None:
             # Repackage any IntegrityError with useful info
             aes.buffer_error(exc)
