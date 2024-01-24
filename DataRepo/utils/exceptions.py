@@ -17,7 +17,7 @@ class HeaderError(Exception):
 
 
 class RequiredValueError(Exception):
-    def __init__(self, column, rownum, sheet=None, file=None, message=None):
+    def __init__(self, column, rownum, model_name, field_name, sheet=None, file=None, message=None):
         if not message:
             loc = generate_file_location_string(sheet=sheet, file=file)
             message = f"Value required on {loc}."
@@ -27,42 +27,55 @@ class RequiredValueError(Exception):
         self.sheet = sheet
         self.file = file
         self.loc = loc
+        self.model_name = model_name
+        self.field_name = field_name
 
 
 class RequiredValueErrors(Exception):
-    """Missing values for a specific model object from a given file
+    """Summary of all missing required value errors
 
     Attributes:
-        model_name: The name of the model object type (Sample, PeakGroup, etc.)
         required_value_errors: A list of RequiredValueError exceptions
     """
 
     def __init__(
         self,
-        model_name: str,
         required_value_errors: list[RequiredValueError],
     ):
-        missing_dict = defaultdict(lambda: defaultdict(list))
+        missing_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         for rve in required_value_errors:
-            missing_dict[rve.loc][str(rve.column)].append(rve.rownum)
+            missing_dict[rve.loc][str(rve.column)]["rows"].append(rve.rownum)
+            fld = f"{rve.model_name}.{rve.field_name}"
+            if (
+                "fld" in missing_dict[rve.loc][str(rve.column)].keys()
+                and missing_dict[rve.loc][str(rve.column)]["fld"] != fld
+            ):
+                missing_dict[rve.loc][str(rve.column)]["fld"] += f" or {fld}"
+            else:
+                missing_dict[rve.loc][str(rve.column)]["fld"] = fld
 
-        message = f"Required values found missing when loading {model_name} records:\n"
+        message = f"Required values found missing during loading:\n"
         for filesheet in missing_dict.keys():
             message += f"\t{filesheet}:\n"
             for colname in missing_dict[filesheet].keys():
-                deets = ", ".join([str(r) for r in missing_dict[filesheet][colname]])
-                message += f"\t\tColumn: [{colname}] on row(s): {deets}\n"
+                deets = ", ".join([str(r) for r in missing_dict[filesheet][colname]["rows"]])
+                message += (
+                    f"\t\tField: [{missing_dict[filesheet][colname]['fld']}] Column: [{colname}] on row(s): {deets}\n"
+                )
         super().__init__(message)
-        self.model_name = model_name
         self.required_value_errors = required_value_errors
 
 
 class RequiredHeadersError(HeaderError):
-    def __init__(self, missing, message=None):
+    def __init__(self, missing, message=None, sheet=None, file=None):
         if not message:
-            message = f"Required header(s) missing: [{', '.join(missing)}]."
+            loc = generate_file_location_string(sheet=sheet, file=file)
+            message = f"Required header(s) missing: [{', '.join(missing)}] in {loc}."
         super().__init__(message)
         self.missing = missing
+        self.sheet = sheet
+        self.file = file
+        self.loc = loc
 
 
 class HeaderConfigError(HeaderError):
@@ -200,11 +213,15 @@ class DuplicatePeakGroups(Exception):
 
 
 class UnknownHeadersError(HeaderError):
-    def __init__(self, unknowns, message=None):
+    def __init__(self, unknowns, message=None, file=None, sheet=None):
+        loc = generate_file_location_string(file=file, sheet=sheet)
         if not message:
-            message = f"Unknown header(s) encountered: [{', '.join(unknowns)}]."
+            message = f"Unknown header(s) encountered: [{', '.join(unknowns)}] in {loc}."
         super().__init__(message)
         self.unknowns = unknowns
+        self.file = file
+        self.sheet = sheet
+        self.loc = loc
 
 
 class ResearcherNotNew(Exception):
@@ -972,42 +989,43 @@ class ConflictingValueErrors(Exception):
 
     def __init__(
         self,
-        model_name: str,
         conflicting_value_errors: list[ConflictingValueError],
     ):
         """Initializes a ConflictingValueErrors exception"""
 
-        message = f"Conflicting values found when loading {model_name} records:\n"
+        message = f"Conflicting values encountered during loading:\n"
         diff_sum: Dict[str, dict] = {}
-        for conflicting_value_error in conflicting_value_errors:
-            if str(conflicting_value_error.differences) not in diff_sum.keys():
-                diff_sum[str(conflicting_value_error.differences)] = {
-                    "sum": "\tDifference(s):\n",
-                    "list": [],
+        for cve in conflicting_value_errors:
+            if str(cve.differences) not in diff_sum.keys():
+                diff_sum[str(cve.differences)] = {
+                    "sum": f"\t{type(cve.rec).__name__} field value difference(s):\n",
+                    "recs": {},
                 }
-                for fld in conflicting_value_error.differences.keys():
-                    diff_sum[str(conflicting_value_error.differences)]["sum"] += (
-                        f"\t\t{fld} in\n"
-                        f"\t\t\tdatabase: [{str(conflicting_value_error.differences[fld]['orig'])}]\n"
-                        f"\t\t\tfile: [{str(conflicting_value_error.differences[fld]['new'])}]\n"
+                for fld in cve.differences.keys():
+                    diff_sum[str(cve.differences)]["sum"] += (
+                        f"\t\t{fld}:\n"
+                        f"\t\t\tdatabase: [{str(cve.differences[fld]['orig'])}]\n"
+                        f"\t\t\tfile:     [{str(cve.differences[fld]['new'])}]\n"
                     )
-                diff_sum[str(conflicting_value_error.differences)]["sum"] += (
-                    "\tThe above differences were encountered with each the following existing DB records when loading "
-                    "the data:\n"
+                diff_sum[str(cve.differences)]["sum"] += (
+                    "\tRecord details:\n"
                 )
-            diff_sum[str(conflicting_value_error.differences)]["list"].append(
-                conflicting_value_error
-            )
+            rec_key = str(model_to_dict(cve.rec))
+            if rec_key in diff_sum[str(cve.differences)]["recs"].keys():
+                diff_sum[str(cve.differences)]["recs"][rec_key].append(cve)
+            else:
+                diff_sum[str(cve.differences)]["recs"][rec_key] = [cve]
 
         for diff_key in diff_sum.keys():
             message += diff_sum[diff_key]["sum"]
-            for cve in diff_sum[diff_key]["list"]:
-                # If we have actual location details
-                if cve.loc != "the load file data":
-                    message += f"\t\t{cve.loc}\n\t"
-                message += f"\t\t{str(model_to_dict(cve.rec))}\n"
+            for recstr in diff_sum[diff_key]["recs"].keys():
+                message += f"\t\tDatabase Record: {str(model_to_dict(cve.rec))}\n"
+                for cve in diff_sum[diff_key]["recs"][recstr]:
+                    message += f"\t\t\tConflicts with record created from {cve.loc}"
+                    if cve.rec_dict is not None:
+                        message += f": {cve.rec_dict}"
+                    message += "\n"
         super().__init__(message)
-        self.model_name = model_name
         self.conflicting_value_errors = conflicting_value_errors
 
 
@@ -1016,6 +1034,7 @@ class ConflictingValueError(Exception):
         self,
         rec,
         differences,
+        rec_dict=None,
         rownum=None,
         sheet=None,
         message=None,
@@ -1053,7 +1072,8 @@ class ConflictingValueError(Exception):
                     f"\t\tfile: [{differences[fld]['new']}]"
                 )
         super().__init__(message)
-        self.rec = rec
+        self.rec = rec  # Model record that conflicts
+        self.rec_dict = rec_dict  # Dict created from file
         self.differences = differences
         self.rownum = rownum
         self.sheet = sheet

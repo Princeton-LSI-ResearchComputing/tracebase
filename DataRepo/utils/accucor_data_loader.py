@@ -1951,18 +1951,12 @@ class AccuCorDataLoader:
 
         if len(self.conflicting_archive_files) > 0:
             self.aggregated_errors_object.buffer_exception(
-                ConflictingValueErrors(
-                    model_name="ArchiveFile",
-                    conflicting_value_errors=self.conflicting_archive_files,
-                ),
+                ConflictingValueErrors(self.conflicting_archive_files),
             )
 
         if len(self.conflicting_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
-                ConflictingValueErrors(
-                    model_name="PeakGroup",
-                    conflicting_value_errors=self.conflicting_peak_groups,
-                ),
+                ConflictingValueErrors(self.conflicting_peak_groups),
             )
 
         if len(self.conflicting_mzxml_values.keys()) > 0:

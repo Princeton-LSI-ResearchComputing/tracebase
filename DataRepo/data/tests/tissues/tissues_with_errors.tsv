@@ -1,4 +1,4 @@
-Name	Description
+Tissue	Description
 brown_adipose_tissue	a description
 brown_adipose_tissue	a different description should cause an error
 brain	same description causes duplicate warning

@@ -7,8 +7,9 @@ from DataRepo.models import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    ConflictingValueError,
-    LoadFileError,
+    ConflictingValueErrors,
+    DuplicateValues,
+    RequiredValueErrors,
 )
 
 
@@ -43,45 +44,35 @@ class TissueLoadingTests(TracebaseTestCase):
                 verbosity=2,
             )
         aes = ar.exception
-        self.assertEqual(3, aes.num_errors)  # ConflictingValueErrors
+        self.assertEqual(2, aes.num_errors)  # ConflictingValueErrors
         self.assertEqual(1, aes.num_warnings)  # DuplicateValues
 
-        # First error
-        self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertIn("description", aes.exceptions[0].differences.keys())
-        self.assertEqual(
-            "a different description should cause an error",
-            aes.exceptions[0].differences["description"]["new"],
-        )
-        self.assertEqual(
-            "a description", aes.exceptions[0].differences["description"]["orig"]
-        )
-        self.assertEqual(3, aes.exceptions[0].rownum)
+        # First exception
+        self.assertEqual(DuplicateValues, type(aes.exceptions[0]))
+        self.assertIn("2 values in unique column(s) ['Tissue']", str(aes.exceptions[0]))
+        self.assertFalse(aes.exceptions[0].is_error)
 
         # Second error
-        self.assertEqual(LoadFileError, type(aes.exceptions[1]))
-        self.assertEqual(6, aes.exceptions[1].line_num)
-        self.assertEqual(IntegrityError, type(aes.exceptions[1].exception))
-        self.assertIn(
-            'null value in column "name"',
-            str(aes.exceptions[1].exception),
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[1]))
+        self.assertIn("description", aes.exceptions[1].conflicting_value_errors[0].differences.keys())
+        self.assertEqual(
+            "a different description should cause an error",
+            aes.exceptions[1].conflicting_value_errors[0].differences["description"]["new"],
         )
-        self.assertIn(
-            "violates not-null constraint",
-            str(aes.exceptions[1].exception),
+        self.assertEqual(
+            "a description", aes.exceptions[1].conflicting_value_errors[0].differences["description"]["orig"]
         )
+        self.assertEqual(3, aes.exceptions[1].conflicting_value_errors[0].rownum)
 
         # Third error
-        self.assertEqual(LoadFileError, type(aes.exceptions[2]))
-        self.assertEqual(8, aes.exceptions[2].line_num)
-        self.assertEqual(ValidationError, type(aes.exceptions[2].exception))
+        self.assertEqual(RequiredValueErrors, type(aes.exceptions[2]))
         self.assertIn(
-            (
-                "Tissue with name 'space but no description is a problem' cannot contain a space unless a description "
-                "is provided.  Either the space(s) must be changed to a tab character or a description must be "
-                "provided."
-            ),
-            str(aes.exceptions[2].exception),
+            "Column: [name] on row(s): 6",
+            str(aes.exceptions[2]),
+        )
+        self.assertIn(
+            "Column: [description] on row(s): 7",
+            str(aes.exceptions[2]),
         )
 
         # If errors are found, no records should be loaded

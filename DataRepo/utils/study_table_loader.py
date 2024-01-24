@@ -122,8 +122,5 @@ class StudyTableLoader:
 
         if len(self.conflicting_value_errors) > 0:
             self.aggregated_errors_object.buffer_error(
-                ConflictingValueErrors(
-                    model_name="PeakGroup",
-                    conflicting_value_errors=self.conflicting_value_errors,
-                ),
+                ConflictingValueErrors(self.conflicting_value_errors),
             )

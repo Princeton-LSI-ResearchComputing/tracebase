@@ -388,7 +388,6 @@ def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
         # Ignore rows where the animal name is empty
         if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
             continue
-        print(f"rowidx {type(rowidx)} row[col_key] {type(row[col_key])}")
         vals_dict[row[col_key]].append(rowidx)
 
     for key in vals_dict.keys():
@@ -431,7 +430,6 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
         # Ignore empty combos
         empty_combo = True
         for ck in unique_col_keys:
-            print(f"Looking at column [{ck}] of row {rowidx}: {row}")
             val = row[ck]
             if val is not None or not isinstance(val, str) or val == "":
                 empty_combo = False

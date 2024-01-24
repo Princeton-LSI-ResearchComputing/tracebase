@@ -32,19 +32,16 @@ class Command(BaseCommand):
             default="Tissues",
         )
 
-        # optional "do work" argument; otherwise, only reports of possible work
         parser.add_argument(
             "-n",
             "--dry-run",
             action="store_true",
             default=False,
-            help=("Dry-run. If specified, nothing will be saved to the database. "),
+            help=("Dry-run. If supplied, nothing will be saved to the database."),
         )
 
-        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
-        # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
+            "--defer-rollback",  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
             action="store_true",
             help=argparse.SUPPRESS,
         )
