@@ -1,19 +1,17 @@
-from django.db import transaction
-
 from DataRepo.models import Study
-from DataRepo.models.utilities import handle_load_db_errors
-from DataRepo.utils.exceptions import (
-    AggregatedErrors,
-    ConflictingValueErrors,
-    DryRun,
-    LoadFileError,
-)
+from DataRepo.utils import TraceBaseLoader
 
 
-class StudyTableLoader:
-    """
-    Load the Study table
-    """
+class StudyTableLoader(TraceBaseLoader):
+    ALL_HEADERS = ["study id", "name", "description"]
+    REQUIRED_HEADERS = ALL_HEADERS
+    REQUIRED_VALUES = ALL_HEADERS
+    UNIQUE_CONSTRAINTS = [["study id"], ["name"]]
+    FLD_TO_COL = {
+        "code": "study id",
+        "name": "name",
+        "description": "Description",
+    }
 
     def __init__(
         self,
@@ -21,106 +19,46 @@ class StudyTableLoader:
         sheet=None,
         file=None,
         dry_run=True,
-        defer_rollback=False,  # DO NOT USE MANUALLY
+        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
     ):
-        self.aggregated_errors_object = AggregatedErrors()
-        try:
-            # Data
-            self.study_table_df = study_table_df
-            self.study_table_df.columns = self.study_table_df.columns.str.lower()
+        # Data
+        self.study_table_df = study_table_df
 
-            # Modes
-            self.dry_run = dry_run
-            self.defer_rollback = defer_rollback
+        super().__init__(
+            study_table_df,
+            all_headers=self.ALL_HEADERS,
+            reqd_headers=self.REQUIRED_HEADERS,
+            reqd_values=self.REQUIRED_VALUES,
+            unique_constraints=self.UNIQUE_CONSTRAINTS,
+            dry_run=dry_run,
+            defer_rollback=defer_rollback,
+            sheet=sheet,
+            file=file,
+        )
 
-            # Error tracking
-            self.conflicting_value_errors = []
-
-            # Error reporting
-            self.sheet = sheet
-            self.file = file
-
-        except Exception as e:
-            self.aggregated_errors_object.buffer_error(e)
-            if self.aggregated_errors_object.should_raise():
-                raise self.aggregated_errors_object
-
+    @TraceBaseLoader.loader
     def load_study_table(self):
-        with transaction.atomic():
-            try:
-                self._load_data()
-            except Exception as e:
-                # Add this unanticipated error to the other buffered errors
-                self.aggregated_errors_object.buffer_error(e)
-
-            if self.aggregated_errors_object.should_raise() and not self.defer_rollback:
-                # Raise here to cause a rollback
-                raise self.aggregated_errors_object
-
-            if self.dry_run:
-                raise DryRun()
-
-        if self.aggregated_errors_object.should_raise():
-            # Raise here to NOT cause a rollback
-            raise self.aggregated_errors_object
-
-    @transaction.atomic
-    def _load_data(self):
-        # Convert these values to None
-        none_vals = ["", "nan"]
-
         for index, row in self.study_table_df.iterrows():
-            try:
-                code = (
-                    row["study id"].strip()
-                    if row["study id"].strip() not in none_vals
-                    else None
-                )
-                name = (
-                    row["name"].strip()
-                    if row["name"].strip() not in none_vals
-                    else None
-                )
-                desc = (
-                    row["description"].strip()
-                    if row["description"].strip() not in none_vals
-                    else None
-                )
+            # Index starts at 0, headers are on row 1
+            rownum = index + 2
 
-                study_dict = {
-                    "code": code,
-                    "name": name,
-                    "description": desc,
+            try:
+                rec_dict = {
+                    "code": self.getRowVal(row, "study id"),
+                    "name": self.getRowVal(row, "name"),
+                    "description": self.getRowVal(row, "description"),
                 }
-            except Exception as exception:
-                self.aggregated_errors_object.buffer_error(
-                    LoadFileError(exception, index + 2)
-                )
 
-            try:
-                study_rec, created = Study.objects.get_or_create(**study_dict)
+                study_rec, created = Study.objects.get_or_create(**rec_dict)
+
                 if created:
                     study_rec.full_clean()
                     study_rec.save()
-            except Exception as exception:
-                # Package IntegrityErrors and ValidationErrors with relevant details
-                if not handle_load_db_errors(
-                    # Data needed to yield useful errors to users
-                    exception,
-                    Study,
-                    study_dict,
-                    # What to do with the errors
-                    aes=self.aggregated_errors_object,
-                    conflicts_list=self.conflicting_value_errors,
-                    # How to report the location of the data causing the error
-                    rownum=index + 2,
-                    sheet=self.sheet,
-                    file=self.file,
-                ):
-                    # If the error was not handled, buffer the original error
-                    self.aggregated_errors_object.buffer_error(exception)
+                    self.created()
+                else:
+                    self.existed()
 
-        if len(self.conflicting_value_errors) > 0:
-            self.aggregated_errors_object.buffer_error(
-                ConflictingValueErrors(self.conflicting_value_errors),
-            )
+            except Exception as e:
+                # Package errors (like IntegrityError and ValidationError) with relevant details
+                self.handle_load_db_errors(e, Study, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL)
+                self.errored()

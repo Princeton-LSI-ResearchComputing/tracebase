@@ -6,16 +6,18 @@ from django.db.models import Q
 from DataRepo.models.utilities import (
     get_unique_fields,
     get_unique_constraint_fields,
-    check_for_inconsistencies,
     get_enumerated_fields,
 )
 from DataRepo.utils import get_column_dupes, get_one_column_dupes
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
     ConflictingValueErrors,
     DryRun,
     DuplicateValues,
+    InfileDatabaseError,
     RequiredHeadersError,
+    RequiredValueError,
     RequiredValueErrors,
     UnknownHeadersError,
 )
@@ -172,6 +174,49 @@ class TraceBaseLoader:
     def errored(self):
         self.num_erroneous += 1
 
+    def check_for_inconsistencies(self, rec, rec_dict, rownum=None):
+        """
+        This function compares the supplied database model record with the dict that was used to (get or) create a record
+        that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this method inside
+        an `except IntegrityError` block, e.g.:
+            try:
+                rec_dict = {field values for record creation}
+                rec, created = Model.objects.get_or_create(**rec_dict)
+            except IntegrityError as ie:
+                rec = Model.objects.get(name="unique value")
+                conflicts.extend(check_for_inconsistencies(rec, rec_dict))
+        (It can also be called pre-emptively by querying for only a record's unique field and supply the record and a dict
+        for record creation.  E.g.:
+            rec_dict = {field values for record creation}
+            rec = Model.objects.get(name="unique value")
+            new_conflicts = check_for_inconsistencies(rec, rec_dict)
+            if len(new_conflicts) == 0:
+                Model.objects.create(**rec_dict)
+        The purpose of this function is to provide helpful information in an exception (i.e. repackage an IntegrityError) so
+        that users working to resolve the error can quickly identify and resolve the issue.
+        """
+        conflicting_value_errors = []
+        differences = {}
+        for field, new_value in rec_dict.items():
+            orig_value = getattr(rec, field)
+            if orig_value != new_value:
+                differences[field] = {
+                    "orig": orig_value,
+                    "new": new_value,
+                }
+        if len(differences.keys()) > 0:
+            conflicting_value_errors.append(
+                ConflictingValueError(
+                    rec,
+                    differences,
+                    rec_dict=rec_dict,
+                    rownum=rownum,
+                    sheet=self.sheet,
+                    file=self.file,
+                )
+            )
+        return conflicting_value_errors
+
     def handle_load_db_errors(
         self,
         exception,
@@ -179,6 +224,7 @@ class TraceBaseLoader:
         rec_dict,
         rownum=None,
         fld_to_col=None,
+        handle_all=True,
     ):
         """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
 
@@ -214,9 +260,6 @@ class TraceBaseLoader:
         Returns:
             boolean indicating whether an error was handled(/buffered).
         """
-        # This was moved here (from its prior global location at the top) to avoid circular import
-        from DataRepo.utils.exceptions import InfileDatabaseError, RequiredValueError
-
         if (
             self.aggregated_errors_object is None
             and (
@@ -228,6 +271,8 @@ class TraceBaseLoader:
                 "Either an AggregatedErrors object or both a required_value_errors and conflicting_value_errors list "
                 "is required."
             )
+        elif handle_all and self.aggregated_errors_object is None:
+            raise ValueError("An AggregatedErrors object is required when handle_all is True.")
 
         # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
         estr = str(exception)
@@ -263,11 +308,11 @@ class TraceBaseLoader:
                     for uf in combo_fields:
                         q &= Q(**{f"{uf}__exact": rec_dict[uf]})
                     qs = model.objects.filter(q)
+
+                    # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
                         rec = qs.first()
-                        errs = check_for_inconsistencies(
-                            rec, rec_dict, rownum=rownum, sheet=self.sheet, file=self.file
-                        )
+                        errs = self.check_for_inconsistencies(rec, rec_dict, rownum=rownum)
                         if len(errs) > 0:
                             if self.conflicting_value_errors is not None:
                                 self.conflicting_value_errors.extend(errs)
@@ -303,15 +348,6 @@ class TraceBaseLoader:
                             self.aggregated_errors_object.buffer_error(err)
                         return True
 
-            elif self.aggregated_errors_object is not None:
-
-                # Repackage any IntegrityError with useful info
-                self.aggregated_errors_object.buffer_error(exc)
-                return True
-
-            # Return False if we weren't able to handle the exception
-            return False
-
         elif isinstance(exception, ValidationError):
 
             if "is not a valid choice" in estr:
@@ -338,9 +374,10 @@ class TraceBaseLoader:
                             # Whether we buffered or not, the error was identified and handled (by either buffering or
                             # ignoring a duplicate)
                             return True
-                        # Since we weren't supplied an AggregatedErrors object and this is an exception supported by this
-                        # function, raise the exception
-                        raise exc
+
+        if handle_all and self.aggregated_errors_object is not None:
+            self.aggregated_errors_object.buffer_error(exc)
+            return True
 
         # If we get here, we did not identify the error as one we knew what to do with
         return False

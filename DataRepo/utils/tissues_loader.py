@@ -1,6 +1,5 @@
 from DataRepo.models import Tissue
 from DataRepo.utils import TraceBaseLoader
-from DataRepo.utils.exceptions import InfileDatabaseError
 
 
 class TissuesLoader(TraceBaseLoader):
@@ -8,6 +7,10 @@ class TissuesLoader(TraceBaseLoader):
     REQUIRED_HEADERS = ALL_HEADERS
     REQUIRED_VALUES = ALL_HEADERS
     UNIQUE_CONSTRAINTS = [["Tissue"]]
+    FLD_TO_COL = {
+        "name": "Tissue",
+        "description": "Description",
+    }
 
     def __init__(
         self,
@@ -55,12 +58,6 @@ class TissuesLoader(TraceBaseLoader):
                     self.existed()
 
             except Exception as e:
-                # Package IntegrityErrors and ValidationErrors with relevant details
-                if not self.handle_load_db_errors(e, Tissue, rec_dict, rownum=rownum):
-                    # If the error was not handled, buffer the original error
-                    self.aggregated_errors_object.buffer_error(
-                        InfileDatabaseError(
-                            e, rec_dict, rownum=rownum, sheet=self.sheet, file=self.file
-                        )
-                    )
+                # Package errors (like IntegrityError and ValidationError) with relevant details
+                self.handle_load_db_errors(e, Tissue, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL)
                 self.errored()
