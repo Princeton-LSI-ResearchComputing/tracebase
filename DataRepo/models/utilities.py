@@ -345,7 +345,10 @@ def handle_load_db_errors(
         boolean indicating whether an error was handled(/buffered).
     """
     # This was moved here (from its prior global location at the top) to avoid circular import
-    from DataRepo.utils.exceptions import InfileDatabaseError, RequiredValueError
+    from DataRepo.utils.exceptions import (
+        InfileDatabaseError,
+        RequiredValueError,
+    )
 
     # Either aes or conflicts_list is required
     if aes is None and conflicts_list is None:
@@ -413,7 +416,7 @@ def handle_load_db_errors(
                     model_name=model.__name__,
                     field_name=fldname,
                     sheet=sheet,
-                    file=file,                        
+                    file=file,
                 )
                 if missing_list is not None:
                     missing_list.append(err)

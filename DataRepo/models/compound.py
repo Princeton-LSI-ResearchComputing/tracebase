@@ -72,6 +72,8 @@ class Compound(models.Model):
 
         Note, calling super.clean first will give us access to self.id.
         """
+        from DataRepo.utils.exceptions import CompoundExistsAsMismatchedSynonym
+
         try:
             super().clean(*args, **kwargs)
         except ValidationError as ve:
@@ -148,6 +150,8 @@ class CompoundSynonym(models.Model):
 
         Note, calling super.clean first will give us access to self.id.
         """
+        from DataRepo.utils.exceptions import SynonymExistsAsMismatchedCompound
+
         super().clean(*args, **kwargs)
         cqs = Compound.objects.filter(name__exact=self.name).exclude(
             id__exact=self.compound.id
@@ -156,59 +160,3 @@ class CompoundSynonym(models.Model):
             raise SynonymExistsAsMismatchedCompound(
                 self.name, self.compound, cqs.first()
             )
-
-
-class CompoundExistsAsMismatchedSynonym(Exception):
-    def __init__(self, name, compound_dict, conflicting_syn_rec):
-        # Don't report the ID - it is arbitrary, so remove it from the record dicts
-        excludes = ["id"]
-        conflicting_syn_cpd_dict = {
-            k: v
-            for k, v in model_to_dict(conflicting_syn_rec.compound).items()
-            if k not in excludes
-        }
-
-        nltt = "\n\t\t"
-        message = (
-            f"The compound name being loaded ({name}) already exists as a synonym, but the compound being loaded does "
-            "not match the compound associated with the synonym in the database:\n"
-            f"\tTo be loaded: {compound_dict}\n"
-            f"\tExisting rec: {conflicting_syn_cpd_dict}\n"
-            f"\t\twith existing synonyms:\n"
-            f"\t\t{nltt.join(str(r) for r in conflicting_syn_rec.compound.synonyms.all())}\n"
-            "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
-            "data in the load to match, or remove this synonym."
-        )
-
-        super().__init__(message)
-        self.name = name
-        self.compound_dict = compound_dict
-        self.conflicting_cpd_rec = conflicting_syn_rec
-
-
-class SynonymExistsAsMismatchedCompound(Exception):
-    def __init__(self, name, compound, conflicting_cpd_rec):
-        # Don't report the ID - it is arbitrary, so remove it from the record dicts
-        excludes = ["id"]
-        compound_dict = {
-            k: v for k, v in model_to_dict(compound).items() if k not in excludes
-        }
-        conflicting_cpd_dict = {
-            k: v
-            for k, v in model_to_dict(conflicting_cpd_rec).items()
-            if k not in excludes
-        }
-
-        message = (
-            f"The compound synonym being loaded ({name}) already exists as a compound name, but that existing "
-            "compound record does not match the compound associated with the synonym in the load data:\n"
-            f"\tTo be loaded: {compound_dict}\n"
-            f"\tExisting rec: {conflicting_cpd_dict}\n"
-            "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
-            "data in the load to match, or remove this synonym."
-        )
-
-        super().__init__(message)
-        self.name = name
-        self.compound = compound
-        self.conflicting_cpd_rec = conflicting_cpd_rec

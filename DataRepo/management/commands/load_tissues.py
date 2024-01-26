@@ -48,10 +48,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         saved_aes = None
-        msg = "Done. Tissue records loaded: [%i], skipped: [%i], and erroneous: [%i]."
-        created = 0
-        skipped = 0
-        errors = 0
+        msg = "Done. Tissue records loaded: [%i], skipped: [%i], and errored: [%i]."
 
         try:
             sheet = options["sheet"] if is_excel(options["tissues"]) else None
@@ -61,7 +58,7 @@ class Command(BaseCommand):
                 sheet=sheet,
             )
 
-            self.tissue_loader = TissuesLoader(
+            loader = TissuesLoader(
                 tissues=new_tissues,
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],
@@ -69,7 +66,8 @@ class Command(BaseCommand):
                 file=options["tissues"],
             )
 
-            created, skipped, errors = self.tissue_loader.load_tissue_data()
+            load_stats = loader.load_tissue_data()
+
         except DryRun:
             pass
         except AggregatedErrors as aes:
@@ -79,7 +77,12 @@ class Command(BaseCommand):
             saved_aes = AggregatedErrors()
             saved_aes.buffer_error(e)
 
-        status = msg % (created, skipped, errors)
+        load_stats = loader.get_load_stats()
+        status = msg % (
+            load_stats["Tissue"]["created"],
+            load_stats["Tissue"]["skipped"],
+            load_stats["Tissue"]["errored"],
+        )
 
         if saved_aes is not None and saved_aes.get_num_errors() > 0:
             status_msg = self.style.ERROR(status)

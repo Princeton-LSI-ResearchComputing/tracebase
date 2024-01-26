@@ -1,19 +1,22 @@
 import re
+from collections import defaultdict
+from typing import Optional
+
 from django.core.exceptions import ValidationError
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 from DataRepo.models.utilities import (
-    get_unique_fields,
-    get_unique_constraint_fields,
     get_enumerated_fields,
+    get_unique_constraint_fields,
+    get_unique_fields,
 )
-from DataRepo.utils import get_column_dupes, get_one_column_dupes
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     ConflictingValueErrors,
     DryRun,
+    DuplicateValueErrors,
     DuplicateValues,
     InfileDatabaseError,
     RequiredHeadersError,
@@ -21,10 +24,10 @@ from DataRepo.utils.exceptions import (
     RequiredValueErrors,
     UnknownHeadersError,
 )
+from DataRepo.utils.file_utils import get_column_dupes, get_one_column_dupes
 
 
 class TraceBaseLoader:
-
     def __init__(
         self,
         df,
@@ -36,6 +39,7 @@ class TraceBaseLoader:
         defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
         sheet=None,
         file=None,
+        models=None,
     ):
         # File data
         self.df = df
@@ -45,19 +49,22 @@ class TraceBaseLoader:
         self.reqd_headers = reqd_headers
         self.reqd_values = reqd_values
         self.unique_constraints = unique_constraints
+        self.models = models
 
-        # Load tracking stats
-        self.num_created = 0
-        self.num_existing = 0
-        self.num_erroneous = 0
+        # Load stats
+        self.record_counts = defaultdict(lambda: defaultdict(int))
+        if models is not None:
+            for mdl in models:
+                self.record_counts[mdl.__name__]["created"] = 0
+                self.record_counts[mdl.__name__]["existed"] = 0
+                self.record_counts[mdl.__name__]["errored"] = 0
 
         # Running Modes
         self.dry_run = dry_run
         self.defer_rollback = defer_rollback
 
         # Error tracking
-        self.bad_row_indexes = []
-        self.all_row_idxs_with_dupes = []
+        self.skip_row_indexes = []
         self.aggregated_errors_object = AggregatedErrors()
         self.conflicting_value_errors = []
         self.required_value_errors = []
@@ -74,7 +81,9 @@ class TraceBaseLoader:
                     unknown_headers.append(file_header)
             if len(unknown_headers) > 0:
                 self.aggregated_errors_object.buffer_error(
-                    UnknownHeadersError(unknown_headers, file=self.file, sheet=self.sheet)
+                    UnknownHeadersError(
+                        unknown_headers, file=self.file, sheet=self.sheet
+                    )
                 )
 
         if self.reqd_headers is not None:
@@ -84,12 +93,14 @@ class TraceBaseLoader:
                     missing_headers.append(rqd_header)
             if len(missing_headers) > 0:
                 # Cannot proceed, so not buffering
-                raise RequiredHeadersError(missing_headers, file=self.file, sheet=self.sheet)
+                raise RequiredHeadersError(
+                    missing_headers, file=self.file, sheet=self.sheet
+                )
 
     def check_unique_constraints(self):
         """Check in-file unique constraints
 
-        Handling unique constrains by catching IntegrityErrors lacks context.  Did the load encounter pre-existing data
+        Handling unique constraints by catching IntegrityErrors lacks context.  Did the load encounter pre-existing data
         or was the data in the file not unique?  There's no way to tell the user from catching the IntegrityError where
         the duplicate is.  Handling the unique constraints at the file level allows the user to tell where all the
         duplicate values are.
@@ -98,7 +109,7 @@ class TraceBaseLoader:
             DuplicateValues
 
         Returns:
-            Nothing    
+            Nothing
         """
         if self.unique_constraints is None:
             return
@@ -108,9 +119,29 @@ class TraceBaseLoader:
                 dupes, row_idxs = get_one_column_dupes(self.df, unique_combo[0])
             else:
                 dupes, row_idxs = get_column_dupes(self.df, unique_combo)
-            self.all_row_idxs_with_dupes.extend(row_idxs)
+            self.add_skip_row_index(index_list=row_idxs)
             if len(dupes) > 0:
-                self.aggregated_errors_object.buffer_warning(DuplicateValues(dupes, unique_combo))
+                self.aggregated_errors_object.buffer_error(
+                    DuplicateValues(
+                        dupes, unique_combo, sheet=self.sheet, file=self.file
+                    )
+                )
+
+    def add_skip_row_index(
+        self, index: Optional[int] = None, index_list: Optional[list] = None
+    ):
+        if index is None and index_list is None:
+            # Raise programming errors (data errors are buffered)
+            raise ValueError("Either an index or index_list argument is required.")
+        if index is not None and index not in self.skip_row_indexes:
+            self.skip_row_indexes.append(index)
+        if index_list is not None:
+            for idx in index_list:
+                if idx not in self.skip_row_indexes:
+                    self.skip_row_indexes.append(idx)
+
+    def get_skip_row_indexes(self):
+        return self.skip_row_indexes
 
     def getRowVal(self, row, header):
         none_vals = ["", "nan"]
@@ -122,6 +153,12 @@ class TraceBaseLoader:
                 val = val.strip()
             if val in none_vals:
                 val = None
+        elif self.all_headers is not None and header not in self.all_headers:
+            # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
+            # of buffer
+            raise ValueError(
+                f"Incorrect header supplied: [{header}].  Must be one of: {self.all_headers}"
+            )
 
         return val
 
@@ -139,7 +176,6 @@ class TraceBaseLoader:
                     # Add this unanticipated error to the other buffered errors
                     self.aggregated_errors_object.buffer_error(e)
 
-
                 if len(self.conflicting_value_errors) > 0:
                     self.aggregated_errors_object.buffer_error(
                         ConflictingValueErrors(self.conflicting_value_errors)
@@ -150,7 +186,19 @@ class TraceBaseLoader:
                         RequiredValueErrors(self.required_value_errors)
                     )
 
-                if self.aggregated_errors_object.should_raise() and not self.defer_rollback:
+                # Summarize any DuplicateValues reported
+                dupe_errs = self.aggregated_errors_object.get_exception_type(
+                    DuplicateValues, remove=True
+                )
+                if len(dupe_errs) > 0:
+                    self.aggregated_errors_object.buffer_error(
+                        DuplicateValueErrors(dupe_errs)
+                    )
+
+                if (
+                    self.aggregated_errors_object.should_raise()
+                    and not self.defer_rollback
+                ):
                     # Raise here to cause a rollback
                     raise self.aggregated_errors_object
 
@@ -161,39 +209,52 @@ class TraceBaseLoader:
                 # Raise here to NOT cause a rollback
                 raise self.aggregated_errors_object
 
-            return self.num_created, self.num_existing, self.num_erroneous
+            return self.record_counts
 
         return load_wrapper
 
-    def created(self):
-        self.num_created += 1
+    def get_model_name(self, model_name):
+        if model_name is not None:
+            return model_name
+        if self.models is not None and len(self.models) == 1:
+            return self.models[0].__name__
+        # Raise a programming error
+        raise ValueError(
+            "A model name is required when there is not exactly 1 model initialized in the constructor."
+        )
 
-    def existed(self):
-        self.num_existing += 1
+    def created(self, model_name: str = None):
+        self.record_counts[self.get_model_name(model_name)]["created"] += 1
 
-    def errored(self):
-        self.num_erroneous += 1
+    def existed(self, model_name: str = None):
+        self.record_counts[self.get_model_name(model_name)]["existed"] += 1
+
+    def errored(self, model_name: str = None):
+        self.record_counts[self.get_model_name(model_name)]["errored"] += 1
+
+    def get_load_stats(self):
+        return self.record_counts
 
     def check_for_inconsistencies(self, rec, rec_dict, rownum=None):
         """
-        This function compares the supplied database model record with the dict that was used to (get or) create a record
-        that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this method inside
-        an `except IntegrityError` block, e.g.:
+        This function compares the supplied database model record with the dict that was used to (get or) create a
+        record that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this
+        method inside an `except IntegrityError` block, e.g.:
             try:
                 rec_dict = {field values for record creation}
                 rec, created = Model.objects.get_or_create(**rec_dict)
             except IntegrityError as ie:
                 rec = Model.objects.get(name="unique value")
                 conflicts.extend(check_for_inconsistencies(rec, rec_dict))
-        (It can also be called pre-emptively by querying for only a record's unique field and supply the record and a dict
-        for record creation.  E.g.:
+        (It can also be called pre-emptively by querying for only a record's unique field and supply the record and a
+        dict for record creation.  E.g.:
             rec_dict = {field values for record creation}
             rec = Model.objects.get(name="unique value")
             new_conflicts = check_for_inconsistencies(rec, rec_dict)
             if len(new_conflicts) == 0:
                 Model.objects.create(**rec_dict)
-        The purpose of this function is to provide helpful information in an exception (i.e. repackage an IntegrityError) so
-        that users working to resolve the error can quickly identify and resolve the issue.
+        The purpose of this function is to provide helpful information in an exception (i.e. repackage an
+        IntegrityError) so that users working to resolve the error can quickly identify and resolve the issue.
         """
         conflicting_value_errors = []
         differences = {}
@@ -260,19 +321,17 @@ class TraceBaseLoader:
         Returns:
             boolean indicating whether an error was handled(/buffered).
         """
-        if (
-            self.aggregated_errors_object is None
-            and (
-                self.required_value_errors is None
-                or self.conflicting_value_errors is None
-            )
+        if self.aggregated_errors_object is None and (
+            self.required_value_errors is None or self.conflicting_value_errors is None
         ):
             raise ValueError(
                 "Either an AggregatedErrors object or both a required_value_errors and conflicting_value_errors list "
                 "is required."
             )
         elif handle_all and self.aggregated_errors_object is None:
-            raise ValueError("An AggregatedErrors object is required when handle_all is True.")
+            raise ValueError(
+                "An AggregatedErrors object is required when handle_all is True."
+            )
 
         # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
         estr = str(exception)
@@ -281,9 +340,7 @@ class TraceBaseLoader:
         )
 
         if isinstance(exception, IntegrityError):
-
             if "duplicate key value violates unique constraint" in estr:
-
                 # Create a list of lists of unique fields and unique combos of fields
                 # First, get unique fields and force them into a list of lists (so that we only need to loop once)
                 unique_combos = [
@@ -302,8 +359,8 @@ class TraceBaseLoader:
                     if not combo_set.issubset(field_set):
                         continue
 
-                    # Retrieve the record with the conflicting value(s) that caused the unique constraint error using the
-                    # unique fields
+                    # Retrieve the record with the conflicting value(s) that caused the unique constraint error using
+                    # the unique fields
                     q = Q()
                     for uf in combo_fields:
                         q &= Q(**{f"{uf}__exact": rec_dict[uf]})
@@ -312,7 +369,9 @@ class TraceBaseLoader:
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
                         rec = qs.first()
-                        errs = self.check_for_inconsistencies(rec, rec_dict, rownum=rownum)
+                        errs = self.check_for_inconsistencies(
+                            rec, rec_dict, rownum=rownum
+                        )
                         if len(errs) > 0:
                             if self.conflicting_value_errors is not None:
                                 self.conflicting_value_errors.extend(errs)
@@ -323,7 +382,6 @@ class TraceBaseLoader:
                                 return True
 
             elif "violates not-null constraint" in estr:
-
                 regexp = re.compile(r"^null value in column \"(?P<fldname>[^\"]+)\"")
                 match = re.search(regexp, estr)
                 if match:
@@ -339,6 +397,7 @@ class TraceBaseLoader:
                         field_name=fldname,
                         sheet=self.sheet,
                         file=self.file,
+                        rec_dict=rec_dict,
                     )
                     if self.required_value_errors is not None:
                         self.required_value_errors.append(err)
@@ -349,22 +408,25 @@ class TraceBaseLoader:
                         return True
 
         elif isinstance(exception, ValidationError):
-
             if "is not a valid choice" in estr:
                 choice_fields = get_enumerated_fields(model, fields=rec_dict.keys())
                 for choice_field in choice_fields:
                     if choice_field in estr and rec_dict[choice_field] is not None:
                         if self.aggregated_errors_object is not None:
                             # Only include error once
-                            if not self.aggregated_errors_object.exception_type_exists(InfileDatabaseError):
+                            if not self.aggregated_errors_object.exception_type_exists(
+                                InfileDatabaseError
+                            ):
                                 self.aggregated_errors_object.buffer_error(exc)
                             else:
                                 # NOTE: This is not perfect.  There can be multiple field values with issues.  Repeated
-                                # calls to this function could potentially reference the same record and contain an error
-                                # about a different field.  We only buffer/raise one of them because the details include the
-                                # entire record and dict causing the issue(s).
+                                # calls to this function could potentially reference the same record and contain an
+                                # error about a different field.  We only buffer/raise one of them because the details
+                                # include the entire record and dict causing the issue(s).
                                 already_buffered = False
-                                for existing_exc in self.aggregated_errors_object.get_exception_type(
+                                for (
+                                    existing_exc
+                                ) in self.aggregated_errors_object.get_exception_type(
                                     InfileDatabaseError
                                 ):
                                     if existing_exc.rec_dict != rec_dict:

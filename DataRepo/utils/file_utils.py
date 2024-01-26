@@ -1,5 +1,5 @@
-from collections import defaultdict
 import pathlib
+from collections import defaultdict
 from zipfile import BadZipFile
 
 import pandas as pd
@@ -362,6 +362,7 @@ def _headers_are_not_unique(headers):
     return False, num_uniq_heads, num_heads
 
 
+# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
 def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
     """Find duplicate values in a single column from file table data.
 
@@ -374,15 +375,10 @@ def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
         1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
         2. A list of all row indexes containing duplicate data.
     """
+    all_row_idxs_with_dupes = []
     vals_dict = defaultdict(list)
     dupe_dict = defaultdict(dict)
-    all_row_idxs_with_dupes = []
-
-    # Make sure we have a list of dicts (not a Pandas DataFrame
-    if type(data) == pd.core.frame.DataFrame:
-        dict_list = data.to_dict("records")
-    else:
-        dict_list = data
+    dict_list = data if type(data) == list else data.to_dict("records")
 
     for rowidx, row in enumerate(dict_list):
         # Ignore rows where the animal name is empty
@@ -398,6 +394,7 @@ def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
     return dupe_dict, all_row_idxs_with_dupes
 
 
+# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
 def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     """Find combination duplicates from file table data.
 
@@ -415,12 +412,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     val_locations = defaultdict(dict)
     dupe_dict = defaultdict(dict)
     all_row_idxs_with_dupes = []
-
-    # Make sure we have a list of dicts (not a Pandas DataFrame
-    if type(data) == pd.core.frame.DataFrame:
-        dict_list = data.to_dict("records")
-    else:
-        dict_list = data
+    dict_list = data if type(data) == list else data.to_dict("records")
 
     for rowidx, row in enumerate(dict_list):
         # Ignore rows where the animal name is empty

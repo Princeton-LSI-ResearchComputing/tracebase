@@ -1,15 +1,17 @@
 from DataRepo.models import Tissue
-from DataRepo.utils import TraceBaseLoader
+from DataRepo.utils.loader import TraceBaseLoader
 
 
 class TissuesLoader(TraceBaseLoader):
-    ALL_HEADERS = ["Tissue", "Description"]
+    NAME_HEADER = "Tissue"
+    DESC_HEADER = "Description"
+    ALL_HEADERS = [NAME_HEADER, DESC_HEADER]
     REQUIRED_HEADERS = ALL_HEADERS
     REQUIRED_VALUES = ALL_HEADERS
-    UNIQUE_CONSTRAINTS = [["Tissue"]]
+    UNIQUE_COLUMN_CONSTRAINTS = [[NAME_HEADER]]
     FLD_TO_COL = {
-        "name": "Tissue",
-        "description": "Description",
+        "name": NAME_HEADER,
+        "description": DESC_HEADER,
     }
 
     def __init__(
@@ -28,36 +30,40 @@ class TissuesLoader(TraceBaseLoader):
             all_headers=self.ALL_HEADERS,
             reqd_headers=self.REQUIRED_HEADERS,
             reqd_values=self.REQUIRED_VALUES,
-            unique_constraints=self.UNIQUE_CONSTRAINTS,
+            unique_constraints=self.UNIQUE_COLUMN_CONSTRAINTS,
             dry_run=dry_run,
             defer_rollback=defer_rollback,
             sheet=sheet,
             file=file,
+            models=[Tissue],
         )
 
     @TraceBaseLoader.loader
     def load_tissue_data(self):
         for index, row in self.tissues.iterrows():
+            if index in self.get_skip_row_indexes():
+                continue
+
             # Index starts at 0, headers are on row 1
             rownum = index + 2
 
             try:
                 rec_dict = {
-                    "name": self.getRowVal(row, "Tissue"),
-                    "description": self.getRowVal(row, "Description"),
+                    "name": self.getRowVal(row, self.NAME_HEADER),
+                    "description": self.getRowVal(row, self.DESC_HEADER),
                 }
 
-                # We will assume that the validation DB has up-to-date tissues
                 tissue, created = Tissue.objects.get_or_create(**rec_dict)
 
                 if created:
                     tissue.full_clean()
-                    tissue.save()
                     self.created()
                 else:
                     self.existed()
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Tissue, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL)
+                self.handle_load_db_errors(
+                    e, Tissue, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL
+                )
                 self.errored()

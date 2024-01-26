@@ -4,16 +4,14 @@ from django.core.management import call_command
 from django.test import override_settings, tag
 
 from DataRepo.models import Compound, CompoundSynonym
-from DataRepo.models.compound import (
-    CompoundExistsAsMismatchedSynonym,
-    SynonymExistsAsMismatchedCompound,
-)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import (  # AmbiguousCompoundDefinitionError,
+from DataRepo.utils import (
     AggregatedErrors,
+    CompoundExistsAsMismatchedSynonym,
     CompoundsLoader,
-    ConflictingValueError,
-    DuplicateValues,
+    ConflictingValueErrors,
+    DuplicateValueErrors,
+    SynonymExistsAsMismatchedCompound,
     UnknownHeadersError,
 )
 
@@ -32,12 +30,16 @@ class LoadCompoundsTests(TracebaseTestCase):
                 compounds="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
             )
         aes = ar.exception
-        self.assertEqual(2, len(aes.exceptions))
+        self.assertEqual(
+            2,
+            len(aes.exceptions),
+            msg=f"Should be 2 exceptions, but got: {', '.join([type(exc).__name__ for exc in aes.exceptions])}",
+        )
         self.assertEqual(UnknownHeadersError, type(aes.exceptions[0]))
         self.assertEqual(["m/z", "RT"], aes.exceptions[0].unknowns)
-        self.assertEqual(DuplicateValues, type(aes.exceptions[1]))
-        self.assertIn("lactate", aes.exceptions[1].dupe_dict.keys())
-        self.assertIn("L-Lactic acid", aes.exceptions[1].dupe_dict.keys())
+        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[1]))
+        self.assertIn("lactate", str(aes.exceptions[1]))
+        self.assertIn("L-Lactic acid", str(aes.exceptions[1]))
         self.assertEqual(Compound.objects.count(), 0)
 
     def test_excel_with_compounds_sheet(self):
@@ -156,64 +158,34 @@ class CompoundLoadingTests(TracebaseTestCase):
         cl.load_compound_data()
         self.assertEqual(
             1,
-            cl.num_existing_compounds,
+            cl.record_counts["Compound"]["existed"],
             msg="Compound default insert should be skipped",
         )
         self.assertEqual(
-            1,
-            cl.num_existing_compounds,
-            msg="Compound validation insert should be skipped",
-        )
-        self.assertEqual(
             0,
-            cl.num_inserted_compounds,
+            cl.record_counts["Compound"]["created"],
             msg="No compounds default should be inserted",
         )
         self.assertEqual(
             0,
-            cl.num_inserted_compounds,
-            msg="No compounds validation should be inserted",
-        )
-        self.assertEqual(
-            0,
-            cl.num_erroneous_compounds,
+            cl.record_counts["Compound"]["errored"],
             msg="No compounds default should be in error",
-        )
-        self.assertEqual(
-            0,
-            cl.num_erroneous_compounds,
-            msg="No compounds validation should be in error",
         )
 
         self.assertEqual(
             4,
-            cl.num_existing_synonyms,
+            cl.record_counts["CompoundSynonym"]["existed"],
             msg="4 synonym default inserts should be skipped",
         )
         self.assertEqual(
-            4,
-            cl.num_existing_synonyms,
-            msg="4 synonym validation inserts should be skipped",
-        )
-        self.assertEqual(
             1,
-            cl.num_inserted_synonyms,
+            cl.record_counts["CompoundSynonym"]["created"],
             msg="1 synonym default should be inserted",
         )
         self.assertEqual(
-            1,
-            cl.num_inserted_synonyms,
-            msg="1 synonym validation should be inserted",
-        )
-        self.assertEqual(
             0,
-            cl.num_erroneous_synonyms,
+            cl.record_counts["CompoundSynonym"]["errored"],
             msg="No synonyms default should be in error",
-        )
-        self.assertEqual(
-            0,
-            cl.num_erroneous_synonyms,
-            msg="No synonyms validation should be in error",
         )
         self.assertEqual(
             "fructose-1-6-bisphosphate",
@@ -224,8 +196,9 @@ class CompoundLoadingTests(TracebaseTestCase):
     @tag("compound_for_row")
     def test_synonym_matches_existing_compound_inconsistent_with_load_data(self):
         """
-        Test that an exception is raised when synonyms on one row refer to two
-        existing compound records in the database
+        Test that an exception is raised when synonyms on one row refer to two existing compound records in the database
+        Synonym "Fructose 1,6-bisphosphate" refers to compound "fructose-1-6-bisphosphate" and synonym "glucose" refers
+        to compound "glucose".
         """
         # create dataframe from dictionary
         cl = CompoundsLoader(
@@ -243,15 +216,20 @@ class CompoundLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             cl.load_compound_data()
         aes = ar.exception
-        self.assertEqual(2, aes.num_errors)
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(
+            2,
+            len(aes.exceptions[0].conflicting_value_errors),
+            msg="There are 2 conflicts",
+        )
         self.assertEqual(
             2,
             len(
                 [
                     exc
-                    for exc in aes.exceptions
-                    if type(exc) == ConflictingValueError
-                    and "compound" in exc.differences.keys()
+                    for exc in aes.exceptions[0].conflicting_value_errors
+                    if "compound" in exc.differences.keys()
                 ]
             ),
             msg="Both exceptions are conflicting value errors about the compound field",
@@ -333,12 +311,12 @@ class CompoundsLoaderTests(TracebaseTestCase):
         cl.load_compound_data()
         cl2 = CompoundsLoader(df)
         cl2.load_compound_data()
-        self.assertEqual(0, cl2.num_inserted_compounds)
-        self.assertEqual(0, cl2.num_erroneous_compounds)
-        self.assertEqual(1, cl2.num_existing_compounds)
-        self.assertEqual(0, cl2.num_inserted_synonyms)
-        self.assertEqual(0, cl2.num_erroneous_synonyms)
-        self.assertEqual(0, cl2.num_existing_synonyms)
+        self.assertEqual(0, cl2.record_counts["Compound"]["created"])
+        self.assertEqual(0, cl2.record_counts["Compound"]["errored"])
+        self.assertEqual(1, cl2.record_counts["Compound"]["existed"])
+        self.assertEqual(0, cl2.record_counts["CompoundSynonym"]["created"])
+        self.assertEqual(0, cl2.record_counts["CompoundSynonym"]["errored"])
+        self.assertEqual(0, cl2.record_counts["CompoundSynonym"]["existed"])
 
     def test_synonym_created_from_compound_name(self):
         # Make sure the compound/synonym do not exist before the test

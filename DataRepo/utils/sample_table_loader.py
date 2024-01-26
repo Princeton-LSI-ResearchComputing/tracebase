@@ -27,7 +27,11 @@ from DataRepo.models.researcher import (
     validate_researchers,
 )
 from DataRepo.models.utilities import value_from_choices_label
-from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations, get_column_dupes
+from DataRepo.utils import (
+    get_column_dupes,
+    parse_infusate_name,
+    parse_tracer_concentrations,
+)
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,

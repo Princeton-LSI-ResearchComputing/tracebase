@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import traceback
 import warnings
+from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
-    from DataRepo.models import ArchiveFile, MSRunSample, Sample
+    from DataRepo.models.archive_file import ArchiveFile
+    from DataRepo.models.msrun_sample import MSRunSample
+    from DataRepo.models.sample import Sample
 
 
 class HeaderError(Exception):
@@ -17,10 +19,22 @@ class HeaderError(Exception):
 
 
 class RequiredValueError(Exception):
-    def __init__(self, column, rownum, model_name, field_name, sheet=None, file=None, message=None):
+    def __init__(
+        self,
+        column,
+        rownum,
+        model_name,
+        field_name,
+        rec_dict=None,
+        sheet=None,
+        file=None,
+        message=None,
+    ):
         if not message:
             loc = generate_file_location_string(sheet=sheet, file=file)
             message = f"Value required on {loc}."
+            if rec_dict is not None:
+                message += f"  Record extracted from row: {str(rec_dict)}."
         super().__init__(message)
         self.column = column
         self.rownum = rownum
@@ -29,6 +43,7 @@ class RequiredValueError(Exception):
         self.loc = loc
         self.model_name = model_name
         self.field_name = field_name
+        self.rec_dict = rec_dict
 
 
 class RequiredValueErrors(Exception):
@@ -42,9 +57,11 @@ class RequiredValueErrors(Exception):
         self,
         required_value_errors: list[RequiredValueError],
     ):
-        missing_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        missing_dict: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
         for rve in required_value_errors:
-            missing_dict[rve.loc][str(rve.column)]["rows"].append(rve.rownum)
+            missing_dict[rve.loc][str(rve.column)]["rves"].append(rve)
             fld = f"{rve.model_name}.{rve.field_name}"
             if (
                 "fld" in missing_dict[rve.loc][str(rve.column)].keys()
@@ -54,13 +71,17 @@ class RequiredValueErrors(Exception):
             else:
                 missing_dict[rve.loc][str(rve.column)]["fld"] = fld
 
-        message = f"Required values found missing during loading:\n"
+        message = "Required values found missing during loading:\n"
         for filesheet in missing_dict.keys():
             message += f"\t{filesheet}:\n"
             for colname in missing_dict[filesheet].keys():
-                deets = ", ".join([str(r) for r in missing_dict[filesheet][colname]["rows"]])
+                deets = ", ".join(
+                    [str(r.rownum) for r in missing_dict[filesheet][colname]["rves"]]
+                )
                 message += (
-                    f"\t\tField: [{missing_dict[filesheet][colname]['fld']}] Column: [{colname}] on row(s): {deets}\n"
+                    f"\t\tField: [{missing_dict[filesheet][colname]['fld']}] "
+                    f"Column: [{colname}] "
+                    f"on row(s): {deets}\n"
                 )
         super().__init__(message)
         self.required_value_errors = required_value_errors
@@ -216,7 +237,9 @@ class UnknownHeadersError(HeaderError):
     def __init__(self, unknowns, message=None, file=None, sheet=None):
         loc = generate_file_location_string(file=file, sheet=sheet)
         if not message:
-            message = f"Unknown header(s) encountered: [{', '.join(unknowns)}] in {loc}."
+            message = (
+                f"Unknown header(s) encountered: [{', '.join(unknowns)}] in {loc}."
+            )
         super().__init__(message)
         self.unknowns = unknowns
         self.file = file
@@ -993,38 +1016,35 @@ class ConflictingValueErrors(Exception):
     ):
         """Initializes a ConflictingValueErrors exception"""
 
-        message = f"Conflicting values encountered during loading:\n"
-        diff_sum: Dict[str, dict] = {}
+        message = "Conflicting values encountered during loading:\n"
+        conflict_data: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
         for cve in conflicting_value_errors:
-            if str(cve.differences) not in diff_sum.keys():
-                diff_sum[str(cve.differences)] = {
-                    "sum": f"\t{type(cve.rec).__name__} field value difference(s):\n",
-                    "recs": {},
-                }
-                for fld in cve.differences.keys():
-                    diff_sum[str(cve.differences)]["sum"] += (
-                        f"\t\t{fld}:\n"
-                        f"\t\t\tdatabase: [{str(cve.differences[fld]['orig'])}]\n"
-                        f"\t\t\tfile:     [{str(cve.differences[fld]['new'])}]\n"
-                    )
-                diff_sum[str(cve.differences)]["sum"] += (
-                    "\tRecord details:\n"
-                )
-            rec_key = str(model_to_dict(cve.rec))
-            if rec_key in diff_sum[str(cve.differences)]["recs"].keys():
-                diff_sum[str(cve.differences)]["recs"][rec_key].append(cve)
-            else:
-                diff_sum[str(cve.differences)]["recs"][rec_key] = [cve]
+            # Create a new location string that excludes the column
+            cve_loc = generate_file_location_string(
+                rownum=cve.rownum, sheet=cve.sheet, file=cve.file
+            )
+            conflict_data[cve_loc][type(cve.rec).__name__][str(cve.rec_dict)].append(
+                cve
+            )
 
-        for diff_key in diff_sum.keys():
-            message += diff_sum[diff_key]["sum"]
-            for recstr in diff_sum[diff_key]["recs"].keys():
-                message += f"\t\tDatabase Record: {str(model_to_dict(cve.rec))}\n"
-                for cve in diff_sum[diff_key]["recs"][recstr]:
-                    message += f"\t\t\tConflicts with record created from {cve.loc}"
-                    if cve.rec_dict is not None:
-                        message += f": {cve.rec_dict}"
-                    message += "\n"
+        for loc in sorted(conflict_data.keys()):
+            message += f"\tDuring the processing of {loc}...\n"
+            for mdl in conflict_data[cve_loc].keys():
+                message += f"\tCreation of the following {mdl} record(s) encountered conflicts:\n"
+                for file_rec_str in conflict_data[cve_loc][mdl].keys():
+                    message += f"\t\tFile record:     {file_rec_str}\n"
+                    for cve in conflict_data[cve_loc][mdl][file_rec_str]:
+                        message += (
+                            f"\t\tDatabase record: {str(model_to_dict(cve.rec))}\n"
+                        )
+                        for fld in cve.differences.keys():
+                            message += (
+                                f"\t\t\t[{fld}] values differ:\n"
+                                f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
+                                f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
+                            )
         super().__init__(message)
         self.conflicting_value_errors = conflicting_value_errors
 
@@ -1110,11 +1130,14 @@ class DupeCompoundIsotopeCombos(Exception):
 
 
 class DuplicateValues(Exception):
-    def __init__(self, dupe_dict, colnames, message=None, addendum=None):
+    def __init__(
+        self, dupe_dict, colnames, message=None, addendum=None, sheet=None, file=None
+    ):
         """
         Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
         """
         if not message:
+            loc = generate_file_location_string(sheet=sheet, file=file)
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
             dupdeets = []
@@ -1126,9 +1149,8 @@ class DuplicateValues(Exception):
                 )
             nltab = "\n\t"
             message = (
-                f"{len(dupe_dict.keys())} values in unique column(s) {colnames} were found to have duplicate "
-                "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
-                f"inaccurate):{nltab}{nltab.join(dupdeets)}"
+                f"The following unique column (or column combination) {colnames} was found to have duplicate "
+                f"occurrences in {loc} on the indicated rows:{nltab}{nltab.join(dupdeets)}"
             )
             if addendum is not None:
                 message += f"\n{addendum}"
@@ -1136,6 +1158,42 @@ class DuplicateValues(Exception):
         self.dupe_dict = dupe_dict
         self.colnames = colnames
         self.addendum = addendum
+        self.sheet = sheet
+        self.file = file
+        self.loc = loc
+        self.dupdeets = dupdeets
+
+
+class DuplicateValueErrors(Exception):
+    """
+    Summary of DuplicateValues exceptions
+    """
+
+    def __init__(self, dupe_val_exceptions: list[DuplicateValues], message=None):
+        """
+        Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
+        """
+        if not message:
+            dupe_dict: Dict[str, dict] = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(list))
+            )
+            for dve in dupe_val_exceptions:
+                typ = f" ({dve.addendum})" if dve.addendum is not None else ""
+                dupe_dict[dve.loc][str(dve.colnames)][typ].append(dve)
+            message = (
+                "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences "
+                "on the indicated rows:\n"
+            )
+            for loc in dupe_dict.keys():
+                message += f"\t{loc}\n"
+                for colstr in dupe_dict[loc].keys():
+                    for typ in dupe_dict[loc][colstr].keys():
+                        message += f"\t\tColumn(s) {colstr}{typ}\n\t\t\t"
+                        for dve in dupe_dict[loc][colstr][typ]:
+                            message += "\n\t\t\t".join(dve.dupdeets)
+                        message += "\n"
+        super().__init__(message)
+        self.dupe_val_exceptions = dupe_val_exceptions
 
 
 class SheetMergeError(Exception):
@@ -1777,6 +1835,69 @@ class AmbiguousMSRuns(Exception):
         super().__init__(message)
         self.ambig_dict = ambig_dict
         self.infile = infile
+
+
+class CompoundSynonymExists(Exception):
+    def __init__(self, syn):
+        message = f"CompoundSynonym [{syn}] already exists."
+        super().__init__(message)
+        self.syn = syn
+
+
+class CompoundExistsAsMismatchedSynonym(Exception):
+    def __init__(self, name, compound_dict, conflicting_syn_rec):
+        # Don't report the ID - it is arbitrary, so remove it from the record dicts
+        excludes = ["id"]
+        conflicting_syn_cpd_dict = {
+            k: v
+            for k, v in model_to_dict(conflicting_syn_rec.compound).items()
+            if k not in excludes
+        }
+
+        nltt = "\n\t\t"
+        message = (
+            f"The compound name being loaded ({name}) already exists as a synonym, but the compound being loaded does "
+            "not match the compound associated with the synonym in the database:\n"
+            f"\tTo be loaded: {compound_dict}\n"
+            f"\tExisting rec: {conflicting_syn_cpd_dict}\n"
+            f"\t\twith existing synonyms:\n"
+            f"\t\t{nltt.join(str(r) for r in conflicting_syn_rec.compound.synonyms.all())}\n"
+            "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
+            "data in the load to match, or remove this synonym."
+        )
+
+        super().__init__(message)
+        self.name = name
+        self.compound_dict = compound_dict
+        self.conflicting_cpd_rec = conflicting_syn_rec
+
+
+class SynonymExistsAsMismatchedCompound(Exception):
+    def __init__(self, name, compound, conflicting_cpd_rec):
+        # Don't report the ID - it is arbitrary, so remove it from the record dicts
+        excludes = ["id"]
+        compound_dict = {
+            k: v for k, v in model_to_dict(compound).items() if k not in excludes
+        }
+        conflicting_cpd_dict = {
+            k: v
+            for k, v in model_to_dict(conflicting_cpd_rec).items()
+            if k not in excludes
+        }
+
+        message = (
+            f"The compound synonym being loaded ({name}) already exists as a compound name, but that existing "
+            "compound record does not match the compound associated with the synonym in the load data:\n"
+            f"\tTo be loaded: {compound_dict}\n"
+            f"\tExisting rec: {conflicting_cpd_dict}\n"
+            "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
+            "data in the load to match, or remove this synonym."
+        )
+
+        super().__init__(message)
+        self.name = name
+        self.compound = compound
+        self.conflicting_cpd_rec = conflicting_cpd_rec
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
