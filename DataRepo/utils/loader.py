@@ -223,13 +223,13 @@ class TraceBaseLoader:
             "A model name is required when there is not exactly 1 model initialized in the constructor."
         )
 
-    def created(self, model_name: str = None):
+    def created(self, model_name: Optional[str] = None):
         self.record_counts[self.get_model_name(model_name)]["created"] += 1
 
-    def existed(self, model_name: str = None):
+    def existed(self, model_name: Optional[str] = None):
         self.record_counts[self.get_model_name(model_name)]["existed"] += 1
 
-    def errored(self, model_name: str = None):
+    def errored(self, model_name: Optional[str] = None):
         self.record_counts[self.get_model_name(model_name)]["errored"] += 1
 
     def get_load_stats(self):
