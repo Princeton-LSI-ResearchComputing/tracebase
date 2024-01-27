@@ -1,110 +1,72 @@
-from collections import defaultdict
-
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
 
 from DataRepo.models import Protocol
-from DataRepo.utils.exceptions import (
-    AggregatedErrors,
-    ConflictingValueError,
-    DryRun,
-    InfileDatabaseError,
-    NoSpaceAllowedWhenOneColumn,
-    RequiredHeadersError,
-    RequiredValuesError,
-)
+from DataRepo.utils.exceptions import InfileDatabaseError
+from DataRepo.utils.loader import TraceBaseLoader
 
 
-class ProtocolsLoader:
+class ProtocolsLoader(TraceBaseLoader):
     """
     Load the Protocols table
     """
 
-    STANDARD_NAME_HEADER = "name"
-    STANDARD_DESCRIPTION_HEADER = "description"
-    STANDARD_CATEGORY_HEADER = "category"
+    NAME_HEADER = "Name"
+    DESC_HEADER = "Description"
+    CTGY_HEADER = "Category"
+    ALL_HEADERS = [NAME_HEADER, CTGY_HEADER, DESC_HEADER]
+    REQUIRED_HEADERS = [NAME_HEADER, DESC_HEADER]
+    REQUIRED_VALUES = REQUIRED_HEADERS
+    DEFAULT_VALUES = {
+        CTGY_HEADER: Protocol.ANIMAL_TREATMENT,
+    }
+    UNIQUE_COLUMN_CONSTRAINTS = [[NAME_HEADER]]
+    FLD_TO_COL = {
+        "name": NAME_HEADER,
+        "category": CTGY_HEADER,
+        "description": DESC_HEADER,
+    }
 
     def __init__(
         self,
         protocols,
         category=None,
         dry_run=True,
-        verbosity=1,
         defer_rollback=False,
+        sheet=None,
+        file=None,
     ):
         # Data
         self.protocols = protocols
         self.category = category
 
-        # Check supplied protocols for the basics
-        self.protocols.columns = self.protocols.columns.str.lower()
-        self.req_cols = [self.STANDARD_NAME_HEADER, self.STANDARD_DESCRIPTION_HEADER]
-        self.missing_columns = list(set(self.req_cols) - set(self.protocols.columns))
-        if self.missing_columns:
-            raise RequiredHeadersError(self.missing_columns)
+        super().__init__(
+            protocols,
+            all_headers=self.ALL_HEADERS,
+            reqd_headers=self.REQUIRED_HEADERS,
+            reqd_values=self.REQUIRED_VALUES,
+            unique_constraints=self.UNIQUE_COLUMN_CONSTRAINTS,
+            dry_run=dry_run,
+            defer_rollback=defer_rollback,
+            sheet=sheet,
+            file=file,
+            models=[Protocol],
+        )
 
-        # Modes
-        self.dry_run = dry_run
-        self.verbosity = verbosity
-        # Whether to rollback upon error or keep the changes and defer rollback to the caller
-        self.defer_rollback = defer_rollback
-
-        # Tracking stats (num created/existing)
-        self.created = 0
-        self.existing = 0
-
-        # Error tracking
-        self.space_no_desc = []
-        self.missing_reqd_vals = defaultdict(list)
-        self.aggregated_errors_object = AggregatedErrors()
-
+    @TraceBaseLoader.loader
     def load_protocol_data(self):
-        saved_aes = None
-
-        with transaction.atomic():
-            try:
-                self._load_data()
-            except AggregatedErrors as aes:
-                if self.defer_rollback:
-                    saved_aes = aes
-                else:
-                    # Raise here to cause a rollback
-                    raise aes
-
-        # If we were directed to defer rollback (in the event of an error), raise the exception here (outside of the
-        # atomic transaction block).  This assumes that the caller is handling rollback in their own atomic transaction
-        # block.
-        if saved_aes is not None:
-            # Raise here to NOT cause a rollback
-            raise saved_aes
-
-    def _load_data(self):
         batch_cat_err_occurred = False
+
         for index, row in self.protocols.iterrows():
+            rownum = index + 2
+
             try:
-                name = self.getRowVal(row, self.STANDARD_NAME_HEADER)
-                category = self.getRowVal(row, self.STANDARD_CATEGORY_HEADER)
-                description = self.getRowVal(row, self.STANDARD_DESCRIPTION_HEADER)
+                name = self.getRowVal(row, self.NAME_HEADER)
+                category = self.getRowVal(row, self.CTGY_HEADER)
+                description = self.getRowVal(row, self.DESC_HEADER)
 
                 # The command line option overrides what's in the file
                 if self.category:
                     category = self.category
-
-                # Validate the values provided in the file
-                # To aid in debugging the case where an editor entered spaces instead of a tab...
-                if " " in str(name) and description is None:
-                    self.aggregated_errors_object.buffer_error(
-                        NoSpaceAllowedWhenOneColumn(name)
-                    )
-                # Check required values
-                if name is None or category is None:
-                    if name is None:
-                        self.missing_reqd_vals[self.STANDARD_NAME_HEADER].append(index)
-                    if category is None:
-                        self.missing_reqd_vals[self.STANDARD_CATEGORY_HEADER].append(
-                            index
-                        )
-                    continue
 
                 rec_dict = {
                     "name": name,
@@ -120,33 +82,10 @@ class ProtocolsLoader:
                 # If no protocol was found, create it
                 if protocol_created:
                     protocol_rec.full_clean()
-                    protocol_rec.save()
-                    self.created += 1
+                    self.created()
                 else:
-                    self.existing += 1
+                    self.existed()
 
-            except IntegrityError as ie:
-                iestr = str(ie)
-                if "duplicate key value violates unique constraint" in iestr:
-                    # Retrieve the protocol with the conflicting value(s) that caused the unique constraint error
-                    protocol_rec = Protocol.objects.get(name__exact=rec_dict["name"])
-                    self.aggregated_errors_object.buffer_error(
-                        ConflictingValueError(
-                            protocol_rec,
-                            {
-                                "description": {
-                                    "orig": protocol_rec.description,
-                                    "new": description,
-                                },
-                            },
-                            index + 2,
-                            "treatments",
-                        )
-                    )
-                else:
-                    self.aggregated_errors_object.buffer_error(
-                        InfileDatabaseError(ie, rec_dict, rownum=index + 2)
-                    )
             except ValidationError as ve:
                 vestr = str(ve)
                 if (
@@ -157,33 +96,23 @@ class ProtocolsLoader:
                     # Only include a batch category error once
                     if not batch_cat_err_occurred:
                         self.aggregated_errors_object.buffer_error(
-                            InfileDatabaseError(ve, rec_dict, rownum=index + 2)
+                            InfileDatabaseError(ve, rec_dict, rownum=rownum)
                         )
                     batch_cat_err_occurred = True
                 else:
-                    self.aggregated_errors_object.buffer_error(
-                        InfileDatabaseError(ve, rec_dict, rownum=index + 2)
+                    # Package errors (like IntegrityError and ValidationError) with relevant details
+                    self.handle_load_db_errors(
+                        ve,
+                        Protocol,
+                        rec_dict,
+                        rownum=rownum,
+                        fld_to_col=self.FLD_TO_COL,
                     )
-
-        if len(self.missing_reqd_vals.keys()) > 0:
-            self.aggregated_errors_object.buffer_error(
-                RequiredValuesError(self.missing_reqd_vals)
-            )
-
-        if self.aggregated_errors_object.should_raise():
-            raise self.aggregated_errors_object
-
-        if self.dry_run:
-            raise DryRun()
-
-    def getRowVal(self, row, header):
-        val = None
-
-        if header in row.keys():
-            val = row[header]
-
-            # This will make later checks of values easier
-            if val == "":
-                val = None
-
-        return val
+                    self.errored()
+                self.errored()
+            except Exception as e:
+                # Package errors (like IntegrityError and ValidationError) with relevant details
+                self.handle_load_db_errors(
+                    e, Protocol, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL
+                )
+                self.errored()

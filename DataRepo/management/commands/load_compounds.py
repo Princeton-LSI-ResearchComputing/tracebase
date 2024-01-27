@@ -2,6 +2,7 @@ import argparse
 
 from django.core.management import BaseCommand
 
+from DataRepo.models.compound import Compound, CompoundSynonym
 from DataRepo.utils import (
     AggregatedErrors,
     CompoundsLoader,
@@ -90,12 +91,12 @@ class Command(BaseCommand):
 
         load_stats = loader.get_load_stats()
         status = msg % (
-            load_stats["Compound"]["created"],
-            load_stats["Compound"]["skipped"],
-            load_stats["Compound"]["errored"],
-            load_stats["CompoundSynonym"]["created"],
-            load_stats["CompoundSynonym"]["skipped"],
-            load_stats["CompoundSynonym"]["errored"],
+            load_stats[Compound.__name__]["created"],
+            load_stats[Compound.__name__]["skipped"],
+            load_stats[Compound.__name__]["errored"],
+            load_stats[CompoundSynonym.__name__]["created"],
+            load_stats[CompoundSynonym.__name__]["skipped"],
+            load_stats[CompoundSynonym.__name__]["errored"],
         )
 
         if saved_aes is not None and saved_aes.get_num_errors() > 0:

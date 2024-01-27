@@ -3,6 +3,7 @@ import os
 
 from django.core.management import BaseCommand
 
+from DataRepo.models.study import Study
 from DataRepo.utils import (
     AggregatedErrors,
     DryRun,
@@ -81,9 +82,9 @@ class Command(BaseCommand):
 
         load_stats = loader.get_load_stats()
         status = msg % (
-            load_stats["Study"]["created"],
-            load_stats["Study"]["skipped"],
-            load_stats["Study"]["errored"],
+            load_stats[Study.__name__]["created"],
+            load_stats[Study.__name__]["skipped"],
+            load_stats[Study.__name__]["errored"],
         )
 
         if saved_aes is not None and saved_aes.get_num_errors() > 0:

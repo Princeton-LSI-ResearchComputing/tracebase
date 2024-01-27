@@ -6,12 +6,11 @@ from django.core.management import BaseCommand, CommandError
 
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils import AggregatedErrors, DryRun, ProtocolsLoader
-from DataRepo.utils.file_utils import read_from_file
+from DataRepo.utils.file_utils import is_excel, read_from_file
 
 
 class Command(BaseCommand):
-    # Show this when the user types help
-    help = "Loads data from a protocol list into the database"
+    help = "Loads data from a protocol table into the database"
 
     name_header = "Name"
     category_header = "Category"
@@ -40,66 +39,77 @@ class Command(BaseCommand):
             required=True,
         )
 
-        # Optional flag to only show what would be loaded. Does not load in this mode
+        parser.add_argument(
+            "--sheet",
+            type=str,
+            help="Name of excel sheet/tab.  Only used if --protocols is an excel spreadsheet.  Default: 'Treatments'.",
+            default="Tissues",
+        )
+
         parser.add_argument(
             "-n",
             "--dry-run",
             action="store_true",
             default=False,
-            help=("Dry-run. If specified, nothing will be saved to the database. "),
+            help=("Dry-run. If supplied, nothing will be saved to the database. "),
         )
 
-        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
-        # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
+            "--defer-rollback",  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
             action="store_true",
             help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
-        try:
-            if options["dry_run"]:
-                self.stdout.write(
-                    self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
-                )
+        saved_aes = None
+        msg = "Done. Protocol records loaded: [%i], skipped: [%i], and errored: [%i]."
 
+        try:
+            sheet = options["sheet"] if is_excel(options["protocols"]) else None
             self.protocols_df, self.batch_category = self.read_from_file(
                 options["protocols"]
             )
 
-            self.protocol_loader = ProtocolsLoader(
+            loader = ProtocolsLoader(
                 protocols=self.protocols_df,
                 category=self.batch_category,
                 dry_run=options["dry_run"],
-                verbosity=options["verbosity"],
                 defer_rollback=options["defer_rollback"],
+                sheet=sheet,
+                file=options["protocols"],
             )
 
-            self.protocol_loader.load_protocol_data()
+            loader.load_protocol_data()
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Load complete, inserted {self.protocol_loader.created} and skipped "
-                    f"{self.protocol_loader.existing} existing records"
-                )
-            )
         except DryRun:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"DRY-RUN complete, would have inserted {self.protocol_loader.created} and skipped "
-                    f"{self.protocol_loader.existing} existing records"
-                )
-            )
+            pass
         except AggregatedErrors as aes:
-            aes.print_summary()
-            raise aes
+            saved_aes = aes
         except Exception as e:
-            aes2 = AggregatedErrors()
-            aes2.buffer_error(e)
-            if aes2.should_raise():
-                aes2.print_summary()
-                raise aes2
+            # Add this unanticipated error to a new aggregated errors object
+            saved_aes = AggregatedErrors()
+            saved_aes.buffer_error(e)
+
+        load_stats = loader.get_load_stats()
+        status = msg % (
+            load_stats[Protocol.__name__]["created"],
+            load_stats[Protocol.__name__]["skipped"],
+            load_stats[Protocol.__name__]["errored"],
+        )
+
+        if saved_aes is not None and saved_aes.get_num_errors() > 0:
+            status_msg = self.style.ERROR(status)
+        elif saved_aes is not None and saved_aes.get_num_warnings() > 0:
+            status_msg = self.style.WARNING(status)
+        else:
+            status_msg = self.style.SUCCESS(status)
+
+        if options["verbosity"] > 0:
+            self.stdout.write(status_msg)
+
+        if saved_aes is not None and saved_aes.should_raise():
+            saved_aes.print_summary()
+            raise saved_aes
 
     def read_from_file(self, filename, format=None):
         """
@@ -141,11 +151,9 @@ class Command(BaseCommand):
         protocols_df.rename(
             inplace=True,
             columns={
-                str(self.name_header): ProtocolsLoader.STANDARD_NAME_HEADER,
-                str(self.category_header): ProtocolsLoader.STANDARD_CATEGORY_HEADER,
-                str(
-                    self.description_header
-                ): ProtocolsLoader.STANDARD_DESCRIPTION_HEADER,
+                str(self.name_header): ProtocolsLoader.NAME_HEADER,
+                str(self.category_header): ProtocolsLoader.CTGY_HEADER,
+                str(self.description_header): ProtocolsLoader.DESC_HEADER,
             },
         )
 
@@ -169,8 +177,8 @@ class Command(BaseCommand):
         protocols_df.rename(
             inplace=True,
             columns={
-                str(name_header): ProtocolsLoader.STANDARD_NAME_HEADER,
-                str(description_header): ProtocolsLoader.STANDARD_DESCRIPTION_HEADER,
+                str(name_header): ProtocolsLoader.NAME_HEADER,
+                str(description_header): ProtocolsLoader.DESC_HEADER,
             },
         )
 

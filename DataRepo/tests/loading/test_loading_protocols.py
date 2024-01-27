@@ -9,9 +9,10 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import ProtocolsLoader
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    ConflictingValueError,
+    ConflictingValueErrors,
     DryRun,
-    RequiredValuesError,
+    DuplicateValueErrors,
+    RequiredValueErrors,
 )
 from DataRepo.utils.protocols_loader import InfileDatabaseError
 
@@ -31,7 +32,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         data_differently = deepcopy(data)
         # change the description
         data_differently[1][1] = "Animal was treated differently."
-        template_headers = ["name", "description"]
+        template_headers = ["Name", "Description"]
         # Create the pandas DataFrame
         cls.working_df = pd.DataFrame(data, columns=template_headers)
         cls.working_differently_df = pd.DataFrame(
@@ -60,8 +61,8 @@ class ProtocolLoadingTests(TracebaseTestCase):
             self.load_dataframe_as_animal_treatment(self.working_differently_df)
         aes = ar.exception
         self.assertEqual((1, 0), (aes.num_errors, aes.num_warnings))
-        self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertIn("description", aes.exceptions[0].differences.keys())
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        self.assertIn("[description] values differ:", str(aes.exceptions[0]))
         # but the other first "working" protocols are still there]
         self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
 
@@ -74,8 +75,11 @@ class ProtocolLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(0, aes.num_warnings)
-        self.assertEqual(RequiredValuesError, type(aes.exceptions[0]))
-        self.assertIn("category", aes.exceptions[0].missing.keys())
+        self.assertEqual(RequiredValueErrors, type(aes.exceptions[0]))
+        self.assertIn(
+            "Field: [Protocol.category] Column: [Category] on row(s): 2, 3",
+            str(aes.exceptions[0]),
+        )
         # If errors are found, no records should be loaded
         self.assertEqual(0, Protocol.objects.count())
 
@@ -136,8 +140,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             "load_protocols",
             protocols="DataRepo/data/tests/protocols/protocols_with_workarounds.tsv",
         )
-        # two protocols loaded, but 3 lines in file (1 redundatn)
-        self.assertEqual(Protocol.objects.count(), 2)
+        self.assertEqual(Protocol.objects.count(), 1)
         # test data trimming
         self.assertEqual(Protocol.objects.filter(name="trimmed treatment").count(), 1)
         self.assertEqual(
@@ -154,13 +157,18 @@ class ProtocolLoadingTests(TracebaseTestCase):
         aes = ar.exception
 
         self.assertEqual((2, 0), (aes.num_errors, aes.num_warnings))
-        self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertIn("description", aes.exceptions[0].differences.keys())
 
-        self.assertEqual(RequiredValuesError, type(aes.exceptions[1]))
-        self.assertEqual(2, len(aes.exceptions[1].missing.keys()))
-        self.assertIn("name", aes.exceptions[1].missing.keys())
-        self.assertIn("category", aes.exceptions[1].missing.keys())
+        self.assertEqual(RequiredValueErrors, type(aes.exceptions[0]))
+        self.assertIn(
+            "Field: [Protocol.name] Column: [Name] on row(s): 4", str(aes.exceptions[0])
+        )
+        self.assertIn(
+            "Field: [Protocol.category] Column: [Category] on row(s): 5",
+            str(aes.exceptions[0]),
+        )
+
+        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[1]))
+        self.assertIn("treatment 1 (rows*: 2, 3)", str(aes.exceptions[1]))
 
         # and no protocols should be loaded
         self.assertEqual(Protocol.objects.count(), 0)

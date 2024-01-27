@@ -2,6 +2,7 @@ import argparse
 
 from django.core.management import BaseCommand
 
+from DataRepo.models.tissue import Tissue
 from DataRepo.utils import (
     AggregatedErrors,
     DryRun,
@@ -66,7 +67,7 @@ class Command(BaseCommand):
                 file=options["tissues"],
             )
 
-            load_stats = loader.load_tissue_data()
+            loader.load_tissue_data()
 
         except DryRun:
             pass
@@ -79,9 +80,9 @@ class Command(BaseCommand):
 
         load_stats = loader.get_load_stats()
         status = msg % (
-            load_stats["Tissue"]["created"],
-            load_stats["Tissue"]["skipped"],
-            load_stats["Tissue"]["errored"],
+            load_stats[Tissue.__name__]["created"],
+            load_stats[Tissue.__name__]["skipped"],
+            load_stats[Tissue.__name__]["errored"],
         )
 
         if saved_aes is not None and saved_aes.get_num_errors() > 0:

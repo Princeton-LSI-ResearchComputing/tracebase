@@ -1752,16 +1752,6 @@ class MzxmlConflictErrors(Exception):
         self.mzxml_conflicts = mzxml_conflicts
 
 
-class NoSpaceAllowedWhenOneColumn(Exception):
-    def __init__(self, name):
-        message = (
-            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
-            "Either the space(s) must be changed to a tab character or a description must be provided."
-        )
-        super().__init__(message)
-        self.name = name
-
-
 class InfileDatabaseError(Exception):
     def __init__(self, exception, rec_dict, rownum=None, sheet=None, file=None):
         nltab = "\n\t"
