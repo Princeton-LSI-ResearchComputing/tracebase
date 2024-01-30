@@ -63,14 +63,14 @@ class Command(BaseCommand):
 
             sheet = options["sheet"] if is_excel(options["tissues"]) else None
 
-            new_tissues = read_from_file(
+            tissues = read_from_file(
                 options["tissues"],
                 dtype=TissuesLoader.get_column_types(headers),
                 sheet=sheet,
             )
 
             loader = TissuesLoader(
-                tissues=new_tissues,
+                tissues=tissues,
                 headers=headers,
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],

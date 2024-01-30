@@ -72,17 +72,18 @@ class Command(BaseCommand):
         saved_aes = None
 
         try:
-            sheet = options["sheet"] if is_excel(options["compounds"]) else None
-            self.compounds_df = read_from_file(options["compounds"], sheet=sheet)
             custom_header_data = (
                 read_from_file(options["table_headers"]) if options["table_headers"]
                 else None
             )
+            headers = CompoundsLoader.get_headers(custom_header_data)
+            sheet = options["sheet"] if is_excel(options["compounds"]) else None
+            self.compounds_df = read_from_file(options["compounds"], sheet=sheet)
 
             # Initialize loader class
             loader = CompoundsLoader(
                 compounds_df=self.compounds_df,
-                headers=custom_header_data,
+                headers=headers,
                 synonym_separator=options["synonym_separator"],
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],

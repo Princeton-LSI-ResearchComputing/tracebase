@@ -105,6 +105,33 @@ class TraceBaseLoader:
         return headers
 
     @classmethod
+    def get_pretty_default_headers(cls):
+        """Generate a list of header strings, with appended asterisks if required, and a message about the asterisks."""
+        cls.check_class_attributes()
+
+        msg = "(* = Required)"
+        pretty_headers = []
+        for hk in list(cls.DefaultHeaders._asdict().keys()):
+            reqd = getattr(cls.RequiredHeaders, hk)
+            pretty_header = getattr(cls.DefaultHeaders, hk)
+            if reqd:
+                pretty_header += "*"
+            pretty_headers.append(pretty_header)
+
+        return pretty_headers, msg
+
+    @classmethod
+    def get_header_keys(cls):
+        """Generate a list of header keys."""
+        cls.check_class_attributes()
+
+        keys = []
+        for hk in list(cls.DefaultHeaders._asdict().keys()):
+            keys.append(hk)
+
+        return keys
+
+    @classmethod
     def get_defaults(cls, custom_default_data=None):
         if type(custom_default_data) != dict:
             raise TypeError(
@@ -169,18 +196,15 @@ class TraceBaseLoader:
                 f"attribute [{cls.__name__}.FieldToHeaderKey] dict required, {type(cls.FieldToHeaderKey)} set"
             )
 
-        if cls.ColumnTypes is None:
-            undefs.append(f"{cls.__name__}.ColumnTypes (dict of types)")
-        elif type(cls.ColumnTypes) != dict:
+        # ColumnTypes is optional.  Allow to be left as None.
+        if cls.ColumnTypes is not None and type(cls.ColumnTypes) != dict:
             typeerrs.append(
                 f"attribute [{cls.__name__}.ColumnTypes] dict required, {type(cls.ColumnTypes)} set"
             )
 
         if cls.DefaultValues is None:
-            # This one is optional (not often used/needed)
-            if cls.DefaultHeaders is None:
-                undefs.append(f"{cls.__name__}.DefaultValues (dict)")
-            else:
+            # DefaultValues is optional (not often used/needed). Set all to None using DefaultHeaders
+            if cls.DefaultHeaders is not None:
                 for hk in list(cls.DefaultHeaders._asdict().keys()):
                     setattr(cls.DefaultValues, hk, None)
         elif type(cls.DefaultValues) != dict:
