@@ -1,6 +1,7 @@
 import pathlib
 from collections import defaultdict
 from zipfile import BadZipFile
+import yaml
 
 import pandas as pd
 from django.core.management import CommandError
@@ -24,7 +25,7 @@ def read_from_file(
     Args:
         filepath (str): Path to infile
         sheet (str): Name of excel sheet
-        filetype (str): Enumeration ["csv", "tsv", "excel"]
+        filetype (str): Enumeration ["csv", "tsv", "excel", "yaml"]
         dtype (Dict(str)): header: type
         keep_default_na (bool): The keep_default_na arg to pandas
         dropna (bool): Whether to drop na
@@ -35,14 +36,18 @@ def read_from_file(
         CommandError
 
     Returns:
-        Pandas dataframe of parsed and processed infile data
+        Pandas dataframe of parsed and processed infile data.
+        Or, if the filetype is yaml, returns a python object.
     """
-    filetypes = ["csv", "tsv", "excel"]
+    filetypes = ["csv", "tsv", "excel", "yaml"]
     extensions = {
         "csv": "csv",
         "tsv": "tsv",
         "xlsx": "excel",
+        "yaml": "yaml",
+        "yml": "yaml",
     }
+    retval = None
 
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
@@ -65,7 +70,7 @@ def read_from_file(
         )
 
     if filetype == "excel":
-        dataframe = _read_from_xlsx(
+        retval = _read_from_xlsx(
             filepath,
             sheet=sheet,
             keep_default_na=keep_default_na,
@@ -75,7 +80,7 @@ def read_from_file(
             expected_headers=expected_headers,
         )
     elif filetype == "tsv":
-        dataframe = _read_from_tsv(
+        retval = _read_from_tsv(
             filepath,
             dtype=dtype,
             keep_default_na=keep_default_na,
@@ -84,7 +89,7 @@ def read_from_file(
             expected_headers=expected_headers,
         )
     elif filetype == "csv":
-        dataframe = _read_from_csv(
+        retval = _read_from_csv(
             filepath,
             dtype=dtype,
             keep_default_na=keep_default_na,
@@ -92,8 +97,15 @@ def read_from_file(
             na_values=na_values,
             expected_headers=expected_headers,
         )
+    elif filetype == "yaml":
+        retval = _read_from_yaml(filepath)
 
-    return dataframe
+    return retval
+
+
+def _read_from_yaml(filepath):
+    with open(filepath) as headers_file:
+        return yaml.safe_load(headers_file)
 
 
 def _read_from_xlsx(
@@ -191,7 +203,12 @@ def _read_from_csv(
 
     if dropna:
         return df.dropna(axis=0, how="all")
+
     return df
+
+
+def _read_from_yaml(filepath, expected_headers=None):
+    pass
 
 
 def _collect_kwargs(dtype=None, keep_default_na=False, na_values=None):

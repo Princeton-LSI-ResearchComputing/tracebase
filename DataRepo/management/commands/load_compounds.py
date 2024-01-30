@@ -34,6 +34,12 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
+            "--table-headers",
+            type=str,
+            help=f"YAML file defining headers to be used.",
+        )
+
+        parser.add_argument(
             "--synonym-separator",
             type=str,
             help="Character separating multiple synonyms in 'Synonyms' column (default '%(default)s')",
@@ -68,10 +74,15 @@ class Command(BaseCommand):
         try:
             sheet = options["sheet"] if is_excel(options["compounds"]) else None
             self.compounds_df = read_from_file(options["compounds"], sheet=sheet)
+            custom_header_data = (
+                read_from_file(options["table_headers"]) if options["table_headers"]
+                else None
+            )
 
             # Initialize loader class
             loader = CompoundsLoader(
                 compounds_df=self.compounds_df,
+                headers=custom_header_data,
                 synonym_separator=options["synonym_separator"],
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],

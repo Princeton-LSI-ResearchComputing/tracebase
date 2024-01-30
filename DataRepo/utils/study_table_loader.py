@@ -1,24 +1,42 @@
+from collections import namedtuple
+
 from DataRepo.models import Study
 from DataRepo.utils.loader import TraceBaseLoader
 
 
 class StudyTableLoader(TraceBaseLoader):
-    CODE_HEADER = "Study ID"
-    NAME_HEADER = "Name"
-    DESC_HEADER = "Description"
-    ALL_HEADERS = [CODE_HEADER, NAME_HEADER, DESC_HEADER]
-    REQUIRED_HEADERS = ALL_HEADERS
-    REQUIRED_VALUES = ALL_HEADERS
-    UNIQUE_COLUMN_CONSTRAINTS = [[CODE_HEADER], [NAME_HEADER]]
-    FLD_TO_COL = {
-        "code": CODE_HEADER,
-        "name": NAME_HEADER,
-        "description": DESC_HEADER,
+    TableHeaders = namedtuple(
+        "TableHeaders",
+        [
+            "CODE",
+            "NAME",
+            "DESCRIPTION",
+        ],
+    )
+    DefaultHeaders = TableHeaders(
+        CODE="Study ID",
+        NAME="Name",
+        DESCRIPTION="Description",
+    )
+    RequiredHeaders = TableHeaders(
+        CODE=True,
+        NAME=True,
+        DESCRIPTION=True,
+    )
+    RequiredValues = RequiredHeaders
+    UniqueColumnConstraints = [["CODE"]], ["NAME"]
+    FieldToHeaderKey = {
+        "Study": {
+            "code": "CODE",
+            "name": "NAME",
+            "description": "DESCRIPTION",
+        },
     }
 
     def __init__(
         self,
         study_table_df,
+        headers=None,
         sheet=None,
         file=None,
         dry_run=True,
@@ -29,10 +47,7 @@ class StudyTableLoader(TraceBaseLoader):
 
         super().__init__(
             study_table_df,
-            all_headers=self.ALL_HEADERS,
-            reqd_headers=self.REQUIRED_HEADERS,
-            reqd_values=self.REQUIRED_VALUES,
-            unique_constraints=self.UNIQUE_COLUMN_CONSTRAINTS,
+            headers=headers,
             dry_run=dry_run,
             defer_rollback=defer_rollback,
             sheet=sheet,
@@ -51,9 +66,9 @@ class StudyTableLoader(TraceBaseLoader):
 
             try:
                 rec_dict = {
-                    "code": self.getRowVal(row, self.CODE_HEADER),
-                    "name": self.getRowVal(row, self.NAME_HEADER),
-                    "description": self.getRowVal(row, self.DESC_HEADER),
+                    "code": self.getRowVal(row, self.headers.CODE),
+                    "name": self.getRowVal(row, self.headers.NAME),
+                    "description": self.getRowVal(row, self.headers.DESCRIPTION),
                 }
 
                 study_rec, created = Study.objects.get_or_create(**rec_dict)
@@ -66,7 +81,5 @@ class StudyTableLoader(TraceBaseLoader):
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(
-                    e, Study, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL
-                )
+                self.handle_load_db_errors(e, Study, rec_dict, rownum)
                 self.errored()

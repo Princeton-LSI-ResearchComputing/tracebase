@@ -34,6 +34,12 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
+            "--table-headers",
+            type=str,
+            help=f"YAML file defining headers to be used.",
+        )
+
+        parser.add_argument(
             "-n",
             "--dry-run",
             action="store_true",
@@ -52,15 +58,20 @@ class Command(BaseCommand):
         msg = "Done. Tissue records loaded: [%i], skipped: [%i], and errored: [%i]."
 
         try:
+            header_data = read_from_file(options["table_headers"]) if options["table_headers"] else None
+            headers = TissuesLoader.get_headers(header_data)
+
             sheet = options["sheet"] if is_excel(options["tissues"]) else None
+
             new_tissues = read_from_file(
                 options["tissues"],
-                dtype={"Name": str, "Description": str},
+                dtype=TissuesLoader.get_column_types(headers),
                 sheet=sheet,
             )
 
             loader = TissuesLoader(
                 tissues=new_tissues,
+                headers=headers,
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],
                 sheet=sheet,

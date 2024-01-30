@@ -47,6 +47,12 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
+            "--table-headers",
+            type=str,
+            help=f"YAML file defining headers to be used.",
+        )
+
+        parser.add_argument(
             "-n",
             "--dry-run",
             action="store_true",
@@ -65,13 +71,40 @@ class Command(BaseCommand):
         msg = "Done. Protocol records loaded: [%i], skipped: [%i], and errored: [%i]."
 
         try:
-            sheet = options["sheet"] if is_excel(options["protocols"]) else None
-            self.protocols_df, self.batch_category = self.read_from_file(
-                options["protocols"]
+            # TODO: Deal with the alternate headers for the treatments sheet
+            header_data = read_from_file(options["table_headers"]) if options["table_headers"] else None
+            headers = ProtocolsLoader.get_headers(header_data)
+            sheet = None
+            default_values = None
+            if is_excel(options["protocols"]):
+                # If this is an excel file, we will assume it is the treatments sheet
+                if options["table_headers"] is None:
+                    headers = ProtocolsLoader.get_headers(
+                        {
+                            ProtocolsLoader.NAME_KEY: self.TREATMENTS_NAME_HEADER,
+                            ProtocolsLoader.CAT_KEY: None,
+                            ProtocolsLoader.DESC_KEY: self.TREATMENTS_DESC_HEADER,
+                        }
+                    )
+
+                if options["sheet"]:
+                    sheet = options["sheet"]
+                else:
+                    sheet = self.TREATMENTS_SHEET_NAME
+
+                default_values = ProtocolsLoader.get_defaults(
+                    {ProtocolsLoader.CAT_KEY: self.TREATMENTS_CATEGORY_VALUE}
+                )
+
+            protocols_df = read_from_file(
+                options["protocols"],
+                dtype=ProtocolsLoader.get_column_types(headers)
             )
 
             loader = ProtocolsLoader(
-                protocols=self.protocols_df,
+                protocols=protocols_df,
+                headers=headers,
+                defaults=default_values,
                 category=self.batch_category,
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],
@@ -110,76 +143,3 @@ class Command(BaseCommand):
         if saved_aes is not None and saved_aes.should_raise():
             saved_aes.print_summary()
             raise saved_aes
-
-    def read_from_file(self, filename, format=None):
-        """
-        Read protocols from a file and buffer their contents in the instance object to be loaded later
-        """
-        format_choices = ("tsv", "xlsx")
-        batch_category = None
-
-        if format is None:
-            format = pathlib.Path(filename).suffix.strip(".")
-
-        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
-        if format == "tsv":
-            protocols_df = self.read_protocols_tsv(filename)
-        elif format == "xlsx":
-            protocols_df, batch_category = self.read_protocols_xlsx(filename)
-        else:
-            raise CommandError(
-                f"Invalid file format reading samples: [{format}], expected one of [{', '.join(format_choices)}].",
-            )
-
-        # Tidy the data up
-        protocols_df = protocols_df.replace(np.nan, "", regex=True)
-        for col in protocols_df.columns:
-            protocols_df[col] = protocols_df[col].str.strip()
-
-        return protocols_df, batch_category
-
-    def read_protocols_tsv(self, protocols_tsv):
-        # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
-        # intended to be tab characters
-        protocols_df = read_from_file(
-            protocols_tsv,
-            dtype=object,
-            keep_default_na=False,
-            na_values="",
-        )
-        # rename template columns to ProtocolsLoader expectations
-        protocols_df.rename(
-            inplace=True,
-            columns={
-                str(self.name_header): ProtocolsLoader.NAME_HEADER,
-                str(self.category_header): ProtocolsLoader.CTGY_HEADER,
-                str(self.description_header): ProtocolsLoader.DESC_HEADER,
-            },
-        )
-
-        return protocols_df
-
-    def read_protocols_xlsx(self, xlxs_file_containing_treatments_sheet):
-        name_header = self.TREATMENTS_NAME_HEADER
-        description_header = self.TREATMENTS_DESC_HEADER
-
-        protocols_df = read_from_file(
-            xlxs_file_containing_treatments_sheet,
-            sheet=self.TREATMENTS_SHEET_NAME,
-            dtype={
-                name_header: str,
-                description_header: str,
-            },
-            keep_default_na=False,
-        )
-
-        # rename template columns to ProtocolsLoader expectations
-        protocols_df.rename(
-            inplace=True,
-            columns={
-                str(name_header): ProtocolsLoader.NAME_HEADER,
-                str(description_header): ProtocolsLoader.DESC_HEADER,
-            },
-        )
-
-        return protocols_df, self.TREATMENTS_CATEGORY_VALUE

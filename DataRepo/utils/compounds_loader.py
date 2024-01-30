@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 from django.db.utils import IntegrityError
 
@@ -16,29 +16,46 @@ class CompoundsLoader(TraceBaseLoader):
     Load the Compound and CompoundSynonym tables
     """
 
-    # Define the dataframe key names and requirements
-    NAME_HEADER = "Compound"
-    HMDB_ID_HEADER = "HMDB ID"
-    FORMULA_HEADER = "Formula"
-    SYNONYMS_HEADER = "Synonyms"
-    REQUIRED_HEADERS = [NAME_HEADER, FORMULA_HEADER, HMDB_ID_HEADER]
-    REQUIRED_VALUES = REQUIRED_HEADERS
-    ALL_HEADERS = [NAME_HEADER, FORMULA_HEADER, HMDB_ID_HEADER, SYNONYMS_HEADER]
-    UNIQUE_COLUMN_CONSTRAINTS = [[NAME_HEADER], [HMDB_ID_HEADER]]
-    COMPOUND_FLD_TO_COL = {
-        "name": NAME_HEADER,
-        "hmdb_id": HMDB_ID_HEADER,
-        "formula": FORMULA_HEADER,
-        "synonyms": SYNONYMS_HEADER,
-    }
-    SYNONYM_FLD_TO_COL = {
-        "name": SYNONYMS_HEADER,
-        "compound": NAME_HEADER,
+    TableHeaders = namedtuple(
+        "TableHeaders",
+        [
+            "NAME",
+            "HMDB_ID",
+            "FORMULA",
+            "SYNONYMS",
+        ],
+    )
+    DefaultHeaders = TableHeaders(
+        NAME="Compound",
+        HMDB_ID="HMDB ID",
+        FORMULA="Formula",
+        SYNONYMS="Synonyms",
+    )
+    RequiredHeaders = TableHeaders(
+        NAME=True,
+        HMDB_ID=True,
+        FORMULA=True,
+        SYNONYMS=False,
+    )
+    RequiredValues = RequiredHeaders
+    UniqueColumnConstraints = [["NAME"], ["HMDB_ID"]]
+    FieldToHeaderKey = {
+        "Compound": {
+            "name": "NAME",
+            "hmdb_id": "HMDB_ID",
+            "formula": "FORMULA",
+            "synonyms": "SYNONYMS",
+        },
+        "CompoundSynonym": {
+            "name": "SYNONYMS",
+            "compound": "NAME",
+        },
     }
 
     def __init__(
         self,
         compounds_df,
+        headers,
         synonym_separator=";",
         dry_run=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
@@ -51,10 +68,7 @@ class CompoundsLoader(TraceBaseLoader):
 
         super().__init__(
             compounds_df,
-            all_headers=self.ALL_HEADERS,
-            reqd_headers=self.REQUIRED_HEADERS,
-            reqd_values=self.REQUIRED_VALUES,
-            unique_constraints=self.UNIQUE_COLUMN_CONSTRAINTS,
+            headers=headers,
             dry_run=dry_run,
             defer_rollback=defer_rollback,
             sheet=sheet,
@@ -81,10 +95,10 @@ class CompoundsLoader(TraceBaseLoader):
         syn_dict = defaultdict(list)
         for index, row in self.compounds_df.iterrows():
             # Explicitly not skipping rows with duplicates
-            name = self.getRowVal(row, self.NAME_HEADER)
+            name = self.getRowVal(row, self.headers.NAME)
             namesyn_dict[name]["name"].append(index)
 
-            synonyms = self.parse_synonyms(self.getRowVal(row, self.SYNONYMS_HEADER))
+            synonyms = self.parse_synonyms(self.getRowVal(row, self.headers.SYNONYMS))
             for synonym in synonyms:
                 # A synonym that is exactly the same as its compound name is skipped in the load
                 if synonym != name:
@@ -101,7 +115,7 @@ class CompoundsLoader(TraceBaseLoader):
             self.aggregated_errors_object.buffer_error(
                 DuplicateValues(
                     syn_dupe_dict,
-                    [self.SYNONYMS_HEADER],
+                    [self.headers.SYNONYMS],
                     sheet=self.sheet,
                     file=self.file,
                 )
@@ -124,9 +138,9 @@ class CompoundsLoader(TraceBaseLoader):
             self.aggregated_errors_object.buffer_error(
                 DuplicateValues(
                     cross_dupe_dict,
-                    [f"{self.NAME_HEADER} and {self.SYNONYMS_HEADER}"],
+                    [f"{self.headers.NAME} and {self.headers.SYNONYMS}"],
                     addendum=(
-                        f"Note, no 2 rows are allowed to have a {self.NAME_HEADER} or {self.SYNONYMS_HEADER} in "
+                        f"Note, no 2 rows are allowed to have a {self.headers.NAME} or {self.headers.SYNONYMS} in "
                         "common."
                     ),
                     sheet=self.sheet,
@@ -147,9 +161,9 @@ class CompoundsLoader(TraceBaseLoader):
             # Index starts at 0, headers are on row 1
             rownum = index + 2
 
-            name = self.getRowVal(row, self.NAME_HEADER)
-            formula = self.getRowVal(row, self.FORMULA_HEADER)
-            hmdb_id = self.getRowVal(row, self.HMDB_ID_HEADER)
+            name = self.getRowVal(row, self.headers.NAME)
+            formula = self.getRowVal(row, self.headers.FORMULA)
+            hmdb_id = self.getRowVal(row, self.headers.HMDB_ID)
 
             try:
                 cmpd_recdict = {
@@ -166,9 +180,10 @@ class CompoundsLoader(TraceBaseLoader):
                 else:
                     self.existed(Compound.__name__)
             except Exception as e:
-                if isinstance(
-                    e, IntegrityError
-                ) and "DataRepo_compoundsynonym_pkey" in str(e):
+                if (
+                    isinstance(e, IntegrityError)
+                    and "DataRepo_compoundsynonym_pkey" in str(e)
+                ):
                     # This is caused by trying to create a synonym that is already associated with a different compound
                     # We want a better error to describe this situation than we would get from handle_load_db_errors
                     self.aggregated_errors_object.buffer_error(
@@ -179,16 +194,10 @@ class CompoundsLoader(TraceBaseLoader):
                         )
                     )
                 else:
-                    self.handle_load_db_errors(
-                        e,
-                        model=Compound,
-                        rec_dict=cmpd_recdict,
-                        rownum=rownum,
-                        fld_to_col=self.COMPOUND_FLD_TO_COL,
-                    )
+                    self.handle_load_db_errors(e, Compound, cmpd_recdict, rownum)
                 self.errored(Compound.__name__)
 
-            synonyms = self.parse_synonyms(self.getRowVal(row, self.SYNONYMS_HEADER))
+            synonyms = self.parse_synonyms(self.getRowVal(row, self.headers.SYNONYMS))
 
             for synonym in synonyms:
                 try:
@@ -208,12 +217,7 @@ class CompoundsLoader(TraceBaseLoader):
                         self.existed(CompoundSynonym.__name__)
                 except SynonymExistsAsMismatchedCompound as seamc:
                     self.aggregated_errors_object.buffer_error(seamc)
+                    self.errored(CompoundSynonym.__name__)
                 except Exception as e:
-                    self.handle_load_db_errors(
-                        e,
-                        model=CompoundSynonym,
-                        rec_dict=syn_recdict,
-                        rownum=rownum,
-                        fld_to_col=self.SYNONYM_FLD_TO_COL,
-                    )
+                    self.handle_load_db_errors(e, CompoundSynonym, syn_recdict, rownum)
                     self.errored(CompoundSynonym.__name__)

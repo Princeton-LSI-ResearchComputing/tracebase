@@ -87,6 +87,26 @@ class RequiredValueErrors(Exception):
         self.required_value_errors = required_value_errors
 
 
+class RequiredColumnValue(Exception):
+    def __init__(
+        self,
+        column,
+        rownum=None,
+        sheet=None,
+        file=None,
+        message=None,
+    ):
+        if not message:
+            loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum, column=column)
+            message = f"Missing value required in {loc}."
+        super().__init__(message)
+        self.column = column
+        self.rownum = rownum
+        self.sheet = sheet
+        self.file = file
+        self.loc = loc
+
+
 class RequiredHeadersError(HeaderError):
     def __init__(self, missing, message=None, sheet=None, file=None):
         if not message:

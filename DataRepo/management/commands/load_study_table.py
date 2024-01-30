@@ -35,6 +35,12 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
+            "--table-headers",
+            type=str,
+            help=f"YAML file defining headers to be used.",
+        )
+
+        parser.add_argument(
             "--dry-run",
             action="store_true",
             default=False,
@@ -56,10 +62,15 @@ class Command(BaseCommand):
         try:
             sheet = options["sheet"] if is_excel(options["study_table"]) else None
             study_table_df = read_from_file(options["study_table"], sheet=sheet)
+            custom_header_data = (
+                read_from_file(options["table_headers"]) if options["table_headers"]
+                else None
+            )
 
             loader = StudyTableLoader(
                 # Data
                 study_table_df=study_table_df,
+                headers=custom_header_data,
                 # Modes
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],
