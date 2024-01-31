@@ -31,10 +31,14 @@ class ProtocolsLoader(TraceBaseLoader):
         CATEGORY=False,
         DESCRIPTION=True,
     )
-    # No DefaultValues needed
+    DefaultValues = TableHeaders(
+        NAME=None,
+        CATEGORY=Protocol.ANIMAL_TREATMENT,
+        DESCRIPTION=None,
+    )
     RequiredValues = TableHeaders(
         NAME=True,
-        CATEGORY=True,  # Header not reqd, bec. can be defaulted
+        CATEGORY=True,  # Required by the model field, but effectively not reqd, bec. it's defaulted
         DESCRIPTION=False,
     )
     ColumnTypes = {
@@ -51,33 +55,44 @@ class ProtocolsLoader(TraceBaseLoader):
         },
     }
 
-    def __init__(
-        self,
-        protocols,
-        headers=None,
-        defaults=None,
-        dry_run=True,
-        defer_rollback=False,
-        sheet=None,
-        file=None,
-    ):
-        # Data
-        self.protocols = protocols
+    def __init__(self, *args, **kwargs):
+        """Constructor.
 
-        super().__init__(
-            protocols,
-            headers=headers,
-            defaults=defaults,
-            dry_run=dry_run,
-            defer_rollback=defer_rollback,
-            sheet=sheet,
-            file=file,
-            models=[Protocol],
-        )
+        Args:
+            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
+            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
+            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
+            dry_run (Optional[boolean]) [False]: Dry run mode.
+            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
+                HANDLE THE ROLLBACK.
+            sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            file (Optional[str]) [None]: File name (for error reporting).
 
-    @TraceBaseLoader.loader
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+
+        kwargs["models"] = [Protocol]
+        super().__init__(*args, **kwargs)
+
     def load_data(self):
-        for index, row in self.protocols.iterrows():
+        """Loads the tissue table from the dataframe.
+
+        Args:
+            None
+
+        Raises:
+            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
+                method)
+
+        Returns:
+            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
+                method)
+        """
+        for index, row in self.df.iterrows():
             self.set_row_index(index)
 
             try:

@@ -36,31 +36,44 @@ class TissuesLoader(TraceBaseLoader):
         },
     }
 
-    def __init__(
-        self,
-        tissues,
-        headers=None,
-        dry_run=True,
-        defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
-        sheet=None,
-        file=None,
-    ):
-        # Data
-        self.tissues = tissues
+    def __init__(self, *args, **kwargs):
+        """Constructor.
 
-        super().__init__(
-            tissues,
-            headers=headers,
-            dry_run=dry_run,
-            defer_rollback=defer_rollback,
-            sheet=sheet,
-            file=file,
-            models=[Tissue],
-        )
+        Args:
+            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
+            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
+            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
+            dry_run (Optional[boolean]) [False]: Dry run mode.
+            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
+                HANDLE THE ROLLBACK.
+            sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            file (Optional[str]) [None]: File name (for error reporting).
 
-    @TraceBaseLoader.loader
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+
+        kwargs["models"] = [Tissue]
+        super().__init__(*args, **kwargs)
+
     def load_data(self):
-        for index, row in self.tissues.iterrows():
+        """Loads the tissue table from the dataframe.
+
+        Args:
+            None
+
+        Raises:
+            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
+                method)
+
+        Returns:
+            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
+                method)
+        """
+        for index, row in self.df.iterrows():
             self.set_row_index(index)
 
             if index in self.get_skip_row_indexes():

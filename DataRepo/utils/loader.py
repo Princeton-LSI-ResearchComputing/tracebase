@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import re
 from collections import defaultdict
 from typing import Optional
@@ -8,6 +9,7 @@ from django.db.models import Q
 
 from DataRepo.models.utilities import (
     get_enumerated_fields,
+    get_model_by_name,
     get_unique_constraint_fields,
     get_unique_fields,
 )
@@ -29,19 +31,74 @@ from DataRepo.utils.exceptions import (
 from DataRepo.utils.file_utils import get_column_dupes, get_one_column_dupes
 
 
-class TraceBaseLoader:
-    # The following must be initialized in the derived class.  See TissuesLoader for a concrete example.
-    TableHeaders = None  # namedtuple spec
-    DefaultHeaders = None  # namedtuple of strings
-    RequiredHeaders = None  # namedtuple of booleans
-    RequiredValues = None  # namedtuple of booleans
-    DefaultValues = None  # namedtuple
-    ColumnTypes = None  # dict of types
-    UniqueColumnConstraints = None  # list of lists of header keys (e.g. the values in TableHeaders)
-    FieldToHeaderKey = None  # dict of model dicts of field names and header keys
+class TraceBaseLoader(ABC):
+    """Class to be used as a superclass for defining a (derived) loader class used to load a (sheet of) an input file.
 
-    # FieldToHeader is populated automatically
-    FieldToHeader = None
+    Class Attributes:
+        TableHeaders (namedtuple): Defines the header keys.
+        DefaultHeaders (TableHeaders of strings): Default header names by header key.
+        RequiredHeaders (TableHeaders of booleans): Whether a file column is required to be present in the input file,
+            indexed by header key.
+        RequiredValues (TableHeaders of booleans): Whether a value on a row in a file column is required to be present
+            in the input file, indexed by header key.
+        UniqueColumnConstraints (list of lists of strings): Sets of unique column name combinations defining what values
+            must be unique in the file.
+        FieldToHeaderKey (dict): Header keys by field name.
+        ColumnTypes (Optional[dict]): Column value types by header key.
+        DefaultValues (Optional[dict]): Column default values by header key.  Auto-filled.
+
+    Instance Attributes:
+        headers (TableHeaders of strings): Customized header names by header key.
+        defaults (TableHeaders of objects): Customized default values by header key.
+        all_headers (list of strings): Customized header names.
+        reqd_headers (TableHeaders of booleans): Required header booleans.
+        FieldToHeader (dict of dicts of strings): Header names by model and field.
+        unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
+        models (list of Models): List of model classes.
+        dry_run (boolean) [False]: Dry Run mode.
+        defer_rollback (boolean) [False]: Defer rollback mode.
+        sheet (str): Name of excel sheet to be loaded.
+        file (str): Name of file to be loaded.
+    """
+
+    # Abstract required class attributes
+    # Must be initialized in the derived class.
+    # See TissuesLoader for a concrete example.
+    @property
+    @abstractmethod
+    def TableHeaders(self):  # namedtuple spec
+        pass
+
+    @property
+    @abstractmethod
+    def DefaultHeaders(self):  # namedtuple of strings
+        pass
+
+    @property
+    @abstractmethod
+    def RequiredHeaders(self):  # namedtuple of booleans
+        pass
+
+    @property
+    @abstractmethod
+    def RequiredValues(self):  # namedtuple of booleans
+        pass
+
+    @property
+    @abstractmethod
+    def UniqueColumnConstraints(self):  # list of lists of header keys (e.g. the values in TableHeaders)
+        pass
+
+    @property
+    @abstractmethod
+    def FieldToHeaderKey(self):  # dict of model dicts of field names and header keys
+        pass
+
+    # DefaultValues is populated automatically (with Nones)
+    DefaultValues = None  # namedtuple
+
+    # ColumnTypes is optional unless read_from_file needs a dtype argument
+    ColumnTypes = None  # dict of types by header key (converted to by-header-name in get_column_types)
 
     def __init__(
         self,
@@ -49,11 +106,17 @@ class TraceBaseLoader:
         headers=None,
         defaults=None,
         dry_run=False,
-        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
+        defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
         sheet=None,
         file=None,
         models=None,
     ):
+        # Check class attribute validity
+        self.check_class_attributes()
+
+        # Apply the loader decorator to the load_data method in the derived class
+        self.apply_loader_wrapper()
+
         # File data
         self.df = df
 
@@ -72,8 +135,7 @@ class TraceBaseLoader:
         self.sheet = sheet
 
         # Metadata
-        self.initialize_metadata(headers, defaults)
-        self.models = models
+        self.initialize_metadata(headers, defaults, models)
 
         # Load stats
         self.record_counts = defaultdict(lambda: defaultdict(int))
@@ -83,12 +145,58 @@ class TraceBaseLoader:
                 self.record_counts[mdl.__name__]["existed"] = 0
                 self.record_counts[mdl.__name__]["errored"] = 0
 
+    def apply_loader_wrapper(self):
+        """This applies a decorator to the derived class's load_data method.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        # Apply the _loader decorator to the load_data method in the derived class
+        decorated_derived_class_method = self._loader(getattr(self, "load_data"))
+        # Get the binding for the decorated method
+        bound = decorated_derived_class_method.__get__(self)
+        # Apply the binding to the handle method in the object
+        setattr(self, "load_data", bound)
+
     def set_row_index(self, index):
+        """Sets row_index and rownum instance attributes.
+
+        Args:
+            index (int)
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
         self.row_index = index
         self.rownum = index + 2
 
     @classmethod
     def get_headers(cls, custom_header_data=None):
+        """Returns file headers.
+
+        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
+        check is only otherwise called during object instantiation.
+
+        Args:
+            custom_header_data (dict): Header names by header key.  This is expected to be obtained from the parsing of
+                a yaml file.  The dict may contain a subset of header keys.  Missing header keys will fall back to the
+                defaults defined in the class.
+
+        Raises:
+            ValueError if a header key is not in cls.DefaultHeaders
+
+        Returns:
+            headers (namedtuple of TableHeaders)
+        """
         if type(custom_header_data) != dict:
             raise TypeError(
                 f"Invalid argument: [custom_header_data] dict required, {type(custom_header_data)} supplied."
@@ -112,7 +220,21 @@ class TraceBaseLoader:
 
     @classmethod
     def get_pretty_default_headers(cls):
-        """Generate a list of header strings, with appended asterisks if required, and a message about the asterisks."""
+        """Generate a list of header strings, with appended asterisks if required, and a message about the asterisks.
+
+        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
+        check is only otherwise called during object instantiation.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            pretty_headers (list of string)
+            msg (str)
+        """
         cls.check_class_attributes()
 
         msg = "(* = Required)"
@@ -128,7 +250,20 @@ class TraceBaseLoader:
 
     @classmethod
     def get_header_keys(cls):
-        """Generate a list of header keys."""
+        """Generate a list of header keys.
+
+        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
+        check is only otherwise called during object instantiation.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            keys (list of strings)
+        """
         cls.check_class_attributes()
 
         keys = []
@@ -139,6 +274,21 @@ class TraceBaseLoader:
 
     @classmethod
     def get_defaults(cls, custom_default_data=None):
+        """Returns file headers.
+
+        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
+        check is only otherwise called during object instantiation.
+
+        Args:
+            custom_default_data (dict): Default values by header key.  The dict may contain a subset of header keys.
+                Missing header keys will fall back to the defaults defined in the class.
+
+        Raises:
+            ValueError if a header key is not in cls.DefaultValues
+
+        Returns:
+            headers (Optional[namedtuple of TableHeaders])
+        """
         if type(custom_default_data) != dict:
             raise TypeError(
                 f"Invalid argument: [custom_default_data] dict required, {type(custom_default_data)} supplied."
@@ -162,42 +312,55 @@ class TraceBaseLoader:
 
     @classmethod
     def check_class_attributes(cls):
+        """Checks that the class and instance attributes are properly defined and initialize optional ones.
+
+        Checks the type of:
+            DefaultHeaders (class attribute, namedtuple of TableHeaders of strings)
+            RequiredHeaders (class attribute, namedtuple of TableHeaders of booleans)
+            RequiredValues (class attribute, namedtuple of TableHeaders of booleans)
+            UniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
+            FieldToHeaderKey (class attribute, dict): Header keys by field name
+            ColumnTypes (class attribute, Optional[dict]): Column value types by header key
+            DefaultValues (class attribute, Optional[dict]): Column default values by header key
+
+        Fills in default None values for header keys in DefaultValues.
+
+        Args:
+            None
+
+        Raises:
+            AggregatedErrors
+                ValueError
+                TypeError
+
+        Returns:
+            Nothing
+        """
         # Error check the derived class for required attributes
-        undefs = []
         typeerrs = []
 
-        if cls.DefaultHeaders is None:
-            undefs.append(f"{cls.__name__}.DefaultHeaders (namedtuple of strings)")
-        elif not cls.isnamedtuple(cls.DefaultHeaders):
+        if not cls.isnamedtuple(cls.DefaultHeaders):
             typeerrs.append(
                 f"attribute [{cls.__name__}.DefaultHeaders] namedtuple required, {type(cls.DefaultHeaders)} set"
             )
 
-        if cls.RequiredHeaders is None:
-            undefs.append(f"{cls.__name__}.RequiredHeaders (namedtuple of booleans)")
-        elif not cls.isnamedtuple(cls.DefaultHeaders):
+        if not cls.isnamedtuple(cls.DefaultHeaders):
             typeerrs.append(
                 f"attribute [{cls.__name__}.RequiredHeaders] namedtuple required, {type(cls.RequiredHeaders)} set"
             )
 
-        if cls.RequiredValues is None:
-            undefs.append(f"{cls.__name__}.RequiredValues (namedtuple of booleans)")
-        elif not cls.isnamedtuple(cls.RequiredValues):
+        if not cls.isnamedtuple(cls.RequiredValues):
             typeerrs.append(
                 f"attribute [{cls.__name__}.RequiredValues] namedtuple required, {type(cls.RequiredValues)} set"
             )
 
-        if cls.UniqueColumnConstraints is None:
-            undefs.append(f"{cls.__name__}.UniqueColumnConstraints (list of lists of strings)")
-        elif type(cls.UniqueColumnConstraints) != list:
+        if type(cls.UniqueColumnConstraints) != list:
             typeerrs.append(
                 f"attribute [{cls.__name__}.UniqueColumnConstraints] list required, "
                 f"{type(cls.UniqueColumnConstraints)} set"
             )
 
-        if cls.FieldToHeaderKey is None:
-            undefs.append(f"{cls.__name__}.FieldToHeaderKey (dict of model dicts of field/header pairs)")
-        elif type(cls.FieldToHeaderKey) != dict:
+        if type(cls.FieldToHeaderKey) != dict:
             typeerrs.append(
                 f"attribute [{cls.__name__}.FieldToHeaderKey] dict required, {type(cls.FieldToHeaderKey)} set"
             )
@@ -218,28 +381,60 @@ class TraceBaseLoader:
                 f"attribute [{cls.__name__}.DefaultValues] dict required, {type(cls.DefaultValues)} set"
             )
 
-        if not hasattr(cls, "load_data"):
-            undefs.append(f"{cls.__name__}.load_data (function)")
-        elif type(cls.DefaultValues) != dict:
-            typeerrs.append(
-                f"attribute [{cls.__name__}.load_data] function required, {type(cls.load_data)} set"
-            )
-
         # Immediately raise programming related errors
-        nlt = "\n\t"
-        if len(undefs) > 0:
-            raise ValueError(f"Required attributes missing:\n{nlt.join(undefs)}")
-        elif len(typeerrs) > 0:
-            raise TypeError(f"Invalid attributes:\n{nlt.join(typeerrs)}")
+        if len(typeerrs) > 0:
+            aes = AggregatedErrors()
+            nlt = "\n\t"
+            aes.buffer_error(TypeError(f"Invalid attributes:\n\t{nlt.join(typeerrs)}"))
+            if aes.should_raise():
+                raise aes
 
-    def initialize_metadata(self, headers=None, defaults=None):
-        self.check_class_attributes()
+    @abstractmethod
+    def load_data(self):
+        """Derived classes must implement a load_data method that does the work of the load.
+
+        Args:
+            None
+
+        Raises:
+            TBD by the derived class
+
+        Returns:
+            Nothing
+        """
+        pass
+
+    def initialize_metadata(self, headers=None, defaults=None, models=None):
+        """Initializes metadata.
+
+        Metadata initialized:
+            headers (TableHeaders namedtuple of strings): Customized header names by header key.
+            defaults (TableHeaders namedtuple of objects): Customized default values by header key.
+            all_headers (list of strings): Customized header names.
+            reqd_headers (TableHeaders namedtuple of booleans): Required header booleans.
+            FieldToHeader (dict of dicts of strings): Header names by model and field.
+            unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
+            models (list of Models): List of model classes.
+
+        Args:
+            headers (TableHeaders namedtuple of strings): Customized header names by header key.
+            defaults (TableHeaders namedtuple of objects): Customized default values by header key.
+            models (list of Models): List of model classes.
+
+        Raises:
+            AggregatedErrors
+                TypeError
+
+        Returns:
+            Nothing
+        """
+        typeerrs = []
 
         if headers is None:
             self.headers = self.DefaultHeaders
         elif not self.isnamedtuple(headers):
             # Immediately raise programming related errors
-            raise TypeError(f"Invalid headers. namedtuple required, {type(headers)} supplied")
+            typeerrs.append(f"Invalid headers. namedtuple required, {type(headers)} supplied")
         else:
             self.headers = headers
 
@@ -247,9 +442,34 @@ class TraceBaseLoader:
             self.defaults = self.DefaultValues
         elif not self.isnamedtuple(defaults):
             # Immediately raise programming related errors
-            raise TypeError(f"Invalid defaults. namedtuple required, {type(defaults)} supplied")
+            typeerrs.append(f"Invalid defaults. namedtuple required, {type(defaults)} supplied")
         else:
             self.defaults = defaults
+
+        self.models = models
+        if models is None or len(models) == 0:
+            # Raise programming-related errors immediately
+            typeerrs.append("models is required to have at least 1 Model class")
+        else:
+            mdlerrs = []
+            for mdl in models:
+                try:
+                    get_model_by_name(mdl.__name__)
+                except Exception as e:
+                    mdlerrs.append(f"{type(e).__name__}: {str(e)}")
+            if len(mdlerrs) > 0:
+                nltt = "\n\t\t"
+                typeerrs.append(
+                    "models must all be valid/accessible TraceBase models, but the following errors were encountered:\n"
+                    f"\t\t{nltt.join(mdlerrs)}"
+                )
+
+        if len(typeerrs) > 0:
+            nlt = "\n\t"
+            msg = f"Invalid arguments:\n\t{nlt.join(typeerrs)}"
+            self.aggregated_errors_object.buffer_error(TypeError(msg))
+            if self.aggregated_errors_object.should_raise():
+                raise self.aggregated_errors_object
 
         # Create a list of all header string values from a namedtuple of header key/value pairs
         self.all_headers = list(self.headers._asdict().values())
@@ -286,7 +506,19 @@ class TraceBaseLoader:
 
     @staticmethod
     def isnamedtuple(obj) -> bool:
-        # https://stackoverflow.com/a/62692640/2057516
+        """Determined if obj is a namedtuple.
+
+        Based on: https://stackoverflow.com/a/62692640/2057516
+
+        Args:
+            obj (object): Any object.
+
+        Raises:
+            Nothing
+
+        Returns:
+            boolean
+        """
         return (
             isinstance(obj, tuple) and
             hasattr(obj, '_asdict') and
@@ -295,25 +527,51 @@ class TraceBaseLoader:
 
     @classmethod
     def get_column_types(cls, headers=None):
-        """
+        """Returns a dict of column types by header name (not header key).
+
         This class method is used to obtain a dtypes dict to be able to supply to read_from_file.  You can supply it
         "headers", which is a namedtuple that can be obtained from cls.get_headers.
+
+        Args:
+            headers (TableHeaders namedtuple of strings): Customized header names by header key.
+
+        Raises:
+            TypeError
+
+        Returns:
+            dtypes (dict): Types by header name
         """
-        cls.check_class_attributes()
+        if cls.ColumnTypes is None:
+            return None
+
         if headers is None:
             headers = cls.DefaultHeaders
         elif not cls.isnamedtuple(headers):
             # Immediately raise programming related errors
             raise TypeError(f"Invalid headers. namedtuple required, {type(headers)} supplied")
-        if cls.ColumnTypes is None:
-            return None
+
         dtypes = {}
         for key in cls.ColumnTypes.keys():
             hdr = getattr(headers, key)
             dtypes[hdr] = getattr(cls.ColumnTypes, key)
+
         return dtypes
 
     def check_headers(self):
+        """Error-checks the headers in the dataframe.
+
+        Args:
+            None
+
+        Raises:
+            RequiredHeadersError
+
+        Exceptions buffered:
+            UnknownHeadersError
+
+        Returns:
+            Nothing
+        """
         if self.all_headers is not None:
             unknown_headers = []
             for file_header in self.df.columns:
@@ -338,12 +596,18 @@ class TraceBaseLoader:
                 )
 
     def check_unique_constraints(self):
-        """Check in-file unique constraints
+        """Check file column unique constraints.
 
         Handling unique constraints by catching IntegrityErrors lacks context.  Did the load encounter pre-existing data
         or was the data in the file not unique?  There's no way to tell the user from catching the IntegrityError where
         the duplicate is.  Handling the unique constraints at the file level allows the user to tell where all the
         duplicate values are.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
 
         Exceptions Buffered:
             DuplicateValues
@@ -370,6 +634,18 @@ class TraceBaseLoader:
     def add_skip_row_index(
         self, index: Optional[int] = None, index_list: Optional[list] = None
     ):
+        """Adds indexes to skip_row_indexes.
+
+        Args:
+            index (int): Row index.  Mutually exclusive with index_list.  Required is index_list is None.
+            index_list (list of ints)L Row indexes.  Mutually exclusive with index.  Required is index is None.
+
+        Raises:
+            ValueError
+
+        Returns:
+            Nothing
+        """
         if index is None and index_list is None:
             # Raise programming errors (data errors are buffered)
             raise ValueError("Either an index or index_list argument is required.")
@@ -381,9 +657,35 @@ class TraceBaseLoader:
                     self.skip_row_indexes.append(idx)
 
     def get_skip_row_indexes(self):
+        """Returns skip_row_indexes.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
         return self.skip_row_indexes
 
     def getRowVal(self, row, header):
+        """Returns value from the row (presumably from df) and column (identified by header).
+
+        Converts empty strings and "nan"s to None.  Strips leading/trailing spaces.
+
+        Args:
+            row (row of a dataframe): Row of data.
+            header (str): Column header name.
+
+        Raises:
+            ValueError
+            RequiredColumnValue
+
+        Returns:
+            val (object): Data from the row at the column (header)
+        """
         none_vals = ["", "nan"]
         val = None
 
@@ -417,7 +719,27 @@ class TraceBaseLoader:
         return val
 
     @staticmethod
-    def loader(fn):
+    def _loader(fn):
+        """load_data method decorator that handles atomic transactions, running modes, exceptions, and load stats.
+
+        Args:
+            fn (function)
+
+        Raises:
+            DryRun
+            AggregatedErrors
+
+        Returns:
+            load_wrapper (function)
+                Args:
+                    None
+
+                Raises:
+                    TBD by derived class
+
+                Returns:
+                    record_counts (dict): Model record counts by model and load status (created, existed, and errored)
+        """
         def load_wrapper(self, *args, **kwargs):
             with transaction.atomic():
                 try:
@@ -476,7 +798,22 @@ class TraceBaseLoader:
 
         return load_wrapper
 
-    def get_model_name(self, model_name):
+    def _get_model_name(self, model_name):
+        """Returns the model name registered to the class (or as supplied).
+
+        If model_name is supplied, it returns that model name.  If not supplied, and models is of length 1, it returns
+        that one model.  The purpose of this method is so that simple 1-model loaders do not need to supply the model
+        name to the created, existed, and errored methods.
+
+        Args:
+            model_name (str)
+
+        Raises:
+            ValueError
+
+        Returns:
+            model_name (str)
+        """
         if model_name is not None:
             return model_name
         if self.models is not None and len(self.models) == 1:
@@ -487,19 +824,66 @@ class TraceBaseLoader:
         )
 
     def created(self, model_name: Optional[str] = None):
-        self.record_counts[self.get_model_name(model_name)]["created"] += 1
+        """Increments a created record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["created"] += 1
 
     def existed(self, model_name: Optional[str] = None):
-        self.record_counts[self.get_model_name(model_name)]["existed"] += 1
+        """Increments an existed(/skipped) record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["existed"] += 1
 
     def errored(self, model_name: Optional[str] = None):
-        self.record_counts[self.get_model_name(model_name)]["errored"] += 1
+        """Increments an errored record count for a model.
+
+        Note, this is not for all errors.  It only pertains to data-specific errors from the input file.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["errored"] += 1
 
     def get_load_stats(self):
+        """Returns the model record status counts.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            record_counts (dict of dicts of ints): Counts by model and status
+        """
         return self.record_counts
 
     def check_for_inconsistencies(self, rec, rec_dict):
-        """
+        """Generate ConflictingValueError exceptions based on differences between a supplied record and dict.
+
         This function compares the supplied database model record with the dict that was used to (get or) create a
         record that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this
         method inside an `except IntegrityError` block, e.g.:
@@ -518,6 +902,16 @@ class TraceBaseLoader:
                 Model.objects.create(**rec_dict)
         The purpose of this function is to provide helpful information in an exception (i.e. repackage an
         IntegrityError) so that users working to resolve the error can quickly identify and resolve the issue.
+
+        Args:
+            rec (Model object)
+            rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
+
+        Raises:
+            Nothing
+
+        Returns:
+            conflicting_value_errors (list of ConflictingValueErrors)
         """
         conflicting_value_errors = []
         differences = {}
@@ -562,7 +956,6 @@ class TraceBaseLoader:
             exception (Exception): Exception, e.g. obtained from `except` block
             model (Model): Model being loaded when the exception occurred
             rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
-            rownum (int): Line or row number of the file that was being loaded when the exception occurred.
             sheet (str): Name of the Excel sheet that was being loaded when the exception occurred.
             file (str): Name (path optional) of the file that was being loaded when the exception occurred.
 
