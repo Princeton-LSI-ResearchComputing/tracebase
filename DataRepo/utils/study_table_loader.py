@@ -58,11 +58,7 @@ class StudyTableLoader(TraceBaseLoader):
     @TraceBaseLoader.loader
     def load_study_table(self):
         for index, row in self.study_table_df.iterrows():
-            if index in self.get_skip_row_indexes():
-                continue
-
-            # Index starts at 0, headers are on row 1
-            rownum = index + 2
+            self.set_row_index(index)
 
             try:
                 rec_dict = {
@@ -70,6 +66,10 @@ class StudyTableLoader(TraceBaseLoader):
                     "name": self.getRowVal(row, self.headers.NAME),
                     "description": self.getRowVal(row, self.headers.DESCRIPTION),
                 }
+
+                # getRowVal can add to skip_row_indexes when there is a missing required value
+                if index in self.get_skip_row_indexes():
+                    continue
 
                 study_rec, created = Study.objects.get_or_create(**rec_dict)
 
@@ -81,5 +81,5 @@ class StudyTableLoader(TraceBaseLoader):
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Study, rec_dict, rownum)
+                self.handle_load_db_errors(e, Study, rec_dict)
                 self.errored()

@@ -19,6 +19,8 @@ from DataRepo.utils.exceptions import (
     DuplicateValueErrors,
     DuplicateValues,
     InfileDatabaseError,
+    RequiredColumnValue,
+    RequiredColumnValues,
     RequiredHeadersError,
     RequiredValueError,
     RequiredValueErrors,
@@ -80,6 +82,10 @@ class TraceBaseLoader:
                 self.record_counts[mdl.__name__]["created"] = 0
                 self.record_counts[mdl.__name__]["existed"] = 0
                 self.record_counts[mdl.__name__]["errored"] = 0
+
+    def set_row_index(self, index):
+        self.row_index = index
+        self.rownum = index + 2
 
     @classmethod
     def get_headers(cls, custom_header_data=None):
@@ -210,6 +216,13 @@ class TraceBaseLoader:
         elif type(cls.DefaultValues) != dict:
             typeerrs.append(
                 f"attribute [{cls.__name__}.DefaultValues] dict required, {type(cls.DefaultValues)} set"
+            )
+
+        if not hasattr(cls, "load_data"):
+            undefs.append(f"{cls.__name__}.load_data (function)")
+        elif type(cls.DefaultValues) != dict:
+            typeerrs.append(
+                f"attribute [{cls.__name__}.load_data] function required, {type(cls.load_data)} set"
             )
 
         # Immediately raise programming related errors
@@ -370,7 +383,7 @@ class TraceBaseLoader:
     def get_skip_row_indexes(self):
         return self.skip_row_indexes
 
-    def getRowVal(self, row, header, rowidx=None):
+    def getRowVal(self, row, header):
         none_vals = ["", "nan"]
         val = None
 
@@ -391,12 +404,14 @@ class TraceBaseLoader:
             if header in list(self.defaults._asdict().keys()):
                 val = getattr(self.defaults, header)
             elif header in self.reqd_values:
-                self.add_skip_row_index(rowidx)
+                self.add_skip_row_index(self.row_index)
+                # This raise was added to force the developer to not continue the loop. It's handled/caught in
+                # handle_load_db_errors.
                 raise RequiredColumnValue(
                     column=header,
                     sheet=self.sheet,
                     file=self.file,
-                    rownum=rowidx + 2,
+                    rownum=self.rownum,
                 )
 
         return val
@@ -434,7 +449,14 @@ class TraceBaseLoader:
                         DuplicateValueErrors(dupe_errs)
                     )
 
-                # TODO: Add a summarize exception extraction (like above) for RequiredColumnValue errors #################################
+                # Summarize any DuplicateValues reported
+                rcvs = self.aggregated_errors_object.get_exception_type(
+                    RequiredColumnValue, remove=True
+                )
+                if len(rcvs) > 0:
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredColumnValues(rcvs)
+                    )
 
                 if (
                     self.aggregated_errors_object.should_raise()
@@ -476,7 +498,7 @@ class TraceBaseLoader:
     def get_load_stats(self):
         return self.record_counts
 
-    def check_for_inconsistencies(self, rec, rec_dict, rownum=None):
+    def check_for_inconsistencies(self, rec, rec_dict):
         """
         This function compares the supplied database model record with the dict that was used to (get or) create a
         record that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this
@@ -512,7 +534,7 @@ class TraceBaseLoader:
                     rec,
                     differences,
                     rec_dict=rec_dict,
-                    rownum=rownum,
+                    rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.file,
                 )
@@ -524,7 +546,6 @@ class TraceBaseLoader:
         exception,
         model,
         rec_dict,
-        rownum=None,
         handle_all=True,
     ):
         """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
@@ -554,6 +575,8 @@ class TraceBaseLoader:
         Returns:
             boolean indicating whether an error was handled(/buffered).
         """
+        rownum = self.rownum
+
         if self.aggregated_errors_object is None and (
             self.required_value_errors is None or self.conflicting_value_errors is None
         ):
@@ -602,9 +625,7 @@ class TraceBaseLoader:
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
                         rec = qs.first()
-                        errs = self.check_for_inconsistencies(
-                            rec, rec_dict, rownum=rownum
-                        )
+                        errs = self.check_for_inconsistencies(rec, rec_dict)
                         if len(errs) > 0:
                             if self.conflicting_value_errors is not None:
                                 self.conflicting_value_errors.extend(errs)
@@ -671,7 +692,9 @@ class TraceBaseLoader:
                             # ignoring a duplicate)
                             return True
 
-        # TODO: Add a catch of RequiredColumnValue errors ##############################################################################
+        elif isinstance(exception, RequiredColumnValue):
+            # This "catch" was added to force the developer to not continue the loop if they failed to call this method
+            self.aggregated_errors_object.buffer_error(exception)
 
         if handle_all and self.aggregated_errors_object is not None:
             self.aggregated_errors_object.buffer_error(exc)

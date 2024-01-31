@@ -107,6 +107,22 @@ class RequiredColumnValue(Exception):
         self.loc = loc
 
 
+class RequiredColumnValues(Exception):
+    def __init__(self, required_column_values):
+        rcv_dict = defaultdict(lambda: defaultdict(list))
+        for rcv in required_column_values:
+            loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
+            col = rcv.column
+            rcv_dict[loc][col].append(rcv.rownum)
+        message = "Required column values missing on the indicated rows:\n"
+        for loc in rcv_dict.keys():
+            message += f"\t{loc}"
+            for col in rcv_dict[loc].keys():
+                message += f"Column: [{col}] on rows: {rcv_dict[loc][col]}"
+        super().__init__(message)
+        self.required_column_values = required_column_values
+
+
 class RequiredHeadersError(HeaderError):
     def __init__(self, missing, message=None, sheet=None, file=None):
         if not message:

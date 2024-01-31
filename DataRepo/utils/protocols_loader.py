@@ -31,11 +31,7 @@ class ProtocolsLoader(TraceBaseLoader):
         CATEGORY=False,
         DESCRIPTION=True,
     )
-    DefaultValues = TableHeaders(
-        NAME=None,
-        CATEGORY=Protocol.ANIMAL_TREATMENT,
-        DESCRIPTION=None,
-    )
+    # No DefaultValues needed
     RequiredValues = TableHeaders(
         NAME=True,
         CATEGORY=True,  # Header not reqd, bec. can be defaulted
@@ -80,13 +76,9 @@ class ProtocolsLoader(TraceBaseLoader):
         )
 
     @TraceBaseLoader.loader
-    def load_protocol_data(self):
+    def load_data(self):
         for index, row in self.protocols.iterrows():
-            if index in self.get_skip_row_indexes():
-                continue
-
-            # Index starts at 0, headers are on row 1
-            rownum = index + 2
+            self.set_row_index(index)
 
             try:
                 rec_dict = {
@@ -94,6 +86,10 @@ class ProtocolsLoader(TraceBaseLoader):
                     "category": self.getRowVal(row, self.headers.CATEGORY),
                     "description": self.getRowVal(row, self.headers.DESCRIPTION),
                 }
+
+                # getRowVal can add to skip_row_indexes when there is a missing required value
+                if index in self.get_skip_row_indexes():
+                    continue
 
                 # Try and get the protocol
                 rec, created = Protocol.objects.get_or_create(**rec_dict)
@@ -107,5 +103,5 @@ class ProtocolsLoader(TraceBaseLoader):
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Protocol, rec_dict, rownum)
+                self.handle_load_db_errors(e, Protocol, rec_dict)
                 self.errored()

@@ -86,13 +86,14 @@ class CompoundsLoader(TraceBaseLoader):
         self.check_for_cross_column_name_duplicates()
 
         for index, row in self.compounds_df.iterrows():
+            self.set_row_index(index)
+
             # Don't attempt load of rows where there are cross-references between compound names and synonyms or
             # missing required values
             if index in self.get_skip_row_indexes():
                 continue
 
-            # Index starts at 0, headers are on row 1
-            rownum = index + 2
+            self.set_row_index(index)
 
             try:
                 cmpd_recdict = {
@@ -100,6 +101,10 @@ class CompoundsLoader(TraceBaseLoader):
                     "formula": self.getRowVal(row, self.headers.FORMULA),
                     "hmdb_id": self.getRowVal(row, self.headers.HMDB_ID),
                 }
+
+                # getRowVal can add to skip_row_indexes when there is a missing required value
+                if index in self.get_skip_row_indexes():
+                    continue
 
                 cmpd_rec, cmpd_created = Compound.objects.get_or_create(**cmpd_recdict)
 
@@ -124,10 +129,14 @@ class CompoundsLoader(TraceBaseLoader):
                         )
                     )
                 else:
-                    self.handle_load_db_errors(e, Compound, cmpd_recdict, rownum)
+                    self.handle_load_db_errors(e, Compound, cmpd_recdict)
                 self.errored(Compound.__name__)
 
             synonyms = self.parse_synonyms(self.getRowVal(row, self.headers.SYNONYMS))
+
+            # getRowVal can add to skip_row_indexes when there is a missing required value
+            if index in self.get_skip_row_indexes():
+                continue
 
             for synonym in synonyms:
                 try:

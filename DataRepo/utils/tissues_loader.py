@@ -59,19 +59,22 @@ class TissuesLoader(TraceBaseLoader):
         )
 
     @TraceBaseLoader.loader
-    def load_tissue_data(self):
+    def load_data(self):
         for index, row in self.tissues.iterrows():
+            self.set_row_index(index)
+
             if index in self.get_skip_row_indexes():
                 continue
-
-            # Index starts at 0, headers are on row 1
-            rownum = index + 2
 
             try:
                 rec_dict = {
                     "name": self.getRowVal(row, self.headers.NAME),
                     "description": self.getRowVal(row, self.headers.DESCRIPTION),
                 }
+
+                # getRowVal can add to skip_row_indexes when there is a missing required value
+                if index in self.get_skip_row_indexes():
+                    continue
 
                 tissue, created = Tissue.objects.get_or_create(**rec_dict)
 
@@ -83,5 +86,5 @@ class TissuesLoader(TraceBaseLoader):
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Tissue, rec_dict, rownum)
+                self.handle_load_db_errors(e, Tissue, rec_dict)
                 self.errored()
