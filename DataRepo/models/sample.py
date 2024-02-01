@@ -48,12 +48,9 @@ class Sample(MaintainedModel, HierCachedModel):
         help_text="This field indicates whether this sample is a serum sample.",
     )
 
-    """
-    researchers have advised that samples might have a time_collected up to a
-    day prior-to and a week after infusion
-    """
+    # researchers have advised that samples might have a time_collected up to a day prior-to and 90 days after infusion
     MINIMUM_VALID_TIME_COLLECTED = timedelta(days=-1)
-    MAXIMUM_VALID_TIME_COLLECTED = timedelta(weeks=1)
+    MAXIMUM_VALID_TIME_COLLECTED = timedelta(days=90)
     time_collected = models.DurationField(
         null=True,
         blank=True,
