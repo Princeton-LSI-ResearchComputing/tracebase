@@ -45,6 +45,4 @@ class Command(LoadFromTableCommand):
         else:
             headers = self.get_headers()
 
-        # LoadTableCommand uses the loader to track stats per model
-        self.init_loader(headers=headers)
-        self.load_data()
+        self.load_data(headers=headers)

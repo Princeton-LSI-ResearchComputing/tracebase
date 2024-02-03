@@ -92,13 +92,12 @@ class ProtocolsLoader(TraceBaseLoader):
                 method)
         """
         for index, row in self.df.iterrows():
-            self.set_row_index(index)
             rec_dict = None
 
             try:
-                name = self.getRowVal(row, self.headers.NAME)
-                category = self.getRowVal(row, self.headers.CATEGORY)
-                description = self.getRowVal(row, self.headers.DESCRIPTION)
+                name = self.get_row_val(row, self.headers.NAME)
+                category = self.get_row_val(row, self.headers.CATEGORY)
+                description = self.get_row_val(row, self.headers.DESCRIPTION)
 
                 rec_dict = {
                     "name": name,
@@ -106,8 +105,8 @@ class ProtocolsLoader(TraceBaseLoader):
                     "description": description,
                 }
 
-                # getRowVal can add to skip_row_indexes when there is a missing required value
-                if index in self.get_skip_row_indexes():
+                # get_row_val can add to skip_row_indexes when there is a missing required value
+                if self.is_skip_row():
                     continue
 
                 # Try and get the protocol

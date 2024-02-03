@@ -28,5 +28,4 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        self.init_loader()
         self.load_data()

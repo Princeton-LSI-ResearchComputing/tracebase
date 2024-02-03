@@ -74,20 +74,19 @@ class TissuesLoader(TraceBaseLoader):
                 method)
         """
         for index, row in self.df.iterrows():
-            self.set_row_index(index)
             rec_dict = None
 
             try:
-                name = self.getRowVal(row, self.headers.NAME)
-                description = self.getRowVal(row, self.headers.DESCRIPTION)
+                name = self.get_row_val(row, self.headers.NAME)
+                description = self.get_row_val(row, self.headers.DESCRIPTION)
 
                 rec_dict = {
                     "name": name,
                     "description": description,
                 }
 
-                # getRowVal can add to skip_row_indexes when there is a missing required value
-                if index in self.get_skip_row_indexes():
+                # get_row_val can add to skip_row_indexes when there is a missing required value
+                if self.is_skip_row():
                     continue
 
                 tissue, created = Tissue.objects.get_or_create(**rec_dict)

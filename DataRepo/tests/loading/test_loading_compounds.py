@@ -139,19 +139,17 @@ class CompoundLoadingTests(TracebaseTestCase):
         compound in the load file.  So instead, this test will assure that new synonyms added to a correctly defined
         compound is associated with a previously loaded compound, to add NEW valid synonyms.
         """
-        datadict = CompoundsLoader.header_key_to_name(
-            {
-                CompoundsLoader.NAME_KEY: ["fructose-1-6-bisphosphate"],
-                CompoundsLoader.FORMULA_KEY: ["C6H14O12P2"],
-                CompoundsLoader.HMDBID_KEY: ["HMDB0001058"],
-                CompoundsLoader.SYNONYMS_KEY: [
-                    (
-                        "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
-                        "Fructose 1,6-diphosphate;Diphosphofructose;new valid synonym"
-                    )
-                ],
-            }
-        )
+        datadict = {
+            "Compound": ["fructose-1-6-bisphosphate"],
+            "Formula": ["C6H14O12P2"],
+            "HMDB ID": ["HMDB0001058"],
+            "Synonyms": [
+                (
+                    "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
+                    "Fructose 1,6-diphosphate;Diphosphofructose;new valid synonym"
+                )
+            ],
+        }
         # create dataframe from dictionary
         cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
         cl.load_data()

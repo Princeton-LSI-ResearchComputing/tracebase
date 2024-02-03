@@ -103,22 +103,16 @@ class CompoundsLoader(TraceBaseLoader):
         self.check_for_cross_column_name_duplicates()
 
         for index, row in self.df.iterrows():
-            self.set_row_index(index)
-
-            # Don't attempt load of rows where there are cross-references between compound names and synonyms or
-            # missing required values
-            if index in self.get_skip_row_indexes():
+            if self.is_skip_row():
                 continue
-
-            self.set_row_index(index)
 
             cmpd_recdict = None
             syn_recdict = None
 
             try:
-                name = self.getRowVal(row, self.headers.NAME)
-                formula = self.getRowVal(row, self.headers.FORMULA)
-                hmdb_id = self.getRowVal(row, self.headers.HMDB_ID)
+                name = self.get_row_val(row, self.headers.NAME)
+                formula = self.get_row_val(row, self.headers.FORMULA)
+                hmdb_id = self.get_row_val(row, self.headers.HMDB_ID)
 
                 cmpd_recdict = {
                     "name": name,
@@ -126,8 +120,8 @@ class CompoundsLoader(TraceBaseLoader):
                     "hmdb_id": hmdb_id,
                 }
 
-                # getRowVal can add to skip_row_indexes when there is a missing required value
-                if index in self.get_skip_row_indexes():
+                # get_row_val can add to skip_row_indexes when there is a missing required value
+                if self.is_skip_row():
                     continue
 
                 cmpd_rec, cmpd_created = Compound.objects.get_or_create(**cmpd_recdict)
@@ -158,9 +152,9 @@ class CompoundsLoader(TraceBaseLoader):
                 self.errored(Compound.__name__)
                 continue
 
-            synonyms = self.parse_synonyms(self.getRowVal(row, self.headers.SYNONYMS))
+            synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
 
-            # getRowVal can add to skip_row_indexes when there is a missing required value
+            # get_row_val can add to skip_row_indexes when there is a missing required value
             if index in self.get_skip_row_indexes():
                 continue
 
@@ -228,10 +222,10 @@ class CompoundsLoader(TraceBaseLoader):
         syn_dict = defaultdict(list)
         for index, row in self.df.iterrows():
             # Explicitly not skipping rows with duplicates
-            name = self.getRowVal(row, self.headers.NAME)
+            name = self.get_row_val(row, self.headers.NAME)
             namesyn_dict[name]["name"].append(index)
 
-            synonyms = self.parse_synonyms(self.getRowVal(row, self.headers.SYNONYMS))
+            synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
             for synonym in synonyms:
                 # A synonym that is exactly the same as its compound name is skipped in the load
                 if synonym != name:

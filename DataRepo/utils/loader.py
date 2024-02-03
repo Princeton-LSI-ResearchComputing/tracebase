@@ -152,8 +152,6 @@ class TraceBaseLoader(ABC):
         # Error tracking
         self.skip_row_indexes = []
         self.aggregated_errors_object = AggregatedErrors()
-        self.conflicting_value_errors = []
-        self.required_value_errors = []
 
         # For error reporting
         self.file = file
@@ -203,6 +201,27 @@ class TraceBaseLoader(ABC):
         self.row_index = index
         self.rownum = index + 2
 
+    def is_skip_row(self, index=None):
+        """Determines if the current row is one that should be skipped.
+
+        Various methods will append the current row index to self.skip_row_indexes, such as when errors occur on that
+        row.  The current row is set whenever get_row_val is called.  Call this method after all of the row values have
+        been obtained to see if loading of the data from this row should be skipped (in order to avoid unnecessary
+        errors).  The ultimate goal here is to suppress repeating errors.  You can use add_skip_row_index to manually
+        add row indexes that should be skipped.
+
+        Args:
+            index (Optional[int]): A manually supplied row index
+
+        Raises:
+            Nothing
+
+        Returns:
+            boolean: Whether the row should be skipped or not
+        """
+        check_index = index if index is not None else self.row_index
+        return check_index in self.get_skip_row_indexes()
+
     @classmethod
     def get_headers(cls, custom_header_data=None):
         """Returns file headers.
@@ -226,6 +245,7 @@ class TraceBaseLoader(ABC):
         extras = []
         if custom_header_data is not None:
             if type(custom_header_data) != dict:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise AggregatedErrors().buffer_error(
                     TypeError(
                         f"Invalid argument: [custom_header_data] dict required, {type(custom_header_data)} supplied."
@@ -244,6 +264,7 @@ class TraceBaseLoader(ABC):
 
             # Raise programming errors immediately
             if len(extras) > 0:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise AggregatedErrors().buffer_error(
                     ValueError(f"Unexpected header keys: {extras}.")
                 )
@@ -343,6 +364,7 @@ class TraceBaseLoader(ABC):
 
             # Raise programming errors immediately
             if len(extras) > 0:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise AggregatedErrors().buffer_error(
                     ValueError(f"Unexpected default keys: {extras}.")
                 )
@@ -379,6 +401,7 @@ class TraceBaseLoader(ABC):
         Returns:
             Nothing
         """
+        # We create an aggregated errors object in class methods because we may not have an instance with one
         aes = AggregatedErrors()
         # Error check the derived class for required attributes
         typeerrs = []
@@ -483,13 +506,13 @@ class TraceBaseLoader(ABC):
 
         if headers is None:
             self.headers = self.DefaultHeaders
-        elif not self.isnamedtuple(headers):
+        elif self.isnamedtuple(headers):
+            self.headers = headers
+        else:
             # Immediately raise programming related errors
             typeerrs.append(
                 f"Invalid headers. namedtuple required, {type(headers)} supplied"
             )
-        else:
-            self.headers = headers
 
         if defaults is None:
             self.defaults = self.DefaultValues
@@ -501,7 +524,7 @@ class TraceBaseLoader(ABC):
                 f"Invalid defaults. namedtuple required, {type(defaults)} supplied"
             )
 
-        # Now create a defaults by header name dict (for use by getRowVal)
+        # Now create a defaults by header name dict (for use by get_row_val)
         self.defaults_by_header = self.get_defaults_dict_by_header_name()
 
         if self.Models is None or len(self.Models) == 0:
@@ -530,6 +553,9 @@ class TraceBaseLoader(ABC):
 
         # Create a list of all header string values from a namedtuple of header key/value pairs
         self.all_headers = list(self.headers._asdict().values())
+
+        # Error-check the headers
+        self.check_header_names()
 
         # Create a list of the required header string values from a namedtuple of header key/value pairs
         self.reqd_headers = [
@@ -611,6 +637,7 @@ class TraceBaseLoader(ABC):
             headers = cls.DefaultHeaders
         elif not cls.isnamedtuple(headers):
             # Immediately raise programming related errors
+            # We create an aggregated errors object in class methods because we may not have an instance with one
             raise AggregatedErrors().buffer_error(
                 TypeError(
                     f"Invalid headers. namedtuple required, {type(headers)} supplied"
@@ -648,6 +675,7 @@ class TraceBaseLoader(ABC):
             headers = cls.get_headers()
         elif not cls.isnamedtuple(headers):
             # Immediately raise programming related errors
+            # We create an aggregated errors object in class methods because we may not have an instance with one
             raise AggregatedErrors().buffer_error(
                 TypeError(
                     f"Invalid headers. namedtuple required, {type(headers)} supplied"
@@ -661,7 +689,36 @@ class TraceBaseLoader(ABC):
 
         return outdict
 
-    def check_headers(self):
+    def check_header_names(self):
+        """Error-checks the header (custom) names set in self.all_headers.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Exceptions buffered:
+            ValueError
+
+        Returns:
+            Nothing
+        """
+        dupe_dict = {}
+        name_dict = defaultdict(int)
+        for hn in self.all_headers:
+            name_dict[hn] += 1
+        for hn in name_dict.keys():
+            if name_dict[hn] > 1:
+                dupe_dict[hn] = name_dict[hn]
+        if len(dupe_dict.keys()) > 0:
+            nlt = "\n\t"
+            deets = "\n\t".join([f"{k} occurs {v} times" for k, v in dupe_dict.items()])
+            self.aggregated_errors_object.buffer_error(
+                ValueError(f"Duplicate Header names encountered:{nlt}{deets}")
+            )
+
+    def check_dataframe_headers(self):
         """Error-checks the headers in the dataframe.
 
         Args:
@@ -776,7 +833,7 @@ class TraceBaseLoader(ABC):
         """
         return self.skip_row_indexes
 
-    def getRowVal(self, row, header, strip=True):
+    def get_row_val(self, row, header, strip=True):
         """Returns value from the row (presumably from df) and column (identified by header).
 
         Converts empty strings and "nan"s to None.  Strips leading/trailing spaces.
@@ -793,6 +850,10 @@ class TraceBaseLoader(ABC):
         Returns:
             val (object): Data from the row at the column (header)
         """
+        # A pandas dataframe row object contains that row's index as an integer in the .name attribute
+        # By setting the current row index in get_row_val, the derived class never needs to explicitly do it
+        self.set_row_index(row.name)
+
         none_vals = ["", "nan"]
         val = None
 
@@ -828,6 +889,32 @@ class TraceBaseLoader(ABC):
 
         return val
 
+    def tableheaders_to_dict_by_header_name(self, intuple):
+        """Convert the intuple (a TableHeaders namedtuple) into a dict by (custom) header name.
+
+        Args:
+            intuple (TableHeaders namedtuple): objects by header key
+
+        Raises:
+            TypeError
+
+        Returns:
+            defdict (Optional[dict of objects]): objects by header name
+        """
+        self.check_class_attributes()
+        if not self.isnamedtuple(intuple):
+            self.aggregated_errors_object.buffer_error(
+                TypeError(
+                    f"Invalid intuple argument: namedtuple required, {type(intuple)} supplied"
+                )
+            )
+            return None
+        outdict = {}
+        for hk, hn in self.headers._asdict().items():
+            v = getattr(intuple, hk)
+            outdict[hn] = v
+        return outdict
+
     def get_defaults_dict_by_header_name(self):
         """Convert the defaults namedtuple instance attribute (by header key) into a dict by (custom) header name.
 
@@ -840,12 +927,7 @@ class TraceBaseLoader(ABC):
         Returns:
             defdict (dict of objects): default values by header name
         """
-        self.check_class_attributes()
-        defdict = {}
-        for hk, hn in self.headers._asdict().items():
-            dv = getattr(self.defaults, hk)
-            defdict[hn] = dv
-        return defdict
+        return self.tableheaders_to_dict_by_header_name(self.defaults)
 
     @staticmethod
     def _loader(fn):
@@ -873,7 +955,7 @@ class TraceBaseLoader(ABC):
         def load_wrapper(self):
             with transaction.atomic():
                 try:
-                    self.check_headers()
+                    self.check_dataframe_headers()
                     self.check_unique_constraints()
 
                     fn()
@@ -884,28 +966,36 @@ class TraceBaseLoader(ABC):
                     # Add this unanticipated error to the other buffered errors
                     self.aggregated_errors_object.buffer_error(e)
 
-                if len(self.conflicting_value_errors) > 0:
+                # Summarize any ConflictingValueError errors reported
+                cves = self.aggregated_errors_object.remove_exception_type(
+                    ConflictingValueError
+                )
+                if len(cves) > 0:
                     self.aggregated_errors_object.buffer_error(
-                        ConflictingValueErrors(self.conflicting_value_errors)
+                        ConflictingValueErrors(cves)
                     )
 
-                if len(self.required_value_errors) > 0:
+                # Summarize any RequiredValueError errors reported
+                rves = self.aggregated_errors_object.remove_exception_type(
+                    RequiredValueError
+                )
+                if len(rves) > 0:
                     self.aggregated_errors_object.buffer_error(
-                        RequiredValueErrors(self.required_value_errors)
+                        RequiredValueErrors(rves)
                     )
 
                 # Summarize any DuplicateValues errors reported
-                dupe_errs = self.aggregated_errors_object.get_exception_type(
-                    DuplicateValues, remove=True
+                dvs = self.aggregated_errors_object.remove_exception_type(
+                    DuplicateValues
                 )
-                if len(dupe_errs) > 0:
+                if len(dvs) > 0:
                     self.aggregated_errors_object.buffer_error(
-                        DuplicateValueErrors(dupe_errs)
+                        DuplicateValueErrors(dvs)
                     )
 
                 # Summarize any RequiredColumnValue errors reported
-                rcvs = self.aggregated_errors_object.get_exception_type(
-                    RequiredColumnValue, remove=True
+                rcvs = self.aggregated_errors_object.remove_exception_type(
+                    RequiredColumnValue
                 )
                 if len(rcvs) > 0:
                     self.aggregated_errors_object.buffer_error(
@@ -951,7 +1041,7 @@ class TraceBaseLoader(ABC):
         if self.Models is not None and len(self.Models) == 1:
             return self.Models[0].__name__
         # If we get here, it's a programming error, so raise immediately
-        raise AggregatedErrors().buffer_error(
+        raise self.aggregated_errors_object.buffer_error(
             ValueError(
                 "A model name is required when there is not exactly 1 model initialized in the constructor."
             )
@@ -1031,28 +1121,30 @@ class TraceBaseLoader(ABC):
                 rec, created = Model.objects.get_or_create(**rec_dict)
             except IntegrityError as ie:
                 rec = Model.objects.get(name="unique value")
-                conflicts.extend(check_for_inconsistencies(rec, rec_dict))
-        (It can also be called pre-emptively by querying for only a record's unique field and supply the record and a
+                self.check_for_inconsistencies(rec, rec_dict)
+
+        It can also be called pre-emptively by querying for only a record's unique field and supply the record and a
         dict for record creation.  E.g.:
             rec_dict = {field values for record creation}
             rec = Model.objects.get(name="unique value")
-            new_conflicts = check_for_inconsistencies(rec, rec_dict)
-            if len(new_conflicts) == 0:
-                Model.objects.create(**rec_dict)
+            self.check_for_inconsistencies(rec, rec_dict)
+
         The purpose of this function is to provide helpful information in an exception (i.e. repackage an
         IntegrityError) so that users working to resolve the error can quickly identify and resolve the issue.
+
+        It buffers any issues it encounters as a ConflictingValueError inside self.aggregated_errors_object.
 
         Args:
             rec (Model object)
             rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
 
-        Raises:
-            Nothing
+        Raises (or buffers):
+            ConflictingValueError
 
         Returns:
-            conflicting_value_errors (list of ConflictingValueErrors)
+            found_errors (boolean)
         """
-        conflicting_value_errors = []
+        found_errors = False
         differences = {}
         for field, new_value in rec_dict.items():
             orig_value = getattr(rec, field)
@@ -1062,7 +1154,8 @@ class TraceBaseLoader(ABC):
                     "new": new_value,
                 }
         if len(differences.keys()) > 0:
-            conflicting_value_errors.append(
+            found_errors = True
+            self.aggregated_errors_object.buffer_error(
                 ConflictingValueError(
                     rec,
                     differences,
@@ -1072,7 +1165,7 @@ class TraceBaseLoader(ABC):
                     file=self.file,
                 )
             )
-        return conflicting_value_errors
+        return found_errors
 
     def handle_load_db_errors(
         self,
@@ -1107,22 +1200,6 @@ class TraceBaseLoader(ABC):
         Returns:
             boolean indicating whether an error was handled(/buffered).
         """
-        if self.aggregated_errors_object is None and (
-            self.required_value_errors is None or self.conflicting_value_errors is None
-        ):
-            raise AggregatedErrors().buffer_error(
-                ValueError(
-                    "Either an AggregatedErrors object or both a required_value_errors and conflicting_value_errors "
-                    "list is required."
-                )
-            )
-        elif handle_all and self.aggregated_errors_object is None:
-            raise AggregatedErrors().buffer_error(
-                ValueError(
-                    "An AggregatedErrors object is required when handle_all is True."
-                )
-            )
-
         # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
         estr = str(exception)
         exc = InfileDatabaseError(
@@ -1159,15 +1236,9 @@ class TraceBaseLoader(ABC):
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
                         rec = qs.first()
-                        errs = self.check_for_inconsistencies(rec, rec_dict)
-                        if len(errs) > 0:
-                            if self.conflicting_value_errors is not None:
-                                self.conflicting_value_errors.extend(errs)
-                                return True
-                            elif self.aggregated_errors_object:
-                                for err in errs:
-                                    self.aggregated_errors_object.buffer_error(err)
-                                return True
+                        errs_found = self.check_for_inconsistencies(rec, rec_dict)
+                        if errs_found:
+                            return True
 
             elif "violates not-null constraint" in estr:
                 # Parse the field name out of the exception string
@@ -1182,57 +1253,52 @@ class TraceBaseLoader(ABC):
                         and colname in self.FieldToHeader[model.__name__].keys()
                     ):
                         colname = self.FieldToHeader[model.__name__][fldname]
-                    err = RequiredValueError(
-                        column=colname,
-                        rownum=self.rownum,
-                        model_name=model.__name__,
-                        field_name=fldname,
-                        sheet=self.sheet,
-                        file=self.file,
-                        rec_dict=rec_dict,
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredValueError(
+                            column=colname,
+                            rownum=self.rownum,
+                            model_name=model.__name__,
+                            field_name=fldname,
+                            sheet=self.sheet,
+                            file=self.file,
+                            rec_dict=rec_dict,
+                        )
                     )
-                    if self.required_value_errors is not None:
-                        self.required_value_errors.append(err)
-                        return True
-                    elif self.aggregated_errors_object:
-                        for err in errs:
-                            self.aggregated_errors_object.buffer_error(err)
-                        return True
+                    return True
 
         elif isinstance(exception, ValidationError):
             if "is not a valid choice" in estr:
                 choice_fields = get_enumerated_fields(model, fields=rec_dict.keys())
                 for choice_field in choice_fields:
                     if choice_field in estr and rec_dict[choice_field] is not None:
-                        if self.aggregated_errors_object is not None:
-                            # Only include error once
-                            if not self.aggregated_errors_object.exception_type_exists(
+                        # Only include error once
+                        if not self.aggregated_errors_object.exception_type_exists(
+                            InfileDatabaseError
+                        ):
+                            self.aggregated_errors_object.buffer_error(exc)
+                        else:
+                            # NOTE: This is not perfect.  There can be multiple field values with issues.  Repeated
+                            # calls to this function could potentially reference the same record and contain an
+                            # error about a different field.  We only buffer/raise one of them because the details
+                            # include the entire record and dict causing the issue(s).
+                            already_buffered = False
+                            ides = self.aggregated_errors_object.get_exception_type(
                                 InfileDatabaseError
-                            ):
+                            )
+                            for existing_exc in ides:
+                                if existing_exc.rec_dict != rec_dict:
+                                    already_buffered = True
+                            if not already_buffered:
                                 self.aggregated_errors_object.buffer_error(exc)
-                            else:
-                                # NOTE: This is not perfect.  There can be multiple field values with issues.  Repeated
-                                # calls to this function could potentially reference the same record and contain an
-                                # error about a different field.  We only buffer/raise one of them because the details
-                                # include the entire record and dict causing the issue(s).
-                                already_buffered = False
-                                ides = self.aggregated_errors_object.get_exception_type(
-                                    InfileDatabaseError
-                                )
-                                for existing_exc in ides:
-                                    if existing_exc.rec_dict != rec_dict:
-                                        already_buffered = True
-                                if not already_buffered:
-                                    self.aggregated_errors_object.buffer_error(exc)
-                            # Whether we buffered or not, the error was identified and handled (by either buffering or
-                            # ignoring a duplicate)
-                            return True
+                        # Whether we buffered or not, the error was identified and handled (by either buffering or
+                        # ignoring a duplicate)
+                        return True
 
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method
             self.aggregated_errors_object.buffer_error(exception)
 
-        if handle_all and self.aggregated_errors_object is not None:
+        if handle_all:
             if rec_dict is not None and len(rec_dict.keys()) > 0:
                 self.aggregated_errors_object.buffer_error(exc)
             else:

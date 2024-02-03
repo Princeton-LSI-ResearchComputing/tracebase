@@ -294,25 +294,7 @@ class LoadFromTableCommand(BaseCommand):
         """
         return self.options["defer_rollback"]
 
-    def load_data(self):
-        """Calls self.loader.load_data().
-
-        Note, self.loader must have been set inside the handle method of the derived class before calling this method.
-        See self.init_loader().
-
-        Args:
-            None
-
-        Raises:
-            Nothing
-
-        Returns:
-            Nothing
-        """
-        self.check_instance_attributes()
-        return self.loader.load_data()
-
-    def init_loader(
+    def load_data(
         self,
         df=None,
         headers=None,
@@ -323,7 +305,7 @@ class LoadFromTableCommand(BaseCommand):
         file=None,
         **kwargs,
     ):
-        """Sets self.loader to a loader_class object instance.
+        """Creates loader_class object in self.loader and calls self.loader.load_data().
 
         Args:
             df (pandas dataframe):
@@ -339,7 +321,7 @@ class LoadFromTableCommand(BaseCommand):
             Nothing
 
         Returns:
-            Nothing
+            The return of loader.load_data()
         """
         if df is None:
             df = self.get_dataframe()
@@ -374,6 +356,8 @@ class LoadFromTableCommand(BaseCommand):
             raise ProgrammingError(
                 f"{self.__module__}.{type(self).__name__}.loader_class is undefined."
             )
+
+        return self.loader.load_data()
 
     def check_class_attributes(self):
         """Checks that the class attributes are properly defined.
@@ -424,38 +408,6 @@ class LoadFromTableCommand(BaseCommand):
                 )
             if aes.should_raise():
                 raise aes
-
-    def check_instance_attributes(self):
-        """Checks that the instance attributes are properly defined.
-
-        Checks existence and type of:
-            loader (instance attribute, TraceBaseLoader object)
-
-        Args:
-            None
-
-        Raises:
-            AggregatedErrors
-                ProgrammingError
-
-        Returns:
-            Nothing
-        """
-        setuperrs = []
-        here = f"{type(self).__module__}.{type(self).__name__}"
-        if not hasattr(self, "loader"):
-            setuperrs.append(f"{here}.init_loader() has not been called.")
-        elif type(self.loader) != self.loader_class:
-            setuperrs.append(
-                f"member [{here}.loader] {self.loader_class.__name__} required, {type(self.loader)} set"
-            )
-        if len(setuperrs) > 0:
-            aes = AggregatedErrors()
-            nlt = "\n\t"
-            if len(setuperrs) > 0:
-                aes.buffer_error(
-                    ProgrammingError(f"Setup incomplete:\n\t{nlt.join(setuperrs)}")
-                )
 
     def report_status(self):
         """Prints load status per model.

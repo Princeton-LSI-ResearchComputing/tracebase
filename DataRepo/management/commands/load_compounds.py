@@ -52,8 +52,7 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        self.init_loader(
+        self.load_data(
             # Specific to this loader.  All other args are extracted from the command line automatically.
             synonym_separator=options["synonym_separator"],
         )
-        self.load_data()
