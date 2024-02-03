@@ -115,9 +115,9 @@ Set up the project's postgres database:
 
     python manage.py loaddata data_types data_formats lc_methods
     python manage.py load_compounds --compounds DataRepo/data/examples/compounds/consolidated_tracebase_compound_list.tsv
-    python manage.py load_study DataRepo/data/examples/tissues/loading.yaml
+    python manage.py load_tissues --tissues DataRepo/data/examples/tissues/tissues.tsv
     python manage.py load_animals_and_samples --sample-table-filename DataRepo/data/examples/obob_fasted/obob_samples_table.tsv --animal-table-filename DataRepo/data/examples/obob_fasted/obob_animals_table.tsv --table-headers DataRepo/data/examples/obob_fasted/sample_and_animal_tables_headers.yaml
-    python manage.py load_accucor_msruns --protocol Default --accucor-file DataRepo/data/examples/obob_fasted/obob_maven_6eaas_inf.xlsx --date 2021-04-29 --researcher "Anon" --new-researcher --sample-table-filename DataRepo/data/examples/obob_fasted/obob_samples_table.tsv
+    python manage.py load_accucor_msruns --lc-protocol-name "unknown" --instrument "unknown" --polarity "unknown" --accucor-file DataRepo/data/examples/obob_fasted/obob_maven_6eaas_inf.xlsx --date 2021-04-29 --researcher "Anon" --new-researcher
 
 ### Start TraceBase
 

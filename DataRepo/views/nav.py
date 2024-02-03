@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
     Compound,
     LCMethod,
     Protocol,
@@ -55,6 +56,19 @@ def home(request):
     )
 
     # second list
+    card_grid[1].append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(
+                ArchiveFile.objects.filter(
+                    data_type__code__exact="ms_peak_annotation"
+                ).count()
+            )
+            + " Peak Annotation Files",
+            "card_foot_url": reverse("archive_file_list"),
+        }
+    )
+
     comp_count = Compound.objects.all().count()
     tracer_count = (
         Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)

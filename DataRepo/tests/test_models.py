@@ -255,7 +255,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
         # test time_collected exceeding MAXIMUM_VALID_TIME_COLLECTED fails
         with self.assertRaises(ValidationError):
-            self.sample.time_collected = timedelta(minutes=11000)
+            self.sample.time_collected = timedelta(days=91)
             # validation errors are raised upon cleaning
             self.sample.full_clean()
         # test time_collected exceeding MINIMUM_VALID_TIME_COLLECTED fails
