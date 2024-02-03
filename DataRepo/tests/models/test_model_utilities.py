@@ -148,7 +148,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
     def test_check_for_inconsistencies(self):
         call_command(
             "load_study_table",
-            study_table="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+            infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         rec = Study.objects.first()
         rec_dict = {
@@ -175,7 +175,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         """
         call_command(
             "load_study_table",
-            study_table="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+            infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         conflicts = []
         rec_dict = {

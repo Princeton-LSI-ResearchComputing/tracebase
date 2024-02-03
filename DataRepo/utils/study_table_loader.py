@@ -5,6 +5,10 @@ from DataRepo.utils.loader import TraceBaseLoader
 
 
 class StudyTableLoader(TraceBaseLoader):
+    CODE_KEY = "CODE"
+    NAME_KEY = "NAME"
+    DESC_KEY = "DESCRIPTION"
+
     TableHeaders = namedtuple(
         "TableHeaders",
         [
@@ -24,14 +28,17 @@ class StudyTableLoader(TraceBaseLoader):
         DESCRIPTION=True,
     )
     RequiredValues = RequiredHeaders
-    UniqueColumnConstraints = [["CODE"]], ["NAME"]
+    # No DefaultValues needed
+    # No ColumnTypes needed
+    UniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
     FieldToHeaderKey = {
         "Study": {
-            "code": "CODE",
-            "name": "NAME",
-            "description": "DESCRIPTION",
+            "code": CODE_KEY,
+            "name": NAME_KEY,
+            "description": DESC_KEY,
         },
     }
+    Models = [Study]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -52,12 +59,10 @@ class StudyTableLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-
-        kwargs["models"] = [Study]
         super().__init__(*args, **kwargs)
 
     def load_data(self):
-        """Loads the tissue table from the dataframe.
+        """Loads the study table from the dataframe.
 
         Args:
             None
@@ -72,12 +77,17 @@ class StudyTableLoader(TraceBaseLoader):
         """
         for index, row in self.df.iterrows():
             self.set_row_index(index)
+            rec_dict = None
 
             try:
+                code = self.getRowVal(row, self.headers.CODE)
+                name = self.getRowVal(row, self.headers.NAME)
+                description = self.getRowVal(row, self.headers.DESCRIPTION)
+
                 rec_dict = {
-                    "code": self.getRowVal(row, self.headers.CODE),
-                    "name": self.getRowVal(row, self.headers.NAME),
-                    "description": self.getRowVal(row, self.headers.DESCRIPTION),
+                    "code": code,
+                    "name": name,
+                    "description": description,
                 }
 
                 # getRowVal can add to skip_row_indexes when there is a missing required value

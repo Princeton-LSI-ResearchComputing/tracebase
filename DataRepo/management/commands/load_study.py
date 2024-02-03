@@ -140,7 +140,7 @@ class Command(BaseCommand):
                 try:
                     call_command(
                         "load_compounds",
-                        compounds=compounds_file,
+                        infile=compounds_file,
                         defer_rollback=True,  # Until after we exit THIS atomic block
                         # Validate is not needed - it changes nothing
                     )
@@ -162,7 +162,7 @@ class Command(BaseCommand):
                 try:
                     call_command(
                         "load_protocols",
-                        protocols=protocols_file,
+                        infile=protocols_file,
                         verbosity=self.verbosity,
                         defer_rollback=True,  # Until after we exit THIS atomic block
                         # Validate is not needed - it changes nothing
@@ -185,7 +185,7 @@ class Command(BaseCommand):
                 try:
                     call_command(
                         "load_tissues",
-                        tissues=tissues_file,
+                        infile=tissues_file,
                         verbosity=self.verbosity,
                         defer_rollback=True,  # Until after we exit THIS atomic block
                         # Validate is not needed - it changes nothing
@@ -398,17 +398,19 @@ class Command(BaseCommand):
         if isinstance(exception, AggregatedErrors):
             # Consolidate related cross-file exceptions, like missing samples
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
-            missing_sample_exceptions = exception.get_exception_type(
-                MissingSamplesError
+            missing_sample_exceptions = exception.modify_exception_type(
+                MissingSamplesError, is_fatal=False, is_error=False
             )
             for missing_sample_exception in missing_sample_exceptions:
-                # Look through the sample names saved in the exception and add then to the master list
+                # Look through the sample names saved in the exception and add them to the master list
                 for sample in missing_sample_exception.samples:
                     self.missing_samples[sample].append(filename)
 
-            missing_tissue_exceptions = exception.get_exception_type(MissingTissues)
+            missing_tissue_exceptions = exception.modify_exception_type(
+                MissingTissues, is_fatal=False, is_error=False
+            )
             for missing_tissue_exception in missing_tissue_exceptions:
-                # Look through the sample names saved in the exception and add then to the master list
+                # Look through the sample names saved in the exception and add them to the master list
                 for tissue in missing_tissue_exception.tissues_dict.keys():
                     if tissue not in self.missing_tissues["tissues"].keys():
                         self.missing_tissues["tissues"][tissue] = defaultdict(list)
@@ -432,7 +434,9 @@ class Command(BaseCommand):
             #     },
             # }
             # This is the dict structure required by AllMissingCompounds's constructor.
-            missing_compound_exceptions = exception.get_exception_type(MissingCompounds)
+            missing_compound_exceptions = exception.modify_exception_type(
+                MissingCompounds, is_fatal=False, is_error=False
+            )
             for missing_compound_exception in missing_compound_exceptions:
                 for compound in missing_compound_exception.compounds_dict.keys():
                     self.missing_compounds[compound][

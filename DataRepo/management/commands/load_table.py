@@ -1,14 +1,11 @@
 import argparse
+from typing import Optional
 
 from django.core.management import BaseCommand
+from django.db.utils import ProgrammingError
 
+from DataRepo.utils import AggregatedErrors, DryRun, is_excel, read_from_file
 from DataRepo.utils.loader import TraceBaseLoader
-from DataRepo.utils import (
-    AggregatedErrors,
-    DryRun,
-    is_excel,
-    read_from_file,
-)
 
 
 class LoadFromTableCommand(BaseCommand):
@@ -34,17 +31,23 @@ class LoadFromTableCommand(BaseCommand):
         sheet_default (str): Default name of the excel sheet (though note that an option to define a custom name is
             provided).
     """
-    help = "Loads data from a file into the database."
-    loader_class = None
-    sheet_default = None
 
-    def __init__(self):
+    help = "Loads data from a file into the database."
+    loader_class: Optional[type[TraceBaseLoader]] = None
+    sheet_default: Optional[str] = None
+
+    def __init__(self, *args, **kwargs):
         """This init auto-applies a decorator to the derived class's handle method."""
         # Apply the handler decorator to the handle method in the derived class
         self.apply_handle_wrapper()
+        super().__init__(*args, **kwargs)
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.
+
+        See:
+
+        https://stackoverflow.com/questions/72666230/wrapping-derived-class-method-from-base-class
 
         Args:
             None
@@ -57,8 +60,13 @@ class LoadFromTableCommand(BaseCommand):
         """
         # Apply the handler decorator to the handle method in the derived class
         decorated_derived_class_method = self._handler(getattr(self, "handle"))
+
         # Get the binding for the decorated method
-        bound = decorated_derived_class_method.__get__(self)
+        # False positive from pylint
+        # pylint: disable=assignment-from-no-return
+        bound = decorated_derived_class_method.__get__(self, None)
+        # pylint: enable=assignment-from-no-return
+
         # Apply the binding to the handle method in the object
         setattr(self, "handle", bound)
 
@@ -97,7 +105,7 @@ class LoadFromTableCommand(BaseCommand):
         parser.add_argument(
             "--headers",
             type=str,
-            help=f"YAML file defining headers to be used.",
+            help="YAML file defining headers to be used.",
         )
 
         parser.add_argument(
@@ -137,7 +145,6 @@ class LoadFromTableCommand(BaseCommand):
             self.options = options
 
             try:
-
                 fn(self, *args, **options)
 
             except DryRun:
@@ -218,8 +225,7 @@ class LoadFromTableCommand(BaseCommand):
             headers (namedtuple of TraceBaseLoader.TableHeaders containing strings of header names)
         """
         header_data = (
-            read_from_file(self.options["headers"]) if self.options["headers"]
-            else None
+            read_from_file(self.options["headers"]) if self.options["headers"] else None
         )
         if header_data is None and custom_default_header_data is not None:
             header_data = custom_default_header_data
@@ -292,7 +298,7 @@ class LoadFromTableCommand(BaseCommand):
         """Calls self.loader.load_data().
 
         Note, self.loader must have been set inside the handle method of the derived class before calling this method.
-        See self.set_loader().
+        See self.init_loader().
 
         Args:
             None
@@ -303,14 +309,31 @@ class LoadFromTableCommand(BaseCommand):
         Returns:
             Nothing
         """
+        self.check_instance_attributes()
         return self.loader.load_data()
 
-    def set_loader(self, loader):
-        """Sets self.loader to the supplied loader.
+    def init_loader(
+        self,
+        df=None,
+        headers=None,
+        defaults=None,
+        dry_run=None,
+        defer_rollback=None,
+        sheet=None,
+        file=None,
+        **kwargs,
+    ):
+        """Sets self.loader to a loader_class object instance.
 
         Args:
-            loader (TraceBaseLoader): A derived class whose superclass is TraceBaseLoader and implements a load_data()
-                method.
+            df (pandas dataframe):
+            headers (TraceBaseLoader.TableHeaders): Custom header names by header key.
+            defaults (TraceBaseLoader.TableHeaders): Custom default values by header key.
+            dry_run (boolean): Dry Run mode.
+            defer_rollback (boolean): Defer rollback mode.   DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE ROLLBACK.
+            sheet (str): Name of the sheet to load (for error reporting only).
+            file (str): Name of the file to load (for error reporting only).
+            **kwargs (key/value pairs): Any custom args for the derived loader class, e.g. compound synonyms separator
 
         Raises:
             Nothing
@@ -318,15 +341,46 @@ class LoadFromTableCommand(BaseCommand):
         Returns:
             Nothing
         """
-        self.loader = loader
+        if df is None:
+            df = self.get_dataframe()
+        if headers is None:
+            headers = self.get_headers()
+        if defaults is None:
+            defaults = self.get_defaults()
+        if dry_run is None:
+            dry_run = self.get_dry_run()
+        if defer_rollback is None:
+            defer_rollback = self.get_defer_rollback()
+        if sheet is None:
+            sheet = self.get_sheet()
+        if file is None:
+            file = self.get_infile()
 
-    def check_attributes(self):
-        """Checks that the class and instance attributes are properly defined.
+        if self.loader_class is not None:
+            # False positive from pylint
+            # pylint: disable=not-callable
+            self.loader = self.loader_class(
+                df,
+                headers=headers,
+                defaults=defaults,
+                dry_run=dry_run,
+                defer_rollback=defer_rollback,
+                sheet=sheet,
+                file=file,
+                **kwargs,
+            )
+            # pylint: enable=not-callable
+        else:
+            raise ProgrammingError(
+                f"{self.__module__}.{type(self).__name__}.loader_class is undefined."
+            )
+
+    def check_class_attributes(self):
+        """Checks that the class attributes are properly defined.
 
         Checks existence and type of:
             loader_class (class attribute, TraceBaseLoader class)
             sheet_default (class attribute, str)
-            loader (instance attribute, TraceBaseLoader object)
 
         Args:
             None
@@ -341,25 +395,19 @@ class LoadFromTableCommand(BaseCommand):
         """
         undefs = []
         typeerrs = []
+        here = f"{type(self).__module__}.{type(self).__name__}"
         if self.loader_class is None:
-            undefs.append("loader_class")
+            undefs.append(f"{here}.loader_class")
         elif not issubclass(self.loader_class, TraceBaseLoader):
             typeerrs.append(
-                f"attribute [{self.__name__}.loader_class] TraceBaseLoader required, {type(self.loader_class)} set"
+                f"attribute [{here}.loader_class] TraceBaseLoader required, {type(self.loader_class)} set"
             )
 
         if self.sheet_default is None:
-            undefs.append("sheet_default")
+            undefs.append(f"{here}.sheet_default")
         elif type(self.sheet_default) != str:
             typeerrs.append(
-                f"attribute [{self.__name__}.sheet_default] str required, {type(self.sheet_default)} set"
-            )
-
-        if not hasattr(self, "loader"):
-            undefs.append(f"{type(self).__name__}.set_loader() has not been called.")
-        elif type(self.loader) != self.loader_class:
-            typeerrs.append(
-                f"member [{self.__name__}.loader] {self.loader_class.__name__} required, {type(self.loader)} set"
+                f"attribute [{here}.sheet_default] str required, {type(self.sheet_default)} set"
             )
 
         # Immediately raise programming related errors
@@ -367,12 +415,47 @@ class LoadFromTableCommand(BaseCommand):
             aes = AggregatedErrors()
             nlt = "\n\t"
             if len(undefs) > 0:
-                aes.buffer_error(ValueError(f"Required attributes missing:\n{nlt.join(undefs)}"))
-            elif len(typeerrs) > 0:
-                aes.buffer_error(TypeError(f"Invalid attributes:\n{nlt.join(typeerrs)}"))
+                aes.buffer_error(
+                    ValueError(f"Required attributes missing:\n\t{nlt.join(undefs)}")
+                )
+            if len(typeerrs) > 0:
+                aes.buffer_error(
+                    TypeError(f"Invalid attributes:\n\t{nlt.join(typeerrs)}")
+                )
             if aes.should_raise():
                 raise aes
 
+    def check_instance_attributes(self):
+        """Checks that the instance attributes are properly defined.
+
+        Checks existence and type of:
+            loader (instance attribute, TraceBaseLoader object)
+
+        Args:
+            None
+
+        Raises:
+            AggregatedErrors
+                ProgrammingError
+
+        Returns:
+            Nothing
+        """
+        setuperrs = []
+        here = f"{type(self).__module__}.{type(self).__name__}"
+        if not hasattr(self, "loader"):
+            setuperrs.append(f"{here}.init_loader() has not been called.")
+        elif type(self.loader) != self.loader_class:
+            setuperrs.append(
+                f"member [{here}.loader] {self.loader_class.__name__} required, {type(self.loader)} set"
+            )
+        if len(setuperrs) > 0:
+            aes = AggregatedErrors()
+            nlt = "\n\t"
+            if len(setuperrs) > 0:
+                aes.buffer_error(
+                    ProgrammingError(f"Setup incomplete:\n\t{nlt.join(setuperrs)}")
+                )
 
     def report_status(self):
         """Prints load status per model.
@@ -394,7 +477,7 @@ class LoadFromTableCommand(BaseCommand):
             msg = "Dry-run complete.  The following would occur during a real load:\n"
 
         load_stats = self.loader.get_load_stats()
-        for mdl in self.loader_class.models:
+        for mdl in self.loader_class.get_models():
             mdl_name = mdl.__name__
             if mdl_name in load_stats.keys():
                 msg += "%s records loaded: [%i], skipped: [%i], and errored: [%i]." % (

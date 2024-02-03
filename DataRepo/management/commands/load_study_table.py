@@ -7,7 +7,7 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a study table (e.g. study code, name, and description) into the database."
     loader_class = StudyTableLoader
-    default_sheet = "Study"
+    sheet_default = "Study"
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -20,7 +20,7 @@ class Command(LoadFromTableCommand):
             - Unique file constraints
 
         Args:
-            None
+            options (dict of strings): String values provided on the command line by option name.
 
         Raises:
             Nothing (See LoadFromTableCommand._handler for exceptions in the wrapper)
@@ -28,19 +28,5 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        self.set_loader(
-            StudyTableLoader(
-                # Data
-                self.get_dataframe(),
-                headers=self.get_headers(),
-                defaults=self.get_defaults(),
-                # Modes
-                dry_run=self.get_dry_run(),
-                defer_rollback=self.get_defer_rollback(),
-                # Used for error-reporting
-                sheet=self.get_sheet(),
-                file=self.get_infile(),
-            )
-        )
-
+        self.init_loader()
         self.load_data()

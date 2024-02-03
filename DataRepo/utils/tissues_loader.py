@@ -11,8 +11,8 @@ class TissuesLoader(TraceBaseLoader):
     TableHeaders = namedtuple(
         "TableHeaders",
         [
-            NAME_KEY,
-            DESC_KEY,
+            "NAME",
+            "DESCRIPTION",
         ],
     )
     DefaultHeaders = TableHeaders(
@@ -28,6 +28,7 @@ class TissuesLoader(TraceBaseLoader):
         NAME_KEY: str,
         DESC_KEY: str,
     }
+    # No DefaultValues needed
     UniqueColumnConstraints = [[NAME_KEY]]
     FieldToHeaderKey = {
         "Tissue": {
@@ -35,6 +36,7 @@ class TissuesLoader(TraceBaseLoader):
             "description": DESC_KEY,
         },
     }
+    Models = [Tissue]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -55,8 +57,6 @@ class TissuesLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-
-        kwargs["models"] = [Tissue]
         super().__init__(*args, **kwargs)
 
     def load_data(self):
@@ -75,14 +75,15 @@ class TissuesLoader(TraceBaseLoader):
         """
         for index, row in self.df.iterrows():
             self.set_row_index(index)
-
-            if index in self.get_skip_row_indexes():
-                continue
+            rec_dict = None
 
             try:
+                name = self.getRowVal(row, self.headers.NAME)
+                description = self.getRowVal(row, self.headers.DESCRIPTION)
+
                 rec_dict = {
-                    "name": self.getRowVal(row, self.headers.NAME),
-                    "description": self.getRowVal(row, self.headers.DESCRIPTION),
+                    "name": name,
+                    "description": description,
                 }
 
                 # getRowVal can add to skip_row_indexes when there is a missing required value

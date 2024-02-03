@@ -58,7 +58,7 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
+            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
@@ -678,7 +678,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
     @classmethod
@@ -725,7 +725,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
         # Files/inputs we will test

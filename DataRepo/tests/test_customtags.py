@@ -18,7 +18,7 @@ class CustomTagsTests(TracebaseTestCase):
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
         call_command(
             "load_samples",

@@ -42,7 +42,7 @@ class FormatsTests(TracebaseTestCase):
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
+            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",
@@ -1386,12 +1386,12 @@ class FormatsTests(TracebaseTestCase):
         # Make sure there are multiple tracers
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx",
+            infile="DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx",
         )
         call_command(
             "load_animals_and_samples",

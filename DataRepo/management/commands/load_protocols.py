@@ -1,5 +1,4 @@
 from DataRepo.management.commands.load_table import LoadFromTableCommand
-from DataRepo.models.protocol import Protocol
 from DataRepo.utils import ProtocolsLoader
 from DataRepo.utils.file_utils import is_excel
 
@@ -9,7 +8,7 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a protocol table into the database"
     loader_class = ProtocolsLoader
-    default_sheet = "Treatments"
+    sheet_default = "Treatments"
 
     # default XLXS template headers
     TREATMENTS_NAME_HEADER = "Animal Treatment"
@@ -26,7 +25,7 @@ class Command(LoadFromTableCommand):
             - Unique file constraints
 
         Args:
-            None
+            options (dict of strings): String values provided on the command line by option name.
 
         Raises:
             Nothing (See LoadFromTableCommand._handler for exceptions in the wrapper)
@@ -34,13 +33,12 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        # Different headers and defaults if an excel file is provided
+        # Different headers if an excel file is provided
         if is_excel(self.get_infile()):
             # An excel sheet is assumed to be for treatment protocols
             headers = self.get_headers(
                 custom_default_header_data={
                     ProtocolsLoader.NAME_KEY: self.TREATMENTS_NAME_HEADER,
-                    ProtocolsLoader.CAT_KEY: None,
                     ProtocolsLoader.DESC_KEY: self.TREATMENTS_DESC_HEADER,
                 }
             )
@@ -48,16 +46,5 @@ class Command(LoadFromTableCommand):
             headers = self.get_headers()
 
         # LoadTableCommand uses the loader to track stats per model
-        self.set_loader(
-            ProtocolsLoader(
-                self.get_dataframe(),
-                headers=headers,
-                defaults=self.get_defaults(),  # category default = animal_treatment
-                dry_run=self.get_dry_run(),
-                defer_rollback=self.get_defer_rollback(),
-                sheet=self.get_sheet(),
-                file=self.get_infile(),
-            )
-        )
-
+        self.init_loader(headers=headers)
         self.load_data()

@@ -7,7 +7,7 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a compound table into the database"
     loader_class = CompoundsLoader
-    default_sheet = "Compounds"
+    sheet_default = "Compounds"
 
     def add_arguments(self, parser):
         """Adds command line options.
@@ -44,7 +44,7 @@ class Command(LoadFromTableCommand):
             - Unique file constraints
 
         Args:
-            None
+            options (dict of strings): String values provided on the command line by option name.
 
         Raises:
             Nothing (See LoadFromTableCommand._handler for exceptions in the wrapper)
@@ -52,17 +52,8 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        self.set_loader(
-            CompoundsLoader(
-                self.get_dataframe(),
-                headers=self.get_headers(),
-                defaults=self.get_defaults(),
-                synonym_separator=options["synonym_separator"],
-                dry_run=self.get_dry_run(),
-                defer_rollback=self.get_defer_rollback(),
-                sheet=self.get_sheet(),
-                file=self.get_infile(),
-            )
+        self.init_loader(
+            # Specific to this loader.  All other args are extracted from the command line automatically.
+            synonym_separator=options["synonym_separator"],
         )
-
         self.load_data()

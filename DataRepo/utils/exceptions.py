@@ -97,7 +97,9 @@ class RequiredColumnValue(Exception):
         message=None,
     ):
         if not message:
-            loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum, column=column)
+            loc = generate_file_location_string(
+                sheet=sheet, file=file, rownum=rownum, column=column
+            )
             message = f"Missing value required in {loc}."
         super().__init__(message)
         self.column = column
@@ -113,12 +115,13 @@ class RequiredColumnValues(Exception):
         for rcv in required_column_values:
             loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
             col = rcv.column
-            rcv_dict[loc][col].append(rcv.rownum)
+            if rcv.rownum not in rcv_dict[loc][col]:
+                rcv_dict[loc][col].append(rcv.rownum)
         message = "Required column values missing on the indicated rows:\n"
         for loc in rcv_dict.keys():
-            message += f"\t{loc}"
+            message += f"\t{loc}\n"
             for col in rcv_dict[loc].keys():
-                message += f"Column: [{col}] on rows: {rcv_dict[loc][col]}"
+                message += f"\t\tColumn: [{col}] on rows: {rcv_dict[loc][col]}\n"
         super().__init__(message)
         self.required_column_values = required_column_values
 
@@ -784,12 +787,10 @@ class AggregatedErrors(Exception):
 
     def get_exception_type(self, exception_class, remove=False):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
-        is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
-        for consolidation.
+        This method is provided to retrieve exceptions (if they exist in the exceptions list) from this object and
+        return them.
 
-        If remove is true, the exceptions are removed from this object.  If it's false, the exception is changed to a
-        non-fatal warning (with the assumption that a separate exception will be created that is an error).
+        If remove is true, the exceptions are removed from this object.
         """
         matched_exceptions = []
         unmatched_exceptions = []
@@ -801,11 +802,10 @@ class AggregatedErrors(Exception):
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if type(exception) == exception_class:
-                if not remove:
+                if remove:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
                     exception.is_fatal = False
-                    num_warnings += 1
                 matched_exceptions.append(exception)
             else:
                 if exception.is_error:
@@ -818,16 +818,62 @@ class AggregatedErrors(Exception):
                     is_error = True
                 unmatched_exceptions.append(exception)
 
-        self.num_errors = num_errors
-        self.num_warnings = num_warnings
-        self.is_fatal = is_fatal
-        self.is_error = is_error
-
         if remove:
+            self.num_errors = num_errors
+            self.num_warnings = num_warnings
+            self.is_fatal = is_fatal
+            self.is_error = is_error
+
             # Reinitialize this object
             self.exceptions = unmatched_exceptions
             if not self.custom_message:
                 super().__init__(self.get_default_message())
+
+        # Return removed exceptions
+        return matched_exceptions
+
+    def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
+        """
+        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
+        for consolidation.
+
+        If is_fatal is not None, the exception's is_fatal is changed to the supplied boolean value.
+        If is_error is not None, the exception's is_error is changed to the supplied boolean value.
+
+        It is assumed that a separate exception will be created that is an error.
+        """
+        matched_exceptions = []
+        num_errors = 0
+        num_warnings = 0
+        master_is_fatal = False
+        master_is_error = False
+
+        # Look for exceptions to remove and recompute new object values
+        for exception in self.exceptions:
+            if type(exception) == exception_class:
+                if is_error is not None:
+                    exception.is_error = is_error
+                if is_fatal is not None:
+                    exception.is_fatal = is_fatal
+                matched_exceptions.append(exception)
+            if exception.is_error:
+                num_errors += 1
+            else:
+                num_warnings += 1
+            if exception.is_fatal:
+                master_is_fatal = True
+            if exception.is_error:
+                master_is_error = True
+
+        self.num_errors = num_errors
+        self.num_warnings = num_warnings
+        self.is_fatal = master_is_fatal
+        self.is_error = master_is_error
+
+        # Reinitialize this object
+        if not self.custom_message:
+            super().__init__(self.get_default_message())
 
         # Return removed exceptions
         return matched_exceptions
@@ -950,7 +996,9 @@ class AggregatedErrors(Exception):
     def buffer_exception(self, exception, is_error=True, is_fatal=True):
         """
         Don't raise this exception. Save it to report later, after more errors have been accumulated and reported as a
-        group.  Returns the buffered_exception containing a buffered_tb_str and a boolean named is_error.
+        group.  The buffered_exception has a buffered_tb_str and a boolean named is_error added to it.  Returns self so
+        that an AggregatedErrors exception can be instantiated, an exception can be added to it, and the return can be
+        raised all on 1 line.
 
         is_fatal tells the AggregatedErrors object that after buffering is complete, the AggregatedErrors exception
         should be raised and execution should stop.  By default, errors will cause AggregatedErrors to be raised and
@@ -996,13 +1044,13 @@ class AggregatedErrors(Exception):
         if not self.custom_message:
             super().__init__(self.get_default_message())
 
-        return buffered_exception
+        return self
 
     def buffer_error(self, exception, is_fatal=True):
-        self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
+        return self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
 
     def buffer_warning(self, exception, is_fatal=False):
-        self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
+        return self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
 
     def print_all_buffered_exceptions(self):
         for exc in self.exceptions:
@@ -1790,13 +1838,14 @@ class MzxmlConflictErrors(Exception):
 
 class InfileDatabaseError(Exception):
     def __init__(self, exception, rec_dict, rownum=None, sheet=None, file=None):
-        nltab = "\n\t"
-        deets = [f"{k}: {v}" for k, v in rec_dict.items()]
+        if rec_dict is not None:
+            nltab = "\n\t"
+            deets = [f"{k}: {v}" for k, v in rec_dict.items()]
         loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
-        message = (
-            f"{type(exception).__name__} in {loc}, creating record:\n\t{nltab.join(deets)}\n"
-            f"{str(exception)}"
-        )
+        message = f"{type(exception).__name__} in {loc}"
+        if rec_dict is not None:
+            message += f", creating record:\n\t{nltab.join(deets)}"
+        message += f"\n\t{type(exception).__name__}: {str(exception)}"
         super().__init__(message)
         self.exception = exception
         self.rownum = rownum

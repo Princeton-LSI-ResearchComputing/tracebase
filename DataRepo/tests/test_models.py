@@ -303,15 +303,15 @@ class DataLoadingTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/tests/small_obob2/protocols.tsv",
+            infile="DataRepo/data/tests/small_obob2/protocols.tsv",
         )
         call_command(
             "load_tissues",
-            tissues="DataRepo/data/tests/small_obob2/tissues.tsv",
+            infile="DataRepo/data/tests/small_obob2/tissues.tsv",
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/small_obob2/compounds.tsv",
+            infile="DataRepo/data/tests/small_obob2/compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 20
 
@@ -801,15 +801,15 @@ class PropertyTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/small_obob2/compounds.tsv",
+            infile="DataRepo/data/tests/small_obob2/compounds.tsv",
         )
         call_command(
             "load_tissues",
-            tissues="DataRepo/data/tests/small_obob2/tissues.tsv",
+            infile="DataRepo/data/tests/small_obob2/tissues.tsv",
         )
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/tests/small_obob2/protocols.tsv",
+            infile="DataRepo/data/tests/small_obob2/protocols.tsv",
         )
 
         call_command(
@@ -1748,11 +1748,11 @@ class TracerRateTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_tissues",
-            tissues="DataRepo/data/tests/small_obob2/tissues.tsv",
+            infile="DataRepo/data/tests/small_obob2/tissues.tsv",
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/small_obob2/compounds.tsv",
+            infile="DataRepo/data/tests/small_obob2/compounds.tsv",
         )
 
         call_command(
@@ -2383,7 +2383,14 @@ class StudyLoadingTests(TracebaseTestCase):
         # added
         self.assertEqual(4, len(lsc.load_statuses.statuses.keys()))
         # 3 errors (AllMissingSamples, AllMissingCompounds, and AllMissingTissues)
-        self.assertEqual(3, lsc.load_statuses.num_errors)
+        self.assertEqual(
+            3,
+            lsc.load_statuses.num_errors,
+            msg=(
+                "There should be 3 errors (6 exceptions total). Exceptions: "
+                f"{', '.join([type(e).__name__ for e in aes.exceptions])}"
+            ),
+        )
         # The file had 3 errors that should have been changed to warnings (MissingSamplesError, MissingCompounds, and
         # MissingTissues)
         self.assertEqual(3, lsc.load_statuses.num_warnings)
@@ -2744,7 +2751,7 @@ class AnimalLoadingTests(TracebaseTestCase):
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
         super().setUpTestData()

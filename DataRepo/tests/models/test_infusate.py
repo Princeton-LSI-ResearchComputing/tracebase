@@ -60,7 +60,7 @@ class InfusateTests(TracebaseTestCase):
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         super().setUpTestData()

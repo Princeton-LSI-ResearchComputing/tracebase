@@ -47,7 +47,7 @@ class FCircTests(TracebaseTestCase):
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
+            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",

@@ -17,6 +17,11 @@ class CompoundsLoader(TraceBaseLoader):
     Load the Compound and CompoundSynonym tables
     """
 
+    NAME_KEY = "NAME"
+    HMDBID_KEY = "HMDB_ID"
+    FORMULA_KEY = "FORMULA"
+    SYNONYMS_KEY = "SYNONYMS"
+
     TableHeaders = namedtuple(
         "TableHeaders",
         [
@@ -41,19 +46,20 @@ class CompoundsLoader(TraceBaseLoader):
     RequiredValues = RequiredHeaders
     # No DefaultValues needed
     # No ColumnTypes needed
-    UniqueColumnConstraints = [["NAME"], ["HMDB_ID"]]
+    UniqueColumnConstraints = [[NAME_KEY], [HMDBID_KEY]]
     FieldToHeaderKey = {
         "Compound": {
-            "name": "NAME",
-            "hmdb_id": "HMDB_ID",
-            "formula": "FORMULA",
-            "synonyms": "SYNONYMS",
+            "name": NAME_KEY,
+            "hmdb_id": HMDBID_KEY,
+            "formula": FORMULA_KEY,
+            "synonyms": SYNONYMS_KEY,
         },
         "CompoundSynonym": {
-            "name": "SYNONYMS",
-            "compound": "NAME",
+            "name": SYNONYMS_KEY,
+            "compound": NAME_KEY,
         },
     }
+    Models = [Compound, CompoundSynonym]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -75,9 +81,7 @@ class CompoundsLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-
-        self.synonym_separator = kwargs.get("synonym_separator", ";")
-        kwargs["models"] = [Compound, CompoundSynonym]
+        self.synonym_separator = kwargs.pop("synonym_separator", ";")
         super().__init__(*args, **kwargs)
 
     def load_data(self):
@@ -108,11 +112,18 @@ class CompoundsLoader(TraceBaseLoader):
 
             self.set_row_index(index)
 
+            cmpd_recdict = None
+            syn_recdict = None
+
             try:
+                name = self.getRowVal(row, self.headers.NAME)
+                formula = self.getRowVal(row, self.headers.FORMULA)
+                hmdb_id = self.getRowVal(row, self.headers.HMDB_ID)
+
                 cmpd_recdict = {
-                    "name": self.getRowVal(row, self.headers.NAME),
-                    "formula": self.getRowVal(row, self.headers.FORMULA),
-                    "hmdb_id": self.getRowVal(row, self.headers.HMDB_ID),
+                    "name": name,
+                    "formula": formula,
+                    "hmdb_id": hmdb_id,
                 }
 
                 # getRowVal can add to skip_row_indexes when there is a missing required value
@@ -128,22 +139,24 @@ class CompoundsLoader(TraceBaseLoader):
                     self.existed(Compound.__name__)
 
             except Exception as e:
-                if (
-                    isinstance(e, IntegrityError)
-                    and "DataRepo_compoundsynonym_pkey" in str(e)
-                ):
+                if isinstance(
+                    e, IntegrityError
+                ) and "DataRepo_compoundsynonym_pkey" in str(e):
                     # This is caused by trying to create a synonym that is already associated with a different compound
                     # We want a better error to describe this situation than we would get from handle_load_db_errors
                     self.aggregated_errors_object.buffer_error(
                         CompoundExistsAsMismatchedSynonym(
                             cmpd_recdict["name"],
                             cmpd_recdict,
-                            CompoundSynonym.objects.get(name__exact=cmpd_recdict["name"]),
+                            CompoundSynonym.objects.get(
+                                name__exact=cmpd_recdict["name"]
+                            ),
                         )
                     )
                 else:
                     self.handle_load_db_errors(e, Compound, cmpd_recdict)
                 self.errored(Compound.__name__)
+                continue
 
             synonyms = self.parse_synonyms(self.getRowVal(row, self.headers.SYNONYMS))
 
@@ -158,7 +171,9 @@ class CompoundsLoader(TraceBaseLoader):
                         "compound": cmpd_rec,
                     }
 
-                    syn_rec, syn_created = CompoundSynonym.objects.get_or_create(**syn_recdict)
+                    syn_rec, syn_created = CompoundSynonym.objects.get_or_create(
+                        **syn_recdict
+                    )
 
                     if syn_created:
                         syn_rec.full_clean()
@@ -170,12 +185,12 @@ class CompoundsLoader(TraceBaseLoader):
                     self.aggregated_errors_object.buffer_error(seamc)
                     self.errored(CompoundSynonym.__name__)
                 except Exception as e:
-                    self.handle_load_db_errors(e, CompoundSynonym, syn_recdict, rownum)
+                    self.handle_load_db_errors(e, CompoundSynonym, syn_recdict)
                     self.errored(CompoundSynonym.__name__)
 
     def parse_synonyms(self, synonyms_string: Optional[str]) -> list:
         """Parse the synonyms column value using the self.synonym_separator.
-        
+
         Args:
             synonyms_string (Optional[str]): String of delimited synonyms
 
@@ -183,7 +198,7 @@ class CompoundsLoader(TraceBaseLoader):
             Nothing
 
         Returns:
-            list of strings    
+            list of strings
         """
         if synonyms_string is None:
             return []

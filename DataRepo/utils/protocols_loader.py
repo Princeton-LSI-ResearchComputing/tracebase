@@ -16,9 +16,9 @@ class ProtocolsLoader(TraceBaseLoader):
     TableHeaders = namedtuple(
         "TableHeaders",
         [
-            NAME_KEY,
-            CAT_KEY,
-            DESC_KEY,
+            "NAME",
+            "CATEGORY",
+            "DESCRIPTION",
         ],
     )
     DefaultHeaders = TableHeaders(
@@ -54,6 +54,7 @@ class ProtocolsLoader(TraceBaseLoader):
             "description": DESC_KEY,
         },
     }
+    Models = [Protocol]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -74,8 +75,6 @@ class ProtocolsLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-
-        kwargs["models"] = [Protocol]
         super().__init__(*args, **kwargs)
 
     def load_data(self):
@@ -94,12 +93,17 @@ class ProtocolsLoader(TraceBaseLoader):
         """
         for index, row in self.df.iterrows():
             self.set_row_index(index)
+            rec_dict = None
 
             try:
+                name = self.getRowVal(row, self.headers.NAME)
+                category = self.getRowVal(row, self.headers.CATEGORY)
+                description = self.getRowVal(row, self.headers.DESCRIPTION)
+
                 rec_dict = {
-                    "name": self.getRowVal(row, self.headers.NAME),
-                    "category": self.getRowVal(row, self.headers.CATEGORY),
-                    "description": self.getRowVal(row, self.headers.DESCRIPTION),
+                    "name": name,
+                    "category": category,
+                    "description": description,
                 }
 
                 # getRowVal can add to skip_row_indexes when there is a missing required value

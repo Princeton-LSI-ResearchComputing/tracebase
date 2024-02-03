@@ -1,9 +1,9 @@
 import pathlib
 from collections import defaultdict
 from zipfile import BadZipFile
-import yaml
 
 import pandas as pd
+import yaml
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -205,10 +205,6 @@ def _read_from_csv(
         return df.dropna(axis=0, how="all")
 
     return df
-
-
-def _read_from_yaml(filepath, expected_headers=None):
-    pass
 
 
 def _collect_kwargs(dtype=None, keep_default_na=False, na_values=None):
