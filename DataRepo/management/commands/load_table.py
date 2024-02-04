@@ -1,5 +1,5 @@
 import argparse
-from typing import Optional
+from abc import ABC, abstractmethod
 
 from django.core.management import BaseCommand
 from django.db.utils import ProgrammingError
@@ -8,7 +8,7 @@ from DataRepo.utils import AggregatedErrors, DryRun, is_excel, read_from_file
 from DataRepo.utils.loader import TraceBaseLoader
 
 
-class LoadFromTableCommand(BaseCommand):
+class LoadFromTableCommand(ABC, BaseCommand):
     """Command superclass to be used to load a database given a table-like file.
 
     This class establishes the basic common command line interface for loading a database from a table-like file
@@ -19,9 +19,21 @@ class LoadFromTableCommand(BaseCommand):
 
     Usage:
         1. Inherit from LoadTableCommand
-        2. Do not manually decorate a derived class handle method with @LoadTableCommand.handler.  Decorations of the
-            handle method happen automatically via __init__.
-        3. If you define a derived class add_arguments method, be sure to call super().add_arguments(parser)
+        2. If you define a derived class add_arguments method, be sure to call super().add_arguments(parser)
+        3. Call self.load_data() inside the handle() method.  See load_data() for custom headers, arguments, etc.
+
+    Example:
+        class Command(LoadFromTableCommand):
+            help = "Loads data from a compound table into the database"
+            loader_class = CompoundsLoader
+            sheet_default = "Compounds"
+
+            def add_arguments(self, parser):
+                super().add_arguments(parser)
+                parser.add_argument("--synonym-separator", type=str)
+
+            def handle(self, *args, **options):
+                self.load_data(synonym_separator=options["synonym_separator"])
 
     Attributes:
         help (str): Default help string to be printed when the CLI is used with the help command.
@@ -33,8 +45,19 @@ class LoadFromTableCommand(BaseCommand):
     """
 
     help = "Loads data from a file into the database."
-    loader_class: Optional[type[TraceBaseLoader]] = None
-    sheet_default: Optional[str] = None
+
+    # Abstract required class attributes
+    # Must be initialized in the derived class.
+    # See load_tissues.Command for a concrete example.
+    @property
+    @abstractmethod
+    def loader_class(self):  # type[TraceBaseLoader]
+        pass
+
+    @property
+    @abstractmethod
+    def sheet_default(self):  # str
+        pass
 
     def __init__(self, *args, **kwargs):
         """This init auto-applies a decorator to the derived class's handle method."""
@@ -137,15 +160,22 @@ class LoadFromTableCommand(BaseCommand):
 
         Returns:
             handle_wrapper (function)
+                Args:
+                    **options (command line options)
+                Raises:
+                    TBD by the wrapped method
+                Returns:
+                    TBD by the wrapped method
         """
 
         def handle_wrapper(self, *args, **options):
             self.check_class_attributes()
             self.saved_aes = None
             self.options = options
+            retval = None
 
             try:
-                fn(self, *args, **options)
+                retval = fn(self, *args, **options)
 
             except DryRun:
                 pass
@@ -162,6 +192,8 @@ class LoadFromTableCommand(BaseCommand):
             if self.saved_aes is not None and self.saved_aes.should_raise():
                 self.saved_aes.print_summary()
                 raise self.saved_aes
+
+            return retval
 
         return handle_wrapper
 
@@ -371,37 +403,27 @@ class LoadFromTableCommand(BaseCommand):
 
         Raises:
             AggregatedErrors
-                ValueError
                 TypeError
 
         Returns:
             Nothing
         """
-        undefs = []
         typeerrs = []
         here = f"{type(self).__module__}.{type(self).__name__}"
-        if self.loader_class is None:
-            undefs.append(f"{here}.loader_class")
-        elif not issubclass(self.loader_class, TraceBaseLoader):
+        if not issubclass(self.loader_class, TraceBaseLoader):
             typeerrs.append(
                 f"attribute [{here}.loader_class] TraceBaseLoader required, {type(self.loader_class)} set"
             )
 
-        if self.sheet_default is None:
-            undefs.append(f"{here}.sheet_default")
-        elif type(self.sheet_default) != str:
+        if type(self.sheet_default) != str:
             typeerrs.append(
                 f"attribute [{here}.sheet_default] str required, {type(self.sheet_default)} set"
             )
 
         # Immediately raise programming related errors
-        if len(undefs) > 0 or len(typeerrs) > 0:
+        if len(typeerrs) > 0:
             aes = AggregatedErrors()
             nlt = "\n\t"
-            if len(undefs) > 0:
-                aes.buffer_error(
-                    ValueError(f"Required attributes missing:\n\t{nlt.join(undefs)}")
-                )
             if len(typeerrs) > 0:
                 aes.buffer_error(
                     TypeError(f"Invalid attributes:\n\t{nlt.join(typeerrs)}")

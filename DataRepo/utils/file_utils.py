@@ -271,7 +271,7 @@ def _read_headers_from_xlsx(filepath, sheet=0):
 def _read_headers_from_tsv(filepath):
     # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
     # checking for duplicate headers manually here.
-    return (
+    raw_headers = (
         pd.read_table(
             filepath,
             nrows=1,
@@ -279,14 +279,17 @@ def _read_headers_from_tsv(filepath):
         )
         .squeeze("columns")
         .iloc[0]
-        .to_list()
     )
+    # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
+    if type(raw_headers) == str:
+        return [raw_headers]
+    return raw_headers.to_list()
 
 
 def _read_headers_from_csv(filepath):
     # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
     # checking for duplicate headers manually here.
-    return (
+    raw_headers = (
         pd.read_csv(
             filepath,
             nrows=1,
@@ -294,8 +297,11 @@ def _read_headers_from_csv(filepath):
         )
         .squeeze("columns")
         .iloc[0]
-        .to_list()
     )
+    # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
+    if type(raw_headers) == str:
+        return [raw_headers]
+    return raw_headers.to_list()
 
 
 def headers_are_as_expected(expected, headers):

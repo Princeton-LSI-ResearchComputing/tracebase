@@ -101,6 +101,18 @@ class TraceBaseLoader(ABC):
     def FieldToHeaderKey(self):  # dict of model dicts of field names and header keys
         pass
 
+    @abstractmethod
+    def load_data(self):
+        """Derived classes must implement a load_data method that does the work of the load.
+        Args:
+            None
+        Raises:
+            TBD by the derived class
+        Returns:
+            Nothing
+        """
+        pass
+
     # DefaultValues is populated automatically (with Nones)
     DefaultValues: Optional[tuple] = None  # namedtuple
 
@@ -463,21 +475,6 @@ class TraceBaseLoader(ABC):
         # Immediately raise programming related errors
         if aes.should_raise():
             raise aes
-
-    @abstractmethod
-    def load_data(self):
-        """Derived classes must implement a load_data method that does the work of the load.
-
-        Args:
-            None
-
-        Raises:
-            TBD by the derived class
-
-        Returns:
-            Nothing
-        """
-        pass
 
     def initialize_metadata(self, headers=None, defaults=None):
         """Initializes metadata.
@@ -949,16 +946,17 @@ class TraceBaseLoader(ABC):
                     TBD by derived class
 
                 Returns:
-                    record_counts (dict): Model record counts by model and load status (created, existed, and errored)
+                    What's returned by the wrapped method
         """
 
         def load_wrapper(self):
+            retval = None
             with transaction.atomic():
                 try:
                     self.check_dataframe_headers()
                     self.check_unique_constraints()
 
-                    fn()
+                    retval = fn()
 
                 except AggregatedErrors:
                     pass
@@ -1016,7 +1014,7 @@ class TraceBaseLoader(ABC):
                 # Raise here to NOT cause a rollback
                 raise self.aggregated_errors_object
 
-            return self.record_counts
+            return retval
 
         return load_wrapper
 
