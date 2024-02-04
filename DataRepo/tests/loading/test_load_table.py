@@ -58,7 +58,11 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
             pass
 
         with self.assertRaises(TypeError) as ar:
+            # Apparently pylint thinks a derived class without its required concrete methods is an abstract class and
+            # complains about instantiating an abstract class
+            # pylint: disable=abstract-class-instantiated
             MyCommand()
+            # pylint: enable=abstract-class-instantiated
         self.assertIn(
             "Can't instantiate abstract class MyCommand with abstract methods loader_class, sheet_default",
             str(ar.exception),
