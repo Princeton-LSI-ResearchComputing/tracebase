@@ -60,14 +60,14 @@ class TissueLoadingTests(TracebaseTestCase):
             msg=f"Expected [Column(s) ['Tissue']] in exception, but it is: [{aes.exceptions[0]}]",
         )
         self.assertIn(
-            "brown_adipose_tissue (rows*: 2, 3)",
+            "brown_adipose_tissue (rows*: 2-3)",
             str(aes.exceptions[0]),
-            msg=f"Expected [brown_adipose_tissue (rows*: 2, 3)] in exception, but it is: [{aes.exceptions[0]}]",
+            msg=f"Expected [brown_adipose_tissue (rows*: 2-3)] in exception, but it is: [{aes.exceptions[0]}]",
         )
         self.assertIn(
-            "brain (rows*: 4, 5)",
+            "brain (rows*: 4-5)",
             str(aes.exceptions[0]),
-            msg=f"Expected [brain (rows*: 4, 5)] in exception, but it is: [{aes.exceptions[0]}]",
+            msg=f"Expected [brain (rows*: 4-5)] in exception, but it is: [{aes.exceptions[0]}]",
         )
         self.assertTrue(aes.exceptions[1].is_error)
 
@@ -77,8 +77,8 @@ class TissueLoadingTests(TracebaseTestCase):
             (
                 "Required column values missing on the indicated rows:\n"
                 "\tfile [DataRepo/data/tests/tissues/tissues_with_errors.tsv]\n"
-                "\t\tColumn: [Tissue] on rows: [6]\n"
-                "\t\tColumn: [Description] on rows: [7]\n"
+                "\t\tColumn: [Tissue] on rows: ['6']\n"
+                "\t\tColumn: [Description] on rows: ['7']\n"
             ),
             str(aes.exceptions[1]),
         )
@@ -86,8 +86,8 @@ class TissueLoadingTests(TracebaseTestCase):
             (
                 "Required column values missing on the indicated rows:\n"
                 "\tfile [DataRepo/data/tests/tissues/tissues_with_errors.tsv]\n"
-                "\t\tColumn: [Tissue] on rows: [6]\n"
-                "\t\tColumn: [Description] on rows: [7]\n"
+                "\t\tColumn: [Tissue] on rows: ['6']\n"
+                "\t\tColumn: [Description] on rows: ['7']\n"
             ),
             str(aes.exceptions[1]),
         )

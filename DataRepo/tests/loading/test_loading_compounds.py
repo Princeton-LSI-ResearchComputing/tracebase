@@ -367,14 +367,14 @@ class CompoundsLoaderTests(TracebaseTestCase):
         self.assertIn(
             (
                 "The following unique column (or column combination) ['Synonyms'] was found to have duplicate "
-                "occurrences in the load file data on the indicated rows:\n\tA (rows*: 2, 3)"
+                "occurrences in the load file data on the indicated rows:\n\tA (rows*: 2-3)"
             ),
             str(cl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
             (
                 "The following unique column (or column combination) ['Compound and Synonyms'] was found to have "
-                "duplicate occurrences in the load file data on the indicated rows:\n\tB (rows*: 3, 2)"
+                "duplicate occurrences in the load file data on the indicated rows:\n\tB (rows*: 2-3)"
             ),
             str(cl.aggregated_errors_object.exceptions[1]),
         )

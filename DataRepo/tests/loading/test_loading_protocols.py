@@ -98,7 +98,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             (
                 "Required column values missing on the indicated rows:\n"
                 "\tthe load file data\n"
-                "\t\tColumn: [Category] on rows: [2, 3]\n"
+                "\t\tColumn: [Category] on rows: ['2-3']\n"
             ),
             str(aes.exceptions[0]),
         )
@@ -186,13 +186,13 @@ class ProtocolLoadingTests(TracebaseTestCase):
         self.assertEqual((2, 0), (aes.num_errors, aes.num_warnings))
 
         self.assertEqual(DuplicateValueErrors, type(aes.exceptions[0]))
-        self.assertIn("treatment 1 (rows*: 2, 3)", str(aes.exceptions[0]))
+        self.assertIn("treatment 1 (rows*: 2-3)", str(aes.exceptions[0]))
 
         self.assertEqual(RequiredColumnValues, type(aes.exceptions[1]))
-        self.assertIn("Column: [Name] on rows: [4]", str(aes.exceptions[1]))
+        self.assertIn("Column: [Name] on rows: ['4']", str(aes.exceptions[1]))
         # The defaults namedtuple (containing a default category) should avoid this error.
         self.assertNotIn(
-            "Column: [Category] on rows: [5]",
+            "Column: [Category] on rows: ['5']",
             str(aes.exceptions[1]),
         )
 

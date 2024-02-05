@@ -76,7 +76,9 @@ class RequiredValueErrors(Exception):
             message += f"\t{filesheet}:\n"
             for colname in missing_dict[filesheet].keys():
                 deets = ", ".join(
-                    [str(r.rownum) for r in missing_dict[filesheet][colname]["rves"]]
+                    summarize_int_list(
+                        [r.rownum for r in missing_dict[filesheet][colname]["rves"]]
+                    )
                 )
                 message += (
                     f"\t\tField: [{missing_dict[filesheet][colname]['fld']}] "
@@ -121,7 +123,7 @@ class RequiredColumnValues(Exception):
         for loc in rcv_dict.keys():
             message += f"\t{loc}\n"
             for col in rcv_dict[loc].keys():
-                message += f"\t\tColumn: [{col}] on rows: {rcv_dict[loc][col]}\n"
+                message += f"\t\tColumn: [{col}] on rows: {summarize_int_list(rcv_dict[loc][col])}\n"
         super().__init__(message)
         self.required_column_values = required_column_values
 
@@ -1229,7 +1231,7 @@ class DuplicateValues(Exception):
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
                 dupdeets.append(
-                    f"{str(v)} (rows*: {', '.join(list(map(lambda i: str(i + 2), l)))})"
+                    f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: str(i + 2), l))))})"
                 )
             nltab = "\n\t"
             message = (

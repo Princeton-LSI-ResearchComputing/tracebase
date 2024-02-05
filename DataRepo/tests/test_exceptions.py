@@ -2,7 +2,13 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    DuplicateValueErrors,
+    DuplicateValues,
     MultiLoadStatus,
+    RequiredColumnValue,
+    RequiredColumnValues,
+    RequiredValueError,
+    RequiredValueErrors,
     ResearcherNotNew,
     UnexpectedIsotopes,
     UnitsWrong,
@@ -278,20 +284,94 @@ class ExceptionTests(TracebaseTestCase):
         self.assertEqual("column [2] on row [3] in file [animals.xlsx]", lstr)
 
     def test_DuplicateValueErrors(self):
-        # TODO: Implement
-        pass
-
-    def test_RequiredColumnValue(self):
-        # TODO: Implement
-        pass
+        """Test that DuplicateValueErrors correctly summarizes a series of DuplicateValues exceptions"""
+        dvs = [
+            DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme.txt"),
+            DuplicateValues({"2": [0, 1]}, ["col3"], sheet=None, file="loadme.txt"),
+            DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme2.txt"),
+            DuplicateValues({"2": [0, 1]}, ["col3"], sheet=None, file="loadme2.txt"),
+        ]
+        dve = DuplicateValueErrors(dvs)
+        expected = (
+            "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences on the "
+            "indicated rows:\n"
+            "\tfile [loadme.txt]\n"
+            "\t\tColumn(s) ['col2']\n"
+            "\t\t\tx (rows*: 2-3)\n"
+            "\t\tColumn(s) ['col3']\n"
+            "\t\t\t2 (rows*: 2-3)\n"
+            "\tfile [loadme2.txt]\n"
+            "\t\tColumn(s) ['col2']\n"
+            "\t\t\tx (rows*: 2-3)\n"
+            "\t\tColumn(s) ['col3']\n"
+            "\t\t\t2 (rows*: 2-3)\n"
+        )
+        self.assertEqual(expected, str(dve))
 
     def test_RequiredColumnValues(self):
-        # TODO: Implement
-        pass
+        rcvs = [
+            RequiredColumnValue("col2", 5, sheet="Tissues", file="loadme.tsv"),
+            RequiredColumnValue("col2", 6, sheet="Tissues", file="loadme.tsv"),
+            RequiredColumnValue("col2", 7, sheet="Tissues", file="loadme.tsv"),
+            RequiredColumnValue("col2", 8, sheet="Tissues", file="loadme.tsv"),
+        ]
+        rcv = RequiredColumnValues(rcvs)
+        expected = (
+            "Required column values missing on the indicated rows:\n"
+            "\tsheet [Tissues] in file [loadme.tsv]\n"
+            "\t\tColumn: [col2] on rows: ['5-8']\n"
+        )
+        self.assertEqual(expected, str(rcv))
 
     def test_RequiredValueErrors(self):
-        # TODO: Implement
-        pass
+        rves = [
+            RequiredValueError(
+                "Tissue Name",
+                3,
+                "Tissue",
+                "name",
+                rec_dict={
+                    "name": None,
+                    "description": "This is the armpit",
+                    "type": "epidermal",
+                },
+                sheet="tissues",
+                file="tissues.tsv",
+            ),
+            RequiredValueError(
+                "Tissue Name",
+                4,
+                "Tissue",
+                "name",
+                rec_dict={
+                    "name": None,
+                    "description": "This is the sphincter",
+                    "type": "epidermal",
+                },
+                sheet="tissues",
+                file="tissues.tsv",
+            ),
+            RequiredValueError(
+                "Tissue Name",
+                4,
+                "Tissue",
+                "name",
+                rec_dict={
+                    "name": None,
+                    "description": "This is the elbowpit",
+                    "type": "epidermal",
+                },
+                sheet="tissues",
+                file="tissues.tsv",
+            ),
+        ]
+        rve = RequiredValueErrors(rves)
+        expected = (
+            "Required values found missing during loading:\n"
+            "\tsheet [tissues] in file [tissues.tsv]:\n"
+            "\t\tField: [Tissue.name] Column: [Tissue Name] on row(s): 3-4\n"
+        )
+        self.assertEqual(expected, str(rve))
 
 
 class MultiLoadStatusTests(TracebaseTestCase):
@@ -595,14 +675,52 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertTrue(aes.exception_type_exists(ValueError))
         self.assertFalse(aes.exception_type_exists(AttributeError))
 
+    def assert_2_value_errors(self, aes):
+        self.assertEqual((2, 0), (aes.num_errors, aes.num_warnings))
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertTrue(aes.is_fatal)
+        self.assertTrue(aes.is_error)
+        self.assertTrue(aes.exceptions[0].is_fatal)
+        self.assertTrue(aes.exceptions[0].is_error)
+        self.assertTrue(aes.exceptions[1].is_fatal)
+        self.assertTrue(aes.exceptions[1].is_error)
+
     def test_modify_exception_type(self):
-        # TODO: Implement
-        pass
+        aes = AggregatedErrors(
+            errors=[ValueError("Test error 1"), ValueError("Test error 2")]
+        )
+
+        # Establish everything is correct BEFORE calling modify_exception_type
+        self.assert_2_value_errors(aes)
+
+        aes.modify_exception_type(ValueError, is_error=False, is_fatal=False)
+
+        # Establish everything is changed AFTER calling modify_exception_type
+        self.assertEqual((0, 2), (aes.num_errors, aes.num_warnings))
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertFalse(aes.is_fatal)
+        self.assertFalse(aes.is_error)
+        self.assertFalse(aes.exceptions[0].is_fatal)
+        self.assertFalse(aes.exceptions[0].is_error)
+        self.assertFalse(aes.exceptions[1].is_fatal)
+        self.assertFalse(aes.exceptions[1].is_error)
 
     def test_get_exception_type_sets_attributes_correctly_when_not_removing(self):
-        # TODO: Implement
-        # num_errors
-        # num_warnings
-        # is_fatal
-        # is_error
-        pass
+        aes = AggregatedErrors(
+            errors=[ValueError("Test error 1"), ValueError("Test error 2")]
+        )
+
+        # Establish everything is correct BEFORE calling modify_exception_type
+        self.assert_2_value_errors(aes)
+
+        removed = aes.remove_exception_type(ValueError)
+
+        # Establish everything is changed AFTER calling remove_exception_type
+        self.assertEqual((0, 0), (aes.num_errors, aes.num_warnings))
+        self.assertEqual(0, len(aes.exceptions))
+        self.assertFalse(aes.is_fatal)
+        self.assertFalse(aes.is_error)
+        self.assertFalse(removed[0].is_fatal)
+        self.assertFalse(removed[0].is_error)
+        self.assertFalse(removed[1].is_fatal)
+        self.assertFalse(removed[1].is_error)
