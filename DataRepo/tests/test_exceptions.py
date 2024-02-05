@@ -10,6 +10,8 @@ from DataRepo.utils.exceptions import (
     summarize_int_list,
 )
 
+# TODO: Move this file into the utils subdirectory
+
 
 class ExceptionTests(TracebaseTestCase):
     def assert_aggregated_exception_states(
@@ -274,6 +276,22 @@ class ExceptionTests(TracebaseTestCase):
         self.assertEqual("column [2] of sheet [Animals] in file [animals.xlsx]", lstr)
         lstr = generate_file_location_string(column=2, rownum=3, file="animals.xlsx")
         self.assertEqual("column [2] on row [3] in file [animals.xlsx]", lstr)
+
+    def test_DuplicateValueErrors(self):
+        # TODO: Implement
+        pass
+
+    def test_RequiredColumnValue(self):
+        # TODO: Implement
+        pass
+
+    def test_RequiredColumnValues(self):
+        # TODO: Implement
+        pass
+
+    def test_RequiredValueErrors(self):
+        # TODO: Implement
+        pass
 
 
 class MultiLoadStatusTests(TracebaseTestCase):
@@ -576,3 +594,15 @@ class AggregatedErrorsTests(TracebaseTestCase):
         aes = AggregatedErrors(errors=[ValueError("Test error")])
         self.assertTrue(aes.exception_type_exists(ValueError))
         self.assertFalse(aes.exception_type_exists(AttributeError))
+
+    def test_modify_exception_type(self):
+        # TODO: Implement
+        pass
+
+    def test_get_exception_type_sets_attributes_correctly_when_not_removing(self):
+        # TODO: Implement
+        # num_errors
+        # num_warnings
+        # is_fatal
+        # is_error
+        pass

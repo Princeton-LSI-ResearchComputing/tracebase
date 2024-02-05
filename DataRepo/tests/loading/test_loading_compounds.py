@@ -11,6 +11,7 @@ from DataRepo.utils import (
     CompoundsLoader,
     ConflictingValueErrors,
     DuplicateValueErrors,
+    DuplicateValues,
     SynonymExistsAsMismatchedCompound,
     UnknownHeadersError,
 )
@@ -335,6 +336,48 @@ class CompoundsLoaderTests(TracebaseTestCase):
         ncpd = Compound.objects.get(name__exact="my new compound")
         ns = CompoundSynonym.objects.get(name__exact="my new compound")
         self.assertEqual(ncpd, ns.compound, msg="Compound name is saved as a synonym")
+
+    def test_check_for_cross_column_name_duplicates(self):
+        """
+        Make sure that check_for_cross_column_name_duplicates buffers exceptions for compounds whose name matches a
+        synonym of another compound, and buffers exceptions for synonyms common between compound rows.
+        """
+        datadict = CompoundsLoader.header_key_to_name(
+            {
+                CompoundsLoader.NAME_KEY: ["C1", "B"],
+                CompoundsLoader.FORMULA_KEY: ["C1", "C2"],
+                CompoundsLoader.HMDBID_KEY: ["HMDB1", "HMDB2"],
+                CompoundsLoader.SYNONYMS_KEY: ["A;B", "A"],
+            }
+        )
+        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl.check_for_cross_column_name_duplicates()
+        self.assertEqual(
+            (2, 0),
+            (
+                cl.aggregated_errors_object.num_errors,
+                cl.aggregated_errors_object.num_warnings,
+            ),
+        )
+        self.assertEqual(
+            [DuplicateValues, DuplicateValues],
+            [type(e) for e in cl.aggregated_errors_object.exceptions],
+        )
+        print(str(cl.aggregated_errors_object.exceptions[0]))
+        self.assertIn(
+            (
+                "The following unique column (or column combination) ['Synonyms'] was found to have duplicate "
+                "occurrences in the load file data on the indicated rows:\n\tA (rows*: 2, 3)"
+            ),
+            str(cl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            (
+                "The following unique column (or column combination) ['Compound and Synonyms'] was found to have "
+                "duplicate occurrences in the load file data on the indicated rows:\n\tB (rows*: 3, 2)"
+            ),
+            str(cl.aggregated_errors_object.exceptions[1]),
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

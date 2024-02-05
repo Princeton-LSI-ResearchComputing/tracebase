@@ -17,6 +17,7 @@ class TestLoader(TraceBaseLoader):
     DefaultValues = TableHeaders(TEST=5)
     UniqueColumnConstraints = [["TEST"]]
     FieldToHeaderKey = {"Tissue": {"name": "TEST"}}
+    # TODO: Create a TestModel to use instead of Tissue (and change/rename TraceBaseLoader to not depend on TraceBase)
     Models = [Tissue]
 
     def load_data(self):
