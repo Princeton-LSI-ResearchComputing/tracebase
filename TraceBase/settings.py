@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "DataRepo.tests.apps.test_apps.LoaderTestConfig",
 ]
 
 CUSTOM_INSTALLED_APPS = env.list("CUSTOM_INSTALLED_APPS", default=None)

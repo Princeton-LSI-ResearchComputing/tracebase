@@ -5,11 +5,10 @@ from typing import Dict, Optional, Type
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Model, Q
 
 from DataRepo.models.utilities import (
     get_enumerated_fields,
-    get_model_by_name,
     get_unique_constraint_fields,
     get_unique_fields,
 )
@@ -530,14 +529,12 @@ class TraceBaseLoader(ABC):
         else:
             mdlerrs = []
             for mdl in self.Models:
-                try:
-                    get_model_by_name(mdl.__name__)
-                except Exception as e:
-                    mdlerrs.append(f"{type(e).__name__}: {str(e)}")
+                if not issubclass(mdl, Model):
+                    mdlerrs.append(f"{type(mdl).__name__}: Not a subclass of a Django Model")
             if len(mdlerrs) > 0:
                 nltt = "\n\t\t"
                 typeerrs.append(
-                    "Models must all be valid/accessible TraceBase models, but the following errors were encountered:\n"
+                    "Models must all be valid models, but the following errors were encountered:\n"
                     f"\t\t{nltt.join(mdlerrs)}"
                 )
 

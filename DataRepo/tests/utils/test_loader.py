@@ -1,19 +1,107 @@
+from collections import namedtuple
+import pandas as pd
+
+from django.core.exceptions import ValidationError
+from django.db.models import AutoField, CharField, Model
+from django.db import IntegrityError
+from django.test import SimpleTestCase
+from django.test.utils import isolate_apps
+
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import AggregatedErrors, ConflictingValueError, InfileDatabaseError
+from DataRepo.utils.loader import TraceBaseLoader
 
 
+@isolate_apps("DataRepo.tests.apps.loader")
+class LoaderTestModelDefinition(SimpleTestCase):
+    """
+    This class dynamically creates test models.  This will allow tests of generic classes to be able to be moved into
+    other projects, which has been a goal of mine (Rob) for other classes, like MaintainedModel and the advanced search
+    stuff.  These loader classes would also make a nice portable app, so I decided to try creating test models with this
+    testing effort.
+    """
+    @classmethod
+    def generate_test_model(cls):
+        # Model used for testing
+        class TestModel(Model):
+            id = AutoField(primary_key=True)
+            name = CharField(unique=True)
+            choice = CharField(choices=[("1", "1"), ("2", "2")])
+            class Meta:
+                app_label = "loader"
+        return TestModel
+
+    @classmethod
+    def generate_test_loader(cls, mdl):
+        class TestLoader(TraceBaseLoader):
+            TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
+            DefaultHeaders = TableHeaders(NAME="Name", CHOICE="Choice")
+            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
+            RequiredValues = RequiredHeaders
+            UniqueColumnConstraints = [["NAME"]]
+            FieldToHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
+            Models = [mdl]
+            def load_data(self):
+                return None
+        return TestLoader
+
+
+@isolate_apps("DataRepo.tests.apps.loader")
 class TraceBaseLoaderTests(TracebaseTestCase):
-    # handle_load_db_errors Tests
-    def test_handle_load_db_errors_catches_ValidationError_containing_is_not_a_valid_choice(
-        self,
-    ):
-        # TODO: Implement
-        pass
+    TestModel = LoaderTestModelDefinition.generate_test_model()
+    TestLoader = LoaderTestModelDefinition.generate_test_loader(TestModel)
 
-    def test_handle_load_db_errors_catches_IntegrityError_containing_duplicate_key_value_violates_unique(
-        self,
-    ):
-        # TODO: Implement
-        pass
+    # handle_load_db_errors Tests
+    def test_handle_load_db_errors_ve_choice(self):
+        """Ensures handle_load_db_errors packages ValidationError about invalid choices"""
+        pddata = pd.DataFrame.from_dict({"NAME": ["test"], "CHOICE": ["3"]})
+        tl = self.TestLoader(pddata)
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        tl.set_row_index(0)  # Converted to row 2 (header line is 1)
+        try:
+            raise ValidationError("3 is not a valid choice")
+        except Exception as e:
+            tl.handle_load_db_errors(e, self.TestModel, {"name": "test", "choice": "3"})
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(InfileDatabaseError, type(tl.aggregated_errors_object.exceptions[0]))
+        self.assertEqual(
+            (
+                "ValidationError in row [2] in the load file data, creating record:\n"
+                "\tname: test\n"
+                "\tchoice: 3\n"
+                "\tValidationError: ['3 is not a valid choice']"
+            ),
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_handle_load_db_errors_ie_unique(self):
+        """Ensures handle_load_db_errors packages ValidationError about invalid choices"""
+        pddata = pd.DataFrame.from_dict({"NAME": ["test2"], "CHOICE": ["2"]})
+        tl = self.TestLoader(pddata)
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        tl.set_row_index(0)  # Converted to row 2 (header line is 1)
+        # handle_load_db_errors queries for the existing record that caused the IntegrityError exception, so we need to
+        # create one:
+        recdict = {"name": "test2", "choice": "2"}
+        self.TestModel.objects.create(**recdict)
+        # An integrity error requires a conflict, so:
+        recdict["choice"] = "1"
+        try:
+            raise IntegrityError("duplicate key value violates unique constraint")
+        except Exception as e:
+            tl.handle_load_db_errors(e, self.TestModel, recdict)
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(ConflictingValueError, type(tl.aggregated_errors_object.exceptions[0]))
+        self.assertEqual(
+            (
+                "Conflicting field values encountered in row [2] in the load file data in TestModel record [{'id': 1, "
+                "'name': 'test2', 'choice': '2'}]:\n"
+                "\tchoice in\n"
+                "\t\tdatabase: [2]\n"
+                "\t\tfile: [1]"
+            ),
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
 
     def test_handle_load_db_errors_catches_IntegrityError_containing_violates_not_null_constraint(
         self,
