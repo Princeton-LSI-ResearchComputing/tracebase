@@ -530,7 +530,9 @@ class TraceBaseLoader(ABC):
             mdlerrs = []
             for mdl in self.Models:
                 if not issubclass(mdl, Model):
-                    mdlerrs.append(f"{type(mdl).__name__}: Not a subclass of a Django Model")
+                    mdlerrs.append(
+                        f"{type(mdl).__name__}: Not a subclass of a Django Model"
+                    )
             if len(mdlerrs) > 0:
                 nltt = "\n\t\t"
                 typeerrs.append(

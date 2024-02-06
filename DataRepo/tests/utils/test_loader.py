@@ -1,25 +1,21 @@
 from collections import namedtuple
-import pandas as pd
 
+import pandas as pd
 from django.core.exceptions import ValidationError
-from django.db.models import AutoField, CharField, Model
 from django.db import IntegrityError
-from django.test import SimpleTestCase
+from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors, ConflictingValueError, InfileDatabaseError
+from DataRepo.utils.exceptions import (
+    ConflictingValueError,
+    InfileDatabaseError,
+)
 from DataRepo.utils.loader import TraceBaseLoader
 
 
 @isolate_apps("DataRepo.tests.apps.loader")
-class LoaderTestModelDefinition(SimpleTestCase):
-    """
-    This class dynamically creates test models.  This will allow tests of generic classes to be able to be moved into
-    other projects, which has been a goal of mine (Rob) for other classes, like MaintainedModel and the advanced search
-    stuff.  These loader classes would also make a nice portable app, so I decided to try creating test models with this
-    testing effort.
-    """
+class TraceBaseLoaderTests(TracebaseTestCase):
     @classmethod
     def generate_test_model(cls):
         # Model used for testing
@@ -27,8 +23,10 @@ class LoaderTestModelDefinition(SimpleTestCase):
             id = AutoField(primary_key=True)
             name = CharField(unique=True)
             choice = CharField(choices=[("1", "1"), ("2", "2")])
+
             class Meta:
                 app_label = "loader"
+
         return TestModel
 
     @classmethod
@@ -41,15 +39,19 @@ class LoaderTestModelDefinition(SimpleTestCase):
             UniqueColumnConstraints = [["NAME"]]
             FieldToHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             Models = [mdl]
+
             def load_data(self):
                 return None
+
         return TestLoader
 
-
-@isolate_apps("DataRepo.tests.apps.loader")
-class TraceBaseLoaderTests(TracebaseTestCase):
-    TestModel = LoaderTestModelDefinition.generate_test_model()
-    TestLoader = LoaderTestModelDefinition.generate_test_loader(TestModel)
+    def __init__(self, *args, **kwargs):
+        # The test model and loader must be created for the entire class or instance.  I chose "instance" so that I
+        # didn't need to put the generators in a separate class or at __main__ level.  If you try and generate them in
+        # each test, the model will get destroyed after the test and generating it again silently fails.
+        self.TestModel = self.generate_test_model()
+        self.TestLoader = self.generate_test_loader(self.TestModel)
+        super().__init__(*args, **kwargs)
 
     # handle_load_db_errors Tests
     def test_handle_load_db_errors_ve_choice(self):
@@ -63,7 +65,9 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         except Exception as e:
             tl.handle_load_db_errors(e, self.TestModel, {"name": "test", "choice": "3"})
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
-        self.assertEqual(InfileDatabaseError, type(tl.aggregated_errors_object.exceptions[0]))
+        self.assertEqual(
+            InfileDatabaseError, type(tl.aggregated_errors_object.exceptions[0])
+        )
         self.assertEqual(
             (
                 "ValidationError in row [2] in the load file data, creating record:\n"
@@ -91,7 +95,9 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         except Exception as e:
             tl.handle_load_db_errors(e, self.TestModel, recdict)
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
-        self.assertEqual(ConflictingValueError, type(tl.aggregated_errors_object.exceptions[0]))
+        self.assertEqual(
+            ConflictingValueError, type(tl.aggregated_errors_object.exceptions[0])
+        )
         self.assertEqual(
             (
                 "Conflicting field values encountered in row [2] in the load file data in TestModel record [{'id': 1, "

@@ -1,11 +1,17 @@
 import os
+
 import environ
+
+# This "app"'s only purpose is to allow temporary models to be created for testing, and those models should "go away"
+# after testing is complete.  All it needs is the basic settings with a configured database.  It may use the same port
+# and user as the project's main account.
 
 env = environ.Env()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=False)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 INSTALLED_APPS = [
     "loader",
