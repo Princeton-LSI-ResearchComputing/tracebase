@@ -7,11 +7,6 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 
-from DataRepo.models.utilities import (
-    get_enumerated_fields,
-    get_unique_constraint_fields,
-    get_unique_fields,
-)
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
@@ -27,7 +22,7 @@ from DataRepo.utils.exceptions import (
     RequiredValueErrors,
     UnknownHeadersError,
 )
-from DataRepo.utils.file_utils import get_column_dupes, get_one_column_dupes
+from DataRepo.utils.file_utils import get_column_dupes
 
 
 class TraceBaseLoader(ABC):
@@ -779,7 +774,7 @@ class TraceBaseLoader(ABC):
         for unique_combo in self.unique_constraints:
             # A single field unique requirements is much cleaner to display than unique combos, so handle differently
             if len(unique_combo) == 1:
-                dupes, row_idxs = get_one_column_dupes(self.df, unique_combo[0])
+                dupes, row_idxs = self.get_one_column_dupes(self.df, unique_combo[0])
             else:
                 dupes, row_idxs = get_column_dupes(self.df, unique_combo)
             self.add_skip_row_index(index_list=row_idxs)
@@ -796,8 +791,8 @@ class TraceBaseLoader(ABC):
         """Adds indexes to skip_row_indexes.
 
         Args:
-            index (int): Row index.  Mutually exclusive with index_list.  Required is index_list is None.
-            index_list (list of ints)L Row indexes.  Mutually exclusive with index.  Required is index is None.
+            index (int): Row index.  Mutually exclusive with index_list.  Required if index_list is None.
+            index_list (list of ints)L Row indexes.  Mutually exclusive with index.  Required if index is None.
 
         Raises:
             ValueError
@@ -1017,7 +1012,7 @@ class TraceBaseLoader(ABC):
 
         return load_wrapper
 
-    def _get_model_name(self, model_name):
+    def _get_model_name(self, model_name=None):
         """Returns the model name registered to the class (or as supplied).
 
         If model_name is supplied, it returns that model name.  If not supplied, and models is of length 1, it returns
@@ -1208,10 +1203,10 @@ class TraceBaseLoader(ABC):
                 # Create a list of lists of unique fields and unique combos of fields
                 # First, get unique fields and force them into a list of lists (so that we only need to loop once)
                 unique_combos = [
-                    [f] for f in get_unique_fields(model, fields=rec_dict.keys())
+                    [f] for f in self.get_unique_fields(model, fields=rec_dict.keys())
                 ]
                 # Now add in the unique field combos from the model's unique constraints
-                unique_combos.extend(get_unique_constraint_fields(model))
+                unique_combos.extend(self.get_unique_constraint_fields(model))
 
                 # Create a set of the fields in the dict causing the error so that we can only check unique its fields
                 field_set = set(rec_dict.keys())
@@ -1265,7 +1260,9 @@ class TraceBaseLoader(ABC):
 
         elif isinstance(exception, ValidationError):
             if "is not a valid choice" in estr:
-                choice_fields = get_enumerated_fields(model, fields=rec_dict.keys())
+                choice_fields = self.get_enumerated_fields(
+                    model, fields=rec_dict.keys()
+                )
                 for choice_field in choice_fields:
                     if choice_field in estr and rec_dict[choice_field] is not None:
                         # Only include error once
@@ -1274,16 +1271,14 @@ class TraceBaseLoader(ABC):
                         ):
                             self.aggregated_errors_object.buffer_error(exc)
                         else:
-                            # NOTE: This is not perfect.  There can be multiple field values with issues.  Repeated
-                            # calls to this function could potentially reference the same record and contain an
-                            # error about a different field.  We only buffer/raise one of them because the details
-                            # include the entire record and dict causing the issue(s).
                             already_buffered = False
                             ides = self.aggregated_errors_object.get_exception_type(
                                 InfileDatabaseError
                             )
                             for existing_exc in ides:
-                                if existing_exc.rec_dict != rec_dict:
+                                # If the triggering exception (stored in the InfileDatabaseError exception) is the same,
+                                # skip it
+                                if str(existing_exc.exception) == str(exc.exception):
                                     already_buffered = True
                             if not already_buffered:
                                 self.aggregated_errors_object.buffer_error(exc)
@@ -1294,6 +1289,7 @@ class TraceBaseLoader(ABC):
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method
             self.aggregated_errors_object.buffer_error(exception)
+            return True
 
         if handle_all:
             if rec_dict is not None and len(rec_dict.keys()) > 0:
@@ -1304,3 +1300,101 @@ class TraceBaseLoader(ABC):
 
         # If we get here, we did not identify the error as one we knew what to do with
         return False
+
+    @classmethod
+    def get_one_column_dupes(cls, data, col_key, ignore_row_idxs=None):
+        """Find duplicate values in a single column from file table data.
+
+        Args:
+            data (DataFrame or list of dicts): The table data parsed from a file.
+            unique_col_keys (list of column name strings): Column names whose combination must be unique.
+            ignore_row_idxs (list of integers): Rows to ignore.
+
+        Returns:
+            1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
+            2. A list of all row indexes containing duplicate data.
+        """
+        all_row_idxs_with_dupes = []
+        vals_dict = defaultdict(list)
+        dupe_dict = defaultdict(dict)
+        dict_list = data if type(data) == list else data.to_dict("records")
+
+        for rowidx, row in enumerate(dict_list):
+            # Ignore rows where the animal name is empty
+            if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
+                continue
+            try:
+                vals_dict[row[col_key]].append(rowidx)
+            except KeyError:
+                raise UnknownHeadersError([col_key])
+
+        for key in vals_dict.keys():
+            if len(vals_dict[key]) > 1:
+                dupe_dict[key] = vals_dict[key]
+                all_row_idxs_with_dupes.extend(vals_dict[key])
+
+        return dupe_dict, all_row_idxs_with_dupes
+
+    @classmethod
+    def get_unique_constraint_fields(cls, model):
+        """
+        Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
+        """
+        uflds = []
+        if hasattr(model._meta, "constraints"):
+            for constraint in model._meta.constraints:
+                if type(constraint).__name__ == "UniqueConstraint":
+                    uflds.append(constraint.fields)
+        return uflds
+
+    @classmethod
+    def get_unique_fields(cls, model, fields=None):
+        """
+        Returns a list of non-auto-field names where unique is True.
+
+        If fields (list of field names) is provided, the returned field names are limited to the list provided.
+        """
+        return [
+            f.name if hasattr(f, "name") else f.field_name
+            for f in cls.get_non_auto_model_fields(model)
+            if (fields is None or cls.field_in_fieldnames(f, fields))
+            and hasattr(f, "unique")
+            and f.unique
+        ]
+
+    @classmethod
+    def get_enumerated_fields(cls, model, fields=None):
+        """
+        Returns a list of non-auto-field names where choices is populated.
+
+        If fields (list of field names) is provided, the returned field names are limited to the list provided.
+        """
+        return [
+            f.name if hasattr(f, "name") else f.field_name
+            for f in cls.get_non_auto_model_fields(model)
+            if (fields is None or cls.field_in_fieldnames(f, fields))
+            and hasattr(f, "choices")
+            and f.choices
+        ]
+
+    @classmethod
+    def get_non_auto_model_fields(cls, model):
+        """
+        Retrieves all non-auto-fields from the supplied model and returns as a list of actual fields.
+        """
+        return [
+            f for f in model._meta.get_fields() if f.get_internal_type() != "AutoField"
+        ]
+
+    @classmethod
+    def field_in_fieldnames(cls, fld, fld_names):
+        """
+        Accessory function to get_unique_fields and get_enumerated_fields.  This only exists in order to avoid JSCPD
+        errors.
+        """
+        # Relation fields do not have "name" attributes.  Instead, they have "field_name" attributes.  The values of
+        # both are the attributes of the model object that we are after (because they can be used in queries).  It is
+        # assumed that a field is guaranteed to have one or the other.
+        return (hasattr(fld, "name") and fld.name in fld_names) or (
+            hasattr(fld, "field_name") and fld.field_name in fld_names
+        )

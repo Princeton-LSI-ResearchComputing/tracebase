@@ -1169,7 +1169,7 @@ class ConflictingValueError(Exception):
         if not message:
             message = (
                 f"Conflicting field values encountered in {loc} in {type(rec).__name__} record "
-                f"[{str(model_to_dict(rec))}]:\n"
+                f"[{str(model_to_dict(rec, exclude=['id']))}]:\n"
             )
             for fld in differences.keys():
                 message += (
@@ -1230,8 +1230,16 @@ class DuplicateValues(Exception):
             for v, l in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
+
+                # TODO: This type check is a hack.  DuplicateValues is being called sometimes with different dupe_dict
+                # structures (originating from either get_column_dupes or get_one_column_dupes).  A refactor made the
+                # issue worse.  Before, it was called with a message arg, which avoided the issue.  Now it's not called
+                # with a message.  This strategy needs to be consolidated.
+                idxs = l
+                if type(l) == dict:
+                    idxs = l["rowidxs"]
                 dupdeets.append(
-                    f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: str(i + 2), l))))})"
+                    f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"
                 )
             nltab = "\n\t"
             message = (

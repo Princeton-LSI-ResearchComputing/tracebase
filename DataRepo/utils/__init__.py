@@ -51,7 +51,6 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.file_utils import (
     get_column_dupes,
-    get_one_column_dupes,
     get_sheet_names,
     headers_are_as_expected,
     is_excel,
@@ -93,7 +92,6 @@ __all__ = [
     "DuplicateValues",
     "read_from_file",
     "get_column_dupes",
-    "get_one_column_dupes",
     "get_sheet_names",
     "headers_are_as_expected",
     "HeaderError",

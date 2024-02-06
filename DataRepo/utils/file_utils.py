@@ -382,38 +382,6 @@ def _headers_are_not_unique(headers):
 
 
 # TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
-def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
-    """Find duplicate values in a single column from file table data.
-
-    Args:
-        data (DataFrame or list of dicts): The table data parsed from a file.
-        unique_col_keys (list of column name strings): Column names whose combination must be unique.
-        ignore_row_idxs (list of integers): Rows to ignore.
-
-    Returns:
-        1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
-        2. A list of all row indexes containing duplicate data.
-    """
-    all_row_idxs_with_dupes = []
-    vals_dict = defaultdict(list)
-    dupe_dict = defaultdict(dict)
-    dict_list = data if type(data) == list else data.to_dict("records")
-
-    for rowidx, row in enumerate(dict_list):
-        # Ignore rows where the animal name is empty
-        if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
-            continue
-        vals_dict[row[col_key]].append(rowidx)
-
-    for key in vals_dict.keys():
-        if len(vals_dict[key]) > 1:
-            dupe_dict[key] = vals_dict[key]
-            all_row_idxs_with_dupes.extend(vals_dict[key])
-
-    return dupe_dict, all_row_idxs_with_dupes
-
-
-# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
 def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     """Find combination duplicates from file table data.
 
