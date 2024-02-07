@@ -952,8 +952,11 @@ class TraceBaseLoader(ABC):
 
                     retval = fn()
 
-                except AggregatedErrors:
-                    pass
+                except AggregatedErrors as aes:
+                    if aes != self.aggregated_errors_object:
+                        self.aggregated_errors_object.merge_aggregated_errors_object(
+                            aes
+                        )
                 except Exception as e:
                     # Add this unanticipated error to the other buffered errors
                     self.aggregated_errors_object.buffer_error(e)

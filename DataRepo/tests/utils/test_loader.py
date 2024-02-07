@@ -10,10 +10,15 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
+    ConflictingValueErrors,
+    DryRun,
+    DuplicateValueErrors,
     DuplicateValues,
     InfileDatabaseError,
     RequiredColumnValue,
+    RequiredColumnValues,
     RequiredValueError,
+    RequiredValueErrors,
 )
 from DataRepo.utils.loader import TraceBaseLoader
 
@@ -57,11 +62,11 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     def generate_test_loader(cls, mdl):
         class TestLoader(TraceBaseLoader):
             TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
-            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
             DefaultHeaders = TableHeaders(NAME="Name", CHOICE="Choice")
+            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
             RequiredValues = RequiredHeaders
-            FieldToHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             UniqueColumnConstraints = [["NAME"]]
+            FieldToHeaderKey = {mdl.__name__: {"name": "NAME", "choice": "CHOICE"}}
             Models = [mdl]
 
             def load_data(self):
@@ -71,7 +76,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     @classmethod
     def generate_uc_test_loader(cls, mdl):
-        class TestLoader(TraceBaseLoader):
+        class TestUCLoader(TraceBaseLoader):
             TableHeaders = namedtuple("TableHeaders", ["NAME", "UFONE", "UFTWO"])
             DefaultHeaders = TableHeaders(NAME="Name", UFONE="uf1", UFTWO="uf2")
             RequiredHeaders = TableHeaders(NAME=True, UFONE=False, UFTWO=False)
@@ -86,7 +91,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
             def load_data(self):
                 return None
 
-        return TestLoader
+        return TestUCLoader
 
     def __init__(self, *args, **kwargs):
         # The test model and loader must be created for the entire class or instance.  I chose "instance" so that I
@@ -308,15 +313,12 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual(self.TestModel.__name__, tl._get_model_name())
 
         # Check exception when models > 1
-        class TestMultiModelLoader(TraceBaseLoader):
-            TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
-            DefaultHeaders = TableHeaders(NAME="Name", CHOICE="Choice")
-            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
-            RequiredValues = RequiredHeaders
-            UniqueColumnConstraints = [["NAME"]]
-            FieldToHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
+        class TestMultiModelLoader(self.TestLoader):
+            # Note, this does not define all columns. Just need any values to prevent errors.
             Models = [self.TestModel, self.TestUCModel]
 
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
             def load_data(self):
                 return None
 
@@ -620,36 +622,273 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         )
 
     # Test that load_wrapper
-    def test_load_wrapper_does_not_nest_AggregatedErrors_exceptions(self):
-        # TODO: Implement
-        pass
+    def test_load_wrapper_does_not_nest_AggregatedErrors(self):
+        class TestNestedAesLoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                # Buffer an exception correctly
+                self.aggregated_errors_object.buffer_warning(ValueError("WARNING"))
+                # Raise a new AggregatedErrors exception (can happen in classmethods called from an instance)
+                raise AggregatedErrors().buffer_error(ValueError("Nested"))
 
-    def test_load_wrapper_summarizes_ConflictingValueError_as_ConflictingValueErrors(
-        self,
-    ):
-        # TODO: Implement
-        pass
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tnal = TestNestedAesLoader(pddata)
 
-    def test_load_wrapper_summarizes_RequiredValueError_and_RequiredValueErrors(self):
-        # TODO: Implement
-        pass
+        with self.assertRaises(AggregatedErrors) as ar:
+            tnal.load_data()
+        aes = ar.exception
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertEqual(ValueError, type(aes.exceptions[0]))
+        self.assertEqual("WARNING", str(aes.exceptions[0]))
+        self.assertEqual(ValueError, type(aes.exceptions[1]))
+        self.assertEqual("Nested", str(aes.exceptions[1]))
 
-    def test_load_wrapper_summarizes_DuplicateValues_as_DuplicateValueErrors(self):
-        # TODO: Implement
-        pass
+    def test_load_wrapper_summarizes_ConflictingValueErrors(self):
+        class TestMultiCVELoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                # Buffer 2 ConflictingValueError exceptions
+                self.aggregated_errors_object.buffer_error(
+                    ConflictingValueError(rec=None, differences=None)
+                )
+                self.aggregated_errors_object.buffer_error(
+                    ConflictingValueError(rec=None, differences=None)
+                )
 
-    def test_load_wrapper_summarizes_RequiredColumnValue_as_RequiredColumnValues(self):
-        # TODO: Implement
-        pass
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tmcl = TestMultiCVELoader(pddata)
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            tmcl.load_data()
+        aes = ar.exception
+        # The 2 exceptions should be summarized as 1
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(
+            (
+                "Conflicting values encountered during loading:\n\tDuring the processing of the load file data...\n"
+                "\tCreation of the following No record provided record(s) encountered conflicts:\n"
+                "\t\tFile record:     No file data provided\n"
+                "\t\tDatabase record: Database record not provided\n"
+                "\t\t\tdifference data unavailable\n"
+                "\t\tDatabase record: Database record not provided\n"
+                "\t\t\tdifference data unavailable\n"
+            ),
+            str(aes.exceptions[0]),
+        )
+
+    def test_load_wrapper_summarizes_RequiredValueErrors(self):
+        class TestMultiRVELoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                # Buffer 2 RequiredValueError exceptions
+                self.aggregated_errors_object.buffer_error(
+                    RequiredValueError(
+                        column="Name",
+                        rownum=2,
+                        model_name="TestModel",
+                        field_name="name",
+                    )
+                )
+                self.aggregated_errors_object.buffer_error(
+                    RequiredValueError(
+                        column="Choice",
+                        rownum=3,
+                        model_name="TestModel",
+                        field_name="choice",
+                    )
+                )
+
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tmrl = TestMultiRVELoader(pddata)
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            tmrl.load_data()
+        aes = ar.exception
+        # The 2 exceptions should be summarized as 1
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(RequiredValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(
+            (
+                "Required values found missing during loading:\n"
+                "\tthe load file data:\n"
+                "\t\tField: [TestModel.name] Column: [Name] on row(s): 2\n"
+                "\t\tField: [TestModel.choice] Column: [Choice] on row(s): 3\n"
+            ),
+            str(aes.exceptions[0]),
+        )
+
+    def test_load_wrapper_summarizes_DuplicateValueErrors(self):
+        class TestMultiDVELoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                # Buffer 2 RequiredValueError exceptions
+                self.aggregated_errors_object.buffer_error(
+                    DuplicateValues(dupe_dict={}, colnames=["Name"])
+                )
+                self.aggregated_errors_object.buffer_error(
+                    DuplicateValues(dupe_dict={}, colnames=["Name"])
+                )
+
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tmdl = TestMultiDVELoader(pddata)
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            tmdl.load_data()
+        aes = ar.exception
+        # The 2 exceptions should be summarized as 1
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(
+            (
+                "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences on "
+                "the indicated rows:\n"
+                "\tthe load file data\n"
+                "\t\tColumn(s) ['Name']\n"
+                "\t\t\tNo duplicates data provided\n"
+                "\t\t\tNo duplicates data provided\n"
+            ),
+            str(aes.exceptions[0]),
+        )
+
+    def test_load_wrapper_summarizes_RequiredColumnValues(self):
+        class TestMultiRCVLoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                # Buffer 2 RequiredValueError exceptions
+                self.aggregated_errors_object.buffer_error(
+                    RequiredColumnValue(column="Name")
+                )
+                self.aggregated_errors_object.buffer_error(
+                    RequiredColumnValue(column="Name")
+                )
+
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tmrl = TestMultiRCVLoader(pddata)
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            tmrl.load_data()
+        aes = ar.exception
+        # The 2 exceptions should be summarized as 1
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(RequiredColumnValues, type(aes.exceptions[0]))
+        self.assertEqual(
+            (
+                "Required column values missing on the indicated rows:\n"
+                "\tthe load file data\n"
+                "\t\tColumn: [Name] on rows: No row numbers provided\n"
+            ),
+            str(aes.exceptions[0]),
+        )
 
     def test_load_wrapper_handles_defer_rollback(self):
-        # TODO: Implement
-        pass
+        class TestDeferedLoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                self.Models[0].objects.create(name="A", choice=1)
+                self.aggregated_errors_object.buffer_error(ValueError("Test"))
+
+        # Calling load_data checks the dataframe, so we need a real one (though we're not going to use it for this test,
+        # to isolate what we're testing)
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tdl = TestDeferedLoader(pddata, defer_rollback=True)
+
+        # There should be no record found initially
+        self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
+
+        # Expect an AggregatedErrors exception
+        with self.assertRaises(AggregatedErrors) as ar:
+            tdl.load_data()
+
+        # To avoid overlooking another error, check the exception
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(ValueError, type(aes.exceptions[0]))
+        self.assertEqual("Test", str(aes.exceptions[0]))
+
+        # This get should not cause an exception because the record should have been created and kept
+        self.TestModel.objects.get(name="A", choice=1)
 
     def test_load_wrapper_handles_DryRun(self):
-        # TODO: Implement
-        pass
+        class TestDryRunLoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                self.Models[0].objects.create(name="A", choice=1)
 
-    def test_load_wrapper_returns_record_counts(self):
-        # TODO: Implement
-        pass
+        # Calling load_data checks the dataframe, so we need a real one (though we're not going to use it for this test,
+        # to isolate what we're testing)
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tdl = TestDryRunLoader(pddata, dry_run=True)
+
+        # There should be no record found initially
+        self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
+
+        # Expect a DryRun exception
+        with self.assertRaises(DryRun):
+            tdl.load_data()
+
+        # Nothing should load in a dry run
+        self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
+
+    def test_load_wrapper_preserves_return(self):
+        class TestStatsLoader(self.TestLoader):
+            # Must explicitly re-add the decorator when the derived class is used as a superclass
+            @TraceBaseLoader._loader
+            def load_data(self):
+                return 42
+
+        # Calling load_data checks the dataframe, so we need a real one (though we're not going to use it for this test,
+        # to isolate what we're testing)
+        pddata = pd.DataFrame.from_dict(
+            {
+                "Name": ["A", "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tsl = TestStatsLoader(pddata)
+
+        retval = tsl.load_data()
+
+        self.assertEqual(42, retval)

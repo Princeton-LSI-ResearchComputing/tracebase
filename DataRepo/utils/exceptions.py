@@ -118,12 +118,16 @@ class RequiredColumnValues(Exception):
             loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
             col = rcv.column
             if rcv.rownum not in rcv_dict[loc][col]:
-                rcv_dict[loc][col].append(rcv.rownum)
+                if rcv.rownum is not None:
+                    rcv_dict[loc][col].append(rcv.rownum)
         message = "Required column values missing on the indicated rows:\n"
         for loc in rcv_dict.keys():
             message += f"\t{loc}\n"
             for col in rcv_dict[loc].keys():
-                message += f"\t\tColumn: [{col}] on rows: {summarize_int_list(rcv_dict[loc][col])}\n"
+                rowstr = "No row numbers provided"
+                if rcv_dict[loc][col] is not None and len(rcv_dict[loc][col]) > 0:
+                    rowstr = summarize_int_list(rcv_dict[loc][col])
+                message += f"\t\tColumn: [{col}] on rows: {rowstr}\n"
         super().__init__(message)
         self.required_column_values = required_column_values
 
@@ -1111,9 +1115,13 @@ class ConflictingValueErrors(Exception):
             cve_loc = generate_file_location_string(
                 rownum=cve.rownum, sheet=cve.sheet, file=cve.file
             )
-            conflict_data[cve_loc][type(cve.rec).__name__][str(cve.rec_dict)].append(
-                cve
-            )
+            if cve.rec is None:
+                conflict_data[cve_loc]["No record provided"][
+                    "No file data provided"
+                ].append(cve)
+            else:
+                mdl = type(cve.rec).__name__
+                conflict_data[cve_loc][mdl][str(cve.rec_dict)].append(cve)
 
         for loc in sorted(conflict_data.keys()):
             message += f"\tDuring the processing of {loc}...\n"
@@ -1122,15 +1130,19 @@ class ConflictingValueErrors(Exception):
                 for file_rec_str in conflict_data[cve_loc][mdl].keys():
                     message += f"\t\tFile record:     {file_rec_str}\n"
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
-                        message += (
-                            f"\t\tDatabase record: {str(model_to_dict(cve.rec))}\n"
-                        )
-                        for fld in cve.differences.keys():
-                            message += (
-                                f"\t\t\t[{fld}] values differ:\n"
-                                f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
-                                f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
-                            )
+                        recstr = "Database record not provided"
+                        if cve.rec is not None:
+                            recstr = str(model_to_dict(cve.rec))
+                        message += f"\t\tDatabase record: {recstr}\n"
+                        if cve.differences is None or len(cve.differences.keys()) == 0:
+                            message += "\t\t\tdifference data unavailable\n"
+                        else:
+                            for fld in cve.differences.keys():
+                                message += (
+                                    f"\t\t\t[{fld}] values differ:\n"
+                                    f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
+                                    f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
+                                )
         super().__init__(message)
         self.conflicting_value_errors = conflicting_value_errors
 
@@ -1167,16 +1179,24 @@ class ConflictingValueError(Exception):
             rownum=rownum, sheet=sheet, file=file, column=col
         )
         if not message:
+            mdl = "No record provided"
+            recstr = "No record provided"
+            if rec is not None:
+                mdl = type(rec).__name__ if rec is not None else "No record provided"
+                recstr = str(model_to_dict(rec, exclude=["id"]))
             message = (
-                f"Conflicting field values encountered in {loc} in {type(rec).__name__} record "
-                f"[{str(model_to_dict(rec, exclude=['id']))}]:\n"
+                f"Conflicting field values encountered in {loc} in {mdl} record "
+                f"[{recstr}]:\n"
             )
-            for fld in differences.keys():
-                message += (
-                    f"\t{fld} in\n"
-                    f"\t\tdatabase: [{differences[fld]['orig']}]\n"
-                    f"\t\tfile: [{differences[fld]['new']}]"
-                )
+            if differences is not None:
+                for fld in differences.keys():
+                    message += (
+                        f"\t{fld} in\n"
+                        f"\t\tdatabase: [{differences[fld]['orig']}]\n"
+                        f"\t\tfile: [{differences[fld]['new']}]\n"
+                    )
+            else:
+                message += "\tDifferences not provided"
         super().__init__(message)
         self.rec = rec  # Model record that conflicts
         self.rec_dict = rec_dict  # Dict created from file
@@ -1241,6 +1261,8 @@ class DuplicateValues(Exception):
                 dupdeets.append(
                     f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"
                 )
+            if len(dupdeets) == 0:
+                dupdeets.append("No duplicates data provided")
             nltab = "\n\t"
             message = (
                 f"The following unique column (or column combination) {colnames} was found to have duplicate "
@@ -1282,8 +1304,9 @@ class DuplicateValueErrors(Exception):
                 message += f"\t{loc}\n"
                 for colstr in dupe_dict[loc].keys():
                     for typ in dupe_dict[loc][colstr].keys():
-                        message += f"\t\tColumn(s) {colstr}{typ}\n\t\t\t"
+                        message += f"\t\tColumn(s) {colstr}{typ}"
                         for dve in dupe_dict[loc][colstr][typ]:
+                            message += "\n\t\t\t"
                             message += "\n\t\t\t".join(dve.dupdeets)
                         message += "\n"
         super().__init__(message)
