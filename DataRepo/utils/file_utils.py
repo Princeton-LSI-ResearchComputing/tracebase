@@ -1,4 +1,5 @@
 import pathlib
+from collections import defaultdict
 from zipfile import BadZipFile
 
 import pandas as pd
@@ -359,3 +360,93 @@ def _headers_are_not_unique(headers):
     if num_uniq_heads != num_heads:
         return True, num_uniq_heads, num_heads
     return False, num_uniq_heads, num_heads
+
+
+# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
+def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
+    """Find duplicate values in a single column from file table data.
+
+    Args:
+        data (DataFrame or list of dicts): The table data parsed from a file.
+        unique_col_keys (list of column name strings): Column names whose combination must be unique.
+        ignore_row_idxs (list of integers): Rows to ignore.
+
+    Returns:
+        1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
+        2. A list of all row indexes containing duplicate data.
+    """
+    all_row_idxs_with_dupes = []
+    vals_dict = defaultdict(list)
+    dupe_dict = defaultdict(dict)
+    dict_list = data if type(data) == list else data.to_dict("records")
+
+    for rowidx, row in enumerate(dict_list):
+        # Ignore rows where the animal name is empty
+        if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
+            continue
+        vals_dict[row[col_key]].append(rowidx)
+
+    for key in vals_dict.keys():
+        if len(vals_dict[key]) > 1:
+            dupe_dict[key] = vals_dict[key]
+            all_row_idxs_with_dupes.extend(vals_dict[key])
+
+    return dupe_dict, all_row_idxs_with_dupes
+
+
+# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
+def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
+    """Find combination duplicates from file table data.
+
+    Args:
+        data (DataFrame or list of dicts): The table data parsed from a file.
+        unique_col_keys (list of column name strings): Column names whose combination must be unique.
+        ignore_row_idxs (list of integers): Rows to ignore.
+
+    Returns:
+        1. A dict keyed on the composite duplicate value (with embedded header names).  The value is a dict with
+        the keys "rowidxs" and "vals". rowidxs has a list of indexes of the rows containing the combo value and vals
+        contains a dict of the column name and value pairs.
+        2. A list of all row indexes containing duplicate data.
+    """
+    val_locations = defaultdict(dict)
+    dupe_dict = defaultdict(dict)
+    all_row_idxs_with_dupes = []
+    dict_list = data if type(data) == list else data.to_dict("records")
+
+    for rowidx, row in enumerate(dict_list):
+        # Ignore rows where the animal name is empty
+        if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
+            continue
+
+        # Ignore empty combos
+        empty_combo = True
+        for ck in unique_col_keys:
+            val = row[ck]
+            if val is not None or not isinstance(val, str) or val == "":
+                empty_combo = False
+                break
+        if empty_combo:
+            continue
+
+        composite_val = ", ".join(
+            list(map(lambda ck: f"{ck}: [{str(row[ck])}]", unique_col_keys))
+        )
+
+        if len(val_locations[composite_val].keys()) > 0:
+            val_locations[composite_val]["rowidxs"].append(rowidx)
+        else:
+            val_locations[composite_val]["rowidxs"] = [rowidx]
+            val_locations[composite_val]["vals"] = {}
+            for ck in unique_col_keys:
+                val_locations[composite_val]["vals"][ck] = row[ck]
+
+    # Now create the dupe dict to contain values encountered more than once
+    for val in val_locations.keys():
+        row_list = val_locations[val]["rowidxs"]
+        if len(row_list) > 1:
+            dupe_dict[val]["rowidxs"] = row_list
+            dupe_dict[val]["vals"] = val_locations[val]["vals"]
+            all_row_idxs_with_dupes += row_list
+
+    return dupe_dict, all_row_idxs_with_dupes

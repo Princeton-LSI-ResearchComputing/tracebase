@@ -57,7 +57,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        msg = (
+            "Done.\n"
+            "Compound records loaded: [%i], skipped: [%i], and errored: [%i].\n"
+            "CompoundSynonym records loaded: [%i], skipped: [%i], and errored: [%i]."
+        )
         saved_aes = None
+
         try:
             sheet = options["sheet"] if is_excel(options["compounds"]) else None
             self.compounds_df = read_from_file(options["compounds"], sheet=sheet)
@@ -68,6 +74,8 @@ class Command(BaseCommand):
                 synonym_separator=options["synonym_separator"],
                 dry_run=options["dry_run"],
                 defer_rollback=options["defer_rollback"],
+                sheet=sheet,
+                file=options["compounds"],
             )
 
             loader.load_compound_data()
@@ -79,6 +87,26 @@ class Command(BaseCommand):
             # Add this unanticipated error to a new aggregated errors object
             saved_aes = AggregatedErrors()
             saved_aes.buffer_error(e)
+
+        load_stats = loader.get_load_stats()
+        status = msg % (
+            load_stats["Compound"]["created"],
+            load_stats["Compound"]["skipped"],
+            load_stats["Compound"]["errored"],
+            load_stats["CompoundSynonym"]["created"],
+            load_stats["CompoundSynonym"]["skipped"],
+            load_stats["CompoundSynonym"]["errored"],
+        )
+
+        if saved_aes is not None and saved_aes.get_num_errors() > 0:
+            status_msg = self.style.ERROR(status)
+        elif saved_aes is not None and saved_aes.get_num_warnings() > 0:
+            status_msg = self.style.WARNING(status)
+        else:
+            status_msg = self.style.SUCCESS(status)
+
+        if options["verbosity"] > 0:
+            self.stdout.write(status_msg)
 
         if saved_aes is not None and saved_aes.should_raise():
             saved_aes.print_summary()

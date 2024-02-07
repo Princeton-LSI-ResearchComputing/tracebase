@@ -1,14 +1,12 @@
-from django.core.exceptions import ValidationError
 from django.core.management import call_command
-from django.db import IntegrityError
 from django.test import tag
 
 from DataRepo.models import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    ConflictingValueError,
-    LoadFileError,
+    DuplicateValueErrors,
+    RequiredValueErrors,
 )
 
 
@@ -43,46 +41,41 @@ class TissueLoadingTests(TracebaseTestCase):
                 verbosity=2,
             )
         aes = ar.exception
-        self.assertEqual(3, aes.num_errors)
+        self.assertEqual(2, aes.num_errors)
+        self.assertEqual(RequiredValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[1]))
+        # Used to get a ConflictingValueErrors exception, but adding the unique constraint check made it redundant
         self.assertEqual(0, aes.num_warnings)
 
         # First error
-        self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
-        self.assertIn("description", aes.exceptions[0].differences.keys())
-        self.assertEqual(
-            "a different description should cause an error",
-            aes.exceptions[0].differences["description"]["new"],
+        self.assertEqual(RequiredValueErrors, type(aes.exceptions[0]))
+        self.assertIn(
+            "Field: [Tissue.name] Column: [Tissue] on row(s): 6",
+            str(aes.exceptions[0]),
         )
-        self.assertEqual(
-            "a description", aes.exceptions[0].differences["description"]["orig"]
+        self.assertIn(
+            "Field: [Tissue.description] Column: [Description] on row(s): 7",
+            str(aes.exceptions[0]),
         )
-        self.assertEqual(3, aes.exceptions[0].rownum)
 
         # Second error
-        self.assertEqual(LoadFileError, type(aes.exceptions[1]))
-        self.assertEqual(6, aes.exceptions[1].line_num)
-        self.assertEqual(IntegrityError, type(aes.exceptions[1].exception))
+        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[1]))
         self.assertIn(
-            'null value in column "name"',
-            str(aes.exceptions[1].exception),
+            "Column(s) ['Tissue']",
+            str(aes.exceptions[1]),
+            msg=f"Expected [Column(s) ['Tissue']] in exception, but it is: [{aes.exceptions[1]}]",
         )
         self.assertIn(
-            "violates not-null constraint",
-            str(aes.exceptions[1].exception),
+            "brown_adipose_tissue (rows*: 2, 3)",
+            str(aes.exceptions[1]),
+            msg=f"Expected [brown_adipose_tissue (rows*: 2, 3)] in exception, but it is: [{aes.exceptions[1]}]",
         )
-
-        # Third error
-        self.assertEqual(LoadFileError, type(aes.exceptions[2]))
-        self.assertEqual(8, aes.exceptions[2].line_num)
-        self.assertEqual(ValidationError, type(aes.exceptions[2].exception))
         self.assertIn(
-            (
-                "Tissue with name 'space but no description is a problem' cannot contain a space unless a description "
-                "is provided.  Either the space(s) must be changed to a tab character or a description must be "
-                "provided."
-            ),
-            str(aes.exceptions[2].exception),
+            "brain (rows*: 4, 5)",
+            str(aes.exceptions[1]),
+            msg=f"Expected [brain (rows*: 4, 5)] in exception, but it is: [{aes.exceptions[1]}]",
         )
+        self.assertTrue(aes.exceptions[1].is_error)
 
         # If errors are found, no records should be loaded
         self.assertEqual(Tissue.objects.count(), 0)

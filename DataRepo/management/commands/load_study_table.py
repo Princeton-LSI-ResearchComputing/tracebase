@@ -49,12 +49,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        msg = "Done. Study records loaded: [%i], skipped: [%i], and errored: [%i]."
         saved_aes = None
+
         try:
             sheet = options["sheet"] if is_excel(options["study_table"]) else None
             study_table_df = read_from_file(options["study_table"], sheet=sheet)
 
-            self.study_table_loader = StudyTableLoader(
+            loader = StudyTableLoader(
                 # Data
                 study_table_df=study_table_df,
                 # Modes
@@ -62,10 +64,10 @@ class Command(BaseCommand):
                 defer_rollback=options["defer_rollback"],
                 # Used for error-reporting
                 sheet=sheet,
-                file=os.path.basename(sheet),
+                file=os.path.basename(options["study_table"]),
             )
 
-            self.study_table_loader.load_study_table()
+            loader.load_study_table()
 
         except DryRun:
             pass
@@ -76,6 +78,23 @@ class Command(BaseCommand):
             # other buffered errors
             saved_aes = AggregatedErrors()
             saved_aes.buffer_error(e)
+
+        load_stats = loader.get_load_stats()
+        status = msg % (
+            load_stats["Study"]["created"],
+            load_stats["Study"]["skipped"],
+            load_stats["Study"]["errored"],
+        )
+
+        if saved_aes is not None and saved_aes.get_num_errors() > 0:
+            status_msg = self.style.ERROR(status)
+        elif saved_aes is not None and saved_aes.get_num_warnings() > 0:
+            status_msg = self.style.WARNING(status)
+        else:
+            status_msg = self.style.SUCCESS(status)
+
+        if options["verbosity"] > 0:
+            self.stdout.write(status_msg)
 
         if saved_aes is not None and saved_aes.should_raise():
             saved_aes.print_summary()

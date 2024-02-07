@@ -1,4 +1,5 @@
 import importlib
+import re
 import warnings
 
 from chempy import Substance
@@ -288,6 +289,7 @@ def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None)
             ConflictingValueError(
                 rec,
                 differences,
+                rec_dict=rec_dict,
                 rownum=rownum,
                 sheet=sheet,
                 file=file,
@@ -302,11 +304,14 @@ def handle_load_db_errors(
     rec_dict,
     aes=None,
     conflicts_list=None,
+    missing_list=None,
     rownum=None,
     sheet=None,
     file=None,
+    fld_to_col=None,
 ):
-    """
+    """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
+
     The purpose of this function is to provide helpful information in an exception (i.e. repackage an IntegrityError or
     a ValidationError) so that users working to resolve errors can quickly identify and resolve data issues.  It calls
     check_for_inconsistencies.
@@ -315,12 +320,35 @@ def handle_load_db_errors(
     validation error (triggered by a full_clean).  It will either buffer a ConflictingValue error in either the supplied
     conflicts_list or AggregatedErrors object, or raise an exception.
 
-    Raises: ValueError or InfileDatabaseError (buffers InfileDatabaseError and ConflictingValueError)
+    Args:
+        exception (Exception): Exception, e.g. obtained from `except` block
+        model (Model): Model being loaded when the exception occurred
+        rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
+        aes (AggregatedErrors): Aggregated errors object
+        conflicts_list (list): List to which ConflictingValueError exception objects will be added.
+        missing_list (list): List to which RequiredValuesError exception objects will be added.
+        rownum (int): Line or row number of the text or excel file that was being loaded when the exception occurred.
+        sheet (str): Name of the Excel sheet that was being loaded when the exception occurred.
+        file (str): Name (path optional) of the file that was being loaded when the exception occurred.
+        fld_to_col (dict): Supply if you want to map field names (keys from the rec_dict) to column header
+            names in the file.  Field names parsed from IntegrityErrors will be used for the column name value (which
+            you can customize in a string for example, to represent multiple columns that were used to produce the field
+            value).
 
-    Returns: boolean indicating whether an error was handled(/buffered).
+    Raises (or buffers):
+        ValueError
+        InfileDatabaseError
+        ConflictingValueError
+        RequiredValuesError
+
+    Returns:
+        boolean indicating whether an error was handled(/buffered).
     """
     # This was moved here (from its prior global location at the top) to avoid circular import
-    from DataRepo.utils.exceptions import InfileDatabaseError
+    from DataRepo.utils.exceptions import (
+        InfileDatabaseError,
+        RequiredValueError,
+    )
 
     # Either aes or conflicts_list is required
     if aes is None and conflicts_list is None:
@@ -373,7 +401,30 @@ def handle_load_db_errors(
                             for err in errs:
                                 aes.buffer_error(err)
                             return True
-
+        elif "violates not-null constraint" in estr:
+            regexp = re.compile(r"^null value in column \"(?P<colname>[^\"]+)\"")
+            match = re.search(regexp, estr)
+            if match:
+                fldname = match.group("fldname")
+                colname = fldname
+                # Convert the database column name to the file column header, if available
+                if fld_to_col is not None and colname in fld_to_col.keys():
+                    colname = fld_to_col[fldname]
+                err = RequiredValueError(
+                    column=colname,
+                    rownum=rownum,
+                    model_name=model.__name__,
+                    field_name=fldname,
+                    sheet=sheet,
+                    file=file,
+                )
+                if missing_list is not None:
+                    missing_list.append(err)
+                    return True
+                elif aes:
+                    for err in errs:
+                        aes.buffer_error(err)
+                    return True
         elif aes is not None:
             # Repackage any IntegrityError with useful info
             aes.buffer_error(exc)
