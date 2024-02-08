@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0032_delete_msrun'),
+        ('DataRepo', '0033_alter_sample_time_collected'),
     ]
 
     operations = [
