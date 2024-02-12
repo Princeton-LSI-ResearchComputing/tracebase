@@ -1661,33 +1661,6 @@ class MismatchedSampleHeaderMZXML(Exception):
         self.mismatching_mzxmls = mismatching_mzxmls
 
 
-def summarize_int_list(intlist):
-    """
-    This method was written to make long lists of row numbers more palatable to the user.
-    Turns [1,2,3,5,6,9] into ['1-3','5-6','9']
-    """
-    sum_list = []
-    last_num = None
-    waiting_num = None
-    for num in [int(n) for n in sorted(intlist)]:
-        if last_num is None:
-            waiting_num = num
-        else:
-            if num > last_num + 1:
-                if last_num == waiting_num:
-                    sum_list.append(str(waiting_num))
-                else:
-                    sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
-                waiting_num = num
-        last_num = num
-    if waiting_num is not None:
-        if last_num == waiting_num:
-            sum_list.append(str(waiting_num))
-        else:
-            sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
-    return sum_list
-
-
 class DuplicateSampleDataHeaders(Exception):
     def __init__(self, dupes, lcms_metadata, samples):
         cs = ", "
@@ -1796,6 +1769,76 @@ class WrongExcelSheet(Exception):
             f"[{sheet_name}]."
         )
         super().__init__(message)
+        self.file_type = file_type
+        self.sheet_name = sheet_name
+        self.expected_sheet_name = expected_sheet_name
+        self.sheet_num = sheet_num
+
+
+class ExcelSheetsNotFound(Exception):
+    def __init__(self, unknowns, all_sheets, file, column, source_sheet, message=None):
+        if message is None:
+            loc = generate_file_location_string(
+                sheet=source_sheet, file=file, column=column
+            )
+            deets = "\n\t".join(
+                [
+                    f"[{k}] on rows: " + str(summarize_int_list(v))
+                    for k, v in unknowns.items()
+                ]
+            )
+            message = (
+                f"The following excel sheet(s) parsed from {loc} on the indicated rows were not found.\n"
+                f"\t{deets}\n"
+                f"\nThe available sheets are: [{all_sheets}]."
+            )
+        super().__init__(message)
+        self.unknowns = unknowns
+        self.all_sheets = all_sheets
+        self.file = file
+        self.column = column
+        self.source_sheet = source_sheet
+
+
+class InvalidHeaderCrossReferenceError(Exception):
+    def __init__(
+        self,
+        source_file,
+        source_sheet,
+        column,
+        unknown_headers,
+        target_file,
+        target_sheet,
+        target_headers,
+        message=None,
+    ):
+        if message is None:
+            src_loc = generate_file_location_string(
+                sheet=source_sheet, file=source_file, column=column
+            )
+            tgt_loc = generate_file_location_string(
+                sheet=target_sheet, file=target_file
+            )
+            deets = "\n\t".join(
+                [
+                    f"[{k}] on rows: " + str(summarize_int_list(v))
+                    for k, v in unknown_headers.items()
+                ]
+            )
+            message = (
+                f"The following cross-referenced column headers parsed from {src_loc} on the indicated rows were not "
+                f"found as headers in the target file/sheet: [{tgt_loc}].\n"
+                f"\t{deets}\n"
+                f"\nThe available headers are: [{target_headers}]."
+            )
+        super().__init__(message)
+        self.source_file = source_file
+        self.source_sheet = source_sheet
+        self.column = column
+        self.unknown_headers = unknown_headers
+        self.target_file = target_file
+        self.target_sheet = target_sheet
+        self.target_headers = target_headers
 
 
 class NoConcentrations(Exception):
@@ -2027,3 +2070,30 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     else:
         loc_str += "the load file data"
     return loc_str
+
+
+def summarize_int_list(intlist):
+    """
+    This method was written to make long lists of row numbers more palatable to the user.
+    Turns [1,2,3,5,6,9] into ['1-3','5-6','9']
+    """
+    sum_list = []
+    last_num = None
+    waiting_num = None
+    for num in [int(n) for n in sorted(intlist)]:
+        if last_num is None:
+            waiting_num = num
+        else:
+            if num > last_num + 1:
+                if last_num == waiting_num:
+                    sum_list.append(str(waiting_num))
+                else:
+                    sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
+                waiting_num = num
+        last_num = num
+    if waiting_num is not None:
+        if last_num == waiting_num:
+            sum_list.append(str(waiting_num))
+        else:
+            sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
+    return sum_list

@@ -38,27 +38,6 @@ class TissuesLoader(TraceBaseLoader):
     }
     Models = [Tissue]
 
-    def __init__(self, *args, **kwargs):
-        """Constructor.
-
-        Args:
-            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
-            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
-            dry_run (Optional[boolean]) [False]: Dry run mode.
-            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
-                HANDLE THE ROLLBACK.
-            sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            file (Optional[str]) [None]: File name (for error reporting).
-
-        Raises:
-            Nothing
-
-        Returns:
-            Nothing
-        """
-        super().__init__(*args, **kwargs)
-
     def load_data(self):
         """Loads the tissue table from the dataframe.
 
@@ -73,7 +52,7 @@ class TissuesLoader(TraceBaseLoader):
             Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
                 method)
         """
-        for index, row in self.df.iterrows():
+        for _, row in self.df.iterrows():
             rec_dict = None
 
             try:

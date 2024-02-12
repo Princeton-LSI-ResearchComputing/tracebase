@@ -7,7 +7,7 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a tissue table into the database"
     loader_class = TissuesLoader
-    sheet_default = "Tissues"
+    data_sheet_default = "Tissues"
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
