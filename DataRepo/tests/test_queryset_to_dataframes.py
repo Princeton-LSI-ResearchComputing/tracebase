@@ -8,6 +8,8 @@ from DataRepo.models import Animal, Infusate, Tracer, TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
+# TODO: Move this file into the utils subdirectory
+
 
 class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     @classmethod

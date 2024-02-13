@@ -63,7 +63,7 @@ jobs:
       - name: Load example compounds
         run: |
           python manage.py load_compounds \
-          --compounds \
+          --infile \
           "DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv"
       - name: Load example sample table
         run: |

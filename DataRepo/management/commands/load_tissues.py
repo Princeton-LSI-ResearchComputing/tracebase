@@ -1,99 +1,31 @@
-import argparse
-
-from django.core.management import BaseCommand
-
-from DataRepo.utils import (
-    AggregatedErrors,
-    DryRun,
-    TissuesLoader,
-    is_excel,
-    read_from_file,
-)
+from DataRepo.management.commands.load_table import LoadFromTableCommand
+from DataRepo.utils import TissuesLoader
 
 
-class Command(BaseCommand):
+class Command(LoadFromTableCommand):
+    """Command to load the Tissue model from a table-like file."""
+
     help = "Loads data from a tissue table into the database"
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            "--tissues",
-            type=str,
-            help=(
-                "Path to either a tab-delimited file or excel file with a sheet named 'Tissues'.  "
-                "Required headers: 'Tissue' & 'Description'"
-            ),
-            required=True,
-        )
-
-        parser.add_argument(
-            "--sheet",
-            type=str,
-            help="Name of excel sheet/tab.  Only used if --tissues is an excel spreadsheet.  Default: 'Tissues'.",
-            default="Tissues",
-        )
-
-        parser.add_argument(
-            "-n",
-            "--dry-run",
-            action="store_true",
-            default=False,
-            help=("Dry-run. If supplied, nothing will be saved to the database."),
-        )
-
-        parser.add_argument(
-            "--defer-rollback",  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
-            action="store_true",
-            help=argparse.SUPPRESS,
-        )
+    loader_class = TissuesLoader
+    sheet_default = "Tissues"
 
     def handle(self, *args, **options):
-        saved_aes = None
-        msg = "Done. Tissue records loaded: [%i], skipped: [%i], and errored: [%i]."
+        """Code to run when the command is called from the command line.
 
-        try:
-            sheet = options["sheet"] if is_excel(options["tissues"]) else None
-            new_tissues = read_from_file(
-                options["tissues"],
-                dtype={"Name": str, "Description": str},
-                sheet=sheet,
-            )
+        This code is automatically wrapped by LoadFromTableCommand._handler, which handles:
+            - DryRun Exceptions
+            - Contextualization of exceptions to the associated input in the file
+            - Atomic transactions with optionally deferred rollback
+            - Header and data type validation
+            - Unique file constraints
 
-            loader = TissuesLoader(
-                tissues=new_tissues,
-                dry_run=options["dry_run"],
-                defer_rollback=options["defer_rollback"],
-                sheet=sheet,
-                file=options["tissues"],
-            )
+        Args:
+            options (dict of strings): String values provided on the command line by option name.
 
-            load_stats = loader.load_tissue_data()
+        Raises:
+            Nothing (See LoadFromTableCommand._handler for exceptions in the wrapper)
 
-        except DryRun:
-            pass
-        except AggregatedErrors as aes:
-            saved_aes = aes
-        except Exception as e:
-            # Add this unanticipated error to a new aggregated errors object
-            saved_aes = AggregatedErrors()
-            saved_aes.buffer_error(e)
-
-        load_stats = loader.get_load_stats()
-        status = msg % (
-            load_stats["Tissue"]["created"],
-            load_stats["Tissue"]["skipped"],
-            load_stats["Tissue"]["errored"],
-        )
-
-        if saved_aes is not None and saved_aes.get_num_errors() > 0:
-            status_msg = self.style.ERROR(status)
-        elif saved_aes is not None and saved_aes.get_num_warnings() > 0:
-            status_msg = self.style.WARNING(status)
-        else:
-            status_msg = self.style.SUCCESS(status)
-
-        if options["verbosity"] > 0:
-            self.stdout.write(status_msg)
-
-        if saved_aes is not None and saved_aes.should_raise():
-            saved_aes.print_summary()
-            raise saved_aes
+        Returns:
+            Nothing
+        """
+        self.load_data()

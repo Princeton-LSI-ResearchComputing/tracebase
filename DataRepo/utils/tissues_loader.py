@@ -1,57 +1,93 @@
+from collections import namedtuple
+
 from DataRepo.models import Tissue
 from DataRepo.utils.loader import TraceBaseLoader
 
 
 class TissuesLoader(TraceBaseLoader):
-    NAME_HEADER = "Tissue"
-    DESC_HEADER = "Description"
-    ALL_HEADERS = [NAME_HEADER, DESC_HEADER]
-    REQUIRED_HEADERS = ALL_HEADERS
-    REQUIRED_VALUES = ALL_HEADERS
-    UNIQUE_COLUMN_CONSTRAINTS = [[NAME_HEADER]]
-    FLD_TO_COL = {
-        "name": NAME_HEADER,
-        "description": DESC_HEADER,
+    NAME_KEY = "NAME"
+    DESC_KEY = "DESCRIPTION"
+
+    TableHeaders = namedtuple(
+        "TableHeaders",
+        [
+            "NAME",
+            "DESCRIPTION",
+        ],
+    )
+    DefaultHeaders = TableHeaders(
+        NAME="Tissue",
+        DESCRIPTION="Description",
+    )
+    RequiredHeaders = TableHeaders(
+        NAME=True,
+        DESCRIPTION=True,
+    )
+    RequiredValues = RequiredHeaders
+    ColumnTypes = {
+        NAME_KEY: str,
+        DESC_KEY: str,
     }
+    # No DefaultValues needed
+    UniqueColumnConstraints = [[NAME_KEY]]
+    FieldToHeaderKey = {
+        "Tissue": {
+            "name": NAME_KEY,
+            "description": DESC_KEY,
+        },
+    }
+    Models = [Tissue]
 
-    def __init__(
-        self,
-        tissues,
-        dry_run=True,
-        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
-        sheet=None,
-        file=None,
-    ):
-        # Data
-        self.tissues = tissues
+    def __init__(self, *args, **kwargs):
+        """Constructor.
 
-        super().__init__(
-            tissues,
-            all_headers=self.ALL_HEADERS,
-            reqd_headers=self.REQUIRED_HEADERS,
-            reqd_values=self.REQUIRED_VALUES,
-            unique_constraints=self.UNIQUE_COLUMN_CONSTRAINTS,
-            dry_run=dry_run,
-            defer_rollback=defer_rollback,
-            sheet=sheet,
-            file=file,
-            models=[Tissue],
-        )
+        Args:
+            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
+            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
+            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
+            dry_run (Optional[boolean]) [False]: Dry run mode.
+            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
+                HANDLE THE ROLLBACK.
+            sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            file (Optional[str]) [None]: File name (for error reporting).
 
-    @TraceBaseLoader.loader
-    def load_tissue_data(self):
-        for index, row in self.tissues.iterrows():
-            if index in self.get_skip_row_indexes():
-                continue
+        Raises:
+            Nothing
 
-            # Index starts at 0, headers are on row 1
-            rownum = index + 2
+        Returns:
+            Nothing
+        """
+        super().__init__(*args, **kwargs)
+
+    def load_data(self):
+        """Loads the tissue table from the dataframe.
+
+        Args:
+            None
+
+        Raises:
+            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
+                method)
+
+        Returns:
+            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
+                method)
+        """
+        for index, row in self.df.iterrows():
+            rec_dict = None
 
             try:
+                name = self.get_row_val(row, self.headers.NAME)
+                description = self.get_row_val(row, self.headers.DESCRIPTION)
+
                 rec_dict = {
-                    "name": self.getRowVal(row, self.NAME_HEADER),
-                    "description": self.getRowVal(row, self.DESC_HEADER),
+                    "name": name,
+                    "description": description,
                 }
+
+                # get_row_val can add to skip_row_indexes when there is a missing required value
+                if self.is_skip_row():
+                    continue
 
                 tissue, created = Tissue.objects.get_or_create(**rec_dict)
 
@@ -63,7 +99,5 @@ class TissuesLoader(TraceBaseLoader):
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(
-                    e, Tissue, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL
-                )
+                self.handle_load_db_errors(e, Tissue, rec_dict)
                 self.errored()

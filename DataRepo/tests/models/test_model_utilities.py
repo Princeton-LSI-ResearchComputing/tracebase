@@ -95,6 +95,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(model_output.__class__.__name__, "ModelBase")
         self.assertEqual(mdl_input, model_output.__name__)
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_get_unique_constraint_fields(self):
         mdl_name = "MSRunSample"
         model = get_model_by_name(mdl_name)
@@ -114,6 +115,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             unique_field_sets[1],
         )
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_get_non_auto_model_fields(self):
         expected = [
             "labels",
@@ -137,18 +139,21 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         ]
         self.assertEqual(expected, field_names)
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_get_enumerated_fields(self):
         field_names = get_enumerated_fields(Animal)
         self.assertEqual(["sex"], field_names)
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_get_unique_fields(self):
         field_names = get_unique_fields(Animal)
         self.assertEqual(["name"], field_names)
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_check_for_inconsistencies(self):
         call_command(
             "load_study_table",
-            study_table="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+            infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         rec = Study.objects.first()
         rec_dict = {
@@ -169,13 +174,14 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             incs[0].differences["description"]["orig"],
         )
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_handle_load_db_errors_integrityerror(self):
         """
         Tests handle_load_db_errors's handling of unique constraint violations (i.e. IntegrityErrors).
         """
         call_command(
             "load_study_table",
-            study_table="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+            infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         conflicts = []
         rec_dict = {
@@ -204,6 +210,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             conflicts[0].differences["description"]["orig"],
         )
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_handle_load_db_errors_otherintegrityerror(self):
         """
         Tests handle_load_db_errors's handling of other IntegrityErrors.
@@ -226,6 +233,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(InfileDatabaseError, type(aes.exceptions[0]))
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_handle_load_db_errors_validationerror(self):
         """
         Tests handle_load_db_errors's handling of ValidationErrors raised by invalid enumeration choices.
@@ -252,6 +260,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(InfileDatabaseError, type(aes.exceptions[0]))
 
+    # TODO: When the SampleTableLoader inherits from TraceBaseLoader, remove this test already copied to loader.py
     def test_handle_load_db_errors_unsupportederror(self):
         """
         Tests handle_load_db_errors's handling of unsupported error types (should raise)

@@ -1,37 +1,30 @@
-import argparse
-
-from django.core.management import BaseCommand
-
-from DataRepo.utils import (
-    AggregatedErrors,
-    CompoundsLoader,
-    DryRun,
-    is_excel,
-    read_from_file,
-)
+from DataRepo.management.commands.load_table import LoadFromTableCommand
+from DataRepo.utils import CompoundsLoader
 
 
-class Command(BaseCommand):
+class Command(LoadFromTableCommand):
+    """Command to load the Compound and CompoundSynonym models from a table-like file."""
+
     help = "Loads data from a compound table into the database"
+    loader_class = CompoundsLoader
+    sheet_default = "Compounds"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--compounds",
-            type=str,
-            help=(
-                "Path to either an excel file containing a sheet named 'Compounds' or a tab-delimited file, containing "
-                "headers: 'Compound', 'Formula', 'HMDB ID', and 'Synonyms'; required."
-            ),
-            required=True,
-        )
+        """Adds command line options.
 
-        parser.add_argument(
-            "--sheet",
-            type=str,
-            help="Name of excel sheet/tab.  Only used if --compounds is an excel spreadsheet.  Default: 'Compounds'.",
-            default="Compounds",
-        )
+        Args:
+            parser (argparse object)
 
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        # Add the options provided by the superclass
+        super().add_arguments(parser)
+
+        # Add additional options for this specific script
         parser.add_argument(
             "--synonym-separator",
             type=str,
@@ -40,74 +33,26 @@ class Command(BaseCommand):
             required=False,
         )
 
-        parser.add_argument(
-            "--dry-run",
-            action="store_true",
-            default=False,
-            help=(
-                "Dry Run mode. If specified, command will not change the database, "
-                "but simply report back potential work or issues."
-            ),
-        )
-
-        parser.add_argument(
-            "--defer-rollback",  # DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
-            action="store_true",
-            help=argparse.SUPPRESS,
-        )
-
     def handle(self, *args, **options):
-        msg = (
-            "Done.\n"
-            "Compound records loaded: [%i], skipped: [%i], and errored: [%i].\n"
-            "CompoundSynonym records loaded: [%i], skipped: [%i], and errored: [%i]."
+        """Code to run when the command is called from the command line.
+
+        This code is automatically wrapped by LoadFromTableCommand._handler, which handles:
+            - DryRun Exceptions
+            - Contextualization of exceptions to the associated input in the file
+            - Atomic transactions with optionally deferred rollback
+            - Header and data type validation
+            - Unique file constraints
+
+        Args:
+            options (dict of strings): String values provided on the command line by option name.
+
+        Raises:
+            Nothing (See LoadFromTableCommand._handler for exceptions in the wrapper)
+
+        Returns:
+            Nothing
+        """
+        self.load_data(
+            # Specific to this loader.  All other args are extracted from the command line automatically.
+            synonym_separator=options["synonym_separator"],
         )
-        saved_aes = None
-
-        try:
-            sheet = options["sheet"] if is_excel(options["compounds"]) else None
-            self.compounds_df = read_from_file(options["compounds"], sheet=sheet)
-
-            # Initialize loader class
-            loader = CompoundsLoader(
-                compounds_df=self.compounds_df,
-                synonym_separator=options["synonym_separator"],
-                dry_run=options["dry_run"],
-                defer_rollback=options["defer_rollback"],
-                sheet=sheet,
-                file=options["compounds"],
-            )
-
-            loader.load_compound_data()
-        except DryRun:
-            pass
-        except AggregatedErrors as aes:
-            saved_aes = aes
-        except Exception as e:
-            # Add this unanticipated error to a new aggregated errors object
-            saved_aes = AggregatedErrors()
-            saved_aes.buffer_error(e)
-
-        load_stats = loader.get_load_stats()
-        status = msg % (
-            load_stats["Compound"]["created"],
-            load_stats["Compound"]["skipped"],
-            load_stats["Compound"]["errored"],
-            load_stats["CompoundSynonym"]["created"],
-            load_stats["CompoundSynonym"]["skipped"],
-            load_stats["CompoundSynonym"]["errored"],
-        )
-
-        if saved_aes is not None and saved_aes.get_num_errors() > 0:
-            status_msg = self.style.ERROR(status)
-        elif saved_aes is not None and saved_aes.get_num_warnings() > 0:
-            status_msg = self.style.WARNING(status)
-        else:
-            status_msg = self.style.SUCCESS(status)
-
-        if options["verbosity"] > 0:
-            self.stdout.write(status_msg)
-
-        if saved_aes is not None and saved_aes.should_raise():
-            saved_aes.print_summary()
-            raise saved_aes

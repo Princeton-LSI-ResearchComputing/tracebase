@@ -76,7 +76,9 @@ class RequiredValueErrors(Exception):
             message += f"\t{filesheet}:\n"
             for colname in missing_dict[filesheet].keys():
                 deets = ", ".join(
-                    [str(r.rownum) for r in missing_dict[filesheet][colname]["rves"]]
+                    summarize_int_list(
+                        [r.rownum for r in missing_dict[filesheet][colname]["rves"]]
+                    )
                 )
                 message += (
                     f"\t\tField: [{missing_dict[filesheet][colname]['fld']}] "
@@ -85,6 +87,49 @@ class RequiredValueErrors(Exception):
                 )
         super().__init__(message)
         self.required_value_errors = required_value_errors
+
+
+class RequiredColumnValue(Exception):
+    def __init__(
+        self,
+        column,
+        rownum=None,
+        sheet=None,
+        file=None,
+        message=None,
+    ):
+        if not message:
+            loc = generate_file_location_string(
+                sheet=sheet, file=file, rownum=rownum, column=column
+            )
+            message = f"Missing value required in {loc}."
+        super().__init__(message)
+        self.column = column
+        self.rownum = rownum
+        self.sheet = sheet
+        self.file = file
+        self.loc = loc
+
+
+class RequiredColumnValues(Exception):
+    def __init__(self, required_column_values):
+        rcv_dict = defaultdict(lambda: defaultdict(list))
+        for rcv in required_column_values:
+            loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
+            col = rcv.column
+            if rcv.rownum not in rcv_dict[loc][col]:
+                if rcv.rownum is not None:
+                    rcv_dict[loc][col].append(rcv.rownum)
+        message = "Required column values missing on the indicated rows:\n"
+        for loc in rcv_dict.keys():
+            message += f"\t{loc}\n"
+            for col in rcv_dict[loc].keys():
+                rowstr = "No row numbers provided"
+                if rcv_dict[loc][col] is not None and len(rcv_dict[loc][col]) > 0:
+                    rowstr = summarize_int_list(rcv_dict[loc][col])
+                message += f"\t\tColumn: [{col}] on rows: {rowstr}\n"
+        super().__init__(message)
+        self.required_column_values = required_column_values
 
 
 class RequiredHeadersError(HeaderError):
@@ -748,12 +793,10 @@ class AggregatedErrors(Exception):
 
     def get_exception_type(self, exception_class, remove=False):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
-        is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
-        for consolidation.
+        This method is provided to retrieve exceptions (if they exist in the exceptions list) from this object and
+        return them.
 
-        If remove is true, the exceptions are removed from this object.  If it's false, the exception is changed to a
-        non-fatal warning (with the assumption that a separate exception will be created that is an error).
+        If remove is true, the exceptions are removed from this object.
         """
         matched_exceptions = []
         unmatched_exceptions = []
@@ -765,11 +808,10 @@ class AggregatedErrors(Exception):
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if type(exception) == exception_class:
-                if not remove:
+                if remove:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
                     exception.is_fatal = False
-                    num_warnings += 1
                 matched_exceptions.append(exception)
             else:
                 if exception.is_error:
@@ -782,16 +824,62 @@ class AggregatedErrors(Exception):
                     is_error = True
                 unmatched_exceptions.append(exception)
 
-        self.num_errors = num_errors
-        self.num_warnings = num_warnings
-        self.is_fatal = is_fatal
-        self.is_error = is_error
-
         if remove:
+            self.num_errors = num_errors
+            self.num_warnings = num_warnings
+            self.is_fatal = is_fatal
+            self.is_error = is_error
+
             # Reinitialize this object
             self.exceptions = unmatched_exceptions
             if not self.custom_message:
                 super().__init__(self.get_default_message())
+
+        # Return removed exceptions
+        return matched_exceptions
+
+    def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
+        """
+        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
+        for consolidation.
+
+        If is_fatal is not None, the exception's is_fatal is changed to the supplied boolean value.
+        If is_error is not None, the exception's is_error is changed to the supplied boolean value.
+
+        It is assumed that a separate exception will be created that is an error.
+        """
+        matched_exceptions = []
+        num_errors = 0
+        num_warnings = 0
+        master_is_fatal = False
+        master_is_error = False
+
+        # Look for exceptions to remove and recompute new object values
+        for exception in self.exceptions:
+            if type(exception) == exception_class:
+                if is_error is not None:
+                    exception.is_error = is_error
+                if is_fatal is not None:
+                    exception.is_fatal = is_fatal
+                matched_exceptions.append(exception)
+            if exception.is_error:
+                num_errors += 1
+            else:
+                num_warnings += 1
+            if exception.is_fatal:
+                master_is_fatal = True
+            if exception.is_error:
+                master_is_error = True
+
+        self.num_errors = num_errors
+        self.num_warnings = num_warnings
+        self.is_fatal = master_is_fatal
+        self.is_error = master_is_error
+
+        # Reinitialize this object
+        if not self.custom_message:
+            super().__init__(self.get_default_message())
 
         # Return removed exceptions
         return matched_exceptions
@@ -914,7 +1002,9 @@ class AggregatedErrors(Exception):
     def buffer_exception(self, exception, is_error=True, is_fatal=True):
         """
         Don't raise this exception. Save it to report later, after more errors have been accumulated and reported as a
-        group.  Returns the buffered_exception containing a buffered_tb_str and a boolean named is_error.
+        group.  The buffered_exception has a buffered_tb_str and a boolean named is_error added to it.  Returns self so
+        that an AggregatedErrors exception can be instantiated, an exception can be added to it, and the return can be
+        raised all on 1 line.
 
         is_fatal tells the AggregatedErrors object that after buffering is complete, the AggregatedErrors exception
         should be raised and execution should stop.  By default, errors will cause AggregatedErrors to be raised and
@@ -960,13 +1050,13 @@ class AggregatedErrors(Exception):
         if not self.custom_message:
             super().__init__(self.get_default_message())
 
-        return buffered_exception
+        return self
 
     def buffer_error(self, exception, is_fatal=True):
-        self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
+        return self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
 
     def buffer_warning(self, exception, is_fatal=False):
-        self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
+        return self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
 
     def print_all_buffered_exceptions(self):
         for exc in self.exceptions:
@@ -1025,9 +1115,13 @@ class ConflictingValueErrors(Exception):
             cve_loc = generate_file_location_string(
                 rownum=cve.rownum, sheet=cve.sheet, file=cve.file
             )
-            conflict_data[cve_loc][type(cve.rec).__name__][str(cve.rec_dict)].append(
-                cve
-            )
+            if cve.rec is None:
+                conflict_data[cve_loc]["No record provided"][
+                    "No file data provided"
+                ].append(cve)
+            else:
+                mdl = type(cve.rec).__name__
+                conflict_data[cve_loc][mdl][str(cve.rec_dict)].append(cve)
 
         for loc in sorted(conflict_data.keys()):
             message += f"\tDuring the processing of {loc}...\n"
@@ -1036,15 +1130,19 @@ class ConflictingValueErrors(Exception):
                 for file_rec_str in conflict_data[cve_loc][mdl].keys():
                     message += f"\t\tFile record:     {file_rec_str}\n"
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
-                        message += (
-                            f"\t\tDatabase record: {str(model_to_dict(cve.rec))}\n"
-                        )
-                        for fld in cve.differences.keys():
-                            message += (
-                                f"\t\t\t[{fld}] values differ:\n"
-                                f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
-                                f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
-                            )
+                        recstr = "Database record not provided"
+                        if cve.rec is not None:
+                            recstr = str(model_to_dict(cve.rec))
+                        message += f"\t\tDatabase record: {recstr}\n"
+                        if cve.differences is None or len(cve.differences.keys()) == 0:
+                            message += "\t\t\tdifference data unavailable\n"
+                        else:
+                            for fld in cve.differences.keys():
+                                message += (
+                                    f"\t\t\t[{fld}] values differ:\n"
+                                    f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
+                                    f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
+                                )
         super().__init__(message)
         self.conflicting_value_errors = conflicting_value_errors
 
@@ -1081,16 +1179,24 @@ class ConflictingValueError(Exception):
             rownum=rownum, sheet=sheet, file=file, column=col
         )
         if not message:
+            mdl = "No record provided"
+            recstr = "No record provided"
+            if rec is not None:
+                mdl = type(rec).__name__ if rec is not None else "No record provided"
+                recstr = str(model_to_dict(rec, exclude=["id"]))
             message = (
-                f"Conflicting field values encountered in {loc} in {type(rec).__name__} record "
-                f"[{str(model_to_dict(rec))}]:\n"
+                f"Conflicting field values encountered in {loc} in {mdl} record "
+                f"[{recstr}]:\n"
             )
-            for fld in differences.keys():
-                message += (
-                    f"\t{fld} in\n"
-                    f"\t\tdatabase: [{differences[fld]['orig']}]\n"
-                    f"\t\tfile: [{differences[fld]['new']}]"
-                )
+            if differences is not None:
+                for fld in differences.keys():
+                    message += (
+                        f"\t{fld} in\n"
+                        f"\t\tdatabase: [{differences[fld]['orig']}]\n"
+                        f"\t\tfile: [{differences[fld]['new']}]\n"
+                    )
+            else:
+                message += "\tDifferences not provided"
         super().__init__(message)
         self.rec = rec  # Model record that conflicts
         self.rec_dict = rec_dict  # Dict created from file
@@ -1144,9 +1250,19 @@ class DuplicateValues(Exception):
             for v, l in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
+
+                # TODO: This type check is a hack.  DuplicateValues is being called sometimes with different dupe_dict
+                # structures (originating from either get_column_dupes or get_one_column_dupes).  A refactor made the
+                # issue worse.  Before, it was called with a message arg, which avoided the issue.  Now it's not called
+                # with a message.  This strategy needs to be consolidated.
+                idxs = l
+                if type(l) == dict:
+                    idxs = l["rowidxs"]
                 dupdeets.append(
-                    f"{str(v)} (rows*: {', '.join(list(map(lambda i: str(i + 2), l)))})"
+                    f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"
                 )
+            if len(dupdeets) == 0:
+                dupdeets.append("No duplicates data provided")
             nltab = "\n\t"
             message = (
                 f"The following unique column (or column combination) {colnames} was found to have duplicate "
@@ -1188,8 +1304,9 @@ class DuplicateValueErrors(Exception):
                 message += f"\t{loc}\n"
                 for colstr in dupe_dict[loc].keys():
                     for typ in dupe_dict[loc][colstr].keys():
-                        message += f"\t\tColumn(s) {colstr}{typ}\n\t\t\t"
+                        message += f"\t\tColumn(s) {colstr}{typ}"
                         for dve in dupe_dict[loc][colstr][typ]:
+                            message += "\n\t\t\t"
                             message += "\n\t\t\t".join(dve.dupdeets)
                         message += "\n"
         super().__init__(message)
@@ -1752,25 +1869,16 @@ class MzxmlConflictErrors(Exception):
         self.mzxml_conflicts = mzxml_conflicts
 
 
-class NoSpaceAllowedWhenOneColumn(Exception):
-    def __init__(self, name):
-        message = (
-            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
-            "Either the space(s) must be changed to a tab character or a description must be provided."
-        )
-        super().__init__(message)
-        self.name = name
-
-
 class InfileDatabaseError(Exception):
     def __init__(self, exception, rec_dict, rownum=None, sheet=None, file=None):
-        nltab = "\n\t"
-        deets = [f"{k}: {v}" for k, v in rec_dict.items()]
+        if rec_dict is not None:
+            nltab = "\n\t"
+            deets = [f"{k}: {v}" for k, v in rec_dict.items()]
         loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
-        message = (
-            f"{type(exception).__name__} in {loc}, creating record:\n\t{nltab.join(deets)}\n"
-            f"{str(exception)}"
-        )
+        message = f"{type(exception).__name__} in {loc}"
+        if rec_dict is not None:
+            message += f", creating record:\n\t{nltab.join(deets)}"
+        message += f"\n\t{type(exception).__name__}: {str(exception)}"
         super().__init__(message)
         self.exception = exception
         self.rownum = rownum

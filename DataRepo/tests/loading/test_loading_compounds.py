@@ -11,6 +11,7 @@ from DataRepo.utils import (
     CompoundsLoader,
     ConflictingValueErrors,
     DuplicateValueErrors,
+    DuplicateValues,
     SynonymExistsAsMismatchedCompound,
     UnknownHeadersError,
 )
@@ -27,7 +28,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
-                compounds="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
+                infile="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
             )
         aes = ar.exception
         self.assertEqual(
@@ -46,7 +47,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/c182_compounds.xlsx",
+            infile="DataRepo/data/tests/compounds/c182_compounds.xlsx",
         )
         Compound.objects.get(name__exact="C18:2")
 
@@ -57,7 +58,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/c182_sheet1.xlsx",
+            infile="DataRepo/data/tests/compounds/c182_sheet1.xlsx",
         )
         Compound.objects.get(name__exact="C18:2")
 
@@ -65,7 +66,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         self.assertEqual(0, Compound.objects.filter(name__exact="C18:2").count())
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/c182_things.xlsx",
+            infile="DataRepo/data/tests/compounds/c182_things.xlsx",
             sheet="Things",
         )
         Compound.objects.get(name__exact="C18:2")
@@ -83,7 +84,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         try:
             call_command(
                 "load_compounds",
-                compounds=primary_compound_file,
+                infile=primary_compound_file,
                 verbosity=0,
             )
         except AggregatedErrors as aes:
@@ -96,7 +97,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         compounds_df = pd.read_csv(
             primary_compound_file, sep="\t", keep_default_na=False
         )
-        cls.LOADER_INSTANCE = CompoundsLoader(compounds_df=compounds_df)
+        cls.LOADER_INSTANCE = CompoundsLoader(compounds_df)
 
         super().setUpTestData()
 
@@ -139,23 +140,20 @@ class CompoundLoadingTests(TracebaseTestCase):
         compound in the load file.  So instead, this test will assure that new synonyms added to a correctly defined
         compound is associated with a previously loaded compound, to add NEW valid synonyms.
         """
+        datadict = {
+            "Compound": ["fructose-1-6-bisphosphate"],
+            "Formula": ["C6H14O12P2"],
+            "HMDB ID": ["HMDB0001058"],
+            "Synonyms": [
+                (
+                    "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
+                    "Fructose 1,6-diphosphate;Diphosphofructose;new valid synonym"
+                )
+            ],
+        }
         # create dataframe from dictionary
-        cl = CompoundsLoader(
-            compounds_df=pd.DataFrame.from_dict(
-                {
-                    CompoundsLoader.NAME_HEADER: ["fructose-1-6-bisphosphate"],
-                    CompoundsLoader.FORMULA_HEADER: ["C6H14O12P2"],
-                    CompoundsLoader.HMDB_ID_HEADER: ["HMDB0001058"],
-                    CompoundsLoader.SYNONYMS_HEADER: [
-                        (
-                            "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
-                            "Fructose 1,6-diphosphate;Diphosphofructose;new valid synonym"
-                        )
-                    ],
-                }
-            )
-        )
-        cl.load_compound_data()
+        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl.load_data()
         self.assertEqual(
             1,
             cl.record_counts["Compound"]["existed"],
@@ -200,21 +198,18 @@ class CompoundLoadingTests(TracebaseTestCase):
         Synonym "Fructose 1,6-bisphosphate" refers to compound "fructose-1-6-bisphosphate" and synonym "glucose" refers
         to compound "glucose".
         """
-        # create dataframe from dictionary
-        cl = CompoundsLoader(
-            compounds_df=pd.DataFrame.from_dict(
-                {
-                    CompoundsLoader.NAME_HEADER: ["nonsense"],
-                    CompoundsLoader.FORMULA_HEADER: ["nonsense"],
-                    CompoundsLoader.HMDB_ID_HEADER: ["nonsense"],
-                    CompoundsLoader.SYNONYMS_HEADER: [
-                        "Fructose 1,6-bisphosphate;glucose"
-                    ],
-                }
-            )
+        datadict = CompoundsLoader.header_key_to_name(
+            {
+                CompoundsLoader.NAME_KEY: ["nonsense"],
+                CompoundsLoader.HMDBID_KEY: ["nonsense"],
+                CompoundsLoader.FORMULA_KEY: ["nonsense"],
+                CompoundsLoader.SYNONYMS_KEY: ["Fructose 1,6-bisphosphate;glucose"],
+            }
         )
+        # create dataframe from dictionary
+        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
         with self.assertRaises(AggregatedErrors) as ar:
-            cl.load_compound_data()
+            cl.load_data()
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
@@ -265,31 +260,30 @@ class CompoundLoadingTests(TracebaseTestCase):
             compound=existing_compound_2,
         )
         existing_synonym.save()
-        # create dataframe from dictionary
-        cl = CompoundsLoader(
-            compounds_df=pd.DataFrame.from_dict(
-                {
-                    CompoundsLoader.NAME_HEADER: [
-                        "new compound 1",
-                        "existing synonym",  # New compound name that already exists as a synonym of a different cmpd
-                    ],
-                    CompoundsLoader.FORMULA_HEADER: [
-                        "C3",
-                        "C4",
-                    ],
-                    CompoundsLoader.HMDB_ID_HEADER: [
-                        "HMDB3333333",
-                        "HMDB4444444",
-                    ],
-                    CompoundsLoader.SYNONYMS_HEADER: [
-                        "existing compound name",  # New synonym that already exists as a name of a different compound
-                        "",
-                    ],
-                }
-            )
+        datadict = CompoundsLoader.header_key_to_name(
+            {
+                CompoundsLoader.NAME_KEY: [
+                    "new compound 1",
+                    "existing synonym",  # New compound name that already exists as a synonym of a different cmpd
+                ],
+                CompoundsLoader.FORMULA_KEY: [
+                    "C3",
+                    "C4",
+                ],
+                CompoundsLoader.HMDBID_KEY: [
+                    "HMDB3333333",
+                    "HMDB4444444",
+                ],
+                CompoundsLoader.SYNONYMS_KEY: [
+                    "existing compound name",  # New synonym that already exists as a name of a different compound
+                    "",
+                ],
+            }
         )
+        # create dataframe from dictionary
+        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
         with self.assertRaises(AggregatedErrors) as ar:
-            cl.load_compound_data()
+            cl.load_data()
         aes = ar.exception
         self.assertEqual(2, aes.num_errors)
         self.assertEqual(SynonymExistsAsMismatchedCompound, type(aes.exceptions[0]))
@@ -308,9 +302,9 @@ class CompoundsLoaderTests(TracebaseTestCase):
     def test_compound_exists_skipped(self):
         df = self.get_dataframe()
         cl = CompoundsLoader(df)
-        cl.load_compound_data()
+        cl.load_data()
         cl2 = CompoundsLoader(df)
-        cl2.load_compound_data()
+        cl2.load_data()
         self.assertEqual(0, cl2.record_counts["Compound"]["created"])
         self.assertEqual(0, cl2.record_counts["Compound"]["errored"])
         self.assertEqual(1, cl2.record_counts["Compound"]["existed"])
@@ -327,22 +321,63 @@ class CompoundsLoaderTests(TracebaseTestCase):
             0, CompoundSynonym.objects.filter(name__exact="my new compound").count()
         )
 
-        cl = CompoundsLoader(
-            compounds_df=pd.DataFrame.from_dict(
-                {
-                    CompoundsLoader.NAME_HEADER: ["my new compound"],
-                    CompoundsLoader.FORMULA_HEADER: ["C11H24N72"],
-                    CompoundsLoader.HMDB_ID_HEADER: ["HMDB1111111"],
-                    CompoundsLoader.SYNONYMS_HEADER: ["placeholder synonym"],
-                }
-            )
+        datadict = CompoundsLoader.header_key_to_name(
+            {
+                CompoundsLoader.NAME_KEY: ["my new compound"],
+                CompoundsLoader.FORMULA_KEY: ["C11H24N72"],
+                CompoundsLoader.HMDBID_KEY: ["HMDB1111111"],
+                CompoundsLoader.SYNONYMS_KEY: ["placeholder synonym"],
+            }
         )
-        cl.load_compound_data()
+        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl.load_data()
 
         # The fact these 2 gets don't raise an exception is a test that the load worked
         ncpd = Compound.objects.get(name__exact="my new compound")
         ns = CompoundSynonym.objects.get(name__exact="my new compound")
         self.assertEqual(ncpd, ns.compound, msg="Compound name is saved as a synonym")
+
+    def test_check_for_cross_column_name_duplicates(self):
+        """
+        Make sure that check_for_cross_column_name_duplicates buffers exceptions for compounds whose name matches a
+        synonym of another compound, and buffers exceptions for synonyms common between compound rows.
+        """
+        datadict = CompoundsLoader.header_key_to_name(
+            {
+                CompoundsLoader.NAME_KEY: ["C1", "B"],
+                CompoundsLoader.FORMULA_KEY: ["C1", "C2"],
+                CompoundsLoader.HMDBID_KEY: ["HMDB1", "HMDB2"],
+                CompoundsLoader.SYNONYMS_KEY: ["A;B", "A"],
+            }
+        )
+        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl.check_for_cross_column_name_duplicates()
+        self.assertEqual(
+            (2, 0),
+            (
+                cl.aggregated_errors_object.num_errors,
+                cl.aggregated_errors_object.num_warnings,
+            ),
+        )
+        self.assertEqual(
+            [DuplicateValues, DuplicateValues],
+            [type(e) for e in cl.aggregated_errors_object.exceptions],
+        )
+        print(str(cl.aggregated_errors_object.exceptions[0]))
+        self.assertIn(
+            (
+                "The following unique column (or column combination) ['Synonyms'] was found to have duplicate "
+                "occurrences in the load file data on the indicated rows:\n\tA (rows*: 2-3)"
+            ),
+            str(cl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            (
+                "The following unique column (or column combination) ['Compound and Synonyms'] was found to have "
+                "duplicate occurrences in the load file data on the indicated rows:\n\tB (rows*: 2-3)"
+            ),
+            str(cl.aggregated_errors_object.exceptions[1]),
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -352,7 +387,7 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             dry_run=True,
             verbosity=0,
         )

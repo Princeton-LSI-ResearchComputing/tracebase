@@ -1,60 +1,97 @@
+from collections import namedtuple
+
 from DataRepo.models import Study
 from DataRepo.utils.loader import TraceBaseLoader
 
 
 class StudyTableLoader(TraceBaseLoader):
-    CODE_HEADER = "Study ID"
-    NAME_HEADER = "Name"
-    DESC_HEADER = "Description"
-    ALL_HEADERS = [CODE_HEADER, NAME_HEADER, DESC_HEADER]
-    REQUIRED_HEADERS = ALL_HEADERS
-    REQUIRED_VALUES = ALL_HEADERS
-    UNIQUE_COLUMN_CONSTRAINTS = [[CODE_HEADER], [NAME_HEADER]]
-    FLD_TO_COL = {
-        "code": CODE_HEADER,
-        "name": NAME_HEADER,
-        "description": DESC_HEADER,
+    CODE_KEY = "CODE"
+    NAME_KEY = "NAME"
+    DESC_KEY = "DESCRIPTION"
+
+    TableHeaders = namedtuple(
+        "TableHeaders",
+        [
+            "CODE",
+            "NAME",
+            "DESCRIPTION",
+        ],
+    )
+    DefaultHeaders = TableHeaders(
+        CODE="Study ID",
+        NAME="Name",
+        DESCRIPTION="Description",
+    )
+    RequiredHeaders = TableHeaders(
+        CODE=True,
+        NAME=True,
+        DESCRIPTION=True,
+    )
+    RequiredValues = RequiredHeaders
+    # No DefaultValues needed
+    # No ColumnTypes needed
+    UniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
+    FieldToHeaderKey = {
+        "Study": {
+            "code": CODE_KEY,
+            "name": NAME_KEY,
+            "description": DESC_KEY,
+        },
     }
+    Models = [Study]
 
-    def __init__(
-        self,
-        study_table_df,
-        sheet=None,
-        file=None,
-        dry_run=True,
-        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
-    ):
-        # Data
-        self.study_table_df = study_table_df
+    def __init__(self, *args, **kwargs):
+        """Constructor.
 
-        super().__init__(
-            study_table_df,
-            all_headers=self.ALL_HEADERS,
-            reqd_headers=self.REQUIRED_HEADERS,
-            reqd_values=self.REQUIRED_VALUES,
-            unique_constraints=self.UNIQUE_COLUMN_CONSTRAINTS,
-            dry_run=dry_run,
-            defer_rollback=defer_rollback,
-            sheet=sheet,
-            file=file,
-            models=[Study],
-        )
+        Args:
+            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
+            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
+            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
+            dry_run (Optional[boolean]) [False]: Dry run mode.
+            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
+                HANDLE THE ROLLBACK.
+            sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            file (Optional[str]) [None]: File name (for error reporting).
 
-    @TraceBaseLoader.loader
-    def load_study_table(self):
-        for index, row in self.study_table_df.iterrows():
-            if index in self.get_skip_row_indexes():
-                continue
+        Raises:
+            Nothing
 
-            # Index starts at 0, headers are on row 1
-            rownum = index + 2
+        Returns:
+            Nothing
+        """
+        super().__init__(*args, **kwargs)
+
+    def load_data(self):
+        """Loads the study table from the dataframe.
+
+        Args:
+            None
+
+        Raises:
+            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
+                method)
+
+        Returns:
+            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
+                method)
+        """
+        for index, row in self.df.iterrows():
+            rec_dict = None
 
             try:
+                code = self.get_row_val(row, self.headers.CODE)
+                name = self.get_row_val(row, self.headers.NAME)
+                description = self.get_row_val(row, self.headers.DESCRIPTION)
+
                 rec_dict = {
-                    "code": self.getRowVal(row, self.CODE_HEADER),
-                    "name": self.getRowVal(row, self.NAME_HEADER),
-                    "description": self.getRowVal(row, self.DESC_HEADER),
+                    "code": code,
+                    "name": name,
+                    "description": description,
                 }
+
+                # get_row_val can add to skip_row_indexes when there is a missing required value
+                if self.is_skip_row():
+                    continue
 
                 study_rec, created = Study.objects.get_or_create(**rec_dict)
 
@@ -66,7 +103,5 @@ class StudyTableLoader(TraceBaseLoader):
 
             except Exception as e:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(
-                    e, Study, rec_dict, rownum=rownum, fld_to_col=self.FLD_TO_COL
-                )
+                self.handle_load_db_errors(e, Study, rec_dict)
                 self.errored()

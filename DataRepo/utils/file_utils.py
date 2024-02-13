@@ -3,6 +3,7 @@ from collections import defaultdict
 from zipfile import BadZipFile
 
 import pandas as pd
+import yaml
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -24,7 +25,7 @@ def read_from_file(
     Args:
         filepath (str): Path to infile
         sheet (str): Name of excel sheet
-        filetype (str): Enumeration ["csv", "tsv", "excel"]
+        filetype (str): Enumeration ["csv", "tsv", "excel", "yaml"]
         dtype (Dict(str)): header: type
         keep_default_na (bool): The keep_default_na arg to pandas
         dropna (bool): Whether to drop na
@@ -35,14 +36,18 @@ def read_from_file(
         CommandError
 
     Returns:
-        Pandas dataframe of parsed and processed infile data
+        Pandas dataframe of parsed and processed infile data.
+        Or, if the filetype is yaml, returns a python object.
     """
-    filetypes = ["csv", "tsv", "excel"]
+    filetypes = ["csv", "tsv", "excel", "yaml"]
     extensions = {
         "csv": "csv",
         "tsv": "tsv",
         "xlsx": "excel",
+        "yaml": "yaml",
+        "yml": "yaml",
     }
+    retval = None
 
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
@@ -65,7 +70,7 @@ def read_from_file(
         )
 
     if filetype == "excel":
-        dataframe = _read_from_xlsx(
+        retval = _read_from_xlsx(
             filepath,
             sheet=sheet,
             keep_default_na=keep_default_na,
@@ -75,7 +80,7 @@ def read_from_file(
             expected_headers=expected_headers,
         )
     elif filetype == "tsv":
-        dataframe = _read_from_tsv(
+        retval = _read_from_tsv(
             filepath,
             dtype=dtype,
             keep_default_na=keep_default_na,
@@ -84,7 +89,7 @@ def read_from_file(
             expected_headers=expected_headers,
         )
     elif filetype == "csv":
-        dataframe = _read_from_csv(
+        retval = _read_from_csv(
             filepath,
             dtype=dtype,
             keep_default_na=keep_default_na,
@@ -92,8 +97,15 @@ def read_from_file(
             na_values=na_values,
             expected_headers=expected_headers,
         )
+    elif filetype == "yaml":
+        retval = _read_from_yaml(filepath)
 
-    return dataframe
+    return retval
+
+
+def _read_from_yaml(filepath):
+    with open(filepath) as headers_file:
+        return yaml.safe_load(headers_file)
 
 
 def _read_from_xlsx(
@@ -191,6 +203,7 @@ def _read_from_csv(
 
     if dropna:
         return df.dropna(axis=0, how="all")
+
     return df
 
 
@@ -258,7 +271,7 @@ def _read_headers_from_xlsx(filepath, sheet=0):
 def _read_headers_from_tsv(filepath):
     # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
     # checking for duplicate headers manually here.
-    return (
+    raw_headers = (
         pd.read_table(
             filepath,
             nrows=1,
@@ -266,14 +279,17 @@ def _read_headers_from_tsv(filepath):
         )
         .squeeze("columns")
         .iloc[0]
-        .to_list()
     )
+    # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
+    if type(raw_headers) == str:
+        return [raw_headers]
+    return raw_headers.to_list()
 
 
 def _read_headers_from_csv(filepath):
     # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
     # checking for duplicate headers manually here.
-    return (
+    raw_headers = (
         pd.read_csv(
             filepath,
             nrows=1,
@@ -281,8 +297,11 @@ def _read_headers_from_csv(filepath):
         )
         .squeeze("columns")
         .iloc[0]
-        .to_list()
     )
+    # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
+    if type(raw_headers) == str:
+        return [raw_headers]
+    return raw_headers.to_list()
 
 
 def headers_are_as_expected(expected, headers):
@@ -360,38 +379,6 @@ def _headers_are_not_unique(headers):
     if num_uniq_heads != num_heads:
         return True, num_uniq_heads, num_heads
     return False, num_uniq_heads, num_heads
-
-
-# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
-def get_one_column_dupes(data, col_key, ignore_row_idxs=None):
-    """Find duplicate values in a single column from file table data.
-
-    Args:
-        data (DataFrame or list of dicts): The table data parsed from a file.
-        unique_col_keys (list of column name strings): Column names whose combination must be unique.
-        ignore_row_idxs (list of integers): Rows to ignore.
-
-    Returns:
-        1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
-        2. A list of all row indexes containing duplicate data.
-    """
-    all_row_idxs_with_dupes = []
-    vals_dict = defaultdict(list)
-    dupe_dict = defaultdict(dict)
-    dict_list = data if type(data) == list else data.to_dict("records")
-
-    for rowidx, row in enumerate(dict_list):
-        # Ignore rows where the animal name is empty
-        if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
-            continue
-        vals_dict[row[col_key]].append(rowidx)
-
-    for key in vals_dict.keys():
-        if len(vals_dict[key]) > 1:
-            dupe_dict[key] = vals_dict[key]
-            all_row_idxs_with_dupes.extend(vals_dict[key])
-
-    return dupe_dict, all_row_idxs_with_dupes
 
 
 # TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
