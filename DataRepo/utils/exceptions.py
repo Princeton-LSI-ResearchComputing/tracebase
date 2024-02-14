@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 from django.core.exceptions import ValidationError
+from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
@@ -2049,6 +2050,14 @@ class SynonymExistsAsMismatchedCompound(Exception):
         self.name = name
         self.compound = compound
         self.conflicting_cpd_rec = conflicting_cpd_rec
+
+
+class OptionsNotAvailable(ProgrammingError):
+    """
+    An exception class for methods that retrieve command line options, called too early.
+    """
+    def __init__(self):
+        super().__init__("Cannot get command line option values until handle() has been called.")
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

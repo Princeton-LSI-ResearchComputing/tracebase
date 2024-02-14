@@ -10,17 +10,6 @@ class Command(LoadFromTableCommand):
     data_sheet_default = "Compounds"
 
     def add_arguments(self, parser):
-        """Adds command line options.
-
-        Args:
-            parser (argparse object)
-
-        Raises:
-            Nothing
-
-        Returns:
-            Nothing
-        """
         # Add the options provided by the superclass
         super().add_arguments(parser)
 
@@ -37,11 +26,14 @@ class Command(LoadFromTableCommand):
         """Code to run when the command is called from the command line.
 
         This code is automatically wrapped by LoadFromTableCommand._handler, which handles:
-            - DryRun Exceptions
-            - Contextualization of exceptions to the associated input in the file
+            - Retrieving the base-class-provided option values (and fills in the defaults provided by the loader_class)
             - Atomic transactions with optionally deferred rollback
-            - Header and data type validation
-            - Unique file constraints
+            - Exception handling:
+                - DryRun Exceptions
+                - Contextualization of exceptions to the associated input in the file
+            - Validation
+                - Header and data type
+                - Unique file constraints
 
         Args:
             options (dict of strings): String values provided on the command line by option name.
