@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from django.core.management import BaseCommand
 
-from DataRepo.utils import AggregatedErrors, DryRun, OptionsNotAvailable, is_excel, read_from_file
+from DataRepo.utils import AggregatedErrors, DryRun, MutuallyExclusiveOptions, OptionsNotAvailable, is_excel, read_from_file
 from DataRepo.utils.loader import TraceBaseLoader
 
 
@@ -313,14 +313,17 @@ class LoadFromTableCommand(ABC, BaseCommand):
 
         # Insert all of the TraceBaseLoader superclass arguments that take user options supplied on the command-line
         # into account
-        kwargs["df"] =   self.df
+        kwargs["df"] = self.df
+        kwargs["data_sheet"] = self.sheet
+        kwargs["file"] = self.file
         kwargs["headers"] = self.headers
         kwargs["defaults"] = self.defaults
-        kwargs["defaults_sheet"] = self.defaults_sheet
         kwargs["dry_run"] = self.dry_run
         kwargs["defer_rollback"] = self.defer_rollback
-        kwargs["sheet"] = self.sheet
-        kwargs["file"] = self.file
+        # TODO: These need to be set in load_data().  I should also separate the defaults setting from the user defaults.  Same for headers.  This script shouldn't try to merge the user defaults or headers.  That should happen in loader.
+        kwargs["defaults_df"] = self.defaults_df
+        kwargs["defaults_sheet"] = self.defaults_sheet
+        kwargs["defaults_file"] = self.defaults_file
 
         # Construct a new loader (The loader created in the constructor were to provide defaults for the CLI)
         # Supplying *args and **kwargs allow the derived class to have custom arguments (e.g. see the synonyms_separator
@@ -387,11 +390,11 @@ class LoadFromTableCommand(ABC, BaseCommand):
         """
         if self.options is None:
             raise OptionsNotAvailable()
-        return (
-            self.options["data_sheet"]
-            if not default and is_excel(self.get_infile())
-            else None
-        )
+        # This will return the sheet name regardless of whether the current infile is an excel file because the
+        # --defaults-file identifies defaults for any infile type, regardless of whether it is an excel file or not.
+        # The sheet column identifies the written default value on each row as belonging to the current loader (and
+        # input file) or not.
+        return self.options["data_sheet"]
 
     def get_defaults_sheet(self):
         """Uses options["defaults_sheet"] to return the sheet name.
@@ -440,7 +443,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
         return df
 
     def get_headers(self):
-        """Returns self.headers.  Initializes them if not set.
+        """Returns the merge of the current user, developer (custom default), and class default headers.
 
         Args:
             None
@@ -451,10 +454,20 @@ class LoadFromTableCommand(ABC, BaseCommand):
         Returns:
             headers (namedtuple of TraceBaseLoader.TableHeaders containing strings of header names)
         """
-        ##### TODO: Create separate methods for get/set default headers
-        if hasattr(self, "headers") and self.headers is not None:
-            return self.headers
-        return self.set_headers()
+        return self._merge_headers()
+
+    def get_user_headers(self):
+        if self.options is None:
+            raise OptionsNotAvailable()
+
+        # User-level defaults are supplied via options (a yaml file via the --headers option)
+        user_headers = None
+        if self.options is not None:
+            user_headers = (
+                read_from_file(self.options["headers"]) if self.options["headers"] else None
+            )
+
+        return user_headers
 
     def set_headers(self, custom_headers=None):
         """Sets instance's header names.  If no custom headers are provided, it reverts to user-privided and/or class
@@ -480,13 +493,24 @@ class LoadFromTableCommand(ABC, BaseCommand):
         Returns:
             headers (namedtupe of loader_class.TableHeaders): Header names by header key
         """
-        ##### TODO: Create separate methods for get/set default headers
-        final_custom_headers = None
-        user_headers = (
-            read_from_file(self.options["headers"]) if self.options["headers"] else None
-        )
-        dev_headers = custom_headers
+        self.headers = self._merge_headers(custom_headers)
+        return self.headers
 
+    def _merge_headers(self, dev_headers=None):
+        """Merges user, developer (custom default), and class headers hierarchically."""
+        final_custom_headers = None
+
+        # User-level defaults are supplied via options (a yaml file via the --headers option)
+        user_headers = None
+        if self.options is not None:
+            user_headers = self.get_user_headers()
+
+        # It may have previously been called, so to preserve previously set derived defaults, set the dev_headers based
+        # on the argument and the presence of pre-set headers
+        if dev_headers is None and hasattr(self, "headers") and self.headers is not None:
+            dev_headers = self.headers
+
+        # If user and derived class defaults exist, merge them (user trumps derived class defaults)
         if user_headers is not None and dev_headers is not None:
             final_custom_headers = {}
             # To support incomplete headers dicts
@@ -501,12 +525,11 @@ class LoadFromTableCommand(ABC, BaseCommand):
         elif dev_headers is not None:
             final_custom_headers = dev_headers
 
-        self.headers = self.loader_class.get_class_headers(final_custom_headers)
-
-        return self.headers
+        # The loader_class method get_headers will merge the custom headers
+        return self.loader_class.get_headers(final_custom_headers)
 
     def get_defaults(self):
-        """Returns self.defaults.  Initializes them if not set.
+        """Returns current defaults.
 
         Args:
             None
@@ -517,10 +540,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
         Returns:
             defaults (namedtuple of TraceBaseLoader.TableHeaders containing strings of header names)
         """
-        ##### TODO: Create separate methods for get/set default defaults
-        if hasattr(self, "defaults") and self.defaults is not None:
-            return self.defaults
-        return self.set_defaults()
+        return self._merge_defaults()
 
     def set_defaults(self, custom_defaults=None):
         """Sets instance's default values.  If no custom defaults are provided, it reverts to user-privided and/or class
@@ -546,26 +566,8 @@ class LoadFromTableCommand(ABC, BaseCommand):
         Returns:
             defaults (namedtupe of loader_class.TableHeaders): Header names by header key
         """
-        ##### TODO: Create separate methods for get/set default defaults
-        final_custom_defaults = None
-        user_defaults = self.get_user_defaults()
-        dev_defaults = custom_defaults
-
-        if user_defaults is not None and dev_defaults is not None:
-            final_custom_defaults = {}
-            # To support incomplete defaults dicts
-            for hk in list(set(user_defaults.keys()) + set(dev_defaults.keys())):
-                final_custom_defaults[hk] = user_defaults.get(
-                    hk, dev_defaults.get(hk, None)
-                )
-            if len(final_custom_defaults.keys()) == 0:
-                final_custom_defaults = None
-        elif user_defaults is not None:
-            final_custom_defaults = user_defaults
-        elif dev_defaults is not None:
-            final_custom_defaults = dev_defaults
-
-        self.defaults = self.loader_class.get_class_defaults(final_custom_defaults)
+        # The loader_class method get_defaults will merge the custom headers
+        self.defaults = self._merge_defaults(custom_defaults)
 
         return self.defaults
 
@@ -589,19 +591,64 @@ class LoadFromTableCommand(ABC, BaseCommand):
             raise OptionsNotAvailable()
 
         infile = self.get_infile()
+        defaults_sheet = None
 
-        if not is_excel(infile):
+        if is_excel(infile):
+            if self.options["defaults_file"] is not None:
+                raise MutuallyExclusiveOptions(
+                    "--defaults-file cannot be provided when --infile is an excel file.  Use --defaults-sheet and add "
+                    "defaults to the excel file."
+                )
+            defaults_sheet = self.get_defaults_sheet()
+            defaults_file = infile
+        elif self.options["defaults_file"] is not None:
+            defaults_file = self.options["defaults_file"]
+        else:
+            defaults_file = None
+
+        if defaults_file is None:
             return None
 
-        defaults_sheet = self.get_defaults_sheet()
-        defaults_df = read_from_file(infile, sheet=defaults_sheet)
+        defaults_df = read_from_file(defaults_file, sheet=defaults_sheet)
 
-        user_defaults = self.loader_class.get_user_defaults(defaults_df, infile, defaults_sheet)
+        user_defaults = None
+        if self.options is not None:
+            user_defaults = self.loader.get_user_defaults()
 
-        if len(user_defaults.keys()) == 0:
+        if user_defaults is not None and len(user_defaults.keys()) == 0:
             user_defaults = None
 
         return user_defaults
+
+    def _merge_defaults(self, dev_defaults=None):
+        """Merges user, developer (custom default), and class defaults hierarchically."""
+        final_custom_defaults = None
+
+        # User-level defaults are supplied via the "Defaults" sheet
+        user_defaults = self.get_user_defaults()
+
+        # It may have previously been called, so to preserve previously set derived defaults, set the dev_defaults based
+        # on the argument and the presence of pre-set defaults
+        if dev_defaults is None and hasattr(self, "defaults") and self.defaults is not None:
+            dev_defaults = self.defaults
+
+        # If user and derived class defaults exist, merge them (user trumps derived class defaults)
+        if user_defaults is not None and dev_defaults is not None:
+            final_custom_defaults = {}
+            # To support incomplete defaults dicts
+            for hk in list(set(user_defaults.keys()) + set(dev_defaults.keys())):
+                final_custom_defaults[hk] = user_defaults.get(
+                    hk, dev_defaults.get(hk, None)
+                )
+            if len(final_custom_defaults.keys()) == 0:
+                final_custom_defaults = None
+        elif user_defaults is not None:
+            final_custom_defaults = user_defaults
+        elif dev_defaults is not None:
+            final_custom_defaults = dev_defaults
+
+        # The loader_class method get_defaults will merge the custom headers
+        return self.loader_class.get_defaults(final_custom_defaults)
 
     def get_infile(self):
         """Uses options["infile"] to return the input file name.

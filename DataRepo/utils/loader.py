@@ -30,7 +30,6 @@ from DataRepo.utils.file_utils import (
     get_column_dupes,
     get_sheet_names,
     is_excel,
-    read_headers_from_file,
 )
 
 
@@ -192,7 +191,14 @@ class TraceBaseLoader(ABC):
 
         # For error reporting
         self.file = file
-        self.sheet = data_sheet
+        if is_excel(self.file):
+            self.sheet = data_sheet
+        else:
+            self.sheet = None
+
+        # The sheet is supplied whether or not the file is an excel file, because the sheet name is used in the defaults
+        # data to identify what default values belong to a particular type of infile data
+        self.defaults_current_type = data_sheet
         self.defaults_file = defaults_file
         self.defaults_sheet = defaults_sheet
 
@@ -263,61 +269,8 @@ class TraceBaseLoader(ABC):
         check_index = index if index is not None else self.row_index
         return check_index in self.get_skip_row_indexes()
 
-    @classmethod
-    def get_class_headers(cls, custom_header_data=None):
-        """Returns file headers.
-
-        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
-        check is only otherwise called during object instantiation.
-
-        Args:
-            custom_header_data (dict): Header names by header key.  This is expected to be obtained from the parsing of
-                a yaml file.  The dict may contain a subset of header keys.  Missing header keys will fall back to the
-                defaults defined in the class.
-
-        Raises:
-            ValueError if a header key is not in cls.DefaultHeaders
-
-        Returns:
-            headers (namedtuple of TableHeaders)
-        """
-        cls.check_class_attributes()
-
-        extras = []
-        if custom_header_data is not None:
-            if type(custom_header_data) != dict:
-                # We create an aggregated errors object in class methods because we may not have an instance with one
-                raise AggregatedErrors().buffer_error(
-                    TypeError(
-                        f"Invalid argument: [custom_header_data] dict required, {type(custom_header_data)} supplied."
-                    )
-                )
-
-            new_dh_dict = cls.DefaultHeaders._asdict()
-            for hk in custom_header_data.keys():
-                if hk in new_dh_dict.keys():
-                    # If None was sent in as a value, fall back to the default so that errors about this header (e.g.
-                    # default values of required headers) reference *something*.
-                    if custom_header_data[hk] is not None:
-                        new_dh_dict[hk] = custom_header_data[hk]
-                else:
-                    extras.append(hk)
-
-            # Raise programming errors immediately
-            if len(extras) > 0:
-                # We create an aggregated errors object in class methods because we may not have an instance with one
-                raise AggregatedErrors().buffer_error(
-                    ValueError(f"Unexpected header keys: {extras}.")
-                )
-
-            headers = cls.DefaultHeaders._replace(**new_dh_dict)
-        else:
-            headers = cls.DefaultHeaders
-
-        return headers
-
-    def get_headers(self, custom_header_data=None):
-        """Returns file headers.
+    def get_headers(self, custom_headers=None):
+        """Returns current headers.
 
         Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
         check is only otherwise called during object instantiation.
@@ -339,22 +292,22 @@ class TraceBaseLoader(ABC):
             base_headers = self.DefaultHeaders
 
         extras = []
-        if custom_header_data is not None:
-            if type(custom_header_data) != dict:
+        if custom_headers is not None:
+            if type(custom_headers) != dict:
                 # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise AggregatedErrors().buffer_error(
                     TypeError(
-                        f"Invalid argument: [custom_header_data] dict required, {type(custom_header_data)} supplied."
+                        f"Invalid argument: [custom_header_data] dict required, {type(custom_headers)} supplied."
                     )
                 )
 
             new_dh_dict = base_headers._asdict()
-            for hk in custom_header_data.keys():
+            for hk in custom_headers.keys():
                 if hk in new_dh_dict.keys():
                     # If None was sent in as a value, fall back to the default so that errors about this header (e.g.
                     # default values of required headers) reference *something*.
-                    if custom_header_data[hk] is not None:
-                        new_dh_dict[hk] = custom_header_data[hk]
+                    if custom_headers[hk] is not None:
+                        new_dh_dict[hk] = custom_headers[hk]
                 else:
                     extras.append(hk)
 
@@ -425,57 +378,7 @@ class TraceBaseLoader(ABC):
 
         return keys
 
-    @classmethod
-    def get_class_defaults(cls, custom_default_data=None):
-        """Returns defaults tuple.
-
-        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
-        check is only otherwise called during object instantiation.
-
-        Args:
-            custom_default_data (dict): Default values by header key.  The dict may contain a subset of header keys.
-                Missing header keys will fall back to the defaults defined in the class.
-
-        Raises:
-            TypeError is the argument is the wrong type
-            ValueError if a header key is not in cls.DefaultValues
-
-        Returns:
-            defaults (Optional[namedtuple of TableHeaders])
-        """
-        cls.check_class_attributes()
-
-        extras = []
-        if custom_default_data is not None:
-            if type(custom_default_data) != dict:
-                # We create an aggregated errors object in class methods because we may not have an instance with one
-                raise AggregatedErrors().buffer_error(
-                    TypeError(
-                        f"Invalid argument: [custom_default_data] dict required, {type(custom_default_data)} supplied."
-                    )
-                )
-
-            new_dv_dict = cls.DefaultValues._asdict()
-            for hk in custom_default_data.keys():
-                if hk in new_dv_dict.keys():
-                    new_dv_dict[hk] = custom_default_data[hk]
-                else:
-                    extras.append(hk)
-
-            # Raise programming errors immediately
-            if len(extras) > 0:
-                # We create an aggregated errors object in class methods because we may not have an instance with one
-                raise AggregatedErrors().buffer_error(
-                    ValueError(f"Unexpected default keys: {extras}.")
-                )
-
-            defaults = cls.DefaultValues._replace(**new_dv_dict)
-        else:
-            defaults = cls.DefaultValues
-
-        return defaults
-
-    def get_defaults(self, custom_default_data=None):
+    def get_defaults(self, custom_defaults=None):
         """Returns defaults tuple.
 
         Args:
@@ -495,19 +398,19 @@ class TraceBaseLoader(ABC):
             base_defaults = self.DefaultValues
 
         extras = []
-        if custom_default_data is not None:
-            if type(custom_default_data) != dict:
+        if custom_defaults is not None:
+            if type(custom_defaults) != dict:
                 # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise AggregatedErrors().buffer_error(
                     TypeError(
-                        f"Invalid argument: [custom_default_data] dict required, {type(custom_default_data)} supplied."
+                        f"Invalid argument: [custom_default_data] dict required, {type(custom_defaults)} supplied."
                     )
                 )
 
             new_dv_dict = base_defaults._asdict()
-            for hk in custom_default_data.keys():
+            for hk in custom_defaults.keys():
                 if hk in new_dv_dict.keys():
-                    new_dv_dict[hk] = custom_default_data[hk]
+                    new_dv_dict[hk] = custom_defaults[hk]
                 else:
                     extras.append(hk)
 
@@ -519,10 +422,8 @@ class TraceBaseLoader(ABC):
                 )
 
             defaults = base_defaults._replace(**new_dv_dict)
-            print(f"CUSTOM DEFAULTS SET {defaults}")
         else:
             defaults = base_defaults
-            print(f"DEFAULT DEFAULTS SET {defaults}")
 
         return defaults
 
@@ -651,7 +552,6 @@ class TraceBaseLoader(ABC):
             typeerrs.append(str(te))
 
         self.defaults_by_header = self.get_defaults_dict_by_header_name()
-        print(f"DBH: {self.defaults_by_header}")
 
         if self.Models is None or len(self.Models) == 0:
             # Raise programming-related errors immediately
@@ -858,7 +758,7 @@ class TraceBaseLoader(ABC):
             return None
 
         if headers is None:
-            headers = cls.get_class_headers()
+            headers = cls.DefaultHeaders
         elif not cls.isnamedtuple(headers):
             # Immediately raise programming related errors
             # We create an aggregated errors object in class methods because we may not have an instance with one
@@ -1088,12 +988,11 @@ class TraceBaseLoader(ABC):
         return val
 
     def get_user_defaults(self):
-        # TODO: Make get_user_defaults in load_table do the file parsing and supply a dataframe, then re-write this method to not read the file.
         # Return value
         user_defaults = {}
 
         # Save the looked up headers (to avoid repeated lookups)
-        headers_by_sheet = {}
+        infile_headers = []
 
         # Get all the sheet names in the current (assumed: excel) file
         all_sheet_names = None
@@ -1108,7 +1007,7 @@ class TraceBaseLoader(ABC):
         unknown_headers = defaultdict(list)
         invalid_type_errs = []
 
-        for _, row in self.df.iterrows():
+        for _, row in self.defaults_df.iterrows():
             # Get the sheet from the row
             sheet_name = self.get_row_val(row, self.DefaultsSheetHeaders.SHEET_NAME)
 
@@ -1122,20 +1021,20 @@ class TraceBaseLoader(ABC):
                 continue
 
             # Skip sheets that are not the target load_sheet
-            # TODO: Figure out how to handle when self.sheet is None (i.e. when processing a tsv file, if I decide to
-            # support a separate defaults file)
-            if self.sheet is not None and sheet_name != self.sheet:
+            # Note, self.sheet is None if self.file is not an excel file, but the sheet is always preserved in
+            # self.defaults_current_type as a sort of identifier for the data type
+            if self.defaults_current_type is not None and sheet_name != self.defaults_current_type:
                 continue
 
             # Get the header from the row
             header_name = str(self.get_row_val(row, self.DefaultsSheetHeaders.COLUMN_NAME))
 
             # If we have not saved the headers yet for this sheet
-            if sheet_name not in headers_by_sheet.keys():
-                headers_by_sheet[sheet_name] = read_headers_from_file(self.file)
+            if len(infile_headers) == 0:
+                infile_headers = self.df.columns
 
             # If the header name from the defaults sheet is not an actual header on the load_sheet
-            if header_name not in headers_by_sheet[sheet_name]:
+            if header_name not in infile_headers:
                 unknown_headers[header_name].append(self.rownum)
                 continue
 
@@ -1156,32 +1055,34 @@ class TraceBaseLoader(ABC):
             user_defaults[header_name] = default_val
 
         if len(unknown_sheets.keys()) > 0:
-            self.aggregated_errors_object.buffer_error(
-                ExcelSheetsNotFound(
-                    unknown_sheets,
-                    all_sheet_names,
-                    file=self.file,
-                    column=self.DefaultsSheetHeaders.SHEET_NAME,
-                    source_sheet=self.defaults_sheet,
+            prev_unk_sheets = self.aggregated_errors_object.get_exception_type(ExcelSheetsNotFound)
+            if unknown_sheets not in prev_unk_sheets:
+                self.aggregated_errors_object.buffer_error(
+                    ExcelSheetsNotFound(
+                        unknown_sheets,
+                        all_sheet_names,
+                        file=self.defaults_file,
+                        column=self.DefaultsSheetHeaders.SHEET_NAME,
+                        source_sheet=self.defaults_sheet,
+                    )
                 )
-            )
 
         if len(unknown_headers.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 InvalidHeaderCrossReferenceError(
-                    source_file=self.file,
+                    source_file=self.defaults_file,
                     source_sheet=self.defaults_sheet,
                     column=self.DefaultsSheetHeaders.COLUMN_NAME,
                     unknown_headers=unknown_headers,
                     target_file=self.file,
                     target_sheet=self.sheet,
-                    target_headers=headers_by_sheet[self.sheet],
+                    target_headers=infile_headers,
                 )
             )
 
         if len(invalid_type_errs) > 0:
             loc = generate_file_location_string(
-                column=self.DefaultsSheetHeaders.DEFAULT_VALUE, sheet=self.defaults_sheet, file=self.file
+                column=self.DefaultsSheetHeaders.DEFAULT_VALUE, sheet=self.defaults_sheet, file=self.defaults_file
             )
             deets = "\n\t".join(invalid_type_errs)
             self.aggregated_errors_object.buffer_error(
@@ -1204,7 +1105,6 @@ class TraceBaseLoader(ABC):
         Returns:
             defdict (Optional[dict of objects]): objects by header name
         """
-        print(f"INTUPLE: {intuple}")
         self.check_class_attributes()
         if not self.isnamedtuple(intuple):
             self.aggregated_errors_object.buffer_error(
