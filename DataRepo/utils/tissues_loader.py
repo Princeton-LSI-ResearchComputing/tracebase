@@ -5,7 +5,6 @@ from DataRepo.utils.loader import TraceBaseLoader
 
 
 class TissuesLoader(TraceBaseLoader):
-
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"

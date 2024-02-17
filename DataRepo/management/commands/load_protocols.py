@@ -61,4 +61,7 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
+        # Force a re-evaluation of the header names.  They can change based on the options, given the custom code above.
+        # When the object is instantiated, they are set based on defaults, and will not reset automatically.
+        self.set_headers()
         self.load_data()

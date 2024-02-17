@@ -44,7 +44,7 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        self.load_data(
-            # Specific to this loader.  All other args are extracted from the command line automatically.
-            synonym_separator=options["synonym_separator"],
-        )
+        # The CompoundsLoader class constructor has 1 custom argument
+        # The TraceBaseLoader superclass arguments are controlled by the LoadFromTableCommand superclass
+        self.init_loader(synonym_separator=options["synonym_separator"])
+        self.load_data()

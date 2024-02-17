@@ -13,7 +13,7 @@ from DataRepo.utils.file_utils import merge_dataframes, read_from_file
 
 
 class Command(BaseCommand):
-    examples_dir = "DataRepo/data/examples/"
+    examples_dir = "DataRepo/data/examples/obob_fasted/"
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
     example_yaml = examples_dir + "sample_and_animal_tables_headers.yaml"
