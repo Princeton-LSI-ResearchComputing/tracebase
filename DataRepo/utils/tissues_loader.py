@@ -9,9 +9,11 @@ class TissuesLoader(TraceBaseLoader):
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"
 
+    DataSheetName = "Tissues"
+
     # The tuple used to store different kinds of data per column at the class level
-    TableHeaders = namedtuple(
-        "TableHeaders",
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
         [
             "NAME",
             "DESCRIPTION",
@@ -19,33 +21,33 @@ class TissuesLoader(TraceBaseLoader):
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
-    DefaultHeaders = TableHeaders(
+    DataHeaders = DataTableHeaders(
         NAME="Tissue",
         DESCRIPTION="Description",
     )
 
     # Whether each column is required to be present of not
-    RequiredHeaders = TableHeaders(
+    DataRequiredHeaders = DataTableHeaders(
         NAME=True,
         DESCRIPTION=True,
     )
 
-    # Whether a value for an row in a column is required or not (note that defined DefaultValues will satisfy this)
-    RequiredValues = RequiredHeaders
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataRequiredHeaders
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
-    ColumnTypes = {
+    DataColumnTypes = {
         NAME_KEY: str,
         DESC_KEY: str,
     }
 
-    # No DefaultValues needed
+    # No DataDefaultValues needed
 
     # Combinations of columns whose values must be unique in the file
-    UniqueColumnConstraints = [[NAME_KEY]]
+    DataUniqueColumnConstraints = [[NAME_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
-    FieldToHeaderKey = {
+    FieldToDataHeaderKey = {
         "Tissue": {
             "name": NAME_KEY,
             "description": DESC_KEY,

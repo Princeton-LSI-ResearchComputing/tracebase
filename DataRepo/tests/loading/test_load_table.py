@@ -9,14 +9,15 @@ from DataRepo.utils.loader import TraceBaseLoader
 
 # Class used for testing
 class TestLoader(TraceBaseLoader):
-    TableHeaders = namedtuple("TableHeaders", ["TEST"])
-    DefaultHeaders = TableHeaders(TEST="Test")
-    RequiredHeaders = TableHeaders(TEST=True)
-    RequiredValues = RequiredHeaders
-    ColumnTypes = {"TEST": str}
-    DefaultValues = TableHeaders(TEST=5)
-    UniqueColumnConstraints = [["TEST"]]
-    FieldToHeaderKey = {"Tissue": {"name": "TEST"}}
+    DataSheetName = "test"
+    DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
+    DataHeaders = DataTableHeaders(TEST="Test")
+    DataRequiredHeaders = DataTableHeaders(TEST=True)
+    DataRequiredValues = DataRequiredHeaders
+    DataColumnTypes = {"TEST": str}
+    DataDefaultValues = DataTableHeaders(TEST=5)
+    DataUniqueColumnConstraints = [["TEST"]]
+    FieldToDataHeaderKey = {"Tissue": {"name": "TEST"}}
     # TODO: Create a TestModel to use instead of Tissue (and change/rename TraceBaseLoader to not depend on TraceBase)
     Models = [Tissue]
 
@@ -28,7 +29,6 @@ class TestLoader(TraceBaseLoader):
 # Class used for testing
 class TestCommand(LoadFromTableCommand):
     loader_class = TestLoader
-    data_sheet_default = "test"
 
     def handle(self, *args, **options):
         return self.load_data()
@@ -50,7 +50,6 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         This tests that all required class attributes:
 
             loader_class
-            data_sheet_default
 
         are enforced.  We will do so by creating a class that does not have any of the required class attributes defined
         and catching the expected exception.
@@ -66,7 +65,7 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
             MyCommand()
             # pylint: enable=abstract-class-instantiated
         self.assertIn(
-            "Can't instantiate abstract class MyCommand with abstract methods data_sheet_default, loader_class",
+            "Can't instantiate abstract class MyCommand with abstract method loader_class",
             str(ar.exception),
         )
 
@@ -101,7 +100,6 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
 
         class TestTypeCommand(LoadFromTableCommand):
             loader_class = NotATraceBaseLoaderClass
-            data_sheet_default = 1
 
             def handle(self, *args, **options):
                 self.load_data()
@@ -112,7 +110,6 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         self.assertEqual((1, 0), (aes.num_errors, aes.num_warnings))
         self.assertEqual(TypeError, type(aes.exceptions[0]))
         self.assertIn("loader_class", str(aes.exceptions[0]))
-        self.assertIn("data_sheet_default", str(aes.exceptions[0]))
 
     def test_load_data(self):
         """
@@ -137,23 +134,23 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
 
     def test_get_defaults(self):
         """
-        Tests the return of get_defaults is what was set in TestLoader.DefaultValues
+        Tests the return of get_defaults is what was set in TestLoader.DataDefaultValues
         """
         tc = TestCommand()
         tc.handle(**self.TEST_OPTIONS)
-        self.assertEqual(TestLoader.DefaultValues, tc.get_defaults())
+        self.assertEqual(TestLoader.DataDefaultValues, tc.get_defaults())
 
     def test_get_headers(self):
         """
-        Tests the return of get_defaults is what was set in TestLoader.DefaultHeaders
+        Tests the return of get_defaults is what was set in TestLoader.DataHeaders
         """
         tc = TestCommand()
         tc.handle(**self.TEST_OPTIONS)
-        self.assertEqual(TestLoader.DefaultHeaders, tc.get_headers())
+        self.assertEqual(TestLoader.DataHeaders, tc.get_headers())
 
     def test_get_dataframe(self):
         """
-        Tests the return of get_defaults is what was set in TestLoader.DefaultHeaders
+        Tests the return of get_defaults is what was set in TestLoader.DataHeaders
         """
         tc = TestCommand()
         tc.handle(**self.TEST_OPTIONS)

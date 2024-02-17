@@ -7,7 +7,6 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a sequence table into the database"
     loader_class = SequencesLoader
-    data_sheet_default = "Sequences"
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.

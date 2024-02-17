@@ -1,6 +1,7 @@
 from collections import namedtuple
 
 from DataRepo.models import Protocol
+from DataRepo.utils.file_utils import is_excel
 from DataRepo.utils.loader import TraceBaseLoader
 
 
@@ -10,9 +11,11 @@ class ProtocolsLoader(TraceBaseLoader):
     CAT_KEY = "CATEGORY"
     DESC_KEY = "DESCRIPTION"
 
+    DataSheetName = "Treatments"
+
     # The tuple used to store different kinds of data per column at the class level
-    TableHeaders = namedtuple(
-        "TableHeaders",
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
         [
             "NAME",
             "CATEGORY",
@@ -21,45 +24,52 @@ class ProtocolsLoader(TraceBaseLoader):
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
-    DefaultHeaders = TableHeaders(
+    DataHeaders = DataTableHeaders(
         NAME="Name",
         CATEGORY="Category",
         DESCRIPTION="Description",
     )
 
+    # default XLXS template headers
+    DataHeadersExcel = DataTableHeaders(
+        NAME="Animal Treatment",
+        CATEGORY="Category",  # Unused
+        DESCRIPTION="Treatment Description",
+    )
+
     # Whether each column is required to be present of not
-    RequiredHeaders = TableHeaders(
+    DataRequiredHeaders = DataTableHeaders(
         NAME=True,
         CATEGORY=False,
         DESCRIPTION=True,
     )
 
     # Default values to use when a row in the given column doesn;t have a value in it
-    DefaultValues = TableHeaders(
+    DataDefaultValues = DataTableHeaders(
         NAME=None,
         CATEGORY=Protocol.ANIMAL_TREATMENT,
         DESCRIPTION=None,
     )
 
-    # Whether a value for an row in a column is required or not (note that defined DefaultValues will satisfy this)
-    RequiredValues = TableHeaders(
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataTableHeaders(
         NAME=True,
         CATEGORY=True,  # Required by the model field, but effectively not reqd, bec. it's defaulted
         DESCRIPTION=False,
     )
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
-    ColumnTypes = {
+    DataColumnTypes = {
         NAME_KEY: str,
         CAT_KEY: str,
         DESC_KEY: str,
     }
 
     # Combinations of columns whose values must be unique in the file
-    UniqueColumnConstraints = [[NAME_KEY]]
+    DataUniqueColumnConstraints = [[NAME_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
-    FieldToHeaderKey = {
+    FieldToDataHeaderKey = {
         "Protocol": {
             "name": NAME_KEY,
             "category": CAT_KEY,
@@ -69,6 +79,72 @@ class ProtocolsLoader(TraceBaseLoader):
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Protocol]
+
+    def get_pretty_headers(self):
+        """Override of the base class to conditionally change the headers based on infile type.
+
+        Generates a string describing the headers, with appended asterisks if required, and a message about the
+        asterisks.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            pretty_headers (string)
+        """
+        if hasattr(self, "headers"):
+            headers = self.headers
+        else:
+            headers = self.DataHeaders
+
+        pretty_headers = []
+        for hk in list(headers._asdict().keys()):
+            reqd = getattr(self.DataRequiredHeaders, hk)
+            pretty_header = getattr(headers, hk)
+            if reqd:
+                pretty_header += "*"
+            pretty_headers.append(pretty_header)
+
+        pretty_excel_headers = []
+        for hk in list(headers._asdict().keys()):
+            if hk == self.CAT_KEY:
+                # The category has a default when an excel file is submitted
+                continue
+            reqd = getattr(self.DataRequiredHeaders, hk)
+            pretty_excel_header = getattr(self.DataHeadersExcel, hk)
+            if reqd:
+                pretty_excel_header += "*"
+            pretty_excel_headers.append(pretty_excel_header)
+
+        msg = "(* = Required)"
+
+        return (
+            f"[{', '.join(pretty_headers)}] (or, if the input file is an excel file: "
+            f"[{', '.join(pretty_excel_headers)}]) {msg}"
+        )
+
+    def set_headers(self, custom_headers=None):
+        """Override of the base class to conditionally change the headers based on infile type.
+
+        Args:
+            custom_headers (namedtupe of loader_class.DataTableHeaders): Header names by header key
+
+        Raises:
+            Nothing
+
+        Returns:
+            headers (namedtupe of loader_class.DataTableHeaders): Header names by header key
+        """
+        if custom_headers is not None:
+            # This is only needed if called from elsewhere (e.g. another derived class of this class)
+            return super().set_headers(custom_headers=custom_headers)
+        # Different headers if an excel file is provided
+        if is_excel(self.file):
+            return super().set_headers(custom_headers=self.DataHeadersExcel._asdict())
+        return super().set_headers()
 
     def load_data(self):
         """Loads the tissue table from the dataframe.
@@ -91,7 +167,7 @@ class ProtocolsLoader(TraceBaseLoader):
                 name = self.get_row_val(row, self.headers.NAME)
                 category = self.get_row_val(row, self.headers.CATEGORY)
                 description = self.get_row_val(row, self.headers.DESCRIPTION)
-                print(f"category: {category}")
+
                 rec_dict = {
                     "name": name,
                     "category": category,

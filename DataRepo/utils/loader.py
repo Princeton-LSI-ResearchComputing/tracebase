@@ -32,29 +32,31 @@ from DataRepo.utils.file_utils import (
     is_excel,
 )
 
+# TODO: Rename file to table_loader.py
+
 
 class TraceBaseLoader(ABC):
     """Class to be used as a superclass for defining a (derived) loader class used to load a (sheet of) an input file.
 
     Class Attributes:
-        TableHeaders (namedtuple): Defines the header keys.
-        DefaultHeaders (TableHeaders of strings): Default header names by header key.
-        RequiredHeaders (TableHeaders of booleans): Whether a file column is required to be present in the input file,
-            indexed by header key.
-        RequiredValues (TableHeaders of booleans): Whether a value on a row in a file column is required to be present
-            in the input file, indexed by header key.
-        UniqueColumnConstraints (list of lists of strings): Sets of unique column name combinations defining what values
-            must be unique in the file.
-        FieldToHeaderKey (dict): Header keys by field name.
-        ColumnTypes (Optional[dict]): Column value types by header key.
-        DefaultValues (Optional[TableHeaders of objects]): Column default values by header key.  Auto-filled.
+        DataTableHeaders (namedtuple): Defines the header keys.
+        DataHeaders (DataTableHeaders of strings): Default header names by header key.
+        DataRequiredHeaders (DataTableHeaders of booleans): Whether a file column is required to be present in the input
+            file, indexed by header key.
+        DataRequiredValues (DataTableHeaders of booleans): Whether a value on a row in a file column is required to be
+            present in the input file, indexed by header key.
+        DataUniqueColumnConstraints (list of lists of strings): Sets of unique column name combinations defining what
+            values must be unique in the file.
+        FieldToDataHeaderKey (dict): Header keys by field name.
+        DataColumnTypes (Optional[dict]): Column value types by header key.
+        DataDefaultValues (Optional[DataTableHeaders of objects]): Column default values by header key.  Auto-filled.
         Models (list of Models): List of model classes.
 
     Instance Attributes:
-        headers (TableHeaders of strings): Customized header names by header key.
-        defaults (TableHeaders of objects): Customized default values by header key.
+        headers (DataTableHeaders of strings): Customized header names by header key.
+        defaults (DataTableHeaders of objects): Customized default values by header key.
         all_headers (list of strings): Customized header names.
-        reqd_headers (TableHeaders of booleans): Required header booleans.
+        reqd_headers (DataTableHeaders of booleans): Required header booleans.
         FieldToHeader (dict of dicts of strings): Header names by model and field.
         unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
         dry_run (boolean) [False]: Dry Run mode.
@@ -63,44 +65,55 @@ class TraceBaseLoader(ABC):
         file (str): Name of file to be loaded.
     """
 
-    # Abstract required class attributes
-    # Must be initialized in the derived class.
-    # See TissuesLoader for a concrete example.
+    # NOTE: Abstract method and properties(/class attributes) must be initialized in the derived class.
+    #       See TissuesLoader for a concrete example.
+
     @property
     @abstractmethod
-    def TableHeaders(self):  # namedtuple spec
+    def Models(self):
+        # list of Model classes that will be loaded
         pass
 
     @property
     @abstractmethod
-    def DefaultHeaders(self):  # namedtuple of strings
+    def DataSheetName(self):
+        # str
         pass
 
     @property
     @abstractmethod
-    def RequiredHeaders(self):  # namedtuple of booleans
+    def DataTableHeaders(self):
+        # namedtuple spec
         pass
 
     @property
     @abstractmethod
-    def RequiredValues(self):  # namedtuple of booleans
+    def DataHeaders(self):
+        # namedtuple of strings
         pass
 
     @property
     @abstractmethod
-    def UniqueColumnConstraints(
-        self,
-    ):  # list of lists of header keys (e.g. the values in TableHeaders)
+    def DataRequiredHeaders(self):
+        # namedtuple of booleans
         pass
 
     @property
     @abstractmethod
-    def Models(self):  # list of Model classes
+    def DataRequiredValues(self):
+        # namedtuple of booleans
         pass
 
     @property
     @abstractmethod
-    def FieldToHeaderKey(self):  # dict of model dicts of field names and header keys
+    def DataUniqueColumnConstraints(self):
+        # list of lists of header keys (e.g. the values in DataTableHeaders)
+        pass
+
+    @property
+    @abstractmethod
+    def FieldToDataHeaderKey(self):
+        # dict of model dicts of field names and header keys
         pass
 
     @abstractmethod
@@ -115,12 +128,17 @@ class TraceBaseLoader(ABC):
         """
         pass
 
-    # DefaultValues is populated automatically (with Nones)
-    DefaultValues: Optional[tuple] = None  # namedtuple
+    # DataDefaultValues is populated automatically (with Nones)
+    DataDefaultValues: Optional[tuple] = None  # namedtuple
 
-    # ColumnTypes is optional unless read_from_file needs a dtype argument
+    # DataColumnTypes is optional unless read_from_file needs a dtype argument
     # (converted to by-header-name in get_column_types)
-    ColumnTypes: Optional[Dict[str, Type[str]]] = None  # dict of types by header key
+    DataColumnTypes: Optional[
+        Dict[str, Type[str]]
+    ] = None  # dict of types by header key
+
+    # For the defaults sheet...
+    DefaultsSheetName = "Defaults"
 
     # The keys for the headers in the "Defaults" sheet.
     DefaultsTableHeaders = namedtuple(
@@ -131,8 +149,9 @@ class TraceBaseLoader(ABC):
             "DEFAULT_VALUE",
         ],
     )
+
     # These are the headers for the "Defaults" sheet.  These are not customizable.
-    DefaultsSheetHeaders = DefaultsTableHeaders(
+    DefaultsHeaders = DefaultsTableHeaders(
         SHEET_NAME="Sheet Name",
         COLUMN_NAME="Column Header",
         DEFAULT_VALUE="Default Value",
@@ -269,11 +288,11 @@ class TraceBaseLoader(ABC):
             Nothing
 
         Returns:
-            headers (namedtuple of TableHeaders)
+            headers (namedtuple of DataTableHeaders)
         """
         if hasattr(self, "headers"):
             return self.headers
-        return self.DefaultHeaders
+        return self.DataHeaders
 
     def set_headers(self, custom_headers=None):
         """Sets instance's header names.  If no custom headers are provided, it reverts to class defaults.
@@ -281,12 +300,12 @@ class TraceBaseLoader(ABC):
         This method sets the following instance attributes because they involve header names (not header keys), so
         anytime the header names are updated or changed, these need to be reset:
 
-        - headers (TableHeaders namedtuple of strings): Customized header names by header key.
+        - headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
         - all_headers (list of strings): Customized header names.
-        - reqd_headers (TableHeaders namedtuple of booleans): Required header booleans by header name.
+        - reqd_headers (DataTableHeaders namedtuple of booleans): Required header booleans by header name.
         - FieldToHeader (dict of dicts of strings): Header names by model and field.
         - unique_constraints (list of lists of strings): Header name combos whose columns must be unique.
-        - reqd_values (TableHeaders namedtuple of booleans): Required value booleans by header name.
+        - reqd_values (DataTableHeaders namedtuple of booleans): Required value booleans by header name.
         - defaults_by_header (dict): Default values by header name.
 
         Args:
@@ -308,15 +327,15 @@ class TraceBaseLoader(ABC):
 
         # Create a dict of database field keys to header names, from a dict of field name keys and header keys
         self.FieldToHeader = defaultdict(lambda: defaultdict(str))
-        for mdl in self.FieldToHeaderKey.keys():
-            for fld, hk in self.FieldToHeaderKey[mdl].items():
+        for mdl in self.FieldToDataHeaderKey.keys():
+            for fld, hk in self.FieldToDataHeaderKey[mdl].items():
                 self.FieldToHeader[mdl][fld] = getattr(self.headers, hk)
 
         # Create a list of the required header string values from a namedtuple of header key/value pairs
         self.reqd_headers = [
             getattr(self.headers, hk)
             for hk in list(self.headers._asdict().keys())
-            if getattr(self.RequiredHeaders, hk)
+            if getattr(self.DataRequiredHeaders, hk)
         ]
 
         # Create a list of header string values for columns whose values are required, from a namedtuple of header key/
@@ -324,13 +343,13 @@ class TraceBaseLoader(ABC):
         self.reqd_values = [
             getattr(self.headers, hk)
             for hk in list(self.headers._asdict().keys())
-            if getattr(self.RequiredValues, hk)
+            if getattr(self.DataRequiredValues, hk)
         ]
 
         # Create a list lists of header string values whose combinations must be unique, from a list of lists of header
         # keys
         self.unique_constraints = []
-        for header_list_combo in self.UniqueColumnConstraints:
+        for header_list_combo in self.DataUniqueColumnConstraints:
             self.unique_constraints.append([])
             for header_key in header_list_combo:
                 header_val = getattr(self.headers, header_key)
@@ -351,13 +370,13 @@ class TraceBaseLoader(ABC):
                 ValueError
 
         Returns:
-            headers (namedtuple of TableHeaders)
+            headers (namedtuple of DataTableHeaders)
         """
         # The starting headers are those previously set or defined by the class
         if hasattr(self, "headers"):
             final_custom_headers = self.headers
         else:
-            final_custom_headers = self.DefaultHeaders
+            final_custom_headers = self.DataHeaders
 
         # custom headers can be trumped by user headers, so we will set the custom headers next, overwriting anything
         # set in the class
@@ -417,9 +436,6 @@ class TraceBaseLoader(ABC):
     def get_pretty_headers(self):
         """Generate a list of header strings, with appended asterisks if required, and a message about the asterisks.
 
-        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
-        check is only otherwise called during object instantiation.
-
         Args:
             None
 
@@ -427,24 +443,23 @@ class TraceBaseLoader(ABC):
             Nothing
 
         Returns:
-            pretty_headers (list of string)
-            msg (str)
+            pretty_headers (string)
         """
         if hasattr(self, "headers"):
             headers = self.headers
         else:
-            headers = self.DefaultHeaders
+            headers = self.DataHeaders
 
         msg = "(* = Required)"
         pretty_headers = []
         for hk in list(headers._asdict().keys()):
-            reqd = getattr(self.RequiredHeaders, hk)
+            reqd = getattr(self.DataRequiredHeaders, hk)
             pretty_header = getattr(headers, hk)
             if reqd:
                 pretty_header += "*"
             pretty_headers.append(pretty_header)
 
-        return pretty_headers, msg
+        return f"[{', '.join(pretty_headers)}] {msg}"
 
     @classmethod
     def get_header_keys(cls):
@@ -465,7 +480,7 @@ class TraceBaseLoader(ABC):
         cls.check_class_attributes()
 
         keys = []
-        for hk in list(cls.DefaultHeaders._asdict().keys()):
+        for hk in list(cls.DataHeaders._asdict().keys()):
             keys.append(hk)
 
         return keys
@@ -480,18 +495,18 @@ class TraceBaseLoader(ABC):
             Nothing
 
         Returns:
-            defaults (Optional[namedtuple of TableHeaders])
+            defaults (Optional[namedtuple of DataTableHeaders])
         """
         if hasattr(self, "defaults"):
             return self.defaults
-        return self.DefaultValues
+        return self.DataDefaultValues
 
     def set_defaults(self, custom_defaults=None):
         """Updates an instance's default values, taking derived class defaults and user defaults into account.
 
         This method sets the following instance attributes because they involve header names (not header keys):
 
-        - defaults (TableHeaders namedtuple of objects): Customized default values by header key.
+        - defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
         - defaults_by_header (dict): Default values by header name.
 
         Args:
@@ -524,12 +539,12 @@ class TraceBaseLoader(ABC):
                 ValueError
 
         Returns:
-            defaults (Optional[namedtuple of TableHeaders])
+            defaults (Optional[namedtuple of DataTableHeaders])
         """
         if hasattr(self, "defaults"):
             final_defaults = self.defaults
         else:
-            final_defaults = self.DefaultValues
+            final_defaults = self.DataDefaultValues
 
         extras = []
         if custom_defaults is not None:
@@ -586,15 +601,15 @@ class TraceBaseLoader(ABC):
         """Checks that the class and instance attributes are properly defined and initialize optional ones.
 
         Checks the type of:
-            DefaultHeaders (class attribute, namedtuple of TableHeaders of strings)
-            RequiredHeaders (class attribute, namedtuple of TableHeaders of booleans)
-            RequiredValues (class attribute, namedtuple of TableHeaders of booleans)
-            UniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
-            FieldToHeaderKey (class attribute, dict): Header keys by field name
-            ColumnTypes (class attribute, Optional[dict]): Column value types by header key
-            DefaultValues (Optional[namedtuple of TableHeaders of objects]): Column default values by header key.
+            DataHeaders (class attribute, namedtuple of DataTableHeaders of strings)
+            DataRequiredHeaders (class attribute, namedtuple of DataTableHeaders of booleans)
+            DataRequiredValues (class attribute, namedtuple of DataTableHeaders of booleans)
+            DataUniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
+            FieldToDataHeaderKey (class attribute, dict): Header keys by field name
+            DataColumnTypes (class attribute, Optional[dict]): Column value types by header key
+            DataDefaultValues (Optional[namedtuple of DataTableHeaders of objects]): Column default values by header key
 
-        Fills in default None values for header keys in DefaultValues.
+        Fills in default None values for header keys in DataDefaultValues.
 
         Args:
             None
@@ -613,49 +628,81 @@ class TraceBaseLoader(ABC):
         typeerrs = []
 
         try:
-            if not cls.isnamedtuple(cls.DefaultHeaders):
+            if not cls.isnamedtupletype(cls.DataTableHeaders):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DefaultHeaders] namedtuple required, {type(cls.DefaultHeaders)} set"
+                    f"attribute [{cls.__name__}.DataTableHeaders] (namedtuple) type required, "
+                    f"{type(cls.DataTableHeaders)} set"
                 )
 
-            if not cls.isnamedtuple(cls.DefaultHeaders):
+            if not cls.isnamedtupletype(cls.DefaultsTableHeaders):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.RequiredHeaders] namedtuple required, {type(cls.RequiredHeaders)} set"
+                    f"attribute [{cls.__name__}.DefaultsTableHeaders] (namedtuple) type required, "
+                    f"{type(cls.DefaultsTableHeaders)} set"
                 )
 
-            if not cls.isnamedtuple(cls.RequiredValues):
+            if type(cls.DataSheetName) != str:
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.RequiredValues] namedtuple required, {type(cls.RequiredValues)} set"
+                    f"attribute [{cls.__name__}.DataSheetName] str required, {type(cls.DataSheetName)} set"
                 )
 
-            if type(cls.UniqueColumnConstraints) != list:
+            if type(cls.DefaultsSheetName) != str:
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.UniqueColumnConstraints] list required, "
-                    f"{type(cls.UniqueColumnConstraints)} set"
+                    f"attribute [{cls.__name__}.DefaultsSheetName] str required, {type(cls.DefaultsSheetName)} set"
                 )
 
-            if type(cls.FieldToHeaderKey) != dict:
+            if not cls.isnamedtuple(cls.DataHeaders):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.FieldToHeaderKey] dict required, {type(cls.FieldToHeaderKey)} set"
+                    f"attribute [{cls.__name__}.DataHeaders] namedtuple required, {type(cls.DataHeaders)} set"
                 )
 
-            # ColumnTypes is optional.  Allow to be left as None.
-            if cls.ColumnTypes is not None and type(cls.ColumnTypes) != dict:
+            if not cls.isnamedtuple(cls.DataHeaders):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.ColumnTypes] dict required, {type(cls.ColumnTypes)} set"
+                    f"attribute [{cls.__name__}.DataRequiredHeaders] namedtuple required, "
+                    f"{type(cls.DataRequiredHeaders)} set"
                 )
 
-            if cls.DefaultValues is None:
-                # DefaultValues is optional (not often used/needed). Set all to None using DefaultHeaders
-                if cls.DefaultHeaders is not None:
-                    # Initialize the same "keys" as the DefaultHeaders, then set all values to None
-                    dv_dict = cls.DefaultHeaders._asdict()
+            if not cls.isnamedtuple(cls.DataRequiredValues):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataRequiredValues] namedtuple required, "
+                    f"{type(cls.DataRequiredValues)} set"
+                )
+
+            if type(cls.DataUniqueColumnConstraints) != list:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataUniqueColumnConstraints] list required, "
+                    f"{type(cls.DataUniqueColumnConstraints)} set"
+                )
+
+            if type(cls.FieldToDataHeaderKey) != dict:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.FieldToDataHeaderKey] dict required, {type(cls.FieldToDataHeaderKey)} "
+                    "set"
+                )
+
+            # DataColumnTypes is optional.  Allow to be left as None.
+            if cls.DataColumnTypes is not None and type(cls.DataColumnTypes) != dict:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataColumnTypes] dict required, {type(cls.DataColumnTypes)} set"
+                )
+
+            if cls.DataDefaultValues is None:
+                # DataDefaultValues is optional (not often used/needed). Set all to None using DataHeaders
+                if cls.DataHeaders is not None:
+                    # Initialize the same "keys" as the DataHeaders, then set all values to None
+                    dv_dict = cls.DataHeaders._asdict()
                     for hk in dv_dict.keys():
                         dv_dict[hk] = None
-                    cls.DefaultValues = cls.DefaultHeaders._replace(**dv_dict)
-            elif not cls.isnamedtuple(cls.DefaultValues):
+                    cls.DataDefaultValues = cls.DataHeaders._replace(**dv_dict)
+            elif not cls.isnamedtuple(cls.DataDefaultValues):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DefaultValues] namedtuple required, {type(cls.DefaultValues)} set"
+                    f"attribute [{cls.__name__}.DataDefaultValues] namedtuple required, {type(cls.DataDefaultValues)} "
+                    "set"
+                )
+
+            if not cls.isnamedtuple(cls.DefaultsHeaders):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DefaultsHeaders] namedtuple required, "
+                    f"{type(cls.DefaultsHeaders)} set"
                 )
         except Exception as e:
             aes.buffer_error(e)
@@ -686,8 +733,8 @@ class TraceBaseLoader(ABC):
             record_counts (dict): Record created, existed, and errored counts by model name.  All set to 0.
 
         Args:
-            headers (TableHeaders namedtuple of strings): Customized header names by header key.
-            defaults (TableHeaders namedtuple of objects): Customized default values by header key.
+            headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
+            defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
 
         Raises:
             AggregatedErrors
@@ -768,6 +815,23 @@ class TraceBaseLoader(ABC):
             and hasattr(obj, "_fields")
         )
 
+    @staticmethod
+    def isnamedtupletype(obj) -> bool:
+        """Determined if obj is a namedtuple type (i.e. what namedtuples are made from).
+
+        Based on: https://stackoverflow.com/a/62692640/2057516
+
+        Args:
+            obj (object): Any object.
+
+        Raises:
+            Nothing
+
+        Returns:
+            boolean
+        """
+        return type(obj) == type and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
+
     def get_column_types(self):
         """Returns a dict of column types by header name (not header key).
 
@@ -780,18 +844,18 @@ class TraceBaseLoader(ABC):
         Returns:
             dtypes (dict): Types by header name (instead of by header key)
         """
-        if self.ColumnTypes is None:
+        if self.DataColumnTypes is None:
             return None
 
         if hasattr(self, "headers"):
             headers = self.headers
         else:
-            headers = self.DefaultHeaders
+            headers = self.DataHeaders
 
         dtypes = {}
-        for key in self.ColumnTypes.keys():
+        for key in self.DataColumnTypes.keys():
             hdr = getattr(headers, key)
-            dtypes[hdr] = self.ColumnTypes[key]
+            dtypes[hdr] = self.DataColumnTypes[key]
 
         return dtypes
 
@@ -804,7 +868,7 @@ class TraceBaseLoader(ABC):
 
         Args:
             indict (dict of objects): Any objects by header key
-            headers (TableHeaders namedtuple of strings): Customized header names by header key.
+            headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
 
         Raises:
             AggregatedErrors
@@ -819,7 +883,7 @@ class TraceBaseLoader(ABC):
             return None
 
         if headers is None:
-            headers = cls.DefaultHeaders
+            headers = cls.DataHeaders
         elif not cls.isnamedtuple(headers):
             # Immediately raise programming related errors
             # We create an aggregated errors object in class methods because we may not have an instance with one
@@ -884,7 +948,7 @@ class TraceBaseLoader(ABC):
         """
         if reading_defaults:
             df = self.defaults_df
-            all_headers = list(self.DefaultsSheetHeaders._asdict().values())
+            all_headers = list(self.DefaultsHeaders._asdict().values())
             file = self.defaults_file
             sheet = self.defaults_sheet
             reqd_headers = all_headers
@@ -1055,15 +1119,12 @@ class TraceBaseLoader(ABC):
             raise ValueError(
                 f"Incorrect data header supplied: [{header}].  Must be one of: {self.all_headers}"
             )
-        elif (
-            reading_defaults
-            and header not in self.DefaultsSheetHeaders._asdict().values()
-        ):
+        elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
             raise ValueError(
                 f"Incorrect defaults header supplied: [{header}].  Must be one of: "
-                f"{list(self.DefaultsSheetHeaders._asdict().values())}"
+                f"{list(self.DefaultsHeaders._asdict().values())}"
             )
 
         # If val is None
@@ -1135,7 +1196,7 @@ class TraceBaseLoader(ABC):
 
             # Get the sheet from the row
             sheet_name = self.get_row_val(
-                row, self.DefaultsSheetHeaders.SHEET_NAME, reading_defaults=True
+                row, self.DefaultsHeaders.SHEET_NAME, reading_defaults=True
             )
 
             # If the sheet name was not found in the file
@@ -1159,7 +1220,7 @@ class TraceBaseLoader(ABC):
             # Get the header from the row
             header_name = str(
                 self.get_row_val(
-                    row, self.DefaultsSheetHeaders.COLUMN_NAME, reading_defaults=True
+                    row, self.DefaultsHeaders.COLUMN_NAME, reading_defaults=True
                 )
             )
 
@@ -1170,7 +1231,7 @@ class TraceBaseLoader(ABC):
 
             # Grab the default value
             default_val = self.get_row_val(
-                row, self.DefaultsSheetHeaders.DEFAULT_VALUE, reading_defaults=True
+                row, self.DefaultsHeaders.DEFAULT_VALUE, reading_defaults=True
             )
 
             if (
@@ -1196,7 +1257,7 @@ class TraceBaseLoader(ABC):
                         unknown_sheets,
                         all_sheet_names,
                         file=self.defaults_file,
-                        column=self.DefaultsSheetHeaders.SHEET_NAME,
+                        column=self.DefaultsHeaders.SHEET_NAME,
                         source_sheet=self.defaults_sheet,
                     )
                 )
@@ -1206,7 +1267,7 @@ class TraceBaseLoader(ABC):
                 InvalidHeaderCrossReferenceError(
                     source_file=self.defaults_file,
                     source_sheet=self.defaults_sheet,
-                    column=self.DefaultsSheetHeaders.COLUMN_NAME,
+                    column=self.DefaultsHeaders.COLUMN_NAME,
                     unknown_headers=unknown_headers,
                     target_file=self.file,
                     target_sheet=self.sheet,
@@ -1216,7 +1277,7 @@ class TraceBaseLoader(ABC):
 
         if len(invalid_type_errs) > 0:
             loc = generate_file_location_string(
-                column=self.DefaultsSheetHeaders.DEFAULT_VALUE,
+                column=self.DefaultsHeaders.DEFAULT_VALUE,
                 sheet=self.defaults_sheet,
                 file=self.defaults_file,
             )
@@ -1230,10 +1291,10 @@ class TraceBaseLoader(ABC):
         return user_defaults
 
     def tableheaders_to_dict_by_header_name(self, intuple):
-        """Convert the intuple (a TableHeaders namedtuple) into a dict by (custom) header name.
+        """Convert the intuple (a DataTableHeaders namedtuple) into a dict by (custom) header name.
 
         Args:
-            intuple (TableHeaders namedtuple): objects by header key
+            intuple (DataTableHeaders namedtuple): objects by header key
 
         Exceptions:
             Raises:
@@ -1564,7 +1625,7 @@ class TraceBaseLoader(ABC):
                 ValueError
                 InfileDatabaseError
                 ConflictingValueError
-                RequiredValuesError
+                RequiredValueError
 
         Returns:
             boolean indicating whether an error was handled(/buffered).

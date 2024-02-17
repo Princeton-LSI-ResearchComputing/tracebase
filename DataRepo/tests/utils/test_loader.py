@@ -61,12 +61,13 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     @classmethod
     def generate_test_loader(cls, mdl):
         class TestLoader(TraceBaseLoader):
-            TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
-            DefaultHeaders = TableHeaders(NAME="Name", CHOICE="Choice")
-            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
-            RequiredValues = RequiredHeaders
-            UniqueColumnConstraints = [["NAME"]]
-            FieldToHeaderKey = {mdl.__name__: {"name": "NAME", "choice": "CHOICE"}}
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
+            DataHeaders = DataTableHeaders(NAME="Name", CHOICE="Choice")
+            DataRequiredHeaders = DataTableHeaders(NAME=True, CHOICE=False)
+            DataRequiredValues = DataRequiredHeaders
+            DataUniqueColumnConstraints = [["NAME"]]
+            FieldToDataHeaderKey = {mdl.__name__: {"name": "NAME", "choice": "CHOICE"}}
             Models = [mdl]
 
             def load_data(self):
@@ -77,13 +78,16 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     @classmethod
     def generate_uc_test_loader(cls, mdl):
         class TestUCLoader(TraceBaseLoader):
-            TableHeaders = namedtuple("TableHeaders", ["NAME", "UFONE", "UFTWO"])
-            DefaultHeaders = TableHeaders(NAME="Name", UFONE="uf1", UFTWO="uf2")
-            RequiredHeaders = TableHeaders(NAME=True, UFONE=False, UFTWO=False)
-            RequiredValues = RequiredHeaders
-            UniqueColumnConstraints = [["NAME"], ["UFONE", "UFTWO"]]
-            ColumnTypes = {"NAME": str, "UFONE": str, "UFTWO": str}
-            FieldToHeaderKey = {
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple(
+                "DataTableHeaders", ["NAME", "UFONE", "UFTWO"]
+            )
+            DataHeaders = DataTableHeaders(NAME="Name", UFONE="uf1", UFTWO="uf2")
+            DataRequiredHeaders = DataTableHeaders(NAME=True, UFONE=False, UFTWO=False)
+            DataRequiredValues = DataRequiredHeaders
+            DataUniqueColumnConstraints = [["NAME"], ["UFONE", "UFTWO"]]
+            DataColumnTypes = {"NAME": str, "UFONE": str, "UFTWO": str}
+            FieldToDataHeaderKey = {
                 "TestUCModel": {"name": "NAME", "uf1": "UFONE", "uf2": "UFTWO"}
             }
             Models = [mdl]
@@ -330,13 +334,14 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_get_defaults_dict_by_header_name(self):
         class TestDefaultsLoader(TraceBaseLoader):
-            TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
-            DefaultHeaders = TableHeaders(NAME="Name", CHOICE="Choice")
-            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
-            RequiredValues = RequiredHeaders
-            DefaultValues = TableHeaders(NAME="test", CHOICE="1")
-            UniqueColumnConstraints = [["NAME"]]
-            FieldToHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
+            DataHeaders = DataTableHeaders(NAME="Name", CHOICE="Choice")
+            DataRequiredHeaders = DataTableHeaders(NAME=True, CHOICE=False)
+            DataRequiredValues = DataRequiredHeaders
+            DataDefaultValues = DataTableHeaders(NAME="test", CHOICE="1")
+            DataUniqueColumnConstraints = [["NAME"]]
+            FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             Models = [self.TestModel]
 
             def load_data(self):
@@ -385,12 +390,13 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_check_header_names(self):
         class TestDoubleHeaderLoader(TraceBaseLoader):
-            TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
-            DefaultHeaders = TableHeaders(NAME="Choice", CHOICE="Choice")
-            RequiredHeaders = TableHeaders(NAME=True, CHOICE=False)
-            RequiredValues = RequiredHeaders
-            UniqueColumnConstraints = [["NAME"]]
-            FieldToHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
+            DataHeaders = DataTableHeaders(NAME="Choice", CHOICE="Choice")
+            DataRequiredHeaders = DataTableHeaders(NAME=True, CHOICE=False)
+            DataRequiredValues = DataRequiredHeaders
+            DataUniqueColumnConstraints = [["NAME"]]
+            FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             Models = [self.TestModel]
 
             def load_data(self):
@@ -463,7 +469,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual(expected, td)
 
     def test_isnamedtuple(self):
-        nt = self.TestLoader.TableHeaders(
+        nt = self.TestLoader.DataTableHeaders(
             NAME=True,
             CHOICE=True,
         )
@@ -482,13 +488,14 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_check_class_attributes(self):
         class TestInvalidLoader(TraceBaseLoader):
-            TableHeaders = namedtuple("TableHeaders", ["NAME", "CHOICE"])
-            DefaultHeaders = None
-            RequiredHeaders = None
-            RequiredValues = None
-            DefaultValues = None
-            UniqueColumnConstraints = None
-            FieldToHeaderKey = None
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
+            DataHeaders = None
+            DataRequiredHeaders = None
+            DataRequiredValues = None
+            DataDefaultValues = None
+            DataUniqueColumnConstraints = None
+            FieldToDataHeaderKey = None
             Models = None
 
             def load_data(self):
@@ -503,11 +510,11 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Invalid attributes:\n"
-                "\tattribute [TestInvalidLoader.DefaultHeaders] namedtuple required, <class 'NoneType'> set\n"
-                "\tattribute [TestInvalidLoader.RequiredHeaders] namedtuple required, <class 'NoneType'> set\n"
-                "\tattribute [TestInvalidLoader.RequiredValues] namedtuple required, <class 'NoneType'> set\n"
-                "\tattribute [TestInvalidLoader.UniqueColumnConstraints] list required, <class 'NoneType'> set\n"
-                "\tattribute [TestInvalidLoader.FieldToHeaderKey] dict required, <class 'NoneType'> set"
+                "\tattribute [TestInvalidLoader.DataHeaders] namedtuple required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.DataRequiredHeaders] namedtuple required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.DataRequiredValues] namedtuple required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.DataUniqueColumnConstraints] list required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, <class 'NoneType'> set"
             ),
             str(aes.exceptions[0]),
         )
@@ -515,11 +522,11 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     def test_get_defaults(self):
         tl = self.TestLoader(None)
         # initialize_metadata is called in the constructor
-        self.assertEqual(tl.DefaultValues, tl.get_defaults())
+        self.assertEqual(tl.DefaultDataValues, tl.get_defaults())
 
     def test_get_header_keys(self):
         tl = self.TestLoader(None)
-        self.assertEqual(list(tl.DefaultHeaders._asdict().keys()), tl.get_header_keys())
+        self.assertEqual(list(tl.DataHeaders._asdict().keys()), tl.get_header_keys())
 
     def test_get_pretty_headers(self):
         tl = self.TestLoader(None)
@@ -529,7 +536,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_get_headers(self):
         tl = self.TestLoader(None)
-        self.assertEqual(tl.DefaultHeaders, tl.get_headers())
+        self.assertEqual(tl.DataHeaders, tl.get_headers())
 
     def test_set_row_index(self):
         tl = self.TestLoader(None)
@@ -594,9 +601,9 @@ class TraceBaseLoaderTests(TracebaseTestCase):
             TestEmptyLoader()
         self.assertEqual(
             (
-                "Can't instantiate abstract class TestEmptyLoader with abstract methods DefaultHeaders, "
-                "FieldToHeaderKey, Models, RequiredHeaders, RequiredValues, TableHeaders, UniqueColumnConstraints, "
-                "load_data"
+                "Can't instantiate abstract class TestEmptyLoader with abstract methods DataHeaders, "
+                "FieldToDataHeaderKey, Models, DataRequiredHeaders, DataRequiredValues, DataTableHeaders, "
+                "DataUniqueColumnConstraints, load_data"
             ),
             str(ar.exception),
         )
@@ -608,7 +615,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertFalse(tl.is_skip_row(0))
 
     def test_tableheaders_to_dict_by_header_name(self):
-        nt = self.TestLoader.TableHeaders(
+        nt = self.TestLoader.DataTableHeaders(
             NAME=True,
             CHOICE=True,
         )

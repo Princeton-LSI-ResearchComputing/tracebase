@@ -22,9 +22,11 @@ class SequencesLoader(TraceBaseLoader):
     LC_DESC_KEY = "LC_DESC"
     NOTES_KEY = "NOTES"
 
+    DataSheetName = "Sequences"
+
     # The tuple used to store different kinds of data per column at the class level
-    TableHeaders = namedtuple(
-        "TableHeaders",
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
         [
             "STUDY_CODE",  # See TODO 1 above
             "ID",  # See TODO 1 above
@@ -39,7 +41,7 @@ class SequencesLoader(TraceBaseLoader):
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
-    DefaultHeaders = TableHeaders(
+    DataHeaders = DataTableHeaders(
         STUDY_CODE="Study Code",  # See TODO 1 above
         ID="Sequence Number",  # See TODO 1 above
         OPERATOR="Operator",
@@ -52,7 +54,7 @@ class SequencesLoader(TraceBaseLoader):
     )
 
     # Whether each column is required to be present of not
-    RequiredHeaders = TableHeaders(
+    DataRequiredHeaders = DataTableHeaders(
         STUDY_CODE=False,  # See TODO 1 above
         ID=True,  # See TODO 1 above
         OPERATOR=True,
@@ -64,8 +66,8 @@ class SequencesLoader(TraceBaseLoader):
         NOTES=False,
     )
 
-    # Whether a value for an row in a column is required or not (note that defined DefaultValues will satisfy this)
-    RequiredValues = TableHeaders(
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataTableHeaders(
         STUDY_CODE=True,  # Study code and ID combined are an "accession number" for a Sequence
         ID=True,  # See TODO 1 above
         OPERATOR=True,
@@ -77,9 +79,9 @@ class SequencesLoader(TraceBaseLoader):
         NOTES=False,
     )
 
-    # No DefaultValues needed
+    # No DataDefaultValues needed
 
-    ColumnTypes: Dict[str, type] = {
+    DataColumnTypes: Dict[str, type] = {
         STUDY_CODE_KEY: str,  # See TODO 1 above
         ID_KEY: int,  # See TODO 1 above
         OPERATOR_KEY: str,
@@ -92,13 +94,13 @@ class SequencesLoader(TraceBaseLoader):
     }
 
     # Combinations of columns whose values must be unique in the file  # See TODO 1 above
-    UniqueColumnConstraints = [
+    DataUniqueColumnConstraints = [
         [STUDY_CODE_KEY, ID_KEY],
         [OPERATOR_KEY, DATE_KEY, INSTRUMENT_KEY, LC_PROTOCOL_KEY, LC_RUNLEN_KEY],
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
-    FieldToHeaderKey = {
+    FieldToDataHeaderKey = {
         "MSRunSequence": {
             "researcher": OPERATOR_KEY,
             "date": DATE_KEY,
