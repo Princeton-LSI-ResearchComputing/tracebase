@@ -770,8 +770,8 @@ class Format:
 
     def getModelFromInstance(self, mdl_instance):
         """
-        Despite the name, given a string that is either a model instance name or a model name, return the corresponding model name or
-        report an error if it is ambiguous or not found.
+        Despite the name, given a string that is either a model instance name or a model name, return the corresponding
+        model name or report an error if it is ambiguous or not found.
         """
         mdl_instance_names = self.getModelInstances()
         matching_models = []
