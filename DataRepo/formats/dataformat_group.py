@@ -310,11 +310,11 @@ class FormatGroup:
         """
         return self.modeldata[format].getModelInstance(mdl)
 
-    def getModelFromInstance(self, format, mdl):
+    def getModelFromInstance(self, format, mdl_inst):
         """
         Calls getModelFromInstance of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getModelFromInstance(mdl)
+        return self.modeldata[format].getModelFromInstance(mdl_inst)
 
     def getFormatNames(self):
         """
@@ -416,7 +416,7 @@ class FormatGroup:
         dval = val
         fmt = getSelectedFormat(qry)
         dfields = self.getDisplayFields(fmt, mdl_instance)
-        mdl = self.getModelFromInstance(mdl_instance)
+        mdl = self.getModelFromInstance(fmt, mdl_instance)
 
         # If fld is not a displayed field
         if fld in dfields.keys() and dfields[fld] != fld:
