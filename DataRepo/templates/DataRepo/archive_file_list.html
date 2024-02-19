@@ -55,7 +55,7 @@
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'ArchiveFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a></h5>
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a></h5>
                         {% elif archive_file.data_format.code == "ms_raw" %}
                             <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Group Data</a></h5>
                         {% elif archive_file.data_format.code == "mzxml" %}
