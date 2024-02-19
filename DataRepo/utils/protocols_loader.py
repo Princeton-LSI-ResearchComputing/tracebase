@@ -107,6 +107,7 @@ class ProtocolsLoader(TraceBaseLoader):
 
                 # get_row_val can add to skip_row_indexes when there is a missing required value
                 if self.is_skip_row():
+                    self.errored()
                     continue
 
                 # Try and get the protocol

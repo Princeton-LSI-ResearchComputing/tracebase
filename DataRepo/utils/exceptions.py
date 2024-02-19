@@ -1112,9 +1112,7 @@ class ConflictingValueErrors(Exception):
         )
         for cve in conflicting_value_errors:
             # Create a new location string that excludes the column
-            cve_loc = generate_file_location_string(
-                rownum=cve.rownum, sheet=cve.sheet, file=cve.file
-            )
+            cve_loc = generate_file_location_string(sheet=cve.sheet, file=cve.file)
             if cve.rec is None:
                 conflict_data[cve_loc]["No record provided"][
                     "No file data provided"
@@ -1128,7 +1126,17 @@ class ConflictingValueErrors(Exception):
             for mdl in conflict_data[cve_loc].keys():
                 message += f"\tCreation of the following {mdl} record(s) encountered conflicts:\n"
                 for file_rec_str in conflict_data[cve_loc][mdl].keys():
-                    message += f"\t\tFile record:     {file_rec_str}\n"
+                    rowstr = ", ".join(
+                        summarize_int_list(
+                            [
+                                cve.rownum
+                                for cve in conflict_data[cve_loc][mdl][file_rec_str]
+                            ]
+                        )
+                    )
+                    message += (
+                        f"\t\tFile record:     {file_rec_str} (on rows: {rowstr})\n"
+                    )
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
                         recstr = "Database record not provided"
                         if cve.rec is not None:
