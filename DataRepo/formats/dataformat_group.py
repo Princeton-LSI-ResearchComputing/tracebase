@@ -310,6 +310,12 @@ class FormatGroup:
         """
         return self.modeldata[format].getModelInstance(mdl)
 
+    def getModelFromInstance(self, format, mdl):
+        """
+        Calls getModelFromInstance of the supplied ID of the search output format class.
+        """
+        return self.modeldata[format].getModelFromInstance(mdl)
+
     def getFormatNames(self):
         """
         Returns a dict of search output format class IDs to their user-facing names.
@@ -398,7 +404,7 @@ class FormatGroup:
             rootrec, query, field_order
         )
 
-    def searchFieldToDisplayField(self, mdl, fld, val, qry):
+    def searchFieldToDisplayField(self, mdl_instance, fld, val, qry):
         """
         Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
 
@@ -409,7 +415,8 @@ class FormatGroup:
         dfld = fld
         dval = val
         fmt = getSelectedFormat(qry)
-        dfields = self.getDisplayFields(fmt, mdl)
+        dfields = self.getDisplayFields(fmt, mdl_instance)
+        mdl = self.getModelFromInstance(mdl_instance)
 
         # If fld is not a displayed field
         if fld in dfields.keys() and dfields[fld] != fld:
@@ -434,13 +441,14 @@ class FormatGroup:
                 if tot == 0:
                     print(
                         f"WARNING: Failed search-field to display-field conversion in format {fmt} for: "
-                        f"[{mdl}.{fld}='{val}'].  No matching {self.modeldata[fmt].rootmodel.__name__} records found."
+                        f"[{mdl}.{fld}='{val}'].  No matching {self.modeldata[fmt].rootmodel.__name__} "
+                        "records found."
                     )
                 else:
                     # Set the field path for the display field
                     dfld = dfields[fld]
                     dval = self.getJoinedRecFieldValue(
-                        recs, fmt, mdl, dfields[fld], fld, val
+                        recs, fmt, mdl_instance, dfields[fld], fld, val
                     )
             else:
                 mdl_rec = qs.first()
@@ -782,7 +790,7 @@ class FormatGroup:
         qry = self.getRootGroup(fmt)
 
         try:
-            mdl = self.getModelInstance(fmt, mdl)
+            mdl_inst = self.getModelInstance(fmt, mdl)
         except KeyError as ke:
             # Print error to the console
             print(
@@ -790,7 +798,7 @@ class FormatGroup:
             )
             raise ke
 
-        sfields = self.getSearchFields(fmt, mdl)
+        sfields = self.getSearchFields(fmt, mdl_inst)
 
         if fld not in sfields:
             raise FieldError(
@@ -809,7 +817,7 @@ class FormatGroup:
         setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, units)
 
         if search_again:
-            dfld, dval = self.searchFieldToDisplayField(mdl, fld, val, qry)
+            dfld, dval = self.searchFieldToDisplayField(mdl_inst, fld, val, qry)
 
             if dfld != fld:
                 # Set the field path for the display field

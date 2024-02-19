@@ -768,6 +768,41 @@ class Format:
                 )
         return mdl
 
+    def getModelFromInstance(self, mdl_instance):
+        """
+        Despite the name, given a string that is either a model instance name or a model name, return the corresponding model name or
+        report an error if it is ambiguous or not found.
+        """
+        mdl_instance_names = self.getModelInstances()
+        matching_models = []
+        matching_instance_models = []
+        if mdl_instance in mdl_instance_names:
+            matching_instance_models.append(self.model_instances[mdl_instance]["model"])
+        # Look through the actual model names (instead of the instance names) to see if there's a unique match.
+        for inst_name in mdl_instance_names:
+            if self.model_instances[inst_name]["model"] == mdl_instance:
+                matching_models.append(mdl_instance)
+        if len(matching_instance_models) == 1 and len(matching_models) == 0:
+            return matching_instance_models[0]
+        elif len(matching_instance_models) == 0 and len(matching_models) == 1:
+            return matching_models[0]
+        elif (
+            len(matching_instance_models) == 1
+            and len(matching_models) > 0
+            and matching_instance_models[0] == matching_models[0]
+        ):
+            # Assume they supplied an instance
+            return matching_instance_models[0]
+        elif len(matching_instance_models) == 0 and len(matching_models) == 0:
+            raise KeyError(
+                f"Invalid model instance [{mdl_instance}].  Must be one of [{','.join(mdl_instance_names)}]."
+            )
+        else:
+            raise KeyError(
+                f"Ambiguous model [{mdl_instance}].  Must specify an instance instead one of "
+                f"[{','.join(matching_models)}]."
+            )
+
     def getFieldTypes(self):
         """
         Returns a dict of path__field -> {type -> field_type (number, string, enumeration), choices -> list of tuples}.
