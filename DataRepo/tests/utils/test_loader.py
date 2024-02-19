@@ -321,8 +321,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
             # Note, this does not define all columns. Just need any values to prevent errors.
             Models = [self.TestModel, self.TestUCModel]
 
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 return None
 
@@ -478,6 +476,27 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     def test_initialize_metadata(self):
         tl = self.TestLoader(None)
         # initialize_metadata is called in the constructor
+
+        # Initialized via initialize_metadata, directly
+        # - record_counts (dict of dicts of ints): Created, existed, and errored counts by model.
+        # - defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
+        # - sheet (str): Name of the data sheet in an excel file (changes to None if not excel).
+        # - defaults_sheet (str): Name of the defaults sheet in an excel file (changes to None if not excel).
+        # - record_counts (dict): Record created, existed, and errored counts by model name.  All set to 0.
+
+        # Initialized via set_headers
+        # - headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
+        # - all_headers (list of strings): Customized header names.
+        # - reqd_headers (DataTableHeaders namedtuple of booleans): Required header booleans by header name.
+        # - FieldToHeader (dict of dicts of strings): Header names by model and field.
+        # - unique_constraints (list of lists of strings): Header name combos whose columns must be unique.
+        # - reqd_values (DataTableHeaders namedtuple of booleans): Required value booleans by header name.
+        # - defaults_by_header (dict): Default values by header name.
+
+        # Initialized by get_defaults (called from initialize_metadata)
+        # - defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
+        # - defaults_by_header (dict): Default values by header name.
+
         self.assertTrue(hasattr(tl, "headers"))
         self.assertTrue(hasattr(tl, "defaults"))
         self.assertTrue(hasattr(tl, "all_headers"))
@@ -485,6 +504,11 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertTrue(hasattr(tl, "FieldToHeader"))
         self.assertTrue(hasattr(tl, "unique_constraints"))
         self.assertTrue(hasattr(tl, "record_counts"))
+        self.assertTrue(hasattr(tl, "defaults_current_type"))
+        self.assertTrue(hasattr(tl, "sheet"))
+        self.assertTrue(hasattr(tl, "defaults_sheet"))
+        self.assertTrue(hasattr(tl, "reqd_values"))
+        self.assertTrue(hasattr(tl, "defaults_by_header"))
 
     def test_check_class_attributes(self):
         class TestInvalidLoader(TraceBaseLoader):
@@ -522,7 +546,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     def test_get_defaults(self):
         tl = self.TestLoader(None)
         # initialize_metadata is called in the constructor
-        self.assertEqual(tl.DefaultDataValues, tl.get_defaults())
+        self.assertEqual(tl.DataDefaultValues, tl.get_defaults())
 
     def test_get_header_keys(self):
         tl = self.TestLoader(None)
@@ -598,7 +622,10 @@ class TraceBaseLoaderTests(TracebaseTestCase):
             pass
 
         with self.assertRaises(TypeError) as ar:
+            # In order to test this behavior, we need to make pylint not error about it
+            # pylint: disable=abstract-class-instantiated
             TestEmptyLoader()
+            # pylint: enable=abstract-class-instantiated
         self.assertEqual(
             (
                 "Can't instantiate abstract class TestEmptyLoader with abstract methods DataHeaders, "
@@ -631,8 +658,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
     # Test that load_wrapper
     def test_load_wrapper_does_not_nest_AggregatedErrors(self):
         class TestNestedAesLoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 # Buffer an exception correctly
                 self.aggregated_errors_object.buffer_warning(ValueError("WARNING"))
@@ -658,8 +683,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_summarizes_ConflictingValueErrors(self):
         class TestMultiCVELoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 # Buffer 2 ConflictingValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -698,8 +721,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_summarizes_RequiredValueErrors(self):
         class TestMultiRVELoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -745,8 +766,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_summarizes_DuplicateValueErrors(self):
         class TestMultiDVELoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -784,8 +803,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_summarizes_RequiredColumnValues(self):
         class TestMultiRCVLoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 # Buffer 2 RequiredValueError exceptions
                 self.aggregated_errors_object.buffer_error(
@@ -820,8 +837,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_handles_defer_rollback(self):
         class TestDeferedLoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 self.Models[0].objects.create(name="A", choice=1)
                 self.aggregated_errors_object.buffer_error(ValueError("Test"))
@@ -854,8 +869,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_handles_DryRun(self):
         class TestDryRunLoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 self.Models[0].objects.create(name="A", choice=1)
 
@@ -881,8 +894,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_load_wrapper_preserves_return(self):
         class TestStatsLoader(self.TestLoader):
-            # Must explicitly re-add the decorator when the derived class is used as a superclass
-            @TraceBaseLoader._loader
             def load_data(self):
                 return 42
 
