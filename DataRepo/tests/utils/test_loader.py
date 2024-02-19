@@ -158,7 +158,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
                 "'test2', 'choice': '2'}]:\n"
                 "\tchoice in\n"
                 "\t\tdatabase: [2]\n"
-                "\t\tfile: [1]"
+                "\t\tfile: [1]\n"
             ),
             str(tl.aggregated_errors_object.exceptions[0]),
         )
@@ -402,7 +402,17 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
         tdhl = TestDoubleHeaderLoader(None)
         tdhl.check_header_names()
-        self.assertEqual(1, len(tdhl.aggregated_errors_object.exceptions))
+        excs = "\n\t".join(
+            [
+                f"{type(e).__name__}: {e}"
+                for e in tdhl.aggregated_errors_object.exceptions
+            ]
+        )
+        self.assertEqual(
+            1,
+            len(tdhl.aggregated_errors_object.exceptions),
+            msg=f"Expected 1 ValueError exception.  Got {len(tdhl.aggregated_errors_object.exceptions)}:\n\t{excs}",
+        )
         self.assertEqual(ValueError, type(tdhl.aggregated_errors_object.exceptions[0]))
         self.assertIn(
             "Duplicate Header names encountered",
@@ -538,7 +548,8 @@ class TraceBaseLoaderTests(TracebaseTestCase):
                 "\tattribute [TestInvalidLoader.DataRequiredHeaders] namedtuple required, <class 'NoneType'> set\n"
                 "\tattribute [TestInvalidLoader.DataRequiredValues] namedtuple required, <class 'NoneType'> set\n"
                 "\tattribute [TestInvalidLoader.DataUniqueColumnConstraints] list required, <class 'NoneType'> set\n"
-                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, <class 'NoneType'> set"
+                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, <class 'NoneType'> set\n"
+                "\tModels is required to have at least 1 Model class"
             ),
             str(aes.exceptions[0]),
         )
@@ -554,9 +565,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     def test_get_pretty_headers(self):
         tl = self.TestLoader(None)
-        self.assertEqual(
-            (["Name*", "Choice"], "(* = Required)"), tl.get_pretty_headers()
-        )
+        self.assertEqual("[Name*, Choice] (* = Required)", tl.get_pretty_headers())
 
     def test_get_headers(self):
         tl = self.TestLoader(None)
@@ -629,8 +638,8 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Can't instantiate abstract class TestEmptyLoader with abstract methods DataHeaders, "
-                "FieldToDataHeaderKey, Models, DataRequiredHeaders, DataRequiredValues, DataTableHeaders, "
-                "DataUniqueColumnConstraints, load_data"
+                "DataRequiredHeaders, DataRequiredValues, DataSheetName, DataTableHeaders, "
+                "DataUniqueColumnConstraints, FieldToDataHeaderKey, Models, load_data"
             ),
             str(ar.exception),
         )

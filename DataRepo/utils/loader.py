@@ -927,9 +927,12 @@ class TraceBaseLoader(ABC):
         if len(dupe_dict.keys()) > 0:
             nlt = "\n\t"
             deets = "\n\t".join([f"{k} occurs {v} times" for k, v in dupe_dict.items()])
-            self.aggregated_errors_object.buffer_error(
-                ValueError(f"Duplicate Header names encountered:{nlt}{deets}")
-            )
+            msg = f"Duplicate Header names encountered:{nlt}{deets}"
+            # set_headers calls this method, and it can be called multiple times, so avoid duplicate errors
+            for exc in self.aggregated_errors_object.get_exception_type(ValueError):
+                if str(exc) == msg:
+                    return
+            self.aggregated_errors_object.buffer_error(ValueError(msg))
 
     def check_dataframe_headers(self, reading_defaults=False):
         """Error-checks the headers in the dataframe.
@@ -1348,6 +1351,7 @@ class TraceBaseLoader(ABC):
         Returns:
             load_decorator (function)
         """
+
         def load_decorator(fn):
             """Decorator method that applies a wrapper function to a method.
 
@@ -1360,6 +1364,7 @@ class TraceBaseLoader(ABC):
             Returns:
                 apply_wrapper (function)
             """
+
             def load_wrapper(self, *args, **kwargs):
                 """Wraps the load_data() method in the derived class.
 
