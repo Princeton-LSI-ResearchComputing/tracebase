@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed PeakData and PeakGroups links from ArchiveFile detail page
+
 ### Added
 
 - Added an ArchiveFile class with associated DataType and DataFormat classes
