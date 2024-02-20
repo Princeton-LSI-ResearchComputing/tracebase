@@ -156,3 +156,32 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         tc.handle(**self.TEST_OPTIONS)
         expected = {"Test": {0: "1"}}
         self.assertEqual(expected, tc.get_dataframe().to_dict())
+
+    def test_get_sheet(self):
+        """
+        Tests the return of get_sheet is None if was is set in the options by the handle method is not an excel infile
+        """
+        tc = TestCommand()
+        tc.handle(**self.TEST_OPTIONS)
+        self.assertIsNone(tc.get_sheet())
+
+    def test_init_loader(self):
+        pass
+
+    def test_report_status(self):
+        pass
+
+    def test_get_defaults_sheet(self):
+        pass
+
+    def test_get_user_headers(self):
+        pass
+
+    def test_set_headers(self):
+        pass
+
+    def test_set_defaults(self):
+        pass
+
+    def test_get_user_defaults(self):
+        pass

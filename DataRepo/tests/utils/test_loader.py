@@ -919,3 +919,27 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         retval = tsl.load_data()
 
         self.assertEqual(42, retval)
+
+    def test_set_headers(self):
+        pass
+
+    def test__merge_headers(self):
+        pass
+
+    def test_set_defaults(self):
+        pass
+
+    def test__merge_defaults(self):
+        pass
+
+    def test_isnamedtupletype(self):
+        pass
+
+    def test_check_dataframe_headers(self):
+        pass
+
+    def test_get_user_defaults(self):
+        pass
+
+    def test_load_wrapper(self):
+        pass
