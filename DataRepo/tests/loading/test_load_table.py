@@ -1,25 +1,37 @@
 from collections import namedtuple
 
+from django.db.models import AutoField, CharField, Model
+from django.test.utils import isolate_apps
+
 from DataRepo.management.commands.load_table import LoadFromTableCommand
-from DataRepo.models import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors
+from DataRepo.utils.exceptions import AggregatedErrors, OptionsNotAvailable
 from DataRepo.utils.loader import TraceBaseLoader
+
+
+# Class (Model) used for testing
+class LoadTableTestModel(Model):
+    id = AutoField(primary_key=True)
+    name = CharField(unique=True)
+    choice = CharField(choices=[("1", "1"), ("2", "2")])
+
+    # Necessary for temporary models
+    class Meta:
+        app_label = "loader"
 
 
 # Class used for testing
 class TestLoader(TraceBaseLoader):
-    DataSheetName = "test"
+    DataSheetName = "Test"
     DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
     DataHeaders = DataTableHeaders(TEST="Test")
     DataRequiredHeaders = DataTableHeaders(TEST=True)
     DataRequiredValues = DataRequiredHeaders
     DataColumnTypes = {"TEST": str}
-    DataDefaultValues = DataTableHeaders(TEST=5)
+    DataDefaultValues = DataTableHeaders(TEST="five")
     DataUniqueColumnConstraints = [["TEST"]]
-    FieldToDataHeaderKey = {"Tissue": {"name": "TEST"}}
-    # TODO: Create a TestModel to use instead of Tissue (and change/rename TraceBaseLoader to not depend on TraceBase)
-    Models = [Tissue]
+    FieldToDataHeaderKey = {"LoadTableTestModel": {"name": "TEST"}}
+    Models = [LoadTableTestModel]
 
     def load_data(self):
         # To ensure the wrapper returns the return of the wrapped function
@@ -34,6 +46,7 @@ class TestCommand(LoadFromTableCommand):
         return self.load_data()
 
 
+@isolate_apps("DataRepo.tests.apps.loader")
 class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
     TEST_OPTIONS = {
         "infile": "DataRepo/data/tests/load_table/test.tsv",
@@ -157,22 +170,90 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         expected = {"Test": {0: "1"}}
         self.assertEqual(expected, tc.get_dataframe().to_dict())
 
-    def test_get_sheet(self):
-        """
-        Tests the return of get_sheet is None if was is set in the options by the handle method is not an excel infile
-        """
-        tc = TestCommand()
-        tc.handle(**self.TEST_OPTIONS)
-        self.assertIsNone(tc.get_sheet())
-
     def test_init_loader(self):
-        pass
+        tc = TestCommand()
+        # Assert that the initially set headers and defaults from the initial loader instance are as expected
+        self.assertEqual(tc.loader.headers.TEST, "Test")
+        self.assertEqual(tc.loader.defaults.TEST, "five")
+        # Change the default headers and defaults in the initial version of the loader self.instance that is created by
+        # __init__ for this purpose
+        tc.set_headers({"TEST": "Test2"})
+        tc.set_defaults({"TEST": "one"})
+        tc.init_loader(
+            df=None,
+            dry_run=True,  # Diff from default False
+            defer_rollback=True,  # Diff from default False
+            file="DataRepo/data/tests/load_table/test.xlsx",  # Diff from default None
+            data_sheet="Test",  # Diff from default None
+            defaults_df=None,
+            defaults_sheet=None,
+            defaults_file=None,
+            user_headers=None,
+        )
+        self.assertTrue(hasattr(tc, "loader"))
+
+        # Assert that the loader object has its basic instance attributes
+        self.assertTrue(hasattr(tc.loader, "df"))
+        self.assertTrue(hasattr(tc.loader, "dry_run"))
+        self.assertTrue(hasattr(tc.loader, "defer_rollback"))
+        self.assertTrue(hasattr(tc.loader, "file"))
+        self.assertTrue(hasattr(tc.loader, "sheet"))
+        self.assertTrue(hasattr(tc.loader, "defaults_df"))
+        self.assertTrue(hasattr(tc.loader, "defaults_sheet"))
+        self.assertTrue(hasattr(tc.loader, "defaults_file"))
+        self.assertTrue(hasattr(tc.loader, "user_headers"))
+
+        # Assert that the loader has the custom values we set
+        self.assertTrue(tc.loader.dry_run)
+        self.assertTrue(tc.loader.defer_rollback)
+        self.assertEqual("DataRepo/data/tests/load_table/test.xlsx", tc.loader.file)
+        self.assertEqual("Test", tc.loader.sheet)
+
+        # Assert that the set headers and defaults from the initial loader instance carried over
+        self.assertEqual("Test2", tc.loader.headers.TEST)
+        self.assertEqual("one", tc.loader.defaults.TEST)
 
     def test_report_status(self):
+        # TODO: report_status changed in PR #865.  Implement after merge.
         pass
 
     def test_get_defaults_sheet(self):
-        pass
+        tc = TestCommand()
+
+        # Options not available
+        with self.assertRaises(OptionsNotAvailable):
+            tc.get_defaults_sheet()
+
+        tc.set_headers({"TEST": "Test2"})  # The file's header is "Test2"
+
+        # Defined valid sheet
+        opts = {
+            "infile": "DataRepo/data/tests/load_table/test.xlsx",
+            "defaults_sheet": "MyDefaults",
+            "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
+            "defaults_file": None,
+            "headers": None,
+            "dry_run": False,
+            "defer_rollback": False,
+            "verbosity": 0,
+        }
+        tc.handle(**opts)
+        self.assertEqual("MyDefaults", tc.get_defaults_sheet())
+
+        # When not excel
+        tc = TestCommand()
+        opts = {
+            "infile": "DataRepo/data/tests/load_table/test.tsv",
+            "defaults_sheet": "MyDefaults",
+            "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manuallyNone,
+            "defaults_file": None,
+            "headers": None,
+            "dry_run": False,
+            "defer_rollback": False,
+            "verbosity": 0,
+        }
+        tc.handle(**opts)
+        self.assertIsNone(tc.get_defaults_sheet())
 
     def test_get_user_headers(self):
         pass

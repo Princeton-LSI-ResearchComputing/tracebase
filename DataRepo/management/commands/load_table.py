@@ -76,10 +76,15 @@ class LoadFromTableCommand(ABC, BaseCommand):
         super().__init__(*args, **kwargs)
 
     def init_loader(self, *args, **kwargs):
-        if self.options is None:
-            # Before handle() has been called (with options), just initialize the loader with all supplied arguments
-            self.loader = self.loader_class(*args, **kwargs)
-        else:
+        had_loader = hasattr(self, "loader")
+
+        if had_loader:
+            # The derived class code may have called set_headers or set_defaults to establish dynamic headers/defaults.
+            # This ensures those are copied to the new loader.
+            saved_headers = self.get_headers()
+            saved_defaults = self.get_defaults()
+
+        if self.options is not None:
             superclass_args = [
                 "df",
                 "file",
@@ -119,14 +124,13 @@ class LoadFromTableCommand(ABC, BaseCommand):
             kwargs["dry_run"] = self.options["dry_run"]
             kwargs["defer_rollback"] = self.options["defer_rollback"]
 
-            # The derived class code may have called set_headers or set_defaults to establish dynamic headers/defaults.
-            # This ensures those are copied to the new loader.
-            saved_headers = self.get_headers()
-            saved_defaults = self.get_defaults()
-
             # Re-initialize associated data
             self.loader = self.loader_class(*args, **kwargs)
+        else:
+            # Before handle() has been called (with options), just initialize the loader with all supplied arguments
+            self.loader = self.loader_class(*args, **kwargs)
 
+        if had_loader:
             # Restore any headers that were saved in the original object (e.g. if a double-derived class sets some)
             self.set_headers(saved_headers._asdict())
             self.set_defaults(saved_defaults._asdict())

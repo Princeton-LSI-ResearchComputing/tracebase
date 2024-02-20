@@ -160,15 +160,23 @@ def _read_from_xlsx(
     na_values=None,
 ):
     sheet_name = sheet
+    orig_sheet = sheet
     sheets = pd.ExcelFile(filepath, engine="openpyxl").sheet_names
-    if str(sheet_name) not in sheets:
+    if sheet_name is None or str(sheet_name) not in sheets:
         sheet_name = 0
 
-    validate_headers(
-        filepath,
-        _read_headers_from_xlsx(filepath, sheet=sheet_name),
-        expected_headers,
-    )
+    try:
+        validate_headers(
+            filepath,
+            _read_headers_from_xlsx(filepath, sheet=sheet_name),
+            expected_headers,
+        )
+    except IndexError as ie:
+        if orig_sheet is None or orig_sheet not in sheets:
+            raise ValueError(
+                f"Valid sheet name required for file {filepath}.  {orig_sheet} supplied."
+            )
+        raise ie
 
     kwargs = {
         "sheet_name": sheet_name,  # The first sheet
@@ -281,7 +289,7 @@ def validate_headers(filepath, headers, expected_headers=None):
     not_unique, nuniqs, nall = _headers_are_not_unique(headers)
 
     if not_unique:
-        raise DuplicateHeaders(filepath, nall, nuniqs)
+        raise DuplicateHeaders(filepath, nall, nuniqs, headers)
 
     if expected_headers is not None and not headers_are_as_expected(
         expected_headers, headers
@@ -297,7 +305,7 @@ def _read_headers_from_xlsx(filepath, sheet=0):
 
     # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
     # checking for duplicate headers manually here.
-    return (
+    raw_headers = (
         pd.read_excel(
             filepath,
             nrows=1,  # Read only the first row
@@ -308,6 +316,10 @@ def _read_headers_from_xlsx(filepath, sheet=0):
         .squeeze("columns")
         .iloc[0]
     )
+    # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
+    if type(raw_headers) == str:
+        return [raw_headers]
+    return raw_headers.to_list()
 
 
 def _read_headers_from_tsv(filepath):

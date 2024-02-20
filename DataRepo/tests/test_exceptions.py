@@ -725,23 +725,23 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertFalse(removed[1].is_fatal)
         self.assertFalse(removed[1].is_error)
 
-    def test_RequiredColumnValueWhenNovel():
+    def test_RequiredColumnValueWhenNovel(self):
         pass
 
-    def test_RequiredColumnValuesWhenNovel():
+    def test_RequiredColumnValuesWhenNovel(self):
         pass
 
-    def test_ExcelSheetsNotFound():
+    def test_ExcelSheetsNotFound(self):
         pass
 
-    def test_InvalidHeaderCrossReferenceError():
+    def test_InvalidHeaderCrossReferenceError(self):
         pass
 
-    def test_OptionsNotAvailable():
+    def test_OptionsNotAvailable(self):
         pass
 
-    def test_MutuallyExclusiveOptions():
+    def test_MutuallyExclusiveOptions(self):
         pass
 
-    def test_NoLoadData():
+    def test_NoLoadData(self):
         pass

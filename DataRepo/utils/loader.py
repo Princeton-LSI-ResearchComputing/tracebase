@@ -680,11 +680,31 @@ class TraceBaseLoader(ABC):
                     "set"
                 )
 
+            valid_types = False
             # DataColumnTypes is optional.  Allow to be left as None.
-            if cls.DataColumnTypes is not None and type(cls.DataColumnTypes) != dict:
-                typeerrs.append(
-                    f"attribute [{cls.__name__}.DataColumnTypes] dict required, {type(cls.DataColumnTypes)} set"
-                )
+            if cls.DataColumnTypes is not None:
+                valid_types = True
+                if type(cls.DataColumnTypes) != dict:
+                    typeerrs.append(
+                        f"attribute [{cls.__name__}.DataColumnTypes] dict required, {type(cls.DataColumnTypes)} set"
+                    )
+                    valid_types = False
+                elif cls.DataHeaders is not None:
+                    # If the DataHeaders was correctly set, check further to validate the dict
+                    for hk in cls.DataColumnTypes.keys():
+                        if hk in cls.DataHeaders._asdict().keys():
+                            if type(cls.DataColumnTypes[hk]) != type:
+                                typeerrs.append(
+                                    f"dict attribute [{cls.__name__}.DataColumnTypes] must have values that are types, "
+                                    f"but key [{hk}] has {type(cls.DataColumnTypes[hk])}"
+                                )
+                                valid_types = False
+                        else:
+                            typeerrs.append(
+                                f"dict attribute [{cls.__name__}.DataColumnTypes] has an invalid key: [{hk}].  Keys "
+                                f"must be one of {list(cls.DataHeaders._asdict().keys())}"
+                            )
+                            valid_types = False
 
             if cls.DataDefaultValues is None:
                 # DataDefaultValues is optional (not often used/needed). Set all to None using DataHeaders
@@ -699,6 +719,22 @@ class TraceBaseLoader(ABC):
                     f"attribute [{cls.__name__}.DataDefaultValues] namedtuple required, {type(cls.DataDefaultValues)} "
                     "set"
                 )
+            elif valid_types:
+                # Check the types of the default values
+                for hk in cls.DataDefaultValues._asdict().keys():
+                    if hk in cls.DataColumnTypes.keys():
+                        dv = getattr(cls.DataDefaultValues, hk)
+                        dv_type = type(dv)
+                        if (
+                            cls.DataColumnTypes[hk] is not None
+                            and dv is not None
+                            and dv_type != cls.DataColumnTypes[hk]
+                        ):
+                            typeerrs.append(
+                                f"attribute [{cls.__name__}.DataDefaultValues.{hk}] {cls.DataColumnTypes[hk].__name__} "
+                                f"required (according to {cls.__name__}.DataColumnTypes['{hk}']), but "
+                                f"{dv_type.__name__} set"
+                            )
 
             if not cls.isnamedtuple(cls.DefaultsHeaders):
                 typeerrs.append(

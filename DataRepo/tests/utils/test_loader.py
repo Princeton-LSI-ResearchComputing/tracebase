@@ -554,6 +554,46 @@ class TraceBaseLoaderTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
+    def test_check_class_attributes_type(self):
+        class TestModel(Model):
+            id = AutoField(primary_key=True)
+            name = CharField(unique=True)
+            choice = CharField(choices=[("1", "1"), ("2", "2")])
+
+            # Necessary for temporary models
+            class Meta:
+                app_label = "loader"
+
+        class TestLoader(TraceBaseLoader):
+            DataSheetName = "test"
+            DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
+            DataHeaders = DataTableHeaders(TEST="Test")
+            DataRequiredHeaders = DataTableHeaders(TEST=True)
+            DataRequiredValues = DataRequiredHeaders
+            DataColumnTypes = {"TEST": str}
+            DataDefaultValues = DataTableHeaders(TEST=5)
+            DataUniqueColumnConstraints = [["TEST"]]
+            FieldToDataHeaderKey = {"TestModel": {"name": "TEST"}}
+            Models = [TestModel]
+
+            def load_data(self):
+                pass
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            TestLoader(None)
+        # check_class_attributes is called in the constructor
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(TypeError, type(aes.exceptions[0]))
+        self.assertEqual(
+            (
+                "Invalid attributes:\n"
+                "\tattribute [TestLoader.DataDefaultValues.TEST] str required (according to "
+                "TestLoader.DataColumnTypes['TEST']), but int set"
+            ),
+            str(aes.exceptions[0]),
+        )
+
     def test_get_defaults(self):
         tl = self.TestLoader(None)
         # initialize_metadata is called in the constructor
@@ -942,4 +982,16 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         pass
 
     def test_load_wrapper(self):
+        pass
+
+    def test_excel_with_defaults(self):
+        pass
+
+    def test_excel_without_defaults(self):
+        pass
+
+    def test_tsv_with_defaults(self):
+        pass
+
+    def test_tsv_without_defaults(self):
         pass
