@@ -3,6 +3,8 @@ from django.core.management import call_command
 from DataRepo.models import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
+# TODO: Rename to test_load_study_table.py
+
 
 class StudyDataLoadingTests(TracebaseTestCase):
     def test_load_study_data_command(self):
