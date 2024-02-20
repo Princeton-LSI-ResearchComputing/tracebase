@@ -1043,8 +1043,7 @@ class TraceBaseLoader(ABC):
                 if rqd_header not in df.columns:
                     missing_headers.append(rqd_header)
             if len(missing_headers) > 0:
-                # Cannot proceed, so not buffering
-                raise self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_error(
                     RequiredHeadersError(missing_headers, file=file, sheet=sheet)
                 )
 
@@ -1058,6 +1057,9 @@ class TraceBaseLoader(ABC):
                     self.aggregated_errors_object.buffer_error(
                         UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
                     )
+
+        if len(missing_headers) > 0:
+            raise self.aggregated_errors_object
 
     def check_unique_constraints(self):
         """Check file column unique constraints.
@@ -1306,7 +1308,8 @@ class TraceBaseLoader(ABC):
             )
 
             if (
-                header_name in coltypes.keys()
+                coltypes is not None
+                and header_name in coltypes.keys()
                 and default_val is not None
                 and coltypes[header_name] is not None
                 and type(default_val) != coltypes[header_name]
