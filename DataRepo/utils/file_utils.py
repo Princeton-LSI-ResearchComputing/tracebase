@@ -7,7 +7,7 @@ import yaml
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
-from DataRepo.utils.exceptions import DuplicateHeaders, InvalidHeaders
+from DataRepo.utils.exceptions import DuplicateFileHeaders, InvalidHeaders
 
 
 def read_from_file(
@@ -289,7 +289,7 @@ def validate_headers(filepath, headers, expected_headers=None):
     not_unique, nuniqs, nall = _headers_are_not_unique(headers)
 
     if not_unique:
-        raise DuplicateHeaders(filepath, nall, nuniqs, headers)
+        raise DuplicateFileHeaders(filepath, nall, nuniqs, headers)
 
     if expected_headers is not None and not headers_are_as_expected(
         expected_headers, headers

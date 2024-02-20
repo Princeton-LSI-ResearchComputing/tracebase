@@ -1743,6 +1743,16 @@ class InvalidLCMSHeaders(InvalidHeaders):
 
 
 class DuplicateHeaders(ValidationError):
+    def __init__(self, dupes, all):
+        message = f"Duplicate column headers: {dupes.keys()}.  All: {all}"
+        for k in dupes.keys():
+            message += f"\n\t{k} occurs {dupes[k]} times"
+        super().__init__(message)
+        self.dupes = dupes
+        self.all = all
+
+
+class DuplicateFileHeaders(ValidationError):
     def __init__(self, filepath, nall, nuniqs, headers):
         message = (
             f"Column headers are not unique in {filepath}. There are {nall} columns and {nuniqs} unique values: "

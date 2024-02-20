@@ -12,6 +12,7 @@ from DataRepo.utils.exceptions import (
     ConflictingValueError,
     ConflictingValueErrors,
     DryRun,
+    DuplicateHeaders,
     DuplicateValueErrors,
     DuplicateValues,
     ExcelSheetsNotFound,
@@ -168,8 +169,12 @@ class TraceBaseLoader(ABC):
         defaults_sheet=None,
         defaults_file=None,
         user_headers=None,
+        headers=None,
+        defaults=None,
     ):
         """Constructor.
+
+        Note, headers and defaults are intended for copying custom values from one object to another.
 
         Args:
             df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
@@ -182,6 +187,8 @@ class TraceBaseLoader(ABC):
             user_headers (Optional[dict]): Header names by header key.
             defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
             defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+            headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+            defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
 
         Raises:
             Nothing
@@ -215,6 +222,10 @@ class TraceBaseLoader(ABC):
         self.sheet = data_sheet
         self.defaults_file = defaults_file
         self.defaults_sheet = defaults_sheet
+
+        # This is for preserving derived class headers and defaults
+        self.headers = headers
+        self.defaults = defaults
 
         # Metadata
         self.initialize_metadata()
@@ -290,7 +301,7 @@ class TraceBaseLoader(ABC):
         Returns:
             headers (namedtuple of DataTableHeaders)
         """
-        if hasattr(self, "headers"):
+        if hasattr(self, "headers") and self.headers is not None:
             return self.headers
         return self.DataHeaders
 
@@ -307,6 +318,7 @@ class TraceBaseLoader(ABC):
         - unique_constraints (list of lists of strings): Header name combos whose columns must be unique.
         - reqd_values (DataTableHeaders namedtuple of booleans): Required value booleans by header name.
         - defaults_by_header (dict): Default values by header name.
+        - reverse_headers (dict): Header keys by header name.
 
         Args:
             custom_headers (dict): Header names by header key
@@ -322,8 +334,20 @@ class TraceBaseLoader(ABC):
         # Create a list of all header string values from a namedtuple of header key/value pairs
         self.all_headers = list(self.headers._asdict().values())
 
-        # Error-check the headers
-        self.check_header_names()
+        # Create a dict of header names that map to header key (a reverse lookup)
+        duphns = defaultdict(int)
+        self.reverse_headers = {}
+        for hk, hn in self.headers._asdict().items():
+            if hn in self.reverse_headers.keys():
+                duphns[hn] += 1
+                continue
+            self.reverse_headers[hn] = hk
+        if len(duphns) > 0:
+            for k in duphns.keys():
+                duphns[k] += 1
+            self.aggregated_errors_object.buffer_error(
+                DuplicateHeaders(duphns, self.all_headers)
+            )
 
         # Create a dict of database field keys to header names, from a dict of field name keys and header keys
         self.FieldToHeader = defaultdict(lambda: defaultdict(str))
@@ -373,7 +397,7 @@ class TraceBaseLoader(ABC):
             headers (namedtuple of DataTableHeaders)
         """
         # The starting headers are those previously set or defined by the class
-        if hasattr(self, "headers"):
+        if hasattr(self, "headers") and self.headers is not None:
             final_custom_headers = self.headers
         else:
             final_custom_headers = self.DataHeaders
@@ -445,7 +469,7 @@ class TraceBaseLoader(ABC):
         Returns:
             pretty_headers (string)
         """
-        if hasattr(self, "headers"):
+        if hasattr(self, "headers") and self.headers is not None:
             headers = self.headers
         else:
             headers = self.DataHeaders
@@ -497,7 +521,7 @@ class TraceBaseLoader(ABC):
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
         """
-        if hasattr(self, "defaults"):
+        if hasattr(self, "defaults") and self.defaults is not None:
             return self.defaults
         return self.DataDefaultValues
 
@@ -541,7 +565,7 @@ class TraceBaseLoader(ABC):
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
         """
-        if hasattr(self, "defaults"):
+        if hasattr(self, "defaults") and self.defaults is not None:
             final_defaults = self.defaults
         else:
             final_defaults = self.DataDefaultValues
@@ -574,13 +598,15 @@ class TraceBaseLoader(ABC):
 
             final_defaults = final_defaults._replace(**new_dv_dict)
 
-        # If user headers are defined, overwrite anything previously set with them
-        user_defaults = self.get_user_defaults()
-        if user_defaults is not None:
+        # If user defaults are defined, overwrite anything previously set with them
+        extras = []
+        tmp_user_defaults = self.get_user_defaults()
+        if tmp_user_defaults is not None:
+            user_defaults = self.header_name_to_key(tmp_user_defaults)
             new_ud_dict = final_defaults._asdict()
             # To support incomplete headers dicts
             for hk in user_defaults.keys():
-                if hk in final_defaults.keys():
+                if hk in new_ud_dict.keys():
                     new_ud_dict[hk] = user_defaults[hk]
                 else:
                     extras.append(hk)
@@ -589,7 +615,9 @@ class TraceBaseLoader(ABC):
             if len(extras) > 0:
                 # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise self.aggregated_errors_object.buffer_error(
-                    ValueError(f"Unexpected default keys: {extras} in user defaults.")
+                    ValueError(
+                        f"Unexpected default keys: {extras} in user defaults.  Expected: {list(new_ud_dict.keys())}"
+                    )
                 )
 
             final_defaults = final_defaults._replace(**new_ud_dict)
@@ -885,7 +913,7 @@ class TraceBaseLoader(ABC):
         if self.DataColumnTypes is None:
             return None
 
-        if hasattr(self, "headers"):
+        if hasattr(self, "headers") and self.headers is not None:
             headers = self.headers
         else:
             headers = self.DataHeaders
@@ -938,37 +966,39 @@ class TraceBaseLoader(ABC):
 
         return outdict
 
-    def check_header_names(self):
-        """Error-checks the header (custom) names set in self.all_headers.
+    def header_name_to_key(self, indict):
+        """Returns the supplied indict, but its keys are changed from header name to header key.
+
+        This method is used to convert user defaults by header name to by header key (in order to set self.defaults).
 
         Args:
-            None
+            indict (dict of objects): Any objects by header key
 
         Exceptions:
             Raises:
                 Nothing
             Buffers:
-                ValueError
+                KeyError
 
         Returns:
-            Nothing
+            outdict (dict): objects by header name (instead of by header key)
         """
-        dupe_dict = {}
-        name_dict = defaultdict(int)
-        for hn in self.all_headers:
-            name_dict[hn] += 1
-        for hn in name_dict.keys():
-            if name_dict[hn] > 1:
-                dupe_dict[hn] = name_dict[hn]
-        if len(dupe_dict.keys()) > 0:
-            nlt = "\n\t"
-            deets = "\n\t".join([f"{k} occurs {v} times" for k, v in dupe_dict.items()])
-            msg = f"Duplicate Header names encountered:{nlt}{deets}"
-            # set_headers calls this method, and it can be called multiple times, so avoid duplicate errors
-            for exc in self.aggregated_errors_object.get_exception_type(ValueError):
-                if str(exc) == msg:
-                    return
-            self.aggregated_errors_object.buffer_error(ValueError(msg))
+        if indict is None:
+            return None
+
+        outdict = {}
+        for hn, dv in indict.items():
+            if hn not in self.reverse_headers.keys():
+                self.aggregated_errors_object.buffer_error(
+                    KeyError(
+                        f"Header [{hn}] not in reverse headers: {self.reverse_headers}"
+                    )
+                )
+                outdict[hn] = dv
+                continue
+            outdict[self.reverse_headers[hn]] = dv
+
+        return outdict
 
     def check_dataframe_headers(self, reading_defaults=False):
         """Error-checks the headers in the dataframe.
@@ -1246,7 +1276,7 @@ class TraceBaseLoader(ABC):
                 and sheet_name not in all_sheet_names
                 and sheet_name not in unknown_sheets
             ):
-                unknown_sheets[sheet_name].append(row.name + 2)
+                unknown_sheets[sheet_name].append(rownum)
                 continue
 
             # Skip sheets that are not the target load_sheet
@@ -1267,7 +1297,7 @@ class TraceBaseLoader(ABC):
 
             # If the header name from the defaults sheet is not an actual header on the load_sheet
             if header_name not in infile_headers:
-                unknown_headers[header_name].append(self.rownum)
+                unknown_headers[header_name].append(rownum)
                 continue
 
             # Grab the default value
@@ -1346,7 +1376,6 @@ class TraceBaseLoader(ABC):
         Returns:
             defdict (Optional[dict of objects]): objects by header name
         """
-        self.check_class_attributes()
         if not self.isnamedtuple(intuple):
             self.aggregated_errors_object.buffer_error(
                 TypeError(

@@ -12,6 +12,7 @@ from DataRepo.utils.exceptions import (
     ConflictingValueError,
     ConflictingValueErrors,
     DryRun,
+    DuplicateHeaders,
     DuplicateValueErrors,
     DuplicateValues,
     InfileDatabaseError,
@@ -401,7 +402,6 @@ class TraceBaseLoaderTests(TracebaseTestCase):
                 return None
 
         tdhl = TestDoubleHeaderLoader(None)
-        tdhl.check_header_names()
         excs = "\n\t".join(
             [
                 f"{type(e).__name__}: {e}"
@@ -411,12 +411,13 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual(
             1,
             len(tdhl.aggregated_errors_object.exceptions),
-            msg=f"Expected 1 ValueError exception.  Got {len(tdhl.aggregated_errors_object.exceptions)}:\n\t{excs}",
+            msg=(
+                f"Expected 1 DuplicateHeaders exception.  Got {len(tdhl.aggregated_errors_object.exceptions)}:\n"
+                f"\t{excs}"
+            ),
         )
-        self.assertEqual(ValueError, type(tdhl.aggregated_errors_object.exceptions[0]))
-        self.assertIn(
-            "Duplicate Header names encountered",
-            str(tdhl.aggregated_errors_object.exceptions[0]),
+        self.assertEqual(
+            DuplicateHeaders, type(tdhl.aggregated_errors_object.exceptions[0])
         )
 
     def test_check_unique_constraints(self):
