@@ -1,7 +1,11 @@
 import pandas as pd
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.file_utils import get_column_dupes
+from DataRepo.utils.file_utils import (
+    _get_file_type,
+    get_column_dupes,
+    read_headers_from_file,
+)
 
 
 class FileUtilsTests(TracebaseTestCase):
@@ -32,8 +36,33 @@ class FileUtilsTests(TracebaseTestCase):
         self.assertEqual(expected, outdict)
         self.assertEqual([1, 3], outlist)
 
-    def test_read_headers_from_file(self):
-        pass
+    def test_read_headers_from_file_tsv(self):
+        headers = read_headers_from_file(
+            "DataRepo/data/tests/compounds/short_compound_list.tsv"
+        )
+        self.assertEqual(["Compound", "Formula", "HMDB ID", "Synonyms"], headers)
 
-    def test__get_file_type(self):
-        pass
+    def test_read_headers_from_file_xlsx(self):
+        headers = read_headers_from_file(
+            "DataRepo/data/tests/load_table/test.xlsx", "MyDefaults"
+        )
+        self.assertEqual(["Sheet Name", "Column Header", "Default Value"], headers)
+
+    def test_read_headers_from_file_csv(self):
+        headers = read_headers_from_file("DataRepo/data/tests/load_table/defaults.csv")
+        self.assertEqual(["Sheet Name", "Column Header", "Default Value"], headers)
+
+    def test__get_file_type_excel(self):
+        self.assertEqual(
+            "excel", _get_file_type("DataRepo/data/tests/load_table/test.xlsx")
+        )
+        self.assertEqual(
+            "tsv", _get_file_type("DataRepo/data/tests/load_table/test.tsv")
+        )
+        self.assertEqual(
+            "csv", _get_file_type("DataRepo/data/tests/load_table/test.csv")
+        )
+        self.assertEqual(
+            "excel",
+            _get_file_type("DataRepo/data/tests/load_table/test.weird", "excel"),
+        )
