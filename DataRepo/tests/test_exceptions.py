@@ -2,9 +2,12 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    DateParseError,
     DuplicateValueErrors,
     DuplicateValues,
     ExcelSheetsNotFound,
+    InvalidDtypeDict,
+    InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
     MultiLoadStatus,
     MutuallyExclusiveOptions,
@@ -785,11 +788,11 @@ class AggregatedErrorsTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "The following cross-referenced column headers parsed from column [Column Header] of sheet [Defaults] "
-                "in file [test.xlsx] on the indicated rows were not found as headers in the target file/sheet: [sheet "
-                "[Data] in file [test.xlsx]].\n"
-                "\t[X] on rows: ['2', '5-7']\n"
-                "The available headers are: ['A', 'B']."
+                "The following column-references parsed from column [Column Header] of sheet [Defaults] in file "
+                "[test.xlsx]:\n"
+                "\t[X] on row(s): ['2', '5-7']\n"
+                "were not found in sheet [Data] in file [test.xlsx], which has the following columns:\n"
+                "\tA, B."
             ),
             str(ihcre),
         )
@@ -808,3 +811,45 @@ class AggregatedErrorsTests(TracebaseTestCase):
     def test_NoLoadData(self):
         nld = NoLoadData("My message")
         self.assertEqual("My message", str(nld))
+
+    def test_InvalidDtypeDict(self):
+        idd = InvalidDtypeDict(
+            {"Wrong": str, "WrongAgain": int},
+            file="afile.xlsx",
+            sheet="SheetName",
+            columns=["A", "B"],
+        )
+        self.assertEqual(
+            (
+                "Invalid dtype dict supplied for parsing sheet [SheetName] in file [afile.xlsx].  None of its keys "
+                "['Wrong', 'WrongAgain'] are present in the dataframe, whose columns are ['A', 'B']."
+            ),
+            str(idd),
+        )
+
+    def test_InvalidDtypeKeys(self):
+        idk = InvalidDtypeKeys(
+            ["Wrong"],
+            file="afile.xlsx",
+            sheet="SheetName",
+            columns=["A", "Right"],
+        )
+        self.assertEqual(
+            (
+                "Missing dtype dict keys supplied for parsing sheet [SheetName] in file [afile.xlsx].  These keys "
+                "['Wrong'] are not present in the resulting dataframe, whose available columns are ['A', 'Right']."
+            ),
+            str(idk),
+        )
+
+    def test_DateParseError(self):
+        ve = ValueError("unconverted data remains:  00:00:00")
+        dpe = DateParseError("a date", ve, "a format")
+        self.assertEqual(
+            (
+                "The date string a date obtained from the file did not match the pattern supplied a format.  This is "
+                "likely the result of excel converting a string to a date.  Try editing the data type of the column in "
+                "the load file data.\nOriginal error: ValueError: unconverted data remains:  00:00:00"
+            ),
+            str(dpe),
+        )

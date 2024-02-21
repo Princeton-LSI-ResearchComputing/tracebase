@@ -1,10 +1,12 @@
 import pandas as pd
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import DateParseError
 from DataRepo.utils.file_utils import (
     _get_file_type,
     get_column_dupes,
     read_headers_from_file,
+    string_to_datetime,
 )
 
 
@@ -66,3 +68,7 @@ class FileUtilsTests(TracebaseTestCase):
             "excel",
             _get_file_type("DataRepo/data/tests/load_table/test.weird", "excel"),
         )
+
+    def test_string_to_datetime(self):
+        with self.assertRaises(DateParseError):
+            string_to_datetime("2022-1-22 00:10:00")

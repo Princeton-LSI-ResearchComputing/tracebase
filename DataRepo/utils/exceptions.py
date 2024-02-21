@@ -1765,6 +1765,70 @@ class DuplicateFileHeaders(ValidationError):
         self.headers = headers
 
 
+class InvalidDtypeDict(Exception):
+    def __init__(
+        self,
+        dtype,
+        file=None,
+        sheet=None,
+        columns=None,
+        message=None,
+    ):
+        loc = generate_file_location_string(sheet=sheet, file=file)
+        if message is None:
+            message = (
+                f"Invalid dtype dict supplied for parsing {loc}.  None of its keys {list(dtype.keys())} are present "
+                f"in the dataframe, whose columns are {columns}."
+            )
+        super().__init__(message)
+        self.dtype = dtype
+        self.file = file
+        self.sheet = sheet
+        self.columns = columns
+        self.loc = loc
+
+
+class InvalidDtypeKeys(Exception):
+    def __init__(
+        self,
+        missing,
+        file=None,
+        sheet=None,
+        columns=None,
+        message=None,
+    ):
+        loc = generate_file_location_string(sheet=sheet, file=file)
+        if message is None:
+            message = (
+                f"Missing dtype dict keys supplied for parsing {loc}.  These keys {missing} are not present "
+                f"in the resulting dataframe, whose available columns are {columns}."
+            )
+        super().__init__(message)
+        self.missing = missing
+        self.file = file
+        self.sheet = sheet
+        self.columns = columns
+        self.loc = loc
+
+
+class DateParseError(Exception):
+    def __init__(
+        self, string, ve_exc, format, file=None, sheet=None, rownum=None, column=None
+    ):
+        loc = generate_file_location_string(
+            file=file, sheet=sheet, rownum=rownum, column=column
+        )
+        message = (
+            f"The date string {string} obtained from the file did not match the pattern supplied {format}.  This is "
+            "likely the result of excel converting a string to a date.  Try editing the data type of the column in "
+            f"{loc}.\nOriginal error: {type(ve_exc).__name__}: {ve_exc}"
+        )
+        super().__init__(message)
+        self.string = string
+        self.ve_exc = ve_exc
+        self.format = format
+
+
 class MissingRequiredLCMSValues(Exception):
     def __init__(self, header_rownums_dict):
         head_rows_str = ""
@@ -1861,15 +1925,15 @@ class InvalidHeaderCrossReferenceError(Exception):
             )
             deets = "\n\t".join(
                 [
-                    f"[{k}] on rows: " + str(summarize_int_list(v))
+                    f"[{k}] on row(s): " + str(summarize_int_list(v))
                     for k, v in unknown_headers.items()
                 ]
             )
             message = (
-                f"The following cross-referenced column headers parsed from {src_loc} on the indicated rows were not "
-                f"found as headers in the target file/sheet: [{tgt_loc}].\n"
+                f"The following column-references parsed from {src_loc}:\n"
                 f"\t{deets}\n"
-                f"The available headers are: {target_headers}."
+                f"were not found in {tgt_loc}, which has the following columns:\n"
+                f"\t{', '.join(target_headers)}."
             )
         super().__init__(message)
         self.source_file = source_file
