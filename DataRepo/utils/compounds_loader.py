@@ -102,7 +102,7 @@ class CompoundsLoader(TraceBaseLoader):
         # it explicitly in this derived class.
         self.check_for_cross_column_name_duplicates()
 
-        for index, row in self.df.iterrows():
+        for _, row in self.df.iterrows():
             if self.is_skip_row():
                 continue
 
@@ -155,7 +155,7 @@ class CompoundsLoader(TraceBaseLoader):
             synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
-            if index in self.get_skip_row_indexes():
+            if self.is_skip_row():
                 continue
 
             for synonym in synonyms:

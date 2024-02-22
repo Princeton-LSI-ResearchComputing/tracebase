@@ -7,7 +7,7 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a study table (e.g. study code, name, and description) into the database."
     loader_class = StudyTableLoader
-    sheet_default = "Study"
+    data_sheet_default = "Study"
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.

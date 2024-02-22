@@ -26,7 +26,8 @@ class LoadFromTableCommand(ABC, BaseCommand):
         class Command(LoadFromTableCommand):
             help = "Loads data from a compound table into the database"
             loader_class = CompoundsLoader
-            sheet_default = "Compounds"
+            data_sheet_default = "Compounds"
+            defaults_sheet_default = "Defaults"
 
             def add_arguments(self, parser):
                 super().add_arguments(parser)
@@ -40,11 +41,14 @@ class LoadFromTableCommand(ABC, BaseCommand):
         loader_class (TraceBaseLoader derived class): A derived class of TraceBaseLoader.  This class defines headers,
             data constraints, data types, effected database models/fields etc.  LoadTableCommand uses this class to be
             able to rerad the infile correctly.
-        sheet_default (str): Default name of the excel sheet (though note that an option to define a custom name is
-            provided).
+        data_sheet_default (str): Default name of the excel sheet with the data to load (though note that an option to
+            define a custom name is provided).
+        defaults_sheet_default (str): Default name of the excel sheet containing default values for the data sheet
+            columns.
     """
 
     help = "Loads data from a file into the database."
+    defaults_sheet_default = "Defaults"
 
     # Abstract required class attributes
     # Must be initialized in the derived class.
@@ -56,7 +60,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
 
     @property
     @abstractmethod
-    def sheet_default(self):  # str
+    def data_sheet_default(self):  # str
         pass
 
     def __init__(self, *args, **kwargs):
@@ -64,6 +68,10 @@ class LoadFromTableCommand(ABC, BaseCommand):
         # Apply the handler decorator to the handle method in the derived class
         self.apply_handle_wrapper()
         super().__init__(*args, **kwargs)
+        # Init default headers and defaults
+        self.check_class_attributes()
+        self.headers = self.loader_class.get_class_headers()
+        self.defaults = self.loader_class.get_class_defaults()
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.
@@ -120,9 +128,19 @@ class LoadFromTableCommand(ABC, BaseCommand):
             type=str,
             help=(
                 "Name of excel sheet/tab.  Only used if --infile is an excel spreadsheet.  Default: "
-                f"[{self.sheet_default}]."
+                f"[{self.data_sheet_default}]."
             ),
-            default=self.sheet_default,
+            default=self.data_sheet_default,
+        )
+
+        parser.add_argument(
+            "--defaults-sheet",
+            type=str,
+            help=(
+                "Name of excel sheet/tab containing default values for the columns in the data sheet (see --sheet).  "
+                f"Only used if --infile is an excel spreadsheet.  Default: [{self.defaults_sheet_default}]."
+            ),
+            default=self.defaults_sheet_default,
         )
 
         parser.add_argument(
@@ -197,10 +215,31 @@ class LoadFromTableCommand(ABC, BaseCommand):
 
         return handle_wrapper
 
-    def get_sheet(self):
+    def get_sheet(self, default=False):
         """Uses options["sheet"] to return the sheet name.
 
-        Note that self.sheet_default is set as the default for the --sheet option.  See add_arguments().
+        Note that self.data_sheet_default is set as the default for the --sheet option.  See add_arguments().
+
+        Args:
+            default (boolean): Whether or not to get the sheet name regardless of infile type
+
+        Raises:
+            Nothing
+
+        Returns:
+            sheet (str)
+        """
+        return (
+            self.options["sheet"]
+            if not default and is_excel(self.get_infile())
+            else None
+        )
+
+    def get_defaults_sheet(self):
+        """Uses options["defaults_sheet"] to return the sheet name.
+
+        Note that self.defaults_sheet_default is set as the default for the --defaults-sheet option.  See
+        add_arguments().
 
         Args:
             None
@@ -209,9 +248,9 @@ class LoadFromTableCommand(ABC, BaseCommand):
             Nothing
 
         Returns:
-            sheet (str)
+            defaults_sheet (str)
         """
-        return self.options["sheet"] if is_excel(self.get_infile()) else None
+        return self.options["defaults_sheet"] if is_excel(self.get_infile()) else None
 
     def get_dataframe(self):
         """Parses data from the infile (and sheet) using the headers and the column types.
@@ -238,17 +277,11 @@ class LoadFromTableCommand(ABC, BaseCommand):
             df = read_from_file(file, dtype=dtypes, sheet=sheet)
         return df
 
-    def get_headers(self, custom_default_header_data=None):
-        """Uses options["headers"] to return header names by header key.
-
-        Note that self.loader_class.get_headers() is used to return the headers spec, which is either
-        self.loader_class.DefaultHeaders or a headers spec as customized via the custom_default_header_data argument.
+    def get_headers(self):
+        """Returns self.headers.  Initializes them if not set.
 
         Args:
-            custom_default_header_data (namedtuple of TraceBaseLoader.TableHeaders): If header data was not parsed from
-                a file supplied by --headers, these custom defaults are used.  If no custom defaults are supplied, it
-                falls back to the default headers defined in self.loader_class.DefaultHeaders (as implemented in
-                self.loader_class.get_headers()).
+            None
 
         Raises:
             Nothing
@@ -256,33 +289,150 @@ class LoadFromTableCommand(ABC, BaseCommand):
         Returns:
             headers (namedtuple of TraceBaseLoader.TableHeaders containing strings of header names)
         """
-        header_data = (
-            read_from_file(self.options["headers"]) if self.options["headers"] else None
-        )
-        if header_data is None and custom_default_header_data is not None:
-            header_data = custom_default_header_data
+        if hasattr(self, "headers") and self.headers is not None:
+            return self.headers
+        return self.set_headers()
 
-        return self.loader_class.get_headers(header_data)
+    def set_headers(self, custom_headers=None):
+        """Sets instance's header names.  If no custom headers are provided, it reverts to user-privided and/or class
+        defaults.
 
-    def get_defaults(self, defaults_dict=None):
-        """Uses self.loader_class.get_defaults() to return default values by header key.
+        There are a few places where headers can be defined:
 
-        Note that self.loader_class.get_defaults() is used to return the default values, which is either
-        self.loader_class.DefaultValues or a copy that has been modified to contain the supplied defaults.  Defaults for
-        unsupplied header keys will remain as they are defined in self.loader_class.DefaultValues.
+        - User: Supplied by the user via --headers (a yaml file whose parsing returns a dict).
+        - Developer: Supplied via the custom_headers (dict) argument.  (Can be trumped by user supplied headers.)
+        - Loader: Defined in the loader_class.  self.loader_class.get_headers() is used to obtain default values by
+          header key (in a namedtuple).  (Can be trumped by developer and user headers.)
+
+        Each individual header is assigned in order of precedence:
+
+            User > Developer > Loader
 
         Args:
-            defaults_dict (dict of default values by header key): A dict is taken as an argument so that only the
-                columns with desired default values can be supplied.  The header keys are the same as those in a
-                namedtuple of TraceBaseLoader.TableHeaders.
+            custom_headers (namedtupe of loader_class.TableHeaders): Header names by header key
 
         Raises:
             Nothing
 
         Returns:
-            defaults (Optional[namedtuple of TraceBaseLoader.TableHeaders containing default values])
+            headers (namedtupe of loader_class.TableHeaders): Header names by header key
         """
-        return self.loader_class.get_defaults(defaults_dict)
+        final_custom_headers = None
+        user_headers = (
+            read_from_file(self.options["headers"]) if self.options["headers"] else None
+        )
+        dev_headers = custom_headers
+
+        if user_headers is not None and dev_headers is not None:
+            final_custom_headers = {}
+            # To support incomplete headers dicts
+            for hk in list(set(user_headers.keys()) + set(dev_headers.keys())):
+                final_custom_headers[hk] = user_headers.get(
+                    hk, dev_headers.get(hk, None)
+                )
+            if len(final_custom_headers.keys()) == 0:
+                final_custom_headers = None
+        elif user_headers is not None:
+            final_custom_headers = user_headers
+        elif dev_headers is not None:
+            final_custom_headers = dev_headers
+
+        self.headers = self.loader_class.get_class_headers(final_custom_headers)
+
+        return self.headers
+
+    def get_defaults(self):
+        """Returns self.defaults.  Initializes them if not set.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            defaults (namedtuple of TraceBaseLoader.TableHeaders containing strings of header names)
+        """
+        if hasattr(self, "defaults") and self.defaults is not None:
+            return self.defaults
+        return self.set_defaults()
+
+    def set_defaults(self, custom_defaults=None):
+        """Sets instance's default values.  If no custom defaults are provided, it reverts to user-privided and/or class
+        defaults.
+
+        There are a few places where defaults can be defined:
+
+        - User: Supplied by the user via the defaults sheet when --infile is an excel file (See defaults_sheet_default.)
+        - Developer: Supplied via the custom_defaults (dict) argument.  (Can be trumped by user supplied defaults.)
+        - Loader: Defined in the loader_class.  self.loader_class.get_defaults() is used to obtain default values by
+          header key (in a namedtuple).  (Can be trumped by developer and user defaults.)
+
+        Each individual header is assigned in order of precedence:
+
+            User > Developer > Loader
+
+        Args:
+            custom_defaults (namedtupe of loader_class.TableHeaders): Header names by header key
+
+        Raises:
+            Nothing
+
+        Returns:
+            defaults (namedtupe of loader_class.TableHeaders): Header names by header key
+        """
+        final_custom_defaults = None
+        user_defaults = self.get_user_defaults()
+        dev_defaults = custom_defaults
+
+        if user_defaults is not None and dev_defaults is not None:
+            final_custom_defaults = {}
+            # To support incomplete defaults dicts
+            for hk in list(set(user_defaults.keys()) + set(dev_defaults.keys())):
+                final_custom_defaults[hk] = user_defaults.get(
+                    hk, dev_defaults.get(hk, None)
+                )
+            if len(final_custom_defaults.keys()) == 0:
+                final_custom_defaults = None
+        elif user_defaults is not None:
+            final_custom_defaults = user_defaults
+        elif dev_defaults is not None:
+            final_custom_defaults = dev_defaults
+
+        self.defaults = self.loader_class.get_class_defaults(final_custom_defaults)
+
+        return self.defaults
+
+    def get_user_defaults(self):
+        """Retrieves defaults from the defaults excel sheet and converts them into a dict where the keys are header keys
+        (matched to values in the first column of the defaults sheet) and the values are from the second column.
+
+        Note, if the user supplies custom options on the command line, it's up to the developer to call
+        self.set_defaults with a dict composed of header key keys and values from the command line.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            user_defaults (dict): default values by header key
+        """
+        infile = self.get_infile()
+
+        if not is_excel(infile):
+            return None
+
+        defaults_sheet = self.get_defaults_sheet()
+        df = read_from_file(infile, sheet=defaults_sheet)
+
+        user_defaults = self.loader_class.get_user_defaults(df, infile, defaults_sheet)
+
+        if len(user_defaults.keys()) == 0:
+            user_defaults = None
+
+        return user_defaults
 
     def get_infile(self):
         """Uses options["infile"] to return the input file name.
@@ -334,6 +484,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
         dry_run=None,
         defer_rollback=None,
         sheet=None,
+        defaults_sheet=None,
         file=None,
         **kwargs,
     ):
@@ -396,7 +547,8 @@ class LoadFromTableCommand(ABC, BaseCommand):
 
         Checks existence and type of:
             loader_class (class attribute, TraceBaseLoader class)
-            sheet_default (class attribute, str)
+            data_sheet_default (class attribute, str)
+            defaults_sheet_default (class attribute, str)
 
         Args:
             None
@@ -415,9 +567,14 @@ class LoadFromTableCommand(ABC, BaseCommand):
                 f"attribute [{here}.loader_class] TraceBaseLoader required, {type(self.loader_class)} set"
             )
 
-        if type(self.sheet_default) != str:
+        if type(self.data_sheet_default) != str:
             typeerrs.append(
-                f"attribute [{here}.sheet_default] str required, {type(self.sheet_default)} set"
+                f"attribute [{here}.data_sheet_default] str required, {type(self.data_sheet_default)} set"
+            )
+
+        if type(self.defaults_sheet_default) != str:
+            typeerrs.append(
+                f"attribute [{here}.defaults_sheet_default] str required, {type(self.defaults_sheet_default)} set"
             )
 
         # Immediately raise programming related errors

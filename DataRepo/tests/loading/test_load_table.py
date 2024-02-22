@@ -28,7 +28,7 @@ class TestLoader(TraceBaseLoader):
 # Class used for testing
 class TestCommand(LoadFromTableCommand):
     loader_class = TestLoader
-    sheet_default = "test"
+    data_sheet_default = "test"
 
     def handle(self, *args, **options):
         return self.load_data()
@@ -49,7 +49,7 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         This tests that all required class attributes:
 
             loader_class
-            sheet_default
+            data_sheet_default
 
         are enforced.  We will do so by creating a class that does not have any of the required class attributes defined
         and catching the expected exception.
@@ -65,7 +65,7 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
             MyCommand()
             # pylint: enable=abstract-class-instantiated
         self.assertIn(
-            "Can't instantiate abstract class MyCommand with abstract methods loader_class, sheet_default",
+            "Can't instantiate abstract class MyCommand with abstract methods data_sheet_default, loader_class",
             str(ar.exception),
         )
 
@@ -100,19 +100,18 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
 
         class TestTypeCommand(LoadFromTableCommand):
             loader_class = NotATraceBaseLoaderClass
-            sheet_default = 1
+            data_sheet_default = 1
 
             def handle(self, *args, **options):
                 self.load_data()
 
-        ttc = TestTypeCommand()
         with self.assertRaises(AggregatedErrors) as ar:
-            ttc.check_class_attributes()
+            TestTypeCommand()
         aes = ar.exception
         self.assertEqual((1, 0), (aes.num_errors, aes.num_warnings))
         self.assertEqual(TypeError, type(aes.exceptions[0]))
         self.assertIn("loader_class", str(aes.exceptions[0]))
-        self.assertIn("sheet_default", str(aes.exceptions[0]))
+        self.assertIn("data_sheet_default", str(aes.exceptions[0]))
 
     def test_load_data(self):
         """

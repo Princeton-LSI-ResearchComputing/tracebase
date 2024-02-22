@@ -39,35 +39,8 @@ def read_from_file(
         Pandas dataframe of parsed and processed infile data.
         Or, if the filetype is yaml, returns a python object.
     """
-    filetypes = ["csv", "tsv", "excel", "yaml"]
-    extensions = {
-        "csv": "csv",
-        "tsv": "tsv",
-        "xlsx": "excel",
-        "yaml": "yaml",
-        "yml": "yaml",
-    }
+    filetype = _get_file_type(filepath, filetype=filetype)
     retval = None
-
-    if filetype is None:
-        ext = pathlib.Path(filepath).suffix.strip(".")
-        if ext in extensions.keys():
-            filetype = extensions[ext]
-        elif ext not in extensions.keys():
-            if is_excel(filepath):
-                filetype = "excel"
-            else:
-                raise CommandError(
-                    'Invalid file extension: "%s", expected one of %s',
-                    extensions.keys(),
-                    ext,
-                )
-    elif filetype not in filetypes:
-        raise CommandError(
-            'Invalid file type: "%s", expected one of %s',
-            filetypes,
-            filetype,
-        )
 
     if filetype == "excel":
         retval = _read_from_xlsx(
@@ -101,6 +74,75 @@ def read_from_file(
         retval = _read_from_yaml(filepath)
 
     return retval
+
+
+def read_headers_from_file(
+    filepath,
+    sheet=0,
+    filetype=None,
+):
+    """Converts either an excel or tab delimited file into a dataframe.
+
+    Args:
+        filepath (str): Path to infile
+        sheet (str): Name of excel sheet
+        filetype (str): Enumeration ["csv", "tsv", "excel", "yaml"]
+        expected_headers (List(str)): List of all expected header names
+
+    Raises:
+        CommandError
+
+    Returns:
+        headers (list of string)
+    """
+    filetype = _get_file_type(filepath, filetype=filetype)
+    retval = None
+
+    if filetype == "excel":
+        retval = _read_headers_from_xlsx(filepath, sheet=sheet)
+    elif filetype == "tsv":
+        retval = _read_headers_from_tsv(filepath)
+    elif filetype == "csv":
+        retval = _read_headers_from_csv(filepath)
+    elif filetype == "yaml":
+        raise CommandError(
+            'Invalid file type: "%s", yaml files do not have headers', filetype
+        )
+
+    return retval
+
+
+def _get_file_type(filepath, filetype=None):
+    filetypes = ["csv", "tsv", "excel", "yaml"]
+    extensions = {
+        "csv": "csv",
+        "tsv": "tsv",
+        "xlsx": "excel",
+        "yaml": "yaml",
+        "yml": "yaml",
+    }
+
+    if filetype is None:
+        ext = pathlib.Path(filepath).suffix.strip(".")
+        if ext in extensions.keys():
+            filetype = extensions[ext]
+        elif ext not in extensions.keys():
+            if is_excel(filepath):
+                filetype = "excel"
+            else:
+                raise CommandError(
+                    'Invalid file extension: "%s", expected one of %s',
+                    ext,
+                    extensions.keys(),
+                )
+    elif filetype not in filetypes:
+        raise CommandError(
+            'Invalid file type: "%s", expected one of %s',
+            filetype,
+            filetypes,
+        )
+
+    return filetype
 
 
 def _read_from_yaml(filepath):

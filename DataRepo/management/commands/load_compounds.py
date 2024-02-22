@@ -7,7 +7,7 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a compound table into the database"
     loader_class = CompoundsLoader
-    sheet_default = "Compounds"
+    data_sheet_default = "Compounds"
 
     def add_arguments(self, parser):
         """Adds command line options.
