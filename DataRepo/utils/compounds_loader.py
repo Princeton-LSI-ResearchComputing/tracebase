@@ -103,9 +103,6 @@ class CompoundsLoader(TraceBaseLoader):
         self.check_for_cross_column_name_duplicates()
 
         for index, row in self.df.iterrows():
-            if self.is_skip_row():
-                continue
-
             cmpd_recdict = None
             syn_recdict = None
 
@@ -122,6 +119,20 @@ class CompoundsLoader(TraceBaseLoader):
 
                 # get_row_val can add to skip_row_indexes when there is a missing required value
                 if self.is_skip_row():
+                    self.errored(Compound.__name__)
+                    synonyms = self.parse_synonyms(
+                        self.get_row_val(row, self.headers.SYNONYMS)
+                    )
+                    self.skipped(CompoundSynonym.__name__, len(synonyms))
+                    continue
+
+                synonyms = self.parse_synonyms(
+                    self.get_row_val(row, self.headers.SYNONYMS)
+                )
+
+                if self.is_skip_row():
+                    self.skipped(Compound.__name__)
+                    self.errored(CompoundSynonym.__name__, len(synonyms))
                     continue
 
                 cmpd_rec, cmpd_created = Compound.objects.get_or_create(**cmpd_recdict)
@@ -150,12 +161,13 @@ class CompoundsLoader(TraceBaseLoader):
                 else:
                     self.handle_load_db_errors(e, Compound, cmpd_recdict)
                 self.errored(Compound.__name__)
+                self.errored(CompoundSynonym.__name__, len(synonyms))
                 continue
-
-            synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if index in self.get_skip_row_indexes():
+                self.errored(Compound.__name__)
+                self.errored(CompoundSynonym.__name__, len(synonyms))
                 continue
 
             for synonym in synonyms:
@@ -238,6 +250,7 @@ class CompoundsLoader(TraceBaseLoader):
         for syn in syn_dict.keys():
             if len(syn_dict[syn]) > 1:
                 syn_dupe_dict[syn] = syn_dict[syn]
+                self.add_skip_row_index(index_list=syn_dict[syn])
         if len(syn_dupe_dict.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 DuplicateValues(
