@@ -5,7 +5,6 @@ from DataRepo.utils.loader import TraceBaseLoader
 
 
 class ProtocolsLoader(TraceBaseLoader):
-
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     NAME_KEY = "NAME"
     CAT_KEY = "CATEGORY"

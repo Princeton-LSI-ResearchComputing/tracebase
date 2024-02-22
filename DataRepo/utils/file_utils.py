@@ -291,7 +291,7 @@ def validate_headers(filepath, headers, expected_headers=None):
 
 def _read_headers_from_xlsx(filepath, sheet=0):
     sheet_name = sheet
-    sheets = pd.ExcelFile(filepath, engine="openpyxl").sheet_names
+    sheets = get_sheet_names(filepath)
     if str(sheet_name) not in sheets:
         sheet_name = 0
 
@@ -302,7 +302,7 @@ def _read_headers_from_xlsx(filepath, sheet=0):
             filepath,
             nrows=1,  # Read only the first row
             header=None,
-            sheet_name=sheet_name,  # The first sheet
+            sheet_name=sheet_name,
             engine="openpyxl",
         )
         .squeeze("columns")

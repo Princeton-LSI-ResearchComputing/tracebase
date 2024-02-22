@@ -72,6 +72,7 @@ from DataRepo.utils.sample_table_loader import (
     LCMSDBSampleMissing,
     SampleTableLoader,
 )
+from DataRepo.utils.sequences_loader import SequencesLoader
 from DataRepo.utils.study_table_loader import StudyTableLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
 
@@ -126,6 +127,7 @@ __all__ = [
     "LCMSDBSampleMissing",
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
+    "SequencesLoader",
     "StudyTableLoader",
     "SynonymExistsAsMismatchedCompound",
     "TissuesLoader",

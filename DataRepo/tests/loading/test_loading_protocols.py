@@ -41,15 +41,14 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def load_dataframe_as_animal_treatment(self, df, dry_run=False):
         """Load a working dataframe to protocols table"""
-        defaults = ProtocolsLoader.get_class_defaults(
-            custom_default_data={
-                ProtocolsLoader.CAT_KEY: Protocol.ANIMAL_TREATMENT,
-            }
-        )
         protocol_loader = ProtocolsLoader(
-            df,
-            defaults=defaults,
+            df=df,
             dry_run=dry_run,
+        )
+        protocol_loader.set_defaults(
+            custom_defaults={
+                ProtocolsLoader.CAT_KEY: Protocol.ANIMAL_TREATMENT,
+            },
         )
         protocol_loader.load_data()
 
@@ -75,12 +74,13 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test the ProtocolsLoader with dataframe missing category"""
         # The DefaultValues namedtuple in ProtocolsLoader sets a category default of Protocol.ANIMAL_TREATMENT, so in
         # order to make the error occur, we must set that default to None
-        defaults = ProtocolsLoader.get_class_defaults(
-            custom_default_data={
+        protocol_loader = ProtocolsLoader(self.working_df)
+        protocol_loader.set_defaults(
+            custom_defaults={
                 ProtocolsLoader.CAT_KEY: None,
-            }
+            },
         )
-        protocol_loader = ProtocolsLoader(self.working_df, defaults=defaults)
+
         with self.assertRaises(AggregatedErrors) as ar:
             protocol_loader.load_data()
         aes = ar.exception
@@ -107,18 +107,14 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_protocols_loader_with_bad_category_error(self):
         """Test the ProtocolsLoader with an improper category"""
-        pl = ProtocolsLoader()
-        defaults = pl.get_defaults(
+        protocol_loader = ProtocolsLoader(
+            self.working_df,
+        )
+        protocol_loader.set_defaults(
             custom_defaults={
                 ProtocolsLoader.CAT_KEY: "Some Nonsense Category",
             }
         )
-        print(f"defaults: {defaults}")
-        protocol_loader = ProtocolsLoader(
-            self.working_df,
-            defaults=defaults,
-        )
-        print(f"SAVED DEFAULTS BY HEADER: {protocol_loader.defaults_by_header}")
         with self.assertRaises(AggregatedErrors) as ar:
             protocol_loader.load_data()
         aes = ar.exception

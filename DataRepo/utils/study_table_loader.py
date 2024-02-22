@@ -5,7 +5,6 @@ from DataRepo.utils.loader import TraceBaseLoader
 
 
 class StudyTableLoader(TraceBaseLoader):
-
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     CODE_KEY = "CODE"
     NAME_KEY = "NAME"

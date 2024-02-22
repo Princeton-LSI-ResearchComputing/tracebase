@@ -195,6 +195,9 @@ class AccuCorDataLoader:
         # Tracking Data
         self.skip_samples = skip_samples if skip_samples else []
         self.sample_name_prefix = sample_name_prefix if sample_name_prefix else ""
+        # TODO: Address this linting warning:
+        # DataRepo/utils/accucor_data_loader.py:198: note: By default the bodies of untyped functions are not checked,
+        # consider using --check-untyped-defs  [annotation-unchecked]
         self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
         self.corrected_sample_headers = []
         self.original_sample_headers = []

@@ -521,10 +521,10 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         tl = self.TestLoader(None)
         self.assertEqual(list(tl.DefaultHeaders._asdict().keys()), tl.get_header_keys())
 
-    def test_get_pretty_default_headers(self):
+    def test_get_pretty_headers(self):
         tl = self.TestLoader(None)
         self.assertEqual(
-            (["Name*", "Choice"], "(* = Required)"), tl.get_pretty_default_headers()
+            (["Name*", "Choice"], "(* = Required)"), tl.get_pretty_headers()
         )
 
     def test_get_headers(self):

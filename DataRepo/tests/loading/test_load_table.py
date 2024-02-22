@@ -40,8 +40,9 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         "headers": None,
         "defer_rollback": False,
         "dry_run": False,
-        "sheet": "test sheet",
+        "data_sheet": "test sheet",
         "verbosity": 0,
+        "defaults_file": None,
     }
 
     def test_abstract_attributes_enforced(self):
@@ -126,22 +127,6 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         # Ensure that TestLoader's load_data method is called (indirectly, by testing its returned value)
         self.assertEqual(42, tv)
 
-    def test_get_defer_rollback(self):
-        """
-        Tests the return of get_defer_rollback is what was set in the options by the handle method
-        """
-        tc = TestCommand()
-        tc.handle(**self.TEST_OPTIONS)
-        self.assertFalse(tc.get_defer_rollback())
-
-    def test_get_dry_run(self):
-        """
-        Tests the return of get_dry_run is what was set in the options by the handle method
-        """
-        tc = TestCommand()
-        tc.handle(**self.TEST_OPTIONS)
-        self.assertFalse(tc.get_dry_run())
-
     def test_get_infile(self):
         """
         Tests the return of get_infile is what was set in the options by the handle method
@@ -174,11 +159,3 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         tc.handle(**self.TEST_OPTIONS)
         expected = {"Test": {0: "1"}}
         self.assertEqual(expected, tc.get_dataframe().to_dict())
-
-    def test_get_sheet(self):
-        """
-        Tests the return of get_sheet is None if was is set in the options by the handle method is not an excel infile
-        """
-        tc = TestCommand()
-        tc.handle(**self.TEST_OPTIONS)
-        self.assertIsNone(tc.get_data_sheet())

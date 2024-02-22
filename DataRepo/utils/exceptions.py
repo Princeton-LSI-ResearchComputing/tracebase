@@ -101,10 +101,9 @@ class RequiredColumnValue(Exception):
         message=None,
     ):
         if not message:
-            loc = generate_file_location_string(
-                sheet=sheet, file=file, rownum=rownum, column=column
-            )
-            message = f"Missing value required in {loc}."
+            loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum)
+            message = "Value required for column [%s] in %s."
+        message = message % (column, loc)
         super().__init__(message)
         self.column = column
         self.rownum = rownum
@@ -114,7 +113,12 @@ class RequiredColumnValue(Exception):
 
 
 class RequiredColumnValues(Exception):
-    def __init__(self, required_column_values):
+    def __init__(self, required_column_values, init_message=None):
+        if init_message is None:
+            message = "Required column values missing on the indicated rows:\n"
+        else:
+            message = f"{init_message}:\n"
+
         rcv_dict = defaultdict(lambda: defaultdict(list))
         for rcv in required_column_values:
             loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
@@ -122,7 +126,6 @@ class RequiredColumnValues(Exception):
             if rcv.rownum not in rcv_dict[loc][col]:
                 if rcv.rownum is not None:
                     rcv_dict[loc][col].append(rcv.rownum)
-        message = "Required column values missing on the indicated rows:\n"
         for loc in rcv_dict.keys():
             message += f"\t{loc}\n"
             for col in rcv_dict[loc].keys():
@@ -132,6 +135,25 @@ class RequiredColumnValues(Exception):
                 message += f"\t\tColumn: [{col}] on rows: {rowstr}\n"
         super().__init__(message)
         self.required_column_values = required_column_values
+
+
+class RequiredColumnValueWhenNovel(RequiredColumnValue):
+    def __init__(self, column, model_name, **kwargs):
+        message = kwargs.pop("message", None)
+        if message is None:
+            # The 2 %s placeholders are filled in in the superclass
+            message = f"Value required for column [%s] in %s when the [{model_name}] record does not exist."
+        super().__init__(column, **kwargs, message=message)
+        self.model_name = model_name
+
+
+class RequiredColumnValuesWhenNovel(RequiredColumnValues):
+    """Summarizes a list of RequiredColumnValueWhenNovel exceptions of the same model."""
+
+    def __init__(self, required_column_values_when_novel, model_name):
+        msg = f"Value required, when the [{model_name}] record does not exist, for columns on the indicated rows"
+        super().__init__(required_column_values_when_novel, init_message=msg)
+        self.model_name = model_name
 
 
 class RequiredHeadersError(HeaderError):
@@ -513,7 +535,9 @@ class MultiLoadStatus(Exception):
             print(exception)
 
             # Wrap the exception in an AggregatedErrors class
-            new_aes = AggregatedErrors(errors=[exception])
+            new_aes = AggregatedErrors()
+            # This will cause the exception trace to be printed
+            new_aes.buffer_error(exception)
 
         new_num_errors = new_aes.num_errors
         new_num_warnings = new_aes.num_warnings
@@ -2057,11 +2081,18 @@ class OptionsNotAvailable(ProgrammingError):
     """
     An exception class for methods that retrieve command line options, called too early.
     """
+
     def __init__(self):
-        super().__init__("Cannot get command line option values until handle() has been called.")
+        super().__init__(
+            "Cannot get command line option values until handle() has been called."
+        )
 
 
 class MutuallyExclusiveOptions(CommandError):
+    pass
+
+
+class NoLoadData(Exception):
     pass
 
 
