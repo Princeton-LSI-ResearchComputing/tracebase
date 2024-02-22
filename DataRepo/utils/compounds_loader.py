@@ -65,15 +65,17 @@ class CompoundsLoader(TraceBaseLoader):
         """Constructor.
 
         Args:
-            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-            synonym_separator (Optional[str]) [;]: Synonym string delimiter.
-            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
-            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
-            dry_run (Optional[boolean]) [False]: Dry run mode.
-            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
-                HANDLE THE ROLLBACK.
-            sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            file (Optional[str]) [None]: File name (for error reporting).
+            Superclass Args:
+                df (pandas dataframe): Data, e.g. as parsed from a table-like file.
+                headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
+                defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
+                dry_run (Optional[boolean]) [False]: Dry run mode.
+                defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
+                    MUST HANDLE THE ROLLBACK.
+                sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                file (Optional[str]) [None]: File name (for error reporting).
+            Derived (this) class Args:
+                synonym_separator (Optional[str]) [;]: Synonym string delimiter.
 
         Raises:
             Nothing

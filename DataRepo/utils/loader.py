@@ -1,6 +1,7 @@
 import re
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+
 from typing import Dict, Optional, Type
 
 from django.core.exceptions import ValidationError
@@ -122,6 +123,22 @@ class TraceBaseLoader(ABC):
     # (converted to by-header-name in get_column_types)
     ColumnTypes: Optional[Dict[str, Type[str]]] = None  # dict of types by header key
 
+    # The keys for the headers in the "Defaults" sheet.
+    DefaultsSheetTuple = namedtuple(
+        "TableHeaders",
+        [
+            "SHEET_NAME",
+            "COLUMN_NAME",
+            "DEFAULT_VALUE",
+        ],
+    )
+    # These are the headers for the "Defaults" sheet.  These are not customizable.
+    DefaultsSheetHeaders = DefaultsSheetTuple(
+        SHEET_NAME="Sheet Name",
+        COLUMN_NAME="Column Header",
+        DEFAULT_VALUE="Default Value",
+    )
+
     def __init__(
         self,
         df=None,
@@ -129,8 +146,11 @@ class TraceBaseLoader(ABC):
         defaults=None,
         dry_run=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
-        sheet=None,
+        data_sheet=None,
         file=None,
+        defaults_df=None,
+        defaults_sheet=None,
+        defaults_file=None,
     ):
         """Constructor.
 
@@ -141,7 +161,8 @@ class TraceBaseLoader(ABC):
             dry_run (Optional[boolean]) [False]: Dry run mode.
             defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
                 HANDLE THE ROLLBACK.
-            sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
             file (Optional[str]) [None]: File name (for error reporting).
 
         Raises:
@@ -158,6 +179,8 @@ class TraceBaseLoader(ABC):
 
         # File data
         self.df = df
+        # TODO: Extract the defaults file data in the load_table script instead of in get_user_defaults
+        self.defaults_df = defaults_df
 
         # Running Modes
         self.dry_run = dry_run
@@ -169,15 +192,17 @@ class TraceBaseLoader(ABC):
 
         # For error reporting
         self.file = file
-        self.sheet = sheet
+        self.sheet = data_sheet
+        self.defaults_file = defaults_file
+        self.defaults_sheet = defaults_sheet
+
+        # TODO: Check that defaults_file is None if file is an excel file (the 2 are mutually exclusive when file is excel)
 
         # Load stats
         self.record_counts = defaultdict(lambda: defaultdict(int))
 
         # Metadata
         self.initialize_metadata(headers, defaults)
-        print(f"init defaults: {self.defaults}")
-        print(f"init headers: {self.headers}")
 
     def apply_loader_wrapper(self):
         """This applies a decorator to the derived class's load_data method.
@@ -1062,13 +1087,8 @@ class TraceBaseLoader(ABC):
 
         return val
 
-    def get_user_defaults(self, df, file=None, sheet=None):
-        # TODO: Save these variables in an appropriate place
-        DEFAULT_SHEET = "Defaults" if sheet is None else sheet
-        SHEET_HEADER = "Sheet Name"
-        HEADER_HEADER = "Column Header"
-        DEFAULT_HEADER = "Default Value"
-
+    def get_user_defaults(self):
+        # TODO: Make get_user_defaults in load_table do the file parsing and supply a dataframe, then re-write this method to not read the file.
         # Return value
         user_defaults = {}
 
@@ -1077,8 +1097,8 @@ class TraceBaseLoader(ABC):
 
         # Get all the sheet names in the current (assumed: excel) file
         all_sheet_names = None
-        if file is not None and is_excel(file):
-            all_sheet_names = get_sheet_names(file)
+        if self.file is not None and is_excel(self.file):
+            all_sheet_names = get_sheet_names(self.file)
 
         # Get the column types by header name
         coltypes = self.get_column_types()
@@ -1088,9 +1108,9 @@ class TraceBaseLoader(ABC):
         unknown_headers = defaultdict(list)
         invalid_type_errs = []
 
-        for _, row in df.iterrows():
+        for _, row in self.df.iterrows():
             # Get the sheet from the row
-            sheet_name = self.get_row_val(row, SHEET_HEADER)
+            sheet_name = self.get_row_val(row, self.DefaultsSheetHeaders.SHEET_NAME)
 
             # If the sheet name was not found in the file
             if (
@@ -1108,11 +1128,11 @@ class TraceBaseLoader(ABC):
                 continue
 
             # Get the header from the row
-            header_name = str(self.get_row_val(row, HEADER_HEADER))
+            header_name = str(self.get_row_val(row, self.DefaultsSheetHeaders.COLUMN_NAME))
 
             # If we have not saved the headers yet for this sheet
             if sheet_name not in headers_by_sheet.keys():
-                headers_by_sheet[sheet_name] = read_headers_from_file(file)
+                headers_by_sheet[sheet_name] = read_headers_from_file(self.file)
 
             # If the header name from the defaults sheet is not an actual header on the load_sheet
             if header_name not in headers_by_sheet[sheet_name]:
@@ -1120,7 +1140,7 @@ class TraceBaseLoader(ABC):
                 continue
 
             # Grab the default value
-            default_val = self.get_row_val(row, DEFAULT_HEADER)
+            default_val = self.get_row_val(row, self.DefaultsSheetHeaders.DEFAULT_VALUE)
 
             if (
                 header_name in coltypes.keys()
@@ -1140,20 +1160,20 @@ class TraceBaseLoader(ABC):
                 ExcelSheetsNotFound(
                     unknown_sheets,
                     all_sheet_names,
-                    file=file,
-                    column=SHEET_HEADER,
-                    source_sheet=DEFAULT_SHEET,
+                    file=self.file,
+                    column=self.DefaultsSheetHeaders.SHEET_NAME,
+                    source_sheet=self.defaults_sheet,
                 )
             )
 
         if len(unknown_headers.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 InvalidHeaderCrossReferenceError(
-                    source_file=file,
-                    source_sheet=DEFAULT_SHEET,
-                    column=HEADER_HEADER,
+                    source_file=self.file,
+                    source_sheet=self.defaults_sheet,
+                    column=self.DefaultsSheetHeaders.COLUMN_NAME,
                     unknown_headers=unknown_headers,
-                    target_file=file,
+                    target_file=self.file,
                     target_sheet=self.sheet,
                     target_headers=headers_by_sheet[self.sheet],
                 )
@@ -1161,7 +1181,7 @@ class TraceBaseLoader(ABC):
 
         if len(invalid_type_errs) > 0:
             loc = generate_file_location_string(
-                column=DEFAULT_HEADER, sheet=DEFAULT_SHEET, file=file
+                column=self.DefaultsSheetHeaders.DEFAULT_VALUE, sheet=self.defaults_sheet, file=self.file
             )
             deets = "\n\t".join(invalid_type_errs)
             self.aggregated_errors_object.buffer_error(

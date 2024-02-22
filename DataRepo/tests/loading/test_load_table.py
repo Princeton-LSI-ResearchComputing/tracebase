@@ -181,4 +181,4 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         """
         tc = TestCommand()
         tc.handle(**self.TEST_OPTIONS)
-        self.assertIsNone(tc.get_sheet())
+        self.assertIsNone(tc.get_data_sheet())
