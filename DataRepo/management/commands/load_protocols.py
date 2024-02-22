@@ -14,6 +14,31 @@ class Command(LoadFromTableCommand):
     TREATMENTS_NAME_HEADER = "Animal Treatment"
     TREATMENTS_DESC_HEADER = "Treatment Description"
 
+    def set_headers(self, custom_headers=None):
+        """Override of the base class to conditionally change the headers based on infile type.
+
+        Args:
+            custom_headers (namedtupe of loader_class.TableHeaders): Header names by header key
+
+        Raises:
+            Nothing
+
+        Returns:
+            headers (namedtupe of loader_class.TableHeaders): Header names by header key
+        """
+        if custom_headers is not None:
+            # This is only needed if called from elsewhere (e.g. another derived class of this class)
+            return super().set_headers(custom_headers=custom_headers)
+        # Different headers if an excel file is provided
+        if is_excel(self.get_infile()):
+            # An excel sheet is assumed to be for treatment protocols
+            excel_headers = {
+                ProtocolsLoader.NAME_KEY: self.TREATMENTS_NAME_HEADER,
+                ProtocolsLoader.DESC_KEY: self.TREATMENTS_DESC_HEADER,
+            }
+            return super().set_headers(custom_headers=excel_headers)
+        return super().set_headers()
+
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
 
@@ -36,14 +61,4 @@ class Command(LoadFromTableCommand):
         Returns:
             Nothing
         """
-        # Different headers if an excel file is provided
-        if is_excel(self.get_infile()):
-            # An excel sheet is assumed to be for treatment protocols
-            self.set_headers(
-                custom_headers={
-                    ProtocolsLoader.NAME_KEY: self.TREATMENTS_NAME_HEADER,
-                    ProtocolsLoader.DESC_KEY: self.TREATMENTS_DESC_HEADER,
-                }
-            )
-
         self.load_data()

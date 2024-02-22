@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 from django.core.exceptions import ValidationError
+from django.core.management import CommandError
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
@@ -2058,6 +2059,10 @@ class OptionsNotAvailable(ProgrammingError):
     """
     def __init__(self):
         super().__init__("Cannot get command line option values until handle() has been called.")
+
+
+class MutuallyExclusiveOptions(CommandError):
+    pass
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

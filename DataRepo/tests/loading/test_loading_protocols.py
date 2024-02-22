@@ -107,8 +107,9 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_protocols_loader_with_bad_category_error(self):
         """Test the ProtocolsLoader with an improper category"""
-        defaults = ProtocolsLoader.get_class_defaults(
-            custom_default_data={
+        pl = ProtocolsLoader()
+        defaults = pl.get_defaults(
+            custom_defaults={
                 ProtocolsLoader.CAT_KEY: "Some Nonsense Category",
             }
         )

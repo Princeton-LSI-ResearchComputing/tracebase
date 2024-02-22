@@ -17,11 +17,13 @@ class CompoundsLoader(TraceBaseLoader):
     Load the Compound and CompoundSynonym tables
     """
 
+    # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     NAME_KEY = "NAME"
     HMDBID_KEY = "HMDB_ID"
     FORMULA_KEY = "FORMULA"
     SYNONYMS_KEY = "SYNONYMS"
 
+    # The tuple used to store different kinds of data per column at the class level
     TableHeaders = namedtuple(
         "TableHeaders",
         [
@@ -31,22 +33,33 @@ class CompoundsLoader(TraceBaseLoader):
             "SYNONYMS",
         ],
     )
+
+    # The default header names (which can be customized via yaml file via the corresponding load script)
     DefaultHeaders = TableHeaders(
         NAME="Compound",
         HMDB_ID="HMDB ID",
         FORMULA="Formula",
         SYNONYMS="Synonyms",
     )
+
+    # Whether each column is required to be present of not
     RequiredHeaders = TableHeaders(
         NAME=True,
         HMDB_ID=True,
         FORMULA=True,
         SYNONYMS=False,
     )
+
+    # Whether a value for an row in a column is required or not (note that defined DefaultValues will satisfy this)
     RequiredValues = RequiredHeaders
+
     # No DefaultValues needed
     # No ColumnTypes needed
+
+    # Combinations of columns whose values must be unique in the file
     UniqueColumnConstraints = [[NAME_KEY], [HMDBID_KEY]]
+
+    # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToHeaderKey = {
         "Compound": {
             "name": NAME_KEY,
@@ -59,6 +72,8 @@ class CompoundsLoader(TraceBaseLoader):
             "compound": NAME_KEY,
         },
     }
+
+    # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Compound, CompoundSynonym]
 
     def __init__(self, *args, **kwargs):
