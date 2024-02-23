@@ -123,28 +123,35 @@ class CompoundsLoader(TraceBaseLoader):
         self.check_for_cross_column_name_duplicates()
 
         for _, row in self.df.iterrows():
-            if self.is_skip_row():
-                # check_for_cross_column_name_duplicates can add to the skip row indexes
-                self.errored(Compound.__name__)
-                # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't know
-                # how many there are
-                # TODO: Uncomment when main is merged in
-                # self.skipped(CompoundSynonym.__name__)
-                continue
+            try:
+                if self.is_skip_row():
+                    # check_for_cross_column_name_duplicates can add to the skip row indexes
+                    self.errored(Compound.__name__)
+                    # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't
+                    # know how many there are
+                    # TODO: Uncomment when main is merged in
+                    # self.skipped(CompoundSynonym.__name__)
+                    continue
 
-            cmpd_rec = self.get_or_create_compound(row)
+                cmpd_rec = self.get_or_create_compound(row)
 
-            synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
+                synonyms = self.parse_synonyms(
+                    self.get_row_val(row, self.headers.SYNONYMS)
+                )
 
-            # get_row_val can add to skip_row_indexes when there is a missing required value
-            if self.is_skip_row() or cmpd_rec is None:
-                # The count will be inaccurate.  If there was an error reading or parsing, we don't know how many there
-                # are
-                self.errored(CompoundSynonym.__name__)
-                continue
+                # get_row_val can add to skip_row_indexes when there is a missing required value
+                if self.is_skip_row() or cmpd_rec is None:
+                    # The count will be inaccurate.  If there was an error reading or parsing, we don't know how many
+                    # there are
+                    self.errored(CompoundSynonym.__name__)
+                    continue
 
-            for synonym in synonyms:
-                self.get_or_create_synonym(synonym, cmpd_rec)
+                for synonym in synonyms:
+                    self.get_or_create_synonym(synonym, cmpd_rec)
+            except Exception:
+                # Exception handling was handled in get_or_create_*
+                # Continue processing rows to find more errors
+                pass
 
     @transaction.atomic
     def get_or_create_compound(self, row):

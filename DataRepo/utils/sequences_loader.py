@@ -132,7 +132,7 @@ class SequencesLoader(TraceBaseLoader):
             except Exception:
                 # Exception handling was handled in get_or_create_protocol
                 # Continue processing rows to find more errors
-                pass
+                lc_rec = None
 
             if self.is_skip_row() or lc_rec is None:
                 # TODO: Uncomment after main merge
@@ -161,10 +161,12 @@ class SequencesLoader(TraceBaseLoader):
             Nothing (explicitly)
 
         Returns:
-            lc_rec (Optional[LCMethod])
+            rec (Optional[LCMethod])
+            created (boolean): Only returned for use in tests
         """
         rec_dict = None
         rec = None
+        created = False
 
         try:
             type = self.get_row_val(row, self.headers.LC_PROTOCOL)
@@ -174,7 +176,7 @@ class SequencesLoader(TraceBaseLoader):
             # In case run_lengths was None, let's prevent an exception at the timedelta
             if self.is_skip_row():
                 self.errored(LCMethod.__name__)
-                return rec
+                return rec, created
 
             # run_length is a required value (see DataRequiredValues), and is typed to be an int (see DataColumnTypes)
             run_length = timedelta(minutes=raw_run_length)
@@ -184,7 +186,7 @@ class SequencesLoader(TraceBaseLoader):
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if self.is_skip_row():
                 self.errored(LCMethod.__name__)
-                return rec
+                return rec, created
 
             rec_dict = {
                 "type": type,
@@ -202,7 +204,7 @@ class SequencesLoader(TraceBaseLoader):
                             column="description", model_name=LCMethod.__name__
                         )
                     )
-                    return rec
+                    return rec, created
                 rec = qs.first()
                 created = False
             else:
@@ -223,7 +225,7 @@ class SequencesLoader(TraceBaseLoader):
             # Now that the exception has been handled, trigger a roolback of this record load attempt
             raise e
 
-        return rec
+        return rec, created
 
     @transaction.atomic
     def get_or_create_sequence(self, row, lc_rec):
@@ -241,9 +243,12 @@ class SequencesLoader(TraceBaseLoader):
             Nothing (explicitly)
 
         Returns:
-            Nothing
+            rec (Optional[MSRunSequence])
+            created (boolean): Only returned for use in tests
         """
         rec_dict = None
+        rec = None
+        created = False
 
         try:
             # See TODO 1 above, and read in study_code and seq_id
@@ -262,7 +267,7 @@ class SequencesLoader(TraceBaseLoader):
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if self.is_skip_row():
                 self.errored(MSRunSequence.__name__)
-                return
+                return rec, created
 
             rec_dict = {
                 "researcher": researcher,
@@ -272,7 +277,7 @@ class SequencesLoader(TraceBaseLoader):
                 "lc_method": lc_rec,
             }
 
-            _, created = MSRunSequence.objects.get_or_create(**rec_dict)
+            rec, created = MSRunSequence.objects.get_or_create(**rec_dict)
 
             if created:
                 lc_rec.full_clean()
@@ -287,3 +292,5 @@ class SequencesLoader(TraceBaseLoader):
             self.errored(MSRunSequence.__name__)
             # Now that the exception has been handled, trigger a roolback of this record load attempt
             raise e
+
+        return rec, created
