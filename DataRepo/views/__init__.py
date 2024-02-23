@@ -1,4 +1,4 @@
-from .loading import DataValidationView, upload, validation_disabled
+from .upload import DataValidationView, upload, validation_disabled
 from .models import (
     AnimalDetailView,
     AnimalListView,
