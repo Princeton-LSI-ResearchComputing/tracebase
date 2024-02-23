@@ -2,7 +2,7 @@ from collections import namedtuple
 
 from DataRepo.models import Protocol
 from DataRepo.utils.file_utils import is_excel
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 class ProtocolsLoader(TraceBaseLoader):
