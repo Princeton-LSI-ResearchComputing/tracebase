@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 from DataRepo.models import Tissue
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 class TissuesLoader(TraceBaseLoader):
@@ -64,38 +64,59 @@ class TissuesLoader(TraceBaseLoader):
             None
 
         Raises:
-            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
-                method)
+            Nothing (explicitly)
 
         Returns:
-            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
-                method)
+            Nothing
         """
         for _, row in self.df.iterrows():
-            rec_dict = None
-
             try:
-                name = self.get_row_val(row, self.headers.NAME)
-                description = self.get_row_val(row, self.headers.DESCRIPTION)
+                self.get_or_create_tissue(row)
+            except Exception:
+                # Exception handling was handled in get_or_create_protocol
+                # Continue processing rows to find more errors
+                pass
 
-                rec_dict = {
-                    "name": name,
-                    "description": description,
-                }
+    def get_or_create_tissue(self, row):
+        """Get or create a study record and buffer exceptions before raising.
 
-                # get_row_val can add to skip_row_indexes when there is a missing required value
-                if self.is_skip_row():
-                    continue
+        Args:
+            row (pandas dataframe row)
 
-                tissue, created = Tissue.objects.get_or_create(**rec_dict)
+        Raises:
+            Nothing (explicitly)
 
-                if created:
-                    tissue.full_clean()
-                    self.created()
-                else:
-                    self.existed()
+        Returns:
+            Nothing
+        """
+        rec_dict = None
 
-            except Exception as e:
-                # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Tissue, rec_dict)
+        try:
+            name = self.get_row_val(row, self.headers.NAME)
+            description = self.get_row_val(row, self.headers.DESCRIPTION)
+
+            rec_dict = {
+                "name": name,
+                "description": description,
+            }
+
+            # get_row_val can add to skip_row_indexes when there is a missing required value
+            if self.is_skip_row():
                 self.errored()
+                return
+
+            tissue, created = Tissue.objects.get_or_create(**rec_dict)
+
+            if created:
+                tissue.full_clean()
+                self.created()
+            else:
+                self.existed()
+
+        except Exception as e:
+            # Package errors (like IntegrityError and ValidationError) with relevant details
+            # This also updates the skip row indexes
+            self.handle_load_db_errors(e, Tissue, rec_dict)
+            self.errored()
+            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            raise e
