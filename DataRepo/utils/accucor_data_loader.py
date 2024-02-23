@@ -4,7 +4,7 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, TypedDict
+from typing import List, TypedDict
 
 import regex
 import xmltodict
