@@ -135,23 +135,27 @@ class CompoundsLoader(TraceBaseLoader):
 
                 cmpd_rec = self.get_or_create_compound(row)
 
-                synonyms = self.parse_synonyms(
-                    self.get_row_val(row, self.headers.SYNONYMS)
-                )
-
-                # get_row_val can add to skip_row_indexes when there is a missing required value
-                if self.is_skip_row() or cmpd_rec is None:
-                    # The count will be inaccurate.  If there was an error reading or parsing, we don't know how many
-                    # there are
-                    self.errored(CompoundSynonym.__name__)
-                    continue
-
-                for synonym in synonyms:
-                    self.get_or_create_synonym(synonym, cmpd_rec)
             except Exception:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+
+            synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
+
+            # get_row_val can add to skip_row_indexes when there is a missing required value
+            if self.is_skip_row() or cmpd_rec is None:
+                # The count will be inaccurate.  If there was an error reading or parsing, we don't know how many
+                # there are
+                self.errored(CompoundSynonym.__name__)
+                continue
+
+            for synonym in synonyms:
+                try:
+                    self.get_or_create_synonym(synonym, cmpd_rec)
+                except Exception:
+                    # Exception handling was handled in get_or_create_*
+                    # Continue processing rows to find more errors
+                    pass
 
     @transaction.atomic
     def get_or_create_compound(self, row):
