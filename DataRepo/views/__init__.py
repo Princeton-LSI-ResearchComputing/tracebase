@@ -1,4 +1,3 @@
-from .upload import DataValidationView, upload, validation_disabled
 from .models import (
     AnimalDetailView,
     AnimalListView,
@@ -34,6 +33,7 @@ from .search import (
     search_basic,
     view_search_results,
 )
+from .upload import DataValidationView, upload, validation_disabled
 
 __all__ = [
     "home",
