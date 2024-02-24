@@ -129,8 +129,7 @@ class CompoundsLoader(TableLoader):
                     self.errored(Compound.__name__)
                     # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't
                     # know how many there are
-                    # TODO: Uncomment when main is merged in
-                    # self.skipped(CompoundSynonym.__name__)
+                    self.skipped(CompoundSynonym.__name__)
                     continue
 
                 cmpd_rec = self.get_or_create_compound(row)
@@ -138,7 +137,7 @@ class CompoundsLoader(TableLoader):
             except Exception:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
-                pass
+                cmpd_rec = None
 
             synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
 
@@ -291,6 +290,7 @@ class CompoundsLoader(TableLoader):
         for syn in syn_dict.keys():
             if len(syn_dict[syn]) > 1:
                 syn_dupe_dict[syn] = syn_dict[syn]
+                self.add_skip_row_index(index_list=syn_dict[syn])
         if len(syn_dupe_dict.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 DuplicateValues(

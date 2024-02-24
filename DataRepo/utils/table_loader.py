@@ -858,6 +858,7 @@ class TableLoader(ABC):
         for mdl in self.Models:
             self.record_counts[mdl.__name__]["created"] = 0
             self.record_counts[mdl.__name__]["existed"] = 0
+            self.record_counts[mdl.__name__]["skipped"] = 0
             self.record_counts[mdl.__name__]["errored"] = 0
 
     @staticmethod
@@ -1576,7 +1577,7 @@ class TableLoader(ABC):
         cls.check_class_attributes()
         return cls.Models
 
-    def created(self, model_name: Optional[str] = None):
+    def created(self, model_name: Optional[str] = None, num=1):
         """Increments a created record count for a model.
 
         Args:
@@ -1588,10 +1589,10 @@ class TableLoader(ABC):
         Returns:
             Nothing
         """
-        self.record_counts[self._get_model_name(model_name)]["created"] += 1
+        self.record_counts[self._get_model_name(model_name)]["created"] += num
 
-    def existed(self, model_name: Optional[str] = None):
-        """Increments an existed(/skipped) record count for a model.
+    def existed(self, model_name: Optional[str] = None, num=1):
+        """Increments an existed record count for a model.
 
         Args:
             model_name (Optional[str])
@@ -1602,9 +1603,23 @@ class TableLoader(ABC):
         Returns:
             Nothing
         """
-        self.record_counts[self._get_model_name(model_name)]["existed"] += 1
+        self.record_counts[self._get_model_name(model_name)]["existed"] += num
 
-    def errored(self, model_name: Optional[str] = None):
+    def skipped(self, model_name: Optional[str] = None, num=1):
+        """Increments a skipped (i.e. "unattempted) record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["skipped"] += num
+
+    def errored(self, model_name: Optional[str] = None, num=1):
         """Increments an errored record count for a model.
 
         Note, this is not for all errors.  It only pertains to data-specific errors from the input file.
@@ -1618,7 +1633,7 @@ class TableLoader(ABC):
         Returns:
             Nothing
         """
-        self.record_counts[self._get_model_name(model_name)]["errored"] += 1
+        self.record_counts[self._get_model_name(model_name)]["errored"] += num
 
     def get_load_stats(self):
         """Returns the model record status counts.

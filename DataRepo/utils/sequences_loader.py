@@ -135,8 +135,7 @@ class SequencesLoader(TableLoader):
                 lc_rec = None
 
             if self.is_skip_row() or lc_rec is None:
-                # TODO: Uncomment after main merge
-                # self.skipped(MSRunSequence.__name__)
+                self.skipped(MSRunSequence.__name__)
                 continue
 
             try:

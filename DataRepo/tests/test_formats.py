@@ -4,6 +4,7 @@ from typing import Dict
 from django.core.management import call_command
 from django.db.models import F, Q, Value
 from django.test import tag
+from parameterized import parameterized
 
 from DataRepo.formats.dataformat import Format, splitCommon, splitPathName
 from DataRepo.formats.dataformat_group_query import (
@@ -1573,3 +1574,27 @@ class SearchFieldChoicesTests(TracebaseTestCase):
             ("not_iendswith", "does not end with"),
         )
         self.assertEqual(all_ncmp_choices, base_search_view.getAllComparisonChoices())
+
+
+class DataFormatTests(TracebaseTestCase):
+    archive_file_instances = [
+        [
+            "PeakAnnotationFile",
+            "PeakAnnotationFile",
+            "ArchiveFile",
+        ],
+        ["RAWFile", "RAWFile", "ArchiveFile"],
+        ["MZFile", "MZFile", "ArchiveFile"],
+    ]
+
+    @parameterized.expand(archive_file_instances)
+    def test_PeakGroupsFormat_getModelFromInstance(self, name, instance, model):
+        pgsv = PeakGroupsFormat()
+        res = pgsv.getModelFromInstance(instance)
+        self.assertEqual(res, model)
+
+    @parameterized.expand(archive_file_instances)
+    def test_PeakDataFormat_getModelFromInstance(self, name, instance, model):
+        pgsv = PeakDataFormat()
+        res = pgsv.getModelFromInstance(instance)
+        self.assertEqual(res, model)
