@@ -73,7 +73,7 @@ from DataRepo.utils.sample_table_loader import (
 )
 from DataRepo.utils.sequences_loader import SequencesLoader
 from DataRepo.utils.study_table_loader import StudyTableLoader
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [
@@ -131,7 +131,7 @@ __all__ = [
     "StudyTableLoader",
     "SynonymExistsAsMismatchedCompound",
     "TissuesLoader",
-    "TraceBaseLoader",
+    "TableLoader",
     "TracerLabeledElementNotFound",
     "UnexpectedLCMSSampleDataHeaders",
     "UnknownHeadersError",

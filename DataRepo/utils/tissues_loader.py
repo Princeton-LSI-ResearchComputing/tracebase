@@ -1,10 +1,10 @@
 from collections import namedtuple
 
 from DataRepo.models import Tissue
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class TissuesLoader(TraceBaseLoader):
+class TissuesLoader(TableLoader):
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"

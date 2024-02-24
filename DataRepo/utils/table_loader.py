@@ -34,7 +34,7 @@ from DataRepo.utils.file_utils import (
 )
 
 
-class TraceBaseLoader(ABC):
+class TableLoader(ABC):
     """Class to be used as a superclass for defining a (derived) loader class used to load a (sheet of) an input file.
 
     Class Attributes:
@@ -1424,7 +1424,7 @@ class TraceBaseLoader(ABC):
         """Class method that returns a decorator function.
 
         Args:
-            cls (TraceBaseLoader)
+            cls (TableLoader)
 
         Raises:
             Nothing
@@ -1437,7 +1437,7 @@ class TraceBaseLoader(ABC):
             """Decorator method that applies a wrapper function to a method.
 
             Args:
-                cls (TraceBaseLoader)
+                cls (TableLoader)
 
             Raises:
                 Nothing

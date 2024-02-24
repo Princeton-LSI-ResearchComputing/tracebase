@@ -4,10 +4,10 @@ from django.db import transaction
 
 from DataRepo.models import Protocol
 from DataRepo.utils.file_utils import is_excel
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class ProtocolsLoader(TraceBaseLoader):
+class ProtocolsLoader(TableLoader):
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     NAME_KEY = "NAME"
     CAT_KEY = "CATEGORY"

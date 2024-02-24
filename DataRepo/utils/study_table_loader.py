@@ -3,10 +3,10 @@ from collections import namedtuple
 from django.db import transaction
 
 from DataRepo.models import Study
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class StudyTableLoader(TraceBaseLoader):
+class StudyTableLoader(TableLoader):
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     CODE_KEY = "CODE"
     NAME_KEY = "NAME"

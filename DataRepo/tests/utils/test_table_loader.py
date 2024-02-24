@@ -24,11 +24,11 @@ from DataRepo.utils.exceptions import (
     RequiredValueErrors,
     UnknownHeadersError,
 )
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
 @isolate_apps("DataRepo.tests.apps.loader")
-class TraceBaseLoaderTests(TracebaseTestCase):
+class TableLoaderTests(TracebaseTestCase):
     @classmethod
     def generate_test_model(cls):
         # Model used for testing
@@ -64,7 +64,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     @classmethod
     def generate_test_loader(cls, mdl):
-        class TestLoader(TraceBaseLoader):
+        class TestLoader(TableLoader):
             DataSheetName = "test"
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = DataTableHeaders(NAME="Name", CHOICE="Choice")
@@ -81,7 +81,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     @classmethod
     def generate_uc_test_loader(cls, mdl):
-        class TestUCLoader(TraceBaseLoader):
+        class TestUCLoader(TableLoader):
             DataSheetName = "test"
             DataTableHeaders = namedtuple(
                 "DataTableHeaders", ["NAME", "UFONE", "UFTWO"]
@@ -335,7 +335,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual(ValueError, type(aes.exceptions[0]))
 
     def test_get_defaults_dict_by_header_name(self):
-        class TestDefaultsLoader(TraceBaseLoader):
+        class TestDefaultsLoader(TableLoader):
             DataSheetName = "test"
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = DataTableHeaders(NAME="Name", CHOICE="Choice")
@@ -391,7 +391,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertEqual([1, 9, 22], tl.skip_row_indexes)
 
     def test_check_header_names(self):
-        class TestDoubleHeaderLoader(TraceBaseLoader):
+        class TestDoubleHeaderLoader(TableLoader):
             DataSheetName = "test"
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = DataTableHeaders(NAME="Choice", CHOICE="Choice")
@@ -525,7 +525,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
         self.assertTrue(hasattr(tl, "defaults_by_header"))
 
     def test_check_class_attributes(self):
-        class TestInvalidLoader(TraceBaseLoader):
+        class TestInvalidLoader(TableLoader):
             DataSheetName = "test"
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = None
@@ -568,7 +568,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
             class Meta:
                 app_label = "loader"
 
-        class TestLoader(TraceBaseLoader):
+        class TestLoader(TableLoader):
             DataSheetName = "test"
             DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
             DataHeaders = DataTableHeaders(TEST="Test")
@@ -671,7 +671,7 @@ class TraceBaseLoaderTests(TracebaseTestCase):
 
     # apply_loader_wrapper tests
     def test_abstract_attributes_required(self):
-        class TestEmptyLoader(TraceBaseLoader):
+        class TestEmptyLoader(TableLoader):
             pass
 
         with self.assertRaises(TypeError) as ar:
