@@ -288,9 +288,9 @@ class LoadTableCommandTests(TracebaseTestCase):
 
             # Initialize the stats
             tc.loader.created()
-            tc.loader.existed(2)
-            tc.loader.skipped(3)
-            tc.loader.errored(4)
+            tc.loader.existed(None, 2)
+            tc.loader.skipped(None, 3)
+            tc.loader.errored(None, 4)
 
             # Report the stats result to the console
             tc.report_status()
