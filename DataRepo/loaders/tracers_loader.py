@@ -87,6 +87,15 @@ class TracersLoader(TableLoader):
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [
         [
+            ID_KEY,
+            COMPOUND_KEY,
+            ELEMENT_KEY,
+            MASS_NUMBER_KEY,
+            LABEL_COUNT_KEY,
+            LABEL_POSITIONS_KEY,
+        ],
+        [
+            NAME_KEY,
             COMPOUND_KEY,
             ELEMENT_KEY,
             MASS_NUMBER_KEY,
@@ -96,16 +105,27 @@ class TracersLoader(TableLoader):
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
+    # Notes:
+    # The purpose of FieldToDataHeaderKey is to interpret database errors that reference a field name and then associate
+    # it with a problematic column value.  The value types do not need to be the same.  It is just for reporting, so:
+    # - Tracer.compound is a foreign key, so even though the column value is a string, errors that reference the foreign
+    #   key are directly applicable to the value in the column.
+    # - Tracer.name is OK to have here for the future, but since it is both null=True and a Maintained Field, it is not
+    #   allowed to be included in an ORM create command, and thus cannot be referenced in a database error.
+    # - TracerLabel.positions is an ArrayField, not a string, so even though the column value is a delimited string,
+    #   errors that reference the array value are directly applicable to the value in the column.
+    # - TracerLabel.name is not mapped because it does not exist as a single column.  It is also a Maintained Field, so
+    #   it would not exist in an error from the database anyway.
     FieldToDataHeaderKey = {
         Tracer.__name__: {
             "name": NAME_KEY,
+            "compound": COMPOUND_KEY,
         },
         TracerLabel.__name__: {
             "element": ELEMENT_KEY,
             "mass_number": MASS_NUMBER_KEY,
             "count": LABEL_COUNT_KEY,
-            # "positions": LABEL_POSITIONS_KEY,  # Not a direct mapping of column value to positions
-            # "name": NAME_KEY,  # Derived
+            "positions": LABEL_POSITIONS_KEY,
         },
     }
 

@@ -98,43 +98,11 @@ class TracerLabel(MaintainedModel, ElementLabel):
         update_label="name",
     )
     def _name(self):
-        return self.create_name(
-            element=self.element,
-            mass_number=self.mass_number,
-            count=self.count,
-            positions=self.positions,
-        )
-
-    @classmethod
-    def create_name(cls, element, mass_number, count, positions=None):
-        """Create a tracer label name using the supplied element, mass_number, and label count and positions.
-
-        Format of the created name: position,position,... - weight element count` (but no spaces) positions optional
-
-        Example: 1,2,3-13C4
-
-        Limitations:
-            This method does not check validity of the constructed strings, e.g.:
-                - More positions than the compound has of the given element
-                - Repeated positions (when the element is not duterium)
-                - Mass number represents an isotope of the given element
-
-        Args:
-            element (string)
-            mass_number (integer)
-            count (integer)
-            positions (list of integers)
-
-        Raises:
-            Nothing
-
-        Returns:
-            label_name (string)
-        """
-        positions_str = ""
-        if positions is not None and len(positions) > 0:
-            positions_str = ",".join([str(p) for p in sorted(positions)]) + "-"
-        return f"{positions_str}{mass_number}{element}{count}"
+        # format: `position,position,... - weight element count` (but no spaces) positions optional
+        positions_string = ""
+        if self.positions and len(self.positions) > 0:
+            positions_string = ",".join([str(p) for p in sorted(self.positions)]) + "-"
+        return f"{positions_string}{self.mass_number}{self.element}{self.count}"
 
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)
