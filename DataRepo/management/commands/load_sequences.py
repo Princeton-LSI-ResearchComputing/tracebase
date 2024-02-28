@@ -1,5 +1,5 @@
+from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import SequencesLoader
 
 
 class Command(LoadTableCommand):

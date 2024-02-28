@@ -1,10 +1,11 @@
 from collections import namedtuple
+from typing import Dict
 
 from django.db import transaction
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Protocol
 from DataRepo.utils.file_utils import is_excel
-from DataRepo.utils.table_loader import TableLoader
 
 
 class ProtocolsLoader(TableLoader):
@@ -61,7 +62,7 @@ class ProtocolsLoader(TableLoader):
     )
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
-    DataColumnTypes = {
+    DataColumnTypes: Dict[str, type] = {
         NAME_KEY: str,
         CAT_KEY: str,
         DESC_KEY: str,

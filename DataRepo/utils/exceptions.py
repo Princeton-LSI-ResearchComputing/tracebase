@@ -5,7 +5,7 @@ import warnings
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management import CommandError
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
@@ -2049,7 +2049,9 @@ class InfileError(Exception):
     def __init__(self, message, rownum=None, sheet=None, file=None, column=None):
         if "%s" not in message:
             message += ": %s"
-        loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file, column=column)
+        loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=column
+        )
         message = message % loc
         super().__init__(message)
         self.rownum = rownum
@@ -2201,7 +2203,9 @@ class NoLoadData(Exception):
 
 class CompoundDoesNotExist(ObjectDoesNotExist):
     def __init__(self, name, rownum=None, sheet=None, file=None, column=None):
-        loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file, column=column)
+        loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=column
+        )
         message = f"Compound {name} from {loc} does not exist as either a primary compound name or synonym."
         super().__init__(message)
         self.name = name

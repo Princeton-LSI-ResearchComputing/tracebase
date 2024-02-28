@@ -1,5 +1,5 @@
+from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import TracersLoader
 
 
 class Command(LoadTableCommand):

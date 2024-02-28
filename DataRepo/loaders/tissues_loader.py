@@ -1,7 +1,8 @@
 from collections import namedtuple
+from typing import Dict
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Tissue
-from DataRepo.utils.table_loader import TableLoader
 
 
 class TissuesLoader(TableLoader):
@@ -36,7 +37,7 @@ class TissuesLoader(TableLoader):
     DataRequiredValues = DataRequiredHeaders
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
-    DataColumnTypes = {
+    DataColumnTypes: Dict[str, type] = {
         NAME_KEY: str,
         DESC_KEY: str,
     }

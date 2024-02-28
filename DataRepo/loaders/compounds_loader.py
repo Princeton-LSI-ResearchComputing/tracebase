@@ -4,13 +4,13 @@ from typing import Optional
 from django.db import transaction
 from django.db.utils import IntegrityError
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,
     DuplicateValues,
     SynonymExistsAsMismatchedCompound,
 )
-from DataRepo.utils.table_loader import TableLoader
 
 
 class CompoundsLoader(TableLoader):
@@ -24,7 +24,7 @@ class CompoundsLoader(TableLoader):
     FORMULA_KEY = "FORMULA"
     SYNONYMS_KEY = "SYNONYMS"
 
-    SYNOMYMS_DELIMITER = ";"
+    SYNONYMS_DELIMITER = ";"
 
     DataSheetName = "Compounds"
 
@@ -103,7 +103,9 @@ class CompoundsLoader(TableLoader):
         Returns:
             Nothing
         """
-        self.synonyms_delimiter = kwargs.pop("synonyms_delimiter", self.SYNOMYMS_DELIMITER)
+        self.synonyms_delimiter = kwargs.pop(
+            "synonyms_delimiter", self.SYNONYMS_DELIMITER
+        )
         super().__init__(*args, **kwargs)
 
     def load_data(self):

@@ -1,5 +1,5 @@
+from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import CompoundsLoader
 
 
 class Command(LoadTableCommand):

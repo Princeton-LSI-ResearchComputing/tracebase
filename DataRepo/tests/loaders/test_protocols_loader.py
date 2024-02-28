@@ -1,7 +1,7 @@
 import pandas as pd
 
+from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.protocols_loader import ProtocolsLoader
 
 
 class ProtocolsLoaderTests(TracebaseTestCase):

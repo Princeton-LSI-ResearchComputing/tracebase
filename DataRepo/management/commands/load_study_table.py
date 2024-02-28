@@ -1,5 +1,5 @@
+from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import StudyTableLoader
 
 
 class Command(LoadTableCommand):

@@ -2,8 +2,8 @@ from collections import namedtuple
 
 from django.db import transaction
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Study
-from DataRepo.utils.table_loader import TableLoader
 
 
 class StudyTableLoader(TableLoader):

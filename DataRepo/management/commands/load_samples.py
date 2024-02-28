@@ -3,12 +3,12 @@ import argparse
 import yaml  # type: ignore
 from django.core.management import BaseCommand
 
+from DataRepo.loaders.sample_table_loader import SampleTableLoader
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import SampleTableLoader
 from DataRepo.utils.file_utils import read_from_file
 
 

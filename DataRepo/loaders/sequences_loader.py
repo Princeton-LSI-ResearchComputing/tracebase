@@ -4,10 +4,10 @@ from typing import Dict
 
 from django.db import transaction
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.utils.exceptions import RequiredColumnValueWhenNovel
 from DataRepo.utils.file_utils import string_to_datetime
-from DataRepo.utils.table_loader import TableLoader
 
 
 class SequencesLoader(TableLoader):
