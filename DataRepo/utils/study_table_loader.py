@@ -49,7 +49,7 @@ class StudyTableLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "Study": {
+        Study.__name__: {
             "code": CODE_KEY,
             "name": NAME_KEY,
             "description": DESC_KEY,
@@ -75,7 +75,7 @@ class StudyTableLoader(TableLoader):
             try:
                 self.get_or_create_study(row)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 

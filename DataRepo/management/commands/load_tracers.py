@@ -1,12 +1,12 @@
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import CompoundsLoader
+from DataRepo.utils import TracersLoader
 
 
 class Command(LoadTableCommand):
-    """Command to load the Compound and CompoundSynonym models from a table-like file."""
+    """Command to load the Tracer model from a table-like file."""
 
-    help = "Loads data from a compound table into the database"
-    loader_class = CompoundsLoader
+    help = "Loads data from a tracer table into the database"
+    loader_class = TracersLoader
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass
@@ -14,10 +14,10 @@ class Command(LoadTableCommand):
 
         # Add additional options for this specific script
         parser.add_argument(
-            "--synonyms-delimiter",
+            "--label-positions-delimiter",
             type=str,
-            help="Character delimiting multiple synonyms in the synonyms column (default '%(default)s')",
-            default=self.loader_class.SYNONYMS_DELIMITER,
+            help="Character delimiting multiple label positions in the label positions column (default '%(default)s')",
+            default=self.loader_class.POSITIONS_DELIMITER,
             required=False,
         )
 
@@ -43,7 +43,4 @@ class Command(LoadTableCommand):
         Returns:
             Nothing
         """
-        # The CompoundsLoader class constructor has 1 custom argument
-        # The TableLoader superclass arguments are controlled by the LoadTableCommand superclass
-        self.init_loader(synonyms_delimiter=options["synonyms_delimiter"])
         self.load_data()

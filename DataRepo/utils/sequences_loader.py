@@ -98,13 +98,13 @@ class SequencesLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "MSRunSequence": {
+        MSRunSequence.__name__: {
             "researcher": OPERATOR_KEY,
             "date": DATE_KEY,
             "instrument": INSTRUMENT_KEY,
             "notes": NOTES_KEY,
         },
-        "LCMethod": {
+        LCMethod.__name__: {
             "type": LC_PROTOCOL_KEY,
             "runlength": LC_RUNLEN_KEY,
             "description": LC_DESC_KEY,
@@ -130,7 +130,7 @@ class SequencesLoader(TableLoader):
             try:
                 lc_rec, _ = self.get_or_create_lc_method(row)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 lc_rec = None
 
@@ -141,7 +141,7 @@ class SequencesLoader(TableLoader):
             try:
                 self.get_or_create_sequence(row, lc_rec)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 

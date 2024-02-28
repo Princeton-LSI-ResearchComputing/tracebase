@@ -75,6 +75,7 @@ from DataRepo.utils.sequences_loader import SequencesLoader
 from DataRepo.utils.study_table_loader import StudyTableLoader
 from DataRepo.utils.table_loader import TableLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
+from DataRepo.utils.tracers_loader import TracersLoader
 
 __all__ = [
     "AggregatedErrors",
@@ -133,6 +134,7 @@ __all__ = [
     "TissuesLoader",
     "TableLoader",
     "TracerLabeledElementNotFound",
+    "TracersLoader",
     "UnexpectedLCMSSampleDataHeaders",
     "UnknownHeadersError",
     "leaderboard_data",

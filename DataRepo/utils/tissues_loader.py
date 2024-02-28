@@ -48,7 +48,7 @@ class TissuesLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "Tissue": {
+        Tissue.__name__: {
             "name": NAME_KEY,
             "description": DESC_KEY,
         },
@@ -73,12 +73,12 @@ class TissuesLoader(TableLoader):
             try:
                 self.get_or_create_tissue(row)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
     def get_or_create_tissue(self, row):
-        """Get or create a study record and buffer exceptions before raising.
+        """Get or create a tissue record and buffer exceptions before raising.
 
         Args:
             row (pandas dataframe row)

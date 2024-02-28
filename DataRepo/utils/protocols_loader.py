@@ -72,7 +72,7 @@ class ProtocolsLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "Protocol": {
+        Protocol.__name__: {
             "name": NAME_KEY,
             "category": CAT_KEY,
             "description": DESC_KEY,
@@ -164,7 +164,7 @@ class ProtocolsLoader(TableLoader):
             try:
                 self.get_or_create_protocol(row)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
