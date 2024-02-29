@@ -256,13 +256,75 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         self.assertIsNone(tc.get_defaults_sheet())
 
     def test_get_user_headers(self):
-        pass
+        tc = TestCommand()
+        opts = {
+            "infile": "DataRepo/data/tests/load_table/test.xlsx",
+            "defaults_sheet": None,
+            "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
+            "defaults_file": None,
+            "headers": "DataRepo/data/tests/load_table/test_headers.yaml",
+            "dry_run": False,
+            "defer_rollback": False,
+            "verbosity": 0,
+        }
+        tc.handle(**opts)
+        self.assertEqual({"TEST": "Test2"}, tc.get_user_headers())
 
     def test_set_headers(self):
-        pass
+        tc = TestCommand()
+        tc.set_headers({"TEST": "Test2"})
+        expected = TestLoader.DataTableHeaders(TEST="Test2")
+        self.assertEqual(expected, tc.loader.headers)
 
     def test_set_defaults(self):
-        pass
+        tc = TestCommand()
+        tc.set_defaults({"TEST": "six"})
+        expected = TestLoader.DataTableHeaders(TEST="six")
+        self.assertEqual(expected, tc.loader.defaults)
 
-    def test_get_user_defaults(self):
-        pass
+    def test_get_user_defaults_excel(self):
+        tc = TestCommand()
+        tc.set_headers({"TEST": "Test2"})  # The file's header is "Test2"
+        opts = {
+            "infile": "DataRepo/data/tests/load_table/test.xlsx",
+            "defaults_sheet": "MyDefaults",
+            "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
+            "defaults_file": None,
+            "headers": None,
+            "dry_run": False,
+            "defer_rollback": False,
+            "verbosity": 0,
+        }
+        tc.handle(**opts)
+        ud_df_as_dict = tc.get_user_defaults().to_dict("records")
+        expected = [
+            {
+                "Sheet Name": "Test",
+                "Column Header": "Test2",
+                "Default Value": "three",
+            },
+        ]
+        self.assertEqual(expected, ud_df_as_dict)
+
+    def test_get_user_defaults_tsv(self):
+        tc = TestCommand()
+        opts = {
+            "infile": "DataRepo/data/tests/load_table/test.tsv",
+            "defaults_sheet": None,
+            "data_sheet": "Test",  # This is normally defaulted by argparse, but not here, manually
+            "defaults_file": "DataRepo/data/tests/load_table/defaults.tsv",
+            "headers": None,
+            "dry_run": False,
+            "defer_rollback": False,
+            "verbosity": 0,
+        }
+        tc.handle(**opts)
+        ud_df_as_dict = tc.get_user_defaults().to_dict("records")
+        expected = [
+            {
+                "Sheet Name": "Test",
+                "Column Header": "Test",
+                "Default Value": "three",
+            },
+        ]
+        self.assertEqual(expected, ud_df_as_dict)

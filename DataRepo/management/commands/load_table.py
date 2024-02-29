@@ -76,13 +76,18 @@ class LoadFromTableCommand(ABC, BaseCommand):
         super().__init__(*args, **kwargs)
 
     def init_loader(self, *args, **kwargs):
-        had_loader = hasattr(self, "loader")
+        # These are used to copy derived class headers and defaults to newly created objects
+        saved_headers = None
+        saved_defaults = None
 
-        if had_loader:
+        if hasattr(self, "loader"):
             # The derived class code may have called set_headers or set_defaults to establish dynamic headers/defaults.
             # This ensures those are copied to the new loader.
             saved_headers = self.get_headers()
             saved_defaults = self.get_defaults()
+
+        kwargs["headers"] = saved_headers
+        kwargs["defaults"] = saved_defaults
 
         if self.options is not None:
             superclass_args = [
@@ -129,16 +134,6 @@ class LoadFromTableCommand(ABC, BaseCommand):
         else:
             # Before handle() has been called (with options), just initialize the loader with all supplied arguments
             self.loader = self.loader_class(*args, **kwargs)
-
-        if had_loader:
-            # Restore any headers that were saved in the original object (e.g. if a double-derived class sets some)
-            self.set_headers(saved_headers._asdict())
-            self.set_defaults(saved_defaults._asdict())
-
-            # Going through THIS class's set_* methods (instead of calling self.loader.set_* directly) allows the
-            # derived class of this class to change their behavior.
-            self.set_headers()
-            self.set_defaults()
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.
