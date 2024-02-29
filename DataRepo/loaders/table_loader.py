@@ -40,8 +40,9 @@ class TableLoader(ABC):
     Class Attributes:
         DataTableHeaders (namedtuple): Defines the header keys.
         DataHeaders (DataTableHeaders of strings): Default header names by header key.
-        DataRequiredHeaders (DataTableHeaders of booleans): Whether a file column is required to be present in the input
-            file, indexed by header key.
+        DataRequiredHeaders (list of strings and lists): Required header kays. Note, this may be an N-dimensional list
+            where each dimension alternates between "all required" and "any required".  See get_missing_headers for
+            detailed examples.
         DataRequiredValues (DataTableHeaders of booleans): Whether a value on a row in a file column is required to be
             present in the input file, indexed by header key.
         DataUniqueColumnConstraints (list of lists of strings): Sets of unique column name combinations defining what
@@ -55,7 +56,10 @@ class TableLoader(ABC):
         headers (DataTableHeaders of strings): Customized header names by header key.
         defaults (DataTableHeaders of objects): Customized default values by header key.
         all_headers (list of strings): Customized header names.
-        reqd_headers (DataTableHeaders of booleans): Required header booleans.
+        reqd_headers (list of strings and lists): Required header kays. Note, this may be an N-dimensional list
+            where each dimension alternates between "all required" and "any required".  See get_missing_headers for
+            detailed examples.
+        reqd_values (DataTableHeaders of booleans): Required value booleans by header name.
         FieldToHeader (dict of dicts of strings): Header names by model and field.
         unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
         dry_run (boolean) [False]: Dry Run mode.
@@ -94,7 +98,7 @@ class TableLoader(ABC):
     @property
     @abstractmethod
     def DataRequiredHeaders(self):
-        # namedtuple of booleans
+        # N-dimensional list of strings.  See get_missing_headers for examples.
         pass
 
     @property
@@ -311,7 +315,9 @@ class TableLoader(ABC):
 
         - headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
         - all_headers (list of strings): Customized header names.
-        - reqd_headers (DataTableHeaders namedtuple of booleans): Required header booleans by header name.
+        - reqd_headers (list of strings and lists): Required header kays. Note, this may be an N-dimensional list
+            where each dimension alternates between "all required" and "any required".  See get_missing_headers for
+            detailed examples.
         - FieldToHeader (dict of dicts of strings): Header names by model and field.
         - unique_constraints (list of lists of strings): Header name combos whose columns must be unique.
         - reqd_values (DataTableHeaders namedtuple of booleans): Required value booleans by header name.
@@ -353,12 +359,8 @@ class TableLoader(ABC):
             for fld, hk in self.FieldToDataHeaderKey[mdl].items():
                 self.FieldToHeader[mdl][fld] = getattr(self.headers, hk)
 
-        # Create a list of the required header string values from a namedtuple of header key/value pairs
-        self.reqd_headers = [
-            getattr(self.headers, hk)
-            for hk in list(self.headers._asdict().keys())
-            if getattr(self.DataRequiredHeaders, hk)
-        ]
+        # Create a list of the required header string values from an N-dimensional list of header keys
+        self.reqd_headers = self.header_keys_to_names(self.DataRequiredHeaders)
 
         # Create a list of header string values for columns whose values are required, from a namedtuple of header key/
         # value pairs
@@ -455,8 +457,9 @@ class TableLoader(ABC):
         # The loader_class method get_headers will merge the custom headers
         return final_custom_headers
 
-    def get_pretty_headers(self):
-        """Generate a list of header strings, with appended asterisks if required, and a message about the asterisks.
+    def get_pretty_headers(self, headers=None, legend=True, reqd_only=False):
+        """Generate a string of header names, with appended asterisks(*) if required, up-caret(^) if 1 of a group
+        required, and a message about the required annotations.
 
         Args:
             None
@@ -467,21 +470,71 @@ class TableLoader(ABC):
         Returns:
             pretty_headers (string)
         """
-        if hasattr(self, "headers") and self.headers is not None:
-            headers = self.headers
-        else:
-            headers = self.DataHeaders
+        if headers is None:
+            headers = self.get_headers()
+        reqd = self.header_keys_to_names(self.DataRequiredHeaders, headers)
+        or_groups_exist = len([k for k in reqd if type(k) == list]) > 0
+        flat_reqd = self.flatten_ndim_strings(reqd)
+        optionals = list(set(headers._asdict().values()) - set(flat_reqd))
+        delim = ", "
 
-        msg = "(* = Required)"
-        pretty_headers = []
-        for hk in list(headers._asdict().keys()):
-            reqd = getattr(self.DataRequiredHeaders, hk)
-            pretty_header = getattr(headers, hk)
-            if reqd:
-                pretty_header += "*"
-            pretty_headers.append(pretty_header)
+        pretty_headers = self.get_pretty_headers_helper(reqd, delim)
 
-        return f"[{', '.join(pretty_headers)}] {msg}"
+        if not reqd_only:
+            if pretty_headers != "" and len(optionals) > 0:
+                pretty_headers += delim
+            pretty_headers += delim.join(optionals)
+
+        if legend:
+            if or_groups_exist:
+                pretty_headers += " (* = [All] Required, ^ = Any Required)"
+            else:
+                pretty_headers += " (* = Required)"
+
+        return pretty_headers
+
+    def get_pretty_headers_helper(
+        self, reqd_headers, delim, _first_dim=True, _anded=True
+    ):
+        """Generate a string of header names, with appended asterisks(*) if required, up-caret(^) if 1 of a group
+        required, and a message about the required annotations.
+
+        Args:
+            reqd_headers (N-dimensional list of strings): Required headers
+            delim (string): Delimiter
+            _first_dim (boolean) [True]: Private.  Whether this is the first dimension or not.
+            _anded (boolean) [True]: Private.  Whether all or 1 of the header items in this dimension are required
+
+        Raises:
+            Nothing
+
+        Returns:
+            pretty_headers (string)
+        """
+        pretty_headers = ""
+
+        for hdr_item in reqd_headers:
+            if pretty_headers != "":
+                pretty_headers += delim
+
+            if type(hdr_item) == list:
+                pretty_headers += "("
+                pretty_headers += self.get_pretty_headers_helper(
+                    hdr_item, False, not _anded
+                )
+                pretty_headers += ")"
+
+                if _anded:
+                    pretty_headers += "*"
+                else:
+                    pretty_headers += "^"
+            else:
+                pretty_headers += hdr_item
+
+                if _first_dim and _anded:
+                    pretty_headers += "*"
+
+        return pretty_headers
 
     @classmethod
     def get_header_keys(cls):
@@ -629,7 +682,7 @@ class TableLoader(ABC):
         Checks the type of:
             Models (class attribute, list of Model classes): Must contain at least 1 model class
             DataHeaders (class attribute, namedtuple of DataTableHeaders of strings)
-            DataRequiredHeaders (class attribute, namedtuple of DataTableHeaders of booleans)
+            DataRequiredHeaders (class attribute, N-dimensional list of strings.  See get_missing_headers for details)
             DataRequiredValues (class attribute, namedtuple of DataTableHeaders of booleans)
             DataUniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
             FieldToDataHeaderKey (class attribute, dict): Header keys by field name
@@ -682,10 +735,13 @@ class TableLoader(ABC):
                     f"attribute [{cls.__name__}.DataHeaders] namedtuple required, {type(cls.DataHeaders)} set"
                 )
 
-            if not cls.isnamedtuple(cls.DataHeaders):
+            invalid_types = cls.get_invalid_types_from_ndim_strings(
+                cls.DataRequiredHeaders
+            )
+            if len(invalid_types) > 0:
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DataRequiredHeaders] namedtuple required, "
-                    f"{type(cls.DataRequiredHeaders)} set"
+                    f"attribute [{cls.__name__}.DataRequiredHeaders] N-dimensional list of strings required, but "
+                    f"contains {invalid_types}"
                 )
 
             if not cls.isnamedtuple(cls.DataRequiredValues):
@@ -1061,6 +1117,131 @@ class TableLoader(ABC):
 
         if len(missing_headers) > 0:
             raise self.aggregated_errors_object
+
+    @classmethod
+    def get_missing_headers(cls, supd_headers, reqd_headers, _anded=True):
+        """Given a 1-dimensional list of supplied header names and an N-dimensional list of required header names, get
+        the missing required headers.
+
+        Note that the N-dimensional list of required headers alternates between all required and any required.  The
+        first dimension is "all" required.
+
+        For example, here is what these reqd_headers lists mean:
+
+        - [a, b, c] - a, b, and c are all required
+        - [a, [b, c]] - a is required and either b or c is required
+        - [[a, b], [b, c]] - a or b is required, and b or c is required
+        - [[[a, b], c], d] - a and b, or c is required, and d is required
+
+        Args:
+            supd_headers (list of strings): Supplied/present header names.
+            reqd_headers (list of strings and lists): N-dimensional list of required header names.  See above.
+            _anded (boolean) [True]: Whether the outer reqd_headers dimension items are all-required (and'ed) or
+                any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
+
+        Exceptions:
+            None
+
+        Returns:
+            missing (list of strings and lists)
+        """
+        missing = []
+        for rh in reqd_headers:
+            missing_header_item = None
+
+            if type(rh) == list:
+                missing_header_item = cls.get_missing_headers(
+                    supd_headers, rh, not _anded
+                )
+            elif rh not in supd_headers:
+                missing_header_item = rh
+
+            if missing_header_item is None:
+                if not _anded:
+                    return None
+            else:
+                missing.append(missing_header_item)
+
+        if len(missing) == 0:
+            return None
+
+        return missing
+
+    def header_keys_to_names(self, ndim_header_keys, headers=None):
+        """Given an N-dimensional list of header keys, return the same list with the header keys replaced with names.
+
+        Args:
+            ndim_header_keys (list of strings and lists): N-dimensional list of header keys.  See get_missing_headers.
+            headers (Optional[namedtuple of TableHeaders]) [self.get_headers()]: header names by key
+
+        Exceptions:
+            None
+
+        Returns
+            ndim_header_names (list of strings and lists): N-dimensional list of header keys.  See get_missing_headers.
+        """
+        if headers is None:
+            headers = self.get_headers()
+        ndim_header_names = []
+        for hk_item in ndim_header_keys:
+            if type(hk_item) == list:
+                ndim_header_names.append(self.header_keys_to_names(hk_item, headers))
+            else:
+                ndim_header_names.append(getattr(headers, hk_item))
+        return ndim_header_names
+
+    @classmethod
+    def get_invalid_types_from_ndim_strings(cls, ndim_strings):
+        """Given an N-dimensional list of strings, return a list of any type names that are not list or str.
+
+        Args:
+            ndim_strings (list of strings and lists)
+
+        Exceptions:
+            None
+
+        Returns
+            invalid_types (list of strings): Names of all invalid types contained in any dimension od ndim_strings
+        """
+        invalid_types = []
+        if ndim_strings is None:
+            invalid_types.append(type(ndim_strings).__name__)
+            return invalid_types
+        for item in ndim_strings:
+            if type(item) == list:
+                invalid_types.extend(cls.get_invalid_types_from_ndim_strings(item))
+            elif type(item) != str and type(item).__name__ not in invalid_types:
+                invalid_types.append(type(item).__name__)
+        return invalid_types
+
+    @classmethod
+    def flatten_ndim_strings(cls, ndim_strings):
+        """Given an N-dimensional list of strings, return a unique flat list of all contained items.
+
+        Example:
+            input = [a, [b, c], [[c, d], [a, e]]]
+            output = [a, b, c, d, e]
+
+        Args:
+            ndim_strings (list of strings and lists)
+
+        Exceptions:
+            None
+
+        Returns
+            flat_uniques (list of strings): a unique flat list of all items in ndim_strings
+        """
+        flat_uniques = []
+        for item in ndim_strings:
+            new_items = []
+            if type(item) == list:
+                new_items.extend(cls.flatten_ndim_strings(item))
+            else:
+                new_items.append(item)
+            for ni in new_items:
+                if ni not in flat_uniques:
+                    flat_uniques.append(ni)
+        return flat_uniques
 
     def check_unique_constraints(self):
         """Check file column unique constraints.

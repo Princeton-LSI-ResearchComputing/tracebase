@@ -31,15 +31,19 @@ class StudyTableLoader(TableLoader):
         DESCRIPTION="Description",
     )
 
-    # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
+    # List of required header keys
+    DataRequiredHeaders = [
+        CODE_KEY,
+        NAME_KEY,
+        DESC_KEY,
+    ]
+
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataTableHeaders(
         CODE=True,
         NAME=True,
         DESCRIPTION=True,
     )
-
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
     # No DataColumnTypes needed

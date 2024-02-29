@@ -27,8 +27,8 @@ class TestLoader(TableLoader):
     DataSheetName = "Test"
     DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
     DataHeaders = DataTableHeaders(TEST="Test")
-    DataRequiredHeaders = DataTableHeaders(TEST=True)
-    DataRequiredValues = DataRequiredHeaders
+    DataRequiredHeaders = ["TEST"]
+    DataRequiredValues = DataTableHeaders(TEST=True)
     DataColumnTypes = {"TEST": str}
     DataDefaultValues = DataTableHeaders(TEST="five")
     DataUniqueColumnConstraints = [["TEST"]]

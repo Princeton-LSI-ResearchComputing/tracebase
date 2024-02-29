@@ -40,12 +40,8 @@ class ProtocolsLoader(TableLoader):
         DESCRIPTION="Treatment Description",
     )
 
-    # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
-        NAME=True,
-        CATEGORY=False,
-        DESCRIPTION=True,
-    )
+    # List of required header keys
+    DataRequiredHeaders = [NAME_KEY, DESC_KEY]
 
     # Default values to use when a row in the given column doesn;t have a value in it
     DataDefaultValues = DataTableHeaders(
@@ -98,35 +94,14 @@ class ProtocolsLoader(TableLoader):
         Returns:
             pretty_headers (string)
         """
-        if hasattr(self, "headers"):
-            headers = self.headers
-        else:
-            headers = self.DataHeaders
-
-        pretty_headers = []
-        for hk in list(headers._asdict().keys()):
-            reqd = getattr(self.DataRequiredHeaders, hk)
-            pretty_header = getattr(headers, hk)
-            if reqd:
-                pretty_header += "*"
-            pretty_headers.append(pretty_header)
-
-        pretty_excel_headers = []
-        for hk in list(headers._asdict().keys()):
-            if hk == self.CAT_KEY:
-                # The category has a default when an excel file is submitted
-                continue
-            reqd = getattr(self.DataRequiredHeaders, hk)
-            pretty_excel_header = getattr(self.DataHeadersExcel, hk)
-            if reqd:
-                pretty_excel_header += "*"
-            pretty_excel_headers.append(pretty_excel_header)
-
-        msg = "(* = Required)"
+        pretty_headers = super().get_pretty_headers(legend=False)
+        pretty_excel_headers = super().get_pretty_headers(
+            self.DataHeadersExcel, legend=False, reqd_only=True
+        )
 
         return (
-            f"[{', '.join(pretty_headers)}] (or, if the input file is an excel file: "
-            f"[{', '.join(pretty_excel_headers)}]) {msg}"
+            f"[{pretty_headers}] (or, if the input file is an excel file: "
+            f"[{pretty_excel_headers}]) (* = Required)"
         )
 
     def set_headers(self, custom_headers=None):

@@ -58,7 +58,22 @@ class TracersLoader(TableLoader):
     )
 
     # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
+    DataRequiredHeaders = [
+        ID_KEY,
+        [
+            # Either compound, element, mass, and count - or name
+            [
+                COMPOUND_KEY,
+                ELEMENT_KEY,
+                MASS_NUMBER_KEY,
+                LABEL_COUNT_KEY,
+            ],
+            NAME_KEY,
+        ],
+    ]
+
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataTableHeaders(
         ID=True,
         COMPOUND=False,
         ELEMENT=False,
@@ -67,9 +82,6 @@ class TracersLoader(TableLoader):
         LABELPOSITIONS=False,
         NAME=False,
     )
-
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataRequiredHeaders
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {

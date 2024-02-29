@@ -51,17 +51,15 @@ class SequencesLoader(TableLoader):
         NOTES="Notes",
     )
 
-    # Whether each column is required to be present or not
-    DataRequiredHeaders = DataTableHeaders(
-        ID=True,  # See TODO 1 above
-        OPERATOR=True,
-        DATE=True,
-        INSTRUMENT=True,
-        LC_PROTOCOL=True,
-        LC_RUNLEN=True,
-        LC_DESC=False,
-        NOTES=False,
-    )
+    # List of required header keys
+    DataRequiredHeaders = [
+        ID_KEY,  # See TODO 1 above
+        OPERATOR_KEY,
+        DATE_KEY,
+        INSTRUMENT_KEY,
+        LC_PROTOCOL_KEY,
+        LC_RUNLEN_KEY,
+    ]
 
     # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
     DataRequiredValues = DataTableHeaders(

@@ -9,7 +9,7 @@ class ProtocolsLoaderTests(TracebaseTestCase):
         pl = ProtocolsLoader()
         self.assertEqual(
             (
-                "[Name*, Category, Description*] (or, if the input file is an excel file: [Animal Treatment*, "
+                "[Name*, Description*, Category] (or, if the input file is an excel file: [Animal Treatment*, "
                 "Treatment Description*]) (* = Required)"
             ),
             pl.get_pretty_headers(),

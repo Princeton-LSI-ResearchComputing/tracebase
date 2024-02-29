@@ -47,16 +47,16 @@ class CompoundsLoader(TableLoader):
         SYNONYMS="Synonyms",
     )
 
-    # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
+    # List of required header keys
+    DataRequiredHeaders = [NAME_KEY, HMDBID_KEY, FORMULA_KEY]
+
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataTableHeaders(
         NAME=True,
         HMDB_ID=True,
         FORMULA=True,
         SYNONYMS=False,
     )
-
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
     # No DataColumnTypes needed

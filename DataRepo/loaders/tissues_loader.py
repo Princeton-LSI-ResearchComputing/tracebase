@@ -27,14 +27,17 @@ class TissuesLoader(TableLoader):
         DESCRIPTION="Description",
     )
 
-    # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
+    # List of required header keys
+    DataRequiredHeaders = [
+        NAME_KEY,
+        DESC_KEY,
+    ]
+
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataTableHeaders(
         NAME=True,
         DESCRIPTION=True,
     )
-
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataRequiredHeaders
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {
