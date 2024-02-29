@@ -724,3 +724,24 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertFalse(removed[0].is_error)
         self.assertFalse(removed[1].is_fatal)
         self.assertFalse(removed[1].is_error)
+
+    def test_RequiredColumnValueWhenNovel(self):
+        pass
+
+    def test_RequiredColumnValuesWhenNovel(self):
+        pass
+
+    def test_ExcelSheetsNotFound(self):
+        pass
+
+    def test_InvalidHeaderCrossReferenceError(self):
+        pass
+
+    def test_OptionsNotAvailable(self):
+        pass
+
+    def test_MutuallyExclusiveOptions(self):
+        pass
+
+    def test_NoLoadData(self):
+        pass

@@ -31,3 +31,9 @@ class FileUtilsTests(TracebaseTestCase):
         }
         self.assertEqual(expected, outdict)
         self.assertEqual([1, 3], outlist)
+
+    def test_read_headers_from_file(self):
+        pass
+
+    def test__get_file_type(self):
+        pass
