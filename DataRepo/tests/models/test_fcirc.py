@@ -110,7 +110,7 @@ class FCircTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="Anakin Skywalker",
             date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=self.lcm,
         )
         seq.full_clean()
@@ -341,7 +341,7 @@ class FCircTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="Anakin Skywalker",
             date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=self.lcm,
         )
         seq.full_clean()
