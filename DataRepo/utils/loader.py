@@ -236,7 +236,7 @@ class TraceBaseLoader(ABC):
             Nothing
         """
         # Apply the _loader decorator to the load_data method in the derived class
-        decorated_derived_class_method = self._loader(getattr(self, "load_data"))
+        decorated_derived_class_method = self._loader()(getattr(self, "load_data"))
         # Get the binding for the decorated method
         bound = decorated_derived_class_method.__get__(self, None)
         # Apply the binding to the handle method in the object
@@ -601,6 +601,7 @@ class TraceBaseLoader(ABC):
         """Checks that the class and instance attributes are properly defined and initialize optional ones.
 
         Checks the type of:
+            Models (class attribute, list of Model classes): Must contain at least 1 model class
             DataHeaders (class attribute, namedtuple of DataTableHeaders of strings)
             DataRequiredHeaders (class attribute, namedtuple of DataTableHeaders of booleans)
             DataRequiredValues (class attribute, namedtuple of DataTableHeaders of booleans)
@@ -704,6 +705,23 @@ class TraceBaseLoader(ABC):
                     f"attribute [{cls.__name__}.DefaultsHeaders] namedtuple required, "
                     f"{type(cls.DefaultsHeaders)} set"
                 )
+
+            if cls.Models is None or len(cls.Models) == 0:
+                # Raise programming-related errors immediately
+                typeerrs.append("Models is required to have at least 1 Model class")
+            else:
+                mdlerrs = []
+                for mdl in cls.Models:
+                    if not issubclass(mdl, Model):
+                        mdlerrs.append(
+                            f"{type(mdl).__name__}: Not a subclass of a Django Model"
+                        )
+                if len(mdlerrs) > 0:
+                    nltt = "\n\t\t"
+                    typeerrs.append(
+                        "Models must all be valid models, but the following errors were encountered:\n"
+                        f"\t\t{nltt.join(mdlerrs)}"
+                    )
         except Exception as e:
             aes.buffer_error(e)
         finally:
@@ -727,10 +745,12 @@ class TraceBaseLoader(ABC):
         method).
 
         Metadata initialized:
-            record_counts (dict of dicts of ints): Created, existed, and errored counts by model.
-            defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
-            sheet (str): Name of the sheet in an excel file (changes to None if not excel).  Assumed pre-set.
-            record_counts (dict): Record created, existed, and errored counts by model name.  All set to 0.
+        - record_counts (dict of dicts of ints): Created, existed, and errored counts by model.
+        - defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
+        - sheet (str): Name of the data sheet in an excel file (changes to None if not excel).
+        - defaults_sheet (str): Name of the defaults sheet in an excel file (changes to None if not excel).
+        - record_counts (dict): Record created, existed, and errored counts by model name.  All set to 0.
+        - Note, other attributes are initialized in set_headers and set_defaults
 
         Args:
             headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
@@ -763,23 +783,6 @@ class TraceBaseLoader(ABC):
         except TypeError as te:
             typeerrs.append(str(te))
 
-        if self.Models is None or len(self.Models) == 0:
-            # Raise programming-related errors immediately
-            typeerrs.append("Models is required to have at least 1 Model class")
-        else:
-            mdlerrs = []
-            for mdl in self.Models:
-                if not issubclass(mdl, Model):
-                    mdlerrs.append(
-                        f"{type(mdl).__name__}: Not a subclass of a Django Model"
-                    )
-            if len(mdlerrs) > 0:
-                nltt = "\n\t\t"
-                typeerrs.append(
-                    "Models must all be valid models, but the following errors were encountered:\n"
-                    f"\t\t{nltt.join(mdlerrs)}"
-                )
-
         if len(typeerrs) > 0:
             nlt = "\n\t"
             msg = f"Invalid arguments:\n\t{nlt.join(typeerrs)}"
@@ -788,11 +791,10 @@ class TraceBaseLoader(ABC):
                 raise self.aggregated_errors_object
 
         self.record_counts = defaultdict(lambda: defaultdict(int))
-        if self.Models is not None:
-            for mdl in self.Models:
-                self.record_counts[mdl.__name__]["created"] = 0
-                self.record_counts[mdl.__name__]["existed"] = 0
-                self.record_counts[mdl.__name__]["errored"] = 0
+        for mdl in self.Models:
+            self.record_counts[mdl.__name__]["created"] = 0
+            self.record_counts[mdl.__name__]["existed"] = 0
+            self.record_counts[mdl.__name__]["errored"] = 0
 
     @staticmethod
     def isnamedtuple(obj) -> bool:
@@ -925,9 +927,12 @@ class TraceBaseLoader(ABC):
         if len(dupe_dict.keys()) > 0:
             nlt = "\n\t"
             deets = "\n\t".join([f"{k} occurs {v} times" for k, v in dupe_dict.items()])
-            self.aggregated_errors_object.buffer_error(
-                ValueError(f"Duplicate Header names encountered:{nlt}{deets}")
-            )
+            msg = f"Duplicate Header names encountered:{nlt}{deets}"
+            # set_headers calls this method, and it can be called multiple times, so avoid duplicate errors
+            for exc in self.aggregated_errors_object.get_exception_type(ValueError):
+                if str(exc) == msg:
+                    return
+            self.aggregated_errors_object.buffer_error(ValueError(msg))
 
     def check_dataframe_headers(self, reading_defaults=False):
         """Error-checks the headers in the dataframe.
@@ -1333,105 +1338,119 @@ class TraceBaseLoader(ABC):
         """
         return self.tableheaders_to_dict_by_header_name(self.get_defaults())
 
-    @staticmethod
-    def _loader(fn):
-        """load_data method decorator that handles atomic transactions, running modes, exceptions, and load stats.
+    @classmethod
+    def _loader(cls):
+        """Class method that returns a decorator function.
 
         Args:
-            fn (function)
+            cls (TraceBaseLoader)
 
         Raises:
-            DryRun
-            AggregatedErrors
+            Nothing
 
         Returns:
-            load_wrapper (function)
+            load_decorator (function)
         """
 
-        def load_wrapper(self, *args, **kwargs):
-            """Wraps the load_data() method in the derived class.
-
-            Checks the file data and handles atomic transactions, running modes, exceptions, and load stats.
+        def load_decorator(fn):
+            """Decorator method that applies a wrapper function to a method.
 
             Args:
-                None
+                cls (TraceBaseLoader)
 
             Raises:
-                TBD by derived class
+                Nothing
 
             Returns:
-                What's returned by the wrapped method
+                apply_wrapper (function)
             """
-            retval = None
-            with transaction.atomic():
-                try:
-                    self.check_dataframe_headers()
-                    self.check_unique_constraints()
 
-                    retval = fn(*args, **kwargs)
+            def load_wrapper(self, *args, **kwargs):
+                """Wraps the load_data() method in the derived class.
 
-                except AggregatedErrors as aes:
-                    if aes != self.aggregated_errors_object:
-                        self.aggregated_errors_object.merge_aggregated_errors_object(
-                            aes
+                Checks the file data and handles atomic transactions, running modes, exceptions, and load stats.
+
+                Args:
+                    None
+
+                Raises:
+                    TBD by derived class
+
+                Returns:
+                    What's returned by the wrapped method
+                """
+                retval = None
+                with transaction.atomic():
+                    try:
+                        self.check_dataframe_headers()
+                        self.check_unique_constraints()
+
+                        retval = fn(*args, **kwargs)
+
+                    except AggregatedErrors as aes:
+                        if aes != self.aggregated_errors_object:
+                            self.aggregated_errors_object.merge_aggregated_errors_object(
+                                aes
+                            )
+                    except Exception as e:
+                        # Add this unanticipated error to the other buffered errors
+                        self.aggregated_errors_object.buffer_error(e)
+
+                    # Summarize any ConflictingValueError errors reported
+                    cves = self.aggregated_errors_object.remove_exception_type(
+                        ConflictingValueError
+                    )
+                    if len(cves) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            ConflictingValueErrors(cves)
                         )
-                except Exception as e:
-                    # Add this unanticipated error to the other buffered errors
-                    self.aggregated_errors_object.buffer_error(e)
 
-                # Summarize any ConflictingValueError errors reported
-                cves = self.aggregated_errors_object.remove_exception_type(
-                    ConflictingValueError
-                )
-                if len(cves) > 0:
-                    self.aggregated_errors_object.buffer_error(
-                        ConflictingValueErrors(cves)
+                    # Summarize any RequiredValueError errors reported
+                    rves = self.aggregated_errors_object.remove_exception_type(
+                        RequiredValueError
                     )
+                    if len(rves) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            RequiredValueErrors(rves)
+                        )
 
-                # Summarize any RequiredValueError errors reported
-                rves = self.aggregated_errors_object.remove_exception_type(
-                    RequiredValueError
-                )
-                if len(rves) > 0:
-                    self.aggregated_errors_object.buffer_error(
-                        RequiredValueErrors(rves)
+                    # Summarize any DuplicateValues errors reported
+                    dvs = self.aggregated_errors_object.remove_exception_type(
+                        DuplicateValues
                     )
+                    if len(dvs) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            DuplicateValueErrors(dvs)
+                        )
 
-                # Summarize any DuplicateValues errors reported
-                dvs = self.aggregated_errors_object.remove_exception_type(
-                    DuplicateValues
-                )
-                if len(dvs) > 0:
-                    self.aggregated_errors_object.buffer_error(
-                        DuplicateValueErrors(dvs)
+                    # Summarize any RequiredColumnValue errors reported
+                    rcvs = self.aggregated_errors_object.remove_exception_type(
+                        RequiredColumnValue
                     )
+                    if len(rcvs) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            RequiredColumnValues(rcvs)
+                        )
 
-                # Summarize any RequiredColumnValue errors reported
-                rcvs = self.aggregated_errors_object.remove_exception_type(
-                    RequiredColumnValue
-                )
-                if len(rcvs) > 0:
-                    self.aggregated_errors_object.buffer_error(
-                        RequiredColumnValues(rcvs)
-                    )
+                    if (
+                        self.aggregated_errors_object.should_raise()
+                        and not self.defer_rollback
+                    ):
+                        # Raise here to cause a rollback
+                        raise self.aggregated_errors_object
 
-                if (
-                    self.aggregated_errors_object.should_raise()
-                    and not self.defer_rollback
-                ):
-                    # Raise here to cause a rollback
+                    if self.dry_run:
+                        raise DryRun()
+
+                if self.aggregated_errors_object.should_raise():
+                    # Raise here to NOT cause a rollback
                     raise self.aggregated_errors_object
 
-                if self.dry_run:
-                    raise DryRun()
+                return retval
 
-            if self.aggregated_errors_object.should_raise():
-                # Raise here to NOT cause a rollback
-                raise self.aggregated_errors_object
+            return load_wrapper
 
-            return retval
-
-        return load_wrapper
+        return load_decorator
 
     def _get_model_name(self, model_name=None):
         """Returns the model name registered to the class (or as supplied).
