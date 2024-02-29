@@ -23,9 +23,13 @@ class CompoundsLoader(TraceBaseLoader):
     FORMULA_KEY = "FORMULA"
     SYNONYMS_KEY = "SYNONYMS"
 
+    SYNOMYM_SEPARATOR = ";"
+
+    DataSheetName = "Compounds"
+
     # The tuple used to store different kinds of data per column at the class level
-    TableHeaders = namedtuple(
-        "TableHeaders",
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
         [
             "NAME",
             "HMDB_ID",
@@ -35,7 +39,7 @@ class CompoundsLoader(TraceBaseLoader):
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
-    DefaultHeaders = TableHeaders(
+    DataHeaders = DataTableHeaders(
         NAME="Compound",
         HMDB_ID="HMDB ID",
         FORMULA="Formula",
@@ -43,24 +47,24 @@ class CompoundsLoader(TraceBaseLoader):
     )
 
     # Whether each column is required to be present of not
-    RequiredHeaders = TableHeaders(
+    DataRequiredHeaders = DataTableHeaders(
         NAME=True,
         HMDB_ID=True,
         FORMULA=True,
         SYNONYMS=False,
     )
 
-    # Whether a value for an row in a column is required or not (note that defined DefaultValues will satisfy this)
-    RequiredValues = RequiredHeaders
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataRequiredHeaders
 
-    # No DefaultValues needed
-    # No ColumnTypes needed
+    # No DataDefaultValues needed
+    # No DataColumnTypes needed
 
     # Combinations of columns whose values must be unique in the file
-    UniqueColumnConstraints = [[NAME_KEY], [HMDBID_KEY]]
+    DataUniqueColumnConstraints = [[NAME_KEY], [HMDBID_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
-    FieldToHeaderKey = {
+    FieldToDataHeaderKey = {
         "Compound": {
             "name": NAME_KEY,
             "hmdb_id": HMDBID_KEY,
@@ -82,8 +86,8 @@ class CompoundsLoader(TraceBaseLoader):
         Args:
             Superclass Args:
                 df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-                headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
-                defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
+                headers (Optional[Tableheaders namedtuple]) [DataHeaders]: Header names by header key.
+                defaults (Optional[Tableheaders namedtuple]) [DataDefaultValues]: Default values by header key.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
@@ -98,7 +102,7 @@ class CompoundsLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-        self.synonym_separator = kwargs.pop("synonym_separator", ";")
+        self.synonym_separator = kwargs.pop("synonym_separator", self.SYNOMYM_SEPARATOR)
         super().__init__(*args, **kwargs)
 
     def load_data(self):

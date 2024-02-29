@@ -10,9 +10,11 @@ class StudyTableLoader(TraceBaseLoader):
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"
 
+    DataSheetName = "Study"
+
     # The tuple used to store different kinds of data per column at the class level
-    TableHeaders = namedtuple(
-        "TableHeaders",
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
         [
             "CODE",
             "NAME",
@@ -21,30 +23,30 @@ class StudyTableLoader(TraceBaseLoader):
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
-    DefaultHeaders = TableHeaders(
+    DataHeaders = DataTableHeaders(
         CODE="Study ID",
         NAME="Name",
         DESCRIPTION="Description",
     )
 
     # Whether each column is required to be present of not
-    RequiredHeaders = TableHeaders(
+    DataRequiredHeaders = DataTableHeaders(
         CODE=True,
         NAME=True,
         DESCRIPTION=True,
     )
 
-    # Whether a value for an row in a column is required or not (note that defined DefaultValues will satisfy this)
-    RequiredValues = RequiredHeaders
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataRequiredHeaders
 
-    # No DefaultValues needed
-    # No ColumnTypes needed
+    # No DataDefaultValues needed
+    # No DataColumnTypes needed
 
     # Combinations of columns whose values must be unique in the file
-    UniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
+    DataUniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
-    FieldToHeaderKey = {
+    FieldToDataHeaderKey = {
         "Study": {
             "code": CODE_KEY,
             "name": NAME_KEY,

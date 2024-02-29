@@ -7,7 +7,6 @@ class Command(LoadFromTableCommand):
 
     help = "Loads data from a compound table into the database"
     loader_class = CompoundsLoader
-    data_sheet_default = "Compounds"
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass
@@ -18,7 +17,7 @@ class Command(LoadFromTableCommand):
             "--synonym-separator",
             type=str,
             help="Character separating multiple synonyms in 'Synonyms' column (default '%(default)s')",
-            default=";",
+            default=self.loader_class.SYNOMYM_SEPARATOR,
             required=False,
         )
 

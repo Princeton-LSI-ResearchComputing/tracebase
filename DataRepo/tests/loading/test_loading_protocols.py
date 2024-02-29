@@ -72,8 +72,8 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_protocols_loader_without_category_error(self):
         """Test the ProtocolsLoader with dataframe missing category"""
-        # The DefaultValues namedtuple in ProtocolsLoader sets a category default of Protocol.ANIMAL_TREATMENT, so in
-        # order to make the error occur, we must set that default to None
+        # The DataDefaultValues namedtuple in ProtocolsLoader sets a category default of Protocol.ANIMAL_TREATMENT, so
+        # in order to make the error occur, we must set that default to None
         protocol_loader = ProtocolsLoader(self.working_df)
         protocol_loader.set_defaults(
             custom_defaults={
