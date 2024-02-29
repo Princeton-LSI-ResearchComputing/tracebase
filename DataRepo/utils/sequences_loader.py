@@ -1,11 +1,12 @@
 from collections import namedtuple
-from datetime import datetime
+from datetime import timedelta
 from typing import Dict
 
 from django.db import transaction
 
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.utils.exceptions import RequiredColumnValueWhenNovel
+from DataRepo.utils.file_utils import string_to_datetime
 from DataRepo.utils.loader import TraceBaseLoader
 
 
@@ -75,7 +76,7 @@ class SequencesLoader(TraceBaseLoader):
         INSTRUMENT=True,
         LC_PROTOCOL=True,
         LC_RUNLEN=True,
-        LC_DESC=True,
+        LC_DESC=False,  # Required if LCMethod record doesn't exist
         NOTES=False,
     )
 
@@ -95,7 +96,9 @@ class SequencesLoader(TraceBaseLoader):
 
     # Combinations of columns whose values must be unique in the file  # See TODO 1 above
     DataUniqueColumnConstraints = [
-        [STUDY_CODE_KEY, ID_KEY],
+        # See TODO 1 above
+        # [STUDY_CODE_KEY, ID_KEY],
+        [ID_KEY],
         [OPERATOR_KEY, DATE_KEY, INSTRUMENT_KEY, LC_PROTOCOL_KEY, LC_RUNLEN_KEY],
     ]
 
@@ -133,16 +136,20 @@ class SequencesLoader(TraceBaseLoader):
         """
         for _, row in self.df.iterrows():
             try:
-                lc_rec = self.get_or_create_lc_method(row)
+                lc_rec, _ = self.get_or_create_lc_method(row)
             except Exception as e:
                 # get_or_create_lc_method raises database exceptions in order to roll back the 1 attempted record load
                 # We catch here so that we can proceed unencumbered
                 if self.aggregated_errors_object.exception_type_exists(type(e)):
+                    # TODO: Uncomment after main merge
+                    # self.skipped(MSRunSequence.__name__)
                     continue
                 # If the exception wasn't buffered, this is a programming error, so raise immediately
                 raise e
 
             if self.is_skip_row() or lc_rec is None:
+                # TODO: Uncomment after main merge
+                # self.skipped(MSRunSequence.__name__)
                 continue
 
             try:
@@ -155,6 +162,7 @@ class SequencesLoader(TraceBaseLoader):
                 # If the exception wasn't buffered, this is a programming error, so raise immediately
                 raise e
 
+    # TODO: Add atomic transactions inside the loops of all the loaders, like how it is done here
     @transaction.atomic
     def get_or_create_lc_method(self, row):
         """Gets or creates an LCMethod record from the supplied row.
@@ -174,66 +182,77 @@ class SequencesLoader(TraceBaseLoader):
         Returns:
             lc_rec (LCMethod)
         """
-        lc_rec_dict = None
+        rec_dict = None
 
         try:
             type = self.get_row_val(row, self.headers.LC_PROTOCOL)
-            run_length = self.get_row_val(row, self.headers.LC_RUNLEN)
+            raw_run_length = self.get_row_val(row, self.headers.LC_RUNLEN)
             description = self.get_row_val(row, self.headers.LC_DESC)
+
+            # In case run_lengths was None, let's prevent an exception at the timedelta
+            if self.is_skip_row():
+                self.errored(LCMethod.__name__)
+                return None, False
+
+            # run_length is a required value (see DataRequiredValues), and is typed to be an int (see DataColumnTypes)
+            run_length = timedelta(minutes=raw_run_length)
+
             name = LCMethod.create_name(type=type, run_length=run_length)
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if self.is_skip_row():
-                return None
+                self.errored(LCMethod.__name__)
+                return None, False
 
-            lc_rec_dict = {
+            rec_dict = {
                 "type": type,
                 "run_length": run_length,
                 "name": name,
             }
         except Exception as e:
             # Package errors with relevant details
-            self.handle_load_db_errors(e, LCMethod, lc_rec_dict)
+            self.handle_load_db_errors(e, LCMethod, rec_dict)
             self.errored(LCMethod.__name__)
-            return None
+            return None, False
 
         try:
             # The LC_DESC column is optional WHEN the LC Method *exists*.  Required Otherwise.
             if description is None:
-                qs = LCMethod.objects.filter(**lc_rec_dict)
+                qs = LCMethod.objects.filter(**rec_dict)
                 if qs.count() != 1:
-                    self.add_skip_row_index(self.rownum)
+                    self.add_skip_row_index()
                     self.aggregated_errors_object.buffer_error(
                         RequiredColumnValueWhenNovel(
                             column="description", model_name=LCMethod.__name__
                         )
                     )
-                    return None
-                lc_rec = qs.first()
+                    return None, False
+                rec = qs.first()
+                created = False
             else:
-                lc_rec_dict["description"] = description
-                lc_rec, lc_created = LCMethod.objects.get_or_create(**lc_rec_dict)
+                rec_dict["description"] = description
+                rec, created = LCMethod.objects.get_or_create(**rec_dict)
 
-            if lc_created:
-                lc_rec.full_clean()
+            if created:
+                rec.full_clean()
                 self.created(LCMethod.__name__)
             else:
                 self.existed(LCMethod.__name__)
 
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
-            self.handle_load_db_errors(e, LCMethod, lc_rec_dict)
+            self.handle_load_db_errors(e, LCMethod, rec_dict)
             self.errored(LCMethod.__name__)
 
-            # Any database exception should trigger a raise in order to roll back
-            # This will be caught in the loop in load_data so that we can proceed
+            # Any database exception should trigger a raise in order to roll back of just this record insertion attempt.
+            # This will be caught in the loop in load_data so that we can proceed.
             # (We can proceed, because the exception was also buffered and the skip row indexes updated.)
             raise e
 
-        return lc_rec
+        return rec, created
 
     @transaction.atomic
-    def get_or_create_sequence(self, row, lc_rec) -> None:
+    def get_or_create_sequence(self, row, lc_rec):
         """Gets or creates an MSRunSequence record from the supplied row and LCMethod record.
 
         This method is decorated with transaction.atomic so that any specific record creation that causes an exception
@@ -252,38 +271,45 @@ class SequencesLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-        sqnc_rec_dict = None
+        rec_dict = None
 
         try:
             # See TODO 1 above
+            # study_code = self.get_row_val(row, self.headers.STUDY_CODE)
+            # seq_id = self.get_row_val(row, self.headers.ID)
             researcher = self.get_row_val(row, self.headers.OPERATOR)
             date_str = self.get_row_val(row, self.headers.DATE)
+            date = string_to_datetime(
+                date_str,
+                file=self.file,
+                sheet=self.sheet,
+                rownum=self.rownum,
+                column=self.headers.DATE,
+            )
             instrument = self.get_row_val(row, self.headers.INSTRUMENT)
             notes = self.get_row_val(row, self.headers.NOTES)
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if self.is_skip_row():
-                return None
+                return None, False
 
-            sqnc_rec_dict = {
+            rec_dict = {
                 "researcher": researcher,
-                "date": datetime.strptime(date_str.strip(), "%Y-%m-%d"),
+                "date": date,
                 "instrument": instrument,
                 "notes": notes,
                 "lc_method": lc_rec,
             }
         except Exception as e:
             # Package errors with relevant details
-            self.handle_load_db_errors(e, MSRunSequence, sqnc_rec_dict)
+            self.handle_load_db_errors(e, MSRunSequence, rec_dict)
             self.errored(MSRunSequence.__name__)
-            return None
+            return None, False
 
         try:
-            sqnc_rec, sqnc_created = MSRunSequence.objects.get_or_create(
-                **sqnc_rec_dict
-            )
+            rec, created = MSRunSequence.objects.get_or_create(**rec_dict)
 
-            if sqnc_created:
+            if created:
                 lc_rec.full_clean()
                 self.created(MSRunSequence.__name__)
             else:
@@ -291,10 +317,12 @@ class SequencesLoader(TraceBaseLoader):
 
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
-            self.handle_load_db_errors(e, MSRunSequence, sqnc_rec_dict)
+            self.handle_load_db_errors(e, MSRunSequence, rec_dict)
             self.errored(MSRunSequence.__name__)
 
-            # Any database exception should trigger a raise in order to roll back
-            # This will be caught in the loop in load_data so that we can proceed
+            # Any database exception should trigger a raise in order to roll back of just this record insertion attempt.
+            # This will be caught in the loop in load_data so that we can proceed.
             # (We can proceed, because the exception was also buffered and the skip row indexes updated.)
             raise e
+
+        return rec, created

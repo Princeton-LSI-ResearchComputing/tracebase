@@ -1122,14 +1122,19 @@ class TraceBaseLoader(ABC):
             Nothing
         """
         if index is None and index_list is None:
-            # Raise programming errors (data errors are buffered)
-            raise ValueError("Either an index or index_list argument is required.")
+            if not hasattr(self, "row_index") and self.row_index is None:
+                # Raise programming errors (data errors are buffered)
+                raise ValueError("Either an index or index_list argument is required.")
+            else:
+                index = self.row_index
+
         if index is not None and index not in self.skip_row_indexes:
             self.skip_row_indexes.append(index)
+
         if index_list is not None:
-            for idx in index_list:
-                if idx not in self.skip_row_indexes:
-                    self.skip_row_indexes.append(idx)
+            self.skip_row_indexes = list(
+                set(self.skip_row_indexes).union(set(index_list))
+            )
 
     def get_skip_row_indexes(self):
         """Returns skip_row_indexes.
@@ -1209,7 +1214,7 @@ class TraceBaseLoader(ABC):
 
             # If the val is still None and it is required
             if val is None and header in self.reqd_values:
-                self.add_skip_row_index(self.row_index)
+                self.add_skip_row_index()
                 # This raise was added to force the developer to not continue the loop. It's handled/caught in
                 # handle_load_db_errors.
                 raise RequiredColumnValue(
@@ -1250,12 +1255,15 @@ class TraceBaseLoader(ABC):
         user_defaults = {}
 
         # Save the headers from the infile data (not the defaults data)
-        infile_headers = self.df.columns
+        infile_headers = self.df.columns if self.df is not None else None
 
         # Get all the sheet names in the current (assumed: excel) file
         all_sheet_names = None
+        apply_types = True
         if self.file is not None and is_excel(self.file):
             all_sheet_names = get_sheet_names(self.file)
+            # Excel automatically detects data types in every cell
+            apply_types = False
 
         # Get the column types by header name
         coltypes = self.get_column_types()
@@ -1300,7 +1308,7 @@ class TraceBaseLoader(ABC):
             )
 
             # If the header name from the defaults sheet is not an actual header on the load_sheet
-            if header_name not in infile_headers:
+            if infile_headers is not None and header_name not in infile_headers:
                 unknown_headers[header_name].append(rownum)
                 continue
 
@@ -1314,12 +1322,17 @@ class TraceBaseLoader(ABC):
                 and header_name in coltypes.keys()
                 and default_val is not None
                 and coltypes[header_name] is not None
-                and type(default_val) != coltypes[header_name]
             ):
-                invalid_type_errs.append(
-                    f"Invalid default value: [{default_val}].  Value type should be [{coltypes[header_name]}] but the "
-                    f"type encountered was [{type(default_val)}] on row {rownum}."
-                )
+                if apply_types:
+                    # This is necessary for non-excel file data.  This castes the default value to the type defined for
+                    # the column this default value is a default for
+                    default_val = coltypes[header_name](default_val)
+                elif type(default_val) != coltypes[header_name]:
+                    # Otherwise, the type can be controlled by the user in excel, so just log an error if it is wrong
+                    invalid_type_errs.append(
+                        f"Invalid default value on row {rownum}: [{default_val}] (of type "
+                        f"{type(default_val).__name__}).  Should be [{coltypes[header_name].__name__}]."
+                    )
 
             user_defaults[header_name] = default_val
 

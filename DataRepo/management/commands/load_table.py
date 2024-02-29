@@ -114,20 +114,34 @@ class LoadFromTableCommand(ABC, BaseCommand):
                     f"[{self.loader_class.__name__}] constructor."
                 )
 
+            # We need to incorporate user user-supplied options BEFORE parsing the dataframe, because get_dataframe uses
+            # DataColumnTypes via self.loader.get_column_types (which is keyed by header *name*).  It does this because
+            # it supplies the datatypes in the columns using the dtype option, keyed by header name.  All of that needs
+            # to be initialized before we attempt to parse that data.
+            # So we will set an intermediate loader object to initialize the user-supplied values.  Note, this would all
+            # be solved (perhaps more elegantly) by parsing the file from the loader (super) class (i.e. calling
+            # read_from_file inside the loader class instead of in the command class), but I'm sticking with the
+            # established design pattern:
+
             # Infile metadata/data
-            kwargs["df"] = self.get_dataframe()
             kwargs["file"] = self.get_infile()
             kwargs["data_sheet"] = self.options["data_sheet"]
             kwargs["user_headers"] = self.get_user_headers()
 
             # Defaults metadata/data
-            kwargs["defaults_df"] = self.get_user_defaults()
             kwargs["defaults_file"] = self.options["defaults_file"]
             kwargs["defaults_sheet"] = self.get_defaults_sheet()
+            kwargs["defaults_df"] = self.get_user_defaults()
 
             # Modes
             kwargs["dry_run"] = self.options["dry_run"]
             kwargs["defer_rollback"] = self.options["defer_rollback"]
+
+            # Intermediate loader state (needed before calling get_dataframe)
+            self.loader = self.loader_class(*args, **kwargs)
+
+            # Now we can parse the dataframe using the user-customized dtype dict
+            kwargs["df"] = self.get_dataframe()
 
             # Re-initialize associated data
             self.loader = self.loader_class(*args, **kwargs)

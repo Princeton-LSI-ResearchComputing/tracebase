@@ -1,5 +1,6 @@
 import pathlib
 from collections import defaultdict
+from datetime import datetime
 from zipfile import BadZipFile
 
 import pandas as pd
@@ -7,7 +8,13 @@ import yaml
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
-from DataRepo.utils.exceptions import DuplicateFileHeaders, InvalidHeaders
+from DataRepo.utils.exceptions import (
+    DateParseError,
+    DuplicateFileHeaders,
+    InvalidDtypeDict,
+    InvalidDtypeKeys,
+    InvalidHeaders,
+)
 
 
 def read_from_file(
@@ -72,6 +79,32 @@ def read_from_file(
         )
     elif filetype == "yaml":
         retval = _read_from_yaml(filepath)
+
+    # Error-check the dtype argument supplied
+    if dtype is not None and len(dtype.keys()) > 0 and retval is not None:
+        # This assumes the retval is a dataframe
+        missing = []
+        for dtk in dtype.keys():
+            if dtk not in retval.columns:
+                missing.append(dtk)
+        if len(missing) == len(dtype.keys()):
+            # None of the keys are present in the dataframe
+            # Raise programming errors immediately
+            raise InvalidDtypeDict(
+                dtype,
+                file=filepath,
+                sheet=sheet,
+                columns=list(retval.columns),
+            )
+        elif len(missing) > 0:
+            idk = InvalidDtypeKeys(
+                missing,
+                file=filepath,
+                sheet=sheet,
+                columns=list(retval.columns),
+            )
+            # Some columns may be optional, so if at least 1 is correct, just issue a warning.
+            print(f"WARNING: {type(idk).__name__}: {idk}")
 
     return retval
 
@@ -189,6 +222,15 @@ def _read_from_xlsx(
         kwargs["na_values"] = na_values
 
     df = pd.read_excel(filepath, **kwargs)
+
+    if dtype is not None:
+        # astype() requires the keys be present in the columns (as opposed to dtype)
+        astype = {}
+        for k, v in dtype.items():
+            if k in df.columns:
+                astype[k] = v
+        if len(astype.keys()) > 0:
+            df = df.astype(astype)
 
     if keep_default_na or na_values is not None:
         dropna = False
@@ -491,3 +533,36 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
             all_row_idxs_with_dupes += row_list
 
     return dupe_dict, all_row_idxs_with_dupes
+
+
+def string_to_datetime(
+    date_str, format_str=None, file=None, sheet=None, rownum=None, column=None
+):
+    if type(date_str) != str:
+        # Raise a programming error immediately
+        raise TypeError(
+            f"date_str {date_str} must be a string, but got {type(date_str)}"
+        )
+
+    if format_str is None:
+        # This format assumes that the date_str is from an excel column with converted dates
+        format_str = "%Y-%m-%d"
+        # Note, excel "general" columns detect and covert what looks like dates to '%Y-%m-%d' with " 00:00:00" appended
+        # This replaces " 00:00:00" with an empty string to avoid a ValueError exception
+        date_str = date_str.replace(" 00:00:00", "")
+
+    try:
+        dt = datetime.strptime(date_str.strip(), format_str)
+    except ValueError as ve:
+        if "unconverted data remains" in str(ve):
+            raise DateParseError(
+                date_str,
+                ve,
+                format=format_str,
+                file=file,
+                sheet=sheet,
+                rownum=rownum,
+                column=column,
+            )
+        raise ve
+    return dt
