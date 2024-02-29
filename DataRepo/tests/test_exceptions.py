@@ -4,9 +4,16 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     DuplicateValueErrors,
     DuplicateValues,
+    ExcelSheetsNotFound,
+    InvalidHeaderCrossReferenceError,
     MultiLoadStatus,
+    MutuallyExclusiveOptions,
+    NoLoadData,
+    OptionsNotAvailable,
     RequiredColumnValue,
     RequiredColumnValues,
+    RequiredColumnValuesWhenNovel,
+    RequiredColumnValueWhenNovel,
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
@@ -726,22 +733,78 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertFalse(removed[1].is_error)
 
     def test_RequiredColumnValueWhenNovel(self):
-        pass
+        rcvwn = RequiredColumnValueWhenNovel(column=3, model_name="TestModel")
+        self.assertEqual(
+            "Value required for column [3] in the load file data when the [TestModel] record does not exist.",
+            str(rcvwn),
+        )
 
     def test_RequiredColumnValuesWhenNovel(self):
-        pass
+        rcvwns = [
+            RequiredColumnValueWhenNovel(column=3, model_name="TestModel"),
+            RequiredColumnValueWhenNovel(column=3, model_name="TestModel"),
+            RequiredColumnValueWhenNovel(column=3, model_name="TestModel"),
+        ]
+        rcvwn = RequiredColumnValuesWhenNovel(rcvwns, model_name="TestModel")
+        self.assertEqual(
+            (
+                "Value required, when the [TestModel] record does not exist, for columns on the indicated rows:\n"
+                "\tthe load file data\n"
+                "\t\tColumn: [3] on rows: No row numbers provided\n"
+            ),
+            str(rcvwn),
+        )
 
     def test_ExcelSheetsNotFound(self):
-        pass
+        esnf = ExcelSheetsNotFound(
+            unknowns={"x": [2, 3, 5]},
+            all_sheets=["a", "b"],
+            file="test.xlsx",
+            source_sheet="defs",
+            column="Sheet Name",
+        )
+        self.assertEqual(
+            (
+                "The following excel sheet(s) parsed from column [Sheet Name] of sheet [defs] in file [test.xlsx] on "
+                "the indicated rows were not found.\n"
+                "\t[x] on rows: ['2-3', '5']\n"
+                "The available sheets are: [['a', 'b']]."
+            ),
+            str(esnf),
+        )
 
     def test_InvalidHeaderCrossReferenceError(self):
-        pass
+        ihcre = InvalidHeaderCrossReferenceError(
+            source_file="test.xlsx",
+            source_sheet="Defaults",
+            column="Column Header",
+            unknown_headers={"X": [2, 5, 6, 7]},
+            target_file="test.xlsx",
+            target_sheet="Data",
+            target_headers=["A", "B"],
+        )
+        self.assertEqual(
+            (
+                "The following cross-referenced column headers parsed from column [Column Header] of sheet [Defaults] "
+                "in file [test.xlsx] on the indicated rows were not found as headers in the target file/sheet: [sheet "
+                "[Data] in file [test.xlsx]].\n"
+                "\t[X] on rows: ['2', '5-7']\n"
+                "The available headers are: ['A', 'B']."
+            ),
+            str(ihcre),
+        )
 
     def test_OptionsNotAvailable(self):
-        pass
+        ona = OptionsNotAvailable()
+        self.assertEqual(
+            "Cannot get command line option values until handle() has been called.",
+            str(ona),
+        )
 
     def test_MutuallyExclusiveOptions(self):
-        pass
+        meo = MutuallyExclusiveOptions("My message")
+        self.assertEqual("My message", str(meo))
 
     def test_NoLoadData(self):
-        pass
+        nld = NoLoadData("My message")
+        self.assertEqual("My message", str(nld))

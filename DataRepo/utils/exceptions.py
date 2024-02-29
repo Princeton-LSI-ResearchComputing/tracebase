@@ -100,8 +100,8 @@ class RequiredColumnValue(Exception):
         file=None,
         message=None,
     ):
+        loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum)
         if not message:
-            loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum)
             message = "Value required for column [%s] in %s."
         message = message % (column, loc)
         super().__init__(message)
@@ -1830,7 +1830,7 @@ class ExcelSheetsNotFound(Exception):
             message = (
                 f"The following excel sheet(s) parsed from {loc} on the indicated rows were not found.\n"
                 f"\t{deets}\n"
-                f"\nThe available sheets are: [{all_sheets}]."
+                f"The available sheets are: [{all_sheets}]."
             )
         super().__init__(message)
         self.unknowns = unknowns
@@ -1869,7 +1869,7 @@ class InvalidHeaderCrossReferenceError(Exception):
                 f"The following cross-referenced column headers parsed from {src_loc} on the indicated rows were not "
                 f"found as headers in the target file/sheet: [{tgt_loc}].\n"
                 f"\t{deets}\n"
-                f"\nThe available headers are: [{target_headers}]."
+                f"The available headers are: {target_headers}."
             )
         super().__init__(message)
         self.source_file = source_file
