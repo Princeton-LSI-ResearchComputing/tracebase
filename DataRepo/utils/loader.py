@@ -833,6 +833,8 @@ class TraceBaseLoader(ABC):
         if is_excel(self.file):
             if self.defaults_df is not None:
                 self.defaults_file = self.file
+            if self.sheet is None:
+                self.sheet = self.DataSheetName
         else:
             self.sheet = None
             self.defaults_sheet = None
