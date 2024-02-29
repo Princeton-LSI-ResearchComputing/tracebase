@@ -7,7 +7,7 @@ from django.db import transaction
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.utils.exceptions import RequiredColumnValueWhenNovel
 from DataRepo.utils.file_utils import string_to_datetime
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 class SequencesLoader(TraceBaseLoader):

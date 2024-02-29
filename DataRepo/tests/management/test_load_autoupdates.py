@@ -14,8 +14,6 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
-# TODO: Rename to test_load_autoupdates.py
-
 
 class AutoupdateLoadingTests(TracebaseTestCase):
     @classmethod

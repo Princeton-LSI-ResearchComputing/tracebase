@@ -9,7 +9,7 @@ from DataRepo.utils.exceptions import (
     DuplicateValues,
     SynonymExistsAsMismatchedCompound,
 )
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 class CompoundsLoader(TraceBaseLoader):

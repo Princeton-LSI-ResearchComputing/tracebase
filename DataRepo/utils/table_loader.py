@@ -33,8 +33,6 @@ from DataRepo.utils.file_utils import (
     is_excel,
 )
 
-# TODO: Rename file to table_loader.py
-
 
 class TraceBaseLoader(ABC):
     """Class to be used as a superclass for defining a (derived) loader class used to load a (sheet of) an input file.

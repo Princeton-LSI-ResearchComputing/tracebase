@@ -63,7 +63,6 @@ from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_concentrations,
 )
-from DataRepo.utils.loader import TraceBaseLoader
 from DataRepo.utils.protocols_loader import ProtocolsLoader
 from DataRepo.utils.queryset_to_pandas_dataframe import (
     QuerysetToPandasDataFrame,
@@ -74,6 +73,7 @@ from DataRepo.utils.sample_table_loader import (
 )
 from DataRepo.utils.sequences_loader import SequencesLoader
 from DataRepo.utils.study_table_loader import StudyTableLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [

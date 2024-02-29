@@ -16,8 +16,6 @@ from DataRepo.utils import (
     UnknownHeadersError,
 )
 
-# TODO: Rename to test_load_compounds.py
-
 
 @tag("compounds")
 @tag("loading")

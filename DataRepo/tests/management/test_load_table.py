@@ -6,7 +6,7 @@ from django.test.utils import isolate_apps
 from DataRepo.management.commands.load_table import LoadFromTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import AggregatedErrors, OptionsNotAvailable
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 # Class (Model) used for testing

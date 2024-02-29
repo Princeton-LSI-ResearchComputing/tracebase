@@ -24,7 +24,7 @@ from DataRepo.utils.exceptions import (
     RequiredValueErrors,
     UnknownHeadersError,
 )
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 @isolate_apps("DataRepo.tests.apps.loader")

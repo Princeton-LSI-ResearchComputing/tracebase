@@ -12,7 +12,7 @@ from DataRepo.utils import (
     is_excel,
     read_from_file,
 )
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TraceBaseLoader
 
 
 class LoadFromTableCommand(ABC, BaseCommand):
