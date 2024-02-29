@@ -148,7 +148,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
         seq.full_clean()
@@ -1006,7 +1006,7 @@ class PropertyTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="george",
             date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
         seq.full_clean()
@@ -1171,7 +1171,7 @@ class PropertyTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
         seq.full_clean()
@@ -1291,7 +1291,7 @@ class PropertyTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
         seq.full_clean()
@@ -1458,7 +1458,7 @@ class PropertyTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
         seq.full_clean()
