@@ -6,11 +6,7 @@ from django.db import ProgrammingError, transaction
 
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, MaintainedModel, Tracer, TracerLabel
-from DataRepo.utils.exceptions import (
-    CompoundDoesNotExist,
-    InfileError,
-    RequiredColumnValue,
-)
+from DataRepo.utils.exceptions import CompoundDoesNotExist, InfileError
 from DataRepo.utils.infusate_name_parser import (
     IsotopeData,
     TracerData,
@@ -57,7 +53,7 @@ class TracersLoader(TableLoader):
         NAME="Tracer Name",
     )
 
-    # Whether each column is required to be present of not
+    # List of required header keys
     DataRequiredHeaders = [
         ID_KEY,
         [
@@ -72,16 +68,8 @@ class TracersLoader(TableLoader):
         ],
     ]
 
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataTableHeaders(
-        ID=True,
-        COMPOUND=False,
-        ELEMENT=False,
-        MASSNUMBER=False,
-        LABELCOUNT=False,
-        LABELPOSITIONS=False,
-        NAME=False,
-    )
+    # List of header keys for columns that require a value
+    DataRequiredValues = DataRequiredHeaders
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {
@@ -212,10 +200,11 @@ class TracersLoader(TableLoader):
                 # The tracer number is simply used to associate all rows belonging to a single tracer. It is not loaded.
                 tracer_number = self.get_row_val(row, self.headers.ID)
 
-                if tracer_number is None:
-                    # Note, get_row_val buffers errors for missing required columns/values
-                    self.skipped(Tracer.__name__)
-                    self.skipped(TracerLabel.__name__)
+                # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
+                # sets the current row index
+                if self.is_skip_row() or tracer_number is None:
+                    self.errored(Tracer.__name__)
+                    self.errored(TracerLabel.__name__)
                     continue
 
                 (
@@ -338,17 +327,6 @@ class TracersLoader(TableLoader):
             count,
             positions,
         )
-
-        # Require either a tracer name or compound, element, mass number, and count
-        if self.required_values_missing(
-            tracer_name,
-            compound_name,
-            element,
-            mass_number,
-            count,
-        ):
-            self.valid_tracers[tracer_number] = False
-            return retval
 
         if tracer_number not in self.tracer_dict.keys():
             # Check for tracer names that map to multiple different tracer numbers
@@ -880,66 +858,3 @@ class TracersLoader(TableLoader):
                     sheet=self.sheet,
                 )
             )
-
-    def required_values_missing(
-        self,
-        tracer_name,
-        compound_name,
-        element,
-        mass_number,
-        count,
-    ):
-        """Checks row data to ensure that either a tracer name or all of compound, element, mass_number, and count are
-        defined.
-
-        Also counts errored records and appends to skip row indexes.
-
-        Args:
-            tracer_name (string)
-            compound_name (string)
-            element (string)
-            mass_number (integer)
-            count (integer)
-
-        Exceptions:
-            Raises:
-                Nothing
-            Buffers:
-                RequiredColumnValue
-
-        Returns:
-            missing (boolean)
-        """
-        missing = False
-        if tracer_name is None and (
-            compound_name is None
-            or element is None
-            or mass_number is None
-            or count is None
-        ):
-            missing_cols = []
-            if compound_name is None:
-                missing_cols.append(self.headers.COMPOUND)
-            if element is None:
-                missing_cols.append(self.headers.ELEMENT)
-            if mass_number is None:
-                missing_cols.append(self.headers.MASSNUMBER)
-            if count is None:
-                missing_cols.append(self.headers.LABELCOUNT)
-
-            self.aggregated_errors_object.buffer_error(
-                RequiredColumnValue(
-                    column=f"{self.headers.NAME} or [{', '.join(missing_cols)}]",
-                    rownum=self.rownum,
-                    sheet=self.sheet,
-                    file=self.file,
-                ),
-            )
-
-            self.add_skip_row_index()
-            self.errored(Tracer.__name__)
-            self.errored(TracerLabel.__name__)
-
-            missing = True
-
-        return missing

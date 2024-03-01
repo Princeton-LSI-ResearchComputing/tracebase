@@ -43,18 +43,17 @@ class ProtocolsLoader(TableLoader):
     # List of required header keys
     DataRequiredHeaders = [NAME_KEY, DESC_KEY]
 
+    # List of header keys for columns that require a value
+    DataRequiredValues = [
+        NAME_KEY,
+        CAT_KEY,  # Required by the model field, but effectively not reqd, bec. it's defaulted
+    ]
+
     # Default values to use when a row in the given column doesn;t have a value in it
     DataDefaultValues = DataTableHeaders(
         NAME=None,
         CATEGORY=Protocol.ANIMAL_TREATMENT,
         DESCRIPTION=None,
-    )
-
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataTableHeaders(
-        NAME=True,
-        CATEGORY=True,  # Required by the model field, but effectively not reqd, bec. it's defaulted
-        DESCRIPTION=False,
     )
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
@@ -79,7 +78,7 @@ class ProtocolsLoader(TableLoader):
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Protocol]
 
-    def get_pretty_headers(self):
+    def get_pretty_headers(self, **kwargs):
         """Override of the base class to conditionally change the headers based on infile type.
 
         Generates a string describing the headers, with appended asterisks if required, and a message about the
@@ -94,15 +93,32 @@ class ProtocolsLoader(TableLoader):
         Returns:
             pretty_headers (string)
         """
-        pretty_headers = super().get_pretty_headers(legend=False)
-        pretty_excel_headers = super().get_pretty_headers(
-            self.DataHeadersExcel, legend=False, reqd_only=True
+        # If there is a dataframe, return the default (because headers should already be set)
+        if self.df is not None:
+            return super().get_pretty_headers(**kwargs)
+
+        # Create a shallow copy of kwargs (so that we don't change it)
+        default_kwargs = {**kwargs}
+        default_kwargs["legend"] = kwargs.get("legend", False)
+        pretty_headers = super().get_pretty_headers(**default_kwargs)
+
+        # Create a shallow copy of kwargs (so that we don't change it)
+        excel_kwargs = {**kwargs}
+        excel_kwargs["legend"] = kwargs.get("legend", False)
+        excel_kwargs["reqd_only"] = kwargs.get("reqd_only", True)
+        excel_kwargs["headers"] = self.DataHeadersExcel
+        pretty_excel_headers = super().get_pretty_headers(**excel_kwargs)
+
+        final_pretty_headers = (
+            f"[{pretty_headers}] (or, if the input file is an excel file: "
+            f"[{pretty_excel_headers}])"
         )
 
-        return (
-            f"[{pretty_headers}] (or, if the input file is an excel file: "
-            f"[{pretty_excel_headers}]) (* = Required)"
-        )
+        legend = kwargs.get("legend", True)
+        if legend:
+            final_pretty_headers += " (* = Required)"
+
+        return final_pretty_headers
 
     def set_headers(self, custom_headers=None):
         """Override of the base class to conditionally change the headers based on infile type.

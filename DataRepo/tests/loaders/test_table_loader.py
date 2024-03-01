@@ -69,7 +69,7 @@ class TableLoaderTests(TracebaseTestCase):
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = DataTableHeaders(NAME="Name", CHOICE="Choice")
             DataRequiredHeaders = ["NAME"]
-            DataRequiredValues = DataTableHeaders(NAME=True, CHOICE=False)
+            DataRequiredValues = DataRequiredHeaders
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {mdl.__name__: {"name": "NAME", "choice": "CHOICE"}}
             Models = [mdl]
@@ -88,7 +88,7 @@ class TableLoaderTests(TracebaseTestCase):
             )
             DataHeaders = DataTableHeaders(NAME="Name", UFONE="uf1", UFTWO="uf2")
             DataRequiredHeaders = ["NAME"]
-            DataRequiredValues = DataTableHeaders(NAME=True, UFONE=False, UFTWO=False)
+            DataRequiredValues = DataRequiredHeaders
             DataUniqueColumnConstraints = [["NAME"], ["UFONE", "UFTWO"]]
             DataColumnTypes = {"NAME": str, "UFONE": str, "UFTWO": str}
             FieldToDataHeaderKey = {
@@ -384,7 +384,7 @@ class TableLoaderTests(TracebaseTestCase):
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = DataTableHeaders(NAME="Name", CHOICE="Choice")
             DataRequiredHeaders = ["NAME"]
-            DataRequiredValues = DataTableHeaders(NAME=True, CHOICE=False)
+            DataRequiredValues = DataRequiredHeaders
             DataDefaultValues = DataTableHeaders(NAME="test", CHOICE="1")
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
@@ -440,7 +440,7 @@ class TableLoaderTests(TracebaseTestCase):
             DataTableHeaders = namedtuple("DataTableHeaders", ["NAME", "CHOICE"])
             DataHeaders = DataTableHeaders(NAME="Choice", CHOICE="Choice")
             DataRequiredHeaders = ["NAME"]
-            DataRequiredValues = DataTableHeaders(NAME=True, CHOICE=False)
+            DataRequiredValues = DataRequiredHeaders
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             Models = [self.TestModel]
@@ -595,7 +595,8 @@ class TableLoaderTests(TracebaseTestCase):
                 "\tattribute [TestInvalidLoader.DataHeaders] namedtuple required, <class 'NoneType'> set\n"
                 "\tattribute [TestInvalidLoader.DataRequiredHeaders] N-dimensional list of strings required, "
                 "but contains ['NoneType']\n"
-                "\tattribute [TestInvalidLoader.DataRequiredValues] namedtuple required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.DataRequiredValues] N-dimensional list of strings required, "
+                "but contains ['NoneType']\n"
                 "\tattribute [TestInvalidLoader.DataUniqueColumnConstraints] list required, <class 'NoneType'> set\n"
                 "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, <class 'NoneType'> set\n"
                 "\tModels is required to have at least 1 Model class"
@@ -618,7 +619,7 @@ class TableLoaderTests(TracebaseTestCase):
             DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
             DataHeaders = DataTableHeaders(TEST="Test")
             DataRequiredHeaders = ["TEST"]
-            DataRequiredValues = DataTableHeaders(TEST=True)
+            DataRequiredValues = DataRequiredHeaders
             DataColumnTypes = {"TEST": str}
             DataDefaultValues = DataTableHeaders(TEST=5)
             DataUniqueColumnConstraints = [["TEST"]]

@@ -38,12 +38,8 @@ class StudyTableLoader(TableLoader):
         DESC_KEY,
     ]
 
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataTableHeaders(
-        CODE=True,
-        NAME=True,
-        DESCRIPTION=True,
-    )
+    # List of header keys for columns that require a value
+    DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
     # No DataColumnTypes needed
@@ -103,16 +99,17 @@ class StudyTableLoader(TableLoader):
             name = self.get_row_val(row, self.headers.NAME)
             description = self.get_row_val(row, self.headers.DESCRIPTION)
 
+            # missing required values update the skip_row_indexes before load_data is even called, and get_row_val sets
+            # the current row index
+            if self.is_skip_row():
+                self.errored()
+                return
+
             rec_dict = {
                 "code": code,
                 "name": name,
                 "description": description,
             }
-
-            # get_row_val can add to skip_row_indexes when there is a missing required value
-            if self.is_skip_row():
-                self.errored()
-                return
 
             study_rec, created = Study.objects.get_or_create(**rec_dict)
 

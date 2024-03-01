@@ -102,7 +102,7 @@ class RequiredColumnValue(Exception):
     ):
         loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum)
         if not message:
-            message = "Value required for column [%s] in %s."
+            message = "Value required for column(s) [%s] in %s."
         message = message % (column, loc)
         super().__init__(message)
         self.column = column
@@ -160,7 +160,7 @@ class RequiredHeadersError(HeaderError):
     def __init__(self, missing, message=None, sheet=None, file=None):
         if not message:
             loc = generate_file_location_string(sheet=sheet, file=file)
-            message = f"Required header(s) missing: [{', '.join(missing)}] in {loc}."
+            message = f"Required header(s) missing: [{missing}] in {loc}."
         super().__init__(message)
         self.missing = missing
         self.sheet = sheet

@@ -6,6 +6,7 @@ from typing import Dict, Optional, Type
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
+from django.db.utils import ProgrammingError
 
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -40,11 +41,12 @@ class TableLoader(ABC):
     Class Attributes:
         DataTableHeaders (namedtuple): Defines the header keys.
         DataHeaders (DataTableHeaders of strings): Default header names by header key.
-        DataRequiredHeaders (list of strings and lists): Required header kays. Note, this may be an N-dimensional list
+        DataRequiredHeaders (list of strings and lists): Required header keys. Note, this is an N-dimensional list
             where each dimension alternates between "all required" and "any required".  See get_missing_headers for
             detailed examples.
-        DataRequiredValues (DataTableHeaders of booleans): Whether a value on a row in a file column is required to be
-            present in the input file, indexed by header key.
+        DataRequiredValues (list of strings and lists): Required header keys. Note, this is an N-dimensional list
+            where each dimension alternates between "all required" and "any required".  See get_missing_headers for
+            detailed examples (required headers are similar to required values).
         DataUniqueColumnConstraints (list of lists of strings): Sets of unique column name combinations defining what
             values must be unique in the file.
         FieldToDataHeaderKey (dict): Header keys by field name.
@@ -56,10 +58,12 @@ class TableLoader(ABC):
         headers (DataTableHeaders of strings): Customized header names by header key.
         defaults (DataTableHeaders of objects): Customized default values by header key.
         all_headers (list of strings): Customized header names.
-        reqd_headers (list of strings and lists): Required header kays. Note, this may be an N-dimensional list
+        reqd_headers (list of strings and lists): Required header names. Note, this is an N-dimensional list
             where each dimension alternates between "all required" and "any required".  See get_missing_headers for
             detailed examples.
-        reqd_values (DataTableHeaders of booleans): Required value booleans by header name.
+        reqd_values (list of strings and lists): Required value header names. Note, this is an N-dimensional list
+            where each dimension alternates between "all required" and "any required".  See get_missing_headers for
+            detailed examples (required headers are similar to required values).
         FieldToHeader (dict of dicts of strings): Header names by model and field.
         unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
         dry_run (boolean) [False]: Dry Run mode.
@@ -104,7 +108,7 @@ class TableLoader(ABC):
     @property
     @abstractmethod
     def DataRequiredValues(self):
-        # namedtuple of booleans
+        # N-dimensional list of strings.  See get_missing_headers for examples.
         pass
 
     @property
@@ -268,7 +272,10 @@ class TableLoader(ABC):
             Nothing
         """
         self.row_index = index
-        self.rownum = index + 2
+        if index is None:
+            self.rownum = None
+        else:
+            self.rownum = index + 2
 
     def is_skip_row(self, index=None):
         """Determines if the current row is one that should be skipped.
@@ -315,12 +322,14 @@ class TableLoader(ABC):
 
         - headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
         - all_headers (list of strings): Customized header names.
-        - reqd_headers (list of strings and lists): Required header kays. Note, this may be an N-dimensional list
+        - reqd_headers (list of strings and lists): Required header names. Note, this is an N-dimensional list
             where each dimension alternates between "all required" and "any required".  See get_missing_headers for
             detailed examples.
         - FieldToHeader (dict of dicts of strings): Header names by model and field.
         - unique_constraints (list of lists of strings): Header name combos whose columns must be unique.
-        - reqd_values (DataTableHeaders namedtuple of booleans): Required value booleans by header name.
+        - reqd_values (list of strings and lists): Required value header names. Note, this is an N-dimensional list
+            where each dimension alternates between "all required" and "any required".  See get_missing_headers for
+            detailed examples (required headers are similar to required values).
         - defaults_by_header (dict): Default values by header name.
         - reverse_headers (dict): Header keys by header name.
 
@@ -359,16 +368,11 @@ class TableLoader(ABC):
             for fld, hk in self.FieldToDataHeaderKey[mdl].items():
                 self.FieldToHeader[mdl][fld] = getattr(self.headers, hk)
 
-        # Create a list of the required header string values from an N-dimensional list of header keys
+        # Create a list of the required columns by header name from an N-dimensional list of header keys
         self.reqd_headers = self.header_keys_to_names(self.DataRequiredHeaders)
 
-        # Create a list of header string values for columns whose values are required, from a namedtuple of header key/
-        # value pairs
-        self.reqd_values = [
-            getattr(self.headers, hk)
-            for hk in list(self.headers._asdict().keys())
-            if getattr(self.DataRequiredValues, hk)
-        ]
+        # Create a list of the required column values by header name from an N-dimensional list of header keys
+        self.reqd_values = self.header_keys_to_names(self.DataRequiredValues)
 
         # Create a list lists of header string values whose combinations must be unique, from a list of lists of header
         # keys
@@ -457,12 +461,30 @@ class TableLoader(ABC):
         # The loader_class method get_headers will merge the custom headers
         return final_custom_headers
 
-    def get_pretty_headers(self, headers=None, legend=True, reqd_only=False):
+    def get_pretty_headers(
+        self,
+        headers=None,
+        markers=True,
+        legend=True,
+        reqd_only=False,
+        reqd_spec=None,
+        all_reqd=True,
+    ):
         """Generate a string of header names, with appended asterisks(*) if required, up-caret(^) if 1 of a group
         required, and a message about the required annotations.
 
         Args:
-            None
+            headers (namedtuple of TableHeaders) [self.get_headers()]: Header names by header key
+            markers (boolean) [True]: Whether required headers should have an appended asterisk.  Note, this does not
+                apply to the 1 of any markers (^)
+            legend (boolean) [True]: Whether to append a legend
+            reqd_only (boolean) [False]: Whether to include optional headers in the result
+            reqd_spec (N-dimensional list of strings) [self.header_keys_to_names(self.DataRequiredHeaders, headers)]:
+                Required header *names* where each dimension alternates between all required and 1 of any required.
+                Note that the default uses the current self.headers.  If the names differ from the current defaults, you
+                must supply headers.
+            all_reqd (boolean) [True]: Whether the first dimension of reqd_spec is all required or not (1 of any
+                required)
 
         Raises:
             Nothing
@@ -472,13 +494,19 @@ class TableLoader(ABC):
         """
         if headers is None:
             headers = self.get_headers()
-        reqd = self.header_keys_to_names(self.DataRequiredHeaders, headers)
-        or_groups_exist = len([k for k in reqd if type(k) == list]) > 0
+
+        if reqd_spec is None:
+            reqd = self.header_keys_to_names(self.DataRequiredHeaders, headers)
+        else:
+            reqd = reqd_spec
+
         flat_reqd = self.flatten_ndim_strings(reqd)
         optionals = list(set(headers._asdict().values()) - set(flat_reqd))
         delim = ", "
 
-        pretty_headers = self.get_pretty_headers_helper(reqd, delim)
+        pretty_headers = self.get_pretty_headers_helper(
+            reqd, delim, _anded=all_reqd, markers=markers
+        )
 
         if not reqd_only:
             if pretty_headers != "" and len(optionals) > 0:
@@ -486,24 +514,32 @@ class TableLoader(ABC):
             pretty_headers += delim.join(optionals)
 
         if legend:
-            if or_groups_exist:
+            if len(flat_reqd) == 0:
+                pretty_headers += " (All Optional)"
+            elif "^" in pretty_headers:
                 pretty_headers += " (* = [All] Required, ^ = Any Required)"
             else:
                 pretty_headers += " (* = Required)"
+        else:
+            # We will still include the 1 of any legend if that case exists
+            if "^" in pretty_headers:
+                pretty_headers += " (^ = Any Required)"
 
         return pretty_headers
 
     def get_pretty_headers_helper(
-        self, reqd_headers, delim, _first_dim=True, _anded=True
+        self, reqd_headers, delim, _first_dim=True, _anded=True, markers=True
     ):
-        """Generate a string of header names, with appended asterisks(*) if required, up-caret(^) if 1 of a group
-        required, and a message about the required annotations.
+        """Generate a string of header names, with appended asterisks(*) if required, (up-caret(^) if 1 of a group
+        required), and a message about the required annotations.
 
         Args:
-            reqd_headers (N-dimensional list of strings): Required headers
+            reqd_headers (N-dimensional list of strings): Required header names
             delim (string): Delimiter
             _first_dim (boolean) [True]: Private.  Whether this is the first dimension or not.
             _anded (boolean) [True]: Private.  Whether all or 1 of the header items in this dimension are required
+            markers (boolean) [True]: Whether to include "all required" annotations appended to items (*) and
+                parenthases around the outer group.
 
         Raises:
             Nothing
@@ -525,14 +561,19 @@ class TableLoader(ABC):
                 pretty_headers += ")"
 
                 if _anded:
-                    pretty_headers += "*"
+                    if markers:
+                        pretty_headers += "*"
                 else:
                     pretty_headers += "^"
             else:
                 pretty_headers += hdr_item
 
-                if _first_dim and _anded:
+                # Only append required labels to individual items on the first dimension
+                if _first_dim and _anded and markers:
                     pretty_headers += "*"
+
+        if _first_dim and not _anded and markers:
+            pretty_headers = f"({pretty_headers})^"
 
         return pretty_headers
 
@@ -682,8 +723,8 @@ class TableLoader(ABC):
         Checks the type of:
             Models (class attribute, list of Model classes): Must contain at least 1 model class
             DataHeaders (class attribute, namedtuple of DataTableHeaders of strings)
-            DataRequiredHeaders (class attribute, N-dimensional list of strings.  See get_missing_headers for details)
-            DataRequiredValues (class attribute, namedtuple of DataTableHeaders of booleans)
+            DataRequiredHeaders (class attribute, N-dimensional list of header keys.  See get_missing_headers.)
+            DataRequiredValues (class attribute, N-dimensional list of header keys.  See get_missing_headers.)
             DataUniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
             FieldToDataHeaderKey (class attribute, dict): Header keys by field name
             DataColumnTypes (class attribute, Optional[dict]): Column value types by header key
@@ -744,10 +785,13 @@ class TableLoader(ABC):
                     f"contains {invalid_types}"
                 )
 
-            if not cls.isnamedtuple(cls.DataRequiredValues):
+            invalid_types = cls.get_invalid_types_from_ndim_strings(
+                cls.DataRequiredValues
+            )
+            if len(invalid_types) > 0:
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DataRequiredValues] namedtuple required, "
-                    f"{type(cls.DataRequiredValues)} set"
+                    f"attribute [{cls.__name__}.DataRequiredValues] N-dimensional list of strings required, but "
+                    f"contains {invalid_types}"
                 )
 
             if type(cls.DataUniqueColumnConstraints) != list:
@@ -897,11 +941,15 @@ class TableLoader(ABC):
             self.set_headers()
         except TypeError as te:
             typeerrs.append(str(te))
+            # TODO: Buffering at the caught exception would be better, because it provides a better trace.  Refactor
+            # spots where I do this.
+            # self.aggregated_errors_object.buffer_error(te)
 
         try:
             self.set_defaults()
         except TypeError as te:
             typeerrs.append(str(te))
+            # self.aggregated_errors_object.buffer_error(te)
 
         if len(typeerrs) > 0:
             nlt = "\n\t"
@@ -1094,14 +1142,21 @@ class TableLoader(ABC):
                 )
             return
 
-        missing_headers = []
+        missing_headers = None
         if reqd_headers is not None:
-            for rqd_header in reqd_headers:
-                if rqd_header not in df.columns:
-                    missing_headers.append(rqd_header)
-            if len(missing_headers) > 0:
+            missing_headers, all_reqd = self.get_missing_headers(
+                df.columns, reqd_headers
+            )
+            if missing_headers is not None:
+                pretty_missing_headers = self.get_pretty_headers(
+                    reqd_spec=missing_headers,
+                    all_reqd=all_reqd,
+                    reqd_only=True,
+                    legend=False,
+                    markers=False,
+                )
                 self.aggregated_errors_object.buffer_error(
-                    RequiredHeadersError(missing_headers, file=file, sheet=sheet)
+                    RequiredHeadersError(pretty_missing_headers, file=file, sheet=sheet)
                 )
 
         if all_headers is not None:
@@ -1110,62 +1165,87 @@ class TableLoader(ABC):
                 if file_header not in all_headers:
                     unknown_headers.append(file_header)
             if len(unknown_headers) > 0:
-                if not reading_defaults or len(missing_headers) > 0:
+                if not reading_defaults or missing_headers is not None:
                     self.aggregated_errors_object.buffer_error(
                         UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
                     )
 
-        if len(missing_headers) > 0:
+        if missing_headers is not None:
             raise self.aggregated_errors_object
 
     @classmethod
-    def get_missing_headers(cls, supd_headers, reqd_headers, _anded=True):
+    def get_missing_headers(cls, supd_headers, reqd_headers, _anded=True, _first=True):
         """Given a 1-dimensional list of supplied header names and an N-dimensional list of required header names, get
         the missing required headers.
 
         Note that the N-dimensional list of required headers alternates between all required and any required.  The
         first dimension is "all" required.
 
-        For example, here is what these reqd_headers lists mean:
+        reqd_headers input examples:
 
         - [a, b, c] - a, b, and c are all required
         - [a, [b, c]] - a is required and either b or c is required
         - [[a, b], [b, c]] - a or b is required, and b or c is required
         - [[[a, b], c], d] - a and b, or c is required, and d is required
 
+        Usage example:
+
+        supd_headers = ["a", "c"]
+        reqd_headers = ["c", [["a", ["d", "c"]], ["a", "e"]]]  # c and ((a or (d and c)) or (a and e)) are required
+        return = (None, True)  # All header requirements are satisfied
+
+        supd_headers = ["a", "c"]
+        reqd_headers = ["c", [["a", "d"], ["a", "e"]]]  # c and either a and d, or a and e are required
+        return = (['d', 'e'], False)  # Either d or e are required, but missing
+
+        supd_headers = ["a", "c"]
+        reqd_headers = ["c", [["a", ["d", "f"]], ["a", "e"]]]  # c and either (a and (d or f)) or (a and e) are required
+        return = ([['d', 'f'], 'e'], False)  # Either d and f are required or e is required, but missing
+
         Args:
             supd_headers (list of strings): Supplied/present header names.
             reqd_headers (list of strings and lists): N-dimensional list of required header names.  See above.
             _anded (boolean) [True]: Whether the outer reqd_headers dimension items are all-required (and'ed) or
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
+            _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
+                recursion.  Do not supply.
 
         Exceptions:
             None
 
         Returns:
-            missing (list of strings and lists)
+            missing (list of strings and lists): an N-dimensional list of missing headers where every dimension deeper
+                alternates between all required and 1 of any required
+            all (boolean): Whether the first dimension is all required or not
         """
         missing = []
+        sublist_anded = not _anded
         for rh in reqd_headers:
             missing_header_item = None
 
             if type(rh) == list:
-                missing_header_item = cls.get_missing_headers(
-                    supd_headers, rh, not _anded
+                missing_header_item, tmp_anded = cls.get_missing_headers(
+                    supd_headers, rh, not _anded, False
                 )
+                # Note, sublist_anded will only be used if missing contains a single item, so setting it here multiple
+                # times does not matter
+                if missing_header_item is not None:
+                    sublist_anded = tmp_anded
             elif rh not in supd_headers:
                 missing_header_item = rh
 
             if missing_header_item is None:
                 if not _anded:
-                    return None
+                    return None, _anded
             else:
                 missing.append(missing_header_item)
 
         if len(missing) == 0:
-            return None
+            return None, _anded
+        elif len(missing) == 1 and not _first:
+            return missing[0], sublist_anded
 
-        return missing
+        return missing, _anded
 
     def header_keys_to_names(self, ndim_header_keys, headers=None):
         """Given an N-dimensional list of header keys, return the same list with the header keys replaced with names.
@@ -1243,7 +1323,7 @@ class TableLoader(ABC):
                     flat_uniques.append(ni)
         return flat_uniques
 
-    def check_unique_constraints(self):
+    def check_unique_constraints(self, df=None):
         """Check file column unique constraints.
 
         Handling unique constraints by catching IntegrityErrors lacks context.  Did the load encounter pre-existing data
@@ -1263,6 +1343,12 @@ class TableLoader(ABC):
         Returns:
             Nothing
         """
+        if self.unique_constraints is None:
+            return
+
+        if df is None and self.df is not None:
+            df = self.df
+
         if self.df is None:
             if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
                 self.aggregated_errors_object.buffer_warning(
@@ -1270,8 +1356,6 @@ class TableLoader(ABC):
                 )
             return
 
-        if self.unique_constraints is None:
-            return
         for unique_combo in self.unique_constraints:
             # A single field unique requirements is much cleaner to display than unique combos, so handle differently
             if len(unique_combo) == 1:
@@ -1285,6 +1369,109 @@ class TableLoader(ABC):
                         dupes, unique_combo, sheet=self.sheet, file=self.file
                     )
                 )
+
+    def check_dataframe_values(self, reading_defaults=False):
+        """Preprocesses the dataframe to ensure that required values are satisfied.
+
+        If there are missing required values, a RequiredColumnValue exception is buffered and the row is marked to be
+        skipped.
+
+        Args:
+            df (pandas dataframe) [self.df]
+
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                RequiredColumnValue
+
+        Returns:
+            None
+        """
+        if reading_defaults:
+            df = self.defaults_df
+            all_headers = list(self.DefaultsHeaders._asdict().values())
+            file = self.defaults_file
+            sheet = self.defaults_sheet
+            reqd_values = all_headers
+        else:
+            df = self.df
+            all_headers = self.all_headers
+            file = self.file
+            sheet = self.sheet
+            reqd_values = self.reqd_values
+
+        if df is None:
+            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+                self.aggregated_errors_object.buffer_warning(
+                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
+                )
+            return
+
+        # Do we need to do anything?
+        if reqd_values is None or len(reqd_values) == 0:
+            return
+
+        # Is there data to check?
+        if df is None:
+            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+                self.aggregated_errors_object.buffer_warning(
+                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
+                )
+            return
+
+        # Are we in the proper initialized state?
+        if hasattr(self, "row_index") and self.row_index is not None:
+            raise ProgrammingError(
+                "check_dataframe_values must not be called during or after the dataframe has been processed.  This has "
+                "been inferred by the fact that self.row_index has a non-null value.  Call self.set_row_index(None) "
+                "before check_dataframe_values is called (e.g. from the load_data wrapper.)"
+            )
+
+        for _, row in df.iterrows():
+            self.set_row_index(row.name)
+
+            # Collect all the values from the row.  We could do this using pandas' .to_dict() method, but we want to
+            # take advantage of self.defaults and the file context reporting metadata, so...
+            headers_of_supplied_values = []
+            for header in self.headers._asdict().values():
+                self.set_row_index(row.name)
+                val = self.get_row_val(row, header)
+                if val is not None:
+                    headers_of_supplied_values.append(header)
+
+            missing_reqd_vals, all_reqd = self.get_missing_values(
+                headers_of_supplied_values, reqd_values
+            )
+
+            if missing_reqd_vals is not None:
+                pretty_missing_reqd_vals = self.get_pretty_headers(
+                    reqd_spec=missing_reqd_vals,
+                    all_reqd=all_reqd,
+                    reqd_only=True,
+                    legend=False,
+                    markers=False,
+                )
+                self.aggregated_errors_object.buffer_error(
+                    RequiredColumnValue(
+                        pretty_missing_reqd_vals,
+                        file=file,
+                        sheet=sheet,
+                        rownum=self.rownum,
+                    )
+                )
+                self.add_skip_row_index()
+
+        # Reset the row index
+        self.set_row_index(None)
+
+    @classmethod
+    def get_missing_values(
+        cls, supd_val_headers, reqd_headers, _anded=True, _first=True
+    ):
+        # This is exactly the same as get_missing_headers (because you refer to missing values by their column header)
+        # So it requires the header names of supplied (non-null) values on a single row
+        return cls.get_missing_headers(supd_val_headers, reqd_headers, _anded, _first)
 
     def add_skip_row_index(
         self, index: Optional[int] = None, index_list: Optional[list] = None
@@ -1349,13 +1536,7 @@ class TableLoader(ABC):
         Returns:
             val (object): Data from the row at the column (header)
         """
-        if reading_defaults:
-            # This will be none if self.file is excel
-            sheet = self.defaults_sheet
-            file = self.defaults_file
-        else:
-            sheet = self.sheet
-            file = self.file
+        if not reading_defaults:
             # A pandas dataframe row object contains that row's index as an integer in the .name attribute
             # By setting the current row index in get_row_val, the derived class never needs to explicitly do it
             self.set_row_index(row.name)
@@ -1391,18 +1572,6 @@ class TableLoader(ABC):
         if val is None:
             # Fill in a default value
             val = self.defaults_by_header.get(header, None)
-
-            # If the val is still None and it is required
-            if val is None and header in self.reqd_values:
-                self.add_skip_row_index()
-                # This raise was added to force the developer to not continue the loop. It's handled/caught in
-                # handle_load_db_errors.
-                raise RequiredColumnValue(
-                    column=header,
-                    sheet=sheet,
-                    file=file,
-                    rownum=row.name + 2,
-                )
 
         return val
 
@@ -1646,6 +1815,7 @@ class TableLoader(ABC):
                 with transaction.atomic():
                     try:
                         self.check_dataframe_headers()
+                        self.check_dataframe_values()
                         self.check_unique_constraints()
 
                         retval = fn(*args, **kwargs)

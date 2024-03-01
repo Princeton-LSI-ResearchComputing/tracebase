@@ -61,17 +61,8 @@ class SequencesLoader(TableLoader):
         LC_RUNLEN_KEY,
     ]
 
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataTableHeaders(
-        ID=True,  # See TODO 1 above
-        OPERATOR=True,
-        DATE=True,
-        INSTRUMENT=True,
-        LC_PROTOCOL=True,
-        LC_RUNLEN=True,
-        LC_DESC=False,  # Required if LCMethod record doesn't exist
-        NOTES=False,
-    )
+    # List of header keys for columns that require a value
+    DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
 
@@ -170,7 +161,7 @@ class SequencesLoader(TableLoader):
             raw_run_length = self.get_row_val(row, self.headers.LC_RUNLEN)
             description = self.get_row_val(row, self.headers.LC_DESC)
 
-            # In case run_lengths was None, let's prevent an exception at the timedelta
+            # In case run_length was None, let's prevent an exception at the timedelta
             if self.is_skip_row():
                 self.errored(LCMethod.__name__)
                 return rec, created
