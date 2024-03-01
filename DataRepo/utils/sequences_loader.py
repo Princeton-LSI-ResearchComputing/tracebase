@@ -7,10 +7,10 @@ from django.db import transaction
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.utils.exceptions import RequiredColumnValueWhenNovel
 from DataRepo.utils.file_utils import string_to_datetime
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class SequencesLoader(TraceBaseLoader):
+class SequencesLoader(TableLoader):
     # TODO: 1. Implement a sequence accession composed of study code and sequence number
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     ID_KEY = "ID"  # See TODO 1 above

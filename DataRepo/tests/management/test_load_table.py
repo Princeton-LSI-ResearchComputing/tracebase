@@ -3,10 +3,10 @@ from collections import namedtuple
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
-from DataRepo.management.commands.load_table import LoadFromTableCommand
+from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import AggregatedErrors, OptionsNotAvailable
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
 # Class (Model) used for testing
@@ -21,7 +21,7 @@ class LoadTableTestModel(Model):
 
 
 # Class used for testing
-class TestLoader(TraceBaseLoader):
+class TestLoader(TableLoader):
     DataSheetName = "Test"
     DataTableHeaders = namedtuple("DataTableHeaders", ["TEST"])
     DataHeaders = DataTableHeaders(TEST="Test")
@@ -39,7 +39,7 @@ class TestLoader(TraceBaseLoader):
 
 
 # Class used for testing
-class TestCommand(LoadFromTableCommand):
+class TestCommand(LoadTableCommand):
     loader_class = TestLoader
 
     def handle(self, *args, **options):
@@ -47,7 +47,7 @@ class TestCommand(LoadFromTableCommand):
 
 
 @isolate_apps("DataRepo.tests.apps.loader")
-class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
+class LoadTableCommandTests(TracebaseTestCase):
     TEST_OPTIONS = {
         "infile": "DataRepo/data/tests/load_table/test.tsv",
         "headers": None,
@@ -68,7 +68,7 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         and catching the expected exception.
         """
 
-        class MyCommand(LoadFromTableCommand):
+        class MyCommand(LoadTableCommand):
             pass
 
         with self.assertRaises(TypeError) as ar:
@@ -87,7 +87,7 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         This tests indirectly that apply_handle_wrapper works.  apply_handle_wrapper is called from the constructor and
         wraps the derived class's with a method called handle_wrapper.  When handle_wrapper executes, it adds an
         attribute named saved_aes, so to test that it was applied as a wrapper, we create an instance of MyCommand
-        (which inherits from LoadFromTableCommand) and then we call handle().  We then ensure the saved_aes attribute
+        (which inherits from LoadTableCommand) and then we call handle().  We then ensure the saved_aes attribute
         was added, from which we infer that the handle_wrapper was applied.
         """
         mc = TestCommand()
@@ -108,11 +108,11 @@ class LoadFromTableCommandSuperclassUnitTests(TracebaseTestCase):
         Check that the types of the attributes are correctly checked.
         """
 
-        class NotATraceBaseLoaderClass:
+        class NotATableLoaderClass:
             pass
 
-        class TestTypeCommand(LoadFromTableCommand):
-            loader_class = NotATraceBaseLoaderClass
+        class TestTypeCommand(LoadTableCommand):
+            loader_class = NotATableLoaderClass
 
             def handle(self, *args, **options):
                 self.load_data()

@@ -12,10 +12,10 @@ from DataRepo.utils import (
     is_excel,
     read_from_file,
 )
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class LoadFromTableCommand(ABC, BaseCommand):
+class LoadTableCommand(ABC, BaseCommand):
     """Command superclass to be used to load a database given a table-like file.
 
     This class establishes the basic common command line interface for loading a database from a table-like file
@@ -30,7 +30,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
         3. Call self.load_data() inside the handle() method.  See load_data() for custom headers, arguments, etc.
 
     Example:
-        class Command(LoadFromTableCommand):
+        class Command(LoadTableCommand):
             help = "Loads data from a compound table into the database"
             loader_class = CompoundsLoader
 
@@ -43,7 +43,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
 
     Attributes:
         help (str): Default help string to be printed when the CLI is used with the help command.
-        loader_class (TraceBaseLoader derived class): A derived class of TraceBaseLoader.  This class defines headers,
+        loader_class (TableLoader derived class): A derived class of TableLoader.  This class defines headers,
             data constraints, data types, effected database models/fields etc.  LoadTableCommand uses this class to be
             able to rerad the infile correctly.
     """
@@ -55,7 +55,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
     # See load_tissues.Command for a concrete example.
     @property
     @abstractmethod
-    def loader_class(self):  # type[TraceBaseLoader]
+    def loader_class(self):  # type[TableLoader]
         pass
 
     def __init__(self, *args, **kwargs):
@@ -108,9 +108,9 @@ class LoadFromTableCommand(ABC, BaseCommand):
             if len(disallowed_args) > 0:
                 # Immediately raise programming errors
                 raise ValueError(
-                    "The following supplied agrguments are under direct control of the LoadFromTableCommand "
-                    f"superclass: {disallowed_args}.  The superclass uses the command line options to fill in user-"
-                    "supplied values.  The only arguments that are allowed are arguments specific to the derived class "
+                    "The following supplied agrguments are under direct control of the LoadTableCommand superclass: "
+                    f"{disallowed_args}.  The superclass uses the command line options to fill in user-supplied "
+                    "values.  The only arguments that are allowed are arguments specific to the derived class "
                     f"[{self.loader_class.__name__}] constructor."
                 )
 
@@ -253,7 +253,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
         """Checks that the class attributes are properly defined.
 
         Checks existence and type of:
-            loader_class (class attribute, TraceBaseLoader class)
+            loader_class (class attribute, TableLoader class)
 
         Args:
             None
@@ -266,12 +266,12 @@ class LoadFromTableCommand(ABC, BaseCommand):
             Nothing
         """
         here = f"{type(self).__module__}.{type(self).__name__}"
-        if not issubclass(self.loader_class, TraceBaseLoader):
+        if not issubclass(self.loader_class, TableLoader):
             # Immediately raise programming related errors
             aes = AggregatedErrors()
             aes.buffer_error(
                 TypeError(
-                    f"Invalid attribute [{here}.loader_class] TraceBaseLoader required, {type(self.loader_class)} set"
+                    f"Invalid attribute [{here}.loader_class] TableLoader required, {type(self.loader_class)} set"
                 )
             )
             if aes.should_raise():
@@ -338,8 +338,8 @@ class LoadFromTableCommand(ABC, BaseCommand):
 
         Args:
             df (pandas dataframe):
-            headers (TraceBaseLoader.DataTableHeaders): Custom header names by header key.
-            defaults (TraceBaseLoader.DataTableHeaders): Custom default values by header key.
+            headers (TableLoader.DataTableHeaders): Custom header names by header key.
+            defaults (TableLoader.DataTableHeaders): Custom default values by header key.
             dry_run (boolean): Dry Run mode.
             defer_rollback (boolean): Defer rollback mode.   DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE ROLLBACK.
             sheet (str): Name of the sheet to load (for error reporting only).
@@ -454,7 +454,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
             Nothing
 
         Returns:
-            headers (namedtuple of TraceBaseLoader.DataTableHeaders containing strings of header names)
+            headers (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
         return self.loader.get_headers()
 
@@ -509,7 +509,7 @@ class LoadFromTableCommand(ABC, BaseCommand):
             Nothing
 
         Returns:
-            defaults (namedtuple of TraceBaseLoader.DataTableHeaders containing strings of header names)
+            defaults (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
         return self.loader.get_defaults()
 

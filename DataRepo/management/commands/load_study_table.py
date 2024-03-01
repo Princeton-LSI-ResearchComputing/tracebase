@@ -1,8 +1,8 @@
-from DataRepo.management.commands.load_table import LoadFromTableCommand
+from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.utils import StudyTableLoader
 
 
-class Command(LoadFromTableCommand):
+class Command(LoadTableCommand):
     """Command to load the Study model from a table-like file."""
 
     help = "Loads data from a study table (e.g. study code, name, and description) into the database."
@@ -11,7 +11,7 @@ class Command(LoadFromTableCommand):
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
 
-        This code is automatically wrapped by LoadFromTableCommand._handler, which handles:
+        This code is automatically wrapped by LoadTableCommand._handler, which handles:
             - Retrieving the base-class-provided option values (and fills in the defaults provided by the loader_class)
             - Atomic transactions with optionally deferred rollback
             - Exception handling:
@@ -25,7 +25,7 @@ class Command(LoadFromTableCommand):
             options (dict of strings): String values provided on the command line by option name.
 
         Raises:
-            Nothing (See LoadFromTableCommand._handler for exceptions in the wrapper)
+            Nothing (See LoadTableCommand._handler for exceptions in the wrapper)
 
         Returns:
             Nothing

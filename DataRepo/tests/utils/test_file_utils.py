@@ -11,7 +11,7 @@ from DataRepo.utils.file_utils import (
 
 
 class FileUtilsTests(TracebaseTestCase):
-    # TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, move this test to test_loader
+    # TODO: When the SampleTableLoader is converted to a derived class of TableLoader, move this test to test_loader
     def test_get_column_dupes(self):
         """
         Test that get_column_dupes identifies dupe combos in col2 and col3, row indexes 1, and 3 only (2 is ignored)

@@ -102,7 +102,7 @@ def get_model_fields(model):
     ]
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def get_unique_constraint_fields(model):
     """
     Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
@@ -115,7 +115,7 @@ def get_unique_constraint_fields(model):
     return uflds
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def get_unique_fields(model, fields=None):
     """
     Returns a list of non-auto-field names where unique is True.
@@ -131,7 +131,7 @@ def get_unique_fields(model, fields=None):
     ]
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def get_enumerated_fields(model, fields=None):
     """
     Returns a list of non-auto-field names where choices is populated.
@@ -147,7 +147,7 @@ def get_enumerated_fields(model, fields=None):
     ]
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def field_in_fieldnames(fld, fld_names):
     """
     Accessory function to get_unique_fields and get_enumerated_fields.  This only exists in order to avoid JSCPD errors.
@@ -160,7 +160,7 @@ def field_in_fieldnames(fld, fld_names):
     )
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def get_non_auto_model_fields(model):
     """
     Retrieves all non-auto-fields from the supplied model and returns as a list of actual fields.
@@ -256,7 +256,7 @@ def exists_in_db(mdl_obj):
     return True
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None):
     """
     This function compares the supplied database model record with the dict that was used to (get or) create a record
@@ -304,7 +304,7 @@ def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None)
     return conflicting_value_errors
 
 
-# TODO: When SampleTableLoader inherits from TraceBaseLoader, remove this method (already copied to loader.pu)
+# TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def handle_load_db_errors(
     exception,
     model,

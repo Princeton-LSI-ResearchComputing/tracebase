@@ -10,10 +10,10 @@ from DataRepo.utils.exceptions import (
     DuplicateValues,
     SynonymExistsAsMismatchedCompound,
 )
-from DataRepo.utils.table_loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class CompoundsLoader(TraceBaseLoader):
+class CompoundsLoader(TableLoader):
     """
     Load the Compound and CompoundSynonym tables
     """
@@ -118,7 +118,7 @@ class CompoundsLoader(TraceBaseLoader):
         Returns:
             Nothing
         """
-        # TraceBaseLoader doesn't handle parsing column values like the delimited synonyms column, so we need to check
+        # TableLoader doesn't handle parsing column values like the delimited synonyms column, so we need to check
         # it explicitly in this derived class.
         self.check_for_cross_column_name_duplicates()
 
@@ -286,7 +286,7 @@ class CompoundsLoader(TraceBaseLoader):
                 syn_dict[synonym].append(index)
 
         # We need to check the synonyms column individually, because the standard unique constraints check of
-        # TraceBaseLoader only looks at the entire column value, not the delimited/parsed values
+        # TableLoader only looks at the entire column value, not the delimited/parsed values
         syn_dupe_dict = defaultdict(list)
         for syn in syn_dict.keys():
             if len(syn_dict[syn]) > 1:
