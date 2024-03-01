@@ -1,6 +1,7 @@
 from collections import defaultdict, namedtuple
 from typing import Optional
 
+from django.db import transaction
 from django.db.utils import IntegrityError
 
 from DataRepo.models import Compound, CompoundSynonym
@@ -112,96 +113,124 @@ class CompoundsLoader(TraceBaseLoader):
             None
 
         Raises:
-            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
-                method)
+            Nothing
 
         Returns:
-            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
-                method)
+            Nothing
         """
         # TraceBaseLoader doesn't handle parsing column values like the delimited synonyms column, so we need to check
         # it explicitly in this derived class.
         self.check_for_cross_column_name_duplicates()
 
         for _, row in self.df.iterrows():
-            if self.is_skip_row():
-                continue
-
-            cmpd_recdict = None
-            syn_recdict = None
-
             try:
-                name = self.get_row_val(row, self.headers.NAME)
-                formula = self.get_row_val(row, self.headers.FORMULA)
-                hmdb_id = self.get_row_val(row, self.headers.HMDB_ID)
-
-                cmpd_recdict = {
-                    "name": name,
-                    "formula": formula,
-                    "hmdb_id": hmdb_id,
-                }
-
-                # get_row_val can add to skip_row_indexes when there is a missing required value
                 if self.is_skip_row():
+                    # check_for_cross_column_name_duplicates can add to the skip row indexes
+                    self.errored(Compound.__name__)
+                    # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't
+                    # know how many there are
+                    # TODO: Uncomment when main is merged in
+                    # self.skipped(CompoundSynonym.__name__)
                     continue
 
-                cmpd_rec, cmpd_created = Compound.objects.get_or_create(**cmpd_recdict)
+                cmpd_rec = self.get_or_create_compound(row)
 
-                if cmpd_created:
-                    cmpd_rec.full_clean()
-                    self.created(Compound.__name__)
-                else:
-                    self.existed(Compound.__name__)
-
-            except Exception as e:
-                if isinstance(
-                    e, IntegrityError
-                ) and "DataRepo_compoundsynonym_pkey" in str(e):
-                    # This is caused by trying to create a synonym that is already associated with a different compound
-                    # We want a better error to describe this situation than we would get from handle_load_db_errors
-                    self.aggregated_errors_object.buffer_error(
-                        CompoundExistsAsMismatchedSynonym(
-                            cmpd_recdict["name"],
-                            cmpd_recdict,
-                            CompoundSynonym.objects.get(
-                                name__exact=cmpd_recdict["name"]
-                            ),
-                        )
-                    )
-                else:
-                    self.handle_load_db_errors(e, Compound, cmpd_recdict)
-                self.errored(Compound.__name__)
-                continue
+            except Exception:
+                # Exception handling was handled in get_or_create_*
+                # Continue processing rows to find more errors
+                pass
 
             synonyms = self.parse_synonyms(self.get_row_val(row, self.headers.SYNONYMS))
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
-            if self.is_skip_row():
+            if self.is_skip_row() or cmpd_rec is None:
+                # The count will be inaccurate.  If there was an error reading or parsing, we don't know how many
+                # there are
+                self.errored(CompoundSynonym.__name__)
                 continue
 
             for synonym in synonyms:
                 try:
-                    syn_recdict = {
-                        "name": synonym,
-                        "compound": cmpd_rec,
-                    }
+                    self.get_or_create_synonym(synonym, cmpd_rec)
+                except Exception:
+                    # Exception handling was handled in get_or_create_*
+                    # Continue processing rows to find more errors
+                    pass
 
-                    syn_rec, syn_created = CompoundSynonym.objects.get_or_create(
-                        **syn_recdict
+    @transaction.atomic
+    def get_or_create_compound(self, row):
+        rec_dict = None
+        rec = None
+
+        try:
+            name = self.get_row_val(row, self.headers.NAME)
+            formula = self.get_row_val(row, self.headers.FORMULA)
+            hmdb_id = self.get_row_val(row, self.headers.HMDB_ID)
+
+            rec_dict = {
+                "name": name,
+                "formula": formula,
+                "hmdb_id": hmdb_id,
+            }
+
+            # get_row_val can add to skip_row_indexes when there is a missing required value
+            if self.is_skip_row():
+                self.errored(Compound.__name__)
+                return rec
+
+            rec, created = Compound.objects.get_or_create(**rec_dict)
+
+            if created:
+                rec.full_clean()
+                self.created(Compound.__name__)
+            else:
+                self.existed(Compound.__name__)
+
+        except Exception as e:
+            if isinstance(e, IntegrityError) and "DataRepo_compoundsynonym_pkey" in str(
+                e
+            ):
+                # This is caused by trying to create a synonym that is already associated with a different compound
+                # We want a better error to describe this situation than we would get from handle_load_db_errors
+                self.aggregated_errors_object.buffer_error(
+                    CompoundExistsAsMismatchedSynonym(
+                        rec_dict["name"],
+                        rec_dict,
+                        CompoundSynonym.objects.get(name__exact=rec_dict["name"]),
                     )
+                )
+            else:
+                self.handle_load_db_errors(e, Compound, rec_dict)
+            self.errored(Compound.__name__)
+            raise e
 
-                    if syn_created:
-                        syn_rec.full_clean()
-                        self.created(CompoundSynonym.__name__)
-                    else:
-                        self.existed(CompoundSynonym.__name__)
+        return rec
 
-                except SynonymExistsAsMismatchedCompound as seamc:
-                    self.aggregated_errors_object.buffer_error(seamc)
-                    self.errored(CompoundSynonym.__name__)
-                except Exception as e:
-                    self.handle_load_db_errors(e, CompoundSynonym, syn_recdict)
-                    self.errored(CompoundSynonym.__name__)
+    @transaction.atomic
+    def get_or_create_synonym(self, synonym, cmpd_rec):
+        rec_dict = None
+        try:
+            rec_dict = {
+                "name": synonym,
+                "compound": cmpd_rec,
+            }
+
+            syn_rec, created = CompoundSynonym.objects.get_or_create(**rec_dict)
+
+            if created:
+                syn_rec.full_clean()
+                self.created(CompoundSynonym.__name__)
+            else:
+                self.existed(CompoundSynonym.__name__)
+
+        except SynonymExistsAsMismatchedCompound as seamc:
+            self.aggregated_errors_object.buffer_error(seamc)
+            self.errored(CompoundSynonym.__name__)
+            raise seamc
+        except Exception as e:
+            self.handle_load_db_errors(e, CompoundSynonym, rec_dict)
+            self.errored(CompoundSynonym.__name__)
+            raise e
 
     def parse_synonyms(self, synonyms_string: Optional[str]) -> list:
         """Parse the synonyms column value using the self.synonym_separator.
@@ -213,7 +242,7 @@ class CompoundsLoader(TraceBaseLoader):
             Nothing
 
         Returns:
-            list of strings
+            synonyms (list of strings)
         """
         if synonyms_string is None:
             return []
@@ -232,8 +261,11 @@ class CompoundsLoader(TraceBaseLoader):
         Args:
             None
 
-        Exceptions Buffered:
-            DuplicateValues
+        Exceptions:
+            Raises:
+                Nothing
+            Buffered:
+                DuplicateValues
 
         Returns:
             Nothing

@@ -1,5 +1,7 @@
 from collections import namedtuple
 
+from django.db import transaction
+
 from DataRepo.models import Protocol
 from DataRepo.utils.file_utils import is_excel
 from DataRepo.utils.table_loader import TraceBaseLoader
@@ -153,42 +155,66 @@ class ProtocolsLoader(TraceBaseLoader):
             None
 
         Raises:
-            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
-                method)
+            Nothing
 
         Returns:
-            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
-                method)
+            Nothing
         """
         for _, row in self.df.iterrows():
-            rec_dict = None
-
             try:
-                name = self.get_row_val(row, self.headers.NAME)
-                category = self.get_row_val(row, self.headers.CATEGORY)
-                description = self.get_row_val(row, self.headers.DESCRIPTION)
+                self.get_or_create_protocol(row)
+            except Exception:
+                # Exception handling was handled in get_or_create_protocol
+                # Continue processing rows to find more errors
+                pass
 
-                rec_dict = {
-                    "name": name,
-                    "category": category,
-                    "description": description,
-                }
+    @transaction.atomic
+    def get_or_create_protocol(self, row):
+        """Get or create a protocol record and buffer exceptions before raising.
 
-                # get_row_val can add to skip_row_indexes when there is a missing required value
-                if self.is_skip_row():
-                    continue
+        Args:
+            row (pandas dataframe row)
 
-                # Try and get the protocol
-                rec, created = Protocol.objects.get_or_create(**rec_dict)
+        Raises:
+            Nothing (explicitly)
 
-                # If no protocol was found, create it
-                if created:
-                    rec.full_clean()
-                    self.created()
-                else:
-                    self.existed()
+        Returns:
+            Nothing
+        """
+        try:
+            rec_dict = None
+            rec = None
+            created = False
 
-            except Exception as e:
-                # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Protocol, rec_dict)
+            name = self.get_row_val(row, self.headers.NAME)
+            category = self.get_row_val(row, self.headers.CATEGORY)
+            description = self.get_row_val(row, self.headers.DESCRIPTION)
+
+            rec_dict = {
+                "name": name,
+                "category": category,
+                "description": description,
+            }
+
+            # get_row_val can add to skip_row_indexes when there is a missing required value
+            if self.is_skip_row():
                 self.errored()
+                return
+
+            # Try and get the protocol
+            rec, created = Protocol.objects.get_or_create(**rec_dict)
+
+            # If no protocol was found, create it
+            if created:
+                rec.full_clean()
+                self.created()
+            else:
+                self.existed()
+
+        except Exception as e:
+            # Package errors (like IntegrityError and ValidationError) with relevant details
+            # This also updates the skip row indexes
+            self.handle_load_db_errors(e, Protocol, rec_dict)
+            self.errored()
+            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            raise e

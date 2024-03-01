@@ -1,5 +1,7 @@
 from collections import namedtuple
 
+from django.db import transaction
+
 from DataRepo.models import Study
 from DataRepo.utils.table_loader import TraceBaseLoader
 
@@ -64,40 +66,62 @@ class StudyTableLoader(TraceBaseLoader):
             None
 
         Raises:
-            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
-                method)
+            Nothing (explicitly)
 
         Returns:
-            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
-                method)
+            Nothing
         """
         for _, row in self.df.iterrows():
-            rec_dict = None
-
             try:
-                code = self.get_row_val(row, self.headers.CODE)
-                name = self.get_row_val(row, self.headers.NAME)
-                description = self.get_row_val(row, self.headers.DESCRIPTION)
+                self.get_or_create_study(row)
+            except Exception:
+                # Exception handling was handled in get_or_create_protocol
+                # Continue processing rows to find more errors
+                pass
 
-                rec_dict = {
-                    "code": code,
-                    "name": name,
-                    "description": description,
-                }
+    @transaction.atomic
+    def get_or_create_study(self, row):
+        """Get or create a study record and buffer exceptions before raising.
 
-                # get_row_val can add to skip_row_indexes when there is a missing required value
-                if self.is_skip_row():
-                    continue
+        Args:
+            row (pandas dataframe row)
 
-                study_rec, created = Study.objects.get_or_create(**rec_dict)
+        Raises:
+            Nothing (explicitly)
 
-                if created:
-                    study_rec.full_clean()
-                    self.created()
-                else:
-                    self.existed()
+        Returns:
+            Nothing
+        """
+        rec_dict = None
 
-            except Exception as e:
-                # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Study, rec_dict)
+        try:
+            code = self.get_row_val(row, self.headers.CODE)
+            name = self.get_row_val(row, self.headers.NAME)
+            description = self.get_row_val(row, self.headers.DESCRIPTION)
+
+            rec_dict = {
+                "code": code,
+                "name": name,
+                "description": description,
+            }
+
+            # get_row_val can add to skip_row_indexes when there is a missing required value
+            if self.is_skip_row():
                 self.errored()
+                return
+
+            study_rec, created = Study.objects.get_or_create(**rec_dict)
+
+            if created:
+                study_rec.full_clean()
+                self.created()
+            else:
+                self.existed()
+
+        except Exception as e:
+            # Package errors (like IntegrityError and ValidationError) with relevant details
+            # This also updates the skip row indexes
+            self.handle_load_db_errors(e, Study, rec_dict)
+            self.errored()
+            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            raise e
