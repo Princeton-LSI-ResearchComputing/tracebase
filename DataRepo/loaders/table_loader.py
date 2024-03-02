@@ -1235,14 +1235,22 @@ class TableLoader(ABC):
                 missing_header_item = rh
 
             if missing_header_item is None:
+                # If we are in "or" mode, missing_header_item being None means that the requirement is satisfied, so
+                # return None
                 if not _anded:
                     return None, _anded
+            elif type(missing_header_item) == list and sublist_anded == _anded:
+                # If the sublist and outer list are both "anded" or both "ored", merge them
+                missing.extend(missing_header_item)
             else:
                 missing.append(missing_header_item)
 
         if len(missing) == 0:
             return None, _anded
-        elif len(missing) == 1 and not _first:
+
+        if len(missing) == 1 and (not _first or type(missing[0]) == list):
+            # Make sure we always return a list (or None) to the original (not recursive, i.e. not _first) call, but
+            # skip outer lists with only 1 list member and return that member (and it's _anded state)
             return missing[0], sublist_anded
 
         return missing, _anded
