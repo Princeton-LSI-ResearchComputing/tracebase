@@ -26,8 +26,6 @@ from DataRepo.utils.exceptions import (
     summarize_int_list,
 )
 
-# TODO: Move this file into the utils subdirectory
-
 
 class ExceptionTests(TracebaseTestCase):
     def assert_aggregated_exception_states(
@@ -853,3 +851,11 @@ class AggregatedErrorsTests(TracebaseTestCase):
             ),
             str(dpe),
         )
+
+    def test_InfileError(self):
+        # TODO: Implement test
+        pass
+
+    def test_CompoundDoesNotExist(self):
+        # TODO: Implement test
+        pass

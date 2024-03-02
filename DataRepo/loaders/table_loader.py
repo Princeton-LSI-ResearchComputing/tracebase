@@ -1357,7 +1357,7 @@ class TableLoader(ABC):
         if df is None and self.df is not None:
             df = self.df
 
-        if self.df is None:
+        if df is None:
             if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
@@ -1367,9 +1367,9 @@ class TableLoader(ABC):
         for unique_combo in self.unique_constraints:
             # A single field unique requirements is much cleaner to display than unique combos, so handle differently
             if len(unique_combo) == 1:
-                dupes, row_idxs = self.get_one_column_dupes(self.df, unique_combo[0])
+                dupes, row_idxs = self.get_one_column_dupes(df, unique_combo[0])
             else:
-                dupes, row_idxs = get_column_dupes(self.df, unique_combo)
+                dupes, row_idxs = get_column_dupes(df, unique_combo)
             self.add_skip_row_index(index_list=row_idxs)
             if len(dupes) > 0:
                 self.aggregated_errors_object.buffer_error(

@@ -467,7 +467,7 @@ class TableLoaderTests(TracebaseTestCase):
             DuplicateHeaders, type(tdhl.aggregated_errors_object.exceptions[0])
         )
 
-    def test_check_unique_constraints(self):
+    def test_check_unique_constraints(self, with_arg=False):
         pddata = pd.DataFrame.from_dict(
             {
                 "Name": ["A", "A", "B", "C"],
@@ -475,8 +475,12 @@ class TableLoaderTests(TracebaseTestCase):
                 "uf2": ["1", "2", "3", "3"],
             },
         )
-        tucl = self.TestUCLoader(pddata)
-        tucl.check_unique_constraints()
+        if with_arg:
+            tucl = self.TestUCLoader()
+            tucl.check_unique_constraints(pddata)
+        else:
+            tucl = self.TestUCLoader(pddata)
+            tucl.check_unique_constraints()
         self.assertEqual(2, len(tucl.aggregated_errors_object.exceptions))
         self.assertEqual(
             DuplicateValues, type(tucl.aggregated_errors_object.exceptions[0])
@@ -498,6 +502,9 @@ class TableLoaderTests(TracebaseTestCase):
             ),
             str(tucl.aggregated_errors_object.exceptions[1]),
         )
+
+    def test_check_unique_constraints_with_arg(self):
+        self.test_check_unique_constraints(True)
 
     def test_header_key_to_name(self):
         tucl = self.TestUCLoader()
@@ -653,7 +660,7 @@ class TableLoaderTests(TracebaseTestCase):
         tl = self.TestLoader()
         self.assertEqual(list(tl.DataHeaders._asdict().keys()), tl.get_header_keys())
 
-    def test_get_pretty_headers(self):
+    def test_get_pretty_headers_defaults(self):
         tl = self.TestLoader()
         self.assertEqual("Name*, Choice (* = Required)", tl.get_pretty_headers())
 
@@ -1110,3 +1117,55 @@ class TableLoaderTests(TracebaseTestCase):
     def test_header_name_to_key(self):
         tl = self.TestLoader()
         self.assertEqual({"NAME": 2}, tl.header_name_to_key({"Name": 2}))
+
+    def test_get_pretty_headers_headers(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_pretty_headers_markers(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_pretty_headers_legend(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_pretty_headers_reqd_only(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_pretty_headers_reqd_spec(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_pretty_headers_all_reqd(self):
+        # TODO: Implement test
+        pass
+
+    def test__get_pretty_headers_helper(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_missing_headers(self):
+        # TODO: Implement test
+        pass
+
+    def test_header_keys_to_names(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_invalid_types_from_ndim_strings(self):
+        # TODO: Implement test
+        pass
+
+    def test_flatten_ndim_strings(self):
+        # TODO: Implement test
+        pass
+
+    def test_check_dataframe_values(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_missing_values(self):
+        # TODO: Implement test
+        pass
