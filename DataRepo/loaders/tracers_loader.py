@@ -6,7 +6,11 @@ from django.db import ProgrammingError, transaction
 
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, MaintainedModel, Tracer, TracerLabel
-from DataRepo.utils.exceptions import CompoundDoesNotExist, InfileError
+from DataRepo.utils.exceptions import (
+    CompoundDoesNotExist,
+    InfileError,
+    summarize_int_list,
+)
 from DataRepo.utils.infusate_name_parser import (
     IsotopeData,
     TracerData,
@@ -55,10 +59,10 @@ class TracersLoader(TableLoader):
 
     # List of required header keys
     DataRequiredHeaders = [
-        ID_KEY,
         [
-            # Either compound, element, mass, and count - or name
+            # Either tracer number, compound, element, mass, and count - or tracer name
             [
+                ID_KEY,
                 COMPOUND_KEY,
                 ELEMENT_KEY,
                 MASS_NUMBER_KEY,
@@ -195,26 +199,53 @@ class TracersLoader(TableLoader):
         self.init_load()
 
         # Gather all the data needed for the tracers (a tracer can span multiple rows)
+        self.build_tracer_dict()
+
+        # Check the self.tracer_dict to fill in missing values parsed from the name
+        self.check_extract_name_data()
+        self.buffer_consistency_issues()
+
+        # Now that all the tracer data has been collated and validated, load it
+        self.load_tracer_dict()
+
+    def build_tracer_dict(self):
+        """Iterate over the row data in self.df to populate self.tracer_dict and self.valid_tracers
+
+        Args:
+            None
+
+        Exceptions:
+            Raises:
+                Nothing
+            Buffers:
+                InfileError
+
+        Returns:
+            None
+        """
         for _, row in self.df.iterrows():
             try:
-                # The tracer number is simply used to associate all rows belonging to a single tracer. It is not loaded.
-                tracer_number = self.get_row_val(row, self.headers.ID)
-
                 # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
                 # sets the current row index
-                if self.is_skip_row() or tracer_number is None:
+                if self.is_skip_row(row.name):
                     self.errored(Tracer.__name__)
                     self.errored(TracerLabel.__name__)
                     continue
 
                 (
+                    tracer_number,
                     compound_name,
                     tracer_name,
                     element,
                     mass_number,
                     count,
                     positions,
-                ) = self.get_row_data(row, tracer_number)
+                ) = self.get_row_data(row)
+
+                if tracer_number is None:
+                    self.errored(Tracer.__name__)
+                    self.errored(TracerLabel.__name__)
+                    continue
 
                 if not self.valid_tracers[tracer_number]:
                     continue
@@ -230,17 +261,23 @@ class TracersLoader(TableLoader):
                         "row_index": self.row_index,
                     }
 
-                self.tracer_dict[tracer_number]["isotopes"].append(
-                    {
-                        "element": element,
-                        "mass_number": mass_number,
-                        "count": count,
-                        "positions": positions,
-                        # Metadata for error reporting
-                        "rownum": self.rownum,
-                        "row_index": self.row_index,
-                    }
-                )
+                if (
+                    element is not None
+                    or mass_number is not None
+                    or count is not None
+                    or positions is not None
+                ):
+                    self.tracer_dict[tracer_number]["isotopes"].append(
+                        {
+                            "element": element,
+                            "mass_number": mass_number,
+                            "count": count,
+                            "positions": positions,
+                            # Metadata for error reporting
+                            "rownum": self.rownum,
+                            "row_index": self.row_index,
+                        }
+                    )
 
             except Exception as e:
                 exc = InfileError(
@@ -251,46 +288,80 @@ class TracersLoader(TableLoader):
                 if tracer_number is not None:
                     self.valid_tracers[tracer_number] = False
 
-        # Check the self.tracer_dict to fill in missing values parsed from the name
-        self.check_extract_name_data()
-        self.buffer_consistency_issues()
+    @transaction.atomic
+    @MaintainedModel.defer_autoupdates()
+    def load_tracer_dict(self):
+        """Iterate over the self.tracer_dict to get or create Tracer and TracerLabel database records
 
-        # Now that all the tracer data has been collated and validated, load it
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
         for tracer_number, entry in self.tracer_dict.items():
             # We are iterating a dict independent of the file rows, so set the row index manually
             self.set_row_index(entry["row_index"])
 
+            num_labels = len(entry["isotopes"]) if len(entry["isotopes"]) > 0 else 1
+
             if not self.valid_tracers[tracer_number] or self.is_skip_row():
+                # This happens if there was an error in the file processing, like missing required columns, unique
+                # column constraint violations, or name parsing issues
                 self.errored(Tracer.__name__)
-                num_labels = len(entry["isotopes"]) if len(entry["isotopes"]) > 0 else 1
                 self.errored(TracerLabel.__name__, num=num_labels)
                 continue
 
             try:
-                tracer_rec, tracer_created = self.get_or_create_tracer(entry)
+                # We want to roll back everything related to the current tracer record in here if there was an exception
+                # We do that by catching outside the atomic block, below.  Note that this method has an atomic
+                # transaction decorator that is just for good measure (because the automatically applied wrapper around
+                # load_data will roll back everything if any exception occurs - but the decorator on this method is just
+                # in case it's every called from anywhere other than load_data)
+                with transaction.atomic:
+                    tracer_rec, tracer_created = self.get_or_create_tracer(entry)
+
+                    # If the tracer rec is None, skip the synonyms
+                    if tracer_rec is None:
+                        # Assume the compound didn't exist and mark as skipped
+                        self.skipped(Tracer.__name__)
+                        self.skipped(TracerLabel.__name__, num=num_labels)
+                        continue
+                    elif not tracer_created:
+                        # Note: tracer_rec has already been checked by check_tracer_name_consistent when it existed
+                        self.existed(Tracer.__name__)
+                        # Refresh the count with the actual existing records (i.e. in case isotope data wasn't provided)
+                        num_labels = tracer_rec.labels.count()
+                        self.existed(TracerLabel.__name__, num=num_labels)
+                        continue
+
+                    # Now, get or create the labels
+                    for isotope_dict in self.tracer_dict[tracer_number]["isotopes"]:
+                        # We are iterating a dict independent of the file rows, so set the row index manually
+                        self.set_row_index(isotope_dict["row_index"])
+
+                        if self.is_skip_row():
+                            continue
+
+                        self.get_or_create_tracer_label(isotope_dict, tracer_rec)
+
+                    # Only mark as created after this final check (which raises an exception)
+                    self.check_tracer_name_consistent(tracer_rec, entry)
+
+                    # Refresh the count with the actual existing records (i.e. in case isotope data wasn't provided)
+                    num_labels = tracer_rec.labels.count()
+
+                    self.created(Tracer.__name__)
+                    self.created(TracerLabel.__name__, num=num_labels)
             except Exception:
-                # Exception handling was handled in get_or_create_*
-                # Continue processing rows to find more errors
-                pass
+                # All exceptions are buffered in their respective functions, so just update the stats
+                self.errored(Tracer.__name__)
+                self.errored(TracerLabel.__name__, num=num_labels)
 
-            # If the tracer rec is None or the row it was on was added to the skip list, skip the synonyms
-            if tracer_rec is None or self.is_skip_row():
-                self.skipped(TracerLabel.__name__, num=len(entry["isotopes"]))
-                continue
-            elif not tracer_created:
-                self.existed(TracerLabel.__name__, num=len(entry["isotopes"]))
-                continue
-
-            for isotope_dict in self.tracer_dict[tracer_number]["isotopes"]:
-                # We are iterating a dict independent of the file rows, so set the row index manually
-                self.set_row_index(isotope_dict["row_index"])
-
-                if self.is_skip_row():
-                    continue
-
-                self.get_or_create_tracer_label(isotope_dict, tracer_rec)
-
-    def get_row_data(self, row, tracer_number):
+    def get_row_data(self, row):
         """Retrieve and validate the row data.
 
         Updates:
@@ -311,15 +382,17 @@ class TracersLoader(TableLoader):
             count (integer)
             positions (list of integers)
         """
-        compound_name = (self.get_row_val(row, self.headers.COMPOUND),)
-        tracer_name = (self.get_row_val(row, self.headers.NAME),)
-        element = (self.get_row_val(row, self.headers.ELEMENT),)
-        mass_number = (self.get_row_val(row, self.headers.MASSNUMBER),)
-        count = (self.get_row_val(row, self.headers.LABELCOUNT),)
+        tracer_number = self.get_row_val(row, self.headers.ID)
+        compound_name = self.get_row_val(row, self.headers.COMPOUND)
+        tracer_name = self.get_row_val(row, self.headers.NAME)
+        element = self.get_row_val(row, self.headers.ELEMENT)
+        mass_number = self.get_row_val(row, self.headers.MASSNUMBER)
+        count = self.get_row_val(row, self.headers.LABELCOUNT)
         raw_positions = self.get_row_val(row, self.headers.LABELPOSITIONS)
         positions = self.parse_label_positions(raw_positions)
 
         retval = (
+            tracer_number,
             compound_name,
             tracer_name,
             element,
@@ -327,6 +400,11 @@ class TracersLoader(TableLoader):
             count,
             positions,
         )
+
+        if tracer_number is None:
+            # Automatically populate the tracer number
+            # Index from 1
+            tracer_number = row.name + 1
 
         if tracer_number not in self.tracer_dict.keys():
             # Check for tracer names that map to multiple different tracer numbers
@@ -403,7 +481,7 @@ class TracersLoader(TableLoader):
                     )
                 )
 
-            fill_in = False
+            fill_in = len(table_tracer["isotopes"]) == 0
             for table_isotope in table_tracer["isotopes"]:
                 match = True
                 for parsed_isotope in parsed_tracer["isotopes"]:
@@ -436,15 +514,7 @@ class TracersLoader(TableLoader):
                         )
                     )
 
-            if (
-                len(table_tracer["isotopes"]) == 1
-                and table_tracer["isotopes"][0]["element"] is None
-                and table_tracer["isotopes"][0]["mass_number"] is None
-                and table_tracer["isotopes"][0]["count"] is None
-                and table_tracer["isotopes"][0]["positions"] is None
-            ):
-                fill_in = True
-            elif len(table_tracer["isotopes"]) != len(parsed_tracer["isotopes"]):
+            if len(table_tracer["isotopes"]) != len(parsed_tracer["isotopes"]):
                 fill_in = True
                 self.aggregated_errors_object.buffer_warning(
                     InfileError(
@@ -474,7 +544,6 @@ class TracersLoader(TableLoader):
                         }
                     )
 
-    @transaction.atomic
     def get_or_create_tracer(self, entry):
         """Get or create a Tracer record.
 
@@ -498,13 +567,13 @@ class TracersLoader(TableLoader):
         rec = self.get_tracer(entry)
 
         if rec is not None:
+            self.check_tracer_name_consistent(rec, entry)
             return rec, created
 
         # If we got here, we are creating, so first, try to retrieve the compound
         compound_rec = self.get_compound(entry["compound_name"])
 
         if compound_rec is None:
-            self.skipped(Tracer.__name__)
             return rec, created
 
         rec = self.create_tracer(compound_rec)
@@ -551,9 +620,6 @@ class TracersLoader(TableLoader):
 
             rec = Tracer.objects.get_tracer(tracer_data)
 
-            if rec is not None:
-                self.existed(Tracer.__name__)
-
         except Exception as e:
             exc = InfileError(
                 str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
@@ -561,8 +627,7 @@ class TracersLoader(TableLoader):
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.aggregated_errors_object.buffer_error(exc)
-            self.errored(Tracer.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e
 
         return rec
@@ -639,19 +704,15 @@ class TracersLoader(TableLoader):
 
         try:
             rec = Tracer.objects.create(**rec_dict)
-            self.created(Tracer.__name__)
-
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Tracer, rec_dict)
-            self.errored(Tracer.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e
 
         return rec
 
-    @transaction.atomic
     def get_or_create_tracer_label(self, isotope_dict, tracer_rec):
         """Get or create a TracerLabel record.
 
@@ -686,25 +747,16 @@ class TracersLoader(TableLoader):
                 "tracer": tracer_rec,
             }
 
-            # get_row_val can add to skip_row_indexes when there is a missing required value
-            if self.is_skip_row():
-                self.errored(TracerLabel.__name__)
-                return rec, created
-
             rec, created = TracerLabel.objects.get_or_create(**rec_dict)
 
             if created:
                 rec.full_clean()
-                self.created(TracerLabel.__name__)
-            else:
-                self.existed(TracerLabel.__name__)
 
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, TracerLabel, rec_dict)
-            self.errored(TracerLabel.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e
 
         return rec, created
@@ -798,6 +850,18 @@ class TracersLoader(TableLoader):
         - When a tracer number is associated with multiple compounds
         - When a tracer number is associated with multiple tracer names
         - When a tracer name is associated with multiple tracer numbers
+
+        Args:
+            None
+
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                InfileError
+
+        Returns:
+            None
         """
         for tracer_number in self.inconsistent_compounds.keys():
             msg = (
@@ -858,3 +922,46 @@ class TracersLoader(TableLoader):
                     sheet=self.sheet,
                 )
             )
+
+    def check_tracer_name_consistent(self, rec, entry):
+        """Checks for consistency between a dynamically generated tracer name and the one supplied in the file.
+
+        Args:
+            rec (Tracer): A Tracer model object
+            entry (dict): Data parsed from potentially multiple rows relating to a single Tracer
+
+        Exceptions:
+            Raises:
+                InfileError
+            Buffers:
+                InfileError
+
+        Returns:
+            None
+        """
+        supplied_name = entry["tracer_name"]
+
+        if supplied_name is None:
+            # Nothing to check
+            return
+
+        # We have to generate it instead of simply access it in the model object, because this is a maintained field,
+        # and if the record was created, auto-update will not happen until the load is complete
+        generated_name = rec._name()
+
+        if supplied_name != generated_name:
+            data_rownums = summarize_int_list(
+                [rd["rownum"] for rd in entry["isotopes"]]
+            )
+            exc = InfileError(
+                (
+                    f"The supplied tracer name [{supplied_name}] from row %s does not match the automatically "
+                    f"generated name [{generated_name}] using the data on rows [{data_rownums}]."
+                ),
+                file=self.file,
+                sheet=self.sheet,
+                column=self.headers.NAME,
+                rownum=entry["rownum"],
+            )
+            self.aggregated_errors_object.buffer_error(exc)
+            raise exc
