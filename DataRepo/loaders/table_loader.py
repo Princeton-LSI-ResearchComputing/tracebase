@@ -504,7 +504,7 @@ class TableLoader(ABC):
         optionals = list(set(headers._asdict().values()) - set(flat_reqd))
         delim = ", "
 
-        pretty_headers = self.get_pretty_headers_helper(
+        pretty_headers = self._get_pretty_headers_helper(
             reqd, delim, _anded=all_reqd, markers=markers
         )
 
@@ -527,7 +527,7 @@ class TableLoader(ABC):
 
         return pretty_headers
 
-    def get_pretty_headers_helper(
+    def _get_pretty_headers_helper(
         self, reqd_headers, delim, _first_dim=True, _anded=True, markers=True
     ):
         """Generate a string of header names, with appended asterisks(*) if required, (up-caret(^) if 1 of a group
@@ -555,7 +555,7 @@ class TableLoader(ABC):
 
             if type(hdr_item) == list:
                 pretty_headers += "("
-                pretty_headers += self.get_pretty_headers_helper(
+                pretty_headers += self._get_pretty_headers_helper(
                     hdr_item, False, not _anded
                 )
                 pretty_headers += ")"
