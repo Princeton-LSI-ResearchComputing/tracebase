@@ -17,8 +17,6 @@ from DataRepo.utils.infusate_name_parser import (
     parse_tracer_string,
 )
 
-# TODO: Move this file into the utils subdirectory
-
 
 class InfusateTest(TracebaseTestCase):
     @classmethod
