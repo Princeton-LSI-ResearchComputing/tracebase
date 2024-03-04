@@ -164,6 +164,9 @@ class TableLoader(ABC):
         DEFAULT_VALUE="Default Value",
     )
 
+    # DEFAULT_VALUE is not required (allow user to selete the value) - but note that all the headers are required
+    DefaultsRequiredValues = ["SHEET_NAME", "COLUMN_NAME"]
+
     def __init__(
         self,
         df=None,
@@ -1160,7 +1163,7 @@ class TableLoader(ABC):
         missing_headers = None
         if reqd_headers is not None:
             missing_headers, all_reqd = self.get_missing_headers(
-                df.columns, reqd_headers
+                df.columns, reqd_headers=reqd_headers
             )
             if missing_headers is not None:
                 pretty_missing_headers = self.get_pretty_headers(
@@ -1188,8 +1191,9 @@ class TableLoader(ABC):
         if missing_headers is not None:
             raise self.aggregated_errors_object
 
-    @classmethod
-    def get_missing_headers(cls, supd_headers, reqd_headers, _anded=True, _first=True):
+    def get_missing_headers(
+        self, supd_headers, reqd_headers=None, _anded=True, _first=True
+    ):
         """Given a 1-dimensional list of supplied header names and an N-dimensional list of required header names, get
         the missing required headers.
 
@@ -1215,7 +1219,7 @@ class TableLoader(ABC):
 
         supd_headers = ["a", "c"]
         reqd_headers = ["c", [["a", ["d", "f"]], ["a", "e"]]]  # c and either (a and (d or f)) or (a and e) are required
-        return = ([['d', 'f'], 'e'], False)  # Either d and f are required or e is required, but missing
+        return = (['d', 'f', 'e'], False)  # Either d, f, or e is required, but missing
 
         Args:
             supd_headers (list of strings): Supplied/present header names.
@@ -1233,6 +1237,11 @@ class TableLoader(ABC):
                 alternates between all required and 1 of any required
             all (boolean): Whether the first dimension is all required or not
         """
+        if _first and reqd_headers is None:
+            reqd_headers = self.reqd_headers
+        if reqd_headers is None:
+            raise ValueError("reqd_headers cannot be None.")
+
         missing = []
         sublist_anded = not _anded
         for rh in reqd_headers:
@@ -1240,15 +1249,16 @@ class TableLoader(ABC):
             missing_header_item = None
 
             if type(rh) == list:
-                missing_header_item, sublist_anded = cls.get_missing_headers(
+                missing_header_item, sublist_anded = self.get_missing_headers(
                     supd_headers, rh, _anded=not _anded, _first=False
                 )
             elif rh not in supd_headers:
                 missing_header_item = rh
 
             if missing_header_item is None:
-                # If we are in "or" mode, missing_header_item being None means that the requirement is satisfied because
-                # something was supplied, so return None
+                # If None, it means that nothing was missing for this item.
+                # So if the outer group is an "or" group, it means we can immediately return None without continuing to
+                # look at the rest of the list, as it is satisfied.
                 if not _anded:
                     return None, _anded
             elif type(missing_header_item) == list and sublist_anded == _anded:
@@ -1410,15 +1420,15 @@ class TableLoader(ABC):
         """
         if reading_defaults:
             df = self.defaults_df
-            all_headers = list(self.DefaultsHeaders._asdict().values())
             file = self.defaults_file
             sheet = self.defaults_sheet
-            reqd_values = all_headers
+            headers = self.DefaultsHeaders
+            reqd_values = [getattr(headers, k) for k in self.DefaultsRequiredValues]
         else:
             df = self.df
-            all_headers = self.all_headers
             file = self.file
             sheet = self.sheet
+            headers = self.headers
             reqd_values = self.reqd_values
 
         if df is None:
@@ -1449,19 +1459,8 @@ class TableLoader(ABC):
             )
 
         for _, row in df.iterrows():
-            self.set_row_index(row.name)
-
-            # Collect all the values from the row.  We could do this using pandas' .to_dict() method, but we want to
-            # take advantage of self.defaults and the file context reporting metadata, so...
-            headers_of_supplied_values = []
-            for header in self.headers._asdict().values():
-                self.set_row_index(row.name)
-                val = self.get_row_val(row, header)
-                if val is not None:
-                    headers_of_supplied_values.append(header)
-
             missing_reqd_vals, all_reqd = self.get_missing_values(
-                headers_of_supplied_values, reqd_values
+                row, reqd_values=reqd_values, headers=headers
             )
 
             if missing_reqd_vals is not None:
@@ -1477,21 +1476,75 @@ class TableLoader(ABC):
                         pretty_missing_reqd_vals,
                         file=file,
                         sheet=sheet,
-                        rownum=self.rownum,
+                        rownum=row.name + 2,
                     )
                 )
-                self.add_skip_row_index()
+                if not reading_defaults:
+                    self.add_skip_row_index(row.name)
 
-        # Reset the row index
+        # Reset the row index (which was altered by get_row_val inside get_missing_values)
         self.set_row_index(None)
 
-    @classmethod
     def get_missing_values(
-        cls, supd_val_headers, reqd_headers, _anded=True, _first=True
+        self,
+        row,
+        reqd_values=None,
+        headers=None,
+        reading_defaults=False,
+        _anded=True,
+        _first=True,
     ):
+        """Given a row of pandas dataframe data and an N-dimensional list of required values (by header name), get
+        the header names of the missing required values.
+
+        Note that the N-dimensional list of required values alternates between all required and any required.  The
+        first dimension is "all" required by default (which is controlled by the _anded private argument).
+
+        This ends up converting the row data into a 1-dimensional list of header names that do not have a value (either
+        in the row dataframe or via the defaults mechanism in get_row_val).  That list is used to call
+        get_missing_headers to do the work.
+
+        Args:
+            row (pandas dataframe row)
+            reqd_values (list of strings and lists): N-dimensional list of required values by header name.
+            headers (namedtuple of TableHeaders): Header names by header keys.
+            reading_defaults (boolean): Whether the defaults sheet is being read.
+            _anded (boolean) [True]: Whether the outer reqd_values dimension items are all-required (and'ed) or
+                any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
+            _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
+                recursion.  Do not supply.
+
+        Exceptions:
+            None
+
+        Returns:
+            missing (list of strings and lists): an N-dimensional list of headers that have missing required values on
+                the row where every dimension deeper alternates between all required and 1 of any required
+            all (boolean): Whether the first dimension is all required or not
+        """
+        if _first and reqd_values is None:
+            reqd_values = self.reqd_values
+        if reqd_values is None:
+            raise ValueError("reqd_values cannot be None.")
+        if headers is None:
+            headers = self.headers
+
+        # Collect all the values from the row.  We could do this using pandas' .to_dict() method, but we want to
+        # take advantage of self.defaults and the file context reporting metadata, so...
+        headers_of_supplied_values = []
+        for header in headers._asdict().values():
+            val = self.get_row_val(row, header, reading_defaults=reading_defaults)
+            if val is not None:
+                headers_of_supplied_values.append(header)
+
         # This is exactly the same as get_missing_headers (because you refer to missing values by their column header)
         # So it requires the header names of supplied (non-null) values on a single row
-        return cls.get_missing_headers(supd_val_headers, reqd_headers, _anded, _first)
+        return self.get_missing_headers(
+            headers_of_supplied_values,
+            reqd_headers=reqd_values,
+            _anded=_anded,
+            _first=_first,
+        )
 
     def add_skip_row_index(
         self, index: Optional[int] = None, index_list: Optional[list] = None
@@ -1578,14 +1631,14 @@ class TableLoader(ABC):
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
             raise ValueError(
-                f"Incorrect data header supplied: [{header}].  Must be one of: {self.all_headers}"
+                f"Invalid data header [{header}] supplied to get_row_val.  Must be one of: {self.all_headers}."
             )
         elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
             raise ValueError(
-                f"Incorrect defaults header supplied: [{header}].  Must be one of: "
-                f"{list(self.DefaultsHeaders._asdict().values())}"
+                f"Invalid data header [{header}] supplied to get_row_val while processing defaults.  Must be one of: "
+                f"{list(self.DefaultsHeaders._asdict().values())}."
             )
 
         # If val is None
@@ -1618,10 +1671,11 @@ class TableLoader(ABC):
         if self.defaults_df is None:
             return None
 
-        self.check_dataframe_headers(reading_defaults=True)
-
         # Return value
         user_defaults = {}
+
+        self.check_dataframe_headers(reading_defaults=True)
+        self.check_dataframe_values(reading_defaults=True)
 
         # Save the headers from the infile data (not the defaults data)
         infile_headers = self.df.columns if self.df is not None else None
@@ -1651,6 +1705,10 @@ class TableLoader(ABC):
                 row, self.DefaultsHeaders.SHEET_NAME, reading_defaults=True
             )
 
+            if sheet_name is None:
+                # This would already have been caught in check_dataframe_values above.  Just skip
+                continue
+
             # If the sheet name was not found in the file
             if (
                 all_sheet_names is not None
@@ -1676,6 +1734,10 @@ class TableLoader(ABC):
                 )
             )
 
+            if header_name is None:
+                # This would already have been caught in check_dataframe_values above.  Just skip
+                continue
+
             # If the header name from the defaults sheet is not an actual header on the load_sheet
             if infile_headers is not None and header_name not in infile_headers:
                 unknown_headers[header_name].append(rownum)
@@ -1685,6 +1747,10 @@ class TableLoader(ABC):
             default_val = self.get_row_val(
                 row, self.DefaultsHeaders.DEFAULT_VALUE, reading_defaults=True
             )
+
+            if default_val is None:
+                # This would already have been caught in check_dataframe_values above.  Just skip
+                continue
 
             if (
                 coltypes is not None

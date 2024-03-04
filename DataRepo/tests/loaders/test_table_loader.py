@@ -1093,6 +1093,25 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes2.exceptions))
         self.assertEqual(NoLoadData, type(aes2.exceptions[0]))
 
+    def test_check_dataframe_headers_defaults(self):
+        tl = self.TestLoader()
+        # Setting tl.defaults_df manually so that it's not automatically checked via the constructor
+        tl.defaults_df = pd.DataFrame.from_dict(
+            {
+                "Sheet Name": ["test"],
+                "Column Header": ["Name"],
+                "Wrong header": ["value"],
+            },
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            tl.check_dataframe_headers(reading_defaults=True)
+        aes = ar.exception
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertEqual(RequiredHeadersError, type(aes.exceptions[0]))
+        self.assertIn("Default Value", str(aes.exceptions[0]))
+        self.assertEqual(UnknownHeadersError, type(aes.exceptions[1]))
+        self.assertIn("Wrong header", str(aes.exceptions[1]))
+
     def test_get_user_defaults(self):
         df = pd.DataFrame.from_dict(
             {
@@ -1156,6 +1175,8 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test__get_pretty_headers_helper(self):
+        """Test that _get_pretty_headers_helper returns a decorated string of headers."""
+
         tl = self.TestLoader()
 
         # a required
@@ -1207,12 +1228,16 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_missing_headers(self):
+        """Test that get_missing_headers returns missing required headers (if any)."""
+
+        tl = self.TestLoader()
+
         # c and ((a and (d or c)) or (a and e)) are required
         # a and c supplied
         # Requirements met - None are missing, so None and True (irrelevant) are returned
         self.assertEqual(
             (None, True),
-            self.TestLoader.get_missing_headers(
+            tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["c", [["a", ["d", "c"]], ["a", "e"]]],
             ),
@@ -1224,7 +1249,7 @@ class TableLoaderTests(TracebaseTestCase):
         # Requirements not met: supply either b, d, or e to meet the requirements
         self.assertEqual(
             (["b", "d", "e"], False),
-            self.TestLoader.get_missing_headers(
+            tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["b", [["d", "e"]]],
                 _anded=False,
@@ -1236,7 +1261,7 @@ class TableLoaderTests(TracebaseTestCase):
         # Requirements not met: supply either d or e to meet the requirements
         self.assertEqual(
             (["d", "e"], False),
-            self.TestLoader.get_missing_headers(
+            tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["c", [["a", "d"], ["a", "e"]]],
             ),
@@ -1247,7 +1272,7 @@ class TableLoaderTests(TracebaseTestCase):
         # Requirements met
         self.assertEqual(
             (None, True),
-            self.TestLoader.get_missing_headers(
+            tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["c", ["a", ["d", "f"]]],
             ),
@@ -1258,7 +1283,7 @@ class TableLoaderTests(TracebaseTestCase):
         # Requirements not met: supply either d, f, or e to meet the requirements
         self.assertEqual(
             (["d", "f", "e"], False),
-            self.TestLoader.get_missing_headers(
+            tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["c", [["a", ["d", "f"]], ["a", "e"]]],
             ),
@@ -1269,28 +1294,175 @@ class TableLoaderTests(TracebaseTestCase):
         # Requirements not met: supply either d, f, or e - and g to meet the requirements
         self.assertEqual(
             ([["d", "f", "e"], "g"], True),
-            self.TestLoader.get_missing_headers(
+            tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["c", [["a", ["d", "f"]], ["a", "e"]], "g"],
             ),
         )
 
     def test_header_keys_to_names(self):
-        # TODO: Implement test
-        pass
+        """Test that header_keys_to_names converts an N-dimensional list of header keys to an N-dimensional list of
+        header names.
+        """
+        tl = self.TestLoader()
+
+        # One of the builtin N-dimensional headers keys list
+        self.assertEqual(
+            ["Name"],
+            tl.header_keys_to_names(self.TestLoader.DataRequiredHeaders),
+        )
+
+        # Custom N-dimensional headers keys list
+        self.assertEqual(
+            ["Name", ["Choice"]],
+            tl.header_keys_to_names(["NAME", ["CHOICE"]]),
+        )
+
+        # Custom headers
+        self.assertEqual(
+            ["MyName"],
+            tl.header_keys_to_names(
+                ["NAME"],
+                headers=self.TestLoader.DataTableHeaders(
+                    NAME="MyName",
+                    CHOICE="MyChoice",
+                ),
+            ),
+        )
 
     def test_get_invalid_types_from_ndim_strings(self):
-        # TODO: Implement test
-        pass
+        """Test that get_invalid_types_from_ndim_strings returns a non-repeating list of types (as strings) that are not
+        str or list.
+        """
+        self.assertEqual(
+            ["int", "bool", "float", "dict"],
+            self.TestLoader.get_invalid_types_from_ndim_strings(
+                [1, [False, 1.2, "ok", 5.6], "ok", {"a": "b"}]
+            ),
+        )
 
     def test_flatten_ndim_strings(self):
-        # TODO: Implement test
-        pass
+        self.assertEqual(
+            ["a", "b", "c", "d", "e", "f"],
+            self.TestLoader.flatten_ndim_strings(
+                ["a", ["b", "c"], [["d", "e"], "f", "a"]]
+            ),
+        )
 
-    def test_check_dataframe_values(self):
-        # TODO: Implement test
-        pass
+    def test_check_dataframe_values_data_no_defaults(self):
+        """Test that check_dataframe_values buffers exceptions for rows with missing required values."""
+
+        df = pd.DataFrame.from_dict(
+            {
+                "Name": [None, "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tl = self.TestLoader(df=df)
+        tl.check_dataframe_values()
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            RequiredColumnValue, type(tl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertEqual(
+            "Value required for column(s) [Name] in row [2] in the load file data.",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        # check_dataframe_values must not change the current row
+        self.assertIsNone(tl.row_index)
+        self.assertIsNone(tl.rownum)
+
+    def test_check_dataframe_values_data_with_defaults(self):
+        """Test that check_dataframe_values doesn't buffer exceptions for rows when missing values are filled in with
+        default values."""
+
+        df = pd.DataFrame.from_dict(
+            {
+                "Name": [None, "B", "C"],
+                "Choice": ["1", "2", "2"],
+            },
+        )
+        tl = self.TestLoader(df=df)
+        tl.set_defaults({"NAME": "A"})
+        tl.check_dataframe_values()
+        self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
+        # check_dataframe_values must not change the current row
+        self.assertIsNone(tl.row_index)
+        self.assertIsNone(tl.rownum)
+
+    def test_check_dataframe_values_defaults(self):
+        """Test that check_dataframe_values doesn't buffer exceptions for rows not missing required values from the
+        defaults sheet."""
+
+        defaults_df = pd.DataFrame.from_dict(
+            {
+                "Sheet Name": ["test"],
+                "Column Header": ["Name"],
+                "Default Value": ["A"],
+            },
+        )
+        tl = self.TestLoader(defaults_df=defaults_df)
+        tl.check_dataframe_values(reading_defaults=True)
+        self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
+        # check_dataframe_values must not change the current row
+        self.assertIsNone(tl.row_index)
+        self.assertIsNone(tl.rownum)
+
+    def test_check_dataframe_values_defaults_nulls(self):
+        """Test that check_dataframe_values buffers exceptions for all rows with missing required values from the
+        defaults sheet."""
+
+        tl = self.TestLoader()
+        # Setting tl.defaults_df manually so that it's not automatically checked via the constructor
+        tl.defaults_df = pd.DataFrame.from_dict(
+            {
+                "Sheet Name": [None],  # Required
+                "Column Header": [None],  # Required
+                "Default Value": [None],  # Optional
+            },
+        )
+        tl.check_dataframe_values(reading_defaults=True)
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            RequiredColumnValue, type(tl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertEqual(
+            "Value required for column(s) [Sheet Name, Column Header] in row [2] in the load file data.",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        # check_dataframe_values must not change the current row
+        self.assertIsNone(tl.row_index)
+        self.assertIsNone(tl.rownum)
 
     def test_get_missing_values(self):
-        # TODO: Implement test
-        pass
+        """Test that get_missing_values returns a list headers when given a row with missing required values."""
+
+        tl = self.TestLoader()
+
+        df = pd.DataFrame.from_dict(
+            {
+                "Name": ["1"],
+                "Choice": ["1"],
+            },
+        )
+        for _, row in df.iterrows():
+            pass
+
+        self.assertEqual(
+            (None, True),
+            tl.get_missing_values(row=row),
+        )
+
+        df = pd.DataFrame.from_dict(
+            {
+                "Name": [None],
+                "Choice": ["1"],
+            },
+        )
+        for _, row in df.iterrows():
+            pass
+
+        self.assertEqual(
+            (["Name"], True),
+            tl.get_missing_values(row=row),
+        )

@@ -45,10 +45,14 @@ class InfileError(Exception):
                 "rownum": rownum,
             }
             # Set the argument value to None, so the ones included in order will not be included in loc
-            file = None
-            sheet = None
-            column = None
-            rownum = None
+            if "file" in order:
+                file = None
+            if "sheet" in order:
+                sheet = None
+            if "column" in order:
+                column = None
+            if "rownum" in order:
+                rownum = None
             loc = generate_file_location_string(
                 rownum=rownum, sheet=sheet, file=file, column=column
             )
