@@ -1,3 +1,5 @@
+import io
+import sys
 from collections import namedtuple
 
 from django.db.models import AutoField, CharField, Model
@@ -214,8 +216,99 @@ class LoadTableCommandTests(TracebaseTestCase):
         self.assertEqual("one", tc.loader.defaults.TEST)
 
     def test_report_status(self):
-        # TODO: report_status changed in PR #865.  Implement after merge.
-        pass
+        # Capture STDOUT
+        capture_stdout = io.StringIO()
+        sys.stdout = capture_stdout
+
+        try:
+            tc = TestCommand()
+
+            opts = {
+                "infile": "DataRepo/data/tests/load_table/test.tsv",
+                "defaults_sheet": None,
+                "data_sheet": "Test",
+                "defaults_file": None,
+                "headers": None,
+                "dry_run": False,
+                "defer_rollback": False,
+                "verbosity": 1,
+            }
+
+            tc.init_loader()
+
+            # Required attributes normally set when handle() is called (which we're skipping)
+            tc.saved_aes = None
+            tc.options = opts
+
+            # Initialize the stats
+            tc.loader.created()
+            tc.loader.existed(num=2)
+            tc.loader.skipped(num=3)
+            tc.loader.errored(num=4)
+
+            # Report the stats result to the console
+            tc.report_status()
+        except Exception as e:
+            sys.stdout = sys.__stdout__
+            raise e
+        finally:
+            # Reset STDOUT
+            sys.stdout = sys.__stdout__
+
+        # Now test the output is correct
+        self.assertEqual(
+            "Done.\nLoadTableTestModel records created: [1], existed: [2], skipped [3], and errored: [4].\n",
+            capture_stdout.getvalue(),
+        )
+
+    def test_report_status_dryrun(self):
+        # Capture STDOUT
+        capture_stdout = io.StringIO()
+        sys.stdout = capture_stdout
+
+        try:
+            tc = TestCommand()
+
+            opts = {
+                "infile": "DataRepo/data/tests/load_table/test.tsv",
+                "defaults_sheet": None,
+                "data_sheet": "Test",
+                "defaults_file": None,
+                "headers": None,
+                "dry_run": True,
+                "defer_rollback": False,
+                "verbosity": 1,
+            }
+
+            tc.init_loader()
+
+            # Required attributes normally set when handle() is called (which we're skipping)
+            tc.saved_aes = None
+            tc.options = opts
+
+            # Initialize the stats
+            tc.loader.created()
+            tc.loader.existed(None, 2)
+            tc.loader.skipped(None, 3)
+            tc.loader.errored(None, 4)
+
+            # Report the stats result to the console
+            tc.report_status()
+        except Exception as e:
+            sys.stdout = sys.__stdout__
+            raise e
+        finally:
+            # Reset STDOUT
+            sys.stdout = sys.__stdout__
+
+        # Now test the output is correct
+        self.assertEqual(
+            (
+                "Dry-run complete.  The following would occur during a real load:\n"
+                "LoadTableTestModel records created: [1], existed: [2], skipped [3], and errored: [4].\n"
+            ),
+            capture_stdout.getvalue(),
+        )
 
     def test_get_defaults_sheet(self):
         tc = TestCommand()

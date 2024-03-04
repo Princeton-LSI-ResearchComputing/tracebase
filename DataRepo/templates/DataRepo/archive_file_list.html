@@ -31,6 +31,7 @@
             <tr>
                 <th data-field="AccuCor-File-Name" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">AccuCor File Name</th>
                 <th data-field="File-Import-Timestamp" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
+                <th data-field="File-Format" data-filter-control="input" data-sortable="true">File Format</th>
                 <th data-field="PeakGroup-Data" data-valign="top" data-sortable="false">Peak Group Data</th>
                 <th data-field="Peakdata" data-valign="top" data-sortable="false">Peak Data</th>
             </tr>
@@ -40,11 +41,28 @@
                 <tr>
                     <td><a href="{% url 'archive_file_detail' archive_file.pk %}">{{ archive_file.filename }}</a></td>
                     <td>{{ archive_file.imported_timestamp }}</td>
+                    <td>{{ archive_file.data_format.name }}</td>
                     <td>
-                        <a href="{% url 'search_basic' 'ArchiveFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
+                        {% if archive_file.data_type.code == "ms_peak_annotation" %}
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
+                        {% elif archive_file.data_format.code == "ms_raw" %}
+                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
+                        {% elif archive_file.data_format.code == "mzxml" %}
+                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
+                        {% else %}
+                            No peak groups are linked to this file
+                        {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'search_basic' 'ArchiveFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a></h5>
+                        {% if archive_file.data_type.code == "ms_peak_annotation" %}
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a></h5>
+                        {% elif archive_file.data_format.code == "ms_raw" %}
+                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Group Data</a></h5>
+                        {% elif archive_file.data_format.code == "mzxml" %}
+                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Group Data</a></h5>
+                        {% else %}
+                            No peak data are linked to this file
+                        {% endif %}
                     </td>
                 </tr>
             {% endfor %}

@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0033_alter_tissue_description"),
+        ("DataRepo", "0032_delete_msrun"),
     ]
 
     operations = [

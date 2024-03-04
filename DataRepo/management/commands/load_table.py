@@ -369,19 +369,22 @@ class LoadTableCommand(ABC, BaseCommand):
         Returns:
             Nothing
         """
-        msg = "Done."
+        if self.options["verbosity"] == 0:
+            return
+        msg = "Done.\n"
         if self.options["dry_run"]:
-            msg = "\nDry-run complete.  The following would occur during a real load:"
+            msg = "Dry-run complete.  The following would occur during a real load:\n"
 
         load_stats = self.loader.get_load_stats()
         for mdl in self.loader_class.get_models():
             mdl_name = mdl.__name__
             if mdl_name in load_stats.keys():
                 msg += (
-                    "\n%s records loaded: [%i], skipped: [%i], and errored: [%i]."
+                    "%s records created: [%i], existed: [%i], skipped [%i], and errored: [%i]."
                     % (
                         mdl_name,
                         load_stats[mdl_name]["created"],
+                        load_stats[mdl_name]["existed"],
                         load_stats[mdl_name]["skipped"],
                         load_stats[mdl_name]["errored"],
                     )
@@ -394,8 +397,7 @@ class LoadTableCommand(ABC, BaseCommand):
         else:
             status = self.style.SUCCESS(msg)
 
-        if self.options["verbosity"] > 0:
-            self.stdout.write(status)
+        self.stdout.write(status)
 
     # Getters and setters
 
