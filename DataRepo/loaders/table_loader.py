@@ -476,8 +476,11 @@ class TableLoader(ABC):
         Args:
             headers (namedtuple of TableHeaders) [self.get_headers()]: Header names by header key
             markers (boolean) [True]: Whether required headers should have an appended asterisk.  Note, this does not
-                apply to the 1 of any markers (^)
-            legend (boolean) [True]: Whether to append a legend
+                apply to the 1 of any markers (^).  Note that setting markers to False turns off the legend as well
+                (effectively).
+            legend (boolean) [True]: Whether to append a legend.  Note, a legend will always be included if there are
+                any groups of headers where 1 of the group is required (^).  While it may be easy to infer an asterisk
+                to mean required, an ^ to mean any of a group is required is assumed to not be intuitive.
             reqd_only (boolean) [False]: Whether to include optional headers in the result
             reqd_spec (N-dimensional list of strings) [self.header_keys_to_names(self.DataRequiredHeaders, headers)]:
                 Required header *names* where each dimension alternates between all required and 1 of any required.
@@ -513,29 +516,39 @@ class TableLoader(ABC):
                 pretty_headers += delim
             pretty_headers += delim.join(optionals)
 
-        if legend:
+        if legend and ("*" in pretty_headers or "^" in pretty_headers):
+            if pretty_headers != "":
+                pretty_headers += " "
+            pretty_headers += "("
             if len(flat_reqd) == 0:
-                pretty_headers += " (All Optional)"
-            elif "^" in pretty_headers:
-                pretty_headers += " (* = [All] Required, ^ = Any Required)"
+                if reqd_only:
+                    pretty_headers += "None Required"
+                else:
+                    pretty_headers += "All Optional"
             else:
-                pretty_headers += " (* = Required)"
-        else:
-            # We will still include the 1 of any legend if that case exists
+                if "*" in pretty_headers:
+                    pretty_headers += "* = Required"
+                    if "^" in pretty_headers:
+                        pretty_headers += ", "
+                if "^" in pretty_headers:
+                    pretty_headers += "^ = Any Required"
+            pretty_headers += ")"
+        elif "^" in pretty_headers:
+            # We will still include the "1 of any" legend if that case exists
             if "^" in pretty_headers:
                 pretty_headers += " (^ = Any Required)"
 
         return pretty_headers
 
     def _get_pretty_headers_helper(
-        self, reqd_headers, delim, _first_dim=True, _anded=True, markers=True
+        self, reqd_headers, delim=", ", _first_dim=True, _anded=True, markers=True
     ):
-        """Generate a string of header names, with appended asterisks(*) if required, (up-caret(^) if 1 of a group
-        required), and a message about the required annotations.
+        """Generate a string of header names, with appended asterisks(*) if required and an up-caret(^) if 1 of a group
+        required.
 
         Args:
             reqd_headers (N-dimensional list of strings): Required header names
-            delim (string): Delimiter
+            delim (string) [, ]: Delimiter
             _first_dim (boolean) [True]: Private.  Whether this is the first dimension or not.
             _anded (boolean) [True]: Private.  Whether all or 1 of the header items in this dimension are required
             markers (boolean) [True]: Whether to include "all required" annotations appended to items (*) and
@@ -556,23 +569,25 @@ class TableLoader(ABC):
             if type(hdr_item) == list:
                 pretty_headers += "("
                 pretty_headers += self._get_pretty_headers_helper(
-                    hdr_item, False, not _anded
+                    hdr_item,
+                    delim=delim,
+                    _first_dim=False,
+                    _anded=not _anded,
+                    markers=markers,
                 )
                 pretty_headers += ")"
 
-                if _anded:
-                    if markers:
-                        pretty_headers += "*"
-                else:
-                    pretty_headers += "^"
+                if markers:
+                    # The sub-group is the opposite of "anded"
+                    pretty_headers += "^" if _anded else "*"
             else:
                 pretty_headers += hdr_item
 
                 # Only append required labels to individual items on the first dimension
-                if _first_dim and _anded and markers:
+                if _first_dim and (_anded or len(reqd_headers) == 1) and markers:
                     pretty_headers += "*"
 
-        if _first_dim and not _anded and markers:
+        if _first_dim and not _anded and len(reqd_headers) != 1 and markers:
             pretty_headers = f"({pretty_headers})^"
 
         return pretty_headers
@@ -1191,7 +1206,7 @@ class TableLoader(ABC):
         Usage example:
 
         supd_headers = ["a", "c"]
-        reqd_headers = ["c", [["a", ["d", "c"]], ["a", "e"]]]  # c and ((a or (d and c)) or (a and e)) are required
+        reqd_headers = ["c", [["a", ["d", "c"]], ["a", "e"]]]  # c and ((a and (d or c)) or (a and e)) are required
         return = (None, True)  # All header requirements are satisfied
 
         supd_headers = ["a", "c"]
@@ -1221,22 +1236,19 @@ class TableLoader(ABC):
         missing = []
         sublist_anded = not _anded
         for rh in reqd_headers:
+            sublist_anded = not _anded
             missing_header_item = None
 
             if type(rh) == list:
-                missing_header_item, tmp_anded = cls.get_missing_headers(
-                    supd_headers, rh, not _anded, False
+                missing_header_item, sublist_anded = cls.get_missing_headers(
+                    supd_headers, rh, _anded=not _anded, _first=False
                 )
-                # Note, sublist_anded will only be used if missing contains a single item, so setting it here multiple
-                # times does not matter
-                if missing_header_item is not None:
-                    sublist_anded = tmp_anded
             elif rh not in supd_headers:
                 missing_header_item = rh
 
             if missing_header_item is None:
-                # If we are in "or" mode, missing_header_item being None means that the requirement is satisfied, so
-                # return None
+                # If we are in "or" mode, missing_header_item being None means that the requirement is satisfied because
+                # something was supplied, so return None
                 if not _anded:
                     return None, _anded
             elif type(missing_header_item) == list and sublist_anded == _anded:

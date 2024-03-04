@@ -1119,36 +1119,161 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual({"NAME": 2}, tl.header_name_to_key({"Name": 2}))
 
     def test_get_pretty_headers_headers(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual(
+            "MyName*, MyChoice (* = Required)",
+            tl.get_pretty_headers(
+                headers=self.TestLoader.DataTableHeaders(
+                    NAME="MyName",
+                    CHOICE="MyChoice",
+                )
+            ),
+        )
 
     def test_get_pretty_headers_markers(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual("Name, Choice", tl.get_pretty_headers(markers=False))
 
     def test_get_pretty_headers_legend(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual("Name*, Choice", tl.get_pretty_headers(legend=False))
 
     def test_get_pretty_headers_reqd_only(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual("Name* (* = Required)", tl.get_pretty_headers(reqd_only=True))
 
     def test_get_pretty_headers_reqd_spec(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual(
+            "Choice*, Name (* = Required)", tl.get_pretty_headers(reqd_spec=["Choice"])
+        )
 
     def test_get_pretty_headers_all_reqd(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual(
+            "(Name, Choice)^ (^ = Any Required)",
+            tl.get_pretty_headers(reqd_spec=["Name", "Choice"], all_reqd=False),
+        )
 
     def test__get_pretty_headers_helper(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+
+        # a required
+        self.assertEqual(
+            "a*",
+            tl._get_pretty_headers_helper(["a"]),
+        )
+
+        # a required (pointless _anded=False is reversed)
+        self.assertEqual(
+            "a*",
+            tl._get_pretty_headers_helper(["a"], _anded=False),
+        )
+
+        # a, b, and c required
+        self.assertEqual(
+            "a*, b*, c*",
+            tl._get_pretty_headers_helper(["a", "b", "c"]),
+        )
+
+        # a and (b or c) required
+        self.assertEqual(
+            "a*, (b, c)^",
+            tl._get_pretty_headers_helper(["a", ["b", "c"]]),
+        )
+
+        # a and (b or c) required - but no markers
+        self.assertEqual(
+            "a, (b, c)",
+            tl._get_pretty_headers_helper(["a", ["b", "c"]], markers=False),
+        )
+
+        # Either a or (b and c) required
+        self.assertEqual(
+            "(a, (b, c)*)^",
+            tl._get_pretty_headers_helper(["a", ["b", "c"]], _anded=False),
+        )
+
+        # (a or b) and (b or c) required
+        self.assertEqual(
+            "(a, b)^, (b, c)^",
+            tl._get_pretty_headers_helper([["a", "b"], ["b", "c"]]),
+        )
+
+        # (a and b) or (b and c) required
+        self.assertEqual(
+            "((a, b)*, (b, c)*)^",
+            tl._get_pretty_headers_helper([["a", "b"], ["b", "c"]], _anded=False),
+        )
 
     def test_get_missing_headers(self):
-        # TODO: Implement test
-        pass
+        # c and ((a and (d or c)) or (a and e)) are required
+        # a and c supplied
+        # Requirements met - None are missing, so None and True (irrelevant) are returned
+        self.assertEqual(
+            (None, True),
+            self.TestLoader.get_missing_headers(
+                supd_headers=["a", "c"],
+                reqd_headers=["c", [["a", ["d", "c"]], ["a", "e"]]],
+            ),
+        )
+
+        # Setting the outer group to or'ed with _anded=False
+        # b or (d or e)  # Note that the [[]] is and(or(...)), which equates to or(...) when the outer group is or
+        # a and c supplied
+        # Requirements not met: supply either b, d, or e to meet the requirements
+        self.assertEqual(
+            (["b", "d", "e"], False),
+            self.TestLoader.get_missing_headers(
+                supd_headers=["a", "c"],
+                reqd_headers=["b", [["d", "e"]]],
+                _anded=False,
+            ),
+        )
+
+        # c and (either (a and d) or (a and e)) are required
+        # a and c supplied
+        # Requirements not met: supply either d or e to meet the requirements
+        self.assertEqual(
+            (["d", "e"], False),
+            self.TestLoader.get_missing_headers(
+                supd_headers=["a", "c"],
+                reqd_headers=["c", [["a", "d"], ["a", "e"]]],
+            ),
+        )
+
+        # c and (either a or (a and f)) are required
+        # a and c supplied
+        # Requirements met
+        self.assertEqual(
+            (None, True),
+            self.TestLoader.get_missing_headers(
+                supd_headers=["a", "c"],
+                reqd_headers=["c", ["a", ["d", "f"]]],
+            ),
+        )
+
+        # c and (either (a and (d or f)) or (a and e)) are required
+        # a and c supplied
+        # Requirements not met: supply either d, f, or e to meet the requirements
+        self.assertEqual(
+            (["d", "f", "e"], False),
+            self.TestLoader.get_missing_headers(
+                supd_headers=["a", "c"],
+                reqd_headers=["c", [["a", ["d", "f"]], ["a", "e"]]],
+            ),
+        )
+
+        # c and (either (a and (d or f)) or (a and e)) and g are required
+        # a and c supplied
+        # Requirements not met: supply either d, f, or e - and g to meet the requirements
+        self.assertEqual(
+            ([["d", "f", "e"], "g"], True),
+            self.TestLoader.get_missing_headers(
+                supd_headers=["a", "c"],
+                reqd_headers=["c", [["a", ["d", "f"]], ["a", "e"]], "g"],
+            ),
+        )
 
     def test_header_keys_to_names(self):
         # TODO: Implement test
