@@ -176,12 +176,12 @@ class TracersLoader(TableLoader):
             Nothing
         """
         self.tracer_dict = defaultdict(dict)
-        self.tracer_name_to_number = defaultdict(defaultdict(list))
+        self.tracer_name_to_number = defaultdict(lambda: defaultdict(list))
         self.valid_tracers = {}
 
-        self.inconsistent_compounds = defaultdict(defaultdict(list))
-        self.inconsistent_names = defaultdict(defaultdict(list))
-        self.inconsistent_numbers = defaultdict(defaultdict(list))
+        self.inconsistent_compounds = defaultdict(lambda: defaultdict(list))
+        self.inconsistent_names = defaultdict(lambda: defaultdict(list))
+        self.inconsistent_numbers = defaultdict(lambda: defaultdict(list))
 
     @MaintainedModel.defer_autoupdates()
     def load_data(self):
@@ -196,8 +196,6 @@ class TracersLoader(TableLoader):
         Returns:
             Nothing
         """
-        self.init_load()
-
         # Gather all the data needed for the tracers (a tracer can span multiple rows)
         self.build_tracer_dict()
 
@@ -223,6 +221,9 @@ class TracersLoader(TableLoader):
         Returns:
             None
         """
+        if not hasattr(self, "tracer_dict"):
+            self.init_load()
+
         for _, row in self.df.iterrows():
             try:
                 # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
@@ -321,7 +322,7 @@ class TracersLoader(TableLoader):
                 # transaction decorator that is just for good measure (because the automatically applied wrapper around
                 # load_data will roll back everything if any exception occurs - but the decorator on this method is just
                 # in case it's every called from anywhere other than load_data)
-                with transaction.atomic:
+                with transaction.atomic():
                     tracer_rec, tracer_created = self.get_or_create_tracer(entry)
 
                     # If the tracer rec is None, skip the synonyms
@@ -344,6 +345,7 @@ class TracersLoader(TableLoader):
                         self.set_row_index(isotope_dict["row_index"])
 
                         if self.is_skip_row():
+                            self.skipped(TracerLabel.__name__)
                             continue
 
                         self.get_or_create_tracer_label(isotope_dict, tracer_rec)
@@ -356,7 +358,9 @@ class TracersLoader(TableLoader):
 
                     self.created(Tracer.__name__)
                     self.created(TracerLabel.__name__, num=num_labels)
-            except Exception:
+            except Exception as e:
+                if not self.aggregated_errors_object.exception_type_exists(type(e)):
+                    self.aggregated_errors_object.buffer_error(e)
                 # All exceptions are buffered in their respective functions, so just update the stats
                 self.errored(Tracer.__name__)
                 self.errored(TracerLabel.__name__, num=num_labels)
@@ -441,7 +445,8 @@ class TracersLoader(TableLoader):
         return retval
 
     def check_extract_name_data(self):
-        """Fill in missing data using data parsed from the tracer name, and check for inconsistencies
+        """Fill in missing data in self.tracer_dict using data parsed from the tracer name, and check for
+        inconsistencies.
 
         Args:
             None
@@ -466,7 +471,7 @@ class TracersLoader(TableLoader):
             parsed_compound_name = parsed_tracer["compound_name"]
 
             if compound_name is None:
-                compound_name = parsed_compound_name
+                table_tracer["compound_name"] = parsed_compound_name
             elif compound_name != parsed_compound_name:
                 self.aggregated_errors_object.buffer_error(
                     InfileError(
