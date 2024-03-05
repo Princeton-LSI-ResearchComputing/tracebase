@@ -12,18 +12,21 @@ from django.db.models import (
 
 class MSRunSequence(Model):
     INSTRUMENT_CHOICES = [
-        ("HILIC", "HILIC"),
-        ("QE", "QE"),
-        ("QE2", "QE2"),
-        ("QTOF", "QTOF"),
-        ("unknown", "unknown"),
+        ("QE", "Q Exactive"),
+        ("QE2", "Q Exactive 2"),
+        ("QEPlus", "Q Exactive Plus"),
+        ("QEHF", "Q Exactive HF"),
+        ("Exploris240", "Exploris 240"),
+        ("Exploris480", "Exploris 480"),
+        ("ExplorisMX", "Exploris MX"),
+        ("unknown", "Unknown"),
     ]
     # Note, INSTRUMENT_DEFAULT is not used as a "default" value for loading.  It is used for the following reasons:
     # 1. To allow the validation page to proceed without complaining about a missing instrument value
     # 2. As a placeholder value in order to proceed when a problem with an instrument value is encountered.  Whenever
     #    such a problem is encountered, an error is buffered and eventually raised at the end of a failed load.
     # 3. To avoid hard-coding static "magic" values in multiple places.
-    INSTRUMENT_DEFAULT = INSTRUMENT_CHOICES[4][0]
+    INSTRUMENT_DEFAULT = INSTRUMENT_CHOICES[-1][0]
 
     id = AutoField(primary_key=True)
     researcher = CharField(
@@ -40,7 +43,7 @@ class MSRunSequence(Model):
     instrument = CharField(
         null=False,
         blank=False,
-        max_length=7,
+        max_length=32,
         choices=INSTRUMENT_CHOICES,
         help_text="The name of the mass spectrometer.",
     )

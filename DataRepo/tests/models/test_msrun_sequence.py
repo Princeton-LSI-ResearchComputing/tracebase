@@ -20,7 +20,7 @@ class MSRunSequenceTests(TracebaseTestCase):
         seq = MSRunSequence(
             researcher="Jerry Seinfeld",
             date=dateutil.parser.parse("11-24-1972").date(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=self.lcm,
         )
         seq.full_clean()
