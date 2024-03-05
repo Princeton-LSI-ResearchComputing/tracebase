@@ -343,10 +343,10 @@ class TracersLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "Tracer number 1 ", str(tl.aggregated_errors_object.exceptions[0])
+            "Tracer Number 1 ", str(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertIn(
-            "one compound is allowed per tracer number",
+            "one Compound Name is allowed per Tracer Number",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -357,14 +357,14 @@ class TracersLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Tracer Number and Tracer Name",
+            "Tracer Name and Tracer Number",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
-            "Tracer number 2 ", str(tl.aggregated_errors_object.exceptions[1])
+            "Tracer Number 2 ", str(tl.aggregated_errors_object.exceptions[1])
         )
         self.assertIn(
-            "one tracer name is allowed per tracer number",
+            "one Tracer Name is allowed per Tracer Number",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
@@ -381,11 +381,11 @@ class TracersLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
-            "Tracer name aspartame-[13C6]",
+            "Tracer Name aspartame-[13C6]",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
-            "one tracer number is allowed per tracer name",
+            "one Tracer Number is allowed per Tracer Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
