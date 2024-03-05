@@ -59,10 +59,8 @@ class InfileError(Exception):
             insertions = [vdict[k] if k != "loc" else loc for k in order]
             if "loc" not in order and len(order) != 4:
                 insertions.append(loc)
-            print(f"MESSAGE: {message}\nINSERTIONS: {insertions}\nORDER: {order}")
             message = message % tuple(insertions)
         else:
-            print(f"MESSAGE: {message}\nLOC: {loc}\n")
             message = message % loc
         super().__init__(message)
         self.loc = loc

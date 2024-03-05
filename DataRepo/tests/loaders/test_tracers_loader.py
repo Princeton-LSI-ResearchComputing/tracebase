@@ -12,8 +12,6 @@ from DataRepo.utils.infusate_name_parser import IsotopeData, TracerData
 class TracersLoaderTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
-    maxDiff = None
-
     LYSINE_TRACER_DATA = TracerData(
         unparsed_string="lysine-[13C6]",
         compound_name="lysine",

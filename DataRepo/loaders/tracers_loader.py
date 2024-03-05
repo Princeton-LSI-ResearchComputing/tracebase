@@ -30,7 +30,7 @@ class TracersLoader(TableLoader):
 
     POSITIONS_DELIMITER = ","
 
-    DataSheetName = "Tissues"
+    DataSheetName = "Tracers"
 
     # The tuple used to store different kinds of data per column at the class level
     DataTableHeaders = namedtuple(
@@ -81,7 +81,7 @@ class TracersLoader(TableLoader):
         COMPOUND_KEY: str,
         ELEMENT_KEY: str,
         MASS_NUMBER_KEY: int,
-        LABEL_COUNT_KEY: str,
+        LABEL_COUNT_KEY: int,
         LABEL_POSITIONS_KEY: str,
         NAME_KEY: str,
     }
@@ -244,6 +244,14 @@ class TracersLoader(TableLoader):
                 ) = self.get_row_data(row)
 
                 if tracer_number is None:
+                    self.aggregated_errors_object.buffer_error(
+                        InfileError(
+                            f"{self.headers.ID} undefined.",
+                            rownum=self.rownum,
+                            file=self.file,
+                            sheet=self.sheet,
+                        )
+                    )
                     self.errored(Tracer.__name__)
                     self.errored(TracerLabel.__name__)
                     continue
@@ -306,6 +314,10 @@ class TracersLoader(TableLoader):
         for tracer_number, entry in self.tracer_dict.items():
             # We are iterating a dict independent of the file rows, so set the row index manually
             self.set_row_index(entry["row_index"])
+
+            if self.is_skip_row():
+                # If the row the tracer name was first obtained from is a skip row, skip it
+                continue
 
             num_labels = len(entry["isotopes"]) if len(entry["isotopes"]) > 0 else 1
 
@@ -395,6 +407,11 @@ class TracersLoader(TableLoader):
         raw_positions = self.get_row_val(row, self.headers.LABELPOSITIONS)
         positions = self.parse_label_positions(raw_positions)
 
+        if tracer_number is None:
+            # Automatically populate the tracer number
+            # Index from 1
+            tracer_number = row.name + 1
+
         retval = (
             tracer_number,
             compound_name,
@@ -404,11 +421,6 @@ class TracersLoader(TableLoader):
             count,
             positions,
         )
-
-        if tracer_number is None:
-            # Automatically populate the tracer number
-            # Index from 1
-            tracer_number = row.name + 1
 
         if tracer_number not in self.tracer_dict.keys():
             # Check for tracer names that map to multiple different tracer numbers
@@ -460,7 +472,8 @@ class TracersLoader(TableLoader):
         Returns:
             Nothing
         """
-        for table_tracer in self.tracer_dict.values():
+        for tracer_number in self.tracer_dict.keys():
+            table_tracer = self.tracer_dict[tracer_number]
             table_tracer_name = table_tracer["tracer_name"]
 
             if table_tracer_name is None:
@@ -488,11 +501,14 @@ class TracersLoader(TableLoader):
 
             fill_in = len(table_tracer["isotopes"]) == 0
             for table_isotope in table_tracer["isotopes"]:
-                match = True
+                match = False
                 for parsed_isotope in parsed_tracer["isotopes"]:
+                    match = False
                     for key in ["element", "mass_number", "count", "positions"]:
                         if table_isotope[key] is None:
                             fill_in = True
+                        elif parsed_isotope[key] == table_isotope[key]:
+                            match = True
                         elif parsed_isotope[key] != table_isotope[key]:
                             match = False
                             break
@@ -507,11 +523,12 @@ class TracersLoader(TableLoader):
                             f"{self.headers.LABELPOSITIONS}: {table_isotope['positions']}",
                         ]
                     )
+                    irows = [ir["rownum"] for ir in table_tracer["isotopes"]]
                     self.aggregated_errors_object.buffer_error(
                         InfileError(
                             (
-                                f"Isotope from columns [{cols}] does not match any of the isotopes parsed from the "
-                                f"tracer name [{table_tracer_name}]: %s"
+                                f"Isotope data from columns [{cols}] on row(s) {irows} does not match any of the "
+                                f"isotopes parsed from the {self.headers.NAME} [{table_tracer_name}] on %s."
                             ),
                             file=self.file,
                             sheet=self.sheet,
@@ -521,12 +538,15 @@ class TracersLoader(TableLoader):
 
             if len(table_tracer["isotopes"]) != len(parsed_tracer["isotopes"]):
                 fill_in = True
+                irows = [ir["rownum"] for ir in table_tracer["isotopes"]]
                 self.aggregated_errors_object.buffer_warning(
                     InfileError(
                         (
-                            f"The number of isotopes from the rows of the table [{len(table_tracer['isotopes'])}] does "
-                            f"not match the number parsed from the tracer name [{table_tracer_name}] on row "
-                            f"[{table_tracer['rownum']}]: %s"
+                            f"There are [{len(table_tracer['isotopes'])}] rows {irows} of data defining isotopes for "
+                            f"{self.headers.NAME} [{table_tracer_name}] in %s, but the number of labels parsed from "
+                            f"the {self.headers.NAME} [{len(parsed_tracer['isotopes'])}] does not match the number of "
+                            f"rows for {self.headers.ID} {tracer_number}.  Perhaps {self.headers.ID} {tracer_number} "
+                            "is on the wrong number of rows?"
                         ),
                         file=self.file,
                         sheet=self.sheet,
@@ -870,10 +890,12 @@ class TracersLoader(TableLoader):
         Returns:
             None
         """
+        # TODO: While all these errors are accurate, it would probably be better to organize them differently and reword
+        #       them to be easier to follow.
         for tracer_number in self.inconsistent_compounds.keys():
             msg = (
-                f"%s:\n\tTracer number {tracer_number} is associated with multiple compounds on the indicated rows.  "
-                "Only one compound is allowed per tracer number.\n\t\t"
+                f"%s:\n\t{self.headers.ID} {tracer_number} is associated with multiple {self.headers.COMPOUND}s on the "
+                f"indicated rows.  Only one {self.headers.COMPOUND} is allowed per {self.headers.ID}.\n\t\t"
             )
             msg += "\n\t\t".join(
                 [
@@ -889,11 +911,15 @@ class TracersLoader(TableLoader):
                     sheet=self.sheet,
                 )
             )
+            for nk in self.inconsistent_compounds[tracer_number].keys():
+                self.add_skip_row_index(
+                    index_list=self.inconsistent_compounds[tracer_number][nk]
+                )
 
         for tracer_number in self.inconsistent_names.keys():
             msg = (
-                f"%s:\n\tTracer number {tracer_number} is associated with multiple tracer names on the indicated "
-                "rows.  Only one tracer name is allowed per tracer number.\n\t\t"
+                f"%s:\n\t{self.headers.ID} {tracer_number} is associated with multiple {self.headers.NAME}s on the "
+                f"indicated rows.  Only one {self.headers.NAME} is allowed per {self.headers.ID}.\n\t\t"
             )
             msg += "\n\t\t".join(
                 [
@@ -904,16 +930,20 @@ class TracersLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    column=f"{self.headers.ID} and {self.headers.NAME}",
+                    column=f"{self.headers.NAME} and {self.headers.ID}",
                     file=self.file,
                     sheet=self.sheet,
                 )
             )
+            for nk in self.inconsistent_names[tracer_number].keys():
+                self.add_skip_row_index(
+                    index_list=self.inconsistent_names[tracer_number][nk]
+                )
 
         for tracer_name in self.inconsistent_numbers.keys():
             msg = (
-                f"%s:\n\tTracer name {tracer_name} is associated with multiple tracer numbers on the indicated rows.  "
-                "rows.  Only one tracer number is allowed per tracer name.\n\t\t"
+                f"%s:\n\t{self.headers.NAME} {tracer_name} is associated with multiple {self.headers.ID}s on the "
+                f"indicated rows.  Only one {self.headers.ID} is allowed per {self.headers.NAME}.\n\t\t"
             )
             msg += "\n\t\t".join(
                 [
@@ -929,6 +959,10 @@ class TracersLoader(TableLoader):
                     sheet=self.sheet,
                 )
             )
+            for nk in self.inconsistent_numbers[tracer_name].keys():
+                self.add_skip_row_index(
+                    index_list=self.inconsistent_numbers[tracer_name][nk]
+                )
 
     def check_tracer_name_consistent(self, rec, entry):
         """Checks for consistency between a dynamically generated tracer name and the one supplied in the file.
