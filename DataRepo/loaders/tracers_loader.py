@@ -802,8 +802,8 @@ class TracersLoader(TableLoader):
     def check_data_is_consistent(
         self,
         tracer_number,
-        compound_str,
-        tracer_str,
+        compound_name,
+        tracer_name,
     ):
         """Ensures that each tracer number is associated with the same compound and tracer name.
 
@@ -828,26 +828,28 @@ class TracersLoader(TableLoader):
             None
         """
         # Make sure that each tracer number is always associated with the same compound
-        if self.tracer_dict[tracer_number]["compound_name"] != compound_str:
+        if self.tracer_dict[tracer_number]["compound_name"] != compound_name:
             if tracer_number not in self.inconsistent_compounds.keys():
                 self.inconsistent_compounds[tracer_number][
                     self.tracer_dict[tracer_number]["compound_name"]
                 ] = [self.tracer_dict[tracer_number]["rownum"]]
-            self.inconsistent_compounds[tracer_number][compound_str].append(self.rownum)
+            self.inconsistent_compounds[tracer_number][compound_name].append(
+                self.rownum
+            )
 
         # Make sure that each tracer number is always associated with the same tracer name
-        if self.tracer_dict[tracer_number]["tracer_name"] != tracer_str:
+        if self.tracer_dict[tracer_number]["tracer_name"] != tracer_name:
             if tracer_number not in self.inconsistent_names.keys():
                 self.inconsistent_names[tracer_number][
                     self.tracer_dict[tracer_number]["tracer_name"]
                 ] = [self.tracer_dict[tracer_number]["rownum"]]
-            self.inconsistent_names[tracer_number][tracer_str].append(self.rownum)
+            self.inconsistent_names[tracer_number][tracer_name].append(self.rownum)
 
         if (
-            tracer_str in self.tracer_name_to_number.keys()
-            and tracer_number not in self.tracer_name_to_number[tracer_str].keys()
+            tracer_name in self.tracer_name_to_number.keys()
+            and tracer_number not in self.tracer_name_to_number[tracer_name].keys()
         ):
-            self.inconsistent_numbers[tracer_str][tracer_number].append(self.rownum)
+            self.inconsistent_numbers[tracer_name][tracer_number].append(self.rownum)
 
     def buffer_consistency_issues(self):
         """Buffers consistency errors.
@@ -961,7 +963,7 @@ class TracersLoader(TableLoader):
             exc = InfileError(
                 (
                     f"The supplied tracer name [{supplied_name}] from row %s does not match the automatically "
-                    f"generated name [{generated_name}] using the data on rows [{data_rownums}]."
+                    f"generated name [{generated_name}] using the data on rows {data_rownums}."
                 ),
                 file=self.file,
                 sheet=self.sheet,

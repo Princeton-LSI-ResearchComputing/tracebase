@@ -5,6 +5,7 @@ import pandas as pd
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Compound, Tracer, TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import InfileError
 from DataRepo.utils.infusate_name_parser import IsotopeData, TracerData
 
 
@@ -209,14 +210,219 @@ class TracersLoaderTests(TracebaseTestCase):
         positions = tl.parse_label_positions("1,2,3,4,5")
         self.assertEqual([1, 2, 3, 4, 5], positions)
 
-    def test_check_data_is_consistent(self):
-        # TODO: Implement test
-        pass
+    def test_tracer_loader_check_data_is_consistent(self):
+        """Assert that tracer name, number, or compound inconsistencies are logged in their respective lists."""
 
-    def test_buffer_consistency_issues(self):
-        # TODO: Implement test
-        pass
+        tl = TracersLoader()
+        tl.init_load()
+        tl.tracer_dict = {
+            1: {
+                "compound_name": "lysine",
+                "isotopes": [
+                    {
+                        "count": None,
+                        "element": None,
+                        "mass_number": None,
+                        "positions": None,
+                        "row_index": 0,
+                        "rownum": 2,
+                    },
+                ],
+                "row_index": 0,
+                "rownum": 2,
+                "tracer_name": "lysine-[13C6]",
+            },
+            2: {
+                "compound_name": "threonine",
+                "isotopes": [
+                    {
+                        "count": None,
+                        "element": None,
+                        "mass_number": None,
+                        "positions": None,
+                        "row_index": 0,
+                        "rownum": 3,
+                    },
+                ],
+                "row_index": 0,
+                "rownum": 3,
+                "tracer_name": "threonine-[13C6]",
+            },
+            3: {
+                "compound_name": "aspartame",
+                "isotopes": [
+                    {
+                        "count": None,
+                        "element": None,
+                        "mass_number": None,
+                        "positions": None,
+                        "row_index": 0,
+                        "rownum": 4,
+                    },
+                ],
+                "row_index": 0,
+                "rownum": 4,
+                "tracer_name": "aspartame-[13C6]",
+            },
+            4: {
+                "compound_name": "aspartame",
+                "isotopes": [
+                    {
+                        "count": None,
+                        "element": None,
+                        "mass_number": None,
+                        "positions": None,
+                        "row_index": 0,
+                        "rownum": 5,
+                    },
+                ],
+                "row_index": 0,
+                "rownum": 5,
+                "tracer_name": "aspartame-[13C6]",
+            },
+        }
+
+        tl.tracer_name_to_number = {
+            "lysine-[13C6]": {1: 2},
+            "threonine-[13C6]": {2: 3},
+            "aspartame-[13C6]": {3: 4},  # Note: see comment below
+        }
+
+        self.assertEqual(0, len(tl.inconsistent_compounds))
+        self.assertEqual(0, len(tl.inconsistent_names))
+        self.assertEqual(0, len(tl.inconsistent_numbers))
+
+        # Check multiple compound names per number
+        tl.rownum = 2  # check_data_is_consistent uses self.rownum
+        tl.check_data_is_consistent(1, "lysine", "lysine-[13C6]")
+        tl.rownum += 1
+        tl.check_data_is_consistent(1, "asparagine", "lysine-[13C6]")
+        self.assertEqual(1, len(tl.inconsistent_compounds))
+
+        # Check multiple tracer names per number
+        tl.rownum += 1
+        tl.check_data_is_consistent(2, "threonine", "threonine-[13C6]")
+        tl.rownum += 1
+        tl.check_data_is_consistent(2, "threonine", "threonine-[14C6]")
+        self.assertEqual(1, len(tl.inconsistent_names))
+
+        # Check multiple tracer numbers per name
+        # Note: check_data_is_consistent is not the only method that updates inconsistent_numbers, so tracer number 4
+        # was intentionally left out of the tracer_name_to_number dict above
+        tl.rownum += 1
+        tl.check_data_is_consistent(3, "aspartame", "aspartame-[13C6]")
+        tl.rownum += 1
+        tl.check_data_is_consistent(4, "aspartame", "aspartame-[13C6]")
+        self.assertEqual(1, len(tl.inconsistent_numbers))
+
+    def test_tracer_loader_buffer_consistency_issues(self):
+        """Assert that an exception is buffered when the tracer name, number, or compound are inconsistent."""
+
+        tl = TracersLoader()
+        tl.init_load()
+
+        # 2 different compound names associated with 1 tracer number
+        tl.inconsistent_compounds[1]["lysine"] = [2]
+        tl.inconsistent_compounds[1]["asparagine"] = [3]
+
+        # 2 different tracer names associated with 1 tracer number
+        tl.inconsistent_names[2]["threonine-[13C6]"] = [4]
+        tl.inconsistent_names[2]["threonine-[14C6]"] = [5]
+
+        # 2 different tracer numbers associated with 1 tracer name
+        tl.inconsistent_numbers["aspartame-[13C6]"][3] = [6]
+        tl.inconsistent_numbers["aspartame-[13C6]"][4] = [7]
+
+        tl.buffer_consistency_issues()
+
+        self.assertEqual(3, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[0]))
+        self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[1]))
+        self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[2]))
+
+        self.assertIn(
+            "Tracer Number and Compound Name",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "Tracer number 1 ", str(tl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertIn(
+            "one compound is allowed per tracer number",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "lysine (on rows: [2])", str(tl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertIn(
+            "asparagine (on rows: [3])", str(tl.aggregated_errors_object.exceptions[0])
+        )
+
+        self.assertIn(
+            "Tracer Number and Tracer Name",
+            str(tl.aggregated_errors_object.exceptions[1]),
+        )
+        self.assertIn(
+            "Tracer number 2 ", str(tl.aggregated_errors_object.exceptions[1])
+        )
+        self.assertIn(
+            "one tracer name is allowed per tracer number",
+            str(tl.aggregated_errors_object.exceptions[1]),
+        )
+        self.assertIn(
+            "threonine-[13C6] (on rows: [4])",
+            str(tl.aggregated_errors_object.exceptions[1]),
+        )
+        self.assertIn(
+            "threonine-[14C6] (on rows: [5])",
+            str(tl.aggregated_errors_object.exceptions[1]),
+        )
+
+        self.assertIn(
+            "Tracer Number and Tracer Name",
+            str(tl.aggregated_errors_object.exceptions[2]),
+        )
+        self.assertIn(
+            "Tracer name aspartame-[13C6]",
+            str(tl.aggregated_errors_object.exceptions[2]),
+        )
+        self.assertIn(
+            "one tracer number is allowed per tracer name",
+            str(tl.aggregated_errors_object.exceptions[2]),
+        )
+        self.assertIn(
+            "3 (on rows: [6])", str(tl.aggregated_errors_object.exceptions[2])
+        )
+        self.assertIn(
+            "4 (on rows: [7])", str(tl.aggregated_errors_object.exceptions[2])
+        )
 
     def test_check_tracer_name_consistent(self):
-        # TODO: Implement test
-        pass
+        """Assert that an exception is buffered when the supplied tracer name doesn't match the DB generated one."""
+
+        rec, _ = Tracer.objects.get_or_create_tracer(self.LYSINE_TRACER_DATA)
+        tl = TracersLoader()
+
+        self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
+
+        with self.assertRaises(InfileError):
+            tl.check_tracer_name_consistent(
+                rec,
+                {
+                    "tracer_name": "lysine-[14C6]",
+                    "rownum": 2,
+                    "isotopes": [{"rownum": 2}],
+                },
+            )
+
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[0]))
+        self.assertIn(
+            "supplied tracer name [lysine-[14C6]]",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "generated name [lysine-[13C6]]",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn("on rows ['2']", str(tl.aggregated_errors_object.exceptions[0]))
