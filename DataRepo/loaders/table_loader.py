@@ -1344,8 +1344,8 @@ class TableLoader(ABC):
                     ExcelSheetsNotFound(
                         unknown_sheets,
                         all_sheet_names,
-                        file=self.defaults_file,
-                        column=self.DefaultsHeaders.SHEET_NAME,
+                        source_file=self.defaults_file,
+                        source_column=self.DefaultsHeaders.SHEET_NAME,
                         source_sheet=self.defaults_sheet,
                     )
                 )
