@@ -1,12 +1,12 @@
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import TissuesLoader
+from DataRepo.utils import SequencesLoader
 
 
 class Command(LoadTableCommand):
-    """Command to load the Tissue model from a table-like file."""
+    """Command to load the Sequence model from a table-like file."""
 
-    help = "Loads data from a tissue table into the database"
-    loader_class = TissuesLoader
+    help = "Loads data from a sequence table into the database"
+    loader_class = SequencesLoader
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.

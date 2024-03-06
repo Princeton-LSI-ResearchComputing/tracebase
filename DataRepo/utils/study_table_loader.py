@@ -1,65 +1,63 @@
 from collections import namedtuple
 
+from django.db import transaction
+
 from DataRepo.models import Study
-from DataRepo.utils.loader import TraceBaseLoader
+from DataRepo.utils.table_loader import TableLoader
 
 
-class StudyTableLoader(TraceBaseLoader):
+class StudyTableLoader(TableLoader):
+    # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     CODE_KEY = "CODE"
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"
 
-    TableHeaders = namedtuple(
-        "TableHeaders",
+    DataSheetName = "Study"
+
+    # The tuple used to store different kinds of data per column at the class level
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
         [
             "CODE",
             "NAME",
             "DESCRIPTION",
         ],
     )
-    DefaultHeaders = TableHeaders(
+
+    # The default header names (which can be customized via yaml file via the corresponding load script)
+    DataHeaders = DataTableHeaders(
         CODE="Study ID",
         NAME="Name",
         DESCRIPTION="Description",
     )
-    RequiredHeaders = TableHeaders(
+
+    # Whether each column is required to be present of not
+    DataRequiredHeaders = DataTableHeaders(
         CODE=True,
         NAME=True,
         DESCRIPTION=True,
     )
-    RequiredValues = RequiredHeaders
-    # No DefaultValues needed
-    # No ColumnTypes needed
-    UniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
-    FieldToHeaderKey = {
+
+    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    DataRequiredValues = DataRequiredHeaders
+
+    # No DataDefaultValues needed
+    # No DataColumnTypes needed
+
+    # Combinations of columns whose values must be unique in the file
+    DataUniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
+
+    # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
+    FieldToDataHeaderKey = {
         "Study": {
             "code": CODE_KEY,
             "name": NAME_KEY,
             "description": DESC_KEY,
         },
     }
+
+    # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Study]
-
-    def __init__(self, *args, **kwargs):
-        """Constructor.
-
-        Args:
-            df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-            headers (Optional[Tableheaders namedtuple]) [DefaultHeaders]: Header names by header key.
-            defaults (Optional[Tableheaders namedtuple]) [DefaultValues]: Default values by header key.
-            dry_run (Optional[boolean]) [False]: Dry run mode.
-            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
-                HANDLE THE ROLLBACK.
-            sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            file (Optional[str]) [None]: File name (for error reporting).
-
-        Raises:
-            Nothing
-
-        Returns:
-            Nothing
-        """
-        super().__init__(*args, **kwargs)
 
     def load_data(self):
         """Loads the study table from the dataframe.
@@ -68,41 +66,62 @@ class StudyTableLoader(TraceBaseLoader):
             None
 
         Raises:
-            Nothing (see TraceBaseLoader._loader() wrapper for exceptions raised by the automatically applied wrapping
-                method)
+            Nothing (explicitly)
 
         Returns:
-            Nothing (see TraceBaseLoader._loader() wrapper for return value from the automatically applied wrapping
-                method)
+            Nothing
         """
-        for index, row in self.df.iterrows():
-            rec_dict = None
-
+        for _, row in self.df.iterrows():
             try:
-                code = self.get_row_val(row, self.headers.CODE)
-                name = self.get_row_val(row, self.headers.NAME)
-                description = self.get_row_val(row, self.headers.DESCRIPTION)
+                self.get_or_create_study(row)
+            except Exception:
+                # Exception handling was handled in get_or_create_protocol
+                # Continue processing rows to find more errors
+                pass
 
-                rec_dict = {
-                    "code": code,
-                    "name": name,
-                    "description": description,
-                }
+    @transaction.atomic
+    def get_or_create_study(self, row):
+        """Get or create a study record and buffer exceptions before raising.
 
-                # get_row_val can add to skip_row_indexes when there is a missing required value
-                if self.is_skip_row():
-                    self.errored()
-                    continue
+        Args:
+            row (pandas dataframe row)
 
-                study_rec, created = Study.objects.get_or_create(**rec_dict)
+        Raises:
+            Nothing (explicitly)
 
-                if created:
-                    study_rec.full_clean()
-                    self.created()
-                else:
-                    self.existed()
+        Returns:
+            Nothing
+        """
+        rec_dict = None
 
-            except Exception as e:
-                # Package errors (like IntegrityError and ValidationError) with relevant details
-                self.handle_load_db_errors(e, Study, rec_dict)
+        try:
+            code = self.get_row_val(row, self.headers.CODE)
+            name = self.get_row_val(row, self.headers.NAME)
+            description = self.get_row_val(row, self.headers.DESCRIPTION)
+
+            rec_dict = {
+                "code": code,
+                "name": name,
+                "description": description,
+            }
+
+            # get_row_val can add to skip_row_indexes when there is a missing required value
+            if self.is_skip_row():
                 self.errored()
+                return
+
+            study_rec, created = Study.objects.get_or_create(**rec_dict)
+
+            if created:
+                study_rec.full_clean()
+                self.created()
+            else:
+                self.existed()
+
+        except Exception as e:
+            # Package errors (like IntegrityError and ValidationError) with relevant details
+            # This also updates the skip row indexes
+            self.handle_load_db_errors(e, Study, rec_dict)
+            self.errored()
+            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            raise e

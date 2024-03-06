@@ -20,6 +20,12 @@ from django.apps import AppConfig
 #        class MyTestClass(TestCase):
 #            pass
 #
+# REQUIREMENTS:
+# Note that if you use django 3.2, you will get psycopg2 SQL errors with respect to the temporary models when you run
+# any tests that use them.
+#
+# - django>=4.2
+#
 # REFERENCES:
 # - https://docs.djangoproject.com/en/dev/internals/contributing/writing-code/unit-tests/#isolating-model-registration
 # - https://stackoverflow.com/a/76400577/2057516

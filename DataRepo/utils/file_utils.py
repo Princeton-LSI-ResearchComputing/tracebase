@@ -1,5 +1,6 @@
 import pathlib
 from collections import defaultdict
+from datetime import datetime
 from zipfile import BadZipFile
 
 import pandas as pd
@@ -7,7 +8,13 @@ import yaml
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
-from DataRepo.utils.exceptions import DuplicateHeaders, InvalidHeaders
+from DataRepo.utils.exceptions import (
+    DateParseError,
+    DuplicateFileHeaders,
+    InvalidDtypeDict,
+    InvalidDtypeKeys,
+    InvalidHeaders,
+)
 
 
 def read_from_file(
@@ -39,35 +46,8 @@ def read_from_file(
         Pandas dataframe of parsed and processed infile data.
         Or, if the filetype is yaml, returns a python object.
     """
-    filetypes = ["csv", "tsv", "excel", "yaml"]
-    extensions = {
-        "csv": "csv",
-        "tsv": "tsv",
-        "xlsx": "excel",
-        "yaml": "yaml",
-        "yml": "yaml",
-    }
+    filetype = _get_file_type(filepath, filetype=filetype)
     retval = None
-
-    if filetype is None:
-        ext = pathlib.Path(filepath).suffix.strip(".")
-        if ext in extensions.keys():
-            filetype = extensions[ext]
-        elif ext not in extensions.keys():
-            if is_excel(filepath):
-                filetype = "excel"
-            else:
-                raise CommandError(
-                    'Invalid file extension: "%s", expected one of %s',
-                    extensions.keys(),
-                    ext,
-                )
-    elif filetype not in filetypes:
-        raise CommandError(
-            'Invalid file type: "%s", expected one of %s',
-            filetypes,
-            filetype,
-        )
 
     if filetype == "excel":
         retval = _read_from_xlsx(
@@ -100,7 +80,102 @@ def read_from_file(
     elif filetype == "yaml":
         retval = _read_from_yaml(filepath)
 
+    # Error-check the dtype argument supplied
+    if dtype is not None and len(dtype.keys()) > 0 and retval is not None:
+        # This assumes the retval is a dataframe
+        missing = []
+        for dtk in dtype.keys():
+            if dtk not in retval.columns:
+                missing.append(dtk)
+        if len(missing) == len(dtype.keys()):
+            # None of the keys are present in the dataframe
+            # Raise programming errors immediately
+            raise InvalidDtypeDict(
+                dtype,
+                file=filepath,
+                sheet=sheet,
+                columns=list(retval.columns),
+            )
+        elif len(missing) > 0:
+            idk = InvalidDtypeKeys(
+                missing,
+                file=filepath,
+                sheet=sheet,
+                columns=list(retval.columns),
+            )
+            # Some columns may be optional, so if at least 1 is correct, just issue a warning.
+            print(f"WARNING: {type(idk).__name__}: {idk}")
+
     return retval
+
+
+def read_headers_from_file(
+    filepath,
+    sheet=0,
+    filetype=None,
+):
+    """Converts either an excel or tab delimited file into a dataframe.
+
+    Args:
+        filepath (str): Path to infile
+        sheet (str): Name of excel sheet
+        filetype (str): Enumeration ["csv", "tsv", "excel", "yaml"]
+        expected_headers (List(str)): List of all expected header names
+
+    Raises:
+        CommandError
+
+    Returns:
+        headers (list of string)
+    """
+    filetype = _get_file_type(filepath, filetype=filetype)
+    retval = None
+
+    if filetype == "excel":
+        retval = _read_headers_from_xlsx(filepath, sheet=sheet)
+    elif filetype == "tsv":
+        retval = _read_headers_from_tsv(filepath)
+    elif filetype == "csv":
+        retval = _read_headers_from_csv(filepath)
+    elif filetype == "yaml":
+        raise CommandError(
+            'Invalid file type: "%s", yaml files do not have headers', filetype
+        )
+
+    return retval
+
+
+def _get_file_type(filepath, filetype=None):
+    filetypes = ["csv", "tsv", "excel", "yaml"]
+    extensions = {
+        "csv": "csv",
+        "tsv": "tsv",
+        "xlsx": "excel",
+        "yaml": "yaml",
+        "yml": "yaml",
+    }
+
+    if filetype is None:
+        ext = pathlib.Path(filepath).suffix.strip(".")
+        if ext in extensions.keys():
+            filetype = extensions[ext]
+        elif ext not in extensions.keys():
+            if is_excel(filepath):
+                filetype = "excel"
+            else:
+                raise CommandError(
+                    'Invalid file extension: "%s", expected one of %s',
+                    ext,
+                    extensions.keys(),
+                )
+    elif filetype not in filetypes:
+        raise CommandError(
+            'Invalid file type: "%s", expected one of %s',
+            filetype,
+            filetypes,
+        )
+
+    return filetype
 
 
 def _read_from_yaml(filepath):
@@ -118,15 +193,23 @@ def _read_from_xlsx(
     na_values=None,
 ):
     sheet_name = sheet
+    orig_sheet = sheet
     sheets = pd.ExcelFile(filepath, engine="openpyxl").sheet_names
-    if str(sheet_name) not in sheets:
+    if sheet_name is None or str(sheet_name) not in sheets:
         sheet_name = 0
 
-    validate_headers(
-        filepath,
-        _read_headers_from_xlsx(filepath, sheet=sheet_name),
-        expected_headers,
-    )
+    try:
+        validate_headers(
+            filepath,
+            _read_headers_from_xlsx(filepath, sheet=sheet_name),
+            expected_headers,
+        )
+    except IndexError as ie:
+        if orig_sheet is None or orig_sheet not in sheets:
+            raise ValueError(
+                f"Valid sheet name required for file {filepath}.  {orig_sheet} supplied."
+            )
+        raise ie
 
     kwargs = {
         "sheet_name": sheet_name,  # The first sheet
@@ -139,6 +222,15 @@ def _read_from_xlsx(
         kwargs["na_values"] = na_values
 
     df = pd.read_excel(filepath, **kwargs)
+
+    if dtype is not None:
+        # astype() requires the keys be present in the columns (as opposed to dtype)
+        astype = {}
+        for k, v in dtype.items():
+            if k in df.columns:
+                astype[k] = v
+        if len(astype.keys()) > 0:
+            df = df.astype(astype)
 
     if keep_default_na or na_values is not None:
         dropna = False
@@ -239,7 +331,7 @@ def validate_headers(filepath, headers, expected_headers=None):
     not_unique, nuniqs, nall = _headers_are_not_unique(headers)
 
     if not_unique:
-        raise DuplicateHeaders(filepath, nall, nuniqs)
+        raise DuplicateFileHeaders(filepath, nall, nuniqs, headers)
 
     if expected_headers is not None and not headers_are_as_expected(
         expected_headers, headers
@@ -249,23 +341,27 @@ def validate_headers(filepath, headers, expected_headers=None):
 
 def _read_headers_from_xlsx(filepath, sheet=0):
     sheet_name = sheet
-    sheets = pd.ExcelFile(filepath, engine="openpyxl").sheet_names
+    sheets = get_sheet_names(filepath)
     if str(sheet_name) not in sheets:
         sheet_name = 0
 
     # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
     # checking for duplicate headers manually here.
-    return (
+    raw_headers = (
         pd.read_excel(
             filepath,
             nrows=1,  # Read only the first row
             header=None,
-            sheet_name=sheet_name,  # The first sheet
+            sheet_name=sheet_name,
             engine="openpyxl",
         )
         .squeeze("columns")
         .iloc[0]
     )
+    # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
+    if type(raw_headers) == str:
+        return [raw_headers]
+    return raw_headers.to_list()
 
 
 def _read_headers_from_tsv(filepath):
@@ -381,7 +477,7 @@ def _headers_are_not_unique(headers):
     return False, num_uniq_heads, num_heads
 
 
-# TODO: When the SampleTableLoader is converted to a derived class of TraceBaseLoader, remove this method
+# TODO: When the SampleTableLoader is converted to a derived class of TableLoader, remove this method
 def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     """Find combination duplicates from file table data.
 
@@ -437,3 +533,36 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
             all_row_idxs_with_dupes += row_list
 
     return dupe_dict, all_row_idxs_with_dupes
+
+
+def string_to_datetime(
+    date_str, format_str=None, file=None, sheet=None, rownum=None, column=None
+):
+    if type(date_str) != str:
+        # Raise a programming error immediately
+        raise TypeError(
+            f"date_str {date_str} must be a string, but got {type(date_str)}"
+        )
+
+    if format_str is None:
+        # This format assumes that the date_str is from an excel column with converted dates
+        format_str = "%Y-%m-%d"
+        # Note, excel "general" columns detect and covert what looks like dates to '%Y-%m-%d' with " 00:00:00" appended
+        # This replaces " 00:00:00" with an empty string to avoid a ValueError exception
+        date_str = date_str.replace(" 00:00:00", "")
+
+    try:
+        dt = datetime.strptime(date_str.strip(), format_str)
+    except ValueError as ve:
+        if "unconverted data remains" in str(ve):
+            raise DateParseError(
+                date_str,
+                ve,
+                format=format_str,
+                file=file,
+                sheet=sheet,
+                rownum=rownum,
+                column=column,
+            )
+        raise ve
+    return dt

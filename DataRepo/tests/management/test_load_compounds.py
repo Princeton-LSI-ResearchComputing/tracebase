@@ -67,7 +67,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         call_command(
             "load_compounds",
             infile="DataRepo/data/tests/compounds/c182_things.xlsx",
-            sheet="Things",
+            data_sheet="Things",
         )
         Compound.objects.get(name__exact="C18:2")
 

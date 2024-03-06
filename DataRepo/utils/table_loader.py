@@ -1,0 +1,1989 @@
+import re
+from abc import ABC, abstractmethod
+from collections import defaultdict, namedtuple
+from typing import Dict, Optional, Type
+
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.db.models import Model, Q
+
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConflictingValueError,
+    ConflictingValueErrors,
+    DryRun,
+    DuplicateHeaders,
+    DuplicateValueErrors,
+    DuplicateValues,
+    ExcelSheetsNotFound,
+    InfileDatabaseError,
+    InvalidHeaderCrossReferenceError,
+    NoLoadData,
+    RequiredColumnValue,
+    RequiredColumnValues,
+    RequiredHeadersError,
+    RequiredValueError,
+    RequiredValueErrors,
+    UnknownHeadersError,
+    generate_file_location_string,
+)
+from DataRepo.utils.file_utils import (
+    get_column_dupes,
+    get_sheet_names,
+    is_excel,
+)
+
+
+class TableLoader(ABC):
+    """Class to be used as a superclass for defining a (derived) loader class used to load a (sheet of) an input file.
+
+    Class Attributes:
+        DataTableHeaders (namedtuple): Defines the header keys.
+        DataHeaders (DataTableHeaders of strings): Default header names by header key.
+        DataRequiredHeaders (DataTableHeaders of booleans): Whether a file column is required to be present in the input
+            file, indexed by header key.
+        DataRequiredValues (DataTableHeaders of booleans): Whether a value on a row in a file column is required to be
+            present in the input file, indexed by header key.
+        DataUniqueColumnConstraints (list of lists of strings): Sets of unique column name combinations defining what
+            values must be unique in the file.
+        FieldToDataHeaderKey (dict): Header keys by field name.
+        DataColumnTypes (Optional[dict]): Column value types by header key.
+        DataDefaultValues (Optional[DataTableHeaders of objects]): Column default values by header key.  Auto-filled.
+        Models (list of Models): List of model classes.
+
+    Instance Attributes:
+        headers (DataTableHeaders of strings): Customized header names by header key.
+        defaults (DataTableHeaders of objects): Customized default values by header key.
+        all_headers (list of strings): Customized header names.
+        reqd_headers (DataTableHeaders of booleans): Required header booleans.
+        FieldToHeader (dict of dicts of strings): Header names by model and field.
+        unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
+        dry_run (boolean) [False]: Dry Run mode.
+        defer_rollback (boolean) [False]: Defer rollback mode.
+        sheet (str): Name of excel sheet to be loaded.
+        file (str): Name of file to be loaded.
+    """
+
+    # NOTE: Abstract method and properties(/class attributes) must be initialized in the derived class.
+    #       See TissuesLoader for a concrete example.
+
+    @property
+    @abstractmethod
+    def Models(self):
+        # list of Model classes that will be loaded
+        pass
+
+    @property
+    @abstractmethod
+    def DataSheetName(self):
+        # str
+        pass
+
+    @property
+    @abstractmethod
+    def DataTableHeaders(self):
+        # namedtuple spec
+        pass
+
+    @property
+    @abstractmethod
+    def DataHeaders(self):
+        # namedtuple of strings
+        pass
+
+    @property
+    @abstractmethod
+    def DataRequiredHeaders(self):
+        # namedtuple of booleans
+        pass
+
+    @property
+    @abstractmethod
+    def DataRequiredValues(self):
+        # namedtuple of booleans
+        pass
+
+    @property
+    @abstractmethod
+    def DataUniqueColumnConstraints(self):
+        # list of lists of header keys (e.g. the values in DataTableHeaders)
+        pass
+
+    @property
+    @abstractmethod
+    def FieldToDataHeaderKey(self):
+        # dict of model dicts of field names and header keys
+        pass
+
+    @abstractmethod
+    def load_data(self):
+        """Derived classes must implement a load_data method that does the work of the load.
+        Args:
+            None
+        Raises:
+            TBD by the derived class
+        Returns:
+            Nothing
+        """
+        pass
+
+    # DataDefaultValues is populated automatically (with Nones)
+    DataDefaultValues: Optional[tuple] = None  # namedtuple
+
+    # DataColumnTypes is optional unless read_from_file needs a dtype argument
+    # (converted to by-header-name in get_column_types)
+    DataColumnTypes: Optional[
+        Dict[str, Type[str]]
+    ] = None  # dict of types by header key
+
+    # For the defaults sheet...
+    DefaultsSheetName = "Defaults"
+
+    # The keys for the headers in the "Defaults" sheet.
+    DefaultsTableHeaders = namedtuple(
+        "DefaultsTableHeaders",
+        [
+            "SHEET_NAME",
+            "COLUMN_NAME",
+            "DEFAULT_VALUE",
+        ],
+    )
+
+    # These are the headers for the "Defaults" sheet.  These are not customizable.
+    DefaultsHeaders = DefaultsTableHeaders(
+        SHEET_NAME="Sheet Name",
+        COLUMN_NAME="Column Header",
+        DEFAULT_VALUE="Default Value",
+    )
+
+    def __init__(
+        self,
+        df=None,
+        dry_run=False,
+        defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
+        file=None,
+        data_sheet=None,
+        defaults_df=None,
+        defaults_sheet=None,
+        defaults_file=None,
+        user_headers=None,
+        headers=None,
+        defaults=None,
+    ):
+        """Constructor.
+
+        Note, headers and defaults are intended for copying custom values from one object to another.
+
+        Args:
+            df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
+            dry_run (Optional[boolean]) [False]: Dry run mode.
+            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
+                HANDLE THE ROLLBACK.
+            data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+            file (Optional[str]) [None]: File name (for error reporting).
+            user_headers (Optional[dict]): Header names by header key.
+            defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
+            defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+            headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+            defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        # Check class attribute validity
+        self.check_class_attributes()
+
+        # Apply the loader decorator to the load_data method in the derived class
+        self.apply_loader_wrapper()
+
+        # File data
+        self.df = df
+        self.defaults_df = defaults_df
+
+        # For retrieving data from df
+        self.user_headers = user_headers
+
+        # Running Modes
+        self.dry_run = dry_run
+        self.defer_rollback = defer_rollback
+
+        # Error tracking
+        self.skip_row_indexes = []
+        self.aggregated_errors_object = AggregatedErrors()
+
+        # For error reporting
+        self.file = file
+        self.sheet = data_sheet
+        self.defaults_file = defaults_file
+        self.defaults_sheet = defaults_sheet
+
+        # This is for preserving derived class headers and defaults
+        self.headers = headers
+        self.defaults = defaults
+
+        # Metadata
+        self.initialize_metadata()
+
+    def apply_loader_wrapper(self):
+        """This applies a decorator to the derived class's load_data method.
+
+        See:
+
+        https://stackoverflow.com/questions/72666230/wrapping-derived-class-method-from-base-class
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        # Apply the _loader decorator to the load_data method in the derived class
+        decorated_derived_class_method = self._loader()(getattr(self, "load_data"))
+        # Get the binding for the decorated method
+        bound = decorated_derived_class_method.__get__(self, None)
+        # Apply the binding to the handle method in the object
+        setattr(self, "load_data", bound)
+
+    def set_row_index(self, index):
+        """Sets row_index and rownum instance attributes.
+
+        Args:
+            index (int)
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.row_index = index
+        self.rownum = index + 2
+
+    def is_skip_row(self, index=None):
+        """Determines if the current row is one that should be skipped.
+
+        Various methods will append the current row index to self.skip_row_indexes, such as when errors occur on that
+        row.  The current row is set whenever get_row_val is called.  Call this method after all of the row values have
+        been obtained to see if loading of the data from this row should be skipped (in order to avoid unnecessary
+        errors).  The ultimate goal here is to suppress repeating errors.  You can use add_skip_row_index to manually
+        add row indexes that should be skipped.
+
+        Args:
+            index (Optional[int]): A manually supplied row index
+
+        Raises:
+            Nothing
+
+        Returns:
+            boolean: Whether the row should be skipped or not
+        """
+        check_index = index if index is not None else self.row_index
+        return check_index in self.get_skip_row_indexes()
+
+    def get_headers(self):
+        """Returns current headers.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            headers (namedtuple of DataTableHeaders)
+        """
+        if hasattr(self, "headers") and self.headers is not None:
+            return self.headers
+        return self.DataHeaders
+
+    def set_headers(self, custom_headers=None):
+        """Sets instance's header names.  If no custom headers are provided, it reverts to class defaults.
+
+        This method sets the following instance attributes because they involve header names (not header keys), so
+        anytime the header names are updated or changed, these need to be reset:
+
+        - headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
+        - all_headers (list of strings): Customized header names.
+        - reqd_headers (DataTableHeaders namedtuple of booleans): Required header booleans by header name.
+        - FieldToHeader (dict of dicts of strings): Header names by model and field.
+        - unique_constraints (list of lists of strings): Header name combos whose columns must be unique.
+        - reqd_values (DataTableHeaders namedtuple of booleans): Required value booleans by header name.
+        - defaults_by_header (dict): Default values by header name.
+        - reverse_headers (dict): Header keys by header name.
+
+        Args:
+            custom_headers (dict): Header names by header key
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.headers = self._merge_headers(custom_headers)
+
+        # Create a list of all header string values from a namedtuple of header key/value pairs
+        self.all_headers = list(self.headers._asdict().values())
+
+        # Create a dict of header names that map to header key (a reverse lookup)
+        duphns = defaultdict(int)
+        self.reverse_headers = {}
+        for hk, hn in self.headers._asdict().items():
+            if hn in self.reverse_headers.keys():
+                duphns[hn] += 1
+                continue
+            self.reverse_headers[hn] = hk
+        if len(duphns) > 0:
+            for k in duphns.keys():
+                duphns[k] += 1
+            self.aggregated_errors_object.buffer_error(
+                DuplicateHeaders(duphns, self.all_headers)
+            )
+
+        # Create a dict of database field keys to header names, from a dict of field name keys and header keys
+        self.FieldToHeader = defaultdict(lambda: defaultdict(str))
+        for mdl in self.FieldToDataHeaderKey.keys():
+            for fld, hk in self.FieldToDataHeaderKey[mdl].items():
+                self.FieldToHeader[mdl][fld] = getattr(self.headers, hk)
+
+        # Create a list of the required header string values from a namedtuple of header key/value pairs
+        self.reqd_headers = [
+            getattr(self.headers, hk)
+            for hk in list(self.headers._asdict().keys())
+            if getattr(self.DataRequiredHeaders, hk)
+        ]
+
+        # Create a list of header string values for columns whose values are required, from a namedtuple of header key/
+        # value pairs
+        self.reqd_values = [
+            getattr(self.headers, hk)
+            for hk in list(self.headers._asdict().keys())
+            if getattr(self.DataRequiredValues, hk)
+        ]
+
+        # Create a list lists of header string values whose combinations must be unique, from a list of lists of header
+        # keys
+        self.unique_constraints = []
+        for header_list_combo in self.DataUniqueColumnConstraints:
+            self.unique_constraints.append([])
+            for header_key in header_list_combo:
+                header_val = getattr(self.headers, header_key)
+                self.unique_constraints[-1].append(header_val)
+
+        # Now create a defaults by header name dict (for use by get_row_val)
+        self.defaults_by_header = self.get_defaults_dict_by_header_name()
+
+    def _merge_headers(self, custom_headers=None):
+        """Merges user, developer (custom headers), and class headers hierarchically.
+
+        Args:
+            custom_headers (dict): Header names by header key
+
+        Raises:
+            AggregatedErrors
+                TypeError
+                ValueError
+
+        Returns:
+            headers (namedtuple of DataTableHeaders)
+        """
+        # The starting headers are those previously set or defined by the class
+        if hasattr(self, "headers") and self.headers is not None:
+            final_custom_headers = self.headers
+        else:
+            final_custom_headers = self.DataHeaders
+
+        # custom headers can be trumped by user headers, so we will set the custom headers next, overwriting anything
+        # set in the class
+        extras = []
+        if custom_headers is not None:
+            if type(custom_headers) != dict:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
+                raise self.aggregated_errors_object.buffer_error(
+                    TypeError(
+                        f"Invalid argument: [custom_header_data] dict required, {type(custom_headers)} supplied."
+                    )
+                )
+
+            new_dh_dict = final_custom_headers._asdict()
+            for hk in custom_headers.keys():
+                if hk in new_dh_dict.keys():
+                    # If None was sent in as a value, fall back to the default so that errors about this header (e.g.
+                    # default values of required headers) reference *something*.
+                    if custom_headers[hk] is not None:
+                        new_dh_dict[hk] = custom_headers[hk]
+                else:
+                    extras.append(hk)
+
+            # Raise programming errors immediately
+            if len(extras) > 0:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
+                raise self.aggregated_errors_object.buffer_error(
+                    ValueError(
+                        f"Unexpected header keys: {extras} in custom_headers argument."
+                    )
+                )
+
+            final_custom_headers = final_custom_headers._replace(**new_dh_dict)
+
+        # If user headers are defined, overwrite anything previously set with them
+        if self.user_headers is not None:
+            new_uh_dict = final_custom_headers._asdict()
+            # To support incomplete headers dicts
+            for hk in self.user_headers.keys():
+                if hk in new_uh_dict.keys():
+                    new_uh_dict[hk] = self.user_headers[hk]
+                else:
+                    extras.append(hk)
+
+            # Raise programming errors immediately
+            if len(extras) > 0:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
+                raise self.aggregated_errors_object.buffer_error(
+                    ValueError(f"Unexpected header keys: {extras} in user headers.")
+                )
+
+            final_custom_headers = final_custom_headers._replace(**new_uh_dict)
+
+        # The loader_class method get_headers will merge the custom headers
+        return final_custom_headers
+
+    def get_pretty_headers(self):
+        """Generate a list of header strings, with appended asterisks if required, and a message about the asterisks.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            pretty_headers (string)
+        """
+        if hasattr(self, "headers") and self.headers is not None:
+            headers = self.headers
+        else:
+            headers = self.DataHeaders
+
+        msg = "(* = Required)"
+        pretty_headers = []
+        for hk in list(headers._asdict().keys()):
+            reqd = getattr(self.DataRequiredHeaders, hk)
+            pretty_header = getattr(headers, hk)
+            if reqd:
+                pretty_header += "*"
+            pretty_headers.append(pretty_header)
+
+        return f"[{', '.join(pretty_headers)}] {msg}"
+
+    @classmethod
+    def get_header_keys(cls):
+        """Generate a list of header keys.
+
+        Note, this method calls check_class_attributes to ensure the derived class is completely defined since that
+        check is only otherwise called during object instantiation.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            keys (list of strings)
+        """
+        cls.check_class_attributes()
+
+        keys = []
+        for hk in list(cls.DataHeaders._asdict().keys()):
+            keys.append(hk)
+
+        return keys
+
+    def get_defaults(self):
+        """Returns the current default values.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            defaults (Optional[namedtuple of DataTableHeaders])
+        """
+        if hasattr(self, "defaults") and self.defaults is not None:
+            return self.defaults
+        return self.DataDefaultValues
+
+    def set_defaults(self, custom_defaults=None):
+        """Updates an instance's default values, taking derived class defaults and user defaults into account.
+
+        This method sets the following instance attributes because they involve header names (not header keys):
+
+        - defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
+        - defaults_by_header (dict): Default values by header name.
+
+        Args:
+            custom_defaults (dict): Default values by header key
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.defaults = self._merge_defaults(custom_defaults)
+
+        # Now create a defaults by header name dict (for use by get_row_val)
+        self.defaults_by_header = self.get_defaults_dict_by_header_name()
+
+    def _merge_defaults(self, custom_defaults):
+        """Merges base class, derived class, and user defaults hierarchically, returning the merged result.
+
+        This method also sets the following instance attributes because they involve header names (not header keys):
+
+        - defaults_by_header
+
+        Args:
+            custom_defaults (dict): Default values by header key
+
+        Raises:
+            AggregatedErrors
+                TypeError
+                ValueError
+
+        Returns:
+            defaults (Optional[namedtuple of DataTableHeaders])
+        """
+        if hasattr(self, "defaults") and self.defaults is not None:
+            final_defaults = self.defaults
+        else:
+            final_defaults = self.DataDefaultValues
+
+        extras = []
+        if custom_defaults is not None:
+            if type(custom_defaults) != dict:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
+                raise self.aggregated_errors_object.buffer_error(
+                    TypeError(
+                        f"Invalid argument: [custom_default_data] dict required, {type(custom_defaults)} supplied."
+                    )
+                )
+
+            new_dv_dict = final_defaults._asdict()
+            for hk in custom_defaults.keys():
+                if hk in new_dv_dict.keys():
+                    new_dv_dict[hk] = custom_defaults[hk]
+                else:
+                    extras.append(hk)
+
+            # Raise programming errors immediately
+            if len(extras) > 0:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
+                raise self.aggregated_errors_object.buffer_error(
+                    ValueError(
+                        f"Unexpected default keys: {extras} in custom_defaults argument."
+                    )
+                )
+
+            final_defaults = final_defaults._replace(**new_dv_dict)
+
+        # If user defaults are defined, overwrite anything previously set with them
+        extras = []
+        tmp_user_defaults = self.get_user_defaults()
+        if tmp_user_defaults is not None:
+            user_defaults = self.header_name_to_key(tmp_user_defaults)
+            new_ud_dict = final_defaults._asdict()
+            # To support incomplete headers dicts
+            for hk in user_defaults.keys():
+                if hk in new_ud_dict.keys():
+                    new_ud_dict[hk] = user_defaults[hk]
+                else:
+                    extras.append(hk)
+
+            # Raise programming errors immediately
+            if len(extras) > 0:
+                # We create an aggregated errors object in class methods because we may not have an instance with one
+                raise self.aggregated_errors_object.buffer_error(
+                    ValueError(
+                        f"Unexpected default keys: {extras} in user defaults.  Expected: {list(new_ud_dict.keys())}"
+                    )
+                )
+
+            final_defaults = final_defaults._replace(**new_ud_dict)
+
+        return final_defaults
+
+    @classmethod
+    def check_class_attributes(cls):
+        """Checks that the class and instance attributes are properly defined and initialize optional ones.
+
+        Checks the type of:
+            Models (class attribute, list of Model classes): Must contain at least 1 model class
+            DataHeaders (class attribute, namedtuple of DataTableHeaders of strings)
+            DataRequiredHeaders (class attribute, namedtuple of DataTableHeaders of booleans)
+            DataRequiredValues (class attribute, namedtuple of DataTableHeaders of booleans)
+            DataUniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
+            FieldToDataHeaderKey (class attribute, dict): Header keys by field name
+            DataColumnTypes (class attribute, Optional[dict]): Column value types by header key
+            DataDefaultValues (Optional[namedtuple of DataTableHeaders of objects]): Column default values by header key
+
+        Fills in default None values for header keys in DataDefaultValues.
+
+        Args:
+            None
+
+        Raises:
+            AggregatedErrors
+                ValueError
+                TypeError
+
+        Returns:
+            Nothing
+        """
+        # We create an aggregated errors object in class methods because we may not have an instance with one
+        aes = AggregatedErrors()
+        # Error check the derived class for required attributes
+        typeerrs = []
+
+        try:
+            if not cls.isnamedtupletype(cls.DataTableHeaders):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataTableHeaders] (namedtuple) type required, "
+                    f"{type(cls.DataTableHeaders)} set"
+                )
+
+            if not cls.isnamedtupletype(cls.DefaultsTableHeaders):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DefaultsTableHeaders] (namedtuple) type required, "
+                    f"{type(cls.DefaultsTableHeaders)} set"
+                )
+
+            if type(cls.DataSheetName) != str:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataSheetName] str required, {type(cls.DataSheetName)} set"
+                )
+
+            if type(cls.DefaultsSheetName) != str:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DefaultsSheetName] str required, {type(cls.DefaultsSheetName)} set"
+                )
+
+            if not cls.isnamedtuple(cls.DataHeaders):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataHeaders] namedtuple required, {type(cls.DataHeaders)} set"
+                )
+
+            if not cls.isnamedtuple(cls.DataHeaders):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataRequiredHeaders] namedtuple required, "
+                    f"{type(cls.DataRequiredHeaders)} set"
+                )
+
+            if not cls.isnamedtuple(cls.DataRequiredValues):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataRequiredValues] namedtuple required, "
+                    f"{type(cls.DataRequiredValues)} set"
+                )
+
+            if type(cls.DataUniqueColumnConstraints) != list:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataUniqueColumnConstraints] list required, "
+                    f"{type(cls.DataUniqueColumnConstraints)} set"
+                )
+
+            if type(cls.FieldToDataHeaderKey) != dict:
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.FieldToDataHeaderKey] dict required, {type(cls.FieldToDataHeaderKey)} "
+                    "set"
+                )
+
+            valid_types = False
+            # DataColumnTypes is optional.  Allow to be left as None.
+            if cls.DataColumnTypes is not None:
+                valid_types = True
+                if type(cls.DataColumnTypes) != dict:
+                    typeerrs.append(
+                        f"attribute [{cls.__name__}.DataColumnTypes] dict required, {type(cls.DataColumnTypes)} set"
+                    )
+                    valid_types = False
+                elif cls.DataHeaders is not None:
+                    # If the DataHeaders was correctly set, check further to validate the dict
+                    for hk in cls.DataColumnTypes.keys():
+                        if hk in cls.DataHeaders._asdict().keys():
+                            if type(cls.DataColumnTypes[hk]) != type:
+                                typeerrs.append(
+                                    f"dict attribute [{cls.__name__}.DataColumnTypes] must have values that are types, "
+                                    f"but key [{hk}] has {type(cls.DataColumnTypes[hk])}"
+                                )
+                                valid_types = False
+                        else:
+                            typeerrs.append(
+                                f"dict attribute [{cls.__name__}.DataColumnTypes] has an invalid key: [{hk}].  Keys "
+                                f"must be one of {list(cls.DataHeaders._asdict().keys())}"
+                            )
+                            valid_types = False
+
+            if cls.DataDefaultValues is None:
+                # DataDefaultValues is optional (not often used/needed). Set all to None using DataHeaders
+                if cls.DataHeaders is not None:
+                    # Initialize the same "keys" as the DataHeaders, then set all values to None
+                    dv_dict = cls.DataHeaders._asdict()
+                    for hk in dv_dict.keys():
+                        dv_dict[hk] = None
+                    cls.DataDefaultValues = cls.DataHeaders._replace(**dv_dict)
+            elif not cls.isnamedtuple(cls.DataDefaultValues):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataDefaultValues] namedtuple required, {type(cls.DataDefaultValues)} "
+                    "set"
+                )
+            elif valid_types:
+                # Check the types of the default values
+                for hk in cls.DataDefaultValues._asdict().keys():
+                    if hk in cls.DataColumnTypes.keys():
+                        dv = getattr(cls.DataDefaultValues, hk)
+                        dv_type = type(dv)
+                        if (
+                            cls.DataColumnTypes[hk] is not None
+                            and dv is not None
+                            and dv_type != cls.DataColumnTypes[hk]
+                        ):
+                            typeerrs.append(
+                                f"attribute [{cls.__name__}.DataDefaultValues.{hk}] {cls.DataColumnTypes[hk].__name__} "
+                                f"required (according to {cls.__name__}.DataColumnTypes['{hk}']), but "
+                                f"{dv_type.__name__} set"
+                            )
+
+            if not cls.isnamedtuple(cls.DefaultsHeaders):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DefaultsHeaders] namedtuple required, "
+                    f"{type(cls.DefaultsHeaders)} set"
+                )
+
+            if cls.Models is None or len(cls.Models) == 0:
+                # Raise programming-related errors immediately
+                typeerrs.append("Models is required to have at least 1 Model class")
+            else:
+                mdlerrs = []
+                for mdl in cls.Models:
+                    if not issubclass(mdl, Model):
+                        mdlerrs.append(
+                            f"{type(mdl).__name__}: Not a subclass of a Django Model"
+                        )
+                if len(mdlerrs) > 0:
+                    nltt = "\n\t\t"
+                    typeerrs.append(
+                        "Models must all be valid models, but the following errors were encountered:\n"
+                        f"\t\t{nltt.join(mdlerrs)}"
+                    )
+        except Exception as e:
+            aes.buffer_error(e)
+        finally:
+            if len(typeerrs) > 0:
+                nlt = "\n\t"
+                aes.buffer_error(
+                    TypeError(f"Invalid attributes:\n\t{nlt.join(typeerrs)}")
+                )
+
+        # Immediately raise programming related errors
+        if aes.should_raise():
+            raise aes
+
+    def initialize_metadata(self):
+        """Initializes metadata.
+
+        Note, when this method is called, headers and defaults are composed using available user-supplied values
+        (e.g. a yaml-file defining custom headers and a a defaults dataframe that came from a parsed defaults file/excel
+        sheet).  The derived class defines custom headers/defaults using the class attributes, but they can also change
+        these values dynamically using set_headers and set_defaults after an object is instantiated (which calls this
+        method).
+
+        Metadata initialized:
+        - record_counts (dict of dicts of ints): Created, existed, and errored counts by model.
+        - defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
+        - sheet (str): Name of the data sheet in an excel file (changes to None if not excel).
+        - defaults_sheet (str): Name of the defaults sheet in an excel file (changes to None if not excel).
+        - record_counts (dict): Record created, existed, and errored counts by model name.  All set to 0.
+        - Note, other attributes are initialized in set_headers and set_defaults
+
+        Args:
+            headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
+            defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
+
+        Raises:
+            AggregatedErrors
+                TypeError
+
+        Returns:
+            Nothing
+        """
+        typeerrs = []
+
+        self.defaults_current_type = self.sheet
+        if is_excel(self.file):
+            if self.defaults_df is not None:
+                self.defaults_file = self.file
+            if self.sheet is None:
+                self.sheet = self.DataSheetName
+        else:
+            self.sheet = None
+            self.defaults_sheet = None
+
+        try:
+            self.set_headers()
+        except TypeError as te:
+            typeerrs.append(str(te))
+
+        try:
+            self.set_defaults()
+        except TypeError as te:
+            typeerrs.append(str(te))
+
+        if len(typeerrs) > 0:
+            nlt = "\n\t"
+            msg = f"Invalid arguments:\n\t{nlt.join(typeerrs)}"
+            self.aggregated_errors_object.buffer_error(TypeError(msg))
+            if self.aggregated_errors_object.should_raise():
+                raise self.aggregated_errors_object
+
+        self.record_counts = defaultdict(lambda: defaultdict(int))
+        for mdl in self.Models:
+            self.record_counts[mdl.__name__]["created"] = 0
+            self.record_counts[mdl.__name__]["existed"] = 0
+            self.record_counts[mdl.__name__]["skipped"] = 0
+            self.record_counts[mdl.__name__]["errored"] = 0
+
+    @staticmethod
+    def isnamedtuple(obj) -> bool:
+        """Determined if obj is a namedtuple.
+
+        Based on: https://stackoverflow.com/a/62692640/2057516
+
+        Args:
+            obj (object): Any object.
+
+        Raises:
+            Nothing
+
+        Returns:
+            boolean
+        """
+        return (
+            isinstance(obj, tuple)
+            and hasattr(obj, "_asdict")
+            and hasattr(obj, "_fields")
+        )
+
+    @staticmethod
+    def isnamedtupletype(obj) -> bool:
+        """Determined if obj is a namedtuple type (i.e. what namedtuples are made from).
+
+        Based on: https://stackoverflow.com/a/62692640/2057516
+
+        Args:
+            obj (object): Any object.
+
+        Raises:
+            Nothing
+
+        Returns:
+            boolean
+        """
+        return type(obj) == type and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
+
+    def get_column_types(self):
+        """Returns a dict of column types by header name (not header key).
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            dtypes (dict): Types by header name (instead of by header key)
+        """
+        if self.DataColumnTypes is None:
+            return None
+
+        if hasattr(self, "headers") and self.headers is not None:
+            headers = self.headers
+        else:
+            headers = self.DataHeaders
+
+        dtypes = {}
+        for key in self.DataColumnTypes.keys():
+            hdr = getattr(headers, key)
+            dtypes[hdr] = self.DataColumnTypes[key]
+
+        return dtypes
+
+    @classmethod
+    def header_key_to_name(cls, indict, headers=None):
+        """Returns the supplied indict, but its keys are changed from header key to header name.
+
+        This class method is used to obtain a dtypes dict to be able to supply to read_from_file.  You can supply it
+        "headers", which is a namedtuple that can be obtained from cls.get_headers.
+
+        Args:
+            indict (dict of objects): Any objects by header key
+            headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
+
+        Raises:
+            AggregatedErrors
+                TypeError
+
+        Returns:
+            outdict (dict): objects by header name (instead of by header key)
+        """
+        cls.check_class_attributes()
+
+        if indict is None:
+            return None
+
+        if headers is None:
+            headers = cls.DataHeaders
+        elif not cls.isnamedtuple(headers):
+            # Immediately raise programming related errors
+            # We create an aggregated errors object in class methods because we may not have an instance with one
+            raise AggregatedErrors().buffer_error(
+                TypeError(
+                    f"Invalid headers. namedtuple required, {type(headers)} supplied"
+                )
+            )
+
+        outdict = {}
+        for key in headers._asdict().keys():
+            hdr = getattr(headers, key)
+            outdict[hdr] = indict[key]
+
+        return outdict
+
+    def header_name_to_key(self, indict):
+        """Returns the supplied indict, but its keys are changed from header name to header key.
+
+        This method is used to convert user defaults by header name to by header key (in order to set self.defaults).
+
+        Args:
+            indict (dict of objects): Any objects by header key
+
+        Exceptions:
+            Raises:
+                Nothing
+            Buffers:
+                KeyError
+
+        Returns:
+            outdict (dict): objects by header name (instead of by header key)
+        """
+        if indict is None:
+            return None
+
+        outdict = {}
+        for hn, dv in indict.items():
+            if hn not in self.reverse_headers.keys():
+                self.aggregated_errors_object.buffer_error(
+                    KeyError(
+                        f"Header [{hn}] not in reverse headers: {self.reverse_headers}"
+                    )
+                )
+                outdict[hn] = dv
+                continue
+            outdict[self.reverse_headers[hn]] = dv
+
+        return outdict
+
+    def check_dataframe_headers(self, reading_defaults=False):
+        """Error-checks the headers in the dataframe.
+
+        Args:
+            reading_defaults (boolean) [False]: Whether defaults data is being read or not
+
+        Exceptions:
+            Raises:
+                AggregatedErrors
+                    RequiredHeadersError
+                ValueError
+            Buffers:
+                UnknownHeadersError
+
+        Returns:
+            Nothing
+        """
+        if reading_defaults:
+            df = self.defaults_df
+            all_headers = list(self.DefaultsHeaders._asdict().values())
+            file = self.defaults_file
+            sheet = self.defaults_sheet
+            reqd_headers = all_headers
+        else:
+            df = self.df
+            all_headers = self.all_headers
+            file = self.file
+            sheet = self.sheet
+            reqd_headers = self.reqd_headers
+
+        if df is None:
+            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+                self.aggregated_errors_object.buffer_warning(
+                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
+                )
+            return
+
+        missing_headers = []
+        if reqd_headers is not None:
+            for rqd_header in reqd_headers:
+                if rqd_header not in df.columns:
+                    missing_headers.append(rqd_header)
+            if len(missing_headers) > 0:
+                self.aggregated_errors_object.buffer_error(
+                    RequiredHeadersError(missing_headers, file=file, sheet=sheet)
+                )
+
+        if all_headers is not None:
+            unknown_headers = []
+            for file_header in df.columns:
+                if file_header not in all_headers:
+                    unknown_headers.append(file_header)
+            if len(unknown_headers) > 0:
+                if not reading_defaults or len(missing_headers) > 0:
+                    self.aggregated_errors_object.buffer_error(
+                        UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
+                    )
+
+        if len(missing_headers) > 0:
+            raise self.aggregated_errors_object
+
+    def check_unique_constraints(self):
+        """Check file column unique constraints.
+
+        Handling unique constraints by catching IntegrityErrors lacks context.  Did the load encounter pre-existing data
+        or was the data in the file not unique?  There's no way to tell the user from catching the IntegrityError where
+        the duplicate is.  Handling the unique constraints at the file level allows the user to tell where all the
+        duplicate values are.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Exceptions Buffered:
+            DuplicateValues
+
+        Returns:
+            Nothing
+        """
+        if self.df is None:
+            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+                self.aggregated_errors_object.buffer_warning(
+                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
+                )
+            return
+
+        if self.unique_constraints is None:
+            return
+        for unique_combo in self.unique_constraints:
+            # A single field unique requirements is much cleaner to display than unique combos, so handle differently
+            if len(unique_combo) == 1:
+                dupes, row_idxs = self.get_one_column_dupes(self.df, unique_combo[0])
+            else:
+                dupes, row_idxs = get_column_dupes(self.df, unique_combo)
+            self.add_skip_row_index(index_list=row_idxs)
+            if len(dupes) > 0:
+                self.aggregated_errors_object.buffer_error(
+                    DuplicateValues(
+                        dupes, unique_combo, sheet=self.sheet, file=self.file
+                    )
+                )
+
+    def add_skip_row_index(
+        self, index: Optional[int] = None, index_list: Optional[list] = None
+    ):
+        """Adds indexes to skip_row_indexes.
+
+        Args:
+            index (int): Row index.  Mutually exclusive with index_list.  Required if index_list is None.
+            index_list (list of ints)L Row indexes.  Mutually exclusive with index.  Required if index is None.
+
+        Raises:
+            ValueError
+
+        Returns:
+            Nothing
+        """
+        if index is None and index_list is None:
+            if not hasattr(self, "row_index") and self.row_index is None:
+                # Raise programming errors (data errors are buffered)
+                raise ValueError("Either an index or index_list argument is required.")
+            else:
+                index = self.row_index
+
+        if index is not None and index not in self.skip_row_indexes:
+            self.skip_row_indexes.append(index)
+
+        if index_list is not None:
+            self.skip_row_indexes = list(
+                set(self.skip_row_indexes).union(set(index_list))
+            )
+
+    def get_skip_row_indexes(self):
+        """Returns skip_row_indexes.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            skip_row_indexes (list of integers)
+        """
+        return self.skip_row_indexes
+
+    def get_row_val(self, row, header, strip=True, reading_defaults=False):
+        """Returns value from the row (presumably from df) and column (identified by header).
+
+        Converts empty strings and "nan"s to None.  Strips leading/trailing spaces.
+
+        Args:
+            row (row of a dataframe): Row of data.
+            header (str): Column header name.
+            strip (boolean) [True]: Whether to strip leading and trailing spaces.
+            reading_defaults (boolean) [False]: Whether defaults data is currently being read.  Only 2 different files
+                or sheets are supported, the ones for the data being loaded and the defaults.
+
+        Raises:
+            ValueError
+            RequiredColumnValue
+
+        Returns:
+            val (object): Data from the row at the column (header)
+        """
+        if reading_defaults:
+            # This will be none if self.file is excel
+            sheet = self.defaults_sheet
+            file = self.defaults_file
+        else:
+            sheet = self.sheet
+            file = self.file
+            # A pandas dataframe row object contains that row's index as an integer in the .name attribute
+            # By setting the current row index in get_row_val, the derived class never needs to explicitly do it
+            self.set_row_index(row.name)
+
+        none_vals = ["", "nan"]
+        val = None
+
+        if header in row:
+            val = row[header]
+            if type(val) == str and strip is True:
+                val = val.strip()
+            if val in none_vals:
+                val = None
+        elif (
+            not reading_defaults
+            and self.all_headers is not None
+            and header not in self.all_headers
+        ):
+            # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
+            # of buffer
+            raise ValueError(
+                f"Incorrect data header supplied: [{header}].  Must be one of: {self.all_headers}"
+            )
+        elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
+            # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
+            # of buffer
+            raise ValueError(
+                f"Incorrect defaults header supplied: [{header}].  Must be one of: "
+                f"{list(self.DefaultsHeaders._asdict().values())}"
+            )
+
+        # If val is None
+        if val is None:
+            # Fill in a default value
+            val = self.defaults_by_header.get(header, None)
+
+            # If the val is still None and it is required
+            if val is None and header in self.reqd_values:
+                self.add_skip_row_index()
+                # This raise was added to force the developer to not continue the loop. It's handled/caught in
+                # handle_load_db_errors.
+                raise RequiredColumnValue(
+                    column=header,
+                    sheet=sheet,
+                    file=file,
+                    rownum=row.name + 2,
+                )
+
+        return val
+
+    def get_user_defaults(self):
+        """Retrieves user defaults from a dataframe.
+
+        The dataframe contains defaults for different types.  Only the defaults relating to the currently loaded data
+        are returned.
+
+        Args:
+            None
+
+        Exceptions:
+            Raises:
+                Nothing
+            Buffers:
+                ExcelSheetsNotFound
+                InvalidHeaderCrossReferenceError
+                TypeError
+
+        Returns:
+            user_defaults (dict): Default values by header name
+        """
+        if self.defaults_df is None:
+            return None
+
+        self.check_dataframe_headers(reading_defaults=True)
+
+        # Return value
+        user_defaults = {}
+
+        # Save the headers from the infile data (not the defaults data)
+        infile_headers = self.df.columns if self.df is not None else None
+
+        # Get all the sheet names in the current (assumed: excel) file
+        all_sheet_names = None
+        apply_types = True
+        if self.file is not None and is_excel(self.file):
+            all_sheet_names = get_sheet_names(self.file)
+            # Excel automatically detects data types in every cell
+            apply_types = False
+
+        # Get the column types by header name
+        coltypes = self.get_column_types()
+
+        # Error tracking
+        unknown_sheets = defaultdict(list)
+        unknown_headers = defaultdict(list)
+        invalid_type_errs = []
+
+        for _, row in self.defaults_df.iterrows():
+            # Note, self.rownum is only for the infile data sheet, not this defaults sheet
+            rownum = row.name + 2
+
+            # Get the sheet from the row
+            sheet_name = self.get_row_val(
+                row, self.DefaultsHeaders.SHEET_NAME, reading_defaults=True
+            )
+
+            # If the sheet name was not found in the file
+            if (
+                all_sheet_names is not None
+                and sheet_name not in all_sheet_names
+                and sheet_name not in unknown_sheets
+            ):
+                unknown_sheets[sheet_name].append(rownum)
+                continue
+
+            # Skip sheets that are not the target load_sheet
+            # Note, self.sheet is None if self.file is not an excel file, but the sheet is always preserved in
+            # self.defaults_current_type as a sort of identifier for the data type
+            if (
+                self.defaults_current_type is not None
+                and sheet_name != self.defaults_current_type
+            ):
+                continue
+
+            # Get the header from the row
+            header_name = str(
+                self.get_row_val(
+                    row, self.DefaultsHeaders.COLUMN_NAME, reading_defaults=True
+                )
+            )
+
+            # If the header name from the defaults sheet is not an actual header on the load_sheet
+            if infile_headers is not None and header_name not in infile_headers:
+                unknown_headers[header_name].append(rownum)
+                continue
+
+            # Grab the default value
+            default_val = self.get_row_val(
+                row, self.DefaultsHeaders.DEFAULT_VALUE, reading_defaults=True
+            )
+
+            if (
+                coltypes is not None
+                and header_name in coltypes.keys()
+                and default_val is not None
+                and coltypes[header_name] is not None
+            ):
+                if apply_types:
+                    # This is necessary for non-excel file data.  This castes the default value to the type defined for
+                    # the column this default value is a default for
+                    default_val = coltypes[header_name](default_val)
+                elif type(default_val) != coltypes[header_name]:
+                    # Otherwise, the type can be controlled by the user in excel, so just log an error if it is wrong
+                    invalid_type_errs.append(
+                        f"Invalid default value on row {rownum}: [{default_val}] (of type "
+                        f"{type(default_val).__name__}).  Should be [{coltypes[header_name].__name__}]."
+                    )
+
+            user_defaults[header_name] = default_val
+
+        if len(unknown_sheets.keys()) > 0:
+            prev_unk_sheets = self.aggregated_errors_object.get_exception_type(
+                ExcelSheetsNotFound
+            )
+            if unknown_sheets not in prev_unk_sheets:
+                self.aggregated_errors_object.buffer_error(
+                    ExcelSheetsNotFound(
+                        unknown_sheets,
+                        all_sheet_names,
+                        file=self.defaults_file,
+                        column=self.DefaultsHeaders.SHEET_NAME,
+                        source_sheet=self.defaults_sheet,
+                    )
+                )
+
+        if len(unknown_headers.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                InvalidHeaderCrossReferenceError(
+                    source_file=self.defaults_file,
+                    source_sheet=self.defaults_sheet,
+                    column=self.DefaultsHeaders.COLUMN_NAME,
+                    unknown_headers=unknown_headers,
+                    target_file=self.file,
+                    target_sheet=self.sheet,
+                    target_headers=infile_headers,
+                )
+            )
+
+        if len(invalid_type_errs) > 0:
+            loc = generate_file_location_string(
+                column=self.DefaultsHeaders.DEFAULT_VALUE,
+                sheet=self.defaults_sheet,
+                file=self.defaults_file,
+            )
+            deets = "\n\t".join(invalid_type_errs)
+            self.aggregated_errors_object.buffer_error(
+                TypeError(
+                    f"Invalid default values encountered in {loc} on the indicated rows:\n\t{deets}"
+                )
+            )
+
+        return user_defaults
+
+    def tableheaders_to_dict_by_header_name(self, intuple):
+        """Convert the intuple (a DataTableHeaders namedtuple) into a dict by (custom) header name.
+
+        Args:
+            intuple (DataTableHeaders namedtuple): objects by header key
+
+        Exceptions:
+            Raises:
+                Nothing
+            Buffers:
+                TypeError
+
+        Returns:
+            defdict (Optional[dict of objects]): objects by header name
+        """
+        if not self.isnamedtuple(intuple):
+            self.aggregated_errors_object.buffer_error(
+                TypeError(
+                    f"Invalid intuple argument: namedtuple required, {type(intuple)} supplied"
+                )
+            )
+            return None
+        outdict = {}
+        for hk, hn in self.headers._asdict().items():
+            v = getattr(intuple, hk)
+            outdict[hn] = v
+        return outdict
+
+    def get_defaults_dict_by_header_name(self):
+        """Convert the defaults namedtuple instance attribute (by header key) into a dict by (custom) header name.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            defdict (dict of objects): default values by header name
+        """
+        return self.tableheaders_to_dict_by_header_name(self.get_defaults())
+
+    @classmethod
+    def _loader(cls):
+        """Class method that returns a decorator function.
+
+        Args:
+            cls (TableLoader)
+
+        Raises:
+            Nothing
+
+        Returns:
+            load_decorator (function)
+        """
+
+        def load_decorator(fn):
+            """Decorator method that applies a wrapper function to a method.
+
+            Args:
+                cls (TableLoader)
+
+            Raises:
+                Nothing
+
+            Returns:
+                apply_wrapper (function)
+            """
+
+            def load_wrapper(self, *args, **kwargs):
+                """Wraps the load_data() method in the derived class.
+
+                Checks the file data and handles atomic transactions, running modes, exceptions, and load stats.
+
+                Args:
+                    None
+
+                Raises:
+                    TBD by derived class
+
+                Returns:
+                    What's returned by the wrapped method
+                """
+                retval = None
+                with transaction.atomic():
+                    try:
+                        self.check_dataframe_headers()
+                        self.check_unique_constraints()
+
+                        retval = fn(*args, **kwargs)
+
+                    except AggregatedErrors as aes:
+                        if aes != self.aggregated_errors_object:
+                            self.aggregated_errors_object.merge_aggregated_errors_object(
+                                aes
+                            )
+                    except Exception as e:
+                        # Add this unanticipated error to the other buffered errors
+                        self.aggregated_errors_object.buffer_error(e)
+
+                    # Summarize any ConflictingValueError errors reported
+                    cves = self.aggregated_errors_object.remove_exception_type(
+                        ConflictingValueError
+                    )
+                    if len(cves) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            ConflictingValueErrors(cves)
+                        )
+
+                    # Summarize any RequiredValueError errors reported
+                    rves = self.aggregated_errors_object.remove_exception_type(
+                        RequiredValueError
+                    )
+                    if len(rves) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            RequiredValueErrors(rves)
+                        )
+
+                    # Summarize any DuplicateValues errors reported
+                    dvs = self.aggregated_errors_object.remove_exception_type(
+                        DuplicateValues
+                    )
+                    if len(dvs) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            DuplicateValueErrors(dvs)
+                        )
+
+                    # Summarize any RequiredColumnValue errors reported
+                    rcvs = self.aggregated_errors_object.remove_exception_type(
+                        RequiredColumnValue
+                    )
+                    if len(rcvs) > 0:
+                        self.aggregated_errors_object.buffer_error(
+                            RequiredColumnValues(rcvs)
+                        )
+
+                    if (
+                        self.aggregated_errors_object.should_raise()
+                        and not self.defer_rollback
+                    ):
+                        # Raise here to cause a rollback
+                        raise self.aggregated_errors_object
+
+                    if self.dry_run:
+                        raise DryRun()
+
+                if self.aggregated_errors_object.should_raise():
+                    # Raise here to NOT cause a rollback
+                    raise self.aggregated_errors_object
+
+                return retval
+
+            return load_wrapper
+
+        return load_decorator
+
+    def _get_model_name(self, model_name=None):
+        """Returns the model name registered to the class (or as supplied).
+
+        If model_name is supplied, it returns that model name.  If not supplied, and models is of length 1, it returns
+        that one model.  The purpose of this method is so that simple 1-model loaders do not need to supply the model
+        name to the created, existed, and errored methods.
+
+        Args:
+            model_name (str)
+
+        Raises:
+            ValueError
+
+        Returns:
+            model_name (str)
+        """
+        if model_name is not None:
+            return model_name
+        if self.Models is not None and len(self.Models) == 1:
+            return self.Models[0].__name__
+        # If we get here, it's a programming error, so raise immediately
+        raise self.aggregated_errors_object.buffer_error(
+            ValueError(
+                "A model name is required when there is not exactly 1 model initialized in the constructor."
+            )
+        )
+
+    @classmethod
+    def get_models(cls):
+        """Returns a list of model classes.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            models (list of model classes)
+        """
+        cls.check_class_attributes()
+        return cls.Models
+
+    def created(self, model_name: Optional[str] = None, num=1):
+        """Increments a created record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["created"] += num
+
+    def existed(self, model_name: Optional[str] = None, num=1):
+        """Increments an existed record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["existed"] += num
+
+    def skipped(self, model_name: Optional[str] = None, num=1):
+        """Increments a skipped (i.e. "unattempted) record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["skipped"] += num
+
+    def errored(self, model_name: Optional[str] = None, num=1):
+        """Increments an errored record count for a model.
+
+        Note, this is not for all errors.  It only pertains to data-specific errors from the input file.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["errored"] += num
+
+    def get_load_stats(self):
+        """Returns the model record status counts.
+
+        Args:
+            None
+
+        Raises:
+            Nothing
+
+        Returns:
+            record_counts (dict of dicts of ints): Counts by model and status
+        """
+        return self.record_counts
+
+    def check_for_inconsistencies(self, rec, rec_dict):
+        """Generate ConflictingValueError exceptions based on differences between a supplied record and dict.
+
+        This function compares the supplied database model record with the dict that was used to (get or) create a
+        record that resulted (or will result) in an IntegrityError (i.e. a unique constraint violation).  Call this
+        method inside an `except IntegrityError` block, e.g.:
+            try:
+                rec_dict = {field values for record creation}
+                rec, created = Model.objects.get_or_create(**rec_dict)
+            except IntegrityError as ie:
+                rec = Model.objects.get(name="unique value")
+                self.check_for_inconsistencies(rec, rec_dict)
+
+        It can also be called pre-emptively by querying for only a record's unique field and supply the record and a
+        dict for record creation.  E.g.:
+            rec_dict = {field values for record creation}
+            rec = Model.objects.get(name="unique value")
+            self.check_for_inconsistencies(rec, rec_dict)
+
+        The purpose of this function is to provide helpful information in an exception (i.e. repackage an
+        IntegrityError) so that users working to resolve the error can quickly identify and resolve the issue.
+
+        It buffers any issues it encounters as a ConflictingValueError inside self.aggregated_errors_object.
+
+        Args:
+            rec (Model object)
+            rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
+
+        Exceptions:
+            Raises:
+                Nothing
+            Buffers:
+                ConflictingValueError
+
+        Returns:
+            found_errors (boolean)
+        """
+        found_errors = False
+        differences = {}
+        for field, new_value in rec_dict.items():
+            orig_value = getattr(rec, field)
+            if orig_value != new_value:
+                differences[field] = {
+                    "orig": orig_value,
+                    "new": new_value,
+                }
+        if len(differences.keys()) > 0:
+            found_errors = True
+            self.aggregated_errors_object.buffer_error(
+                ConflictingValueError(
+                    rec,
+                    differences,
+                    rec_dict=rec_dict,
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.file,
+                )
+            )
+        return found_errors
+
+    def handle_load_db_errors(
+        self,
+        exception,
+        model,
+        rec_dict,
+        handle_all=True,
+    ):
+        """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
+
+        The purpose of this function is to provide helpful information in an exception (i.e. repackage an IntegrityError
+        or a ValidationError) so that users working to resolve errors can quickly identify and resolve data issues.  It
+        calls check_for_inconsistencies.
+
+        This function evaluates whether the supplied exception is the result of either a field value conflict or a
+        validation error (triggered by a full_clean).  It will either buffer a ConflictingValue error in either the
+        supplied conflicts_list or AggregatedErrors object, or raise an exception.
+
+        Args:
+            exception (Exception): Exception, e.g. obtained from `except` block
+            model (Model): Model being loaded when the exception occurred
+            rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
+            sheet (str): Name of the Excel sheet that was being loaded when the exception occurred.
+            file (str): Name (path optional) of the file that was being loaded when the exception occurred.
+
+        Exceptions:
+            Raises:
+                Nothing
+            Buffers:
+                ValueError
+                InfileDatabaseError
+                ConflictingValueError
+                RequiredValueError
+
+        Returns:
+            boolean indicating whether an error was handled(/buffered).
+        """
+        # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
+        estr = str(exception)
+        exc = InfileDatabaseError(
+            exception, rec_dict, rownum=self.rownum, sheet=self.sheet, file=self.file
+        )
+
+        if isinstance(exception, IntegrityError):
+            if "duplicate key value violates unique constraint" in estr:
+                # Create a list of lists of unique fields and unique combos of fields
+                # First, get unique fields and force them into a list of lists (so that we only need to loop once)
+                unique_combos = [
+                    [f] for f in self.get_unique_fields(model, fields=rec_dict.keys())
+                ]
+                # Now add in the unique field combos from the model's unique constraints
+                unique_combos.extend(self.get_unique_constraint_fields(model))
+
+                # Create a set of the fields in the dict causing the error so that we can only check unique its fields
+                field_set = set(rec_dict.keys())
+
+                # We're going to loop over unique records until we find one that conflicts with the dict
+                for combo_fields in unique_combos:
+                    # Only proceed if we have all the values
+                    combo_set = set(combo_fields)
+                    if not combo_set.issubset(field_set):
+                        continue
+
+                    # Retrieve the record with the conflicting value(s) that caused the unique constraint error using
+                    # the unique fields
+                    q = Q()
+                    for uf in combo_fields:
+                        q &= Q(**{f"{uf}__exact": rec_dict[uf]})
+                    qs = model.objects.filter(q)
+
+                    # If there was a record found using a unique field (combo)
+                    if qs.count() == 1:
+                        rec = qs.first()
+                        errs_found = self.check_for_inconsistencies(rec, rec_dict)
+                        if errs_found:
+                            return True
+
+            elif "violates not-null constraint" in estr:
+                # Parse the field name out of the exception string
+                regexp = re.compile(r"^null value in column \"(?P<fldname>[^\"]+)\"")
+                match = re.search(regexp, estr)
+                if match:
+                    fldname = match.group("fldname")
+                    colname = fldname
+                    # Convert the database column name to the file column header, if available
+                    if (
+                        self.FieldToHeader is not None
+                        and colname in self.FieldToHeader[model.__name__].keys()
+                    ):
+                        colname = self.FieldToHeader[model.__name__][fldname]
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredValueError(
+                            column=colname,
+                            rownum=self.rownum,
+                            model_name=model.__name__,
+                            field_name=fldname,
+                            sheet=self.sheet,
+                            file=self.file,
+                            rec_dict=rec_dict,
+                        )
+                    )
+                    return True
+
+        elif isinstance(exception, ValidationError):
+            if "is not a valid choice" in estr:
+                choice_fields = self.get_enumerated_fields(
+                    model, fields=rec_dict.keys()
+                )
+                for choice_field in choice_fields:
+                    if choice_field in estr and rec_dict[choice_field] is not None:
+                        # Only include error once
+                        if not self.aggregated_errors_object.exception_type_exists(
+                            InfileDatabaseError
+                        ):
+                            self.aggregated_errors_object.buffer_error(exc)
+                        else:
+                            already_buffered = False
+                            ides = self.aggregated_errors_object.get_exception_type(
+                                InfileDatabaseError
+                            )
+                            for existing_exc in ides:
+                                # If the triggering exception (stored in the InfileDatabaseError exception) is the same,
+                                # skip it
+                                if str(existing_exc.exception) == str(exc.exception):
+                                    already_buffered = True
+                            if not already_buffered:
+                                self.aggregated_errors_object.buffer_error(exc)
+                        # Whether we buffered or not, the error was identified and handled (by either buffering or
+                        # ignoring a duplicate)
+                        return True
+
+        elif isinstance(exception, RequiredColumnValue):
+            # This "catch" was added to force the developer to not continue the loop if they failed to call this method
+            self.aggregated_errors_object.buffer_error(exception)
+            return True
+
+        if handle_all:
+            if rec_dict is not None and len(rec_dict.keys()) > 0:
+                self.aggregated_errors_object.buffer_error(exc)
+            else:
+                self.aggregated_errors_object.buffer_error(exception)
+            return True
+
+        # If we get here, we did not identify the error as one we knew what to do with
+        return False
+
+    @classmethod
+    def get_one_column_dupes(cls, data, col_key, ignore_row_idxs=None):
+        """Find duplicate values in a single column from file table data.
+
+        Args:
+            data (DataFrame or list of dicts): The table data parsed from a file.
+            unique_col_keys (list of column name strings): Column names whose combination must be unique.
+            ignore_row_idxs (list of integers): Rows to ignore.
+
+        Raises:
+            UnknownHeadersError
+
+        Returns:
+            1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
+            2. A list of all row indexes containing duplicate data.
+        """
+        all_row_idxs_with_dupes = []
+        vals_dict = defaultdict(list)
+        dupe_dict = defaultdict(dict)
+        dict_list = data if type(data) == list else data.to_dict("records")
+
+        for rowidx, row in enumerate(dict_list):
+            # Ignore rows where the animal name is empty
+            if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
+                continue
+            try:
+                vals_dict[row[col_key]].append(rowidx)
+            except KeyError:
+                raise UnknownHeadersError([col_key])
+
+        for key in vals_dict.keys():
+            if len(vals_dict[key]) > 1:
+                dupe_dict[key] = vals_dict[key]
+                all_row_idxs_with_dupes.extend(vals_dict[key])
+
+        return dupe_dict, all_row_idxs_with_dupes
+
+    @classmethod
+    def get_unique_constraint_fields(cls, model):
+        """Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
+        Args:
+            model (Model)
+        Raises:
+            Nothing
+        Returns:
+            uflds (List of model fields)
+        """
+        uflds = []
+        if hasattr(model._meta, "constraints"):
+            for constraint in model._meta.constraints:
+                if type(constraint).__name__ == "UniqueConstraint":
+                    uflds.append(constraint.fields)
+        return uflds
+
+    @classmethod
+    def get_unique_fields(cls, model, fields=None):
+        """Returns a list of non-auto-field names where unique is True.
+
+        If fields (list of field names) is provided, the returned field names are limited to the list provided.
+
+        Args:
+            model (Model)
+            fields (Optional[list of Model Fields])
+        Raises:
+            Nothing
+        Returns:
+            fields (list of strings): field names
+        """
+        return [
+            f.name if hasattr(f, "name") else f.field_name
+            for f in cls.get_non_auto_model_fields(model)
+            if (fields is None or cls.field_in_fieldnames(f, fields))
+            and hasattr(f, "unique")
+            and f.unique
+        ]
+
+    @classmethod
+    def get_enumerated_fields(cls, model, fields=None):
+        """Returns a list of non-auto-field names where choices is populated.
+
+        If fields (list of field names) is provided, the returned field names are limited to the list provided.
+
+        Args:
+            model (Model)
+            fields (Optional[list of Model Fields])
+        Raises:
+            Nothing
+        Returns:
+            fields (list of strings): field names
+        """
+        return [
+            f.name if hasattr(f, "name") else f.field_name
+            for f in cls.get_non_auto_model_fields(model)
+            if (fields is None or cls.field_in_fieldnames(f, fields))
+            and hasattr(f, "choices")
+            and f.choices
+        ]
+
+    @classmethod
+    def get_non_auto_model_fields(cls, model):
+        """Retrieves all non-auto-fields from the supplied model and returns as a list of actual fields.
+        Args:
+            model (Model)
+        Raises:
+            Nothing
+        Returns:
+            uflds (List of model fields)
+        """
+        return [
+            f for f in model._meta.get_fields() if f.get_internal_type() != "AutoField"
+        ]
+
+    @classmethod
+    def field_in_fieldnames(cls, fld, fld_names):
+        """Determines if a supplied model field is in a list of field names.
+
+        Accessory function to get_unique_fields and get_enumerated_fields.  This only exists in order to avoid JSCPD
+        errors.
+
+        Args:
+            fld (Model Field)
+            fld_names (list of strings): field names
+        Raises:
+            Nothing
+        Returns:
+            boolean: Whether the fld is in fld_names
+        """
+        # Relation fields do not have "name" attributes.  Instead, they have "field_name" attributes.  The values of
+        # both are the attributes of the model object that we are after (because they can be used in queries).  It is
+        # assumed that a field is guaranteed to have one or the other.
+        return (hasattr(fld, "name") and fld.name in fld_names) or (
+            hasattr(fld, "field_name") and fld.field_name in fld_names
+        )

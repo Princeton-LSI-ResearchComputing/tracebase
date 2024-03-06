@@ -6,6 +6,8 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 from django.core.exceptions import ValidationError
+from django.core.management import CommandError
+from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
@@ -98,11 +100,10 @@ class RequiredColumnValue(Exception):
         file=None,
         message=None,
     ):
+        loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum)
         if not message:
-            loc = generate_file_location_string(
-                sheet=sheet, file=file, rownum=rownum, column=column
-            )
-            message = f"Missing value required in {loc}."
+            message = "Value required for column [%s] in %s."
+        message = message % (column, loc)
         super().__init__(message)
         self.column = column
         self.rownum = rownum
@@ -112,7 +113,12 @@ class RequiredColumnValue(Exception):
 
 
 class RequiredColumnValues(Exception):
-    def __init__(self, required_column_values):
+    def __init__(self, required_column_values, init_message=None):
+        if init_message is None:
+            message = "Required column values missing on the indicated rows:\n"
+        else:
+            message = f"{init_message}:\n"
+
         rcv_dict = defaultdict(lambda: defaultdict(list))
         for rcv in required_column_values:
             loc = generate_file_location_string(sheet=rcv.sheet, file=rcv.file)
@@ -120,7 +126,6 @@ class RequiredColumnValues(Exception):
             if rcv.rownum not in rcv_dict[loc][col]:
                 if rcv.rownum is not None:
                     rcv_dict[loc][col].append(rcv.rownum)
-        message = "Required column values missing on the indicated rows:\n"
         for loc in rcv_dict.keys():
             message += f"\t{loc}\n"
             for col in rcv_dict[loc].keys():
@@ -130,6 +135,25 @@ class RequiredColumnValues(Exception):
                 message += f"\t\tColumn: [{col}] on rows: {rowstr}\n"
         super().__init__(message)
         self.required_column_values = required_column_values
+
+
+class RequiredColumnValueWhenNovel(RequiredColumnValue):
+    def __init__(self, column, model_name, **kwargs):
+        message = kwargs.pop("message", None)
+        if message is None:
+            # The 2 %s placeholders are filled in in the superclass
+            message = f"Value required for column [%s] in %s when the [{model_name}] record does not exist."
+        super().__init__(column, **kwargs, message=message)
+        self.model_name = model_name
+
+
+class RequiredColumnValuesWhenNovel(RequiredColumnValues):
+    """Summarizes a list of RequiredColumnValueWhenNovel exceptions of the same model."""
+
+    def __init__(self, required_column_values_when_novel, model_name):
+        msg = f"Value required, when the [{model_name}] record does not exist, for columns on the indicated rows"
+        super().__init__(required_column_values_when_novel, init_message=msg)
+        self.model_name = model_name
 
 
 class RequiredHeadersError(HeaderError):
@@ -511,7 +535,9 @@ class MultiLoadStatus(Exception):
             print(exception)
 
             # Wrap the exception in an AggregatedErrors class
-            new_aes = AggregatedErrors(errors=[exception])
+            new_aes = AggregatedErrors()
+            # This will cause the exception trace to be printed
+            new_aes.buffer_error(exception)
 
         new_num_errors = new_aes.num_errors
         new_num_warnings = new_aes.num_warnings
@@ -1131,12 +1157,15 @@ class ConflictingValueErrors(Exception):
                             [
                                 cve.rownum
                                 for cve in conflict_data[cve_loc][mdl][file_rec_str]
+                                if cve is not None and cve.rownum is not None
                             ]
                         )
                     )
-                    message += (
-                        f"\t\tFile record:     {file_rec_str} (on rows: {rowstr})\n"
-                    )
+                    message += f"\t\tFile record:     {file_rec_str}"
+                    if rowstr == "":
+                        message += "\n"
+                    else:
+                        message += f"(on rows: {rowstr})\n"
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
                         recstr = "Database record not provided"
                         if cve.rec is not None:
@@ -1669,33 +1698,6 @@ class MismatchedSampleHeaderMZXML(Exception):
         self.mismatching_mzxmls = mismatching_mzxmls
 
 
-def summarize_int_list(intlist):
-    """
-    This method was written to make long lists of row numbers more palatable to the user.
-    Turns [1,2,3,5,6,9] into ['1-3','5-6','9']
-    """
-    sum_list = []
-    last_num = None
-    waiting_num = None
-    for num in [int(n) for n in sorted(intlist)]:
-        if last_num is None:
-            waiting_num = num
-        else:
-            if num > last_num + 1:
-                if last_num == waiting_num:
-                    sum_list.append(str(waiting_num))
-                else:
-                    sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
-                waiting_num = num
-        last_num = num
-    if waiting_num is not None:
-        if last_num == waiting_num:
-            sum_list.append(str(waiting_num))
-        else:
-            sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
-    return sum_list
-
-
 class DuplicateSampleDataHeaders(Exception):
     def __init__(self, dupes, lcms_metadata, samples):
         cs = ", "
@@ -1752,12 +1754,90 @@ class InvalidLCMSHeaders(InvalidHeaders):
 
 
 class DuplicateHeaders(ValidationError):
-    def __init__(self, filepath, nall, nuniqs):
-        message = f"Column headers are not unique in {filepath}. There are {nall} columns and {nuniqs} unique values"
+    def __init__(self, dupes, all):
+        message = f"Duplicate column headers: {dupes.keys()}.  All: {all}"
+        for k in dupes.keys():
+            message += f"\n\t{k} occurs {dupes[k]} times"
+        super().__init__(message)
+        self.dupes = dupes
+        self.all = all
+
+
+class DuplicateFileHeaders(ValidationError):
+    def __init__(self, filepath, nall, nuniqs, headers):
+        message = (
+            f"Column headers are not unique in {filepath}. There are {nall} columns and {nuniqs} unique values: "
+            f"{headers}"
+        )
         super().__init__(message)
         self.filepath = filepath
         self.nall = nall
         self.nuniqs = nuniqs
+        self.headers = headers
+
+
+class InvalidDtypeDict(Exception):
+    def __init__(
+        self,
+        dtype,
+        file=None,
+        sheet=None,
+        columns=None,
+        message=None,
+    ):
+        loc = generate_file_location_string(sheet=sheet, file=file)
+        if message is None:
+            message = (
+                f"Invalid dtype dict supplied for parsing {loc}.  None of its keys {list(dtype.keys())} are present "
+                f"in the dataframe, whose columns are {columns}."
+            )
+        super().__init__(message)
+        self.dtype = dtype
+        self.file = file
+        self.sheet = sheet
+        self.columns = columns
+        self.loc = loc
+
+
+class InvalidDtypeKeys(Exception):
+    def __init__(
+        self,
+        missing,
+        file=None,
+        sheet=None,
+        columns=None,
+        message=None,
+    ):
+        loc = generate_file_location_string(sheet=sheet, file=file)
+        if message is None:
+            message = (
+                f"Missing dtype dict keys supplied for parsing {loc}.  These keys {missing} are not present "
+                f"in the resulting dataframe, whose available columns are {columns}."
+            )
+        super().__init__(message)
+        self.missing = missing
+        self.file = file
+        self.sheet = sheet
+        self.columns = columns
+        self.loc = loc
+
+
+class DateParseError(Exception):
+    def __init__(
+        self, string, ve_exc, format, file=None, sheet=None, rownum=None, column=None
+    ):
+        loc = generate_file_location_string(
+            file=file, sheet=sheet, rownum=rownum, column=column
+        )
+        message = (
+            f"The date string {string} obtained from the file did not match the pattern supplied {format}.  This is "
+            "likely the result of excel converting a string to a date.  Try editing the data type of the column in "
+            f"{loc}.\nOriginal error: {type(ve_exc).__name__}: {ve_exc}"
+        )
+        super().__init__(message)
+        self.string = string
+        self.ve_exc = ve_exc
+        self.format = format
 
 
 class MissingRequiredLCMSValues(Exception):
@@ -1804,6 +1884,76 @@ class WrongExcelSheet(Exception):
             f"[{sheet_name}]."
         )
         super().__init__(message)
+        self.file_type = file_type
+        self.sheet_name = sheet_name
+        self.expected_sheet_name = expected_sheet_name
+        self.sheet_num = sheet_num
+
+
+class ExcelSheetsNotFound(Exception):
+    def __init__(self, unknowns, all_sheets, file, column, source_sheet, message=None):
+        if message is None:
+            loc = generate_file_location_string(
+                sheet=source_sheet, file=file, column=column
+            )
+            deets = "\n\t".join(
+                [
+                    f"[{k}] on rows: " + str(summarize_int_list(v))
+                    for k, v in unknowns.items()
+                ]
+            )
+            message = (
+                f"The following excel sheet(s) parsed from {loc} on the indicated rows were not found.\n"
+                f"\t{deets}\n"
+                f"The available sheets are: [{all_sheets}]."
+            )
+        super().__init__(message)
+        self.unknowns = unknowns
+        self.all_sheets = all_sheets
+        self.file = file
+        self.column = column
+        self.source_sheet = source_sheet
+
+
+class InvalidHeaderCrossReferenceError(Exception):
+    def __init__(
+        self,
+        source_file,
+        source_sheet,
+        column,
+        unknown_headers,
+        target_file,
+        target_sheet,
+        target_headers,
+        message=None,
+    ):
+        if message is None:
+            src_loc = generate_file_location_string(
+                sheet=source_sheet, file=source_file, column=column
+            )
+            tgt_loc = generate_file_location_string(
+                sheet=target_sheet, file=target_file
+            )
+            deets = "\n\t".join(
+                [
+                    f"[{k}] on row(s): " + str(summarize_int_list(v))
+                    for k, v in unknown_headers.items()
+                ]
+            )
+            message = (
+                f"The following column-references parsed from {src_loc}:\n"
+                f"\t{deets}\n"
+                f"were not found in {tgt_loc}, which has the following columns:\n"
+                f"\t{', '.join(target_headers)}."
+            )
+        super().__init__(message)
+        self.source_file = source_file
+        self.source_sheet = source_sheet
+        self.column = column
+        self.unknown_headers = unknown_headers
+        self.target_file = target_file
+        self.target_sheet = target_sheet
+        self.target_headers = target_headers
 
 
 class NoConcentrations(Exception):
@@ -2016,6 +2166,25 @@ class SynonymExistsAsMismatchedCompound(Exception):
         self.conflicting_cpd_rec = conflicting_cpd_rec
 
 
+class OptionsNotAvailable(ProgrammingError):
+    """
+    An exception class for methods that retrieve command line options, called too early.
+    """
+
+    def __init__(self):
+        super().__init__(
+            "Cannot get command line option values until handle() has been called."
+        )
+
+
+class MutuallyExclusiveOptions(CommandError):
+    pass
+
+
+class NoLoadData(Exception):
+    pass
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
@@ -2035,3 +2204,30 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     else:
         loc_str += "the load file data"
     return loc_str
+
+
+def summarize_int_list(intlist):
+    """
+    This method was written to make long lists of row numbers more palatable to the user.
+    Turns [1,2,3,5,6,9] into ['1-3','5-6','9']
+    """
+    sum_list = []
+    last_num = None
+    waiting_num = None
+    for num in [int(n) for n in sorted(intlist)]:
+        if last_num is None:
+            waiting_num = num
+        else:
+            if num > last_num + 1:
+                if last_num == waiting_num:
+                    sum_list.append(str(waiting_num))
+                else:
+                    sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
+                waiting_num = num
+        last_num = num
+    if waiting_num is not None:
+        if last_num == waiting_num:
+            sum_list.append(str(waiting_num))
+        else:
+            sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
+    return sum_list

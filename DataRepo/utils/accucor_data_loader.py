@@ -4,7 +4,7 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, TypedDict
+from typing import List, TypedDict
 
 import regex
 import xmltodict
@@ -195,7 +195,11 @@ class AccuCorDataLoader:
         # Tracking Data
         self.skip_samples = skip_samples if skip_samples else []
         self.sample_name_prefix = sample_name_prefix if sample_name_prefix else ""
-        self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
+        # DataRepo/utils/accucor_data_loader.py:201: note: By default the bodies of untyped functions are not checked,
+        # consider using --check-untyped-defs  [annotation-unchecked]
+        # The type-hint was removed to quiet the warning
+        # self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
+        self.peak_group_dict = {}
         self.corrected_sample_headers = []
         self.original_sample_headers = []
         self.db_samples_dict = None

@@ -1,5 +1,6 @@
 import argparse
 import os
+import traceback
 from collections import defaultdict
 
 import jsonschema
@@ -454,6 +455,10 @@ class Command(BaseCommand):
                                 compound
                             ]["rownums"]
                         }
+        else:
+            # Print the trace
+            print("".join(traceback.format_tb(exception.__traceback__)))
+            print(f"EXCEPTION: {type(exception).__name__}: {str(exception)}")
 
         self.load_statuses.set_load_exception(exception, filepath)
 
