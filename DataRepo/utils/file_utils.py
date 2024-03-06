@@ -505,7 +505,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
         # Ignore empty combos
         empty_combo = True
         for ck in unique_col_keys:
-            val = row[ck]
+            val = row.get(ck, None)
             if val is not None or not isinstance(val, str) or val == "":
                 empty_combo = False
                 break
@@ -513,7 +513,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
             continue
 
         composite_val = ", ".join(
-            list(map(lambda ck: f"{ck}: [{str(row[ck])}]", unique_col_keys))
+            list(map(lambda ck: f"{ck}: [{str(row.get(ck, 'None'))}]", unique_col_keys))
         )
 
         if len(val_locations[composite_val].keys()) > 0:
@@ -522,7 +522,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
             val_locations[composite_val]["rowidxs"] = [rowidx]
             val_locations[composite_val]["vals"] = {}
             for ck in unique_col_keys:
-                val_locations[composite_val]["vals"][ck] = row[ck]
+                val_locations[composite_val]["vals"][ck] = row.get(ck, None)
 
     # Now create the dupe dict to contain values encountered more than once
     for val in val_locations.keys():
