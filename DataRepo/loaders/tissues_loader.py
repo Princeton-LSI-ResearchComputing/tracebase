@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import Dict
 
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Tissue
@@ -26,17 +27,17 @@ class TissuesLoader(TableLoader):
         DESCRIPTION="Description",
     )
 
-    # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
-        NAME=True,
-        DESCRIPTION=True,
-    )
+    # List of required header keys
+    DataRequiredHeaders = [
+        NAME_KEY,
+        DESC_KEY,
+    ]
 
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
-    DataColumnTypes = {
+    DataColumnTypes: Dict[str, type] = {
         NAME_KEY: str,
         DESC_KEY: str,
     }
@@ -48,7 +49,7 @@ class TissuesLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "Tissue": {
+        Tissue.__name__: {
             "name": NAME_KEY,
             "description": DESC_KEY,
         },
@@ -73,12 +74,12 @@ class TissuesLoader(TableLoader):
             try:
                 self.get_or_create_tissue(row)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
     def get_or_create_tissue(self, row):
-        """Get or create a study record and buffer exceptions before raising.
+        """Get or create a tissue record and buffer exceptions before raising.
 
         Args:
             row (pandas dataframe row)
@@ -95,15 +96,16 @@ class TissuesLoader(TableLoader):
             name = self.get_row_val(row, self.headers.NAME)
             description = self.get_row_val(row, self.headers.DESCRIPTION)
 
+            # missing required values update the skip_row_indexes before load_data is even called, and get_row_val sets
+            # the current row index
+            if self.is_skip_row():
+                self.errored()
+                return
+
             rec_dict = {
                 "name": name,
                 "description": description,
             }
-
-            # get_row_val can add to skip_row_indexes when there is a missing required value
-            if self.is_skip_row():
-                self.errored()
-                return
 
             tissue, created = Tissue.objects.get_or_create(**rec_dict)
 

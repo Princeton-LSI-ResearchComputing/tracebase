@@ -47,15 +47,10 @@ class CompoundsLoader(TableLoader):
         SYNONYMS="Synonyms",
     )
 
-    # Whether each column is required to be present of not
-    DataRequiredHeaders = DataTableHeaders(
-        NAME=True,
-        HMDB_ID=True,
-        FORMULA=True,
-        SYNONYMS=False,
-    )
+    # List of required header keys
+    DataRequiredHeaders = [NAME_KEY, HMDBID_KEY, FORMULA_KEY]
 
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
+    # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
@@ -66,13 +61,13 @@ class CompoundsLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "Compound": {
+        Compound.__name__: {
             "name": NAME_KEY,
             "hmdb_id": HMDBID_KEY,
             "formula": FORMULA_KEY,
             "synonyms": SYNONYMS_KEY,
         },
-        "CompoundSynonym": {
+        CompoundSynonym.__name__: {
             "name": SYNONYMS_KEY,
             "compound": NAME_KEY,
         },
@@ -125,17 +120,17 @@ class CompoundsLoader(TableLoader):
         self.check_for_cross_column_name_duplicates()
 
         for _, row in self.df.iterrows():
+            # check_for_cross_column_name_duplicates can add to the skip row indexes
+            # We didn't call get_row_val, so in order to know to skip, we must supply the row index (in row.name)
+            if self.is_skip_row(row.name):
+                self.errored(Compound.__name__)
+                # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't
+                # know how many there are
+                self.skipped(CompoundSynonym.__name__)
+                continue
+
             try:
-                if self.is_skip_row():
-                    # check_for_cross_column_name_duplicates can add to the skip row indexes
-                    self.errored(Compound.__name__)
-                    # The synonym errored count will be inaccurate.  If there was an error reading or parsing, we don't
-                    # know how many there are
-                    self.skipped(CompoundSynonym.__name__)
-                    continue
-
                 cmpd_rec = self.get_or_create_compound(row)
-
             except Exception:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
