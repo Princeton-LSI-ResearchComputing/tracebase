@@ -5,7 +5,7 @@ import warnings
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management import CommandError
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
@@ -16,11 +16,61 @@ if TYPE_CHECKING:
     from DataRepo.models.sample import Sample
 
 
+class InfileError(Exception):
+    def __init__(
+        self, message, rownum=None, sheet=None, file=None, column=None, order=None
+    ):
+        self.rownum = rownum
+        self.sheet = sheet
+        self.file = file
+        self.column = column
+        loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=column
+        )
+        if "%s" not in message:
+            message += "  Location: %s."
+        if order is not None:
+            if "loc" not in order and len(order) != 4:
+                if message.count("%s") != len(order) + 1:
+                    raise ValueError(
+                        "You must either provide all location arguments in your order list: [rownum, column, file, "
+                        "sheet] or provide an extra '%s' in your message for the leftover location information."
+                    )
+                order.append("loc")
+            # Save the arguments in a dict
+            vdict = {
+                "file": file,
+                "sheet": sheet,
+                "column": column,
+                "rownum": rownum,
+            }
+            # Set the argument value to None, so the ones included in order will not be included in loc
+            if "file" in order:
+                file = None
+            if "sheet" in order:
+                sheet = None
+            if "column" in order:
+                column = None
+            if "rownum" in order:
+                rownum = None
+            loc = generate_file_location_string(
+                rownum=rownum, sheet=sheet, file=file, column=column
+            )
+            insertions = [vdict[k] if k != "loc" else loc for k in order]
+            if "loc" not in order and len(order) != 4:
+                insertions.append(loc)
+            message = message % tuple(insertions)
+        else:
+            message = message % loc
+        super().__init__(message)
+        self.loc = loc
+
+
 class HeaderError(Exception):
     pass
 
 
-class RequiredValueError(Exception):
+class RequiredValueError(InfileError):
     def __init__(
         self,
         column,
@@ -28,21 +78,16 @@ class RequiredValueError(Exception):
         model_name,
         field_name,
         rec_dict=None,
-        sheet=None,
-        file=None,
         message=None,
+        **kwargs,
     ):
         if not message:
-            loc = generate_file_location_string(sheet=sheet, file=file)
-            message = f"Value required on {loc}."
+            message = "Value required on %s."
             if rec_dict is not None:
                 message += f"  Record extracted from row: {str(rec_dict)}."
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.column = column
         self.rownum = rownum
-        self.sheet = sheet
-        self.file = file
-        self.loc = loc
         self.model_name = model_name
         self.field_name = field_name
         self.rec_dict = rec_dict
@@ -91,25 +136,16 @@ class RequiredValueErrors(Exception):
         self.required_value_errors = required_value_errors
 
 
-class RequiredColumnValue(Exception):
+class RequiredColumnValue(InfileError):
     def __init__(
         self,
         column,
-        rownum=None,
-        sheet=None,
-        file=None,
         message=None,
+        **kwargs,
     ):
-        loc = generate_file_location_string(sheet=sheet, file=file, rownum=rownum)
         if not message:
-            message = "Value required for column [%s] in %s."
-        message = message % (column, loc)
-        super().__init__(message)
-        self.column = column
-        self.rownum = rownum
-        self.sheet = sheet
-        self.file = file
-        self.loc = loc
+            message = "Value required for column(s) [%s] in %s."
+        super().__init__(message, column=column, order=["column", "loc"], **kwargs)
 
 
 class RequiredColumnValues(Exception):
@@ -156,16 +192,12 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
         self.model_name = model_name
 
 
-class RequiredHeadersError(HeaderError):
-    def __init__(self, missing, message=None, sheet=None, file=None):
+class RequiredHeadersError(InfileError, HeaderError):
+    def __init__(self, missing, message=None, **kwargs):
         if not message:
-            loc = generate_file_location_string(sheet=sheet, file=file)
-            message = f"Required header(s) missing: [{', '.join(missing)}] in {loc}."
-        super().__init__(message)
+            message = f"Required header(s) missing: [{missing}] in %s."
+        super().__init__(message, **kwargs)
         self.missing = missing
-        self.sheet = sheet
-        self.file = file
-        self.loc = loc
 
 
 class HeaderConfigError(HeaderError):
@@ -179,10 +211,9 @@ class HeaderConfigError(HeaderError):
         self.missing = missing
 
 
-class RequiredValuesError(Exception):
-    def __init__(self, missing, message=None, sheet=None, file=None):
+class RequiredValuesError(InfileError):
+    def __init__(self, missing, message=None, **kwargs):
         if not message:
-            loc = generate_file_location_string(sheet=sheet, file=file)
             nltab = "\n\t"
             deets = list(
                 map(
@@ -191,12 +222,12 @@ class RequiredValuesError(Exception):
                 )
             )
             message = (
-                f"Missing required values have been detected in {loc} in the following columns:\n\t"
+                f"Missing required values have been detected in %s in the following columns:\n\t"
                 f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
                 "dummy values to avoid this error."
             )
             # Row numbers are available, but not very useful given the sheet merge
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.missing = missing
 
 
@@ -302,18 +333,12 @@ class DuplicatePeakGroups(Exception):
         self.duplicate_peak_groups = duplicate_peak_groups
 
 
-class UnknownHeadersError(HeaderError):
-    def __init__(self, unknowns, message=None, file=None, sheet=None):
-        loc = generate_file_location_string(file=file, sheet=sheet)
+class UnknownHeadersError(InfileError, HeaderError):
+    def __init__(self, unknowns, message=None, **kwargs):
         if not message:
-            message = (
-                f"Unknown header(s) encountered: [{', '.join(unknowns)}] in {loc}."
-            )
-        super().__init__(message)
+            message = f"Unknown header(s) encountered: [{', '.join(unknowns)}] in %s."
+        super().__init__(message, **kwargs)
         self.unknowns = unknowns
-        self.file = file
-        self.sheet = sheet
-        self.loc = loc
 
 
 class ResearcherNotNew(Exception):
@@ -466,21 +491,6 @@ class LoadingError(Exception):
     """
 
     pass
-
-
-class LoadFileError(Exception):
-    """
-    This exception is a wrapper for other exceptions, which adds file-related context
-    """
-
-    def __init__(self, exception, line_num=None, sheet=None, file=None):
-        loc = generate_file_location_string(rownum=line_num, sheet=sheet, file=file)
-        message = f"{type(exception).__name__} on {loc}: {exception}"
-        super().__init__(message)
-        self.exception = exception
-        self.line_num = line_num
-        self.sheet = sheet
-        self.file = file
 
 
 class MultiLoadStatus(Exception):
@@ -1184,17 +1194,14 @@ class ConflictingValueErrors(Exception):
         self.conflicting_value_errors = conflicting_value_errors
 
 
-class ConflictingValueError(Exception):
+class ConflictingValueError(InfileError):
     def __init__(
         self,
         rec,
         differences,
         rec_dict=None,
-        rownum=None,
-        sheet=None,
         message=None,
-        file=None,
-        col=None,
+        **kwargs,
     ):
         """Constructor
 
@@ -1212,9 +1219,6 @@ class ConflictingValueError(Exception):
             message (str): The error message.
             file (str): The name/path of the file where the conflict was encoutnered.
         """
-        loc = generate_file_location_string(
-            rownum=rownum, sheet=sheet, file=file, column=col
-        )
         if not message:
             mdl = "No record provided"
             recstr = "No record provided"
@@ -1222,7 +1226,7 @@ class ConflictingValueError(Exception):
                 mdl = type(rec).__name__ if rec is not None else "No record provided"
                 recstr = str(model_to_dict(rec, exclude=["id"]))
             message = (
-                f"Conflicting field values encountered in {loc} in {mdl} record "
+                f"Conflicting field values encountered in %s in {mdl} record "
                 f"[{recstr}]:\n"
             )
             if differences is not None:
@@ -1234,14 +1238,10 @@ class ConflictingValueError(Exception):
                     )
             else:
                 message += "\tDifferences not provided"
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.rec = rec  # Model record that conflicts
         self.rec_dict = rec_dict  # Dict created from file
         self.differences = differences
-        self.rownum = rownum
-        self.sheet = sheet
-        self.file = file
-        self.loc = loc
 
 
 class SaveError(Exception):
@@ -1272,15 +1272,12 @@ class DupeCompoundIsotopeCombos(Exception):
         self.dupe_dict = dupe_dict
 
 
-class DuplicateValues(Exception):
-    def __init__(
-        self, dupe_dict, colnames, message=None, addendum=None, sheet=None, file=None
-    ):
+class DuplicateValues(InfileError):
+    def __init__(self, dupe_dict, colnames, message=None, addendum=None, **kwargs):
         """
         Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
         """
         if not message:
-            loc = generate_file_location_string(sheet=sheet, file=file)
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
             dupdeets = []
@@ -1303,17 +1300,14 @@ class DuplicateValues(Exception):
             nltab = "\n\t"
             message = (
                 f"The following unique column (or column combination) {colnames} was found to have duplicate "
-                f"occurrences in {loc} on the indicated rows:{nltab}{nltab.join(dupdeets)}"
+                f"occurrences in %s on the indicated rows:{nltab}{nltab.join(dupdeets)}"
             )
             if addendum is not None:
                 message += f"\n{addendum}"
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.dupe_dict = dupe_dict
         self.colnames = colnames
         self.addendum = addendum
-        self.sheet = sheet
-        self.file = file
-        self.loc = loc
         self.dupdeets = dupdeets
 
 
@@ -1716,17 +1710,19 @@ class DuplicateSampleDataHeaders(Exception):
         self.samples = samples
 
 
-class InvalidHeaders(ValidationError):
-    def __init__(self, headers, expected_headers=None, file=None, fileformat=None):
+class InvalidHeaders(InfileError, ValidationError):
+    def __init__(self, headers, expected_headers=None, fileformat=None, **kwargs):
         if expected_headers is None:
             expected_headers = expected_headers
         message = ""
+        file = kwargs.get("file", None)
         if file is not None:
             if fileformat is not None:
-                message += f"{fileformat} file "
+                filedesc = f"{fileformat} file "
             else:
-                message += "File "
-            message += f"[{file}] "
+                filedesc = "File "
+            kwargs["file"] = f"{filedesc} [{file}] "
+            message += "%s "
         missing = [i for i in expected_headers if i not in headers]
         unexpected = [i for i in headers if i not in expected_headers]
         if len(missing) > 0:
@@ -1735,10 +1731,9 @@ class InvalidHeaders(ValidationError):
             message += " and "
         if len(unexpected) > 0:
             message += f" has unexpected headers: {unexpected}"
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.headers = headers
         self.expected_headers = expected_headers
-        self.file = file
         self.missing = missing
         self.unexpected = unexpected
 
@@ -1776,65 +1771,51 @@ class DuplicateFileHeaders(ValidationError):
         self.headers = headers
 
 
-class InvalidDtypeDict(Exception):
+class InvalidDtypeDict(InfileError):
     def __init__(
         self,
         dtype,
-        file=None,
-        sheet=None,
         columns=None,
         message=None,
+        **kwargs,
     ):
-        loc = generate_file_location_string(sheet=sheet, file=file)
         if message is None:
             message = (
-                f"Invalid dtype dict supplied for parsing {loc}.  None of its keys {list(dtype.keys())} are present "
+                f"Invalid dtype dict supplied for parsing %s.  None of its keys {list(dtype.keys())} are present "
                 f"in the dataframe, whose columns are {columns}."
             )
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.dtype = dtype
-        self.file = file
-        self.sheet = sheet
         self.columns = columns
-        self.loc = loc
 
 
-class InvalidDtypeKeys(Exception):
+class InvalidDtypeKeys(InfileError):
     def __init__(
         self,
         missing,
-        file=None,
-        sheet=None,
         columns=None,
         message=None,
+        **kwargs,
     ):
-        loc = generate_file_location_string(sheet=sheet, file=file)
         if message is None:
             message = (
-                f"Missing dtype dict keys supplied for parsing {loc}.  These keys {missing} are not present "
+                f"Missing dtype dict keys supplied for parsing %s.  These keys {missing} are not present "
                 f"in the resulting dataframe, whose available columns are {columns}."
             )
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.missing = missing
-        self.file = file
-        self.sheet = sheet
         self.columns = columns
-        self.loc = loc
 
 
-class DateParseError(Exception):
-    def __init__(
-        self, string, ve_exc, format, file=None, sheet=None, rownum=None, column=None
-    ):
-        loc = generate_file_location_string(
-            file=file, sheet=sheet, rownum=rownum, column=column
-        )
+class DateParseError(InfileError):
+    def __init__(self, string, ve_exc, format, **kwargs):
+        format = format.replace("%", "%%")
         message = (
             f"The date string {string} obtained from the file did not match the pattern supplied {format}.  This is "
             "likely the result of excel converting a string to a date.  Try editing the data type of the column in "
-            f"{loc}.\nOriginal error: {type(ve_exc).__name__}: {ve_exc}"
+            f"%s.\nOriginal error: {type(ve_exc).__name__}: {ve_exc}"
         )
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.string = string
         self.ve_exc = ve_exc
         self.format = format
@@ -1890,12 +1871,17 @@ class WrongExcelSheet(Exception):
         self.sheet_num = sheet_num
 
 
-class ExcelSheetsNotFound(Exception):
-    def __init__(self, unknowns, all_sheets, file, column, source_sheet, message=None):
+class ExcelSheetsNotFound(InfileError):
+    def __init__(
+        self,
+        unknowns,
+        all_sheets,
+        source_file,
+        source_column,
+        source_sheet,
+        message=None,
+    ):
         if message is None:
-            loc = generate_file_location_string(
-                sheet=source_sheet, file=file, column=column
-            )
             deets = "\n\t".join(
                 [
                     f"[{k}] on rows: " + str(summarize_int_list(v))
@@ -1903,15 +1889,17 @@ class ExcelSheetsNotFound(Exception):
                 ]
             )
             message = (
-                f"The following excel sheet(s) parsed from {loc} on the indicated rows were not found.\n"
+                f"The following excel sheet(s) parsed from %s on the indicated rows were not found.\n"
                 f"\t{deets}\n"
                 f"The available sheets are: [{all_sheets}]."
             )
-        super().__init__(message)
+        super().__init__(
+            message, file=source_file, sheet=source_sheet, column=source_column
+        )
         self.unknowns = unknowns
         self.all_sheets = all_sheets
-        self.file = file
-        self.column = column
+        self.source_file = source_file
+        self.source_column = source_column
         self.source_sheet = source_sheet
 
 
@@ -2027,35 +2015,28 @@ class MzxmlConflictErrors(Exception):
         self.mzxml_conflicts = mzxml_conflicts
 
 
-class InfileDatabaseError(Exception):
-    def __init__(self, exception, rec_dict, rownum=None, sheet=None, file=None):
+class InfileDatabaseError(InfileError):
+    def __init__(self, exception, rec_dict, **kwargs):
         if rec_dict is not None:
             nltab = "\n\t"
             deets = [f"{k}: {v}" for k, v in rec_dict.items()]
-        loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
-        message = f"{type(exception).__name__} in {loc}"
+        message = f"{type(exception).__name__} in %s"
         if rec_dict is not None:
             message += f", creating record:\n\t{nltab.join(deets)}"
         message += f"\n\t{type(exception).__name__}: {str(exception)}"
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.exception = exception
-        self.rownum = rownum
         self.rec_dict = rec_dict
-        self.sheet = sheet
-        self.file = file
 
 
 class MzxmlParseError(Exception):
     pass
 
 
-class AmbiguousMSRun(Exception):
-    def __init__(
-        self, pg_rec, peak_annot1, peak_annot2, col=None, rownum=None, sheet=None
-    ):
-        loc = generate_file_location_string(rownum=rownum, sheet=sheet, column=col)
+class AmbiguousMSRun(InfileError):
+    def __init__(self, pg_rec, peak_annot1, peak_annot2, **kwargs):
         message = (
-            f"When processing the peak data located in {loc} for sample [{pg_rec.msrun_sample.sample}] and compound(s) "
+            f"When processing the peak data located in %s for sample [{pg_rec.msrun_sample.sample}] and compound(s) "
             f"{pg_rec.name}, a duplicate peak group was found that was linked to MSRunSample: "
             f"{model_to_dict(pg_rec.msrun_sample)}, but the peak annotation file it was loaded from [{peak_annot1}] "
             f"was not the same as the current load file: [{peak_annot2}].  Either this is true duplicate peak data and "
@@ -2064,13 +2045,10 @@ class AmbiguousMSRun(Exception):
             "unavailable, mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr "
             "data."
         )
-        super().__init__(message)
+        super().__init__(message, **kwargs)
         self.pg_rec = pg_rec
         self.peak_annot1 = peak_annot1
         self.peak_annot2 = peak_annot2
-        self.rownum = rownum
-        self.sheet = sheet
-        self.loc = loc
 
 
 class AmbiguousMSRuns(Exception):
@@ -2183,6 +2161,13 @@ class MutuallyExclusiveOptions(CommandError):
 
 class NoLoadData(Exception):
     pass
+
+
+class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
+    def __init__(self, name, **kwargs):
+        message = f"Compound [{name}] from %s does not exist as either a primary compound name or synonym."
+        super().__init__(message, **kwargs)
+        self.name = name
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

@@ -2,10 +2,12 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    CompoundDoesNotExist,
     DateParseError,
     DuplicateValueErrors,
     DuplicateValues,
     ExcelSheetsNotFound,
+    InfileError,
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
@@ -25,363 +27,6 @@ from DataRepo.utils.exceptions import (
     generate_file_location_string,
     summarize_int_list,
 )
-
-# TODO: Move this file into the utils subdirectory
-
-
-class ExceptionTests(TracebaseTestCase):
-    def assert_aggregated_exception_states(
-        self,
-        aes,
-        expected_should_raise,
-        should_raise,
-        expected_errors,
-        expected_warnings,
-    ):
-        self.assertEqual(expected_should_raise, should_raise)
-        self.assertEqual(
-            expected_errors,
-            aes.get_num_errors(),
-            msg=f"There should be {expected_errors} errors",
-        )
-        self.assertEqual(
-            expected_warnings,
-            aes.get_num_warnings(),
-            msg=f"There should be {expected_warnings} warnings",
-        )
-
-    def test_buffer_ure_validate_warning_raise(self):
-        unknown = ["Dave"]
-        new = ["Dave", "Dan"]
-        known = ["Dan", "Rob", "Shaji", "Mike"]
-        ure = UnknownResearcherError(unknown, new, known)
-
-        validate_mode = True
-
-        aes = AggregatedErrors()
-        aes.buffer_exception(ure, is_error=not validate_mode, is_fatal=True)
-
-        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
-        self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
-
-    def test_buffer_ure_novalidate_error_raise(self):
-        unknown = ["Dave"]
-        new = ["Dave", "Dan"]
-        known = ["Dan", "Rob", "Shaji", "Mike"]
-        ure = UnknownResearcherError(unknown, new, known)
-
-        aes = AggregatedErrors()
-        aes.buffer_error(ure, is_fatal=True)
-
-        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 1, 0)
-        self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
-
-    def test_buffer_uie_validate_warning_raise(self):
-        # The types of the contents of these arrays doesn't matter
-        detected = ["C13", "N15"]
-        labeled = ["C13"]
-        compounds = ["Lysine"]
-        uie = UnexpectedIsotopes(detected, labeled, compounds)
-
-        validate_mode = True
-
-        aes = AggregatedErrors()
-        aes.buffer_warning(uie, is_fatal=validate_mode)
-
-        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
-        self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
-
-    def test_buffer_uie_novalidate_warning_raise(self):
-        # The types of the contents of these arrays doesn't matter
-        detected = ["C13", "N15"]
-        labeled = ["C13"]
-        compounds = ["Lysine"]
-        uie = UnexpectedIsotopes(detected, labeled, compounds)
-
-        validate_mode = False
-
-        aes = AggregatedErrors()
-        aes.buffer_exception(uie, is_error=False, is_fatal=validate_mode)
-
-        self.assert_aggregated_exception_states(aes, False, aes.should_raise(), 0, 1)
-        self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
-
-    def test_get_buffered_traceback_string(self):
-        def frame_one():
-            frame_two()
-
-        def frame_two():
-            frame_three()
-
-        def frame_three():
-            buffered_tb_str = AggregatedErrors.get_buffered_traceback_string()
-            self.assertTrue("frame_one" in buffered_tb_str)
-            self.assertTrue("frame_two" in buffered_tb_str)
-            self.assertTrue("frame_three" in buffered_tb_str)
-            self.assertTrue("test_get_buffered_traceback_string" in buffered_tb_str)
-
-        frame_one()
-
-    def test_aes_no_args(self):
-        aes = None
-        try:
-            raise AggregatedErrors()
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "AggregatedErrors exception.  No exceptions have been buffered.  Use the return of self.should_raise() to "
-            "determine if an exception should be raised before raising this exception."
-        )
-        self.assertEqual(expected_message, str(aes))
-
-    def test_aes_construct_with_errors(self):
-        aes = None
-        try:
-            raise AggregatedErrors(errors=[ValueError("Test")])
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].\n"
-            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
-            "\tEXCEPTION1(ERROR): ValueError: Test\n"
-            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
-        )
-        self.assertEqual(expected_message, str(aes))
-
-    def test_aes_construct_with_warnings(self):
-        aes = None
-        try:
-            raise AggregatedErrors(warnings=[ValueError("Test")])
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been raised.  "
-            "Use the return of self.should_raise() to determine if an exception should be raised before raising this "
-            "exception.\n"
-            "AggregatedErrors Summary (0 errors / 1 warnings):\n"
-            "\tEXCEPTION1(WARNING): ValueError: Test\n"
-            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
-        )
-        self.assertEqual(expected_message, str(aes))
-
-    def test_aes_construct_with_exceptions(self):
-        aes = None
-        try:
-            raise AggregatedErrors(exceptions=[ValueError("Test")])
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].\n"
-            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
-            "\tEXCEPTION1(ERROR): ValueError: Test\n"
-            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
-        )
-        self.assertEqual(expected_message, str(aes))
-
-    def test_aes_with_buffered_errors_no_should_raise(self):
-        aes = None
-        try:
-            aes = AggregatedErrors()
-            aes.buffer_error(ValueError("Test"))
-            raise aes
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].\n"
-            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
-            "\tEXCEPTION1(ERROR): ValueError: Test\n"
-            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
-        )
-        self.assertEqual(
-            expected_message,
-            str(aes),
-            msg="Not necessary to call should_raise.  Buffering updates the exception message.",
-        )
-
-    def test_aes_with_buffered_error_and_should_raise(self):
-        aes = None
-        try:
-            aes = AggregatedErrors()
-            aes.buffer_error(ValueError("Test"))
-            aes.should_raise()
-            raise aes
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].\n"
-            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
-            "\tEXCEPTION1(ERROR): ValueError: Test\n"
-            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
-        )
-        self.assertEqual(expected_message, str(aes))
-
-    def test_aes_with_buffered_warning_and_should_raise(self):
-        aes = None
-        try:
-            aes = AggregatedErrors()
-            aes.buffer_warning(ValueError("Test"))
-            aes.should_raise()
-            raise aes
-        except AggregatedErrors as e:
-            aes = e
-        expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been raised.  "
-            "Use the return of self.should_raise() to determine if an exception should be raised before raising this "
-            "exception.\n"
-            "AggregatedErrors Summary (0 errors / 1 warnings):\n"
-            "\tEXCEPTION1(WARNING): ValueError: Test\n"
-            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
-        )
-        self.assertEqual(expected_message, str(aes))
-
-    def test_summarize_int_list(self):
-        il = [1, 7, 2, 3, 5, 8]
-        esl = ["1-3", "5", "7-8"]
-        sl = summarize_int_list(il)
-        self.assertEqual(esl, sl)
-
-    def test_units_wrong(self):
-        units_dict = {
-            "Infusion Rate": {
-                "example_val": "3.3 non/sense",
-                "expected": "ul/m/g",
-                "rows": [5, 6],
-                "units": "non/sense",
-            },
-        }
-        uw = UnitsWrong(units_dict)
-        self.assertEqual(
-            (
-                "Unexpected units were found in 1 columns:\n"
-                "\tInfusion Rate (example: [3.3 non/sense] does not match units: [ul/m/g] on row(s): [5, 6])\n"
-                "Units are not allowed, but these also appear to be the wrong units."
-            ),
-            str(uw),
-        )
-        self.assertTrue(hasattr(uw, "units_dict"))
-        self.assertEqual(uw.units_dict, units_dict)
-
-    def test_researcher_not_new_takes_list(self):
-        """
-        Issue #712
-        Requirement: 6. ResearcherNotNew must take a list of researchers (see TODO in accucor_data_loader.py)
-        """
-        existing = ["paul", "bob"]
-        all = ["paul", "bob", "george"]
-        ResearcherNotNew(existing, "--new-researcher", all)
-        # No exception = successful test
-
-    def test_generate_file_location_string(self):
-        lstr = generate_file_location_string(
-            column=2, rownum=3, sheet="Animals", file="animals.xlsx"
-        )
-        self.assertEqual(
-            "column [2] on row [3] of sheet [Animals] in file [animals.xlsx]", lstr
-        )
-        lstr = generate_file_location_string(column=2, rownum=3, sheet="Animals")
-        self.assertEqual(
-            "column [2] on row [3] of sheet [Animals] in the load file data", lstr
-        )
-        lstr = generate_file_location_string(
-            rownum=3, sheet="Animals", file="animals.xlsx"
-        )
-        self.assertEqual("row [3] of sheet [Animals] in file [animals.xlsx]", lstr)
-        lstr = generate_file_location_string(
-            column=2, sheet="Animals", file="animals.xlsx"
-        )
-        self.assertEqual("column [2] of sheet [Animals] in file [animals.xlsx]", lstr)
-        lstr = generate_file_location_string(column=2, rownum=3, file="animals.xlsx")
-        self.assertEqual("column [2] on row [3] in file [animals.xlsx]", lstr)
-
-    def test_DuplicateValueErrors(self):
-        """Test that DuplicateValueErrors correctly summarizes a series of DuplicateValues exceptions"""
-        dvs = [
-            DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme.txt"),
-            DuplicateValues({"2": [0, 1]}, ["col3"], sheet=None, file="loadme.txt"),
-            DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme2.txt"),
-            DuplicateValues({"2": [0, 1]}, ["col3"], sheet=None, file="loadme2.txt"),
-        ]
-        dve = DuplicateValueErrors(dvs)
-        expected = (
-            "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences on the "
-            "indicated rows:\n"
-            "\tfile [loadme.txt]\n"
-            "\t\tColumn(s) ['col2']\n"
-            "\t\t\tx (rows*: 2-3)\n"
-            "\t\tColumn(s) ['col3']\n"
-            "\t\t\t2 (rows*: 2-3)\n"
-            "\tfile [loadme2.txt]\n"
-            "\t\tColumn(s) ['col2']\n"
-            "\t\t\tx (rows*: 2-3)\n"
-            "\t\tColumn(s) ['col3']\n"
-            "\t\t\t2 (rows*: 2-3)\n"
-        )
-        self.assertEqual(expected, str(dve))
-
-    def test_RequiredColumnValues(self):
-        rcvs = [
-            RequiredColumnValue("col2", 5, sheet="Tissues", file="loadme.tsv"),
-            RequiredColumnValue("col2", 6, sheet="Tissues", file="loadme.tsv"),
-            RequiredColumnValue("col2", 7, sheet="Tissues", file="loadme.tsv"),
-            RequiredColumnValue("col2", 8, sheet="Tissues", file="loadme.tsv"),
-        ]
-        rcv = RequiredColumnValues(rcvs)
-        expected = (
-            "Required column values missing on the indicated rows:\n"
-            "\tsheet [Tissues] in file [loadme.tsv]\n"
-            "\t\tColumn: [col2] on rows: ['5-8']\n"
-        )
-        self.assertEqual(expected, str(rcv))
-
-    def test_RequiredValueErrors(self):
-        rves = [
-            RequiredValueError(
-                "Tissue Name",
-                3,
-                "Tissue",
-                "name",
-                rec_dict={
-                    "name": None,
-                    "description": "This is the armpit",
-                    "type": "epidermal",
-                },
-                sheet="tissues",
-                file="tissues.tsv",
-            ),
-            RequiredValueError(
-                "Tissue Name",
-                4,
-                "Tissue",
-                "name",
-                rec_dict={
-                    "name": None,
-                    "description": "This is the sphincter",
-                    "type": "epidermal",
-                },
-                sheet="tissues",
-                file="tissues.tsv",
-            ),
-            RequiredValueError(
-                "Tissue Name",
-                4,
-                "Tissue",
-                "name",
-                rec_dict={
-                    "name": None,
-                    "description": "This is the elbowpit",
-                    "type": "epidermal",
-                },
-                sheet="tissues",
-                file="tissues.tsv",
-            ),
-        ]
-        rve = RequiredValueErrors(rves)
-        expected = (
-            "Required values found missing during loading:\n"
-            "\tsheet [tissues] in file [tissues.tsv]:\n"
-            "\t\tField: [Tissue.name] Column: [Tissue Name] on row(s): 3-4\n"
-        )
-        self.assertEqual(expected, str(rve))
 
 
 class MultiLoadStatusTests(TracebaseTestCase):
@@ -735,6 +380,361 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertFalse(removed[1].is_fatal)
         self.assertFalse(removed[1].is_error)
 
+
+class ExceptionTests(TracebaseTestCase):
+    def assert_aggregated_exception_states(
+        self,
+        aes,
+        expected_should_raise,
+        should_raise,
+        expected_errors,
+        expected_warnings,
+    ):
+        self.assertEqual(expected_should_raise, should_raise)
+        self.assertEqual(
+            expected_errors,
+            aes.get_num_errors(),
+            msg=f"There should be {expected_errors} errors",
+        )
+        self.assertEqual(
+            expected_warnings,
+            aes.get_num_warnings(),
+            msg=f"There should be {expected_warnings} warnings",
+        )
+
+    def test_buffer_ure_validate_warning_raise(self):
+        unknown = ["Dave"]
+        new = ["Dave", "Dan"]
+        known = ["Dan", "Rob", "Shaji", "Mike"]
+        ure = UnknownResearcherError(unknown, new, known)
+
+        validate_mode = True
+
+        aes = AggregatedErrors()
+        aes.buffer_exception(ure, is_error=not validate_mode, is_fatal=True)
+
+        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
+        self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
+
+    def test_buffer_ure_novalidate_error_raise(self):
+        unknown = ["Dave"]
+        new = ["Dave", "Dan"]
+        known = ["Dan", "Rob", "Shaji", "Mike"]
+        ure = UnknownResearcherError(unknown, new, known)
+
+        aes = AggregatedErrors()
+        aes.buffer_error(ure, is_fatal=True)
+
+        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 1, 0)
+        self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
+
+    def test_buffer_uie_validate_warning_raise(self):
+        # The types of the contents of these arrays doesn't matter
+        detected = ["C13", "N15"]
+        labeled = ["C13"]
+        compounds = ["Lysine"]
+        uie = UnexpectedIsotopes(detected, labeled, compounds)
+
+        validate_mode = True
+
+        aes = AggregatedErrors()
+        aes.buffer_warning(uie, is_fatal=validate_mode)
+
+        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
+        self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
+
+    def test_buffer_uie_novalidate_warning_raise(self):
+        # The types of the contents of these arrays doesn't matter
+        detected = ["C13", "N15"]
+        labeled = ["C13"]
+        compounds = ["Lysine"]
+        uie = UnexpectedIsotopes(detected, labeled, compounds)
+
+        validate_mode = False
+
+        aes = AggregatedErrors()
+        aes.buffer_exception(uie, is_error=False, is_fatal=validate_mode)
+
+        self.assert_aggregated_exception_states(aes, False, aes.should_raise(), 0, 1)
+        self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
+
+    def test_get_buffered_traceback_string(self):
+        def frame_one():
+            frame_two()
+
+        def frame_two():
+            frame_three()
+
+        def frame_three():
+            buffered_tb_str = AggregatedErrors.get_buffered_traceback_string()
+            self.assertTrue("frame_one" in buffered_tb_str)
+            self.assertTrue("frame_two" in buffered_tb_str)
+            self.assertTrue("frame_three" in buffered_tb_str)
+            self.assertTrue("test_get_buffered_traceback_string" in buffered_tb_str)
+
+        frame_one()
+
+    def test_aes_no_args(self):
+        aes = None
+        try:
+            raise AggregatedErrors()
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "AggregatedErrors exception.  No exceptions have been buffered.  Use the return of self.should_raise() to "
+            "determine if an exception should be raised before raising this exception."
+        )
+        self.assertEqual(expected_message, str(aes))
+
+    def test_aes_construct_with_errors(self):
+        aes = None
+        try:
+            raise AggregatedErrors(errors=[ValueError("Test")])
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(expected_message, str(aes))
+
+    def test_aes_construct_with_warnings(self):
+        aes = None
+        try:
+            raise AggregatedErrors(warnings=[ValueError("Test")])
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been raised.  "
+            "Use the return of self.should_raise() to determine if an exception should be raised before raising this "
+            "exception.\n"
+            "AggregatedErrors Summary (0 errors / 1 warnings):\n"
+            "\tEXCEPTION1(WARNING): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(expected_message, str(aes))
+
+    def test_aes_construct_with_exceptions(self):
+        aes = None
+        try:
+            raise AggregatedErrors(exceptions=[ValueError("Test")])
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(expected_message, str(aes))
+
+    def test_aes_with_buffered_errors_no_should_raise(self):
+        aes = None
+        try:
+            aes = AggregatedErrors()
+            aes.buffer_error(ValueError("Test"))
+            raise aes
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(
+            expected_message,
+            str(aes),
+            msg="Not necessary to call should_raise.  Buffering updates the exception message.",
+        )
+
+    def test_aes_with_buffered_error_and_should_raise(self):
+        aes = None
+        try:
+            aes = AggregatedErrors()
+            aes.buffer_error(ValueError("Test"))
+            aes.should_raise()
+            raise aes
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(expected_message, str(aes))
+
+    def test_aes_with_buffered_warning_and_should_raise(self):
+        aes = None
+        try:
+            aes = AggregatedErrors()
+            aes.buffer_warning(ValueError("Test"))
+            aes.should_raise()
+            raise aes
+        except AggregatedErrors as e:
+            aes = e
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been raised.  "
+            "Use the return of self.should_raise() to determine if an exception should be raised before raising this "
+            "exception.\n"
+            "AggregatedErrors Summary (0 errors / 1 warnings):\n"
+            "\tEXCEPTION1(WARNING): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(expected_message, str(aes))
+
+    def test_summarize_int_list(self):
+        il = [1, 7, 2, 3, 5, 8]
+        esl = ["1-3", "5", "7-8"]
+        sl = summarize_int_list(il)
+        self.assertEqual(esl, sl)
+
+    def test_units_wrong(self):
+        units_dict = {
+            "Infusion Rate": {
+                "example_val": "3.3 non/sense",
+                "expected": "ul/m/g",
+                "rows": [5, 6],
+                "units": "non/sense",
+            },
+        }
+        uw = UnitsWrong(units_dict)
+        self.assertEqual(
+            (
+                "Unexpected units were found in 1 columns:\n"
+                "\tInfusion Rate (example: [3.3 non/sense] does not match units: [ul/m/g] on row(s): [5, 6])\n"
+                "Units are not allowed, but these also appear to be the wrong units."
+            ),
+            str(uw),
+        )
+        self.assertTrue(hasattr(uw, "units_dict"))
+        self.assertEqual(uw.units_dict, units_dict)
+
+    def test_researcher_not_new_takes_list(self):
+        """
+        Issue #712
+        Requirement: 6. ResearcherNotNew must take a list of researchers (see TODO in accucor_data_loader.py)
+        """
+        existing = ["paul", "bob"]
+        all = ["paul", "bob", "george"]
+        ResearcherNotNew(existing, "--new-researcher", all)
+        # No exception = successful test
+
+    def test_generate_file_location_string(self):
+        lstr = generate_file_location_string(
+            column=2, rownum=3, sheet="Animals", file="animals.xlsx"
+        )
+        self.assertEqual(
+            "column [2] on row [3] of sheet [Animals] in file [animals.xlsx]", lstr
+        )
+        lstr = generate_file_location_string(column=2, rownum=3, sheet="Animals")
+        self.assertEqual(
+            "column [2] on row [3] of sheet [Animals] in the load file data", lstr
+        )
+        lstr = generate_file_location_string(
+            rownum=3, sheet="Animals", file="animals.xlsx"
+        )
+        self.assertEqual("row [3] of sheet [Animals] in file [animals.xlsx]", lstr)
+        lstr = generate_file_location_string(
+            column=2, sheet="Animals", file="animals.xlsx"
+        )
+        self.assertEqual("column [2] of sheet [Animals] in file [animals.xlsx]", lstr)
+        lstr = generate_file_location_string(column=2, rownum=3, file="animals.xlsx")
+        self.assertEqual("column [2] on row [3] in file [animals.xlsx]", lstr)
+
+    def test_DuplicateValueErrors(self):
+        """Test that DuplicateValueErrors correctly summarizes a series of DuplicateValues exceptions"""
+        dvs = [
+            DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme.txt"),
+            DuplicateValues({"2": [0, 1]}, ["col3"], sheet=None, file="loadme.txt"),
+            DuplicateValues({"x": [0, 1]}, ["col2"], sheet=None, file="loadme2.txt"),
+            DuplicateValues({"2": [0, 1]}, ["col3"], sheet=None, file="loadme2.txt"),
+        ]
+        dve = DuplicateValueErrors(dvs)
+        expected = (
+            "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences on the "
+            "indicated rows:\n"
+            "\tfile [loadme.txt]\n"
+            "\t\tColumn(s) ['col2']\n"
+            "\t\t\tx (rows*: 2-3)\n"
+            "\t\tColumn(s) ['col3']\n"
+            "\t\t\t2 (rows*: 2-3)\n"
+            "\tfile [loadme2.txt]\n"
+            "\t\tColumn(s) ['col2']\n"
+            "\t\t\tx (rows*: 2-3)\n"
+            "\t\tColumn(s) ['col3']\n"
+            "\t\t\t2 (rows*: 2-3)\n"
+        )
+        self.assertEqual(expected, str(dve))
+
+    def test_RequiredColumnValues(self):
+        rcvs = [
+            RequiredColumnValue("col2", rownum=5, sheet="Tissues", file="loadme.tsv"),
+            RequiredColumnValue("col2", rownum=6, sheet="Tissues", file="loadme.tsv"),
+            RequiredColumnValue("col2", rownum=7, sheet="Tissues", file="loadme.tsv"),
+            RequiredColumnValue("col2", rownum=8, sheet="Tissues", file="loadme.tsv"),
+        ]
+        rcv = RequiredColumnValues(rcvs)
+        expected = (
+            "Required column values missing on the indicated rows:\n"
+            "\tsheet [Tissues] in file [loadme.tsv]\n"
+            "\t\tColumn: [col2] on rows: ['5-8']\n"
+        )
+        self.assertEqual(expected, str(rcv))
+
+    def test_RequiredValueErrors(self):
+        rves = [
+            RequiredValueError(
+                "Tissue Name",
+                3,
+                "Tissue",
+                "name",
+                rec_dict={
+                    "name": None,
+                    "description": "This is the armpit",
+                    "type": "epidermal",
+                },
+                sheet="tissues",
+                file="tissues.tsv",
+            ),
+            RequiredValueError(
+                "Tissue Name",
+                4,
+                "Tissue",
+                "name",
+                rec_dict={
+                    "name": None,
+                    "description": "This is the sphincter",
+                    "type": "epidermal",
+                },
+                sheet="tissues",
+                file="tissues.tsv",
+            ),
+            RequiredValueError(
+                "Tissue Name",
+                4,
+                "Tissue",
+                "name",
+                rec_dict={
+                    "name": None,
+                    "description": "This is the elbowpit",
+                    "type": "epidermal",
+                },
+                sheet="tissues",
+                file="tissues.tsv",
+            ),
+        ]
+        rve = RequiredValueErrors(rves)
+        expected = (
+            "Required values found missing during loading:\n"
+            "\tsheet [tissues] in file [tissues.tsv]:\n"
+            "\t\tField: [Tissue.name] Column: [Tissue Name] on row(s): 3-4\n"
+        )
+        self.assertEqual(expected, str(rve))
+
     def test_RequiredColumnValueWhenNovel(self):
         rcvwn = RequiredColumnValueWhenNovel(column=3, model_name="TestModel")
         self.assertEqual(
@@ -762,9 +762,9 @@ class AggregatedErrorsTests(TracebaseTestCase):
         esnf = ExcelSheetsNotFound(
             unknowns={"x": [2, 3, 5]},
             all_sheets=["a", "b"],
-            file="test.xlsx",
+            source_file="test.xlsx",
             source_sheet="defs",
-            column="Sheet Name",
+            source_column="Sheet Name",
         )
         self.assertEqual(
             (
@@ -852,4 +852,52 @@ class AggregatedErrorsTests(TracebaseTestCase):
                 "the load file data.\nOriginal error: ValueError: unconverted data remains:  00:00:00"
             ),
             str(dpe),
+        )
+
+    def test_InfileError_placeholder(self):
+        ie = InfileError(
+            "You did something weird here: %s. You shouldn't do that.",
+            rownum=2,
+            sheet="Test Sheet",
+            file="test.xlsx",
+            column="Col1",
+        )
+        self.assertEqual(
+            (
+                "You did something weird here: column [Col1] on row [2] of sheet [Test Sheet] in file [test.xlsx]. You "
+                "shouldn't do that."
+            ),
+            str(ie),
+        )
+
+    def test_InfileError_no_placeholder(self):
+        ie = InfileError(
+            "You did something weird. You shouldn't do that.",
+            rownum=2,
+            sheet="Test Sheet",
+            file="test.xlsx",
+            column="Col1",
+        )
+        self.assertEqual(
+            (
+                "You did something weird. You shouldn't do that.  Location: column [Col1] on row [2] of sheet [Test "
+                "Sheet] in file [test.xlsx]."
+            ),
+            str(ie),
+        )
+
+    def test_CompoundDoesNotExist(self):
+        cdne = CompoundDoesNotExist(
+            "compound x",
+            rownum=2,
+            sheet="Test Sheet",
+            file="test.xlsx",
+            column="Col1",
+        )
+        self.assertEqual(
+            (
+                "Compound [compound x] from column [Col1] on row [2] of sheet [Test Sheet] in file [test.xlsx] does "
+                "not exist as either a primary compound name or synonym."
+            ),
+            str(cdne),
         )
