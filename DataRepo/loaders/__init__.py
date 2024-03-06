@@ -13,6 +13,7 @@ from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
+from DataRepo.loaders.tracers_loader import TracersLoader
 
 __all__ = [
     "AccuCorDataLoader",
@@ -26,4 +27,5 @@ __all__ = [
     "StudyTableLoader",
     "TableLoader",
     "TissuesLoader",
+    "TracersLoader",
 ]
