@@ -9,6 +9,11 @@ from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
 
+from DataRepo.loaders import (
+    AccuCorDataLoader,
+    IsotopeObservationData,
+    SampleTableLoader,
+)
 from DataRepo.management.commands.load_study import Command as LoadStudyCommand
 from DataRepo.models import (
     Animal,
@@ -38,7 +43,6 @@ from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
-    AccuCorDataLoader,
     AggregatedErrors,
     AllMissingCompounds,
     AllMissingSamples,
@@ -46,14 +50,12 @@ from DataRepo.utils import (
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
-    IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingCompounds,
     MissingSamplesError,
     MissingTissues,
     RequiredSampleValuesError,
-    SampleTableLoader,
     SheetMergeError,
     get_column_dupes,
     leaderboard_data,

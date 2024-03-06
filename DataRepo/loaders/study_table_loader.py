@@ -1,20 +1,24 @@
 from collections import namedtuple
 
-from DataRepo.models import Tissue
-from DataRepo.utils.table_loader import TableLoader
+from django.db import transaction
+
+from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.models import Study
 
 
-class TissuesLoader(TableLoader):
+class StudyTableLoader(TableLoader):
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
+    CODE_KEY = "CODE"
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"
 
-    DataSheetName = "Tissues"
+    DataSheetName = "Study"
 
     # The tuple used to store different kinds of data per column at the class level
     DataTableHeaders = namedtuple(
         "DataTableHeaders",
         [
+            "CODE",
             "NAME",
             "DESCRIPTION",
         ],
@@ -22,12 +26,14 @@ class TissuesLoader(TableLoader):
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        NAME="Tissue",
+        CODE="Study ID",
+        NAME="Name",
         DESCRIPTION="Description",
     )
 
     # Whether each column is required to be present of not
     DataRequiredHeaders = DataTableHeaders(
+        CODE=True,
         NAME=True,
         DESCRIPTION=True,
     )
@@ -35,30 +41,26 @@ class TissuesLoader(TableLoader):
     # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
     DataRequiredValues = DataRequiredHeaders
 
-    # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
-    DataColumnTypes = {
-        NAME_KEY: str,
-        DESC_KEY: str,
-    }
-
     # No DataDefaultValues needed
+    # No DataColumnTypes needed
 
     # Combinations of columns whose values must be unique in the file
-    DataUniqueColumnConstraints = [[NAME_KEY]]
+    DataUniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "Tissue": {
+        "Study": {
+            "code": CODE_KEY,
             "name": NAME_KEY,
             "description": DESC_KEY,
         },
     }
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
-    Models = [Tissue]
+    Models = [Study]
 
     def load_data(self):
-        """Loads the tissue table from the dataframe.
+        """Loads the study table from the dataframe.
 
         Args:
             None
@@ -71,13 +73,14 @@ class TissuesLoader(TableLoader):
         """
         for _, row in self.df.iterrows():
             try:
-                self.get_or_create_tissue(row)
+                self.get_or_create_study(row)
             except Exception:
                 # Exception handling was handled in get_or_create_protocol
                 # Continue processing rows to find more errors
                 pass
 
-    def get_or_create_tissue(self, row):
+    @transaction.atomic
+    def get_or_create_study(self, row):
         """Get or create a study record and buffer exceptions before raising.
 
         Args:
@@ -92,10 +95,12 @@ class TissuesLoader(TableLoader):
         rec_dict = None
 
         try:
+            code = self.get_row_val(row, self.headers.CODE)
             name = self.get_row_val(row, self.headers.NAME)
             description = self.get_row_val(row, self.headers.DESCRIPTION)
 
             rec_dict = {
+                "code": code,
                 "name": name,
                 "description": description,
             }
@@ -105,10 +110,10 @@ class TissuesLoader(TableLoader):
                 self.errored()
                 return
 
-            tissue, created = Tissue.objects.get_or_create(**rec_dict)
+            study_rec, created = Study.objects.get_or_create(**rec_dict)
 
             if created:
-                tissue.full_clean()
+                study_rec.full_clean()
                 self.created()
             else:
                 self.existed()
@@ -116,7 +121,7 @@ class TissuesLoader(TableLoader):
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
-            self.handle_load_db_errors(e, Tissue, rec_dict)
+            self.handle_load_db_errors(e, Study, rec_dict)
             self.errored()
             # Now that the exception has been handled, trigger a roolback of this record load attempt
             raise e

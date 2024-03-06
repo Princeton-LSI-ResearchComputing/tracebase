@@ -3,17 +3,13 @@ import os
 
 from django.core.management import BaseCommand
 
+from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import (
-    AccuCorDataLoader,
-    get_sheet_names,
-    is_excel,
-    read_from_file,
-)
+from DataRepo.utils import get_sheet_names, is_excel, read_from_file
 from DataRepo.utils.exceptions import WrongExcelSheet
 from DataRepo.utils.lcms_metadata_parser import read_lcms_metadata_from_file
 

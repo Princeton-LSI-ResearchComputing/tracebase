@@ -4,13 +4,13 @@ from typing import Optional
 from django.db import transaction
 from django.db.utils import IntegrityError
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,
     DuplicateValues,
     SynonymExistsAsMismatchedCompound,
 )
-from DataRepo.utils.table_loader import TableLoader
 
 
 class CompoundsLoader(TableLoader):

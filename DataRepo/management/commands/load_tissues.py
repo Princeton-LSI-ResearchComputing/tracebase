@@ -1,5 +1,5 @@
+from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import TissuesLoader
 
 
 class Command(LoadTableCommand):
