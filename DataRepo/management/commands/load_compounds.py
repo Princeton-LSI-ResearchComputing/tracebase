@@ -14,10 +14,10 @@ class Command(LoadTableCommand):
 
         # Add additional options for this specific script
         parser.add_argument(
-            "--synonym-separator",
+            "--synonyms-delimiter",
             type=str,
-            help="Character separating multiple synonyms in 'Synonyms' column (default '%(default)s')",
-            default=self.loader_class.SYNOMYM_SEPARATOR,
+            help="Character delimiting multiple synonyms in the synonyms column (default '%(default)s')",
+            default=self.loader_class.SYNONYMS_DELIMITER,
             required=False,
         )
 
@@ -45,5 +45,5 @@ class Command(LoadTableCommand):
         """
         # The CompoundsLoader class constructor has 1 custom argument
         # The TableLoader superclass arguments are controlled by the LoadTableCommand superclass
-        self.init_loader(synonym_separator=options["synonym_separator"])
+        self.init_loader(synonyms_delimiter=options["synonyms_delimiter"])
         self.load_data()
