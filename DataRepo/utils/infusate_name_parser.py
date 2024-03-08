@@ -29,9 +29,9 @@ TRACER_ENCODING_PATTERN = re.compile(
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
-    r"(?P<all>(?:(?P<positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<element>["
+    r"(?P<all>(?:(?P<positions>[0-9][0-9,]*)-)?(?P<mass_number>[0-9]+)(?P<element>["
     + KNOWN_ISOTOPES
-    + r"]{1,2})(?P<count>[0-9]+))"
+    + r"]{1,2})(?P<count>[0-9]+))($|,)"
 )
 CONCENTRATIONS_DELIMITER = ";"
 # regex has the ability to store repeated capture groups' values and put them in a list

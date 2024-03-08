@@ -3,10 +3,15 @@ from collections import defaultdict
 import pandas as pd
 
 from DataRepo.loaders.infusates_loader import InfusatesLoader
-from DataRepo.models import Compound, Tracer, Infusate, InfusateTracer
+from DataRepo.models import Compound, Infusate, InfusateTracer, Tracer
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import InfileError
-from DataRepo.utils.infusate_name_parser import InfusateTracerData, InfusateData, IsotopeData, TracerData
+from DataRepo.utils.infusate_name_parser import (
+    InfusateData,
+    InfusateTracerData,
+    IsotopeData,
+    TracerData,
+)
 
 
 class InfusatesLoaderTests(TracebaseTestCase):
@@ -170,14 +175,18 @@ class InfusatesLoaderTests(TracebaseTestCase):
 
     def test_infusate_loader_get_or_create_infusate(self):
         # Establish that the infusate does not exist at first
-        self.assertIsNone(Infusate.objects.get_infusate(infusate_data=self.DUDERINO_INFUSATE_DATA))
+        self.assertIsNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
 
         tl = InfusatesLoader(df=self.DUDERINO_INFUSATE_DATAFRAME)
-        rec, created = tl.get_or_create_infusate(self.INFUSATES_DICT[1])
+        rec, created = tl.get_or_create_just_infusate(self.INFUSATES_DICT[1])
 
         self.assertIsNotNone(rec)
         self.assertTrue(created)
-        self.assertIsNotNone(Infusate.objects.get_infusate(infusate_data=self.DUDERINO_INFUSATE_DATA))
+        self.assertIsNotNone(
+            Infusate.objects.get(
+                tracer_group_name=self.DUDERINO_INFUSATE_DATA["infusate_name"]
+            )
+        )
 
     def test_infusate_loader_get_infusate(self):
         Infusate.objects.get_or_create_infusate(self.DUDERINO_INFUSATE_DATA)
@@ -300,9 +309,13 @@ class InfusatesLoaderTests(TracebaseTestCase):
         # Note: check_data_is_consistent is not the only method that updates inconsistent_numbers, so infusate number 4
         # was intentionally left out of the infusate_name_to_number dict above
         tl.rownum += 1
-        tl.check_data_is_consistent(3, "hectorPinfusate", "hectorPinfusate{lysine-[13C6]}")
+        tl.check_data_is_consistent(
+            3, "hectorPinfusate", "hectorPinfusate{lysine-[13C6]}"
+        )
         tl.rownum += 1
-        tl.check_data_is_consistent(4, "hectorPinfusate", "hectorPinfusate{lysine-[13C6]}")
+        tl.check_data_is_consistent(
+            4, "hectorPinfusate", "hectorPinfusate{lysine-[13C6]}"
+        )
         self.assertEqual(1, len(tl.inconsistent_numbers))
 
     def test_infusate_loader_buffer_consistency_issues(self):
@@ -401,18 +414,26 @@ class InfusatesLoaderTests(TracebaseTestCase):
                 {
                     "infusate_name": "duderino{lysine-[14C6]}",
                     "rownum": 2,
-                    "tracers": [{"rownum": 2}],
+                    "row_index": 0,
+                    "tracers": [
+                        {
+                            "tracer_name": "lysine-[14C6]",
+                            "tracer_concentration": 20.0,
+                            "rownum": 2,
+                            "row_index": 0,
+                        },
+                    ],
                 },
             )
 
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[0]))
         self.assertIn(
-            "supplied infusate name [duderino{lysine-[14C6]}]",
+            "supplied Infusate Name [duderino{lysine-[14C6]}] and tracer concentrations [20.0] from row [2]",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "generated name [duderino{lysine-[13C6]}]",
+            "generated name (shown with concentrations) [duderino {lysine-[13C6][20]}]",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn("on rows ['2']", str(tl.aggregated_errors_object.exceptions[0]))

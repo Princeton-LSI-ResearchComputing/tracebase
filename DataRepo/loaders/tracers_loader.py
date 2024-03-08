@@ -395,7 +395,9 @@ class TracersLoader(TableLoader):
                 # If the row the tracer name was first obtained from is a skip row, skip it
                 continue
 
-            num_labels = len(tracer_dict["isotopes"]) if len(tracer_dict["isotopes"]) > 0 else 1
+            num_labels = (
+                len(tracer_dict["isotopes"]) if len(tracer_dict["isotopes"]) > 0 else 1
+            )
 
             if not self.valid_tracers[tracer_number] or self.is_skip_row():
                 # This happens if there was an error in the file processing, like missing required columns, unique

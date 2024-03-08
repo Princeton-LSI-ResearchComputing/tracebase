@@ -10,6 +10,7 @@ from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 
 from DataRepo.models.utilities import get_model_fields
+from DataRepo.models.maintained_model import AutoUpdateFailed
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
@@ -2028,6 +2029,27 @@ class TableLoader(ABC):
                         self.aggregated_errors_object.should_raise()
                         and not self.defer_rollback
                     ):
+                        num_autoupdate_failures = len(
+                            self.aggregated_errors_object.get_exception_type(
+                                AutoUpdateFailed
+                            )
+                        )
+                        if (
+                            num_autoupdate_failures
+                            < self.aggregated_errors_object.num_errors
+                        ):
+                            # Assume that the "other" exception type caused a rollback which caused the AutoUpdateFailed
+                            # exception and remove them.  (Added due to extra exception in
+                            # test_infusate_loader_load_data before that test's original issue was fixed)
+                            # TODO: There probably exists a better way to do this, but there does not exist a rollback
+                            # hook in django's atomic transaction architecture.  What *should* happen is that the
+                            # autoupdate buffer should be cleared upon any exception that causes a rollback.  I have a
+                            # few ideas, such as the fact that the decorators could probably be applied in places that
+                            # would avoid this, but this bandaid will suffice for now.
+                            self.aggregated_errors_object.remove_exception_type(
+                                AutoUpdateFailed
+                            )
+
                         # Raise here to cause a rollback
                         raise self.aggregated_errors_object
 

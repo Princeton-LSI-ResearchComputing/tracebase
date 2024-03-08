@@ -99,7 +99,9 @@ class Tracer(MaintainedModel, ElementLabel):
         # format: `compound-[labelname,labelname,...]`, e.g. lysine-[13C6,15N2]
         if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
-        labels_string = self.LABELS_DELIMITER.join([str(label) for label in self.labels.all()])
+        labels_string = self.LABELS_DELIMITER.join(
+            [str(label) for label in self.labels.all()]
+        )
         return (
             f"{self.compound.name}{self.COMPOUND_DELIMITER}"
             f"{self.LABELS_LEFT_BRACKET}{labels_string}{self.LABELS_RIGHT_BRACKET}"
