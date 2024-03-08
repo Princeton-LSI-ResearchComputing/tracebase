@@ -13,12 +13,6 @@ if TYPE_CHECKING:
     from DataRepo.utils.infusate_name_parser import InfusateData
 
 
-CONCENTRATION_SIGNIFICANT_FIGURES = 3
-TRACER_DELIMETER = ";"
-TRACERS_LEFT_BRACKET = "{"
-TRACERS_RIGHT_BRACKET = "}"
-
-
 class InfusateQuerySet(models.QuerySet):
     @transaction.atomic
     def get_or_create_infusate(
@@ -85,6 +79,11 @@ class InfusateQuerySet(models.QuerySet):
 class Infusate(MaintainedModel, HierCachedModel):
     objects = InfusateQuerySet().as_manager()
 
+    CONCENTRATION_SIGNIFICANT_FIGURES = 3
+    TRACER_DELIMETER = ";"
+    TRACERS_LEFT_BRACKET = "{"
+    TRACERS_RIGHT_BRACKET = "}"
+
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
@@ -132,18 +131,18 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
 
-        name = TRACER_DELIMETER.join(
+        name = self.TRACER_DELIMETER.join(
             sorted(
                 map(
                     lambda o: o.tracer._name()
-                    + f"[{o.concentration:.{CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
+                    + f"[{o.concentration:.{self.CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
                     link_recs.all(),
                 )
             )
         )
 
         if self.tracer_group_name is not None:
-            name = f"{self.tracer_group_name} {TRACERS_LEFT_BRACKET}{name}{TRACERS_RIGHT_BRACKET}"
+            name = f"{self.tracer_group_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
 
         return name
 
@@ -156,13 +155,13 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         if display_name:
             display_name = display_name.replace(
-                TRACER_DELIMETER, f"{TRACER_DELIMETER}\n"
+                self.TRACER_DELIMETER, f"{self.TRACER_DELIMETER}\n"
             )
             display_name = display_name.replace(
-                TRACERS_LEFT_BRACKET, f"{TRACERS_LEFT_BRACKET}\n"
+                self.TRACERS_LEFT_BRACKET, f"{self.TRACERS_LEFT_BRACKET}\n"
             )
             display_name = display_name.replace(
-                TRACERS_RIGHT_BRACKET, f"\n{TRACERS_RIGHT_BRACKET}"
+                self.TRACERS_RIGHT_BRACKET, f"\n{self.TRACERS_RIGHT_BRACKET}"
             )
 
         return display_name

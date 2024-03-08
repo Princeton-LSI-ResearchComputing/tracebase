@@ -146,7 +146,7 @@ class LoadTracersCommandTests(TracebaseTestCase):
         # tracer name (aspartame-[13C4]): [aspartame]: column [Compound Name] on row [7] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]
         self.assertIn("[aspartate]", str(aes.exceptions[3]))
-        self.assertIn("tracer name (aspartame-[13C4])", str(aes.exceptions[3]))
+        self.assertIn("Tracer Name (aspartame-[13C4])", str(aes.exceptions[3]))
         self.assertIn("row [7]", str(aes.exceptions[3]))
 
         # EXCEPTION5(ERROR): InfileError: column [Tracer Number and Compound Name] in file

@@ -65,7 +65,7 @@ class TracerData(TypedDict):
     isotopes: List[IsotopeData]
 
 
-class InfusateTracer(TypedDict):
+class InfusateTracerData(TypedDict):
     tracer: TracerData
     concentration: Optional[float]
 
@@ -73,7 +73,7 @@ class InfusateTracer(TypedDict):
 class InfusateData(TypedDict):
     unparsed_string: str
     infusate_name: Optional[str]
-    tracers: List[InfusateTracer]
+    tracers: List[InfusateTracerData]
 
 
 def parse_infusate_name(
@@ -127,7 +127,7 @@ def parse_infusate_name(
             f"\tConcentration values: {concentrations}"
         )
     for tracer_string, concentration in zip_longest(tracer_strings, concentrations):
-        infusate_tracer: InfusateTracer = {
+        infusate_tracer: InfusateTracerData = {
             "tracer": parse_tracer_string(tracer_string),
             "concentration": concentration,
         }
