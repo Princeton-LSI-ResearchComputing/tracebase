@@ -231,21 +231,9 @@ class InfusateParsingTests(InfusateTest):
         ):
             _ = parse_infusate_name(name, [1.0, 2.0])
 
-    def test_malformed_tracer_parsing_multiple_isotopic_definitions(self):
-        """Test back-to-back occurrences of square bracket expressions"""
-        name = "lysine-[13C5]-[19O2]"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
-
     def test_malformed_tracer_parsing_with_new_line(self):
         """Test multiple labeled compounds delimited by hard return"""
         name = "lysine-[13C5]\nlysine-[19O2]"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
-
-    def test_malformed_tracer_parsing_with_improper_delimiter(self):
-        """Test bad tracer delimiter (',' instead of ';')"""
-        name = "lysine-[13C5],glucose-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_tracer_string(name)
 

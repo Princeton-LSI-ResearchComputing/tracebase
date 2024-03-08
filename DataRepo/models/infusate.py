@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Optional
 
 from django.core.exceptions import ValidationError
@@ -118,7 +119,7 @@ class Infusate(MaintainedModel):
 
     @MaintainedModel.setter(generation=0, update_field_name="name", update_label="name")
     def _name(self):
-        # Format: `tracer_group_name{tracername;tracername}`
+        # Format: `tracer_group_name {tracername[concentration];tracername[concentration]}`
 
         # Need to check self.id to see if the record exists yet or not, because if it does not yet exist, we cannot use
         # the reverse self.tracers reference until it exists (besides, another update will trigger when the
@@ -144,6 +145,116 @@ class Infusate(MaintainedModel):
             name = f"{self.tracer_group_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
 
         return name
+
+    def name_and_concentrations(self):
+        """Create an infusate name without concentrations and return that name and a list of concentrations in the
+        corresponding tracer order.
+
+        Args:
+            None:
+
+        Exceptions:
+            None
+
+        Returns:
+            name (string): Same as returned from _name(), but without the concentrations
+            concentrations (list of floats): Concentrations in the order of the names (not significant digits)
+        """
+        if self.id is None or self.tracers is None or self.tracers.count() == 0:
+            return self.tracer_group_name
+
+        link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
+
+        tracer_names_and_concentrations = sorted(
+            [[o.tracer._name(), o.concentration] for o in link_recs.all()],
+            key=lambda item: item[0],
+        )
+
+        name = self.TRACER_DELIMETER.join(
+            [item[0] for item in tracer_names_and_concentrations]
+        )
+        if self.tracer_group_name is not None:
+            name = f"{self.tracer_group_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
+
+        concentrations = [item[1] for item in tracer_names_and_concentrations]
+
+        return name, concentrations
+
+    def infusate_name_equal(self, supplied_name, supplied_concs):
+        """Determines if a supplied infusate name and concentrations are the same as the record.
+
+        Note, the reason for this is that the sorting of the tracers and isotopes in a valid name can differ.  The
+        number of allowed spaces between the tracer group name and list of tracers can differ.  Also, equating floats
+        (i.e. concentrations) is not reliable.  This method ignores those differences and compares the corresponding
+        data to return True or False.
+
+        Comparing a supplied name and concentrations could either be accomplished by converting the arguments to a
+        record or converting both the record and the arguments into TypedDicts using the parser.  This strategy uses the
+        latter so that the database is unaffected.
+
+        Args:
+            supplied_name (string)
+            supplied_concs (list of floats)
+
+        Exceptions:
+            None
+
+        Returns:
+            equal (boolean): Whether the supplied name and concentration are equivalent to the record.
+        """
+        from DataRepo.utils.infusate_name_parser import (
+            InfusateParsingError,
+            parse_infusate_name,
+        )
+
+        # Any infusate name string (e.g. as supplied from a file) may not have the tracers in the same order
+        rec_name, rec_concentrations = self.name_and_concentrations()
+
+        rec_data = parse_infusate_name(rec_name, rec_concentrations)
+        try:
+            sup_data = parse_infusate_name(supplied_name, supplied_concs)
+        except InfusateParsingError as ipe:
+            # If the name and concs is invalid due to unmatching numbers of tracers and concentrations, return False
+            if (
+                "Unable to match" in str(ipe)
+                and "tracers to" in str(ipe)
+                and "concentration values" in str(ipe)
+            ):
+                return False
+            raise ipe
+
+        if rec_data["infusate_name"] != sup_data["infusate_name"] or len(
+            rec_data["tracers"]
+        ) != len(sup_data["tracers"]):
+            return False
+
+        # This assumes that compounds in an infusate are unique
+        rec_tracers_data_sorted_by_compound = sorted(
+            rec_data["tracers"], key=lambda item: item["tracer"]["compound_name"]
+        )
+        sup_tracers_data_sorted_by_compound = sorted(
+            sup_data["tracers"], key=lambda item: item["tracer"]["compound_name"]
+        )
+
+        for i, _ in enumerate(rec_tracers_data_sorted_by_compound):
+            if not math.isclose(
+                rec_tracers_data_sorted_by_compound[i]["concentration"],
+                sup_tracers_data_sorted_by_compound[i]["concentration"],
+            ):
+                return False
+            elif (
+                rec_tracers_data_sorted_by_compound[i]["tracer"]["compound_name"]
+                != sup_tracers_data_sorted_by_compound[i]["tracer"]["compound_name"]
+            ):
+                return False
+            elif (
+                # At this point, we can equate the dicts, bec. their contents are not fragile to order or type
+                rec_tracers_data_sorted_by_compound[i]["tracer"]["isotopes"]
+                != sup_tracers_data_sorted_by_compound[i]["tracer"]["isotopes"]
+            ):
+                return False
+
+        return True
 
     @property
     def pretty_name(self):

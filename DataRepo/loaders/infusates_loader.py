@@ -1,15 +1,15 @@
-from collections import defaultdict, namedtuple
 import math
+from collections import defaultdict, namedtuple
 from typing import Dict
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
 from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import MaintainedModel, Infusate, InfusateTracer, Tracer
+from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
 from DataRepo.utils.exceptions import (
-    RecordDoesNotExist,
     InfileError,
+    RecordDoesNotExist,
     summarize_int_list,
 )
 from DataRepo.utils.infusate_name_parser import (
@@ -140,9 +140,7 @@ class InfusatesLoader(TableLoader):
         Returns:
             Nothing
         """
-        self.tracer_delimiter = kwargs.pop(
-            "tracer_delimiter", self.TRACER_DELIMETER
-        )
+        self.tracer_delimiter = kwargs.pop("tracer_delimiter", self.TRACER_DELIMETER)
         super().__init__(*args, **kwargs)
 
     def init_load(self):
@@ -291,7 +289,11 @@ class InfusatesLoader(TableLoader):
                 # If the row the tracer name was first obtained from is a skip row, skip it
                 continue
 
-            num_tracers = len(infusate_dict["tracers"]) if len(infusate_dict["tracers"]) > 0 else 1
+            num_tracers = (
+                len(infusate_dict["tracers"])
+                if len(infusate_dict["tracers"]) > 0
+                else 1
+            )
 
             if not self.valid_infusates[infusate_number] or self.is_skip_row():
                 # This happens if there was an error in the file processing, like missing required columns, unique
@@ -307,7 +309,9 @@ class InfusatesLoader(TableLoader):
                 # around load_data will roll back everything if any exception occurs - but the decorator on this method
                 # is just in case it's ever called from anywhere other than load_data)
                 with transaction.atomic():
-                    infusate_rec, infusate_created = self.get_or_create_infusate(infusate_dict)
+                    infusate_rec, infusate_created = self.get_or_create_just_infusate(
+                        infusate_dict
+                    )
 
                     # If the infusate rec is None, skip the synonyms
                     if infusate_rec is None:
@@ -324,7 +328,9 @@ class InfusatesLoader(TableLoader):
                         continue
 
                     # Now, get or create the labels
-                    for infusate_tracer_dict in self.infusates_dict[infusate_number]["tracers"]:
+                    for infusate_tracer_dict in self.infusates_dict[infusate_number][
+                        "tracers"
+                    ]:
                         # We are iterating a dict independent of the file rows, so set the row index manually
                         self.set_row_index(infusate_tracer_dict["row_index"])
 
@@ -332,7 +338,9 @@ class InfusatesLoader(TableLoader):
                             self.skipped(InfusateTracer.__name__)
                             continue
 
-                        self.get_or_create_infusate_tracer(infusate_tracer_dict, infusate_rec)
+                        self.get_or_create_infusate_tracer(
+                            infusate_tracer_dict, infusate_rec
+                        )
 
                     # Only mark as created after this final check (which raises an exception)
                     self.check_infusate_name_consistent(infusate_rec, infusate_dict)
@@ -387,9 +395,14 @@ class InfusatesLoader(TableLoader):
             if infusate_name not in self.infusate_name_to_number.keys():
                 # The normal case: 1 name, 1 number
                 self.infusate_name_to_number[tracer_name][infusate_number] = self.rownum
-            elif infusate_number not in self.infusate_name_to_number[infusate_name].keys():
+            elif (
+                infusate_number
+                not in self.infusate_name_to_number[infusate_name].keys()
+            ):
                 # An inconsistency: 1 name associated with a new number
-                existing_num = list(self.infusate_name_to_number[infusate_name].keys())[0]
+                existing_num = list(self.infusate_name_to_number[infusate_name].keys())[
+                    0
+                ]
                 self.inconsistent_numbers[tracer_name][existing_num].append(
                     self.infusate_name_to_number[infusate_name][existing_num]
                 )
@@ -439,10 +452,14 @@ class InfusatesLoader(TableLoader):
             if table_infusate_name is None:
                 continue
 
-            table_concentrations = [tracer["tracer_concentration"] for tracer in table_infusate["tracers"]]
+            table_concentrations = [
+                tracer["tracer_concentration"] for tracer in table_infusate["tracers"]
+            ]
 
             tracer_group_name = table_infusate["tracer_group_name"]
-            parsed_infusate = parse_infusate_name(table_infusate_name, table_concentrations)
+            parsed_infusate = parse_infusate_name(
+                table_infusate_name, table_concentrations
+            )
             parsed_tracer_group_name = parsed_infusate["infusate_name"]
 
             if tracer_group_name is None:
@@ -476,7 +493,9 @@ class InfusatesLoader(TableLoader):
                 for parsed_infusate_tracer in parsed_infusate["tracers"]:
                     match = False
 
-                    parsed_tracer_name = parsed_infusate_tracer["tracer"]["unparsed_string"]
+                    parsed_tracer_name = parsed_infusate_tracer["tracer"][
+                        "unparsed_string"
+                    ]
                     if parsed_tracer_name == table_tracer_name:
                         match = True
                     elif parsed_tracer_name != table_tracer_name:
@@ -541,7 +560,7 @@ class InfusatesLoader(TableLoader):
                         }
                     )
 
-    def get_or_create_infusate(self, infusate_dict):
+    def get_or_create_just_infusate(self, infusate_dict):
         """Get or create an Infusate record.
 
         Args:
@@ -617,7 +636,8 @@ class InfusatesLoader(TableLoader):
 
     @transaction.atomic
     def create_infusate(self, infusate_dict):
-        """Creates an Infusate record.
+        """Creates an Infusate record.  Note, it does not create associated InfusateTracer, Tracer, or TracerLabel
+        records.
 
         Args:
             infusate_dict (dict)
@@ -731,7 +751,10 @@ class InfusatesLoader(TableLoader):
             None
         """
         # Make sure that each infusate number is always associated with the same tracer group name
-        if self.infusates_dict[infusate_number]["tracer_group_name"] != tracer_group_name:
+        if (
+            self.infusates_dict[infusate_number]["tracer_group_name"]
+            != tracer_group_name
+        ):
             if infusate_number not in self.inconsistent_group_names.keys():
                 self.inconsistent_group_names[infusate_number][
                     self.infusates_dict[infusate_number]["tracer_group_name"]
@@ -750,9 +773,12 @@ class InfusatesLoader(TableLoader):
 
         if (
             infusate_name in self.infusate_name_to_number.keys()
-            and infusate_number not in self.infusate_name_to_number[infusate_name].keys()
+            and infusate_number
+            not in self.infusate_name_to_number[infusate_name].keys()
         ):
-            self.inconsistent_numbers[infusate_name][infusate_number].append(self.rownum)
+            self.inconsistent_numbers[infusate_name][infusate_number].append(
+                self.rownum
+            )
 
     def buffer_consistency_issues(self):
         """Buffers consistency errors.
@@ -863,40 +889,46 @@ class InfusatesLoader(TableLoader):
             None
         """
         supplied_name = infusate_dict["infusate_name"]
+        supplied_concentrations = [
+            tracer["tracer_concentration"] for tracer in infusate_dict["tracers"]
+        ]
 
         if supplied_name is None:
             # Nothing to check
             return
 
-        # We have to generate it instead of simply access it in the model object, because this is a maintained field,
-        # and if the record was created, auto-update will not happen until the load is complete
-        generated_name = rec._name()
+        rowidxs = [rd["row_index"] for rd in infusate_dict["tracers"]]
+        rowidxs.append(infusate_dict["row_index"])
 
-        if supplied_name != generated_name:
+        if not rec.infusate_name_equal(supplied_name, supplied_concentrations):
             data_rownums = summarize_int_list(
                 [rd["rownum"] for rd in infusate_dict["tracers"]]
             )
             exc = InfileError(
                 (
-                    f"The supplied infusate name [{supplied_name}] from row %s does not match the automatically "
-                    f"generated name [{generated_name}] using the data on rows {data_rownums}."
+                    f"The supplied {self.headers.NAME} [{supplied_name}] and tracer concentrations "
+                    f"{supplied_concentrations} from %s do not match the automatically generated name (shown with "
+                    f"concentrations) [{rec._name()}] using the data on rows {data_rownums}."
                 ),
                 file=self.file,
                 sheet=self.sheet,
-                column=self.headers.NAME,
                 rownum=infusate_dict["rownum"],
             )
+            self.add_skip_row_index(index_list=rowidxs)
             self.aggregated_errors_object.buffer_error(exc)
             raise exc
 
         trownums = [te["rownum"] for te in infusate_dict["tracers"]]
         tnames = [te["tracer_name"] for te in infusate_dict["tracers"]]
-        tconcs = [f"{te['tracer_name']}: {te['tracer_concentration']}" for te in infusate_dict["tracers"]]
+        tconcs = [
+            f"{te['tracer_name']}: {te['tracer_concentration']}"
+            for te in infusate_dict["tracers"]
+        ]
         bad_tracer_names = []
         bad_concentrations = []
         err_msgs = []
 
-        for it_rec in rec.tracers.all():
+        for it_rec in rec.tracers.through.objects.all():
             db_conc = it_rec.concentration
             db_tracer_name = it_rec.tracer.name
 
@@ -915,7 +947,7 @@ class InfusatesLoader(TableLoader):
                 f"Unable to find the created '{self.headers.TRACERNAME}'(s): [{bad_tracer_names}] among the tracer "
                 f"names: {tnames} obtained from rows: {trownums}."
             )
-        
+
         if len(bad_concentrations) > 0:
             err_msgs.append(
                 f"Unable to match the created '{self.headers.TRACERCONC}'(s): [{bad_concentrations}] to the "
@@ -929,5 +961,6 @@ class InfusatesLoader(TableLoader):
                 file=self.file,
                 sheet=self.sheet,
             )
+            self.add_skip_row_index(index_list=rowidxs)
             self.aggregated_errors_object.buffer_error(exc)
             raise exc

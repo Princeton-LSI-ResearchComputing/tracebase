@@ -103,7 +103,10 @@ class TracerLabel(MaintainedModel, ElementLabel):
         # format: `position,position,...-MassNumberElementCount`, e.g. 1,2,3-13C3, positions optional (e.g. 13C3)
         positions_string = ""
         if self.positions and len(self.positions) > 0:
-            positions_string = self.POSITIONS_DELIMITER.join([str(p) for p in sorted(self.positions)]) + "-"
+            positions_string = (
+                self.POSITIONS_DELIMITER.join([str(p) for p in sorted(self.positions)])
+                + "-"
+            )
         return f"{positions_string}{self.mass_number}{self.element}{self.count}"
 
     def clean(self, *args, **kwargs):
