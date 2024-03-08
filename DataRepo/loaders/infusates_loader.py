@@ -1044,7 +1044,6 @@ class InfusatesLoader(TableLoader):
                 f"Unable to find the created '{self.headers.TRACERNAME}'(s): [{bad_tracer_names}] among the tracer "
                 f"names: {tnames} obtained from rows: {trownums}."
             )
-
         if len(bad_concentrations) > 0:
             err_msgs.append(
                 f"Unable to match the created '{self.headers.TRACERCONC}'(s): [{bad_concentrations}] to the "
