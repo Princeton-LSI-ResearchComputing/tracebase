@@ -2223,6 +2223,14 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         self.name = name
 
 
+class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
+    def __init__(self, model, name, **kwargs):
+        message = f"{model.__name__} [{name}] from %s does not exist."
+        super().__init__(message, **kwargs)
+        self.model = model
+        self.name = name
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
