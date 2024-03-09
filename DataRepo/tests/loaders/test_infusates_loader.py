@@ -217,8 +217,8 @@ class InfusatesLoaderTests(TracebaseTestCase):
         self.assertEqual(1, InfusateTracer.objects.count())
 
     def test_infusate_loader_check_data_is_consistent(self):
-        """Assert that infusate name, number, or tracer group name inconsistencies are logged in their respective lists.
-        """
+        """Assert that infusate name, number, or tracer group name inconsistencies are logged in their respective
+        lists."""
 
         tl = InfusatesLoader()
         tl.init_load()
