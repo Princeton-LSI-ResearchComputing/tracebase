@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 from django.core.management import BaseCommand
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.utils import (
     AggregatedErrors,
     DryRun,
@@ -12,7 +13,6 @@ from DataRepo.utils import (
     is_excel,
     read_from_file,
 )
-from DataRepo.utils.table_loader import TableLoader
 
 
 class LoadTableCommand(ABC, BaseCommand):

@@ -5,10 +5,10 @@ from collections import namedtuple
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import AggregatedErrors, OptionsNotAvailable
-from DataRepo.utils.table_loader import TableLoader
 
 
 # Class (Model) used for testing

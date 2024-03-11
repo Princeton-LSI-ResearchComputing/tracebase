@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from django.db.models import AutoField, CharField, Model, UniqueConstraint
 from django.test.utils import isolate_apps
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -24,7 +25,6 @@ from DataRepo.utils.exceptions import (
     RequiredValueErrors,
     UnknownHeadersError,
 )
-from DataRepo.utils.table_loader import TableLoader
 
 
 @isolate_apps("DataRepo.tests.apps.loader")

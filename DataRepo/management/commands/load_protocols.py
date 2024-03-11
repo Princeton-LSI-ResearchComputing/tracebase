@@ -1,5 +1,5 @@
+from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils import ProtocolsLoader
 
 
 class Command(LoadTableCommand):

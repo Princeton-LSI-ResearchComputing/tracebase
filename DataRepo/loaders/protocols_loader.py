@@ -2,9 +2,9 @@ from collections import namedtuple
 
 from django.db import transaction
 
+from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Protocol
 from DataRepo.utils.file_utils import is_excel
-from DataRepo.utils.table_loader import TableLoader
 
 
 class ProtocolsLoader(TableLoader):

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings, tag
 
+from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader, hash_file
 from DataRepo.models import (
     ArchiveFile,
     Infusate,
@@ -22,7 +23,6 @@ from DataRepo.models import (
 from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
-    AccuCorDataLoader,
     AggregatedErrors,
     AmbiguousMSRuns,
     ConflictingValueError,
@@ -32,7 +32,6 @@ from DataRepo.utils import (
     UnskippedBlanksError,
     read_from_file,
 )
-from DataRepo.utils.accucor_data_loader import hash_file
 from DataRepo.utils.exceptions import (
     ConflictingValueErrors,
     DuplicatePeakGroup,
