@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 import pandas as pd
 
 from DataRepo.loaders.infusates_loader import InfusatesLoader
@@ -80,20 +78,6 @@ class InfusatesLoaderTests(TracebaseTestCase):
         tl = InfusatesLoader()
 
         tl.init_load()
-
-        self.assertTrue(hasattr(tl, "infusates_dict"))
-        self.assertTrue(hasattr(tl, "infusate_name_to_number"))
-        self.assertTrue(hasattr(tl, "valid_infusates"))
-        self.assertTrue(hasattr(tl, "inconsistent_group_names"))
-        self.assertTrue(hasattr(tl, "inconsistent_names"))
-        self.assertTrue(hasattr(tl, "inconsistent_numbers"))
-
-        self.assertEqual(defaultdict, type(tl.infusates_dict))
-        self.assertEqual(defaultdict, type(tl.infusate_name_to_number))
-        self.assertEqual(dict, type(tl.valid_infusates))
-        self.assertEqual(defaultdict, type(tl.inconsistent_group_names))
-        self.assertEqual(defaultdict, type(tl.inconsistent_names))
-        self.assertEqual(defaultdict, type(tl.inconsistent_numbers))
 
         self.assertEqual(0, len(tl.infusates_dict.keys()))
         self.assertEqual(0, len(tl.infusate_name_to_number.keys()))

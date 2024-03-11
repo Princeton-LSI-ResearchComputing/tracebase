@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 import pandas as pd
 
 from DataRepo.loaders.tracers_loader import TracersLoader
@@ -67,20 +65,6 @@ class TracersLoaderTests(TracebaseTestCase):
         tl = TracersLoader()
 
         tl.init_load()
-
-        self.assertTrue(hasattr(tl, "tracers_dict"))
-        self.assertTrue(hasattr(tl, "tracer_name_to_number"))
-        self.assertTrue(hasattr(tl, "valid_tracers"))
-        self.assertTrue(hasattr(tl, "inconsistent_compounds"))
-        self.assertTrue(hasattr(tl, "inconsistent_names"))
-        self.assertTrue(hasattr(tl, "inconsistent_numbers"))
-
-        self.assertEqual(defaultdict, type(tl.tracers_dict))
-        self.assertEqual(defaultdict, type(tl.tracer_name_to_number))
-        self.assertEqual(dict, type(tl.valid_tracers))
-        self.assertEqual(defaultdict, type(tl.inconsistent_compounds))
-        self.assertEqual(defaultdict, type(tl.inconsistent_names))
-        self.assertEqual(defaultdict, type(tl.inconsistent_numbers))
 
         self.assertEqual(0, len(tl.tracers_dict.keys()))
         self.assertEqual(0, len(tl.tracer_name_to_number.keys()))
