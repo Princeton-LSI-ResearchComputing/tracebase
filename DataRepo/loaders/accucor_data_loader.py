@@ -1527,7 +1527,7 @@ class AccuCorDataLoader:
                         pg_rec=existing_peak_group,
                         peak_annot1=existing_peak_group.peak_annotation_file.filename,
                         peak_annot2=peak_annotation_file.filename,
-                        col=col,
+                        column=col,
                         rownum=rownum,
                         sheet="absolte" if self.isocorr_format else "Corrected",
                     )
@@ -1536,7 +1536,7 @@ class AccuCorDataLoader:
                     differences=differences,
                     file=peak_annotation_file.filename,
                     rownum=rownum,
-                    col=col,
+                    column=col,
                     sheet="absolte" if self.isocorr_format else "Corrected",
                 )
 
