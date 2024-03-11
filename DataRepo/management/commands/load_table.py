@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from django.core.management import BaseCommand
 
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders import TableLoader
 from DataRepo.utils import (
     AggregatedErrors,
     DryRun,
@@ -36,10 +36,10 @@ class LoadTableCommand(ABC, BaseCommand):
 
             def add_arguments(self, parser):
                 super().add_arguments(parser)
-                parser.add_argument("--synonym-separator", type=str)
+                parser.add_argument("--synonyms-delimiter", type=str)
 
             def handle(self, *args, **options):
-                self.load_data(synonym_separator=options["synonym_separator"])
+                self.load_data(synonyms_delimiter=options["synonyms_delimiter"])
 
     Attributes:
         help (str): Default help string to be printed when the CLI is used with the help command.
@@ -86,6 +86,7 @@ class LoadTableCommand(ABC, BaseCommand):
             saved_headers = self.get_headers()
             saved_defaults = self.get_defaults()
 
+        # TODO: Move the disallowed_args up above the if self.options conditional and add headers and defaults to it.
         kwargs["headers"] = saved_headers
         kwargs["defaults"] = saved_defaults
 
@@ -344,7 +345,7 @@ class LoadTableCommand(ABC, BaseCommand):
             defer_rollback (boolean): Defer rollback mode.   DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE ROLLBACK.
             sheet (str): Name of the sheet to load (for error reporting only).
             file (str): Name of the file to load (for error reporting only).
-            **kwargs (key/value pairs): Any custom args for the derived loader class, e.g. compound synonyms separator
+            **kwargs (key/value pairs): Any custom args for the derived loader class, e.g. compound synonyms delimiter
 
         Raises:
             Nothing

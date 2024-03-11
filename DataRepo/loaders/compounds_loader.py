@@ -24,7 +24,7 @@ class CompoundsLoader(TableLoader):
     FORMULA_KEY = "FORMULA"
     SYNONYMS_KEY = "SYNONYMS"
 
-    SYNOMYM_SEPARATOR = ";"
+    SYNONYMS_DELIMITER = ";"
 
     DataSheetName = "Compounds"
 
@@ -95,7 +95,7 @@ class CompoundsLoader(TableLoader):
                 sheet (Optional[str]) [None]: Sheet name (for error reporting).
                 file (Optional[str]) [None]: File name (for error reporting).
             Derived (this) class Args:
-                synonym_separator (Optional[str]) [;]: Synonym string delimiter.
+                synonyms_delimiter (Optional[str]) [;]: Synonym string delimiter.
 
         Raises:
             Nothing
@@ -103,7 +103,9 @@ class CompoundsLoader(TableLoader):
         Returns:
             Nothing
         """
-        self.synonym_separator = kwargs.pop("synonym_separator", self.SYNOMYM_SEPARATOR)
+        self.synonyms_delimiter = kwargs.pop(
+            "synonyms_delimiter", self.SYNONYMS_DELIMITER
+        )
         super().__init__(*args, **kwargs)
 
     def load_data(self):
@@ -158,6 +160,17 @@ class CompoundsLoader(TableLoader):
 
     @transaction.atomic
     def get_or_create_compound(self, row):
+        """Get or create a compound record.
+
+        Args:
+            row (pandas dataframe row)
+
+        Raises:
+            Nothing (explicitly)
+
+        Returns:
+            rec (Optional[Compound])
+        """
         rec_dict = None
         rec = None
 
@@ -207,6 +220,18 @@ class CompoundsLoader(TableLoader):
 
     @transaction.atomic
     def get_or_create_synonym(self, synonym, cmpd_rec):
+        """Get or create a compound synonym record.
+
+        Args:
+            synonym (string)
+            cmpd_rec (Compound)
+
+        Raises:
+            Nothing (explicitly)
+
+        Returns:
+            Nothing
+        """
         rec_dict = None
         try:
             rec_dict = {
@@ -232,7 +257,7 @@ class CompoundsLoader(TableLoader):
             raise e
 
     def parse_synonyms(self, synonyms_string: Optional[str]) -> list:
-        """Parse the synonyms column value using the self.synonym_separator.
+        """Parse the synonyms column value using the self.synonyms_delimiter.
 
         Args:
             synonyms_string (Optional[str]): String of delimited synonyms
@@ -249,7 +274,7 @@ class CompoundsLoader(TableLoader):
         if synonyms_string:
             synonyms = [
                 synonym.strip()
-                for synonym in synonyms_string.split(self.synonym_separator)
+                for synonym in synonyms_string.split(self.synonyms_delimiter)
                 if synonym.strip() != ""
             ]
         return synonyms
