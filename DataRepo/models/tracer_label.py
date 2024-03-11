@@ -28,6 +28,7 @@ class TracerLabel(MaintainedModel, ElementLabel):
     objects = TracerLabelQuerySet().as_manager()
 
     POSITIONS_DELIMITER = ","
+    POSITIONS_DIVIDER = "-"
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -105,7 +106,7 @@ class TracerLabel(MaintainedModel, ElementLabel):
         if self.positions and len(self.positions) > 0:
             positions_string = (
                 self.POSITIONS_DELIMITER.join([str(p) for p in sorted(self.positions)])
-                + "-"
+                + self.POSITIONS_DIVIDER
             )
         return f"{positions_string}{self.mass_number}{self.element}{self.count}"
 
