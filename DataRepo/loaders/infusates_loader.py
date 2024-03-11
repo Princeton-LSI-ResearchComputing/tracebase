@@ -875,6 +875,16 @@ class InfusatesLoader(TableLoader):
     def check_infusate_name_consistent(self, rec, infusate_dict):
         """Checks for consistency between a dynamically generated infusate name and the one supplied in the file.
 
+        Note the following:
+
+        - The database generated name includes concentrations, while the input name does not.
+        - The database generated name orders the tracers and labels, but the input name is not required to be ordered.
+        - The precision of the concentrations (saved as floats) are not reliably comparable.
+        - The input name allows a variable number of spaces between the tracer group name, but the generated DB name
+            always has 1 space.
+
+        This method serves to overcome these obstacles to checking infusate name consistency.
+
         Args:
             rec (Infusate): An Infusate model object
             infusate_dict (dict): Data parsed from potentially multiple rows relating to a single Infusate
