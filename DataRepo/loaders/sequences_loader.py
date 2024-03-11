@@ -51,29 +51,18 @@ class SequencesLoader(TableLoader):
         NOTES="Notes",
     )
 
-    # Whether each column is required to be present or not
-    DataRequiredHeaders = DataTableHeaders(
-        ID=True,  # See TODO 1 above
-        OPERATOR=True,
-        DATE=True,
-        INSTRUMENT=True,
-        LC_PROTOCOL=True,
-        LC_RUNLEN=True,
-        LC_DESC=False,
-        NOTES=False,
-    )
+    # List of required header keys
+    DataRequiredHeaders = [
+        ID_KEY,  # See TODO 1 above
+        OPERATOR_KEY,
+        DATE_KEY,
+        INSTRUMENT_KEY,
+        LC_PROTOCOL_KEY,
+        LC_RUNLEN_KEY,
+    ]
 
-    # Whether a value for an row in a column is required or not (note that defined DataDefaultValues will satisfy this)
-    DataRequiredValues = DataTableHeaders(
-        ID=True,  # See TODO 1 above
-        OPERATOR=True,
-        DATE=True,
-        INSTRUMENT=True,
-        LC_PROTOCOL=True,
-        LC_RUNLEN=True,
-        LC_DESC=False,  # Required if LCMethod record doesn't exist
-        NOTES=False,
-    )
+    # List of header keys for columns that require a value
+    DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
 
@@ -98,13 +87,13 @@ class SequencesLoader(TableLoader):
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
-        "MSRunSequence": {
+        MSRunSequence.__name__: {
             "researcher": OPERATOR_KEY,
             "date": DATE_KEY,
             "instrument": INSTRUMENT_KEY,
             "notes": NOTES_KEY,
         },
-        "LCMethod": {
+        LCMethod.__name__: {
             "type": LC_PROTOCOL_KEY,
             "runlength": LC_RUNLEN_KEY,
             "description": LC_DESC_KEY,
@@ -130,7 +119,7 @@ class SequencesLoader(TableLoader):
             try:
                 lc_rec, _ = self.get_or_create_lc_method(row)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 lc_rec = None
 
@@ -141,7 +130,7 @@ class SequencesLoader(TableLoader):
             try:
                 self.get_or_create_sequence(row, lc_rec)
             except Exception:
-                # Exception handling was handled in get_or_create_protocol
+                # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
@@ -172,7 +161,7 @@ class SequencesLoader(TableLoader):
             raw_run_length = self.get_row_val(row, self.headers.LC_RUNLEN)
             description = self.get_row_val(row, self.headers.LC_DESC)
 
-            # In case run_lengths was None, let's prevent an exception at the timedelta
+            # In case run_length was None, let's prevent an exception at the timedelta
             if self.is_skip_row():
                 self.errored(LCMethod.__name__)
                 return rec, created
