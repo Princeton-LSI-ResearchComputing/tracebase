@@ -1,0 +1,6 @@
+Infusate Number	Tracer Group Name	Tracer Name	Tracer Concentration	Infusate Name
+1	duderino	lysine-[13C6]	20.0	duderino{lysine-[13C6];isoleucine-[13C6]}
+1	duderino	isoleucine-[13C6]	20.0	duderino{lysine-[13C6];isoleucine-[13C6]}
+2	gluterino	lysine-[13C6]	20.0	gluterino{lysine-[13C6];glutamine-[13C5]}
+2	gluterino	glutamine-[13C5]	20.0	gluterino{lysine-[13C6];glutamine-[13C5]}
+3	lyserino	lysine-[13C6]	20.0	lyserino{lysine-[13C6]}
