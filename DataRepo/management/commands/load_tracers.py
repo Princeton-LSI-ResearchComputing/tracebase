@@ -3,7 +3,7 @@ from DataRepo.management.commands.load_table import LoadTableCommand
 
 
 class Command(LoadTableCommand):
-    """Command to load the Tracer model from a table-like file."""
+    """Command to load the Tracer and TracerLabel model from a table-like file."""
 
     help = "Loads data from a tracer table into the database"
     loader_class = TracersLoader
