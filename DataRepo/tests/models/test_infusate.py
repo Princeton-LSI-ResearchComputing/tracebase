@@ -22,24 +22,35 @@ def create_infusate_records():
     (c16, _) = Compound.objects.get_or_create(
         name="C16:0", formula="C16H32O2", hmdb_id="HMDB0000220"
     )
+
     glu_t = Tracer.objects.create(compound=glu)
-    c16_t = Tracer.objects.create(compound=c16)
     TracerLabel.objects.create(
         tracer=glu_t, count=2, element="C", positions=[2, 3], mass_number=13
     )
     TracerLabel.objects.create(
         tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
     )
+
+    c16_t = Tracer.objects.create(compound=c16)
     TracerLabel.objects.create(
         tracer=c16_t, count=2, element="C", positions=[5, 6], mass_number=13
     )
     TracerLabel.objects.create(tracer=c16_t, count=2, element="O", mass_number=17)
+
+    # NOTE: Cannot create the Tracer records first and then all the linked TracerLabel records due to the unique
+    # DataRepo_tracer_name_key constraint.  The name field is automatically updated, so an alternative to changing the
+    # record creation order is to apply a defer_autoupdates decorator to this method...
+    c16_t2 = Tracer.objects.create(compound=c16)
+    TracerLabel.objects.create(
+        tracer=c16_t2, count=2, element="C", positions=[4, 5, 6], mass_number=13
+    )
+    TracerLabel.objects.create(tracer=c16_t2, count=2, element="O", mass_number=17)
     io = Infusate.objects.create(tracer_group_name="ti")
     InfusateTracer.objects.create(infusate=io, tracer=glu_t, concentration=1.0)
     InfusateTracer.objects.create(infusate=io, tracer=c16_t, concentration=2.0)
     io2 = Infusate.objects.create()
     InfusateTracer.objects.create(infusate=io2, tracer=glu_t, concentration=3.0)
-    InfusateTracer.objects.create(infusate=io2, tracer=c16_t, concentration=4.0)
+    InfusateTracer.objects.create(infusate=io2, tracer=c16_t2, concentration=4.0)
 
     # ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
     # C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]
@@ -79,7 +90,7 @@ class InfusateTests(TracebaseTestCase):
             self.INFUSATE1._name(),
         )
         self.assertEqual(
-            "C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
+            "C16:0-[4,5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
             self.INFUSATE2._name(),
         )
 
@@ -104,12 +115,12 @@ class InfusateTests(TracebaseTestCase):
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
         self.assertEqual(
-            "C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
+            "C16:0-[4,5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
             self.INFUSATE2.name,
         )
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
-            name__exact="C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]"
+            name__exact="C16:0-[4,5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]"
         )
 
     def test_name_self_autoupdated(self):
@@ -134,7 +145,7 @@ class InfusateTests(TracebaseTestCase):
         self.assertEqual("glucose-[4-17O1]", tl.tracer.name)
         # The deletion also affects the names of both infusates that had that tracer
         self.assertEqual("ti {C16:0-[5,6-13C2,17O2][2];glucose-[4-17O1][1]}", i1.name)
-        self.assertEqual("C16:0-[5,6-13C2,17O2][4];glucose-[4-17O1][3]", i2.name)
+        self.assertEqual("C16:0-[4,5,6-13C2,17O2][4];glucose-[4-17O1][3]", i2.name)
 
     def test_name_and_concentrations(self):
         # self.INFUSATE1.name: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}

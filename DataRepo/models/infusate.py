@@ -58,6 +58,12 @@ class InfusateQuerySet(models.QuerySet):
         infusates = Infusate.objects.annotate(
             num_tracers=models.Count("tracers")
         ).filter(
+            # TODO: Consider removing the tracer group name from the query.  All infusates with the same assortment of
+            # tracers SHOULD have the same tracer group name, and with the addition of the load_infusates script, this
+            # is an error-checked/enforced requirement (add a group name if missing or remove if a dupe without one pre-
+            # exists), so removing the name from the search would allow duplicates (with or without group name
+            # inconsistencies) to be more readily identified.  Besides, it's the same infusate regardless of the group
+            # name.
             tracer_group_name=infusate_data["infusate_name"],
             num_tracers=len(infusate_data["tracers"]),
         )
@@ -267,6 +273,9 @@ class Infusate(MaintainedModel):
         Returns:
             infusates (QuerySet): Infusates with the same assortment of tracers
         """
+        if self.id is None:
+            # Cannot traverse reverse relation until the id field is defined
+            return Infusate.objects.none()
         # Check for infusates with the same number of tracers
         infusates = Infusate.objects.annotate(
             num_tracers=models.Count("tracers")
