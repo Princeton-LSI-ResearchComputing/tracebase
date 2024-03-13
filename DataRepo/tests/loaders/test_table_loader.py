@@ -1233,9 +1233,9 @@ class TableLoaderTests(TracebaseTestCase):
             tl._get_pretty_headers_helper(["a", ["b", "c"]]),
         )
 
-        # a and (b or c) required - but no markers
+        # a and (b or c) required - but no all-required markers
         self.assertEqual(
-            "a, (b, c)",
+            "a, (b, c)^",
             tl._get_pretty_headers_helper(["a", ["b", "c"]], markers=False),
         )
 
