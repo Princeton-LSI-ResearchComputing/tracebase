@@ -28,8 +28,6 @@ class InfusateQuerySet(models.QuerySet):
 
         # Matching record not found, create new record
         if infusate is None:
-            print(f"Inserting infusate {infusate_data['unparsed_string']}")
-
             # create infusate
             infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
@@ -257,6 +255,32 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         return True
 
+    def get_tracer_group_infusates(self):
+        """Get other infusates with the same assortment of tracers (i.e. the same tracer group), but in different
+        concentrations, or potentially different group names (in order to catch group name inconsistencies).
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            infusates (QuerySet): Infusates with the same assortment of tracers
+        """
+        # Check for infusates with the same number of tracers
+        infusates = Infusate.objects.annotate(
+            num_tracers=models.Count("tracers")
+        ).filter(
+            num_tracers=self.tracers.count(),
+        )
+        # Check that the tracers match
+        for tracer in self.tracers.all():
+            infusates = infusates.filter(
+                tracer_links__tracer=tracer,
+            )
+        return infusates.exclude(pk=self.pk)
+
     @property
     def pretty_name(self):
         """
@@ -303,7 +327,44 @@ class Infusate(MaintainedModel, HierCachedModel):
         This is an override of clean to validate the tracer_group_name of new records
         """
         self.validate_tracer_group_names(name=self.tracer_group_name)
+        self.validate_tracer_groups()
         super().clean(*args, **kwargs)
+
+    def validate_tracer_groups(self):
+        """
+        Validation method that raises and exception if two infusate records have the same assortment of tracers, but
+        whose group names do not match.  And, it will raise an exception if there exists 2 infusates with the same
+        tracers at the same concentrations (i.e. a duplicate).
+        """
+        # This is here to avoid circular import
+        from DataRepo.utils.exceptions import TracerGroupsInconsistent
+
+        dupes = []
+        group_names_differ = []
+        for infusate in self.get_tracer_group_infusates():
+            # Same tracers, but different tracer group names:
+            if infusate.tracer_group_name != self.tracer_group_name:
+                group_names_differ.append(infusate)
+
+            # Same tracers and same concentrations:
+            concs_same = True
+            for infusate_tracer in self.tracer_links.all():
+                if (
+                    infusate.tracer_links.filter(
+                        tracer=infusate_tracer.tracer,
+                        concentration=infusate_tracer.concentration,
+                    ).count()
+                    != 1
+                ):
+                    concs_same = False
+                    break
+
+            if concs_same:
+                dupes.append(infusate)
+
+        # If any issues
+        if len(dupes) > 0 or len(group_names_differ) > 0:
+            raise TracerGroupsInconsistent(self, dupes, group_names_differ)
 
     @classmethod
     def validate_tracer_group_names(cls, name=None):
@@ -336,7 +397,7 @@ class Infusate(MaintainedModel, HierCachedModel):
                 group_map_dict[grp_name][tracer_key] = []
             group_map_dict[grp_name][tracer_key].append(group_rec.id)
 
-        # For each tracer_group name, if it refers to multiple groups of tracers, append an error message to the
+        # For each tracer_group_name, if it refers to multiple groups of tracers, append an error message to the
         # problems array that identifies the ambiguous tracer_group_names, the number of different groupings of
         # tracers, a description of the different sets of tracers, and a single example list of the infusate record IDs
         # with the problematic tracer_group_names.
