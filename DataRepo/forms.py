@@ -330,3 +330,8 @@ class DataSubmissionValidationForm(forms.Form):
     isocorr_files = MultipleFileField(
         required=False, widget=MultipleFileInput(attrs={"multiple": True})
     )
+
+
+# TODO: TEMPORARY CLASS FOR A QUICK PROTOTYPE TEST
+class DropTestListForm(forms.Form):
+    mzxml_file_list = forms.CharField(widget=forms.HiddenInput(attrs={"id": "mzxml_file_list_input_id"}))

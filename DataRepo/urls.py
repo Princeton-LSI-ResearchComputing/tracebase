@@ -6,6 +6,10 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("upload", views.upload, name="upload"),
     path("validate", views.DataValidationView.as_view(), name="validate"),
+
+    # TODO: TEMPORARY CLASS FOR A QUICK PROTOTYPE TEST
+    path("droptest", views.DropTestView.as_view(), name="droptest"),
+
     path("validatedown", views.validation_disabled, name="validatedown"),
     path(
         "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
