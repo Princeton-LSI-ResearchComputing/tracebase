@@ -4,7 +4,43 @@
 
 {% block head_extras %}
     {{ block.super }}
+
+    <!-- The following is based mostly on https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/ -->
+
+    <style>
+        #drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 20px;
+            width: 480px;
+            font-family: sans-serif;
+            margin: 10px;
+            padding: 20px;
+        }
+        #drop-area.highlight {
+            border-color: purple;
+        }
+        #fileElem {
+            display: none;
+        }
+    </style>
     <script>
+        function preventDefaults (e) {
+            e.preventDefault()
+            e.stopPropagation()
+        }
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer
+            let files = dt.files
+
+            handleFiles(files)
+        }
+
+        function handleFiles(files) {
+            listformelem.value = get_file_names_string(files, listformelem.value);
+            listdispelem.innerHTML = listformelem.value;
+        }
+
         function get_file_names_string(files, curstring) {
             var file_names_string = '';
             var cumulative_file_list = []
@@ -13,7 +49,6 @@
             }
             for (var i = 0; i < files.length; ++i) {
                 cumulative_file_list.push(files.item(i).name);
-                // console.log(files.item(i));
             }
 
             file_names_string = cumulative_file_list.sort((a, b) => {
@@ -26,20 +61,54 @@
 
             return file_names_string
         }
+
+        document.addEventListener("DOMContentLoaded", function(){
+            let dropArea = document.getElementById('drop-area')
+
+            ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false)
+            })
+
+            ;['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false)
+            })
+
+            ;['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false)
+            })
+
+            dropArea.addEventListener('drop', handleDrop, false)
+
+            listformelem = document.getElementById('mzxml_file_list_input_id');
+            listdispelem = document.getElementById('pending-files');
+
+            function highlight(e) {
+                dropArea.classList.add('highlight')
+            }
+
+            function unhighlight(e) {
+                dropArea.classList.remove('highlight')
+            }
+        })
     </script>
 {% endblock %}
 
 {% block content %}
     <div>
         <h3>Dropped files to list test - This is a prototype to see if a series of mzxml files can be dropped onto a page so that a hidden text field can be populated with the file names (and paths?)</h3>
-        <form>
-            <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
-            <label class="btn btn-secondary">
-                <input type="file" multiple id="file-drop-zone" onchange="listformelem = document.getElementById('mzxml_file_list_input_id');listdispelem=document.getElementById('pending-files');listformelem.value = get_file_names_string(this.files, listformelem.value);listdispelem.innerHTML = listformelem.value;" style="display: none;"/>
-                Add mzXML Files
-            </label>
-        </form>
-        <pre id="pending-files" style="padding-left: 2em;"></pre>
+
+        <!-- The 2 form strategy for submitting just file names is based on https://stackoverflow.com/questions/2175831/is-it-possible-to-use-input-type-file-just-to-post-the-filename-without-actu -->
+
+        <div id="drop-area">
+            <form>
+                <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
+                <label class="btn btn-secondary">
+                    <input type="file" multiple id="file-drop-zone" onchange="handleFiles(this.files);" style="display: none;"/>
+                    Add mzXML Files
+                </label>
+            </form>
+            <pre id="pending-files" style="padding-left: 2em;"></pre>
+        </div>
         <form action="{% url 'droptest' %}" id="droptestform" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
             {{ form.mzxml_file_list }}
