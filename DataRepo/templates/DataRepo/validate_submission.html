@@ -12,39 +12,11 @@
     <script src="{% static 'js/file_list_drop_area.js' %}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function(){
-            let dropArea = document.getElementById('drop-area')
-
-            ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, preventDefaults, false)
-            })
-
-            ;['dragenter', 'dragover'].forEach(eventName => {
-                dropArea.addEventListener(eventName, highlight, false)
-            })
-
-            ;['dragleave', 'drop'].forEach(eventName => {
-                dropArea.addEventListener(eventName, unhighlight, false)
-            })
-
-            dropArea.addEventListener('drop', handleDrop, false)
-
-            listformelem = document.getElementById('mzxml_file_list_input_id');
-            listdispelem = document.getElementById('pending-files');
-
-            function handleDrop(e) {
-                let dt = e.dataTransfer
-                let files = dt.files
-
-                handleFiles(files, listformelem, listdispelem)
-            }
-
-            function highlight(e) {
-                dropArea.classList.add('highlight')
-            }
-
-            function unhighlight(e) {
-                dropArea.classList.remove('highlight')
-            }
+            initDropArea(
+                document.getElementById('drop-area'),
+                document.getElementById('mzxml_file_list_input_id'),
+                document.getElementById('pending-files')
+            )
         })
     </script>
 {% endblock %}
