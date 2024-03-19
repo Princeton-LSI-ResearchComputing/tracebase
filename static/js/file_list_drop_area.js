@@ -5,54 +5,54 @@ var listdispelem = null // eslint-disable-line no-var
 /**
  * This initializes all of the global variables.
  */
-function initDropArea(dropArea, listformelem, listdispelem) { // eslint-disable-line no-unused-vars
+function initDropArea (dropArea, listformelem, listdispelem) { // eslint-disable-line no-unused-vars
   ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropArea.addEventListener(eventName, preventDefaults, false)
+    dropArea.addEventListener(eventName, preventDefaults, false)
   })
 
   ;['dragenter', 'dragover'].forEach(eventName => {
-      dropArea.addEventListener(eventName, highlight, false)
+    dropArea.addEventListener(eventName, highlight, false)
   })
 
   ;['dragleave', 'drop'].forEach(eventName => {
-      dropArea.addEventListener(eventName, unhighlight, false)
+    dropArea.addEventListener(eventName, unhighlight, false)
   })
 
   dropArea.addEventListener('drop', handleDrop, false)
 
-  globalThis.dropArea = dropArea;
-  globalThis.listformelem = listformelem;
-  globalThis.listdispelem = listdispelem;
+  globalThis.dropArea = dropArea
+  globalThis.listformelem = listformelem
+  globalThis.listdispelem = listdispelem
 
   refreshMzXMLDisplayList()
 }
 
-function preventDefaults(e) { // eslint-disable-line no-unused-vars
+function preventDefaults (e) { // eslint-disable-line no-unused-vars
   e.preventDefault()
   e.stopPropagation()
 }
 
-function highlight(e) {
+function highlight (e) {
   dropArea.classList.add('highlight')
 }
 
-function unhighlight(e) {
+function unhighlight (e) {
   dropArea.classList.remove('highlight')
 }
 
-function handleDrop(e) {
-  let dt = e.dataTransfer
-  let files = dt.files
+function handleDrop (e) {
+  const dt = e.dataTransfer
+  const files = dt.files
 
   handleFiles(files)
 }
 
-function handleFiles(files) { // eslint-disable-line no-unused-vars
+function handleFiles (files) { // eslint-disable-line no-unused-vars
   listformelem.value = getFileNamesString(files, listformelem.value)
   refreshMzXMLDisplayList()
 }
 
-function getFileNamesString(files, curstring) {
+function getFileNamesString (files, curstring) {
   let fileNamesString = ''
   let cumulativeFileList = []
   if (typeof curstring !== 'undefined' && curstring) {
@@ -71,6 +71,6 @@ function getFileNamesString(files, curstring) {
   return fileNamesString
 }
 
-function refreshMzXMLDisplayList() {
+function refreshMzXMLDisplayList () {
   listdispelem.innerHTML = listformelem.value
 }

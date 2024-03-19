@@ -30,7 +30,9 @@
             <label for="accucor_files" class="form-label">AccuCor Files:</label>{{ form.accucor_files }}<br>
             <label for="isocorr_files" class="form-label">IsoCorr Files:</label>{{ form.isocorr_files }}<br>
             {{ form.mzxml_file_list }}
+            <!-- Hidden buttons for this form, controlled by the buttons under the second form via javascript -->
             <button type="submit" class="btn btn-primary" id="validate" style="display: none;">Validate</button>
+            <button type="reset" class="btn btn-secondary" id="clear" style="display: none;">Clear</button>
             {{ form.management_form }}
         </form>
 
@@ -47,11 +49,13 @@
             <pre id="pending-files" class="drop-area-list-indent"></pre>
         </div>
 
+        <br>
+
         <span class="text-error">{{ form.errors.val }}</span>
         <span class="text-error">{{ form.non_field_errors }}</span>
 
         <button class="btn btn-primary" id="faux-validate" onclick="document.getElementById('submission-validation').submit();">Validate</button>
-        <button class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('mzxml_file_list_input_id').value = null;document.getElementById('pending-files').innerHTML = '';">Clear</button>
+        <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('mzxml_file_list_input_id').value = null;document.getElementById('pending-files').innerHTML = '';document.getElementById('submission-validation').reset();">Clear</button>
 
         <br>
 
