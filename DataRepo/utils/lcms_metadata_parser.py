@@ -12,20 +12,34 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.file_utils import headers_are_as_expected, read_from_file
 
+LCMS_DB_SAMPLE_HDR = "tracebase sample name"
+LCMS_FL_SAMPLE_HDR = "sample data header"
+LCMS_MZXML_HDR = "mzxml filename"
+LCMS_PEAK_ANNOT_HDR = "peak annotation filename"
+LCMS_INSTRUMENT_HDR = "instrument"
+LCMS_OPERATOR_HDR = "operator"
+LCMS_POLARITY_HDR = "polarity"
+LCMS_MINMZ_HDR = "mz min"
+LCMS_MAXMZ_HDR = "mz max"
+LCMS_DATE_HDR = "date"
+LCMS_LCMETHOD_HDR = "lc method"
+LCMS_RUNLEN_HDR = "lc run length"
+LCMS_LCDESC_HDR = "lc description"
+
 LCMS_HEADERS = (
-    "tracebase sample name",  # Required
-    "sample data header",  # Required
-    "mzxml filename",
-    "peak annotation filename",
-    "instrument",
-    "operator",
-    "polarity",
-    "mz min",
-    "mz max",
-    "date",
-    "lc method",
-    "lc run length",
-    "lc description",
+    LCMS_DB_SAMPLE_HDR,
+    LCMS_FL_SAMPLE_HDR,
+    LCMS_MZXML_HDR,
+    LCMS_PEAK_ANNOT_HDR,
+    LCMS_INSTRUMENT_HDR,
+    LCMS_OPERATOR_HDR,
+    LCMS_POLARITY_HDR,
+    LCMS_MINMZ_HDR,
+    LCMS_MAXMZ_HDR,
+    LCMS_DATE_HDR,
+    LCMS_LCMETHOD_HDR,
+    LCMS_RUNLEN_HDR,
+    LCMS_LCDESC_HDR,
 )
 
 
@@ -51,15 +65,15 @@ def lcms_df_to_dict(df, aes=None):
             ):
                 row[key] = None
 
-        sample_name = row["tracebase sample name"]
+        sample_name = row[LCMS_DB_SAMPLE_HDR]
         if sample_name is None:
-            missing_reqd_vals["tracebase sample name"].append(idx + 2)
+            missing_reqd_vals[LCMS_DB_SAMPLE_HDR].append(idx + 2)
         elif sample_name not in samples:
             samples.append(sample_name)
 
-        sample_header = row["sample data header"]
+        sample_header = row[LCMS_FL_SAMPLE_HDR]
         if sample_header is None:
-            missing_reqd_vals["sample data header"].append(idx + 2)
+            missing_reqd_vals[LCMS_FL_SAMPLE_HDR].append(idx + 2)
         elif sample_header in lcms_metadata.keys():
             if sample_header in dupes.keys():
                 dupes[sample_header].append(str(idx + 2))
@@ -71,38 +85,38 @@ def lcms_df_to_dict(df, aes=None):
             continue
 
         lc_name = None
-        if row["lc method"] is not None and row["lc run length"] is not None:
-            lc_name = LCMethod.create_name(row["lc method"], row["lc run length"])
+        if row[LCMS_LCMETHOD_HDR] is not None and row[LCMS_RUNLEN_HDR] is not None:
+            lc_name = LCMethod.create_name(row[LCMS_LCMETHOD_HDR], row[LCMS_RUNLEN_HDR])
 
         peak_annot = None
-        if row["peak annotation filename"] is not None:
-            peak_annot = os.path.basename(row["peak annotation filename"]).strip()
+        if row[LCMS_PEAK_ANNOT_HDR] is not None:
+            peak_annot = os.path.basename(row[LCMS_PEAK_ANNOT_HDR]).strip()
 
         run_len = None
-        if row["lc run length"] is not None:
-            run_len = timedelta(minutes=int(row["lc run length"]))
+        if row[LCMS_RUNLEN_HDR] is not None:
+            run_len = timedelta(minutes=int(row[LCMS_RUNLEN_HDR]))
 
         mz_min = None
-        if row["mz min"] is not None:
-            mz_min = float(row["mz min"])
+        if row[LCMS_MINMZ_HDR] is not None:
+            mz_min = float(row[LCMS_MINMZ_HDR])
 
         mz_max = None
-        if row["mz max"] is not None:
-            mz_max = float(row["mz max"])
+        if row[LCMS_MAXMZ_HDR] is not None:
+            mz_max = float(row[LCMS_MAXMZ_HDR])
 
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
             "peak_annot_file": peak_annot,
-            "mzxml": row["mzxml filename"],
-            "researcher": row["operator"],
-            "instrument": row["instrument"],
-            "date": row["date"],
+            "mzxml": row[LCMS_MZXML_HDR],
+            "researcher": row[LCMS_OPERATOR_HDR],
+            "instrument": row[LCMS_INSTRUMENT_HDR],
+            "date": row[LCMS_DATE_HDR],
             "lc_protocol_name": lc_name,
-            "lc_type": row["lc method"],
+            "lc_type": row[LCMS_LCMETHOD_HDR],
             "lc_run_length": run_len,
-            "lc_description": row["lc description"],
-            "polarity": row["polarity"],
+            "lc_description": row[LCMS_LCDESC_HDR],
+            "polarity": row[LCMS_POLARITY_HDR],
             "mz_min": mz_min,
             "mz_max": mz_max,
             "row_num": str(idx + 2),  # From 1, not including header row
