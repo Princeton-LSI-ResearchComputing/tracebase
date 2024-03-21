@@ -104,21 +104,23 @@ class DataValidationView(FormView):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
 
-        try:
+        if "animal_sample_table" in request.FILES:
             sample_file = request.FILES["animal_sample_table"]
             tmp_sample_file = sample_file.temporary_file_path()
-        except KeyError:
+        else:
             # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
             sample_file = None
             tmp_sample_file = None
-        try:
+
+        if "accucor_files" in request.FILES:
             accucor_files = request.FILES.getlist("accucor_files")
-        except KeyError:
+        else:
             # Ignore missing accucor files (allow user to validate just the sample file)
             accucor_files = []
-        try:
+
+        if "isocorr_files" in request.FILES:
             isocorr_files = request.FILES.getlist("isocorr_files")
-        except KeyError:
+        else:
             # Ignore missing isocorr files (allow user to validate just the sample file)
             isocorr_files = []
 
@@ -145,7 +147,9 @@ class DataValidationView(FormView):
         lcms_data = None
         lcms_filename = None
         peak_annot_file_name = None
-        if len(mzxml_name_list) > 0:
+        peak_annot_files = list(set(self.accucor_files).union(set(self.isocorr_files)))
+
+        if len(mzxml_name_list) > 0 or len(peak_annot_files) == 1:
             # This assumes that, due to the form class's clean method, there is exactly 1 peak annotation file
             peak_annot_file = list(
                 set(self.accucor_files).union(set(self.isocorr_files))

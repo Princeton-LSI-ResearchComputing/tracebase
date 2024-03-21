@@ -5,6 +5,58 @@ from DataRepo.views.upload.validation import DataValidationView
 
 
 class DataValidationViewTests(TracebaseTransactionTestCase):
+    LCMS_DICT = {
+        "a": {
+            "sort level": 1,
+            "tracebase sample name": "a",
+            "sample data header": "a",
+            "peak annotation filename": "accucor.xlsx",
+            "mzxml filename": "",
+        },
+        "b": {
+            "sort level": 0,
+            "tracebase sample name": "b",
+            "sample data header": "b",
+            "peak annotation filename": "accucor.xlsx",
+            "mzxml filename": "b.typo",
+        },
+        "c": {
+            "sort level": 0,
+            "tracebase sample name": "c",
+            "sample data header": "c",
+            "peak annotation filename": "accucor.xlsx",
+            "mzxml filename": "c.mzXML",
+        },
+        "d_pos": {
+            "sort level": 1,
+            "tracebase sample name": "d",
+            "sample data header": "d_pos",
+            "peak annotation filename": "accucor.xlsx",
+            "mzxml filename": "",
+        },
+        "extra": {
+            "sort level": 2,
+            "tracebase sample name": "extra",
+            "sample data header": "",
+            "peak annotation filename": "",
+            "mzxml filename": "extra.mzxml",
+        },
+        "ERROR: c DUPLICATE HEADER 1": {
+            "sort level": 3,
+            "tracebase sample name": "",
+            "sample data header": "ERROR: c DUPLICATE HEADER 1",
+            "peak annotation filename": "accucor.xlsx",
+            "mzxml filename": "",
+        },
+        "ERROR: b.dupe DUPLICATE MZXML BASENAME 1": {
+            "sort level": 4,
+            "tracebase sample name": "",
+            "sample data header": "",
+            "peak annotation filename": "",
+            "mzxml filename": "ERROR: b.dupe DUPLICATE MZXML BASENAME 1",
+        },
+    }
+
     def test_build_lcms_dict(self):
         lcms_dict = DataValidationView.build_lcms_dict(
             ["a", "b", "c", "c", "d_pos"],  # Sample headers
@@ -12,57 +64,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
             "accucor.xlsx",  # Peak annot file
         )
         self.assertDictEqual(
-            {
-                "a": {
-                    "sort level": 1,
-                    "tracebase sample name": "a",
-                    "sample data header": "a",
-                    "peak annotation filename": "accucor.xlsx",
-                    "mzxml filename": "",
-                },
-                "b": {
-                    "sort level": 0,
-                    "tracebase sample name": "b",
-                    "sample data header": "b",
-                    "peak annotation filename": "accucor.xlsx",
-                    "mzxml filename": "b.typo",
-                },
-                "c": {
-                    "sort level": 0,
-                    "tracebase sample name": "c",
-                    "sample data header": "c",
-                    "peak annotation filename": "accucor.xlsx",
-                    "mzxml filename": "c.mzXML",
-                },
-                "d_pos": {
-                    "sort level": 1,
-                    "tracebase sample name": "d",
-                    "sample data header": "d_pos",
-                    "peak annotation filename": "accucor.xlsx",
-                    "mzxml filename": "",
-                },
-                "extra": {
-                    "sort level": 2,
-                    "tracebase sample name": "extra",
-                    "sample data header": "",
-                    "peak annotation filename": "",
-                    "mzxml filename": "extra.mzxml",
-                },
-                "ERROR: c DUPLICATE HEADER 1": {
-                    "sort level": 3,
-                    "tracebase sample name": "",
-                    "sample data header": "ERROR: c DUPLICATE HEADER 1",
-                    "peak annotation filename": "accucor.xlsx",
-                    "mzxml filename": "",
-                },
-                "ERROR: b.dupe DUPLICATE MZXML BASENAME 1": {
-                    "sort level": 4,
-                    "tracebase sample name": "",
-                    "sample data header": "",
-                    "peak annotation filename": "",
-                    "mzxml filename": "ERROR: b.dupe DUPLICATE MZXML BASENAME 1",
-                },
-            },
+            self.LCMS_DICT,
             dict(lcms_dict),
         )
 
@@ -86,5 +88,17 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual("mysample_pos", samplename)
 
     def test_lcms_dict_to_tsv_string(self):
-        # TODO: Implement test
-        pass
+        lcms_data = DataValidationView.lcms_dict_to_tsv_string(self.LCMS_DICT)
+        self.assertEqual(
+            (
+                "tracebase sample name\tsample data header\tmzxml filename\tpeak annotation filename\n"
+                "b\tb\tb.typo\taccucor.xlsx\n"
+                "c\tc\tc.mzXML\taccucor.xlsx\n"
+                "a\ta\t\taccucor.xlsx\n"
+                "d\td_pos\t\taccucor.xlsx\n"
+                "extra\t\textra.mzxml\t\n"
+                "\tERROR: c DUPLICATE HEADER 1\t\taccucor.xlsx\n"
+                "\t\tERROR: b.dupe DUPLICATE MZXML BASENAME 1\t\n"
+            ),
+            lcms_data,
+        )

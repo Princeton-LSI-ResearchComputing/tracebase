@@ -52,8 +52,8 @@
 
         <br>
 
-        <span class="text-error">{{ form.errors.val }}</span>
-        <span class="text-error">{{ form.non_field_errors }}</span>
+        <span class="text-danger">{{ form.errors.val }}</span>
+        <span class="text-danger">{{ form.non_field_errors }}</span>
 
         <button class="btn btn-primary" id="faux-validate" onclick="document.getElementById('submission-validation').submit();">Validate</button>
         <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('mzxml_file_list_input_id').value = null;document.getElementById('pending-files').innerHTML = '';document.getElementById('submission-validation').reset();">Clear</button>
