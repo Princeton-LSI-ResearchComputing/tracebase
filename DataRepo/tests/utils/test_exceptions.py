@@ -14,6 +14,8 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     MutuallyExclusiveOptions,
     NoLoadData,
+    NonUniqueSampleDataHeader,
+    NonUniqueSampleDataHeaders,
     OptionsNotAvailable,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -900,4 +902,27 @@ class ExceptionTests(TracebaseTestCase):
                 "not exist as either a primary compound name or synonym."
             ),
             str(cdne),
+        )
+
+    def test_NonUniqueSampleDataHeader(self):
+        nusdh = NonUniqueSampleDataHeader("c", {"accucor.xlsx": 2})
+        self.assertEqual(
+            (
+                "Sample data header 'c' is not unique across all supplied peak annotation files:\n"
+                "\tOccurs 2 times in accucor.xlsx"
+            ),
+            str(nusdh),
+        )
+
+    def test_NonUniqueSampleDataHeaders(self):
+        nusdhs = NonUniqueSampleDataHeaders(
+            [NonUniqueSampleDataHeader("c", {"accucor.xlsx": 2})]
+        )
+        self.assertEqual(
+            (
+                "The following sample data headers are not unique across all supplied peak annotation files:\n"
+                "\tc\n"
+                "\t\tOccurs 2 times in accucor.xlsx\n"
+            ),
+            str(nusdhs),
         )
