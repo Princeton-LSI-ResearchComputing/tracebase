@@ -1,13 +1,27 @@
 from typing import Dict, Optional
 
-from django import forms
-from django.forms import formset_factory
+from django.forms import (
+    BooleanField,
+    CharField,
+    ChoiceField,
+    ClearableFileInput,
+    FileField,
+    Form,
+    HiddenInput,
+    JSONField,
+    Select,
+    TextInput,
+    ValidationError,
+    formset_factory,
+)
 
 from DataRepo.formats.dataformat import Format
 from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.utils.file_utils import is_excel
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -30,7 +44,7 @@ from DataRepo.formats.search_group import SearchGroup
 # mixed-form environment.
 
 
-class BaseAdvSearchForm(forms.Form):
+class BaseAdvSearchForm(Form):
     """
     Advanced search form base class that will be used inside a formset.
     """
@@ -47,20 +61,20 @@ class BaseAdvSearchForm(forms.Form):
 
     # See important note above about the pos & posprefix fields above
     posprefix: Optional[str] = None
-    pos = forms.CharField(widget=forms.HiddenInput())
+    pos = CharField(widget=HiddenInput())
 
     # Saves whether this is a static search form or not (for uneditable queries prepended to searches (see fctemplate))
-    static = forms.CharField(widget=forms.HiddenInput())
+    static = CharField(widget=HiddenInput())
 
-    fld = forms.ChoiceField(required=True, widget=forms.Select())
+    fld = ChoiceField(required=True, widget=Select())
 
-    ncmp = forms.ChoiceField(required=True, widget=forms.Select())
+    ncmp = ChoiceField(required=True, widget=Select())
 
     # Note: the placeholder attribute solves issue #135
-    val = forms.CharField(widget=forms.TextInput(attrs={"placeholder": "search term"}))
+    val = CharField(widget=TextInput(attrs={"placeholder": "search term"}))
 
     # This can be used to indicate the units or format of the term supplied to val, e.g. "minutes" for a DurationField
-    units = forms.ChoiceField(required=True, widget=forms.Select())
+    units = ChoiceField(required=True, widget=Select())
 
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
@@ -131,12 +145,12 @@ class AdvSearchForm:
             self.form_classes[id] = formset_factory(form_class.__class__)
 
 
-class AdvSearchDownloadForm(forms.Form):
+class AdvSearchDownloadForm(Form):
     """
     Advanced search download form for any advanced search data.
     """
 
-    qryjson = forms.JSONField(widget=forms.HiddenInput())
+    qryjson = JSONField(widget=HiddenInput())
 
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
@@ -144,12 +158,12 @@ class AdvSearchDownloadForm(forms.Form):
         return self.cleaned_data
 
 
-class RowsPerPageSelectWidget(forms.Select):
+class RowsPerPageSelectWidget(Select):
     template_name = "DataRepo/widgets/rowsperpage_select.html"
     option_template_name = "DataRepo/widgets/rowsperpage_select_option.html"
 
 
-class AdvSearchPageForm(forms.Form):
+class AdvSearchPageForm(Form):
     """
     Advanced search download form for any advanced search data.
     """
@@ -164,19 +178,19 @@ class AdvSearchPageForm(forms.Form):
         ("1000", "1000"),
     )
 
-    qryjson = forms.JSONField(widget=forms.HiddenInput())
-    rows = forms.ChoiceField(
+    qryjson = JSONField(widget=HiddenInput())
+    rows = ChoiceField(
         choices=ROWS_PER_PAGE_CHOICES,
         widget=RowsPerPageSelectWidget(),
     )
-    page = forms.CharField(widget=forms.HiddenInput())
-    order_by = forms.CharField(widget=forms.HiddenInput())
-    order_direction = forms.CharField(widget=forms.HiddenInput())
-    paging = forms.CharField(
-        widget=forms.HiddenInput()
+    page = CharField(widget=HiddenInput())
+    order_by = CharField(widget=HiddenInput())
+    order_direction = CharField(widget=HiddenInput())
+    paging = CharField(
+        widget=HiddenInput()
     )  # This field's name ("paging") is used to distinguish pager form submissions from other form submissions
-    show_stats = forms.BooleanField(widget=forms.HiddenInput())
-    stats = forms.JSONField(widget=forms.HiddenInput())
+    show_stats = BooleanField(widget=HiddenInput())
+    stats = JSONField(widget=HiddenInput())
 
     def clean(self):
         """
@@ -289,13 +303,13 @@ class AdvSearchPageForm(forms.Form):
         return True
 
 
-class MultipleFileInput(forms.ClearableFileInput):
+class MultipleFileInput(ClearableFileInput):
     """Subclass of ClearableFileInput that specifically allows multiple selected files"""
 
     allow_multiple_selected = True
 
 
-class MultipleFileField(forms.FileField):
+class MultipleFileField(FileField):
     """Subclass of FileField that validates multiple files submitted in a single form field"""
 
     def __init__(self, *args, **kwargs):
@@ -311,7 +325,7 @@ class MultipleFileField(forms.FileField):
         return result
 
 
-class DataSubmissionValidationForm(forms.Form):
+class DataSubmissionValidationForm(Form):
     """
     Form for users to validate their Animal and Sample Table with Accucor and/or Isocorr files
     """
@@ -321,18 +335,16 @@ class DataSubmissionValidationForm(forms.Form):
         for visible in self.visible_fields():
             visible.field.widget.attrs["class"] = "form-control"
 
-    animal_sample_table = forms.FileField(
-        required=False, widget=forms.ClearableFileInput(attrs={"multiple": False})
+    animal_sample_table = FileField(
+        required=False, widget=ClearableFileInput(attrs={"multiple": False})
     )
-    accucor_files = MultipleFileField(
-        required=False, widget=MultipleFileInput(attrs={"multiple": True})
-    )
-    isocorr_files = MultipleFileField(
+    peak_annotation_files = MultipleFileField(
         required=False, widget=MultipleFileInput(attrs={"multiple": True})
     )
 
     def clean(self):
-        """Ensure that at least a sample or peak annotation file is supplied.
+        """Ensure that at least a sample or peak annotation file is supplied, that the peak annotation files are
+        either accucor or isocorr excel files, and that the study file is an excel file.
 
         Args:
             None
@@ -346,16 +358,52 @@ class DataSubmissionValidationForm(forms.Form):
         super().clean()
 
         study_doc = self.cleaned_data.get("animal_sample_table", None)
-        accucor_files = self.cleaned_data.get("accucor_files", None)
-        isocorr_files = self.cleaned_data.get("isocorr_files", None)
+        peak_annotation_files = self.cleaned_data.get("peak_annotation_files", None)
 
-        num_accucor = 0 if accucor_files is None else len(accucor_files)
-        num_isocorr = 0 if isocorr_files is None else len(isocorr_files)
+        num_peak_annot_files = (
+            0 if peak_annotation_files is None else len(peak_annotation_files)
+        )
 
-        if study_doc is None and num_accucor == 0 and num_isocorr == 0:
-            raise forms.ValidationError(
-                "Either an Animal/Sample Table, Accucor, or Isocorr file is required.",
-                code="TooFewFiles",
+        if study_doc is None and num_peak_annot_files == 0:
+            self.add_error(
+                None,
+                ValidationError(
+                    "Either an Animal/Sample Table or Peak Annotation file (e.g. Accucor or Isocorr) is required.",
+                    code="TooFewFiles",
+                ),
             )
+        elif study_doc is not None and not is_excel(study_doc):
+            self.add_error(
+                "animal_sample_table",
+                ValidationError(
+                    (
+                        f"The Animal/Sample Table file must be an excel file.  The file type: {study_doc} could "
+                        "not be validated."
+                    ),
+                    code="InvalidStudyFile",
+                ),
+            )
+
+        if num_peak_annot_files > 0:
+            not_peak_annot_files = []
+
+            for peak_annot_file in peak_annotation_files:
+                peak_annotation_filename = str(peak_annot_file)
+                if not AccuCorDataLoader.is_accucor(
+                    peak_annot_file
+                ) and not AccuCorDataLoader.is_isocorr(peak_annot_file):
+                    not_peak_annot_files.append(peak_annotation_filename)
+
+            if len(not_peak_annot_files) > 0:
+                self.add_error(
+                    "peak_annotation_files",
+                    ValidationError(
+                        (
+                            "Peak annotation files must be either Accucor or Isocorr excel files.  The file type "
+                            f"of the following supplied files: {not_peak_annot_files} could not be validated."
+                        ),
+                        code="InvalidPeakAnnotFiles",
+                    ),
+                )
 
         return self.cleaned_data

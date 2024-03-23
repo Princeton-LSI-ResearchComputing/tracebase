@@ -3,6 +3,7 @@ import re
 import shutil
 import tempfile
 from collections import defaultdict
+from sqlite3 import ProgrammingError
 from typing import List
 
 import yaml  # type: ignore
@@ -10,8 +11,10 @@ from django.conf import settings
 from django.core.management import call_command
 from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
+from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.exceptions import (
     MultiLoadStatus,
@@ -52,12 +55,10 @@ class DataValidationView(FormView):
 
     def set_files(
         self,
-        sample_file,
-        accucor_files=None,
-        isocorr_files=None,
-        sample_file_name=None,
-        accucor_file_names=None,
-        isocorr_file_names=None,
+        sample_file=None,
+        sample_filename=None,
+        peak_annotation_files=None,
+        peak_annotation_filenames=None,
     ):
         """
         This method allows the files to be set.  It takes 2 different optional params for file names (that are used in
@@ -65,37 +66,62 @@ class DataValidationView(FormView):
         actual files is used for reporting.
         """
         self.animal_sample_file = sample_file
-        self.animal_sample_filename = sample_file_name
-        if sample_file_name is None and sample_file is not None:
+        self.animal_sample_filename = sample_filename
+        if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
 
-        if accucor_files:
-            self.accucor_files = accucor_files
-        else:
-            self.accucor_files = []
-
-        if isocorr_files:
-            self.isocorr_files = isocorr_files
-        else:
-            self.isocorr_files = []
-
-        if accucor_file_names is not None:
-            self.accucor_filenames = [str(f) for f in accucor_file_names]
-        elif self.accucor_files is not None:
-            self.accucor_filenames = [
-                str(os.path.basename(f)) for f in self.accucor_files
+        if peak_annotation_filenames is not None:
+            # The form sends a file object
+            bad_types = []
+            for typestr in [
+                type(f).__name__ for f in peak_annotation_filenames if type(f) != str
+            ]:
+                if typestr not in bad_types:
+                    bad_types.append(typestr)
+            if len(bad_types) > 0:
+                raise ProgrammingError(
+                    f"peak_annotation_filenames must be a list of strings, not {bad_types}."
+                )
+        elif peak_annotation_files is not None and len(peak_annotation_files) > 0:
+            peak_annotation_filenames = [
+                str(os.path.basename(f)) for f in peak_annotation_files
             ]
-        else:
-            self.accucor_filenames = []
 
-        if isocorr_file_names is not None:
-            self.isocorr_filenames = [str(f) for f in isocorr_file_names]
-        elif self.isocorr_files is not None:
-            self.isocorr_filenames = [
-                str(os.path.basename(f)) for f in self.isocorr_files
-            ]
-        else:
-            self.isocorr_filenames = []
+        if (
+            peak_annotation_filenames is not None
+            and len(peak_annotation_filenames) > 0
+            and (
+                peak_annotation_files is None
+                or len(peak_annotation_filenames) != len(peak_annotation_files)
+            )
+        ):
+            raise ProgrammingError(
+                f"The number of peak annotation file names [{len(peak_annotation_filenames)}] must be equal to the "
+                f"number of peak annotation files [{peak_annotation_files}]."
+            )
+
+        not_peak_annot_files = []
+        self.accucor_files = []
+        self.isocorr_files = []
+        self.accucor_filenames = []
+        self.isocorr_filenames = []
+        if peak_annotation_files is not None and len(peak_annotation_files) > 0:
+            for index, peak_annot_file in enumerate(peak_annotation_files):
+                peak_annotation_filename = peak_annotation_filenames[index]
+                if AccuCorDataLoader.is_accucor(peak_annot_file):
+                    self.accucor_files.append(peak_annot_file)
+                    self.accucor_filenames.append(peak_annotation_filename)
+                elif AccuCorDataLoader.is_isocorr(peak_annot_file):
+                    self.isocorr_files.append(peak_annot_file)
+                    self.isocorr_filenames.append(peak_annotation_filename)
+                else:
+                    not_peak_annot_files.append(peak_annotation_filenames[index])
+
+        if len(not_peak_annot_files) > 0:
+            raise ValidationError(
+                "Peak annotation files must be either Accucor or Isocorr excel files.  Could not identify the type of "
+                f"the following supplied files: {not_peak_annot_files}."
+            )
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
@@ -108,6 +134,9 @@ class DataValidationView(FormView):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
 
+        if not form.is_valid():
+            return self.form_invalid(form)
+
         if "animal_sample_table" in request.FILES:
             sample_file = request.FILES["animal_sample_table"]
             tmp_sample_file = sample_file.temporary_file_path()
@@ -116,31 +145,22 @@ class DataValidationView(FormView):
             sample_file = None
             tmp_sample_file = None
 
-        if "accucor_files" in request.FILES:
-            accucor_files = request.FILES.getlist("accucor_files")
+        if "peak_annotation_files" in request.FILES:
+            peak_annotation_files = request.FILES.getlist("peak_annotation_files")
         else:
             # Ignore missing accucor files (allow user to validate just the sample file)
-            accucor_files = []
-
-        if "isocorr_files" in request.FILES:
-            isocorr_files = request.FILES.getlist("isocorr_files")
-        else:
-            # Ignore missing isocorr files (allow user to validate just the sample file)
-            isocorr_files = []
+            peak_annotation_files = []
 
         self.set_files(
             tmp_sample_file,
-            [afp.temporary_file_path() for afp in accucor_files],
-            [ifp.temporary_file_path() for ifp in isocorr_files],
-            sample_file_name=sample_file,
-            accucor_file_names=accucor_files,
-            isocorr_file_names=isocorr_files,
+            sample_filename=sample_file,
+            peak_annotation_files=[
+                fp.temporary_file_path() for fp in peak_annotation_files
+            ],
+            peak_annotation_filenames=[str(fp) for fp in peak_annotation_files],
         )
 
-        if form.is_valid():
-            return self.form_valid(form)
-        else:
-            return self.form_invalid(form)
+        return self.form_valid(form)
 
     def form_valid(self, form):
         """
