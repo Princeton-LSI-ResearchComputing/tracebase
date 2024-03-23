@@ -6,39 +6,40 @@
     {{ block.super }}
 
     <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+    <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
+    <script src="{% static 'js/file_list_drop_area.js' %}"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            peak_annot_input = document.getElementById('peak_annotation_files_field')
+            peak_annot_list = document.getElementById('pending_peak_annot_files')
+
+            peak_annot_input.addEventListener(
+                'change',
+                function() { showPeakAnnotFiles(peak_annot_input.files); },
+                false
+            );
+
+            function showPeakAnnotFiles (files) {
+                peak_annot_list.innerHTML = getFileNamesString(files);
+            }
+        })
+    </script>
 {% endblock %}
 
 {% block content %}
     <div>
-        <h3>Validate Animal/Sample and AccuCor/IsoCorr Files for Submission</h3>
+        <h3>Build a TraceBase Submission</h3>
+        <span class="small text-muted">Upload multiple accucor and/or isocorr files and get back an animal and sample table with some data automatically filled in.</span><br><br>
         <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
-            <label for="animal_sample_table" class="form-label">Animal and Sample Table:</label>{{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>{% if not form.animal_sample_table.errors %}<br>{% endif %}
-            <label for="peak_annotation_files" class="form-label">Peak Annotation Files:</label>{{ form.peak_annotation_files }}<span class="text-danger">{{ form.peak_annotation_files.errors }}</span>{% if not form.peak_annotation_files.errors %}<br>{% endif %}
+            <label for="peak_annotation_files" class="form-label">Peak Annotation Excel Files:</label>{{ form.peak_annotation_files }}<span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
+            <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
+            <label for="animal_sample_table" class="form-label">Output Animal and Sample Excel File:<br>
+            <span class="small text-muted">(if you have an existing Animal and Sample file you want to update)</span></label>{{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>{% if not form.animal_sample_table.errors %}<br>{% endif %}
             <span class="text-danger">{{ form.non_field_errors }}</span>
             <button type="submit" class="btn btn-primary" id="validate">Validate</button>
             {{ form.management_form }}
         </form>
-
-        <br>
-
-        <div class="text-muted small">
-            Validating your submission is an optional check to catch simple mistakes that will speed up the loading of your data to TraceBase by reducing the number of interactions between you (the submitter) and the TraceBase curators.<br>
-            Once you have resolved any issues that you know how to fix (leaving any issues you do not know how to resolve), you may move on to the <a href="{{ submission_url }}">submission form</a>.<br>
-            <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#notes">Help</a>
-            <div id="notes" class="collapse">Take heed of the following tips when resolving issues in your submission:
-                <ul>
-                    <li>You do not have to resolve all issues with the files before submission.</li>
-                    <li>If you encounter a timeout exception, try submitting fewer files.</li>
-                    <li>Do not manually edit your AccuCor/IsoCorr files.</li>
-                    <li>Errors associated with multiple files will appear at the bottom (e.g. missing compounds/samples/tissues).</li>
-                    <li>Warnings are issues that are either innocuous, something you cannot resolve yourself, or are associated with multiple files and will appear as a consolidated error at the bottom.</li>
-                    <li>Depending on the number and size of your files, validation may take a few minutes.</li>
-                    <li>Do not reload or close the window until validation is complete.</li>
-                    <li>Some errors/warnings are skipped because a preceding error occurred.  So after addressing issues, validate your files again to see if new errors are encountered.  It may take multiple attempts.</li>
-                </ul>
-            </div>
-        </div>
     </div>
 
     {% if results %}
