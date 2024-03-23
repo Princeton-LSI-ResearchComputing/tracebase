@@ -99,9 +99,9 @@ class DataValidationView(FormView):
         self.isocorr_filenames = []
         if peak_annotation_files is not None and len(peak_annotation_files) > 0:
             # Convince mypy that peak_annotation_files is defined
-            peak_annot_files: List[str] = cast(List[str], peak_annotation_files)
-            for index, peak_annot_file in enumerate(peak_annot_files):
-                peak_annotation_filename = peak_annot_files[index]
+            peak_annot_filenames: List[str] = cast(List[str], peak_annotation_filenames)
+            for index, peak_annot_file in enumerate(peak_annotation_files):
+                peak_annotation_filename = peak_annot_filenames[index]
                 if AccuCorDataLoader.is_accucor(peak_annot_file):
                     self.accucor_files.append(peak_annot_file)
                     self.accucor_filenames.append(peak_annotation_filename)
@@ -109,7 +109,7 @@ class DataValidationView(FormView):
                     self.isocorr_files.append(peak_annot_file)
                     self.isocorr_filenames.append(peak_annotation_filename)
                 else:
-                    not_peak_annot_files.append(peak_annot_files[index])
+                    not_peak_annot_files.append(peak_annot_filenames[index])
 
         if len(not_peak_annot_files) > 0:
             raise ValidationError(
