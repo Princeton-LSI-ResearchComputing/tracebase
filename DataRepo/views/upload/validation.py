@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from collections import defaultdict
 from sqlite3 import ProgrammingError
-from typing import List
+from typing import List, Optional, cast
 
 import yaml  # type: ignore
 from django.conf import settings
@@ -56,9 +56,9 @@ class DataValidationView(FormView):
     def set_files(
         self,
         sample_file=None,
-        sample_filename=None,
+        sample_filename: Optional[str] = None,
         peak_annotation_files=None,
-        peak_annotation_filenames=None,
+        peak_annotation_filenames: Optional[List[str]] = None,
     ):
         """
         This method allows the files to be set.  It takes 2 different optional params for file names (that are used in
@@ -70,19 +70,11 @@ class DataValidationView(FormView):
         if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
 
-        if peak_annotation_filenames is not None:
-            # The form sends a file object
-            bad_types = []
-            for typestr in [
-                type(f).__name__ for f in peak_annotation_filenames if type(f) != str
-            ]:
-                if typestr not in bad_types:
-                    bad_types.append(typestr)
-            if len(bad_types) > 0:
-                raise ProgrammingError(
-                    f"peak_annotation_filenames must be a list of strings, not {bad_types}."
-                )
-        elif peak_annotation_files is not None and len(peak_annotation_files) > 0:
+        if (
+            peak_annotation_filenames is None
+            and peak_annotation_files is not None
+            and len(peak_annotation_files) > 0
+        ):
             peak_annotation_filenames = [
                 str(os.path.basename(f)) for f in peak_annotation_files
             ]
@@ -106,8 +98,10 @@ class DataValidationView(FormView):
         self.accucor_filenames = []
         self.isocorr_filenames = []
         if peak_annotation_files is not None and len(peak_annotation_files) > 0:
-            for index, peak_annot_file in enumerate(peak_annotation_files):
-                peak_annotation_filename = peak_annotation_filenames[index]
+            # Convince mypy that peak_annotation_files is defined
+            peak_annot_files: List[str] = cast(List[str], peak_annotation_files)
+            for index, peak_annot_file in enumerate(peak_annot_files):
+                peak_annotation_filename = peak_annot_files[index]
                 if AccuCorDataLoader.is_accucor(peak_annot_file):
                     self.accucor_files.append(peak_annot_file)
                     self.accucor_filenames.append(peak_annotation_filename)
@@ -115,7 +109,7 @@ class DataValidationView(FormView):
                     self.isocorr_files.append(peak_annot_file)
                     self.isocorr_filenames.append(peak_annotation_filename)
                 else:
-                    not_peak_annot_files.append(peak_annotation_filenames[index])
+                    not_peak_annot_files.append(peak_annot_files[index])
 
         if len(not_peak_annot_files) > 0:
             raise ValidationError(
@@ -153,7 +147,7 @@ class DataValidationView(FormView):
 
         self.set_files(
             tmp_sample_file,
-            sample_filename=sample_file,
+            sample_filename=str(sample_file),
             peak_annotation_files=[
                 fp.temporary_file_path() for fp in peak_annotation_files
             ],
