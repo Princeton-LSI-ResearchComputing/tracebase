@@ -55,7 +55,8 @@ function handleFiles (files) { // eslint-disable-line no-unused-vars
 function getFileNamesString (files, curstring) {
   let fileNamesString = ''
   let cumulativeFileList = []
-  if (typeof curstring !== 'undefined' && curstring) {
+  // If the current string is populated and we're not clearing the file list
+  if (typeof curstring !== 'undefined' && curstring && files.length > 0) {
     cumulativeFileList = curstring.split('\n')
   }
   for (let i = 0; i < files.length; ++i) {

@@ -10,34 +10,77 @@
     <script src="{% static 'js/file_list_drop_area.js' %}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function(){
-            peak_annot_input = document.getElementById('peak_annotation_files_field')
-            peak_annot_list = document.getElementById('pending_peak_annot_files')
+            peak_annot_input = document.getElementById('peak_annotation_files_field');
+            peak_annot_list = document.getElementById('pending_peak_annot_files');
+            current_peak_annot_files = null;
 
+            // Note that the reset button does not trigger a change event, so see its onclick code
             peak_annot_input.addEventListener(
                 'change',
-                function() { showPeakAnnotFiles(peak_annot_input.files); },
+                function() { handlePeakAnnotFiles(peak_annot_input.files); },
                 false
             );
 
-            function showPeakAnnotFiles (files) {
-                peak_annot_list.innerHTML = getFileNamesString(files);
+            function handlePeakAnnotFiles (files, add) {
+                if (typeof add === 'undefined' || add === null) {
+                    add = true;
+                }
+                // If we're adding files, oreviously selected files exist, and the field isn't being cleared
+                if (add && typeof current_peak_annot_files !== "undefined" && current_peak_annot_files && files.length > 0) {
+                    const dT = new DataTransfer();
+                    // Add previously added files to the DataTranfer object
+                    for (let i = 0; i < current_peak_annot_files.length; i++) {
+                        dT.items.add(current_peak_annot_files[i]);
+                    }
+                    // Add newly selected files to the DataTranfer object
+                    for (let i = 0; i < files.length; i++) {
+                        dT.items.add(files[i]);
+                    }
+                    // Set the file input element to the combined (previously added and new) files
+                    peak_annot_input.files = dT.files;
+                }
+                current_peak_annot_files = peak_annot_input.files;
+                showPeakAnnotFiles(peak_annot_input.files);
             }
+
         })
+
+        function showPeakAnnotFiles (files) {
+            peak_annot_list.innerHTML = getFileNamesString(files);
+        }
     </script>
 {% endblock %}
 
 {% block content %}
     <div>
         <h3>Build a TraceBase Submission</h3>
-        <span class="small text-muted">Upload multiple accucor and/or isocorr files and get back an animal and sample table with some data automatically filled in.</span><br><br>
+        <span class="small text-muted">Upload multiple accucor and/or isocorr files (and an optional existing Animal/Sample sheet) and get back an animal and sample sheet with sample names automatically added.</span><br><br>
         <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
-            <label for="peak_annotation_files" class="form-label">Peak Annotation Excel Files:</label>{{ form.peak_annotation_files }}<span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
+
+            <label for="peak_annotation_files" class="form-label" style="margin-bottom: 0.25rem;">
+                <span style="margin-top: 0.25rem;margin-bottom: 0.25rem;">
+                    Peak Annotation Files:
+                    <span class="small"><span class="small text-muted">(AccuCor and/or IsoCorr <span class="fst-italic">excel</span> files)</span></span>
+                </span>
+            </label>
+            {{ form.peak_annotation_files }}
+            <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
             <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
-            <label for="animal_sample_table" class="form-label">Output Animal and Sample Excel File:<br>
-            <span class="small text-muted">(if you have an existing Animal and Sample file you want to update)</span></label>{{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>{% if not form.animal_sample_table.errors %}<br>{% endif %}
+
+            <label for="animal_sample_table" class="form-label" style="margin-bottom: 0.25rem;">
+                <span style="margin-top: 0.25rem;margin-bottom: 0.25rem;">
+                    Output Animal and Sample File:
+                    <span class="small"><span class="small text-muted">(if you have an existing Animal and Sample <span class="fst-italic">excel</span> file you want to update)</span></span>
+                </span>
+            </label>
+            {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
+            <!-- Errors, if they exist, add an extra like which makes the spacing off -->
+            {% if not form.animal_sample_table.errors %}<br>{% endif %}
+
             <span class="text-danger">{{ form.non_field_errors }}</span>
-            <button type="submit" class="btn btn-primary" id="validate">Validate</button>
+            <button type="submit" class="btn btn-primary" id="validate">Download</button>
+            <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);">Clear</button>
             {{ form.management_form }}
         </form>
     </div>
