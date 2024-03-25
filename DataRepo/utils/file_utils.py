@@ -359,7 +359,7 @@ def _read_headers_from_xlsx(filepath, sheet=0):
         .iloc[0]
     )
     # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
-    if type(raw_headers) == str:
+    if isinstance(raw_headers, str):
         return [raw_headers]
     return raw_headers.to_list()
 
@@ -377,7 +377,7 @@ def _read_headers_from_tsv(filepath):
         .iloc[0]
     )
     # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
-    if type(raw_headers) == str:
+    if isinstance(raw_headers, str):
         return [raw_headers]
     return raw_headers.to_list()
 
@@ -395,7 +395,7 @@ def _read_headers_from_csv(filepath):
         .iloc[0]
     )
     # Apparently, if there's only 1 header, .iloc[0] returns a string, otherwise a series
-    if type(raw_headers) == str:
+    if isinstance(raw_headers, str):
         return [raw_headers]
     return raw_headers.to_list()
 
@@ -495,7 +495,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     val_locations = defaultdict(dict)
     dupe_dict = defaultdict(dict)
     all_row_idxs_with_dupes = []
-    dict_list = data if type(data) == list else data.to_dict("records")
+    dict_list = data if isinstance(data, list) else data.to_dict("records")
 
     for rowidx, row in enumerate(dict_list):
         # Ignore rows where the animal name is empty
@@ -538,7 +538,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
 def string_to_datetime(
     date_str, format_str=None, file=None, sheet=None, rownum=None, column=None
 ):
-    if type(date_str) != str:
+    if not isinstance(date_str, str):
         # Raise a programming error immediately
         raise TypeError(
             f"date_str {date_str} must be a string, but got {type(date_str)}"

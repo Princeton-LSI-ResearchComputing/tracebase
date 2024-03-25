@@ -413,7 +413,7 @@ class TableLoader(ABC):
         # set in the class
         extras = []
         if custom_headers is not None:
-            if type(custom_headers) != dict:
+            if not isinstance(custom_headers, dict):
                 # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise self.aggregated_errors_object.buffer_error(
                     TypeError(
@@ -569,7 +569,7 @@ class TableLoader(ABC):
             if pretty_headers != "":
                 pretty_headers += delim
 
-            if type(hdr_item) == list:
+            if isinstance(hdr_item, list):
                 pretty_headers += "("
                 pretty_headers += self._get_pretty_headers_helper(
                     hdr_item,
@@ -682,7 +682,7 @@ class TableLoader(ABC):
 
         extras = []
         if custom_defaults is not None:
-            if type(custom_defaults) != dict:
+            if not isinstance(custom_defaults, dict):
                 # We create an aggregated errors object in class methods because we may not have an instance with one
                 raise self.aggregated_errors_object.buffer_error(
                     TypeError(
@@ -779,12 +779,12 @@ class TableLoader(ABC):
                     f"{type(cls.DefaultsTableHeaders)} set"
                 )
 
-            if type(cls.DataSheetName) != str:
+            if not isinstance(cls.DataSheetName, str):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.DataSheetName] str required, {type(cls.DataSheetName)} set"
                 )
 
-            if type(cls.DefaultsSheetName) != str:
+            if not isinstance(cls.DefaultsSheetName, str):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.DefaultsSheetName] str required, {type(cls.DefaultsSheetName)} set"
                 )
@@ -812,13 +812,13 @@ class TableLoader(ABC):
                     f"contains {invalid_types}"
                 )
 
-            if type(cls.DataUniqueColumnConstraints) != list:
+            if not isinstance(cls.DataUniqueColumnConstraints, list):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.DataUniqueColumnConstraints] list required, "
                     f"{type(cls.DataUniqueColumnConstraints)} set"
                 )
 
-            if type(cls.FieldToDataHeaderKey) != dict:
+            if not isinstance(cls.FieldToDataHeaderKey, dict):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.FieldToDataHeaderKey] dict required, {type(cls.FieldToDataHeaderKey)} "
                     "set"
@@ -828,7 +828,7 @@ class TableLoader(ABC):
             # DataColumnTypes is optional.  Allow to be left as None.
             if cls.DataColumnTypes is not None:
                 valid_types = True
-                if type(cls.DataColumnTypes) != dict:
+                if not isinstance(cls.DataColumnTypes, dict):
                     typeerrs.append(
                         f"attribute [{cls.__name__}.DataColumnTypes] dict required, {type(cls.DataColumnTypes)} set"
                     )
@@ -837,7 +837,7 @@ class TableLoader(ABC):
                     # If the DataHeaders was correctly set, check further to validate the dict
                     for hk in cls.DataColumnTypes.keys():
                         if hk in cls.DataHeaders._asdict().keys():
-                            if type(cls.DataColumnTypes[hk]) != type:
+                            if not isinstance(cls.DataColumnTypes[hk], type):
                                 typeerrs.append(
                                     f"dict attribute [{cls.__name__}.DataColumnTypes] must have values that are types, "
                                     f"but key [{hk}] has {type(cls.DataColumnTypes[hk])}"
@@ -1019,7 +1019,11 @@ class TableLoader(ABC):
         Returns:
             boolean
         """
-        return type(obj) == type and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
+        return (
+            isinstance(obj, type)
+            and hasattr(obj, "_asdict")
+            and hasattr(obj, "_fields")
+        )
 
     def get_column_types(self):
         """Returns a dict of column types by header name (not header key).
@@ -1248,7 +1252,7 @@ class TableLoader(ABC):
             sublist_anded = not _anded
             missing_header_item = None
 
-            if type(rh) == list:
+            if isinstance(rh, list):
                 missing_header_item, sublist_anded = self.get_missing_headers(
                     supd_headers, rh, _anded=not _anded, _first=False
                 )
@@ -1261,7 +1265,7 @@ class TableLoader(ABC):
                 # look at the rest of the list, as it is satisfied.
                 if not _anded:
                     return None, _anded
-            elif type(missing_header_item) == list and sublist_anded == _anded:
+            elif isinstance(missing_header_item, list) and sublist_anded == _anded:
                 # If the sublist and outer list are both "anded" or both "ored", merge them
                 missing.extend(missing_header_item)
             else:
@@ -1270,7 +1274,7 @@ class TableLoader(ABC):
         if len(missing) == 0:
             return None, _anded
 
-        if len(missing) == 1 and (not _first or type(missing[0]) == list):
+        if len(missing) == 1 and (not _first or isinstance(missing[0], list)):
             # Make sure we always return a list (or None) to the original (not recursive, i.e. not _first) call, but
             # skip outer lists with only 1 list member and return that member (and it's _anded state)
             return missing[0], sublist_anded
@@ -1294,7 +1298,7 @@ class TableLoader(ABC):
             headers = self.get_headers()
         ndim_header_names = []
         for hk_item in ndim_header_keys:
-            if type(hk_item) == list:
+            if isinstance(hk_item, list):
                 ndim_header_names.append(self.header_keys_to_names(hk_item, headers))
             else:
                 ndim_header_names.append(getattr(headers, hk_item))
@@ -1318,9 +1322,9 @@ class TableLoader(ABC):
             invalid_types.append(type(ndim_strings).__name__)
             return invalid_types
         for item in ndim_strings:
-            if type(item) == list:
+            if isinstance(item, list):
                 invalid_types.extend(cls.get_invalid_types_from_ndim_strings(item))
-            elif type(item) != str and type(item).__name__ not in invalid_types:
+            elif not isinstance(item, str) and type(item).__name__ not in invalid_types:
                 invalid_types.append(type(item).__name__)
         return invalid_types
 
@@ -1344,7 +1348,7 @@ class TableLoader(ABC):
         flat_uniques = []
         for item in ndim_strings:
             new_items = []
-            if type(item) == list:
+            if isinstance(item, list):
                 new_items.extend(cls.flatten_ndim_strings(item))
             else:
                 new_items.append(item)
@@ -1619,7 +1623,7 @@ class TableLoader(ABC):
 
         if header in row:
             val = row[header]
-            if type(val) == str and strip is True:
+            if isinstance(val, str) and strip is True:
                 val = val.strip()
             if val in none_vals:
                 val = None
@@ -1762,7 +1766,7 @@ class TableLoader(ABC):
                     # This is necessary for non-excel file data.  This castes the default value to the type defined for
                     # the column this default value is a default for
                     default_val = coltypes[header_name](default_val)
-                elif type(default_val) != coltypes[header_name]:
+                elif not isinstance(default_val, coltypes[header_name]):
                     # Otherwise, the type can be controlled by the user in excel, so just log an error if it is wrong
                     invalid_type_errs.append(
                         f"Invalid default value on row {rownum}: [{default_val}] (of type "
@@ -2310,7 +2314,7 @@ class TableLoader(ABC):
         all_row_idxs_with_dupes = []
         vals_dict = defaultdict(list)
         dupe_dict = defaultdict(dict)
-        dict_list = data if type(data) == list else data.to_dict("records")
+        dict_list = data if isinstance(data, list) else data.to_dict("records")
 
         for rowidx, row in enumerate(dict_list):
             # Ignore rows where the animal name is empty
