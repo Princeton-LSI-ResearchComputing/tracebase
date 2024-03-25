@@ -45,7 +45,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
     AllMissingCompounds,
-    AllMissingSamples,
+    AllMissingSamplesError,
     AllMissingTissues,
     ConflictingValueError,
     DryRun,
@@ -2540,7 +2540,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingSamples,
+                AllMissingSamplesError,
             ),
         )
         self.assertTrue(

@@ -69,6 +69,7 @@ from DataRepo.utils.exceptions import (
     MultipleMassNumbers,
     MzxmlConflictErrors,
     MzxmlParseError,
+    NoSampleHeaders,
     NoSamplesError,
     NoTracerLabeledElements,
     PeakAnnotFileMismatches,
@@ -982,17 +983,17 @@ class AccuCorDataLoader:
             prefixed_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
                 # This relies on sample name to find the correct sample since we do not have any other information
-                # about the sample in the peak annotation file Accucor/Isocor files should be accomplanied by a sample
+                # about the sample in the peak annotation file Accucor/Isocor files should be accompanied by a sample
                 # and animal sheet file so we can identify potential duplicates and flag them
                 sample_dict[sample_data_header] = Sample.objects.get(
                     name=prefixed_sample_name
                 )
             except Sample.DoesNotExist:
-                self.missing_samples.append(sample_name)
+                self.missing_samples.append(prefixed_sample_name)
 
+        possible_blanks = []
+        likely_missing = []
         if len(self.missing_samples) != 0:
-            possible_blanks = []
-            likely_missing = []
             for ms in self.missing_samples:
                 if "blank" in ms.lower():
                     possible_blanks.append(ms)
@@ -1018,14 +1019,17 @@ class AccuCorDataLoader:
 
             if len(sample_dict.keys()) == 0:
                 self.aggregated_errors_object.buffer_error(
-                    NoSamplesError(len(likely_missing))
+                    NoSamplesError(likely_missing)
                 )
                 if self.aggregated_errors_object.should_raise():
                     raise self.aggregated_errors_object
 
         elif len(sample_dict.keys()) == 0:
             # If there are no "missing samples", but still no samples...
-            raise NoSamplesError(0)
+            raise NoSampleHeaders(
+                file=self.peak_annotation_filename,
+                sheet="absolte" if self.isocorr_format else "Corrected",
+            )
 
         self.db_samples_dict = sample_dict
 
