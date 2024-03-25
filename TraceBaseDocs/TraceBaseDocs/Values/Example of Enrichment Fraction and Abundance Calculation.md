@@ -18,9 +18,9 @@ C:3; N:1 | 438849.7 | 0.254966
 
 ## PeakGroup
 
-| Sample | Tissue | Measured Compound | Labeled Element | Total Abundance | Enrichment Fraction | Enrichment Abundance |
-| -- | -- | -- | -- | -- | -- | -- |
-| sampleid | serum_plasma_tail | alanine | C | 1721209.0 | 0.2759 | 474909.4989 |
-| sampleid | serum_plasma_tail | alanine | N | 1721209.0 | 0.3449 | 593677.6307 |
+Sample | Tissue | Measured Compound | Labeled Element | Total Abundance | Enrichment Fraction | Enrichment Abundance
+-- | -- | -- | -- | -- | -- | --
+sampleid | serum_plasma_tail | alanine | C | 1721209.0 | 0.2759 | 474909.4989
+sampleid | serum_plasma_tail | alanine | N | 1721209.0 | 0.3449 | 593677.6307
 
 Note that PeakGroup data is split into a separate row for each element.
