@@ -1466,3 +1466,6 @@ class TableLoaderTests(TracebaseTestCase):
             (["Name"], True),
             tl.get_missing_values(row=row),
         )
+
+    def test_get_dataframe_template(self):
+        pass
