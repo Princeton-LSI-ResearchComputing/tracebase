@@ -926,3 +926,6 @@ class ExceptionTests(TracebaseTestCase):
             ),
             str(nusdhs),
         )
+
+    def test_ExcelSheetNotFound(self):
+        pass

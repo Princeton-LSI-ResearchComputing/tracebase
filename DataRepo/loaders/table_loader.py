@@ -3,11 +3,13 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from typing import Dict, Optional, Type
 
+import pandas as pd
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 
+from DataRepo.models.utilities import get_model_fields
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
@@ -347,8 +349,9 @@ class TableLoader(ABC):
         """
         self.headers = self._merge_headers(custom_headers)
 
-        # Create a list of all header string values from a namedtuple of header key/value pairs
-        self.all_headers = list(self.headers._asdict().values())
+        # Create a list of all header string values from a namedtuple of header key/value pairs, in the order in which
+        # they were defined
+        self.all_headers = [getattr(self.headers, hk) for hk in self.headers._fields]
 
         # Create a dict of header names that map to header key (a reverse lookup)
         duphns = defaultdict(int)
@@ -2424,3 +2427,43 @@ class TableLoader(ABC):
         return (hasattr(fld, "name") and fld.name in fld_names) or (
             hasattr(fld, "field_name") and fld.field_name in fld_names
         )
+
+    def get_dataframe_template(self, populate=False):
+        """Generate a pandas dataframe either populated with all database records or not.  Note, only loader classes
+        with a single model are supported.  Override this method to generate a dataframe with data from multiple models.
+
+        Args:
+            populate (boolean) [False]: Whether to add all of the database data to the dataframe.
+
+        Exceptions:
+            Exception
+
+        Returns:
+            A pandas dataframe with current headers as the column names and any model field that directly maps to a
+            column pre-populated with the record field values.
+        """
+        # self.all_headers is the current headers in the order in which the class defines them in
+        # cls.DataTableHeaders
+        out_dict = dict([(hdr, []) for hdr in self.all_headers])
+
+        if populate is True:
+            if len(self.Models) > 1:
+                raise Exception(
+                    f"get_dataframe_template does not currently support multiple models ({len(self.Models)} present: "
+                    f"{self.Models}).  The derived class must override this method to add support."
+                )
+            for model_class in [
+                mdl for mdl in self.Models if mdl.__name__ in self.FieldToHeader.keys()
+            ]:
+                qs = model_class.objects.all()
+                for rec in qs:
+                    for fld in get_model_fields(model_class):
+                        if fld in self.FieldToHeader[model_class.__name__].keys():
+                            header = self.FieldToHeader[model_class.__name__][fld]
+                            out_dict[header].append(getattr(rec, fld))
+
+                for hdr in self.all_headers:
+                    if hdr not in out_dict.keys():
+                        out_dict[hdr] = [None for _ in range(qs.count())]
+
+        return pd.DataFrame.from_dict(out_dict)

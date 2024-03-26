@@ -72,3 +72,6 @@ class FileUtilsTests(TracebaseTestCase):
     def test_string_to_datetime(self):
         with self.assertRaises(DateParseError):
             string_to_datetime("2022-1-22 00:10:00")
+
+    def test_read_from_xlsx_multiple_sheets_with_dtypes(self):
+        pass

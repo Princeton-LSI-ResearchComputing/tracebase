@@ -6,6 +6,7 @@ from collections import defaultdict
 from sqlite3 import ProgrammingError
 from typing import List, Optional, cast
 
+import pandas as pd
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
@@ -15,12 +16,16 @@ from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.loaders.sample_table_loader import SampleTableLoader
+from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
 )
+from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.lcms_metadata_parser import (
     LCMS_DB_SAMPLE_HDR,
     LCMS_FL_SAMPLE_HDR,
@@ -52,6 +57,9 @@ class DataValidationView(FormView):
         r"_neg",
         r"_scan[0-9]+",
     ]
+    # Study doc version (default and supported list)
+    default_version = "2"
+    supported_versions = [default_version]
 
     def set_files(
         self,
@@ -191,6 +199,8 @@ class DataValidationView(FormView):
 
         valid, results, exceptions, ordered_keys = self.get_validation_results()
 
+        study_file = self.get_output_study_file()
+
         return self.render_to_response(
             self.get_context_data(
                 results=results,
@@ -200,7 +210,152 @@ class DataValidationView(FormView):
                 exceptions=exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=ordered_keys,
+                study_file=study_file,
             )
+        )
+
+    def get_output_study_file(self):
+        # TODO: In subsequent PRs, uncomment, generate an excel file with a custom column order, then populate from
+        # data contained in exceptions, comment with warning and error messages, and add formulas for inter-sheet
+        # population of drop-downs
+
+        # study_dfs_dict = self.get_or_create_study_dataframes()
+
+        return "TODO: Return study_dfs_dict once get_output_study_file is implemented"
+
+    def get_or_create_study_dataframes(self, version=default_version):
+        """Get or create dataframes for each sheet in self.animal_sample_file as a dict keyed on sheet.
+
+        Args:
+            version (string) [2]: tracebase study doc version number
+
+        Exceptions:
+            Exception
+
+        Returns:
+            Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
+        """
+        if self.animal_sample_file is None:
+            return self.create_study_dfs_dict(version=version)
+        return self.get_study_dfs_dict(version=version)
+
+    def create_study_dfs_dict(self, version=default_version):
+        """Create dataframes for each sheet in self.animal_sample_file as a dict keyed on sheet.
+
+        Treatments and tissues dataframes are populated using all of the data in the database for their models.
+        Animals and Samples dataframes are not populated.
+
+        In neither case, is missing data attempted to be auto-filled by this method.
+
+        Args:
+            version (string) [2]: tracebase study doc version number
+
+        Exceptions:
+            Exception
+
+        Returns:
+            Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
+        """
+        tl = TissuesLoader()
+        # Providing an excel file will change the headers in the returned column types to the custom excel headers
+        pl = ProtocolsLoader(file=self.animal_sample_file)
+
+        if version == self.default_version or version.startswith(
+            f"{self.default_version}."
+        ):
+            # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
+            return {
+                # TODO: Update the animal and sample entries below once the loader has been refactored
+                # The sample table loader has not yet been refactored/split
+                "Animals": pd.DataFrame.from_dict(
+                    {
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: [],
+                    },
+                ),
+                "Samples": pd.DataFrame.from_dict(
+                    {
+                        SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: [],
+                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
+                    },
+                ),
+                ProtocolsLoader.DataSheetName: pl.get_dataframe_template(populate=True),
+                TissuesLoader.DataSheetName: tl.get_dataframe_template(populate=True),
+            }
+        raise Exception(
+            f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
+        )
+
+    def get_study_dfs_dict(self, version=default_version):
+        """Read in each sheet in self.animal_sample_file as a dict of dataframes keyed on sheet.
+
+        Args:
+            version (string) [2]: tracebase study doc version number
+
+        Exceptions:
+            Exception
+
+        Returns:
+            Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
+        """
+        if version == self.default_version or version.startswith(
+            f"{self.default_version}."
+        ):
+            # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
+            return read_from_file(
+                self.animal_sample_file, sheet=None, dtype=self.get_study_dtypes_dict()
+            )
+        raise Exception(
+            f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
+        )
+
+    def get_study_dtypes_dict(self, version=default_version):
+        """Retrieve the dtype data for each sheet.
+
+        Args:
+            version (string) [2]: tracebase study doc version number
+
+        Exceptions:
+            Exception
+
+        Returns:
+            dtypes (Dict[str, Dict[str, type]]): dtype dicts keyed by sheet name
+        """
+        tl = TissuesLoader()
+        # Providing an excel file will change the headers in the returned column types to the custom excel headers
+        pl = ProtocolsLoader(file=self.animal_sample_file)
+
+        if version == self.default_version or version.startswith(
+            f"{self.default_version}."
+        ):
+            animal_sample_headers = SampleTableLoader.DefaultSampleTableHeaders
+            return {
+                # TODO: Update the animal and sample entries below once the loader has been refactored
+                # The sample table loader has not yet been refactored/split
+                "Animals": {
+                    animal_sample_headers.ANIMAL_NAME: str,
+                    animal_sample_headers.ANIMAL_TREATMENT: str,
+                },
+                "Samples": {animal_sample_headers.ANIMAL_NAME: str},
+                ProtocolsLoader.DataSheetName: pl.get_column_types(),
+                TissuesLoader.DataSheetName: tl.get_column_types(),
+            }
+        raise Exception(
+            f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
     def get_validation_results(self):
