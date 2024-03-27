@@ -4,6 +4,7 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
+from sqlite3 import ProgrammingError
 from typing import List, TypedDict
 
 import regex
@@ -79,6 +80,7 @@ from DataRepo.utils.exceptions import (
     UnexpectedLCMSSampleDataHeaders,
     UnskippedBlanksError,
 )
+from DataRepo.utils.file_utils import get_sheet_names, is_excel
 from DataRepo.utils.lcms_metadata_parser import (
     lcms_df_to_dict,
     lcms_headers_are_valid,
@@ -139,6 +141,10 @@ class AccuCorDataLoader:
     """
     Load the LCMethod, MsRunSequence, MSRunSample, PeakGroup, and PeakData tables
     """
+
+    # The following are used to identify accucor/isocorr files in is_accucor and is_isocorr
+    ACCUCOR_SHEETS = ["Original", "Corrected", "Normalized", "PoolAfterDF"]
+    ISOCORR_SHEETS = ["enrichment", "absolte", "total ion"]
 
     def __init__(
         self,
@@ -2161,6 +2167,26 @@ class AccuCorDataLoader:
             raise self.aggregated_errors_object
 
         enable_caching_updates()
+
+    @classmethod
+    def is_accucor(cls, file=None, sheets=None):
+        if (file is None and sheets is None) or (
+            file is not None and sheets is not None
+        ):
+            raise ProgrammingError("1 of either file or sheets is required.")
+        if file is not None and is_excel(file):
+            sheets = get_sheet_names(file)
+        return sheets == cls.ACCUCOR_SHEETS
+
+    @classmethod
+    def is_isocorr(cls, file=None, sheets=None):
+        if (file is None and sheets is None) or (
+            file is not None and sheets is not None
+        ):
+            raise ProgrammingError("1 of either file or sheets is required.")
+        if file is not None and is_excel(file):
+            sheets = get_sheet_names(file)
+        return sheets == cls.ISOCORR_SHEETS
 
 
 def hash_file(path_obj, allow_missing=False):

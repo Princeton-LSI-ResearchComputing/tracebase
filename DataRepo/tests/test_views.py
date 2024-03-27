@@ -966,7 +966,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
     def validate_some_files(self, sample_file, accucor_files):
         # Test the get_validation_results function
         vo = DataValidationView()
-        vo.set_files(sample_file, accucor_files)
+        vo.set_files(sample_file=sample_file, peak_annotation_files=accucor_files)
         # Now try validating the load files
         valid, results, exceptions, _ = vo.get_validation_results()
 
@@ -1036,7 +1036,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         ]
 
         dvv = DataValidationView()
-        dvv.set_files(sf, afs)
+        dvv.set_files(sample_file=sf, peak_annotation_files=afs)
 
         sfn = os.path.basename(sf)
         sfp = os.path.join(tmpdir, str(sfn))

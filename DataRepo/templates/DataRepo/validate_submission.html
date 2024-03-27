@@ -13,10 +13,8 @@
         <h3>Validate Animal/Sample and AccuCor/IsoCorr Files for Submission</h3>
         <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
-            <label for="animal_sample_table" class="form-label">Animal and Sample Table:</label>{{ form.animal_sample_table }}<br>
-            <label for="accucor_files" class="form-label">AccuCor Files:</label>{{ form.accucor_files }}<br>
-            <label for="isocorr_files" class="form-label">IsoCorr Files:</label>{{ form.isocorr_files }}<br>
-            <span class="text-danger">{{ form.errors.val }}</span>
+            <label for="animal_sample_table" class="form-label">Animal and Sample Table:</label>{{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>{% if not form.animal_sample_table.errors %}<br>{% endif %}
+            <label for="peak_annotation_files" class="form-label">Peak Annotation Files:</label>{{ form.peak_annotation_files }}<span class="text-danger">{{ form.peak_annotation_files.errors }}</span>{% if not form.peak_annotation_files.errors %}<br>{% endif %}
             <span class="text-danger">{{ form.non_field_errors }}</span>
             <button type="submit" class="btn btn-primary" id="validate">Validate</button>
             {{ form.management_form }}
