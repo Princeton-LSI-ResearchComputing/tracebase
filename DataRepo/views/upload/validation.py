@@ -3,7 +3,6 @@ import re
 import shutil
 import tempfile
 from collections import defaultdict
-from sqlite3 import ProgrammingError
 from typing import List
 
 import yaml  # type: ignore
@@ -13,16 +12,22 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.loaders.accucor_data_loader import get_sample_headers
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
-from DataRepo.utils.exceptions import MultiLoadStatus
-from DataRepo.utils.file_utils import read_headers_from_file
+from DataRepo.utils.exceptions import (
+    MultiLoadStatus,
+    NonUniqueSampleDataHeader,
+    NonUniqueSampleDataHeaders,
+)
 from DataRepo.utils.lcms_metadata_parser import (
     LCMS_DB_SAMPLE_HDR,
     LCMS_FL_SAMPLE_HDR,
-    LCMS_MZXML_HDR,
     LCMS_PEAK_ANNOT_HDR,
 )
+
+# TODO: If these are still unused once the study submission refactor is done, delete them.
+# from sqlite3 import ProgrammingError
+# from DataRepo.loaders.accucor_data_loader import get_sample_headers
+# from DataRepo.utils.file_utils import read_headers_from_file
 
 
 class DataValidationView(FormView):
@@ -35,7 +40,6 @@ class DataValidationView(FormView):
     isocorr_files: List[str] = []
     animal_sample_filename = None
     animal_sample_file = None
-    mzxml_files: List[str] = []
     submission_url = settings.DATA_SUBMISSION_URL
     # These are common suffixes repeatedly appended to accucor/isocorr sample names to make them unique across different
     # polarities and scan ranges.  This is not perfect.  See the get_approx_sample_header_replacement_regex method for
@@ -142,40 +146,32 @@ class DataValidationView(FormView):
         """
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
-        cform = form.cleaned_data
-        mzxml_name_list = re.split(r"[\n\r]+", cform.get("mzxml_file_list", ""))
-        lcms_data = None
-        lcms_filename = None
-        peak_annot_file_name = None
-        peak_annot_files = list(set(self.accucor_files).union(set(self.isocorr_files)))
+        # TODO: Turn the following into a means to create a sample sheet
+        # peak_annot_file_name = None
+        # peak_annot_files = list(set(self.accucor_files).union(set(self.isocorr_files)))
 
-        if len(mzxml_name_list) > 0 or len(peak_annot_files) == 1:
-            # This assumes that, due to the form class's clean method, there is exactly 1 peak annotation file
-            peak_annot_file = list(
-                set(self.accucor_files).union(set(self.isocorr_files))
-            )[0]
+        # if len(peak_annot_files) == 1:
+        #     # This assumes that, due to the form class's clean method, there is exactly 1 peak annotation file
+        #     peak_annot_file = list(
+        #         set(self.accucor_files).union(set(self.isocorr_files))
+        #     )[0]
 
-            # Assumes the second sheet (index 1) is the "corrected" (accucor) or "absolte" (isocorr)
-            corrected_sheet = 1
-            peak_annot_sample_headers = get_sample_headers(
-                read_headers_from_file(
-                    peak_annot_file, sheet=corrected_sheet, filetype="excel"
-                )
-            )
+        #     # Assumes the second sheet (index 1) is the "corrected" (accucor) or "absolte" (isocorr)
+        #     corrected_sheet = 1
+        #     peak_annot_sample_headers = get_sample_headers(
+        #         read_headers_from_file(
+        #             peak_annot_file, sheet=corrected_sheet, filetype="excel"
+        #         )
+        #     )
 
-            peak_annot_file_name = list(
-                set(self.accucor_filenames).union(set(self.isocorr_filenames))
-            )[0]
+        #     peak_annot_file_name = list(
+        #         set(self.accucor_filenames).union(set(self.isocorr_filenames))
+        #     )[0]
 
-            lcms_dict = self.build_lcms_dict(
-                peak_annot_sample_headers,
-                mzxml_name_list,
-                peak_annot_file_name,
-            )
-            lcms_data = self.lcms_dict_to_tsv_string(lcms_dict)
-
-            peak_annot_file_basename, _ = os.path.splitext(peak_annot_file_name)
-            lcms_filename = peak_annot_file_basename + ".lcms.tsv"
+        #     lcms_dict = self.build_lcms_dict(
+        #         peak_annot_sample_headers,
+        #         peak_annot_file_name,
+        #     )
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
@@ -190,9 +186,6 @@ class DataValidationView(FormView):
                 exceptions=exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=ordered_keys,
-                lcms_data=lcms_data,
-                lcms_filename=lcms_filename,
-                peak_annot_file_name=peak_annot_file_name,
             )
         )
 
@@ -264,14 +257,14 @@ class DataValidationView(FormView):
         basic_loading_data = {
             # TODO: Add the ability for the validation interface to take tissues, compounds, & a separate protocols file
             # The following are placeholders - Not yet supported by the validation view
-            # "tissues": "tissues.tsv",
-            # "compounds": "compounds.tsv",
+            #   "tissues": "tissues.tsv",
+            #   "compounds": "compounds.tsv",
             # The following placeholders are added by add_sample_data() if an animal sample table is provided
-            # "protocols": None,
-            # "animals_samples_treatments": {
-            #     "table": None,
-            #     "skip_researcher_check": False,
-            # },
+            #   "protocols": None,
+            #   "animals_samples_treatments": {
+            #       "table": None,
+            #       "skip_researcher_check": False,
+            #   },
             "accucor_data": {
                 "accucor_files": [
                     # {
@@ -361,11 +354,10 @@ class DataValidationView(FormView):
                 }
             )
 
-    @classmethod
+    # TODO: If this still exists and is unused once the study submission refactor is done, delete it.
     def build_lcms_dict(
-        cls,
+        self,
         peak_annot_sample_headers,
-        mzxml_name_list,
         peak_annot_file_name,
         sample_suffixes=None,
     ):
@@ -375,9 +367,8 @@ class DataValidationView(FormView):
         Args:
             peak_annot_sample_headers (list of strings): Sample headers (including blanks) parsed from the accucor or
                 isocorr file
-            mzxml_name_list (list of strings): mzXML file names without paths
             peak_annot_file_name (string): And accucor or isocorr file name without the path
-            sample_suffixes (list of raw strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Regular expressions of suffix
+            sample_suffixes (list of raw strings) [self.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Regular expressions of suffix
                 strings found at the end of a peak annotation file sample header (e.g. "_pos")
 
         Exceptions:
@@ -389,21 +380,13 @@ class DataValidationView(FormView):
 
         # Set the suffixes to be stripped from the sample header names to convert them to database sample names
         if sample_suffixes is None:
-            suffixes = cls.DEFAULT_SAMPLE_HEADER_SUFFIXES
-        pattern = cls.get_approx_sample_header_replacement_regex(suffixes)
+            suffixes = self.DEFAULT_SAMPLE_HEADER_SUFFIXES
+        pattern = self.get_approx_sample_header_replacement_regex(suffixes)
 
         # Initialize the dict we'll be returning
         lcms_dict = defaultdict(dict)
-        # Keep track of duplicate sample headers and mzXML files we were unable to match
-        dupe_headers = []
-        dupe_mzxmls = []
-        unmatched_mzxmls = {}
-        for mzxfn in mzxml_name_list:
-            header, _ = os.path.splitext(mzxfn)
-            if header in unmatched_mzxmls.keys():
-                dupe_mzxmls.append(mzxfn)
-                continue
-            unmatched_mzxmls[header] = mzxfn
+        # Keep track of duplicate sample headers
+        dupe_headers = defaultdict(lambda: defaultdict(list))
 
         # Traverse the headers and built the dict
         for peak_annot_sample_header in peak_annot_sample_headers:
@@ -413,77 +396,42 @@ class DataValidationView(FormView):
             db_sample_name = re.sub(pattern, "", peak_annot_sample_header)
 
             # If we've already seen this header, it is a duplicate
-            if peak_annot_sample_header in lcms_dict.keys():
-                dupe_headers.append(peak_annot_sample_header)
-                continue
-
-            # Let's see if we can match the header to an mzXML file name
-            mzxml_name = unmatched_mzxmls.get(peak_annot_sample_header, "")
-            if mzxml_name != "":
-                del unmatched_mzxmls[peak_annot_sample_header]
-                sort_level = 0
+            if peak_annot_sample_header in dupe_headers.keys():
+                dupe_headers[peak_annot_sample_header][peak_annot_file_name] += 1
+            elif peak_annot_sample_header in lcms_dict.keys():
+                dupe_headers[peak_annot_sample_header][peak_annot_file_name] = 2
             else:
-                sort_level = 1
-
-            # This takes case of samples without mzXML files (which would include blanks)
-            lcms_dict[peak_annot_sample_header] = {
-                "sort level": sort_level,
-                LCMS_DB_SAMPLE_HDR: db_sample_name,
-                LCMS_FL_SAMPLE_HDR: peak_annot_sample_header,
-                LCMS_PEAK_ANNOT_HDR: peak_annot_file_name,
-                LCMS_MZXML_HDR: mzxml_name,
-            }
-
-        # Fill in data about mzXML files without a matching header
-        if len(unmatched_mzxmls) > 0:
-            for missing_header in unmatched_mzxmls.keys():
-                # Doublecheck the dict
-                if missing_header in lcms_dict.keys():
-                    raise ProgrammingError(
-                        f"Unexpectedly found missing header {missing_header}."
-                    )
-
-                # This sample may exist in another accucor file. Might as well fill it out. We just don't have a header.
-                db_sample_name = re.sub(pattern, "", missing_header)
-
-                lcms_dict[missing_header] = {
-                    "sort level": 2,
+                lcms_dict[peak_annot_sample_header] = {
+                    "sort level": 0,
                     LCMS_DB_SAMPLE_HDR: db_sample_name,
-                    LCMS_FL_SAMPLE_HDR: "",
-                    LCMS_PEAK_ANNOT_HDR: "",
-                    LCMS_MZXML_HDR: unmatched_mzxmls[missing_header],
+                    LCMS_FL_SAMPLE_HDR: peak_annot_sample_header,
+                    LCMS_PEAK_ANNOT_HDR: peak_annot_file_name,
                 }
 
+        # Add individual errors to be added as cell comments to the excel file.
         # Represent duplicate headers as errors in the column values, for the user to manually address
-        for i, duph in enumerate(dupe_headers):
-            key = f"ERROR: {duph} DUPLICATE HEADER {i+1}"
-            lcms_dict[key] = {
-                "sort level": 3,
-                LCMS_DB_SAMPLE_HDR: "",
-                LCMS_FL_SAMPLE_HDR: key,
-                LCMS_PEAK_ANNOT_HDR: peak_annot_file_name,
-                LCMS_MZXML_HDR: "",
-            }
+        all_dup_errs = []
+        for duph in dupe_headers.keys():
+            lcms_dict[duph]["sort level"] = 1
+            lcms_dict[duph]["error"] = NonUniqueSampleDataHeader(
+                duph, dupe_headers[duph]
+            )
+            all_dup_errs.append(lcms_dict[duph]["error"])
 
-        # Represent duplicate mzXML file basenames as errors in the column values, for the user to manually address
-        for i, dupmzf in enumerate(dupe_mzxmls):
-            key = f"ERROR: {dupmzf} DUPLICATE MZXML BASENAME {i+1}"
-            lcms_dict[key] = {
-                "sort level": 4,
-                LCMS_DB_SAMPLE_HDR: "",
-                LCMS_FL_SAMPLE_HDR: "",
-                LCMS_PEAK_ANNOT_HDR: "",
-                LCMS_MZXML_HDR: key,
-            }
+        # Errors for reporting on the web page
+        if len(all_dup_errs) > 0:
+            # TODO: If this is added to the results, this error should be passed to the template
+            self.lcms_build_errors = NonUniqueSampleDataHeaders(all_dup_errs)
 
         return lcms_dict
 
+    # TODO: If this still exists and is unused once the study submission refactor is done, delete it.
     @classmethod
     def lcms_dict_to_tsv_string(cls, lcms_dict):
         """Takes the lcms_dict and creates a string of (destined to be) file content.
 
         It includes a header line and the following lines are sorted by the state of the row (full, missing, and various
-        types of errors), then by accucor, sample, and mzxml.
+        types of errors), then by accucor and sample.
 
         Args:
             lcms_dict (defaultdict(dict(str))): The keys of the outer dict are not included in the output, but the keys
@@ -498,7 +446,6 @@ class DataValidationView(FormView):
         headers = [
             LCMS_DB_SAMPLE_HDR,
             LCMS_FL_SAMPLE_HDR,
-            LCMS_MZXML_HDR,
             LCMS_PEAK_ANNOT_HDR,
         ]
         lcms_data = "\t".join(headers) + "\n"
@@ -511,7 +458,6 @@ class DataValidationView(FormView):
                     ],  # This sorts erroneous and missing data to the bottom
                     x[1][LCMS_PEAK_ANNOT_HDR],  # Then sort by accucor file name
                     x[1][LCMS_FL_SAMPLE_HDR],  # Then by sample (header)
-                    x[1][LCMS_MZXML_HDR],  # Then by mzXML file name
                 ),
             )
         ).keys():
@@ -523,8 +469,7 @@ class DataValidationView(FormView):
 
     @classmethod
     def get_approx_sample_header_replacement_regex(cls, suffixes=None, add=True):
-        """Returns a regular expression combining sample header suffixes, to be used to generate tracebase sample names
-        so that multiple mzXML files can link to the same database sample.
+        """Returns a regular expression combining sample header suffixes, to be used to generate tracebase sample names.
 
         Args:
             suffixes (list of raw strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Uncompiled regular expressions for

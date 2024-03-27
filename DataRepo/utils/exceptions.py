@@ -1710,6 +1710,44 @@ class DuplicateSampleDataHeaders(Exception):
         self.samples = samples
 
 
+class NonUniqueSampleDataHeader(Exception):
+    def __init__(self, header, dupes):
+        dupes_str = ""
+        for file in dupes.keys():
+            dupes_str += f"\n\tOccurs {dupes[file]} times in {file}"
+        message = (
+            f"Sample data header '{header}' is not unique across all supplied peak annotation files:"
+            f"{dupes_str}"
+        )
+        super().__init__(message)
+        self.dupes = dupes
+        self.header = header
+
+
+class NonUniqueSampleDataHeaders(Exception):
+    def __init__(self, nusdh_list: list[NonUniqueSampleDataHeader]):
+        """Takes a dupes dict for duplicate sample data headers across 1 or more peak annotation files.
+
+        Args:
+            dupes = {
+                <value>: {}
+                    "<filename> (sheet <sheetname>)": count,
+                }
+            }
+        """
+        dupes_str = ""
+        for nusdh in nusdh_list:
+            dupes_str += f"\t{nusdh.header}\n"
+            for file in nusdh.dupes.keys():
+                dupes_str += f"\t\tOccurs {nusdh.dupes[file]} times in {file}\n"
+        message = (
+            "The following sample data headers are not unique across all supplied peak annotation files:\n"
+            f"{dupes_str}"
+        )
+        super().__init__(message)
+        self.nusdh_list = nusdh_list
+
+
 class InvalidHeaders(InfileError, ValidationError):
     def __init__(self, headers, expected_headers=None, fileformat=None, **kwargs):
         if expected_headers is None:

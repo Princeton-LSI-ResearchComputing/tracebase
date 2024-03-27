@@ -6,20 +6,6 @@
     {{ block.super }}
 
     <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
-
-    <!-- The following is based mostly on https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/ -->
-    <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
-    <script src="{% static 'js/browser_download.js' %}"></script>
-    <script src="{% static 'js/file_list_drop_area.js' %}"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function(){
-            initDropArea(
-                document.getElementById('drop-area'),
-                document.getElementById('mzxml_file_list_input_id'),
-                document.getElementById('pending-files')
-            )
-        })
-    </script>
 {% endblock %}
 
 {% block content %}
@@ -30,33 +16,11 @@
             <label for="animal_sample_table" class="form-label">Animal and Sample Table:</label>{{ form.animal_sample_table }}<br>
             <label for="accucor_files" class="form-label">AccuCor Files:</label>{{ form.accucor_files }}<br>
             <label for="isocorr_files" class="form-label">IsoCorr Files:</label>{{ form.isocorr_files }}<br>
-            {{ form.mzxml_file_list }}
-            <!-- Hidden buttons for this form, controlled by the buttons under the second form via javascript -->
-            <button type="submit" class="btn btn-primary" id="validate" style="display: none;">Validate</button>
-            <button type="reset" class="btn btn-secondary" id="clear" style="display: none;">Clear</button>
+            <span class="text-danger">{{ form.errors.val }}</span>
+            <span class="text-danger">{{ form.non_field_errors }}</span>
+            <button type="submit" class="btn btn-primary" id="validate">Validate</button>
             {{ form.management_form }}
         </form>
-
-        <!-- The 2 form strategy (the one below for adding (mzXML) file names by drag and drop of the actual files and the one above to just submit their names (because that's all we need, and these files can be numerous and large) is based on https://stackoverflow.com/questions/2175831/is-it-possible-to-use-input-type-file-just-to-post-the-filename-without-actu -->
-
-        <div id="drop-area">
-            <form>
-                <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
-                <label class="btn btn-secondary">
-                    <input type="file" multiple id="drop-area-input" onchange="handleFiles(this.files);"/>
-                    Add mzXML Files
-                </label>  <span class="drop-area-message">(Drag and drop here)</span>
-            </form>
-            <pre id="pending-files" class="drop-area-list-indent"></pre>
-        </div>
-
-        <br>
-
-        <span class="text-danger">{{ form.errors.val }}</span>
-        <span class="text-danger">{{ form.non_field_errors }}</span>
-
-        <button class="btn btn-primary" id="faux-validate" onclick="document.getElementById('submission-validation').submit();">Validate</button>
-        <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('mzxml_file_list_input_id').value = null;document.getElementById('pending-files').innerHTML = '';document.getElementById('submission-validation').reset();">Clear</button>
 
         <br>
 
@@ -80,20 +44,6 @@
     </div>
 
     {% if results %}
-        {% if lcms_data is not None %}
-
-            <br>
-            <h5 class="text-info">Generated Sample Data:</h5>
-            <div class="small">
-                Data from your peak annotation file <span class="text-info">{{ peak_annot_file_name }}</span> was parsed and the following generated LCMS metadata file can be used to build your sample sheet.<br>
-                <br>
-                <div class="level-indent">
-                    <pre style="display: none;" id="lcms_data">{{ lcms_data }}</pre>
-                    <a href="javascript:browserDownloadText('{{ lcms_filename }}', document.getElementById('lcms_data').innerHTML)"><img src="{% static 'images/lcmsfile.png' %}" alt="{{ lcms_filename }}" width="20"></a>  <a href="javascript:browserDownloadText('{{ lcms_filename }}', document.getElementById('lcms_data').innerHTML)">{{ lcms_filename }}</a>
-                </div>
-            </div>
-
-        {% endif %}
         {% if not valid %}
             <br>
             <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>

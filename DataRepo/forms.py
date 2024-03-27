@@ -330,16 +330,9 @@ class DataSubmissionValidationForm(forms.Form):
     isocorr_files = MultipleFileField(
         required=False, widget=MultipleFileInput(attrs={"multiple": True})
     )
-    # Field to take a hard-return delimited list of mzXML file names.  This will be compiled using javascript in the
-    # template
-    mzxml_file_list = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={"id": "mzxml_file_list_input_id"}),
-    )
 
     def clean(self):
         """Ensure that at least a sample or peak annotation file is supplied.
-        If mzXML files are supplied, ensure only 1 peak annotation file was supplied.
 
         Args:
             None
@@ -352,10 +345,9 @@ class DataSubmissionValidationForm(forms.Form):
         """
         super().clean()
 
-        study_doc = self.cleaned_data.get("animal_sample_table")
-        accucor_files = self.cleaned_data.get("accucor_files")
-        isocorr_files = self.cleaned_data.get("isocorr_files")
-        mzxml_file_list = self.cleaned_data.get("mzxml_file_list")
+        study_doc = self.cleaned_data.get("animal_sample_table", None)
+        accucor_files = self.cleaned_data.get("accucor_files", None)
+        isocorr_files = self.cleaned_data.get("isocorr_files", None)
 
         num_accucor = 0 if accucor_files is None else len(accucor_files)
         num_isocorr = 0 if isocorr_files is None else len(isocorr_files)
@@ -364,19 +356,6 @@ class DataSubmissionValidationForm(forms.Form):
             raise forms.ValidationError(
                 "Either an Animal/Sample Table, Accucor, or Isocorr file is required.",
                 code="TooFewFiles",
-            )
-        elif mzxml_file_list is not None and (
-            (num_accucor == 0 and num_isocorr == 0)
-            or num_accucor > 1
-            or num_isocorr > 1
-            or (num_accucor > 0 and num_isocorr > 0)
-        ):
-            raise forms.ValidationError(
-                (
-                    f"mzXML files require either 1 Accucor [{num_accucor} submitted] or 1 Isocorr [{num_isocorr} "
-                    "submitted] file."
-                ),
-                code="1 peak annotation file",
             )
 
         return self.cleaned_data
