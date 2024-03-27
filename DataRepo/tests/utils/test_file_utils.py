@@ -4,6 +4,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import DateParseError
 from DataRepo.utils.file_utils import (
     _get_file_type,
+    _read_from_xlsx,
     get_column_dupes,
     read_headers_from_file,
     string_to_datetime,
@@ -74,4 +75,55 @@ class FileUtilsTests(TracebaseTestCase):
             string_to_datetime("2022-1-22 00:10:00")
 
     def test_read_from_xlsx_multiple_sheets_with_dtypes(self):
-        pass
+        study_xlsx = "DataRepo/data/tests/submission_v3/study.xlsx"
+        dtypes = {
+            "Treatments": {
+                "Animal Treatment": str,
+                "Treatment Description": str,
+            },
+            "Sequences": {
+                "Sequence Number": int,
+                "Operator": str,
+                "Date": str,
+                "Instrument": str,
+                "LC Protocol": str,
+                "LC Run Length": int,
+                "LC Description": str,
+                "Notes": str,
+            },
+        }
+        expected = {
+            "Treatments": {
+                "Animal Treatment": {0: "no treatment"},
+                "Treatment Description": {
+                    0: (
+                        "No treatment was applied to the animal.  Animal was maintained on normal diet (LabDiet #5053 "
+                        '"Maintenance"), housed at room temperature with a normal light cycle.'
+                    ),
+                },
+            },
+            "Sequences": {
+                "Sequence Number": {0: 1, 1: 2, 2: 3},
+                "Operator": {
+                    0: "Xianfeng Zeng",
+                    1: "Xianfeng Zeng",
+                    2: "Xianfeng Zeng",
+                },
+                "Date": {
+                    0: "2021-06-08 00:00:00",
+                    1: "2021-10-19 00:00:00",
+                    2: "2020-07-22 00:00:00",
+                },
+                "Instrument": {0: "HILIC", 1: "HILIC", 2: "HILIC"},
+                "LC Protocol": {0: "polar-HILIC", 1: "polar-HILIC", 2: "polar-HILIC"},
+                "LC Run Length": {0: 25, 1: 25, 2: 25},
+                "LC Description": {0: "", 1: "", 2: ""},
+                "Notes": {0: "", 1: "", 2: ""},
+            },
+        }
+        dfs_dict = _read_from_xlsx(
+            study_xlsx, sheet=list(expected.keys()), dtype=dtypes
+        )
+        self.assertEqual(len(expected.keys()), len(dfs_dict.keys()))
+        self.assertDictEqual(expected["Treatments"], dfs_dict["Treatments"].to_dict())
+        self.assertDictEqual(expected["Sequences"], dfs_dict["Sequences"].to_dict())
