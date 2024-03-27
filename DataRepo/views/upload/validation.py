@@ -75,20 +75,26 @@ class DataValidationView(FormView):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
 
-        sample_file = request.FILES["animal_sample_table"]
+        try:
+            sample_file = request.FILES["animal_sample_table"]
+            tmp_sample_file = sample_file.temporary_file_path()
+        except KeyError:
+            # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
+            sample_file = None
+            tmp_sample_file = None
         try:
             accucor_files = request.FILES.getlist("accucor_files")
-        except Exception:
+        except KeyError:
             # Ignore missing accucor files (allow user to validate just the sample file)
             accucor_files = []
         try:
             isocorr_files = request.FILES.getlist("isocorr_files")
-        except Exception:
+        except KeyError:
             # Ignore missing isocorr files (allow user to validate just the sample file)
             isocorr_files = []
 
         self.set_files(
-            sample_file.temporary_file_path(),
+            tmp_sample_file,
             [afp.temporary_file_path() for afp in accucor_files],
             [ifp.temporary_file_path() for ifp in isocorr_files],
             sample_file_name=sample_file,

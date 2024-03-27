@@ -1,0 +1,26 @@
+#drop-area {
+  border: 2px dashed #ccc;
+  border-radius: 20px;
+  width: 480px;
+  font-family: sans-serif;
+  margin: 10px;
+  padding: 20px;
+}
+
+#drop-area.highlight {
+  border-color: purple;
+}
+
+#drop-area-input {
+  display: none;
+}
+
+.drop-area-list-indent {
+  padding-left: 2em;
+}
+
+.drop-area-message {
+  color: #bfc3c6 !important;
+  font-size: 1.5rem !important;
+  padding: 1.5rem !important;
+}
