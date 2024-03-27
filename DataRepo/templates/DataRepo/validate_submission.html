@@ -9,6 +9,7 @@
 
     <!-- The following is based mostly on https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/ -->
     <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
+    <script src="{% static 'js/browser_download.js' %}"></script>
     <script src="{% static 'js/file_list_drop_area.js' %}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function(){
@@ -51,8 +52,8 @@
 
         <br>
 
-        <span class="text-error">{{ form.errors.val }}</span>
-        <span class="text-error">{{ form.non_field_errors }}</span>
+        <span class="text-danger">{{ form.errors.val }}</span>
+        <span class="text-danger">{{ form.non_field_errors }}</span>
 
         <button class="btn btn-primary" id="faux-validate" onclick="document.getElementById('submission-validation').submit();">Validate</button>
         <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('mzxml_file_list_input_id').value = null;document.getElementById('pending-files').innerHTML = '';document.getElementById('submission-validation').reset();">Clear</button>
@@ -79,6 +80,20 @@
     </div>
 
     {% if results %}
+        {% if lcms_data is not None %}
+
+            <br>
+            <h5 class="text-info">Generated Sample Data:</h5>
+            <div class="small">
+                Data from your peak annotation file <span class="text-info">{{ peak_annot_file_name }}</span> was parsed and the following generated LCMS metadata file can be used to build your sample sheet.<br>
+                <br>
+                <div class="level-indent">
+                    <pre style="display: none;" id="lcms_data">{{ lcms_data }}</pre>
+                    <a href="javascript:browserDownloadText('{{ lcms_filename }}', document.getElementById('lcms_data').innerHTML)"><img src="{% static 'images/lcmsfile.png' %}" alt="{{ lcms_filename }}" width="20"></a>  <a href="javascript:browserDownloadText('{{ lcms_filename }}', document.getElementById('lcms_data').innerHTML)">{{ lcms_filename }}</a>
+                </div>
+            </div>
+
+        {% endif %}
         {% if not valid %}
             <br>
             <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>

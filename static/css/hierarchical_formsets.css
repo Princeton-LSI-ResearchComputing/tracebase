@@ -46,7 +46,3 @@
 
   color: var(--bs-table-striped-color);
 }
-
-.text-error {
-  color: #dc3545 !important;
-}

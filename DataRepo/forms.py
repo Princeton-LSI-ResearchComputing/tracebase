@@ -338,12 +338,24 @@ class DataSubmissionValidationForm(forms.Form):
     )
 
     def clean(self):
-        cleaned_data = super().clean()
+        """Ensure that at least a sample or peak annotation file is supplied.
+        If mzXML files are supplied, ensure only 1 peak annotation file was supplied.
 
-        study_doc = cleaned_data.get("animal_sample_table")
-        accucor_files = cleaned_data.get("accucor_files")
-        isocorr_files = cleaned_data.get("isocorr_files")
-        mzxml_file_list = cleaned_data.get("mzxml_file_list")
+        Args:
+            None
+
+        Exceptions:
+            ValidationError
+
+        Returns:
+            self.cleaned_data (dict)
+        """
+        super().clean()
+
+        study_doc = self.cleaned_data.get("animal_sample_table")
+        accucor_files = self.cleaned_data.get("accucor_files")
+        isocorr_files = self.cleaned_data.get("isocorr_files")
+        mzxml_file_list = self.cleaned_data.get("mzxml_file_list")
 
         num_accucor = 0 if accucor_files is None else len(accucor_files)
         num_isocorr = 0 if isocorr_files is None else len(isocorr_files)

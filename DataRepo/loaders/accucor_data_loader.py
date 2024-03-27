@@ -2205,10 +2205,10 @@ def get_first_sample_column_index(df_columns):
     found = False
     for col_name in NONSAMPLE_COLUMN_NAMES:
         try:
-            if df_columns.get_loc(col_name) > max_nonsample_index:
-                max_nonsample_index = df_columns.get_loc(col_name)
+            if list(df_columns).index(col_name) > max_nonsample_index:
+                max_nonsample_index = list(df_columns).index(col_name)
                 found = True
-        except KeyError:
+        except ValueError:
             # column is not found, so move on
             pass
 

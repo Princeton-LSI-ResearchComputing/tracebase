@@ -17,6 +17,12 @@ from DataRepo.loaders.accucor_data_loader import get_sample_headers
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.exceptions import MultiLoadStatus
 from DataRepo.utils.file_utils import read_headers_from_file
+from DataRepo.utils.lcms_metadata_parser import (
+    LCMS_DB_SAMPLE_HDR,
+    LCMS_FL_SAMPLE_HDR,
+    LCMS_MZXML_HDR,
+    LCMS_PEAK_ANNOT_HDR,
+)
 
 
 class DataValidationView(FormView):
@@ -56,6 +62,8 @@ class DataValidationView(FormView):
         """
         self.animal_sample_file = sample_file
         self.animal_sample_filename = sample_file_name
+        if sample_file_name is None and sample_file is not None:
+            self.animal_sample_filename = str(os.path.basename(sample_file))
 
         if accucor_files:
             self.accucor_files = accucor_files
@@ -67,15 +75,23 @@ class DataValidationView(FormView):
         else:
             self.isocorr_files = []
 
-        if accucor_file_names:
-            self.accucor_filenames = accucor_file_names
+        if accucor_file_names is not None:
+            self.accucor_filenames = [str(f) for f in accucor_file_names]
+        elif self.accucor_files is not None:
+            self.accucor_filenames = [
+                str(os.path.basename(f)) for f in self.accucor_files
+            ]
         else:
-            self.accucor_filenames = [os.path.basename(f) for f in self.accucor_files]
+            self.accucor_filenames = []
 
-        if isocorr_file_names:
-            self.isocorr_filenames = isocorr_file_names
+        if isocorr_file_names is not None:
+            self.isocorr_filenames = [str(f) for f in isocorr_file_names]
+        elif self.isocorr_files is not None:
+            self.isocorr_filenames = [
+                str(os.path.basename(f)) for f in self.isocorr_files
+            ]
         else:
-            self.isocorr_filenames = [os.path.basename(f) for f in self.isocorr_files]
+            self.isocorr_filenames = []
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
@@ -88,21 +104,23 @@ class DataValidationView(FormView):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
 
-        try:
+        if "animal_sample_table" in request.FILES:
             sample_file = request.FILES["animal_sample_table"]
             tmp_sample_file = sample_file.temporary_file_path()
-        except KeyError:
+        else:
             # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
             sample_file = None
             tmp_sample_file = None
-        try:
+
+        if "accucor_files" in request.FILES:
             accucor_files = request.FILES.getlist("accucor_files")
-        except KeyError:
+        else:
             # Ignore missing accucor files (allow user to validate just the sample file)
             accucor_files = []
-        try:
+
+        if "isocorr_files" in request.FILES:
             isocorr_files = request.FILES.getlist("isocorr_files")
-        except KeyError:
+        else:
             # Ignore missing isocorr files (allow user to validate just the sample file)
             isocorr_files = []
 
@@ -125,11 +143,17 @@ class DataValidationView(FormView):
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
         cform = form.cleaned_data
-        mzxml_name_list = cform.get("mzxml_file_list", "").split("\n")
+        mzxml_name_list = re.split(r"[\n\r]+", cform.get("mzxml_file_list", ""))
         lcms_data = None
-        if len(mzxml_name_list) > 0:
+        lcms_filename = None
+        peak_annot_file_name = None
+        peak_annot_files = list(set(self.accucor_files).union(set(self.isocorr_files)))
+
+        if len(mzxml_name_list) > 0 or len(peak_annot_files) == 1:
             # This assumes that, due to the form class's clean method, there is exactly 1 peak annotation file
-            peak_annot_file = list(set(self.accucor_files) + set(self.isocorr_files))[0]
+            peak_annot_file = list(
+                set(self.accucor_files).union(set(self.isocorr_files))
+            )[0]
 
             # Assumes the second sheet (index 1) is the "corrected" (accucor) or "absolte" (isocorr)
             corrected_sheet = 1
@@ -140,14 +164,18 @@ class DataValidationView(FormView):
             )
 
             peak_annot_file_name = list(
-                set(self.accucor_filenames) + set(self.isocorr_filenames)
+                set(self.accucor_filenames).union(set(self.isocorr_filenames))
             )[0]
 
-            lcms_data = self.build_lcms_dict(
+            lcms_dict = self.build_lcms_dict(
                 peak_annot_sample_headers,
                 mzxml_name_list,
                 peak_annot_file_name,
             )
+            lcms_data = self.lcms_dict_to_tsv_string(lcms_dict)
+
+            peak_annot_file_basename, _ = os.path.splitext(peak_annot_file_name)
+            lcms_filename = peak_annot_file_basename + ".lcms.tsv"
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
@@ -162,8 +190,9 @@ class DataValidationView(FormView):
                 exceptions=exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=ordered_keys,
-                # TODO: Add lcms_data to the template
                 lcms_data=lcms_data,
+                lcms_filename=lcms_filename,
+                peak_annot_file_name=peak_annot_file_name,
             )
         )
 
@@ -233,16 +262,16 @@ class DataValidationView(FormView):
 
     def create_yaml(self, tmpdir):
         basic_loading_data = {
-            # TODO: Add the ability for the validation interface to take tissues, compounds, and a separate protocols
-            # file
+            # TODO: Add the ability for the validation interface to take tissues, compounds, & a separate protocols file
             # The following are placeholders - Not yet supported by the validation view
             # "tissues": "tissues.tsv",
             # "compounds": "compounds.tsv",
-            "protocols": None,  # Added by self.add_sample_data()
-            "animals_samples_treatments": {
-                "table": None,  # Added by self.add_sample_data()
-                "skip_researcher_check": False,
-            },
+            # The following placeholders are added by add_sample_data() if an animal sample table is provided
+            # "protocols": None,
+            # "animals_samples_treatments": {
+            #     "table": None,
+            #     "skip_researcher_check": False,
+            # },
             "accucor_data": {
                 "accucor_files": [
                     # {
@@ -282,12 +311,8 @@ class DataValidationView(FormView):
 
     def add_sample_data(self, basic_loading_data, tmpdir):
         if self.animal_sample_file is None:
-            # The form_invalid method should prevent this via the website, but if this is called in a test or other
-            # code without calling self.set_files, this exception will be raised.
-            raise ValueError(
-                "An animal and sample table file is required.  Be sure to call set_files() before calling "
-                "validate_load_files()."
-            )
+            # The animal sample file is optional
+            return
 
         form_sample_file_path = self.animal_sample_file
 
@@ -304,7 +329,10 @@ class DataValidationView(FormView):
         shutil.copyfile(form_sample_file_path, sfp)
 
         basic_loading_data["protocols"] = sfp
-        basic_loading_data["animals_samples_treatments"]["table"] = sfp
+        basic_loading_data["animals_samples_treatments"] = {
+            "table": sfp,
+            "skip_researcher_check": False,
+        }
 
     def add_ms_data(self, basic_loading_data, tmpdir, files, filenames, is_isocorr):
         for i, form_file_path in enumerate(files):
@@ -390,16 +418,20 @@ class DataValidationView(FormView):
                 continue
 
             # Let's see if we can match the header to an mzXML file name
-            mzxml_name = unmatched_mzxmls.get(peak_annot_sample_header, None)
-            if mzxml_name is not None:
+            mzxml_name = unmatched_mzxmls.get(peak_annot_sample_header, "")
+            if mzxml_name != "":
                 del unmatched_mzxmls[peak_annot_sample_header]
+                sort_level = 0
+            else:
+                sort_level = 1
 
             # This takes case of samples without mzXML files (which would include blanks)
             lcms_dict[peak_annot_sample_header] = {
-                "tracebase sample name": db_sample_name,
-                "sample data header": peak_annot_sample_header,
-                "peak annotation filename": peak_annot_file_name,
-                "mzxml filename": mzxml_name,
+                "sort level": sort_level,
+                LCMS_DB_SAMPLE_HDR: db_sample_name,
+                LCMS_FL_SAMPLE_HDR: peak_annot_sample_header,
+                LCMS_PEAK_ANNOT_HDR: peak_annot_file_name,
+                LCMS_MZXML_HDR: mzxml_name,
             }
 
         # Fill in data about mzXML files without a matching header
@@ -415,33 +447,79 @@ class DataValidationView(FormView):
                 db_sample_name = re.sub(pattern, "", missing_header)
 
                 lcms_dict[missing_header] = {
-                    "tracebase sample name": db_sample_name,
-                    "sample data header": None,
-                    "peak annotation filename": None,
-                    "mzxml filename": unmatched_mzxmls[missing_header],
+                    "sort level": 2,
+                    LCMS_DB_SAMPLE_HDR: db_sample_name,
+                    LCMS_FL_SAMPLE_HDR: "",
+                    LCMS_PEAK_ANNOT_HDR: "",
+                    LCMS_MZXML_HDR: unmatched_mzxmls[missing_header],
                 }
 
         # Represent duplicate headers as errors in the column values, for the user to manually address
         for i, duph in enumerate(dupe_headers):
             key = f"ERROR: {duph} DUPLICATE HEADER {i+1}"
             lcms_dict[key] = {
-                "tracebase sample name": None,
-                "sample data header": key,
-                "peak annotation filename": peak_annot_file_name,
-                "mzxml filename": None,
+                "sort level": 3,
+                LCMS_DB_SAMPLE_HDR: "",
+                LCMS_FL_SAMPLE_HDR: key,
+                LCMS_PEAK_ANNOT_HDR: peak_annot_file_name,
+                LCMS_MZXML_HDR: "",
             }
 
         # Represent duplicate mzXML file basenames as errors in the column values, for the user to manually address
         for i, dupmzf in enumerate(dupe_mzxmls):
             key = f"ERROR: {dupmzf} DUPLICATE MZXML BASENAME {i+1}"
             lcms_dict[key] = {
-                "tracebase sample name": None,
-                "sample data header": None,
-                "peak annotation filename": None,
-                "mzxml filename": key,
+                "sort level": 4,
+                LCMS_DB_SAMPLE_HDR: "",
+                LCMS_FL_SAMPLE_HDR: "",
+                LCMS_PEAK_ANNOT_HDR: "",
+                LCMS_MZXML_HDR: key,
             }
 
         return lcms_dict
+
+    @classmethod
+    def lcms_dict_to_tsv_string(cls, lcms_dict):
+        """Takes the lcms_dict and creates a string of (destined to be) file content.
+
+        It includes a header line and the following lines are sorted by the state of the row (full, missing, and various
+        types of errors), then by accucor, sample, and mzxml.
+
+        Args:
+            lcms_dict (defaultdict(dict(str))): The keys of the outer dict are not included in the output, but the keys
+                of the inner dict are the column headers.
+
+        Exceptions:
+            None
+
+        Returns:
+            lcms_data (string): The eventual content of an lcms file, including headers
+        """
+        headers = [
+            LCMS_DB_SAMPLE_HDR,
+            LCMS_FL_SAMPLE_HDR,
+            LCMS_MZXML_HDR,
+            LCMS_PEAK_ANNOT_HDR,
+        ]
+        lcms_data = "\t".join(headers) + "\n"
+        for key in dict(
+            sorted(
+                lcms_dict.items(),
+                key=lambda x: (
+                    x[1][
+                        "sort level"
+                    ],  # This sorts erroneous and missing data to the bottom
+                    x[1][LCMS_PEAK_ANNOT_HDR],  # Then sort by accucor file name
+                    x[1][LCMS_FL_SAMPLE_HDR],  # Then by sample (header)
+                    x[1][LCMS_MZXML_HDR],  # Then by mzXML file name
+                ),
+            )
+        ).keys():
+            lcms_data += (
+                "\t".join(map(lambda head: lcms_dict[key][head], headers)) + "\n"
+            )
+
+        return lcms_data
 
     @classmethod
     def get_approx_sample_header_replacement_regex(cls, suffixes=None, add=True):
