@@ -1471,4 +1471,19 @@ class TableLoaderTests(TracebaseTestCase):
         pass
 
     def test_get_ordered_display_headers(self):
-        pass
+        class TestOneDefLoader(self.TestLoader):
+            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+
+        todl = TestOneDefLoader()
+        self.assertEqual(["Name"], todl.get_ordered_display_headers())
+        self.assertEqual(["Name", "Choice"], todl.get_ordered_display_headers(all=True))
+
+        # Now reverse the order and define no defaults
+        class TestRevOneDefLoader(self.TestLoader):
+            DataTableHeaders = namedtuple("DataTableHeaders", ["CHOICE", "NAME"])
+
+        trodl = TestRevOneDefLoader()
+        print(
+            f"DataDefaultValues: {trodl.DataDefaultValues} DataTableHeaders: {trodl.DataTableHeaders._fields} all_headers: {trodl.all_headers}"
+        )
+        self.assertEqual(["Choice", "Name"], trodl.get_ordered_display_headers())

@@ -2476,8 +2476,13 @@ class TableLoader(ABC):
         defaults for any column, but that shouldn't change the columns in the output display.
 
         The selection of the defaulted columns is arbitrary because it fits the current need.  If you want a different
-        behavior, just override this method in the derived class and return, for example, self.all_headers, or filter
-        them however you wish.  You can even define a custom order.
+        behavior, just override this method in the derived class and return whichever headers you want in whichever
+        order you want.
+
+        It's notable that even thogh self.all_headers should be in order, doubly derived classes can redefine an
+        alternate header order in self.DataTableHeaders, but it turns out that the default __init__ call to
+        super().__init__ must happen after the superclass, because my testing showed the superclass order.  Thus, always
+        basing it on the current order in self.DataTableHeaders is the safest way to ensure the desired/current order.
 
         Args:
             all (boolean) [False]: Whether to return all ordered current headers (or just those without class defaults)
@@ -2491,13 +2496,15 @@ class TableLoader(ABC):
         """
         if all is True:
             # This is to mitigate the unexpected case where all columns have default values
-            return self.all_headers
+            return [getattr(self.headers, hk) for hk in self.DataTableHeaders._fields]
 
-        class_defaulted_headers = [
-            hn
-            for (hk, hn) in self.headers._asdict().items()
-            if self.DataDefaultValues is None
-            or getattr(self.DataDefaultValues, hk) is None
+        class_undefaulted_header_names = [
+            getattr(self.headers, hk)
+            for hk in self.DataTableHeaders._fields
+            if (
+                self.DataDefaultValues is None
+                or getattr(self.DataDefaultValues, hk) is None
+            )
         ]
 
-        return [hn for hn in self.all_headers if hn not in class_defaulted_headers]
+        return [hn for hn in class_undefaulted_header_names]
