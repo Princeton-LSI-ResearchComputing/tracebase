@@ -2467,7 +2467,7 @@ class TableLoader(ABC):
 
         return pd.DataFrame.from_dict(out_dict)
 
-    def get_ordered_display_headers(self):
+    def get_ordered_display_headers(self, all=False):
         """This returns current header names in the order in which the headers were defined in DataTableHeaders, that do
         not have class-defined default values.
 
@@ -2480,7 +2480,7 @@ class TableLoader(ABC):
         them however you wish.  You can even define a custom order.
 
         Args:
-            None
+            all (boolean) [False]: Whether to return all ordered current headers (or just those without class defaults)
 
         Exceptions:
             None
@@ -2489,10 +2489,15 @@ class TableLoader(ABC):
             header names (list of strings): Current header names (not keys) in the order in which they were defined in
                 DataTableHeaders
         """
+        if all is True:
+            # This is to mitigate the unexpected case where all columns have default values
+            return self.all_headers
+
         class_defaulted_headers = [
             hn
             for (hk, hn) in self.headers._asdict().items()
             if self.DataDefaultValues is None
             or getattr(self.DataDefaultValues, hk) is None
         ]
+
         return [hn for hn in self.all_headers if hn not in class_defaulted_headers]
