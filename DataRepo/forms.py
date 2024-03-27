@@ -339,7 +339,10 @@ class DataSubmissionValidationForm(Form):
         required=False, widget=ClearableFileInput(attrs={"multiple": False})
     )
     peak_annotation_files = MultipleFileField(
-        required=False, widget=MultipleFileInput(attrs={"multiple": True})
+        required=False,
+        widget=MultipleFileInput(
+            attrs={"multiple": True, "id": "peak_annotation_files_field"}
+        ),
     )
 
     def clean(self):
