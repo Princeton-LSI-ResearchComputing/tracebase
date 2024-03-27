@@ -2442,9 +2442,8 @@ class TableLoader(ABC):
             A pandas dataframe with current headers as the column names and any model field that directly maps to a
             column pre-populated with the record field values.
         """
-        # self.all_headers is the current headers in the order in which the class defines them in
-        # cls.DataTableHeaders
-        out_dict = dict([(hdr, []) for hdr in self.all_headers])
+        display_headers = self.get_ordered_display_headers()
+        out_dict = dict([(hdr, []) for hdr in display_headers])
 
         if populate is True:
             if len(self.Models) > 1:
@@ -2462,8 +2461,38 @@ class TableLoader(ABC):
                             header = self.FieldToHeader[model_class.__name__][fld]
                             out_dict[header].append(getattr(rec, fld))
 
-                for hdr in self.all_headers:
+                for hdr in display_headers:
                     if hdr not in out_dict.keys():
                         out_dict[hdr] = [None for _ in range(qs.count())]
 
         return pd.DataFrame.from_dict(out_dict)
+
+    def get_ordered_display_headers(self):
+        """This returns current header names in the order in which the headers were defined in DataTableHeaders, that do
+        not have class-defined default values.
+
+        The reason it only excludes class-defined defaults (e.g. header columns that do not have a non-None value
+        defined in DataDefaultValues) is for consistency in the assortment of headers returned.  A user can define
+        defaults for any column, but that shouldn't change the columns in the output display.
+
+        The selection of the defaulted columns is arbitrary because it fits the current need.  If you want a different
+        behavior, just override this method in the derived class and return, for example, self.all_headers, or filter
+        them however you wish.  You can even define a custom order.
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            header names (list of strings): Current header names (not keys) in the order in which they were defined in
+                DataTableHeaders
+        """
+        class_defaulted_headers = [
+            hn
+            for (hk, hn) in self.headers._asdict().items()
+            if self.DataDefaultValues is None
+            or getattr(self.DataDefaultValues, hk) is None
+        ]
+        return [hn for hn in self.all_headers if hn not in class_defaulted_headers]

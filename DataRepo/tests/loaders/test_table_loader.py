@@ -1469,3 +1469,6 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_get_dataframe_template(self):
         pass
+
+    def test_get_ordered_display_headers(self):
+        pass
