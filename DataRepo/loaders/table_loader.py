@@ -2428,11 +2428,12 @@ class TableLoader(ABC):
             hasattr(fld, "field_name") and fld.field_name in fld_names
         )
 
-    def get_dataframe_template(self, populate=False):
+    def get_dataframe_template(self, all=False, populate=False):
         """Generate a pandas dataframe either populated with all database records or not.  Note, only loader classes
         with a single model are supported.  Override this method to generate a dataframe with data from multiple models.
 
         Args:
+            all (boolean) [False]: Whether to include all headers (that are mapped to a field).
             populate (boolean) [False]: Whether to add all of the database data to the dataframe.
 
         Exceptions:
@@ -2442,7 +2443,7 @@ class TableLoader(ABC):
             A pandas dataframe with current headers as the column names and any model field that directly maps to a
             column pre-populated with the record field values.
         """
-        display_headers = self.get_ordered_display_headers()
+        display_headers = self.get_ordered_display_headers(all=all)
         out_dict = dict([(hdr, []) for hdr in display_headers])
 
         if populate is True:
@@ -2456,10 +2457,12 @@ class TableLoader(ABC):
             ]:
                 qs = model_class.objects.all()
                 for rec in qs:
-                    for fld in get_model_fields(model_class):
+                    for fld_obj in get_model_fields(model_class):
+                        fld = fld_obj.name
                         if fld in self.FieldToHeader[model_class.__name__].keys():
                             header = self.FieldToHeader[model_class.__name__][fld]
-                            out_dict[header].append(getattr(rec, fld))
+                            if header in display_headers:
+                                out_dict[header].append(getattr(rec, fld))
 
                 for hdr in display_headers:
                     if hdr not in out_dict.keys():
