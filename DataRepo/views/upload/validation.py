@@ -1,6 +1,9 @@
 import os.path
+import re
 import shutil
 import tempfile
+from collections import defaultdict
+from sqlite3 import ProgrammingError
 from typing import List
 
 import yaml  # type: ignore
@@ -10,8 +13,10 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.loaders.accucor_data_loader import get_sample_headers
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.exceptions import MultiLoadStatus
+from DataRepo.utils.file_utils import read_headers_from_file
 
 
 class DataValidationView(FormView):
@@ -26,6 +31,14 @@ class DataValidationView(FormView):
     animal_sample_file = None
     mzxml_files: List[str] = []
     submission_url = settings.DATA_SUBMISSION_URL
+    # These are common suffixes repeatedly appended to accucor/isocorr sample names to make them unique across different
+    # polarities and scan ranges.  This is not perfect.  See the get_approx_sample_header_replacement_regex method for
+    # the full pattern.
+    DEFAULT_SAMPLE_HEADER_SUFFIXES = [
+        r"_pos",
+        r"_neg",
+        r"_scan[0-9]+",
+    ]
 
     def set_files(
         self,
@@ -57,12 +70,12 @@ class DataValidationView(FormView):
         if accucor_file_names:
             self.accucor_filenames = accucor_file_names
         else:
-            self.accucor_filenames = []
+            self.accucor_filenames = [os.path.basename(f) for f in self.accucor_files]
 
         if isocorr_file_names:
             self.isocorr_filenames = isocorr_file_names
         else:
-            self.isocorr_filenames = []
+            self.isocorr_filenames = [os.path.basename(f) for f in self.isocorr_files]
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
@@ -111,6 +124,30 @@ class DataValidationView(FormView):
         """
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
+        cform = form.cleaned_data
+        mzxml_name_list = cform.get("mzxml_file_list", "").split("\n")
+        lcms_data = None
+        if len(mzxml_name_list) > 0:
+            # This assumes that, due to the form class's clean method, there is exactly 1 peak annotation file
+            peak_annot_file = list(set(self.accucor_files) + set(self.isocorr_files))[0]
+
+            # Assumes the second sheet (index 1) is the "corrected" (accucor) or "absolte" (isocorr)
+            corrected_sheet = 1
+            peak_annot_sample_headers = get_sample_headers(
+                read_headers_from_file(
+                    peak_annot_file, sheet=corrected_sheet, filetype="excel"
+                )
+            )
+
+            peak_annot_file_name = list(
+                set(self.accucor_filenames) + set(self.isocorr_filenames)
+            )[0]
+
+            lcms_data = self.build_lcms_dict(
+                peak_annot_sample_headers,
+                mzxml_name_list,
+                peak_annot_file_name,
+            )
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
@@ -125,6 +162,8 @@ class DataValidationView(FormView):
                 exceptions=exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=ordered_keys,
+                # TODO: Add lcms_data to the template
+                lcms_data=lcms_data,
             )
         )
 
@@ -293,6 +332,139 @@ class DataValidationView(FormView):
                     "isocorr_format": is_isocorr,
                 }
             )
+
+    @classmethod
+    def build_lcms_dict(
+        cls,
+        peak_annot_sample_headers,
+        mzxml_name_list,
+        peak_annot_file_name,
+        sample_suffixes=None,
+    ):
+        """Build a partial LCMS metadata dict keyed on the headers and containing dicts keyed on the headers of an LCMS
+        file.
+
+        Args:
+            peak_annot_sample_headers (list of strings): Sample headers (including blanks) parsed from the accucor or
+                isocorr file
+            mzxml_name_list (list of strings): mzXML file names without paths
+            peak_annot_file_name (string): And accucor or isocorr file name without the path
+            sample_suffixes (list of raw strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Regular expressions of suffix
+                strings found at the end of a peak annotation file sample header (e.g. "_pos")
+
+        Exceptions:
+            ProgrammingError
+
+        Returns:
+            lcms_dict
+        """
+
+        # Set the suffixes to be stripped from the sample header names to convert them to database sample names
+        if sample_suffixes is None:
+            suffixes = cls.DEFAULT_SAMPLE_HEADER_SUFFIXES
+        pattern = cls.get_approx_sample_header_replacement_regex(suffixes)
+
+        # Initialize the dict we'll be returning
+        lcms_dict = defaultdict(dict)
+        # Keep track of duplicate sample headers and mzXML files we were unable to match
+        dupe_headers = []
+        dupe_mzxmls = []
+        unmatched_mzxmls = {}
+        for mzxfn in mzxml_name_list:
+            header, _ = os.path.splitext(mzxfn)
+            if header in unmatched_mzxmls.keys():
+                dupe_mzxmls.append(mzxfn)
+                continue
+            unmatched_mzxmls[header] = mzxfn
+
+        # Traverse the headers and built the dict
+        for peak_annot_sample_header in peak_annot_sample_headers:
+            # The tracebase sample name is the header with manually (and repeatedly) added suffixes removed
+            # This is a heuristic.  It is not perfect.  If may be possible to allow the user to enter them in the form
+            # in the future, but for now, this uses the common ones.
+            db_sample_name = re.sub(pattern, "", peak_annot_sample_header)
+
+            # If we've already seen this header, it is a duplicate
+            if peak_annot_sample_header in lcms_dict.keys():
+                dupe_headers.append(peak_annot_sample_header)
+                continue
+
+            # Let's see if we can match the header to an mzXML file name
+            mzxml_name = unmatched_mzxmls.get(peak_annot_sample_header, None)
+            if mzxml_name is not None:
+                del unmatched_mzxmls[peak_annot_sample_header]
+
+            # This takes case of samples without mzXML files (which would include blanks)
+            lcms_dict[peak_annot_sample_header] = {
+                "tracebase sample name": db_sample_name,
+                "sample data header": peak_annot_sample_header,
+                "peak annotation filename": peak_annot_file_name,
+                "mzxml filename": mzxml_name,
+            }
+
+        # Fill in data about mzXML files without a matching header
+        if len(unmatched_mzxmls) > 0:
+            for missing_header in unmatched_mzxmls.keys():
+                # Doublecheck the dict
+                if missing_header in lcms_dict.keys():
+                    raise ProgrammingError(
+                        f"Unexpectedly found missing header {missing_header}."
+                    )
+
+                # This sample may exist in another accucor file. Might as well fill it out. We just don't have a header.
+                db_sample_name = re.sub(pattern, "", missing_header)
+
+                lcms_dict[missing_header] = {
+                    "tracebase sample name": db_sample_name,
+                    "sample data header": None,
+                    "peak annotation filename": None,
+                    "mzxml filename": unmatched_mzxmls[missing_header],
+                }
+
+        # Represent duplicate headers as errors in the column values, for the user to manually address
+        for i, duph in enumerate(dupe_headers):
+            key = f"ERROR: {duph} DUPLICATE HEADER {i+1}"
+            lcms_dict[key] = {
+                "tracebase sample name": None,
+                "sample data header": key,
+                "peak annotation filename": peak_annot_file_name,
+                "mzxml filename": None,
+            }
+
+        # Represent duplicate mzXML file basenames as errors in the column values, for the user to manually address
+        for i, dupmzf in enumerate(dupe_mzxmls):
+            key = f"ERROR: {dupmzf} DUPLICATE MZXML BASENAME {i+1}"
+            lcms_dict[key] = {
+                "tracebase sample name": None,
+                "sample data header": None,
+                "peak annotation filename": None,
+                "mzxml filename": key,
+            }
+
+        return lcms_dict
+
+    @classmethod
+    def get_approx_sample_header_replacement_regex(cls, suffixes=None, add=True):
+        """Returns a regular expression combining sample header suffixes, to be used to generate tracebase sample names
+        so that multiple mzXML files can link to the same database sample.
+
+        Args:
+            suffixes (list of raw strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Uncompiled regular expressions for
+                individual suffixed, e.g. r"_scan[0-9]+"
+            add (boolean): Whether or not to add the supplied suffixes or replace them
+
+        Exceptions:
+            None
+
+        Returns:
+            Python re compiled regular expression
+        """
+        if suffixes is None:
+            suffixes = cls.DEFAULT_SAMPLE_HEADER_SUFFIXES
+        elif add:
+            suffixes.extend(cls.DEFAULT_SAMPLE_HEADER_SUFFIXES)
+
+        return re.compile(r"(" + "|".join(suffixes) + r")+$")
 
 
 def validation_disabled(request):

@@ -84,11 +84,11 @@ from DataRepo.utils.lcms_metadata_parser import (
     lcms_headers_are_valid,
 )
 
-# Global variables for Accucor/Isocorr corrected column names/patterns
+# Global variables for Accucor/Isocorr original and corrected(/absolte) column names/patterns
 # List of column names from data files that we know are not samples.  Note that the column names are the same in
 # Accucor versus Isocorr - they're just ordered differently.
 NONSAMPLE_COLUMN_NAMES = [
-    "label",  # Accucor format
+    "label",  # Accucor format only
     "metaGroupId",
     "groupId",
     "goodPeakCount",
@@ -448,25 +448,13 @@ class AccuCorDataLoader:
 
     def initialize_sample_names(self):
         self.corrected_sample_headers = get_sample_headers(
-            self.accucor_corrected_df, self.skip_samples
+            self.accucor_corrected_df.columns, self.skip_samples
         )
 
         if self.accucor_original_df is not None:
-            minimum_sample_index = get_first_sample_column_index(
-                self.accucor_original_df
+            self.original_sample_headers = get_sample_headers(
+                self.accucor_original_df.columns, self.skip_samples
             )
-            if minimum_sample_index is None:
-                # Sample columns are required to proceed
-                raise SampleIndexNotFound(
-                    "original",
-                    list(self.accucor_original_df.columns),
-                    NONSAMPLE_COLUMN_NAMES,
-                )
-            self.original_sample_headers = [
-                sample
-                for sample in list(self.accucor_original_df)[minimum_sample_index:]
-                if sample not in self.skip_samples
-            ]
 
     def fill_in_lcms_defaults(self):
         # Validate the sample data headers WRT to lcms metadata and fill in placeholder defaults for missing defaults
@@ -2207,9 +2195,9 @@ def hash_file(path_obj, allow_missing=False):
     return h.hexdigest()
 
 
-def get_first_sample_column_index(df):
+def get_first_sample_column_index(df_columns):
     """
-    Given a dataframe, return the column index of the likely "first" sample column
+    Given a dataframe's list of column names, return the column index of the likely "first" sample column
     """
 
     final_index = None
@@ -2217,8 +2205,8 @@ def get_first_sample_column_index(df):
     found = False
     for col_name in NONSAMPLE_COLUMN_NAMES:
         try:
-            if df.columns.get_loc(col_name) > max_nonsample_index:
-                max_nonsample_index = df.columns.get_loc(col_name)
+            if df_columns.get_loc(col_name) > max_nonsample_index:
+                max_nonsample_index = df_columns.get_loc(col_name)
                 found = True
         except KeyError:
             # column is not found, so move on
@@ -2231,15 +2219,15 @@ def get_first_sample_column_index(df):
     return final_index
 
 
-def get_sample_headers(df, skip_samples=None):
+def get_sample_headers(df_columns, skip_samples=None, sheet="corrected"):
     if skip_samples is None:
         skip_samples = []
-    minimum_sample_index = get_first_sample_column_index(df)
+    minimum_sample_index = get_first_sample_column_index(df_columns)
     if minimum_sample_index is None:
         # Sample columns are required to proceed
-        raise SampleIndexNotFound("corrected", list(df.columns), NONSAMPLE_COLUMN_NAMES)
+        raise SampleIndexNotFound(sheet, list(df_columns), NONSAMPLE_COLUMN_NAMES)
     return [
         sample
-        for sample in list(df)[minimum_sample_index:]
+        for sample in list(df_columns)[minimum_sample_index:]
         if sample not in skip_samples
     ]
