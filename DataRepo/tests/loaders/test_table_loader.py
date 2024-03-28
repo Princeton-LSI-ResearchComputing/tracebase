@@ -1466,3 +1466,57 @@ class TableLoaderTests(TracebaseTestCase):
             (["Name"], True),
             tl.get_missing_values(row=row),
         )
+
+    def test_get_ordered_display_headers(self):
+        class TestOneDefLoader(self.TestLoader):
+            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+
+        todl = TestOneDefLoader()
+        self.assertEqual(["Name"], todl.get_ordered_display_headers())
+        self.assertEqual(["Name", "Choice"], todl.get_ordered_display_headers(all=True))
+
+        # Now reverse the order and define no defaults
+        class TestRevOneDefLoader(self.TestLoader):
+            DataTableHeaders = namedtuple("DataTableHeaders", ["CHOICE", "NAME"])
+
+        trodl = TestRevOneDefLoader()
+        self.assertEqual(["Choice", "Name"], trodl.get_ordered_display_headers())
+
+    def test_get_dataframe_template_empty(self):
+        class TestOneDefLoader(self.TestLoader):
+            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+
+        expected = pd.DataFrame.from_dict({"Name": []})
+
+        todl = TestOneDefLoader()
+        print(f"DF AS STR: {str(todl.get_dataframe_template())}")
+        self.assertEqual(str(expected), str(todl.get_dataframe_template()))
+
+    def test_get_dataframe_template_populated(self):
+        class TestOneDefLoader(self.TestLoader):
+            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+
+        self.TestModel.objects.create(name="A", choice=1)
+        self.TestModel.objects.create(name="B", choice=2)
+
+        expected = pd.DataFrame.from_dict({"Name": ["A", "B"]})
+
+        todl = TestOneDefLoader()
+        self.assertEqual(str(expected), str(todl.get_dataframe_template(populate=True)))
+
+    def test_get_dataframe_template_all_populated(self):
+        class TestOneDefLoader(self.TestLoader):
+            DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
+
+        self.TestModel.objects.create(name="A", choice=1)
+        self.TestModel.objects.create(name="B", choice=2)
+
+        expected = {
+            "Name": {0: "A", 1: "B"},
+            "Choice": {0: "1", 1: "2"},
+        }
+
+        todl = TestOneDefLoader()
+        self.assertDictEqual(
+            expected, todl.get_dataframe_template(all=True, populate=True).to_dict()
+        )

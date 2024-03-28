@@ -6,6 +6,7 @@ from DataRepo.utils.exceptions import (
     DateParseError,
     DuplicateValueErrors,
     DuplicateValues,
+    ExcelSheetNotFound,
     ExcelSheetsNotFound,
     InfileError,
     InvalidDtypeDict,
@@ -926,3 +927,11 @@ class ExceptionTests(TracebaseTestCase):
             ),
             str(nusdhs),
         )
+
+    def test_ExcelSheetNotFound(self):
+        esnf = ExcelSheetNotFound(
+            sheet="Not Present", file="an_excel_file.xlsx", all_sheets=["A", "B"]
+        )
+        self.assertIn("[Not Present] not found", str(esnf))
+        self.assertIn("in file [an_excel_file.xlsx]", str(esnf))
+        self.assertIn("Available sheets: ['A', 'B']", str(esnf))

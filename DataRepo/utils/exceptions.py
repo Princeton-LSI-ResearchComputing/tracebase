@@ -1977,6 +1977,14 @@ class WrongExcelSheet(Exception):
         self.sheet_num = sheet_num
 
 
+class ExcelSheetNotFound(InfileError):
+    def __init__(self, sheet, file, all_sheets=None):
+        avail_msg = "" if all_sheets is None else f"  Available sheets: {all_sheets}."
+        message = f"Excel sheet [{sheet}] not found in %s.{avail_msg}"
+        super().__init__(message, file=file)
+        self.sheet = sheet
+
+
 class ExcelSheetsNotFound(InfileError):
     def __init__(
         self,
