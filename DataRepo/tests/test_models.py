@@ -54,7 +54,7 @@ from DataRepo.utils import (
     IsotopeParsingError,
     MissingCompounds,
     MissingSamplesError,
-    MissingTissues,
+    MissingTissue,
     RequiredSampleValuesError,
     SheetMergeError,
     get_column_dupes,
@@ -2366,13 +2366,18 @@ class StudyLoadingTests(TracebaseTestCase):
 
     def test_create_grouped_exceptions(self):
         """
-        Assures that every MissingTissues, MissingCompounds, and MissingSamplesError exception brings about the
-        creation of AllMissing{Tissues,Compounds,Samples} exceptions and that the original exceptions are changed to a
-        warning status (technically - if they are the only exception)
+        Assures that every AllMissingTissues, MissingCompounds, and MissingSamplesError exception brings about the
+        creation of a consolidated AllMissing{Tissues,Compounds,Samples} exceptions and that the original exceptions are
+        changed to a warning status (technically - if they are the only exception)
         """
         lsc = LoadStudyCommand()
         exceptions = [
-            MissingTissues({"spleen": [1, 2]}, ["brain", "butt"]),
+            AllMissingTissues(
+                [
+                    MissingTissue(tissue_name="spleen", column="Tissue", rownum=1),
+                    MissingTissue(tissue_name="spleen", column="Tissue", rownum=2),
+                ]
+            ),
             MissingCompounds({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
             MissingSamplesError(["a", "b"]),
         ]
@@ -2564,7 +2569,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[0],
-                MissingTissues,
+                AllMissingTissues,
             ),
         )
         self.assertTrue(

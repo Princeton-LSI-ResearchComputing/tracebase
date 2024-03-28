@@ -34,12 +34,15 @@ from DataRepo.utils import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllMissingTissues,
+    AllMissingTreatments,
     ConflictingValueError,
     DryRun,
     DuplicateValues,
     HeaderConfigError,
     LCMSDBSampleMissing,
-    MissingTissues,
+    MissingTissue,
+    MissingTreatment,
     NoConcentrations,
     RequiredHeadersError,
     RequiredSampleValuesError,
@@ -191,7 +194,6 @@ class SampleTableLoader:
         self.units_errors = {}
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
-        self.missing_tissues = defaultdict(list)
 
         # Arrange the LCMS samples
         lcms_metadata = lcms_df_to_dict(lcms_metadata_df, self.aggregated_errors_object)
@@ -320,12 +322,20 @@ class SampleTableLoader:
                     is_fatal=True,  # Always raise the AggErrs exception
                 )
 
-        if len(self.missing_tissues.keys()) > 0:
+        missing_tissue_errors = self.aggregated_errors_object.remove_exception_type(
+            MissingTissue
+        )
+        if len(missing_tissue_errors) > 0:
             self.aggregated_errors_object.buffer_error(
-                MissingTissues(
-                    self.missing_tissues,
-                    list(Tissue.objects.values_list("name", flat=True)),
-                )
+                AllMissingTissues(missing_tissue_errors)
+            )
+
+        missing_treatment_errors = self.aggregated_errors_object.remove_exception_type(
+            MissingTreatment
+        )
+        if len(missing_treatment_errors) > 0:
+            self.aggregated_errors_object.buffer_error(
+                AllMissingTreatments(missing_treatment_errors)
             )
 
         if len(self.missing_values.keys()) > 0:
@@ -380,7 +390,13 @@ class SampleTableLoader:
             try:
                 tissue_rec = Tissue.objects.get(name=tissue_name)
             except Tissue.DoesNotExist:
-                self.missing_tissues[tissue_name].append(rownum + 2)
+                self.aggregated_errors_object.buffer_error(
+                    MissingTissue(
+                        tissue_name,
+                        column=self.headers.TISSUE_NAME,
+                        rownum=row.name + 2,
+                    ),
+                )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
                     TissueError(type(e).__name__, e)
@@ -513,9 +529,10 @@ class SampleTableLoader:
                         print(f"{action} {feedback}")
                 except Protocol.DoesNotExist:
                     self.aggregated_errors_object.buffer_error(
-                        Protocol.DoesNotExist(
-                            f"Could not find '{Protocol.ANIMAL_TREATMENT}' protocol with name "
-                            f"'{treatment_name}'"
+                        MissingTreatment(
+                            treatment_name,
+                            column=self.headers.ANIMAL_TREATMENT,
+                            rownum=row.name + 2,
                         )
                     )
                 except Exception as e:
@@ -709,11 +726,10 @@ class SampleTableLoader:
 
         # Create a sample record - requires a tissue and animal record
         if sample_name and tissue_rec and animal_rec:
-            # PR REVIEW NOTE: This strategy should be refactored to do the get_or_create with this other (and all) data
-            #                 first and intelligently handle exceptions, but I didn't want to do that much refactoring
-            #                 in 1 go.  This would mean "check_for_inconsistencies" would become obsolete and will need
-            #                 to be replaced using the strategy I employed in the compounds loader.  It will simplify
-            #                 this code.
+            # TODO: This strategy should be refactored to do the get_or_create with this other (and all) data first and
+            # intelligently handle exceptions, but I didn't want to do that much refactoring in 1 go.  This would mean
+            # "check_for_inconsistencies" would become obsolete and will need to be replaced using the strategy I
+            # employed in the compounds loader.  It will simplify this code.
             try:
                 # It's worth noting that this loop encounters this code for the same sample multiple times
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 import warnings
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management import CommandError
@@ -18,7 +18,13 @@ if TYPE_CHECKING:
 
 class InfileError(Exception):
     def __init__(
-        self, message, rownum=None, sheet=None, file=None, column=None, order=None
+        self,
+        message,
+        rownum: Optional[int] = None,
+        sheet=None,
+        file=None,
+        column=None,
+        order=None,
     ):
         self.rownum = rownum
         self.sheet = sheet
@@ -1463,35 +1469,88 @@ class UnexpectedIsotopes(Exception):
 
 class AllMissingTissues(Exception):
     """
-    This is the same as the MissingTissues class, but it takes a 3D dict that is used to report every file (and rows
-    in that file) where each missing tissue exists.
+    Takes a list of MissingTissue exceptions and a list of existing tissue names.
     """
 
-    def __init__(self, tissues_dict, message=None):
+    def __init__(self, missing_tissue_errors, message=None):
         if not message:
-            nltab = "\n\t"
+            err_dict = defaultdict(lambda: defaultdict(list))
+            for tissue_error in missing_tissue_errors:
+                loc = generate_file_location_string(
+                    file=tissue_error.file,
+                    sheet=tissue_error.sheet,
+                    column=tissue_error.column,
+                )
+                err_dict[loc][tissue_error.tissue_name].append(tissue_error.rownum)
+
+            nltt = "\n\t\t"
             tissues_str = ""
-            for tissue in tissues_dict["tissues"].keys():
+            for loc in err_dict.keys():
                 tissues_str += (
-                    f"Tissue: [{tissue}], located in the following file(s):{nltab}"
-                )
-                tissues_str += nltab.join(
-                    list(
-                        map(
-                            lambda fln: f"{fln} on row(s): {summarize_int_list(tissues_dict['tissues'][tissue][fln])}",
-                            tissues_dict["tissues"][tissue].keys(),
-                        )
+                    f"\t{loc}:\n\t\t"
+                    + nltt.join(
+                        [
+                            f"{k} on row(s): {summarize_int_list(v)}"
+                            for k, v in err_dict[loc].items()
+                        ]
                     )
+                    + "\n"
                 )
+
             message = (
-                f"{len(tissues_dict['tissues'].keys())} tissues were not found in the database:{nltab}{tissues_str}"
-                f"\nPlease check the tissue(s) against the existing tissues list:{nltab}"
-                f"{nltab.join(tissues_dict['existing'])}\n"
-                "If the tissue cannot be renamed to one of these existing tissues, a new tissue type will have to be "
-                "added to the database."
+                f"The following tissues, obtained from the indicated file locations, were not found in the database:\n"
+                f"{tissues_str}"
+                "Please check these against the existing tissues.  If any tissue cannot be renamed to one of the "
+                "existing tissues, it will have to be added to the database."
             )
+
         super().__init__(message)
-        self.tissues_dict = tissues_dict
+        self.missing_tissue_errors = missing_tissue_errors
+
+
+# TODO: Create an AllInfileErrors class using AllMissingTreatments and AllMissingTissues as a template
+class AllMissingTreatments(Exception):
+    """
+    Takes a list of MissingTreatment exceptions and a list of existing treatment names.
+    """
+
+    def __init__(self, missing_treatment_errors, message=None):
+        if not message:
+            err_dict = defaultdict(lambda: defaultdict(list))
+            for treatment_error in missing_treatment_errors:
+                loc = generate_file_location_string(
+                    file=treatment_error.file,
+                    sheet=treatment_error.sheet,
+                    column=treatment_error.column,
+                )
+                err_dict[loc][treatment_error.treatment_name].append(
+                    treatment_error.rownum
+                )
+
+            nltt = "\n\t\t"
+            treatments_str = ""
+            for loc in err_dict.keys():
+                treatments_str += (
+                    f"\t{loc}:\n\t\t"
+                    + nltt.join(
+                        [
+                            f"{k} on row(s): {summarize_int_list(v)}"
+                            for k, v in err_dict[loc].items()
+                        ]
+                    )
+                    + "\n"
+                )
+
+            message = (
+                f"The following treatments, obtained from the indicated file locations, were not found in the "
+                "database:\n"
+                f"{treatments_str}"
+                "Please check these against the existing treatments.  If any treatment cannot be renamed to one of the "
+                "existing treatments, it will have to be added to the database."
+            )
+
+        super().__init__(message)
+        self.missing_treatment_errors = missing_treatment_errors
 
 
 class AllMissingCompounds(Exception):
@@ -1565,28 +1624,22 @@ class MissingCompounds(Exception):
         self.compounds_dict = compounds_dict
 
 
-class MissingTissues(Exception):
-    def __init__(self, tissues_dict, existing, message=None):
-        """
-        Takes a dict whose keys are tissue names and values are lists of row numbers.
-        """
+class MissingTissue(InfileError):
+    def __init__(self, tissue_name, message=None, **kwargs):
         if not message:
-            nltab = "\n\t"
-            deets = list(
-                map(
-                    lambda k: f"{str(k)} on row(s): {str(summarize_int_list(tissues_dict[k]))}",
-                    tissues_dict.keys(),
-                )
-            )
+            message = f"Tissue '{tissue_name}' in %s was not found in the database"
+        super().__init__(message, **kwargs)
+        self.tissue_name = tissue_name
+
+
+class MissingTreatment(InfileError):
+    def __init__(self, treatment_name, message=None, **kwargs):
+        if not message:
             message = (
-                f"{len(tissues_dict.keys())} tissues were not found in the database:{nltab}{deets}\n"
-                f"Please check the tissue against the existing tissues list:{nltab}{nltab.join(existing)}\nIf the "
-                "tissue cannot be renamed to one of these existing tissues, a new tissue type will have to be added "
-                "to the database."
+                f"Treatment '{treatment_name}' in %s was not found in the database.\n"
             )
-        super().__init__(message)
-        self.tissues_dict = tissues_dict
-        self.existing = existing
+        super().__init__(message, **kwargs)
+        self.treatment_name = treatment_name
 
 
 class LCMethodFixturesMissing(Exception):
@@ -2313,7 +2366,7 @@ def summarize_int_list(intlist):
     sum_list = []
     last_num = None
     waiting_num = None
-    for num in [int(n) for n in sorted(intlist)]:
+    for num in [int(n) for n in sorted([i for i in intlist if i is not None])]:
         if last_num is None:
             waiting_num = num
         else:
