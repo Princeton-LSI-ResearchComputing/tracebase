@@ -1486,11 +1486,10 @@ class TableLoaderTests(TracebaseTestCase):
         class TestOneDefLoader(self.TestLoader):
             DataDefaultValues = self.TestLoader.DataTableHeaders(NAME=None, CHOICE="1")
 
-        expected = pd.DataFrame.from_dict({"Name": []})
+        expected = {"Name": {}}
 
         todl = TestOneDefLoader()
-        print(f"DF AS STR: {str(todl.get_dataframe_template())}")
-        self.assertEqual(str(expected), str(todl.get_dataframe_template()))
+        self.assertDictEqual(expected, todl.get_dataframe_template())
 
     def test_get_dataframe_template_populated(self):
         class TestOneDefLoader(self.TestLoader):
@@ -1499,7 +1498,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.TestModel.objects.create(name="A", choice=1)
         self.TestModel.objects.create(name="B", choice=2)
 
-        expected = pd.DataFrame.from_dict({"Name": ["A", "B"]})
+        expected = {"Name": {0: "A", 1: "B"}}
 
         todl = TestOneDefLoader()
         self.assertEqual(str(expected), str(todl.get_dataframe_template(populate=True)))
@@ -1518,5 +1517,5 @@ class TableLoaderTests(TracebaseTestCase):
 
         todl = TestOneDefLoader()
         self.assertDictEqual(
-            expected, todl.get_dataframe_template(all=True, populate=True).to_dict()
+            expected, todl.get_dataframe_template(all=True, populate=True)
         )
