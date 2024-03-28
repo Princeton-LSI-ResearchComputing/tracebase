@@ -20,6 +20,7 @@ from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
+from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
@@ -275,7 +276,7 @@ class DataValidationView(FormView):
                     "Samples": pd.DataFrame.from_dict(self.samples_dict),
                     ProtocolsLoader.DataSheetName: pl.get_dataframe_template(
                         populate=True,
-                        filter={"category": "animal_treatment"},
+                        filter={"category": Protocol.ANIMAL_TREATMENT},
                     ),
                     TissuesLoader.DataSheetName: tl.get_dataframe_template(
                         populate=True
