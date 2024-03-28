@@ -349,8 +349,9 @@ class TableLoader(ABC):
         """
         self.headers = self._merge_headers(custom_headers)
 
-        # Create a list of all header string values from a namedtuple of header key/value pairs, in the order in which
-        # they were defined
+        # Create a list of all header string values from a namedtuple of header key/value pairs.  Note, this is in the
+        # order in which the namedtuple defined them, but this instance variable is not gur=aranteed to have the right
+        # order if the derived class changes it.  Use get_ordered_display_headers instead to guarantee the order.
         self.all_headers = [getattr(self.headers, hk) for hk in self.headers._fields]
 
         # Create a dict of header names that map to header key (a reverse lookup)
