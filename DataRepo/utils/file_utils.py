@@ -81,12 +81,21 @@ def read_from_file(
     elif filetype == "yaml":
         retval = _read_from_yaml(filepath)
 
+    return retval
+
+
+def _check_dtype_arg(
+    filepath,
+    result,
+    sheet=0,
+    dtype=None,
+):
     # Error-check the dtype argument supplied
-    if dtype is not None and len(dtype.keys()) > 0 and retval is not None:
+    if dtype is not None and len(dtype.keys()) > 0 and result is not None:
         # This assumes the retval is a dataframe
         missing = []
         for dtk in dtype.keys():
-            if dtk not in retval.columns:
+            if dtk not in result.columns:
                 missing.append(dtk)
         if len(missing) == len(dtype.keys()):
             # None of the keys are present in the dataframe
@@ -95,19 +104,17 @@ def read_from_file(
                 dtype,
                 file=filepath,
                 sheet=sheet,
-                columns=list(retval.columns),
+                columns=list(result.columns),
             )
         elif len(missing) > 0:
             idk = InvalidDtypeKeys(
                 missing,
                 file=filepath,
                 sheet=sheet,
-                columns=list(retval.columns),
+                columns=list(result.columns),
             )
             # Some columns may be optional, so if at least 1 is correct, just issue a warning.
             print(f"WARNING: {type(idk).__name__}: {idk}")
-
-    return retval
 
 
 def read_headers_from_file(
@@ -275,7 +282,14 @@ def _read_from_xlsx(
         dropna = False
 
     if dropna:
-        return df.dropna(axis=0, how="all")
+        df = df.dropna(axis=0, how="all")
+
+    _check_dtype_arg(
+        filepath,
+        df,
+        sheet=sheet,
+        dtype=dtype,
+    )
 
     return df
 
@@ -304,7 +318,13 @@ def _read_from_tsv(
         dropna = False
 
     if dropna:
-        return df.dropna(axis=0, how="all")
+        df = df.dropna(axis=0, how="all")
+
+    _check_dtype_arg(
+        filepath,
+        df,
+        dtype=dtype,
+    )
 
     return df
 
@@ -333,7 +353,13 @@ def _read_from_csv(
         dropna = False
 
     if dropna:
-        return df.dropna(axis=0, how="all")
+        df = df.dropna(axis=0, how="all")
+
+    _check_dtype_arg(
+        filepath,
+        df,
+        dtype=dtype,
+    )
 
     return df
 
@@ -485,8 +511,7 @@ def is_excel(filepath):
         bool: Whether the file is an excel file or not
     """
     try:
-        pd.ExcelFile(filepath, engine="openpyxl")
-        return True
+        return filepath is not None and _get_file_type(filepath) == "excel"
     except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
         return False
 

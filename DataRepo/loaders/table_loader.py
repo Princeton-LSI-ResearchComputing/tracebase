@@ -2432,13 +2432,16 @@ class TableLoader(ABC):
             hasattr(fld, "field_name") and fld.field_name in fld_names
         )
 
-    def get_dataframe_template(self, all=False, populate=False):
+    def get_dataframe_template(
+        self, all=False, populate=False, filter: Optional[dict] = None
+    ):
         """Generate a pandas dataframe either populated with all database records or not.  Note, only loader classes
         with a single model are supported.  Override this method to generate a dataframe with data from multiple models.
 
         Args:
             all (boolean) [False]: Whether to include all headers (that are mapped to a field).
             populate (boolean) [False]: Whether to add all of the database data to the dataframe.
+            filter (dict): A dict of field names and values to filter on.
 
         Exceptions:
             Exception
@@ -2448,7 +2451,7 @@ class TableLoader(ABC):
             column pre-populated with the record field values.
         """
         display_headers = self.get_ordered_display_headers(all=all)
-        out_dict = dict([(hdr, []) for hdr in display_headers])
+        out_dict: Dict[str, list] = dict([(hdr, []) for hdr in display_headers])
 
         if populate is True:
             if len(self.Models) > 1:
@@ -2459,7 +2462,11 @@ class TableLoader(ABC):
             for model_class in [
                 mdl for mdl in self.Models if mdl.__name__ in self.FieldToHeader.keys()
             ]:
-                qs = model_class.objects.all()
+                if filter is None:
+                    qs = model_class.objects.all()
+                else:
+                    qs = model_class.objects.filter(**filter)
+
                 for rec in qs:
                     for fld_obj in get_model_fields(model_class):
                         fld = fld_obj.name

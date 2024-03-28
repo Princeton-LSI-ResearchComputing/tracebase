@@ -239,15 +239,17 @@ class DataValidationView(FormView):
             return self.create_study_dfs_dict(version=version)
         return self.get_study_dfs_dict(version=version)
 
-    def create_study_dfs_dict(self, version=default_version):
+    def create_study_dfs_dict(self, dfs_dict=None, version=default_version):
         """Create dataframes for each sheet in self.animal_sample_file as a dict keyed on sheet.
 
         Treatments and tissues dataframes are populated using all of the data in the database for their models.
         Animals and Samples dataframes are not populated.
 
-        In neither case, is missing data attempted to be auto-filled by this method.
+        In neither case, is missing data attempted to be auto-filled by this method.  Nor are unrecognized sheets or
+        columns removed.
 
         Args:
+            dfs_dict (dict of pandas dataframes): Supply this if you want to "fill in" missing sheets only
             version (string) [2]: tracebase study doc version number
 
         Exceptions:
@@ -257,51 +259,151 @@ class DataValidationView(FormView):
             Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
         """
         tl = TissuesLoader()
-        # Providing an excel file will change the headers in the returned column types to the custom excel headers
-        pl = ProtocolsLoader(file=self.animal_sample_file)
+        # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
+        # TODO: Make it possible to explicitly set the type of headers we want so that a dummy file name is not required
+        pl = ProtocolsLoader(file="dummy.xlsx")
 
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
-            # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
-            return {
-                # TODO: Update the animal and sample entries below once the loader has been refactored
-                # The sample table loader has not yet been refactored/split
-                "Animals": pd.DataFrame.from_dict(
-                    {
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: [],
-                    },
-                ),
-                "Samples": pd.DataFrame.from_dict(
-                    {
-                        SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: [],
-                        SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
-                    },
-                ),
-                ProtocolsLoader.DataSheetName: pl.get_dataframe_template(populate=True),
-                TissuesLoader.DataSheetName: tl.get_dataframe_template(populate=True),
-            }
+            if dfs_dict is None:
+                # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
+                return {
+                    # TODO: Update the animal and sample entries below once the loader has been refactored
+                    # The sample table loader has not yet been refactored/split
+                    "Animals": pd.DataFrame.from_dict(self.animals_dict),
+                    "Samples": pd.DataFrame.from_dict(self.samples_dict),
+                    ProtocolsLoader.DataSheetName: pl.get_dataframe_template(
+                        populate=True,
+                        filter={"category": "animal_treatment"},
+                    ),
+                    TissuesLoader.DataSheetName: tl.get_dataframe_template(
+                        populate=True
+                    ),
+                }
+
+            if "Animals" in dfs_dict.keys() and len(dfs_dict["Animals"].columns) > 0:
+                self.fill_in_missing_columns(dfs_dict, "Animals", self.animals_dict)
+            else:
+                dfs_dict["Animals"] = pd.DataFrame.from_dict(self.animals_dict)
+
+            if "Samples" in dfs_dict.keys() and len(dfs_dict["Samples"].columns) > 0:
+                self.fill_in_missing_columns(dfs_dict, "Samples", self.samples_dict)
+            else:
+                dfs_dict["Samples"] = pd.DataFrame.from_dict(self.samples_dict)
+
+            if ProtocolsLoader.DataSheetName in dfs_dict.keys():
+                self.fill_in_missing_columns(
+                    dfs_dict,
+                    ProtocolsLoader.DataSheetName,
+                    pl.get_dataframe_template().to_dict(),
+                )
+            else:
+                dfs_dict[ProtocolsLoader.DataSheetName] = pl.get_dataframe_template(
+                    populate=True
+                )
+
+            if TissuesLoader.DataSheetName in dfs_dict.keys():
+                self.fill_in_missing_columns(
+                    dfs_dict,
+                    TissuesLoader.DataSheetName,
+                    tl.get_dataframe_template().to_dict(),
+                )
+            else:
+                dfs_dict[TissuesLoader.DataSheetName] = tl.get_dataframe_template(
+                    populate=True
+                )
+
+            return dfs_dict
+
         raise Exception(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
+    @classmethod
+    def fill_in_missing_columns(cls, dfs_dict, sheet, template):
+        """Takes a dict of dataframes (dfs_dict), the sheet name (which is the key to the dict), and a template pandas
+        dataframe by which to tcheck the completeness of the dataframe in the dfs_dict, and modifies the dfs_dict to add
+        missing columns (with the same number of rows as the existing data.
+
+        Assumes that the pandas dataframe has at least 1 defined column.
+
+        Args:
+            dfs_dict (dict of pandas dataframes): This is a dict presumed to have been parsed from a file
+            sheet (string): Name of the sheet key in the dfs_dict that the template corresponds to.  The sheet is
+                assumed to be present as a key in dfs_dict.
+            tamplate (dict of lists): A dict containing all of the expected columns (the values are not used).
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
+        sheet_dict = dfs_dict[sheet].to_dict()
+        headers = list(sheet_dict.keys())
+        first_present_header_key = headers[0]
+        # Assumes all columns have the same number of rows
+        num_rows = len(sheet_dict[first_present_header_key])
+        modified = False
+        for header in template.keys():
+            if header not in sheet_dict.keys():
+                modified = True
+                sheet_dict[header] = dict((i, None) for i in range(num_rows))
+        if modified:
+            # No need to change anything if nothing was missing
+            dfs_dict[sheet] = pd.DataFrame.from_dict(sheet_dict)
+
+    @property
+    def animals_dict(self):
+        """Property to return an empty dict template for the Animals sheet.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
+        return {
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: [],
+            SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: [],
+            SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: [],
+            SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: [],
+            SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: [],
+        }
+
+    @property
+    def samples_dict(self):
+        """Property to return an empty dict template for the Samples sheet.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
+        return {
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: [],
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE: [],
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER: [],
+            SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME: [],
+            SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
+        }
+
     def get_study_dfs_dict(self, version=default_version):
-        """Read in each sheet in self.animal_sample_file as a dict of dataframes keyed on sheet.
+        """Read in each sheet in self.animal_sample_file as a dict of dataframes keyed on sheet (filling in any missing
+        sheets and columns).
 
         Args:
             version (string) [2]: tracebase study doc version number
@@ -315,10 +417,15 @@ class DataValidationView(FormView):
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
-            # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
-            return read_from_file(
+            dfs_dict = read_from_file(
                 self.animal_sample_file, sheet=None, dtype=self.get_study_dtypes_dict()
             )
+
+            # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
+            self.create_study_dfs_dict(dfs_dict=dfs_dict)
+
+            return dfs_dict
+
         raise Exception(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
