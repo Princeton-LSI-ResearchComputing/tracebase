@@ -357,42 +357,78 @@ class ResearcherNotNew(Exception):
         self.existing_researchers = existing_researchers
 
 
-class AllMissingSamples(Exception):
-    """
-    This is the same as the MissingSamplesError class, but it takes a 2D dict that is used to report every file where
-    each missing sample exists.
-    """
+class AllMissingSamplesError(Exception):
+    """This is a summary of the MissingSamplesError and NoSamplesError classes."""
 
-    def __init__(self, samples, message=None):
+    def __init__(self, missing_samples_dict, message=None):
+        """An exception for all missing samples errors (MissingSampelsError and NoSamplesError).
+
+        Args:
+            missing_samples_dict (dict): Example:
+                {
+                    "files_missing_all": {"accucor1.xlsx": ["s1", "s2"]},
+                    "files_missing_some": {
+                        "s3": ["accucor2.xlsx", "accucor3.xlsx"],
+                        "s1": ["accucor4.xlsx"],
+                    },
+                    "all_missing_samples": {
+                        "s1": ["accucor1.xlsx", "accucor4.xlsx"],
+                        "s2": ["accucor1.xlsx"],
+                        "s3": ["accucor2.xlsx", "accucor3.xlsx"],
+                    },
+                }
+
+        Exceptions:
+            None
+
+        Returns:
+            instance
+        """
         if not message:
             nltab = "\n\t"
-            smpls_str = nltab.join(
-                list(
-                    map(
-                        lambda smpl: f"{smpl} in file(s): {samples[smpl]}",
-                        samples.keys(),
+            smpls_str = ""
+            if len(missing_samples_dict["files_missing_all"].keys()) > 0:
+                smpls_str += (
+                    f"All {len(missing_samples_dict['files_missing_all'].keys())} samples in file(s): "
+                    + nltab.join(missing_samples_dict["files_missing_all"].keys())
+                )
+                if len(missing_samples_dict["files_missing_some"].keys()) > 0:
+                    smpls_str += nltab
+            if len(missing_samples_dict["files_missing_some"].keys()) > 0:
+                smpls_str += nltab.join(
+                    list(
+                        map(
+                            lambda smpl: f"{smpl} in file(s): {missing_samples_dict['files_missing_some'][smpl]}",
+                            missing_samples_dict["files_missing_some"].keys(),
+                        )
                     )
                 )
-            )
+
             message = (
-                f"{len(samples)} samples are missing in the database/sample-table:{nltab}{smpls_str}\nSamples in the "
-                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
-                "they can be loaded from the mass spec data files."
+                f"{len(missing_samples_dict['all_missing_samples'].keys())} samples are missing in the database/"
+                f"sample-table:{nltab}{smpls_str}\nSamples in the accucor/isocorr files must be present in the "
+                "sample table file and loaded into the database before they can be loaded from the mass spec data "
+                "files."
             )
+
         super().__init__(message)
-        self.samples = samples
+        self.missing_samples = missing_samples_dict
 
 
 class MissingSamplesError(Exception):
-    def __init__(self, samples, message=None):
+    def __init__(self, missing_samples, message=None):
+        if missing_samples is None:
+            missing_samples = []
         if not message:
+            num_missing = len(missing_samples)
             nltab = "\n\t"
             message = (
-                f"{len(samples)} samples are missing in the database/sample-table-file:{nltab}{nltab.join(samples)}\n"
+                f"{num_missing} samples are missing in the database/sample-table-file:{nltab}"
+                f"{nltab.join(missing_samples)}\n"
                 "Samples must be loaded prior to loading mass spec data."
             )
         super().__init__(message)
-        self.samples = samples
+        self.missing_samples = missing_samples
 
 
 class UnskippedBlanksError(MissingSamplesError):
@@ -405,16 +441,36 @@ class UnskippedBlanksError(MissingSamplesError):
 
 
 class NoSamplesError(Exception):
-    def __init__(self, num_samples=0):
-        if num_samples == 0:
-            message = "No samples were supplied."
-        else:
-            message = (
-                f"None of the {num_samples} samples were found in the database/sample table file.  Samples in the "
-                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
-                "they can be loaded from the mass spec data files."
-            )
+    def __init__(self, missing_samples):
+        """An error to abbreviate an error about all samples.
+
+        Args:
+            missing_samples (list of strings): Missing samples (with prefixes) that are not likely blanks (e.g. not
+                containing "blank").
+
+        Exceptions:
+            None
+
+        Returns:
+            instance containing:
+                missing_samples (list of strings): See args above
+        """
+        if missing_samples is None:
+            raise ValueError("A non-zero sized list of missing_samples is required.")
+        num_samples = len(missing_samples)
+        message = (
+            f"None of the {num_samples} samples were found in the database/sample table file.  Samples "
+            "in the accucor/isocorr files must be present in the sample table file and loaded into the database "
+            "before they can be loaded from the mass spec data files."
+        )
         super().__init__(message)
+        self.missing_samples = missing_samples
+
+
+class NoSampleHeaders(InfileError):
+    def __init__(self, **kwargs):
+        message = "No sample headers were found in %s."
+        super().__init__(message, **kwargs)
 
 
 class UnitsWrong(Exception):
@@ -522,16 +578,28 @@ class MultiLoadStatus(Exception):
         }
 
     def set_load_exception(self, exception, load_key, top=False):
-        """
-        This records the status of a load in a data member called statuses.  It tracks some overall stats and can set
+        """Records the status of a load in a data member called statuses.  It tracks some overall stats and can set
         whether this load status should appear at the top of the reported statuses or not.
+
+        Args:
+            exception (Exception instance): An exception to add to the load_key
+            load_key (string): A file name of category name describing a condition that must pass (i.e. must not be
+                associated with any errors), e.g. "All samples exist in the database".
+            top (boolean): Whether the file or category's pass/fail state should be among the first listed in the status
+                report.
+
+        Exceptions:
+            None
+
+        Returns:
+            None
         """
 
         if len(self.statuses.keys()) == 0:
             warnings.warn(
                 f"Load keys such as [{load_key}] should be pre-defined when {type(self).__name__} is constructed or "
                 "as they are encountered by calling [obj.init_load(load_key)].  A load key is by default the file "
-                "name, but can be any key can be explicitly added."
+                "name, but can be any key."
             )
 
         if load_key not in self.statuses.keys():

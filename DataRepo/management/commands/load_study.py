@@ -17,13 +17,14 @@ from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AllMissingCompounds,
-    AllMissingSamples,
+    AllMissingSamplesError,
     AllMissingTissues,
     DryRun,
     MissingCompounds,
     MissingSamplesError,
     MissingTissues,
     MultiLoadStatus,
+    NoSamplesError,
 )
 from DataRepo.utils.lcms_metadata_parser import check_peak_annotation_files
 
@@ -55,7 +56,14 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.missing_samples = defaultdict(list)
+        self.init_status_data()
+
+    def init_status_data(self):
+        self.missing_samples = {
+            "files_missing_all": defaultdict(list),
+            "files_missing_some": defaultdict(list),
+            "all_missing_samples": defaultdict(list),
+        }  # For NoSamplesError and MissingSamplesError
         self.missing_tissues = defaultdict(dict)
         self.missing_compounds = defaultdict(dict)
         self.load_statuses = MultiLoadStatus()
@@ -100,10 +108,7 @@ class Command(BaseCommand):
         post_mass_update_func=enable_caching_updates,
     )
     def handle(self, *args, **options):
-        self.missing_samples = defaultdict(list)
-        self.missing_tissues = defaultdict(dict)
-        self.missing_compounds = defaultdict(dict)
-        self.load_statuses = MultiLoadStatus()
+        self.init_status_data()
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
@@ -404,8 +409,34 @@ class Command(BaseCommand):
             )
             for missing_sample_exception in missing_sample_exceptions:
                 # Look through the sample names saved in the exception and add them to the master list
-                for sample in missing_sample_exception.samples:
-                    self.missing_samples[sample].append(filename)
+                for sample in missing_sample_exception.missing_samples:
+                    self.missing_samples["files_missing_some"][sample].append(filename)
+                    if (
+                        sample not in self.missing_samples["all_missing_samples"].keys()
+                        or filename
+                        not in self.missing_samples["all_missing_samples"][sample]
+                    ):
+                        self.missing_samples["all_missing_samples"][sample].append(
+                            filename
+                        )
+
+            no_samples_exceptions = exception.modify_exception_type(
+                NoSamplesError, is_fatal=False, is_error=False
+            )
+            for no_samples_exception in no_samples_exceptions:
+                self.missing_samples["files_missing_all"][filename].extend(
+                    no_samples_exception.missing_samples
+                )
+                # Look through the sample names saved in the exception and add them to the master list
+                for sample in no_samples_exception.missing_samples:
+                    if (
+                        sample not in self.missing_samples["all_missing_samples"].keys()
+                        or filename
+                        not in self.missing_samples["all_missing_samples"][sample]
+                    ):
+                        self.missing_samples["all_missing_samples"][sample].append(
+                            filename
+                        )
 
             missing_tissue_exceptions = exception.modify_exception_type(
                 MissingTissues, is_fatal=False, is_error=False
@@ -469,9 +500,9 @@ class Command(BaseCommand):
         """
 
         # Collect all the missing samples in 1 error to add to the animal sample table file
-        if len(self.missing_samples) > 0:
+        if len(self.missing_samples["all_missing_samples"].keys()) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingSamples(self.missing_samples),
+                AllMissingSamplesError(self.missing_samples),
                 "All Samples Present in Sample Table File",
                 top=True,
             )

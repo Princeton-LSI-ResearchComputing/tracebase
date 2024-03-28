@@ -953,15 +953,28 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Accucor file
         self.assertTrue(afkey in results)
-        self.assertEqual("FAILED", results[afkey])
+        self.assertEqual("WARNING", results[afkey])
 
         self.assertTrue(
             afkey in exceptions,
             msg=f"{afkey} should be a key in the exceptions dict.  Its keys are: {exceptions.keys()}",
         )
-        self.assertEqual(1, num_errors[afkey])
+        self.assertEqual(0, num_errors[afkey])
         self.assertEqual("NoSamplesError", exceptions[afkey][0]["type"])
-        self.assertEqual(0, num_warnings[afkey])
+        self.assertEqual(1, num_warnings[afkey])
+
+        # All samples in sample table combined error
+        groupkey = "All Samples Present in Sample Table File"
+        self.assertTrue(groupkey in results)
+        self.assertEqual("FAILED", results[groupkey])
+
+        self.assertTrue(
+            groupkey in exceptions,
+            msg=f"{groupkey} should be a key in the exceptions dict.  Its keys are: {exceptions.keys()}",
+        )
+        self.assertEqual(1, num_errors[groupkey])
+        self.assertEqual("AllMissingSamplesError", exceptions[groupkey][0]["type"])
+        self.assertEqual(0, num_warnings[groupkey])
 
     def validate_some_files(self, sample_file, accucor_files):
         # Test the get_validation_results function
