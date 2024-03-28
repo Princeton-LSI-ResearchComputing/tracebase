@@ -446,13 +446,13 @@ class Command(BaseCommand):
                 for tissue in missing_tissue_exception.tissues_dict.keys():
                     if tissue not in self.missing_tissues["tissues"].keys():
                         self.missing_tissues["tissues"][tissue] = defaultdict(list)
-                    self.missing_tissues["tissues"][tissue][
-                        filename
-                    ] = missing_tissue_exception.tissues_dict[tissue]
+                    self.missing_tissues["tissues"][tissue][filename] = (
+                        missing_tissue_exception.tissues_dict[tissue]
+                    )
                     if "existing" not in self.missing_tissues.keys():
-                        self.missing_tissues[
-                            "existing"
-                        ] = missing_tissue_exception.existing
+                        self.missing_tissues["existing"] = (
+                            missing_tissue_exception.existing
+                        )
 
             # Consolidate related cross-file exceptions, like missing compounds
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
@@ -471,15 +471,15 @@ class Command(BaseCommand):
             )
             for missing_compound_exception in missing_compound_exceptions:
                 for compound in missing_compound_exception.compounds_dict.keys():
-                    self.missing_compounds[compound][
-                        "formula"
-                    ] = missing_compound_exception.compounds_dict[compound]["formula"]
+                    self.missing_compounds[compound]["formula"] = (
+                        missing_compound_exception.compounds_dict[compound]["formula"]
+                    )
                     if "files" in self.missing_compounds[compound].keys():
-                        self.missing_compounds[compound]["files"][
-                            filename
-                        ] = missing_compound_exception.compounds_dict[compound][
-                            "rownums"
-                        ]
+                        self.missing_compounds[compound]["files"][filename] = (
+                            missing_compound_exception.compounds_dict[compound][
+                                "rownums"
+                            ]
+                        )
                     else:
                         self.missing_compounds[compound]["files"] = {
                             filename: missing_compound_exception.compounds_dict[

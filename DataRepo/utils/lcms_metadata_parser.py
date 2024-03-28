@@ -61,7 +61,7 @@ def lcms_df_to_dict(df, aes=None):
         for key in row.keys():
             if row[key] is not None and (
                 str(row[key]) == "nan"
-                or (type(row[key]) == str and row[key].strip() == "")
+                or (isinstance(row[key], str) and row[key].strip() == "")
             ):
                 row[key] = None
 

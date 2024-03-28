@@ -931,9 +931,9 @@ class AccuCorDataLoader:
             if len(orig_dupe_dict.keys()) != 0:
                 # Record the rows where this exception occurred so that subsequent downstream errors caused by this
                 # exception can be ignored.
-                self.dupe_isotope_compounds[
-                    "original"
-                ] = dupe_orig_compound_isotope_labels
+                self.dupe_isotope_compounds["original"] = (
+                    dupe_orig_compound_isotope_labels
+                )
                 master_dupe_dict["original"] = orig_dupe_dict
 
         if self.isocorr_format:
