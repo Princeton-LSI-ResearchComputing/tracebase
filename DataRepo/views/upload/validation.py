@@ -4,9 +4,8 @@ import shutil
 import tempfile
 from collections import defaultdict
 from sqlite3 import ProgrammingError
-from typing import List, Optional, cast
+from typing import Dict, List, Optional, cast
 
-import pandas as pd
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
@@ -225,7 +224,7 @@ class DataValidationView(FormView):
         return "TODO: Return study_dfs_dict once get_output_study_file is implemented"
 
     def get_or_create_study_dataframes(self, version=default_version):
-        """Get or create dataframes for each sheet in self.animal_sample_file as a dict keyed on sheet.
+        """Get or create dataframes dict templates for each sheet in self.animal_sample_file as a dict keyed on sheet.
 
         Args:
             version (string) [2]: tracebase study doc version number
@@ -234,14 +233,16 @@ class DataValidationView(FormView):
             Exception
 
         Returns:
-            Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
+            dict of dicts: dataframes-style dicts dict keyed on sheet name
         """
         if self.animal_sample_file is None:
             return self.create_study_dfs_dict(version=version)
         return self.get_study_dfs_dict(version=version)
 
-    def create_study_dfs_dict(self, dfs_dict=None, version=default_version):
-        """Create dataframes for each sheet in self.animal_sample_file as a dict keyed on sheet.
+    def create_study_dfs_dict(
+        self, dfs_dict: Optional[Dict[str, dict]] = None, version=default_version
+    ):
+        """Create dataframe template dicts for each sheet in self.animal_sample_file as a dict keyed on sheet.
 
         Treatments and tissues dataframes are populated using all of the data in the database for their models.
         Animals and Samples dataframes are not populated.
@@ -250,14 +251,14 @@ class DataValidationView(FormView):
         columns removed.
 
         Args:
-            dfs_dict (dict of pandas dataframes): Supply this if you want to "fill in" missing sheets only
-            version (string) [2]: tracebase study doc version number
+            dfs_dict (dict of dicts): Supply this if you want to "fill in" missing sheets only.
+            version (string) [2]: Tracebase study doc version number.
 
         Exceptions:
             Exception
 
         Returns:
-            Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
+            dfs_dict (dict of dicts): pandas' style list-dicts keyed on sheet name
         """
         tl = TissuesLoader()
         # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
@@ -272,8 +273,8 @@ class DataValidationView(FormView):
                 return {
                     # TODO: Update the animal and sample entries below once the loader has been refactored
                     # The sample table loader has not yet been refactored/split
-                    "Animals": pd.DataFrame.from_dict(self.animals_dict),
-                    "Samples": pd.DataFrame.from_dict(self.samples_dict),
+                    "Animals": self.animals_dict,
+                    "Samples": self.samples_dict,
                     ProtocolsLoader.DataSheetName: pl.get_dataframe_template(
                         populate=True,
                         filter={"category": Protocol.ANIMAL_TREATMENT},
@@ -283,21 +284,21 @@ class DataValidationView(FormView):
                     ),
                 }
 
-            if "Animals" in dfs_dict.keys() and len(dfs_dict["Animals"].columns) > 0:
+            if "Animals" in dfs_dict.keys() and len(dfs_dict["Animals"].keys()) > 0:
                 self.fill_in_missing_columns(dfs_dict, "Animals", self.animals_dict)
             else:
-                dfs_dict["Animals"] = pd.DataFrame.from_dict(self.animals_dict)
+                dfs_dict["Animals"] = self.animals_dict
 
-            if "Samples" in dfs_dict.keys() and len(dfs_dict["Samples"].columns) > 0:
+            if "Samples" in dfs_dict.keys() and len(dfs_dict["Samples"].keys()) > 0:
                 self.fill_in_missing_columns(dfs_dict, "Samples", self.samples_dict)
             else:
-                dfs_dict["Samples"] = pd.DataFrame.from_dict(self.samples_dict)
+                dfs_dict["Samples"] = self.samples_dict
 
             if ProtocolsLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
                     dfs_dict,
                     ProtocolsLoader.DataSheetName,
-                    pl.get_dataframe_template().to_dict(),
+                    pl.get_dataframe_template(),
                 )
             else:
                 dfs_dict[ProtocolsLoader.DataSheetName] = pl.get_dataframe_template(
@@ -308,7 +309,7 @@ class DataValidationView(FormView):
                 self.fill_in_missing_columns(
                     dfs_dict,
                     TissuesLoader.DataSheetName,
-                    tl.get_dataframe_template().to_dict(),
+                    tl.get_dataframe_template(),
                 )
             else:
                 dfs_dict[TissuesLoader.DataSheetName] = tl.get_dataframe_template(
@@ -323,17 +324,17 @@ class DataValidationView(FormView):
 
     @classmethod
     def fill_in_missing_columns(cls, dfs_dict, sheet, template):
-        """Takes a dict of dataframes (dfs_dict), the sheet name (which is the key to the dict), and a template pandas
-        dataframe by which to tcheck the completeness of the dataframe in the dfs_dict, and modifies the dfs_dict to add
-        missing columns (with the same number of rows as the existing data.
+        """Takes a dict of pandas-style dicts (dfs_dict), the sheet name (which is the key to the dict), and a template
+        dict by which to check the completeness of the data in the dfs_dict, and modifies the dfs_dict to add
+        missing columns (with the same number of rows as the existing data).
 
-        Assumes that the pandas dataframe has at least 1 defined column.
+        Assumes that the dfs_dict has at least 1 defined column.
 
         Args:
-            dfs_dict (dict of pandas dataframes): This is a dict presumed to have been parsed from a file
+            dfs_dict (dict of dicts): This is a dict presumed to have been parsed from a file
             sheet (string): Name of the sheet key in the dfs_dict that the template corresponds to.  The sheet is
                 assumed to be present as a key in dfs_dict.
-            tamplate (dict of lists): A dict containing all of the expected columns (the values are not used).
+            tamplate (dict of dicts): A dict containing all of the expected columns (the values are not used).
 
         Exceptions:
             None
@@ -341,7 +342,7 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        sheet_dict = dfs_dict[sheet].to_dict()
+        sheet_dict = dfs_dict[sheet]
         headers = list(sheet_dict.keys())
         first_present_header_key = headers[0]
         # Assumes all columns have the same number of rows
@@ -353,7 +354,7 @@ class DataValidationView(FormView):
                 sheet_dict[header] = dict((i, None) for i in range(num_rows))
         if modified:
             # No need to change anything if nothing was missing
-            dfs_dict[sheet] = pd.DataFrame.from_dict(sheet_dict)
+            dfs_dict[sheet] = sheet_dict
 
     @property
     def animals_dict(self):
@@ -367,19 +368,19 @@ class DataValidationView(FormView):
         """
         # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
         return {
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: [],
-            SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: [],
-            SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: [],
-            SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: [],
-            SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: [],
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: {},
+            SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: {},
+            SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: {},
+            SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: {},
+            SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: {},
         }
 
     @property
@@ -394,16 +395,16 @@ class DataValidationView(FormView):
         """
         # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
         return {
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: [],
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE: [],
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER: [],
-            SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME: [],
-            SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: [],
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: [],
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: {},
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE: {},
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER: {},
+            SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME: {},
+            SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: {},
         }
 
     def get_study_dfs_dict(self, version=default_version):
-        """Read in each sheet in self.animal_sample_file as a dict of dataframes keyed on sheet (filling in any missing
+        """Read in each sheet in self.animal_sample_file as a dict of dicts keyed on sheet (filling in any missing
         sheets and columns).
 
         Args:
@@ -413,14 +414,20 @@ class DataValidationView(FormView):
             Exception
 
         Returns:
-            Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
+            dfs_dict (dict of dicts): pandas-style dicts dict keyed on sheet name
         """
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
-            dfs_dict = read_from_file(
+            dict_of_dataframes = read_from_file(
                 self.animal_sample_file, sheet=None, dtype=self.get_study_dtypes_dict()
             )
+
+            # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
+            # data
+            dfs_dict = {}
+            for k, v in dict_of_dataframes.items():
+                dfs_dict[k] = v.to_dict()
 
             # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
             self.create_study_dfs_dict(dfs_dict=dfs_dict)

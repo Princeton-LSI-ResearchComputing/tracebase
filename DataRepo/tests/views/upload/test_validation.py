@@ -172,10 +172,10 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
 
     def assert_dfs_dicts(self, expected, dfs_dict):
         self.assertEqual(len(expected.keys()), len(dfs_dict.keys()))
-        self.assertDictEqual(expected["Animals"], dfs_dict["Animals"].to_dict())
-        self.assertDictEqual(expected["Samples"], dfs_dict["Samples"].to_dict())
-        self.assertDictEqual(expected["Treatments"], dfs_dict["Treatments"].to_dict())
-        self.assertDictEqual(expected["Tissues"], dfs_dict["Tissues"].to_dict())
+        self.assertDictEqual(expected["Animals"], dfs_dict["Animals"])
+        self.assertDictEqual(expected["Samples"], dfs_dict["Samples"])
+        self.assertDictEqual(expected["Treatments"], dfs_dict["Treatments"])
+        self.assertDictEqual(expected["Tissues"], dfs_dict["Tissues"])
 
     def test_get_or_create_study_dataframes_get(self):
         """
