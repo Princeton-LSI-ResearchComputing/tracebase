@@ -19,6 +19,7 @@ from DataRepo.utils.exceptions import (
     AllMissingCompounds,
     AllMissingSamplesError,
     AllMissingTissues,
+    AllMissingTreatments,
     DryRun,
     MissingCompounds,
     MissingSamplesError,
@@ -64,6 +65,7 @@ class Command(BaseCommand):
             "all_missing_samples": defaultdict(list),
         }  # For NoSamplesError and MissingSamplesError
         self.missing_tissue_errors = []
+        self.missing_treatment_errors = []
         self.missing_compounds = defaultdict(dict)
         self.load_statuses = MultiLoadStatus()
 
@@ -445,6 +447,14 @@ class Command(BaseCommand):
                     missing_tissue_exception.missing_tissue_errors
                 )
 
+            missing_treatment_exceptions = exception.modify_exception_type(
+                AllMissingTreatments, is_fatal=False, is_error=False
+            )
+            for missing_treatment_exception in missing_treatment_exceptions:
+                self.missing_treatment_errors.extend(
+                    missing_treatment_exception.missing_treatment_errors
+                )
+
             # Consolidate related cross-file exceptions, like missing compounds
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
             # Example result: self.missing_compounds = {
@@ -498,11 +508,19 @@ class Command(BaseCommand):
                 top=True,
             )
 
-        # Collect all the missing compounds in 1 error to add to the compounds file
+        # Collect all the missing tissues in 1 error to add to the tissues file
         if len(self.missing_tissue_errors) > 0:
             self.load_statuses.set_load_exception(
                 AllMissingTissues(self.missing_tissue_errors),
                 "All Tissues Exist in the Database",
+                top=True,
+            )
+
+        # Collect all the missing treatments in 1 error to add to the treatments file
+        if len(self.missing_treatment_errors) > 0:
+            self.load_statuses.set_load_exception(
+                AllMissingTreatments(self.missing_treatment_errors),
+                "All Treatments Exist in the Database",
                 top=True,
             )
 
