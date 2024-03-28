@@ -365,3 +365,27 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         # TODO: Implement test once method fleshed out in step 11. of issue #829 in comment:
         # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/829#issuecomment-2015852430
         pass
+
+    def test_extract_autofill_exceptions(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_all_missing_samples(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_all_missing_tissues(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_all_missing_treatments(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_extracted_autofill_data(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_autofill_data(self):
+        # TODO: Implement test
+        pass

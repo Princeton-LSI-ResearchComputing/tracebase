@@ -418,7 +418,7 @@ class AllMissingSamplesError(Exception):
             )
 
         super().__init__(message)
-        self.missing_samples = missing_samples_dict
+        self.missing_samples_dict = missing_samples_dict
 
 
 class MissingSamplesError(Exception):
