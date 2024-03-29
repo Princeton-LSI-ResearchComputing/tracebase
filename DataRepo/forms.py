@@ -391,10 +391,11 @@ class DataSubmissionValidationForm(Form):
             not_peak_annot_files = []
 
             for peak_annot_file in peak_annotation_files:
+                peak_annot_filepath = peak_annot_file.temporary_file_path()
                 peak_annotation_filename = str(peak_annot_file)
                 if not AccuCorDataLoader.is_accucor(
-                    peak_annot_file
-                ) and not AccuCorDataLoader.is_isocorr(peak_annot_file):
+                    peak_annot_filepath
+                ) and not AccuCorDataLoader.is_isocorr(peak_annot_filepath):
                     not_peak_annot_files.append(peak_annotation_filename)
 
             if len(not_peak_annot_files) > 0:
