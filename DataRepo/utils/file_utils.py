@@ -5,6 +5,7 @@ from zipfile import BadZipFile
 
 import pandas as pd
 import yaml
+from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -163,14 +164,19 @@ def _get_file_type(filepath, filetype=None):
         "yml": "yaml",
     }
 
+    if isinstance(filepath, TemporaryUploadedFile):
+        filepath = filepath.temporary_file_path()
+
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
+
         if ext in extensions.keys():
             filetype = extensions[ext]
-        elif ext not in extensions.keys():
-            if is_excel(filepath):
+        else:
+            try:
+                pd.ExcelFile(filepath, engine="openpyxl")
                 filetype = "excel"
-            else:
+            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
                 raise CommandError(
                     'Invalid file extension: "%s", expected one of %s',
                     ext,
