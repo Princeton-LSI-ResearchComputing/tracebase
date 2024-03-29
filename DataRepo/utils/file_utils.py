@@ -209,7 +209,9 @@ def _read_from_xlsx(
     # If more than 1 sheet is being read, make recursive calls to get dataframes using the intended dtype dict
     if isinstance(sheet_name, list):
         if expected_headers is not None:
-            raise Exception("expected_headers not supported with multiple sheets.")
+            raise NotImplementedError(
+                "expected_headers not supported with multiple sheets."
+            )
 
         # dtype is assumed to be a 2D dict by sheet and column
         df_dict = {}
