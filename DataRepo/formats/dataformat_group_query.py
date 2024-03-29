@@ -33,7 +33,7 @@ def extractFldPathsHelper(subtree):
         fld_path, fld_name = splitPathName(fld_path_name)
         return [fld_path]
     else:
-        raise Exception(
+        raise ValueError(
             f"Qry type: [{subtree['type']}] must be either 'group' or 'query'."
         )
 
@@ -432,7 +432,7 @@ def getNumEmptyQueriesHelper(filter):
             total_empty += getNumEmptyQueriesHelper(query)
         return total_empty
     else:
-        raise Exception(
+        raise ValueError(
             f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
         )
 
