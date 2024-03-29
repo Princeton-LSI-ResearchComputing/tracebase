@@ -14,6 +14,7 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
     MissingTissue,
+    MissingDataAdded,
     MissingTreatment,
     MultiLoadStatus,
     MutuallyExclusiveOptions,
@@ -304,6 +305,26 @@ class MultiLoadStatusTests(TracebaseTestCase):
             ],
             messages,
         )
+
+    def test_mls_copy_constructor(self):
+        mls = MultiLoadStatus(["mykey", "mykey2"])
+
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes, "mykey")
+
+        aes2 = AggregatedErrors()
+        aes2.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes2, "mykey2")
+
+        # Remove the exception (this makes the status data in mls stale)
+        mls.statuses["mykey"]["aggregated_errors"].remove_exception_type(ValueError)
+
+        # Create a new mls object
+        mls2 = MultiLoadStatus()
+        mls2.copy_constructor(mls)
+        self.assertEqual("PASSED", mls2.statuses["mykey"]["state"])
+        self.assertEqual("FAILED", mls2.statuses["mykey2"]["state"])
 
 
 class AggregatedErrorsTests(TracebaseTestCase):
@@ -977,3 +998,10 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("sphincter on row(s): ['2']", str(amt))
         self.assertIn("elbow_pit on row(s): ['3']", str(amt))
+
+    def test_MissingDataAdded(self):
+        mda = MissingDataAdded(["5 sample names"], file="Study doc.xlsx")
+        self.assertEqual(
+            "Missing data ['5 sample names'] was added to file [Study doc.xlsx].",
+            str(mda),
+        )
