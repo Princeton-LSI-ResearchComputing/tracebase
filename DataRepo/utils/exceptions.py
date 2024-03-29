@@ -620,8 +620,10 @@ class MultiLoadStatus(Exception):
 
             # Wrap the exception in an AggregatedErrors class
             new_aes = AggregatedErrors()
+            is_error = exception.is_error if hasattr(exception, "is_error") else True
+            is_fatal = exception.is_fatal if hasattr(exception, "is_fatal") else True
             # This will cause the exception trace to be printed
-            new_aes.buffer_error(exception)
+            new_aes.buffer_exception(exception, is_error=is_error, is_fatal=is_fatal)
 
         new_num_errors = new_aes.num_errors
         new_num_warnings = new_aes.num_warnings
@@ -722,6 +724,29 @@ class MultiLoadStatus(Exception):
             key=lambda k: self.statuses[k]["top"],
             reverse=not reverse,
         )
+
+    def copy_constructor(self, instance):
+        """Modifying contained AggregatedErrors exceptions makes the state of this object stale, so this copy
+        constructor can be used to create a new object with accurate stats.  After making changes to the population of
+        exceptions in a MultiLoadStatus instance, this method can be used to create a new instance with refreshed
+        metadata.
+
+        Args:
+            instance (MultiLoadStatus): An existing MultiLoadStatus object
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if len(self.statuses.keys()) == 0:
+            for load_key in instance.statuses.keys():
+                self.init_load(load_key)
+        for load_key in instance.statuses.keys():
+            if len(instance.statuses[load_key]["aggregated_errors"].exceptions) > 0:
+                self.set_load_exception(
+                    instance.statuses[load_key]["aggregated_errors"],
+                    load_key,
+                )
 
 
 class AggregatedErrorsSet(Exception):
@@ -901,12 +926,15 @@ class AggregatedErrors(Exception):
         if aes_object.quiet:
             self.quiet = aes_object.quiet
 
-    def get_exception_type(self, exception_class, remove=False):
+    def get_exception_type(self, exception_class, remove=False, modify=True):
         """
         This method is provided to retrieve exceptions (if they exist in the exceptions list) from this object and
         return them.
 
-        If remove is true, the exceptions are removed from this object.
+        Args:
+            exception_class (Exception): The class of exceptions to remove
+            remove (boolean): Whether to remove matching exceptions from this object
+            modify (boolean): Whether the convert a removed exception to a warning
         """
         matched_exceptions = []
         unmatched_exceptions = []
@@ -918,7 +946,7 @@ class AggregatedErrors(Exception):
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if type(exception) == exception_class:
-                if remove:
+                if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
                     exception.is_fatal = False
@@ -994,13 +1022,17 @@ class AggregatedErrors(Exception):
         # Return removed exceptions
         return matched_exceptions
 
-    def remove_exception_type(self, exception_class):
+    def remove_exception_type(self, exception_class, modify=True):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
+
+        Args:
+            exception_class (Exception): The class of exceptions to remove
+            modify (boolean): Whether the convert the removed exception to a warning
         """
-        return self.get_exception_type(exception_class, remove=True)
+        return self.get_exception_type(exception_class, remove=True, modify=modify)
 
     def get_default_message(self):
         should_raise_message = (
@@ -2335,6 +2367,17 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         message = f"Compound [{name}] from %s does not exist as either a primary compound name or synonym."
         super().__init__(message, **kwargs)
         self.name = name
+
+
+class MissingDataAdded(InfileError):
+    """Use this for warnings only, for when missing data exceptions were dealt with."""
+
+    def __init__(self, addition_notes=None, **kwargs):
+        message = "Missing data "
+        if addition_notes is not None:
+            message += f"{addition_notes} "
+        message += "was added to %s."
+        super().__init__(message, **kwargs)
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

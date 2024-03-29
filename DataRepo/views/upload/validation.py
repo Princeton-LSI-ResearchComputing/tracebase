@@ -24,6 +24,7 @@ from DataRepo.utils.exceptions import (
     AllMissingSamplesError,
     AllMissingTissues,
     AllMissingTreatments,
+    MissingDataAdded,
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
@@ -65,6 +66,24 @@ class DataValidationView(FormView):
     supported_versions = [default_version]
     ANIMALS_SHEET = "Animals"
     SAMPLES_SHEET = "Samples"
+
+    def __init__(self):
+        super().__init__()
+        self.autofill_dict = {
+            self.SAMPLES_SHEET: defaultdict(dict),
+            TissuesLoader.DataSheetName: defaultdict(dict),
+            ProtocolsLoader.DataSheetName: defaultdict(dict),
+        }
+        self.extracted_exceptions = {
+            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
+            AllMissingTissues.__name__: {"errors": [], "warnings": []},
+            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
+        }
+        self.valid = None
+        self.results = {}
+        self.exceptions = {}
+        self.ordered_keys = []
+        self.load_status_data: Optional[MultiLoadStatus] = None
 
     def set_files(
         self,
@@ -265,15 +284,18 @@ class DataValidationView(FormView):
             None
         """
         self.extracted_exceptions = {
-            "AllMissingSamplesError": {"errors": [], "warnings": []},
-            "AllMissingTissues": {"errors": [], "warnings": []},
-            "AllMissingTreatments": {"errors": [], "warnings": []},
+            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
+            AllMissingTissues.__name__: {"errors": [], "warnings": []},
+            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
         }
+        # Init the autofill dict for the subsequent calls
         self.autofill_dict = {
             self.SAMPLES_SHEET: defaultdict(dict),
             TissuesLoader.DataSheetName: defaultdict(dict),
             ProtocolsLoader.DataSheetName: defaultdict(dict),
         }
+        warning_load_key = "Autofill Note"
+        data_added = []
         for load_key, aes in [
             (k, v["aggregated_errors"])
             for k, v in self.load_status_data.statuses.items()
@@ -283,24 +305,44 @@ class DataValidationView(FormView):
                 AllMissingTissues,
                 AllMissingTreatments,
             ]:
-                for exc in aes.remove_exception_type(exc_class):
-                    if exc.is_error:
-                        self.extracted_exceptions["AllMissingSamplesError"][
-                            "errors"
-                        ].append(exc)
+                for exc in aes.remove_exception_type(exc_class, modify=False):
+                    if not hasattr(exc, "is_error") or exc.is_error:
+                        self.extracted_exceptions[exc_class.__name__]["errors"].append(
+                            exc
+                        )
 
                         if exc_class == AllMissingSamplesError:
+                            data_added.append(
+                                f"{len(exc.missing_samples_dict['all_missing_samples'].keys())} sample names"
+                            )
                             self.extract_all_missing_samples(exc)
                         elif exc_class == AllMissingTissues:
+                            data_added.append(
+                                f"{len(exc.missing_tissue_errors)} tissue names"
+                            )
                             self.extract_all_missing_tissues(exc)
                         elif exc_class == AllMissingTreatments:
+                            data_added.append(
+                                f"{len(exc.missing_treatment_errors)} treatment names"
+                            )
                             self.extract_all_missing_treatments(exc)
                     else:
-                        self.extracted_exceptions["AllMissingSamplesError"][
+                        self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
-                if len(aes.exceptions) == 0:
-                    del self.load_status_data.statuses[load_key]
+        if len(data_added) > 0:
+            # Refresh the load statuses
+            new_load_status_data = MultiLoadStatus()
+            new_load_status_data.copy_constructor(self.load_status_data)
+            self.load_status_data = new_load_status_data
+
+            # Add a warning about added data
+            added_warning = MissingDataAdded(
+                addition_notes=data_added, file="Output Study Doc"
+            )
+            added_warning.is_error = False
+            added_warning.is_fatal = False
+            self.load_status_data.set_load_exception(added_warning, warning_load_key)
 
     def extract_all_missing_samples(self, exc):
         """Extracts autofill data from the supplied AllMissingSamplesError exception and puts it in self.autofill_dict.
@@ -462,7 +504,9 @@ class DataValidationView(FormView):
                     # Fill in the columns we're not adding data to with None
                     self.dfs_dict[sheet][header][index] = None
             # Now catch up any columns that were not present
-            for missing_header in [h for h, present in headers_present.keys() if not present]:
+            for missing_header in [
+                h for h, present in headers_present.items() if not present
+            ]:
                 # Create the column
                 self.dfs_dict[sheet][missing_header] = {}
                 # Iterate over the missing rows and set them to None

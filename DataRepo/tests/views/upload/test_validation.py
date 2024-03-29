@@ -1,8 +1,17 @@
 import re
 
+from DataRepo.loaders import ProtocolsLoader, SampleTableLoader, TissuesLoader
 from DataRepo.models import Protocol, Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
-from DataRepo.utils.exceptions import NonUniqueSampleDataHeader
+from DataRepo.utils.exceptions import (
+    AllMissingSamplesError,
+    AllMissingTissues,
+    AllMissingTreatments,
+    MissingTissue,
+    MissingTreatment,
+    MultiLoadStatus,
+    NonUniqueSampleDataHeader,
+)
 from DataRepo.views.upload.validation import DataValidationView
 
 
@@ -361,31 +370,236 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
+    def get_data_validation_object_with_errors(self):
+        vo = DataValidationView()
+        vo.load_status_data = MultiLoadStatus(
+            load_keys=[
+                "All Samples present",
+                "All Tissues present",
+                "All Treatments present",
+            ]
+        )
+        missing_sample_dict = {
+            "files_missing_all": {},
+            "files_missing_some": {"s1": ["accucor1.xlsx"]},
+            "all_missing_samples": {"s1": ["accucor1.xlsx"]},
+        }
+        amse_err = AllMissingSamplesError(missing_sample_dict)
+        amse_err.is_error = True
+        amse_warn = AllMissingSamplesError(missing_sample_dict)
+        amse_warn.is_error = False
+        amse_warn2 = AllMissingSamplesError(missing_sample_dict)
+        amse_warn2.is_error = False
+
+        amti_err = AllMissingTissues([MissingTissue("elbow pit")])
+        amti_err.is_error = True
+        amti_warn = AllMissingTissues([MissingTissue("elbow pit")])
+        amti_warn.is_error = False
+        amti_warn2 = AllMissingTissues([MissingTissue("elbow pit")])
+        amti_warn2.is_error = False
+
+        amtr_err = AllMissingTreatments([MissingTreatment("wined-and-dined")])
+        amtr_err.is_error = True
+        amtr_warn = AllMissingTreatments([MissingTreatment("wined-and-dined")])
+        amtr_warn.is_error = False
+        amtr_warn2 = AllMissingTreatments([MissingTreatment("wined-and-dined")])
+        amtr_warn2.is_error = False
+
+        vo.load_status_data.set_load_exception(amse_err, "All Samples present")
+        vo.load_status_data.set_load_exception(amse_warn, "file1.xlsx")
+        vo.load_status_data.set_load_exception(amse_warn2, "file2.xlsx")
+        vo.load_status_data.set_load_exception(amti_err, "All Tissues present")
+        vo.load_status_data.set_load_exception(amti_warn, "file1.xlsx")
+        vo.load_status_data.set_load_exception(amti_warn2, "file2.xlsx")
+        vo.load_status_data.set_load_exception(amtr_err, "All Treatments present")
+        vo.load_status_data.set_load_exception(amtr_warn, "file1.xlsx")
+        vo.load_status_data.set_load_exception(amtr_warn2, "file2.xlsx")
+
+        return vo
+
+    def test_extract_autofill_exceptions(self):
+        vo = self.get_data_validation_object_with_errors()
+
+        vo.extract_autofill_exceptions()
+
+        self.assertEqual(
+            1, len(vo.extracted_exceptions[AllMissingSamplesError.__name__]["errors"])
+        )
+        self.assertEqual(
+            2, len(vo.extracted_exceptions[AllMissingSamplesError.__name__]["warnings"])
+        )
+        self.assertEqual(
+            1, len(vo.extracted_exceptions[AllMissingTissues.__name__]["errors"])
+        )
+        self.assertEqual(
+            2, len(vo.extracted_exceptions[AllMissingTissues.__name__]["warnings"])
+        )
+        self.assertEqual(
+            1, len(vo.extracted_exceptions[AllMissingTreatments.__name__]["errors"])
+        )
+        self.assertEqual(
+            2, len(vo.extracted_exceptions[AllMissingTreatments.__name__]["warnings"])
+        )
+        self.assertDictEqual(
+            {
+                "Samples": {"s1": {"Sample Name": "s1"}},
+                "Tissues": {"elbow pit": {"Tissue": "elbow pit"}},
+                "Treatments": {
+                    "wined-and-dined": {"Animal Treatment": "wined-and-dined"}
+                },
+            },
+            vo.autofill_dict,
+        )
+        self.assertIn("Autofill Note", vo.load_status_data.statuses.keys())
+        self.assertIn("All Samples present", vo.load_status_data.statuses.keys())
+        self.assertIn("All Tissues present", vo.load_status_data.statuses.keys())
+        self.assertIn("All Treatments present", vo.load_status_data.statuses.keys())
+        self.assertEqual(
+            1,
+            len(
+                vo.load_status_data.statuses["Autofill Note"][
+                    "aggregated_errors"
+                ].exceptions
+            ),
+        )
+        self.assertEqual(0, vo.load_status_data.statuses["Autofill Note"]["num_errors"])
+        self.assertEqual(
+            1, vo.load_status_data.statuses["Autofill Note"]["num_warnings"]
+        )
+        self.assertEqual(
+            "WARNING", vo.load_status_data.statuses["Autofill Note"]["state"]
+        )
+        self.assertEqual(
+            "PASSED", vo.load_status_data.statuses["All Samples present"]["state"]
+        )
+        self.assertEqual(
+            "PASSED", vo.load_status_data.statuses["All Tissues present"]["state"]
+        )
+        self.assertEqual(
+            "PASSED", vo.load_status_data.statuses["All Treatments present"]["state"]
+        )
+        self.assertEqual("PASSED", vo.load_status_data.statuses["file1.xlsx"]["state"])
+        self.assertEqual("PASSED", vo.load_status_data.statuses["file2.xlsx"]["state"])
+
+    def test_extract_all_missing_samples(self):
+        vo = DataValidationView()
+        vo.extract_all_missing_samples(
+            AllMissingSamplesError(
+                {
+                    "files_missing_all": {"accucor1.xlsx": ["s1", "s2"]},
+                    "files_missing_some": {
+                        "s3": ["accucor2.xlsx", "accucor3.xlsx"],
+                        "s1": ["accucor4.xlsx"],
+                    },
+                    "all_missing_samples": {
+                        "s1": ["accucor1.xlsx", "accucor4.xlsx"],
+                        "s2": ["accucor1.xlsx"],
+                        "s3": ["accucor2.xlsx", "accucor3.xlsx"],
+                    },
+                }
+            )
+        )
+        expected = {
+            vo.SAMPLES_SHEET: {
+                "s1": {SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: "s1"},
+                "s2": {SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: "s2"},
+                "s3": {SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: "s3"},
+            },
+            ProtocolsLoader.DataSheetName: {},
+            TissuesLoader.DataSheetName: {},
+        }
+        self.assertDictEqual(expected, vo.autofill_dict)
+
+    def test_extract_all_missing_tissues(self):
+        vo = DataValidationView()
+        vo.extract_all_missing_tissues(
+            AllMissingTissues(
+                [
+                    MissingTissue("elbow pit"),
+                    MissingTissue("earlobe"),
+                ]
+            )
+        )
+        expected = {
+            vo.SAMPLES_SHEET: {},
+            ProtocolsLoader.DataSheetName: {},
+            TissuesLoader.DataSheetName: {
+                "elbow pit": {TissuesLoader.DataHeaders.NAME: "elbow pit"},
+                "earlobe": {TissuesLoader.DataHeaders.NAME: "earlobe"},
+            },
+        }
+        self.assertDictEqual(expected, vo.autofill_dict)
+
+    def test_extract_all_missing_treatments(self):
+        vo = DataValidationView()
+        vo.extract_all_missing_treatments(
+            AllMissingTreatments(
+                [
+                    MissingTreatment("berated"),
+                    MissingTreatment("wined-and-dined"),
+                ]
+            )
+        )
+        expected = {
+            vo.SAMPLES_SHEET: {},
+            ProtocolsLoader.DataSheetName: {
+                "berated": {ProtocolsLoader.DataHeadersExcel.NAME: "berated"},
+                "wined-and-dined": {
+                    ProtocolsLoader.DataHeadersExcel.NAME: "wined-and-dined"
+                },
+            },
+            TissuesLoader.DataSheetName: {},
+        }
+        self.assertDictEqual(expected, vo.autofill_dict)
+
+    def test_add_extracted_autofill_data(self):
+        """Asserts that extracted data is added to the dfs_dict.  This indirectly also tests add_autofill_data."""
+        # Obtain a DataValidationView object containing errors
+        vo = self.get_data_validation_object_with_errors()
+        # Create the dfs_dict (to which data will be added)
+        vo.dfs_dict = vo.create_study_dfs_dict()
+        # Extract the errors into the autofill_dict (in the object)
+        vo.extract_autofill_exceptions()
+        # Add the extracted data to the dfs_dict
+        vo.add_extracted_autofill_data()
+        self.assertDictEqual(
+            {
+                "Animals": {
+                    "Study Name": {},
+                    "Study Description": {},
+                    "Animal ID": {},
+                    "Animal Body Weight": {},
+                    "Animal Genotype": {},
+                    "Animal Treatment": {},
+                    "Age": {},
+                    "Sex": {},
+                    "Diet": {},
+                    "Feeding Status": {},
+                    "Infusate": {},
+                    "Infusion Rate": {},
+                    "Tracer Concentrations": {},
+                },
+                "Samples": {
+                    "Animal ID": {0: None},
+                    "Collection Time": {0: None},
+                    "Date Collected": {0: None},
+                    "Researcher Name": {0: None},
+                    "Sample Name": {0: "s1"},  # ADDED
+                    "Tissue": {0: None},
+                },
+                "Tissues": {
+                    "Description": {0: None},
+                    "Tissue": {0: "elbow pit"},  # ADDED
+                },
+                "Treatments": {
+                    "Animal Treatment": {0: "wined-and-dined"},  # ADDED
+                    "Treatment Description": {0: None},
+                },
+            },
+            vo.dfs_dict,
+        )
+
     def test_get_output_study_file(self):
         # TODO: Implement test once method fleshed out in step 11. of issue #829 in comment:
         # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/829#issuecomment-2015852430
-        pass
-
-    def test_extract_autofill_exceptions(self):
-        # TODO: Implement test
-        pass
-
-    def test_extract_all_missing_samples(self):
-        # TODO: Implement test
-        pass
-
-    def test_extract_all_missing_tissues(self):
-        # TODO: Implement test
-        pass
-
-    def test_extract_all_missing_treatments(self):
-        # TODO: Implement test
-        pass
-
-    def test_add_extracted_autofill_data(self):
-        # TODO: Implement test
-        pass
-
-    def test_add_autofill_data(self):
-        # TODO: Implement test
         pass
