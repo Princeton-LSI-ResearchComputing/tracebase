@@ -1,5 +1,6 @@
 import base64
 import os.path
+import pandas as pd
 import re
 import shutil
 import tempfile
@@ -233,8 +234,21 @@ class DataValidationView(FormView):
         if study_filename is None:
             study_filename = "study.xlsx"
 
-        return self.render_to_response(
-            self.get_context_data(
+        self.add_extracted_autofill_data()
+
+        study_stream = BytesIO()
+
+        xlswriter = self.create_study_file_writer(study_stream)
+
+        # TODO: Use the xlswriter to decorate the template with errors/warnings as cell comments, colors to indicate
+        # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
+        xlswriter.close()
+        # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
+        study_stream.seek(0)
+
+        return self.render_to_download_and_page_response(
+            download_bytestream=study_stream,
+            context=self.get_context_data(
                 results=self.results,
                 debug=debug,
                 valid=self.valid,
