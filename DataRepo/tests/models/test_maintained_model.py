@@ -24,7 +24,7 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
 
         def child_func():
             time.sleep(0.2)
-            raise Exception("Sanity check")
+            raise ValueError("Sanity check")
 
         def parent_func():
             return None
@@ -134,7 +134,7 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
             child_coordinator = MaintainedModel._get_current_coordinator()
             # Wasn't sure if I could use self.assertEqual()
             if "always" != child_coordinator.auto_update_mode:
-                raise Exception(
+                raise ValueError(
                     "The child thread's default coordinator should be 'always', but it is "
                     f"{child_coordinator.auto_update_mode}"
                 )

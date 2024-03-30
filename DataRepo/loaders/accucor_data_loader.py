@@ -2050,7 +2050,7 @@ class AccuCorDataLoader:
                 # exception...
                 # See warnings when loading 6eaafasted2_cor.xlsx. Note the tracers for animals 971, 972, 981, 982 in
                 # the sample file and note the isotopeLabels including N15
-                # raise Exception(f"More measured isotopes ({isotopes}) than tracer labeled elements "
+                # raise ValueError(f"More measured isotopes ({isotopes}) than tracer labeled elements "
                 # f"({parent_labels}) for compounds ({observed_compound_recs}).")
                 self.aggregated_errors_object.buffer_warning(
                     UnexpectedIsotopes(isotopes, parent_labels, observed_compound_recs),

@@ -760,7 +760,9 @@ class MaintainedModel(Model):
         if generation != 0:
             # Make sure internal nodes have parent fields
             if parent_field_name is None:
-                raise Exception("parent_field is required if generation is not 0.")
+                raise ConditionallyRequiredArgumentError(
+                    "parent_field is required if generation is not 0."
+                )
         elif generation == 0 and parent_field_name is not None:
             raise ValueError("parent_field must not have a value when generation is 0.")
         if parent_field_name is None and len(child_field_names) == 0:
@@ -852,7 +854,7 @@ class MaintainedModel(Model):
         if update_field_name is None and (
             parent_field_name is None and generation != 0
         ):
-            raise Exception(
+            raise ConditionallyRequiredArgumentError(
                 "Either an update_field_name or parent_field_name argument is required."
             )
 
@@ -1865,7 +1867,7 @@ class MaintainedModel(Model):
                     # yet, so there cannot be any children to return (because to create the relation, you have to supply
                     # a created record).
                 else:
-                    raise Exception(
+                    raise ValueError(
                         f"Unexpected child reference for field [{child_fld}] is None."
                     )
 
@@ -2058,3 +2060,7 @@ class ReverseRelationQueryBeforeRecordExists(Exception):
         self.mdl_name = mdl_name
         self.updtr_fun_name = updtr_fun_name
         self.err = err
+
+
+class ConditionallyRequiredArgumentError(Exception):
+    pass
