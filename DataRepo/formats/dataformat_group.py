@@ -45,7 +45,7 @@ class FormatGroup:
 
     def setDefaultMode(self, mode):
         if mode not in self.modes:
-            raise Exception(
+            raise ValueError(
                 f"Invalid mode: {mode}.  Must be one of: [{', '.join(self.modes)}]"
             )
         self.default_mode = mode
@@ -97,7 +97,7 @@ class FormatGroup:
                     f"ERROR: No empty queries in format {format}: ",
                     self.modeldata[format].static_filter,
                 )
-                raise Exception(
+                raise ValueError(
                     f"Static filter for format {format} must contain at least 1 non-static empty query."
                 )
         return rootGroup
@@ -114,13 +114,13 @@ class FormatGroup:
             or "queryGroup" not in filter
             or len(filter["queryGroup"]) == 0
         ):
-            raise Exception(
+            raise ValueError(
                 "Invalid root query group.  Must be of type 'group' and contain a populated queryGroup array."
             )
         else:
             num_nonstatic = self.getNumNonStaticGroups(filter)
             if num_nonstatic == 0:
-                raise Exception(
+                raise ValueError(
                     "Invalid root query group.  There must exist at least 1 non-static query group."
                 )
             return self.staticFilterIsValidHelper(filter)
@@ -132,13 +132,13 @@ class FormatGroup:
         """
         # Validate the keys present in both query and group types
         if "type" not in filter or "val" not in filter or "static" not in filter:
-            raise Exception(
+            raise ValueError(
                 "Static filter is missing 1 or more required keys: [type, val, static]."
             )
         elif filter["type"] == "query":
             # Validate the keys of the query
             if "ncmp" not in filter or "pos" not in filter or "fld" not in filter:
-                raise Exception(
+                raise ValueError(
                     "Missing keys in query.  At least 1 of the following keys is missing: [fld, ncmp, pos]."
                 )
             # If empty (i.e. val holds an empty string), return true
@@ -152,7 +152,7 @@ class FormatGroup:
                 or len(filter["queryGroup"]) == 0
                 or (filter["val"] != "all" and filter["val"] != "any")
             ):
-                raise Exception(
+                raise ValueError(
                     "Invalid group.  Must contain a queryGroup key with a populated array and val must be either "
                     "'all' or 'any'."
                 )
@@ -162,7 +162,7 @@ class FormatGroup:
                     empty_exists = True
             return empty_exists
         else:
-            raise Exception(
+            raise ValueError(
                 f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
             )
 
@@ -181,7 +181,7 @@ class FormatGroup:
                 total_nonstatic += self.getNumNonStaticGroups(query)
             return total_nonstatic
         else:
-            raise Exception(
+            raise ValueError(
                 f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
             )
 
@@ -203,7 +203,7 @@ class FormatGroup:
         """
         selfmt = getSelectedFormat(qry)
         if format is not None and format != selfmt:
-            raise Exception(
+            raise ValueError(
                 f"Supplied format: [{format}] does not match the qry selected format: [{selfmt}]"
             )
         elif format is None:
@@ -547,13 +547,13 @@ class FormatGroup:
             units_lookup = self.getFieldUnitsLookup(selfmt)
             q_exp = constructAdvancedQuery(qry, units_lookup)
             if fmt is not None and fmt != selfmt:
-                raise Exception(
+                raise ValueError(
                     f"The selected format in the qry object: [{selfmt}] does not match the supplied format: [{fmt}]"
                 )
             else:
                 fmt = selfmt
         elif fmt is None:
-            raise Exception(
+            raise ConditionallyRequiredArgumentError(
                 "Neither a qry object nor a format was supplied.  1 of the 2 is required."
             )
 
@@ -585,7 +585,7 @@ class FormatGroup:
                 if order_direction == "desc":
                     order_by_arg = f"-{order_by}"
                 elif order_direction and order_direction != "asc":
-                    raise Exception(
+                    raise ValueError(
                         f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
                     )
             results = results.order_by(order_by_arg)
@@ -842,3 +842,7 @@ class UnsupportedDistinctCombo(Exception):
         )
         super().__init__(message)
         self.fields = fields
+
+
+class ConditionallyRequiredArgumentError(Exception):
+    pass

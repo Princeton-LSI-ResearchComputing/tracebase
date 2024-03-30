@@ -254,7 +254,7 @@ class DataValidationView(FormView):
             version (string) [2]: tracebase study doc version number
 
         Exceptions:
-            Exception
+            NotImplementedError
 
         Returns:
             Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
@@ -317,7 +317,7 @@ class DataValidationView(FormView):
 
             return dfs_dict
 
-        raise Exception(
+        raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
@@ -410,7 +410,7 @@ class DataValidationView(FormView):
             version (string) [2]: tracebase study doc version number
 
         Exceptions:
-            Exception
+            NotImplementedError
 
         Returns:
             Dict[str, Dict[str, type]]: dataframes dicts keyed on sheet name
@@ -427,7 +427,7 @@ class DataValidationView(FormView):
 
             return dfs_dict
 
-        raise Exception(
+        raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
@@ -438,7 +438,7 @@ class DataValidationView(FormView):
             version (string) [2]: tracebase study doc version number
 
         Exceptions:
-            Exception
+            NotImplementedError
 
         Returns:
             dtypes (Dict[str, Dict[str, type]]): dtype dicts keyed by sheet name
@@ -462,7 +462,7 @@ class DataValidationView(FormView):
                 ProtocolsLoader.DataSheetName: pl.get_column_types(),
                 TissuesLoader.DataSheetName: tl.get_column_types(),
             }
-        raise Exception(
+        raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
