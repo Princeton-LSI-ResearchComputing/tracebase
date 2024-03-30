@@ -1,4 +1,5 @@
 import pandas as pd
+from django.core.files.uploadedfile import TemporaryUploadedFile
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import DateParseError
@@ -127,3 +128,8 @@ class FileUtilsTests(TracebaseTestCase):
         self.assertEqual(len(expected.keys()), len(dfs_dict.keys()))
         self.assertDictEqual(expected["Treatments"], dfs_dict["Treatments"].to_dict())
         self.assertDictEqual(expected["Sequences"], dfs_dict["Sequences"].to_dict())
+
+    def test_get_file_type_temp_file(self):
+        """Assert the _get_file_type() works when supplied a TemporaryUploadedFile."""
+        tuf = TemporaryUploadedFile("test.tsv", None, None, None)
+        self.assertEqual("tsv", _get_file_type(tuf))

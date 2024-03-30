@@ -5,6 +5,7 @@ from zipfile import BadZipFile
 
 import pandas as pd
 import yaml
+from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -163,14 +164,19 @@ def _get_file_type(filepath, filetype=None):
         "yml": "yaml",
     }
 
+    if isinstance(filepath, TemporaryUploadedFile):
+        filepath = filepath.temporary_file_path()
+
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
+
         if ext in extensions.keys():
             filetype = extensions[ext]
-        elif ext not in extensions.keys():
-            if is_excel(filepath):
+        else:
+            try:
+                pd.ExcelFile(filepath, engine="openpyxl")
                 filetype = "excel"
-            else:
+            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
                 raise CommandError(
                     'Invalid file extension: "%s", expected one of %s',
                     ext,
@@ -209,7 +215,9 @@ def _read_from_xlsx(
     # If more than 1 sheet is being read, make recursive calls to get dataframes using the intended dtype dict
     if isinstance(sheet_name, list):
         if expected_headers is not None:
-            raise Exception("expected_headers not supported with multiple sheets.")
+            raise NotImplementedError(
+                "expected_headers not supported with multiple sheets."
+            )
 
         # dtype is assumed to be a 2D dict by sheet and column
         df_dict = {}

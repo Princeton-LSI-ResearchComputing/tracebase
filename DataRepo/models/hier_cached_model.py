@@ -61,7 +61,7 @@ def get_cache(rec, cache_func_name):
         result = None
         good_cache = False
         if throw_cache_errors:
-            raise Exception(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
+            raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
     return result, good_cache
 
 
@@ -92,7 +92,7 @@ def set_cache(rec, cache_func_name, value):
         # Allow tracebase to still work, just without caching
         print(e)
         if throw_cache_errors:
-            raise Exception(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
+            raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
         return False
     return True
 
@@ -281,7 +281,7 @@ class HierCachedModel(Model):
         if len(method_names) > 0:
             return root_rec, method_names[0]
         else:
-            raise Exception(
+            raise CacheError(
                 f"The root model [{root_rec.__class__.__name__}] must contain at least 1 cached function in order to "
                 "maintain hierarchical cached values."
             )
@@ -298,3 +298,7 @@ class HierCachedModel(Model):
 
     class Meta:
         abstract = True
+
+
+class CacheError(Exception):
+    pass
