@@ -221,7 +221,7 @@ class AdvSearchPageForm(Form):
             and "id" in page.widget.attrs
             and page.widget.attrs["id"] != page_id
         ):
-            raise Exception(
+            raise ValueError(
                 "ERROR: AdvSearchPageForm class already has an ID set for the page input"
             )
         page.widget.attrs["id"] = page_id
@@ -232,7 +232,7 @@ class AdvSearchPageForm(Form):
             and "id" in rows.widget.attrs
             and rows.widget.attrs["id"] != rows_id
         ):
-            raise Exception(
+            raise ValueError(
                 "ERROR: AdvSearchPageForm class already has an ID set for the rows input"
             )
         rows.widget.attrs["id"] = rows_id
@@ -243,7 +243,7 @@ class AdvSearchPageForm(Form):
             and "id" in order_by.widget.attrs
             and order_by.widget.attrs["id"] != orderby_id
         ):
-            raise Exception(
+            raise ValueError(
                 "ERROR: AdvSearchPageForm class already has an ID set for the order_by input"
             )
         order_by.widget.attrs["id"] = orderby_id
@@ -254,7 +254,7 @@ class AdvSearchPageForm(Form):
             and "id" in order_direction.widget.attrs
             and order_direction.widget.attrs["id"] != orderdir_id
         ):
-            raise Exception(
+            raise ValueError(
                 "ERROR: AdvSearchPageForm class already has an ID set for the order_direction input"
             )
         order_direction.widget.attrs["id"] = orderdir_id
@@ -267,8 +267,8 @@ class AdvSearchPageForm(Form):
                 and key in rows.widget.attrs
                 and rows.widget.attrs[key] != val
             ):
-                raise Exception(
-                    "ERROR: AdvSearchPageForm class already has a [{key}] set for the rows input"
+                raise ValueError(
+                    f"ERROR: AdvSearchPageForm class already has a [{key}] set for the rows input"
                 )
             rows.widget.attrs[key] = val
 
@@ -280,7 +280,7 @@ class AdvSearchPageForm(Form):
                     and "id" in fld.widget.attrs
                     and fld.widget.attrs["id"] != other_ids[fld_name]
                 ):
-                    raise Exception(
+                    raise ValueError(
                         f"ERROR: AdvSearchPageForm class already has an ID set for the {fld_name} input"
                     )
                 fld.widget.attrs["id"] = other_ids[fld_name]
@@ -391,10 +391,11 @@ class DataSubmissionValidationForm(Form):
             not_peak_annot_files = []
 
             for peak_annot_file in peak_annotation_files:
+                peak_annot_filepath = peak_annot_file.temporary_file_path()
                 peak_annotation_filename = str(peak_annot_file)
                 if not AccuCorDataLoader.is_accucor(
-                    peak_annot_file
-                ) and not AccuCorDataLoader.is_isocorr(peak_annot_file):
+                    peak_annot_filepath
+                ) and not AccuCorDataLoader.is_isocorr(peak_annot_filepath):
                     not_peak_annot_files.append(peak_annotation_filename)
 
             if len(not_peak_annot_files) > 0:

@@ -100,11 +100,11 @@ class Pager:
 
         # Validate
         if self.num_buttons % 2 == 0 or self.num_buttons < 3:
-            raise Exception(
+            raise ValueError(
                 f"The minimum number of buttons [{self.num_buttons}] must be an odd number and greater than 2."
             )
         if page < 1 or (tot is not None and tot != 0 and page > tot):
-            raise Exception(
+            raise ValueError(
                 f"Invalid page number [{page}] must be a number between 1 and {tot}."
             )
 
