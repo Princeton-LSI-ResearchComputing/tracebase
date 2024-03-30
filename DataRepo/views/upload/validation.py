@@ -312,9 +312,10 @@ class DataValidationView(FormView):
         }
         warning_load_key = "Autofill Note"
         data_added = []
-        for load_key, aes in [
-            (k, v["aggregated_errors"])
-            for k, v in self.load_status_data.statuses.items()
+        for aes in [
+            v["aggregated_errors"]
+            for v in self.load_status_data.statuses.values()
+            if v["aggregated_errors"] is not None
         ]:
             for exc_class in [
                 AllMissingSamplesError,
