@@ -1,15 +1,19 @@
 import os.path
+import pandas as pd
 import re
 import shutil
 import tempfile
 from collections import defaultdict
+from io import BytesIO, StringIO
 from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, cast
 
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
+from django.http import StreamingHttpResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.views.generic.edit import FormView
 from jsonschema import ValidationError
 
@@ -227,10 +231,23 @@ class DataValidationView(FormView):
 
         self.format_validation_results_for_template()
 
-        study_file = self.get_output_study_file()
+        self.dfs_dict = self.get_or_create_dfs_dict()
 
-        return self.render_to_response(
-            self.get_context_data(
+        self.add_extracted_autofill_data()
+
+        study_stream = BytesIO()
+
+        xlswriter = self.create_study_file_writer(study_stream)
+
+        # TODO: Use the xlswriter to decorate the template with errors/warnings as cell comments, colors to indicate
+        # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
+        xlswriter.close()
+        # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
+        study_stream.seek(0)
+
+        return self.render_to_download_and_page_response(
+            download_bytestream=study_stream,
+            context=self.get_context_data(
                 results=self.results,
                 debug=debug,
                 valid=self.valid,
@@ -238,7 +255,6 @@ class DataValidationView(FormView):
                 exceptions=self.exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=self.ordered_keys,
-                study_file=study_file,
             )
         )
 
@@ -426,34 +442,13 @@ class DataValidationView(FormView):
                 ProtocolsLoader.DataHeadersExcel.NAME: mte.treatment_name
             }
 
-    def get_output_study_file(self):
-        """Generagte a study doc (based on either the one supplied or create a fresh one) that is initially populated
-        with some basal data (e.g. tissues in the tissues sheet), then add data that was missing, as indicated via the
-        exceptions generated from having tried to load the submitted accucor/isocorr (and/or existing study doc), to the
-        template by appending rows.  Turn the data into an excel file.  Then...
-
-        TODO: decorate the template with errors/warnings as cell comments, colors to indicate errors/warning/required-
-        values/read-only-values, and formulas for inter-sheet population of dropdowns.
-
-        Args:
-            None
-
-        Exceptions:
-            None
-
-        Returns:
-            Excel file
-        """
-        self.dfs_dict = self.get_or_create_study_dataframes()
-        self.add_extracted_autofill_data()
-
-        # TODO: In subsequent PRs, generate an excel file with a custom column order, comment with warning and error
-        # messages, and add formulas for inter-sheet population of drop-downs
-
-        return "TODO: Return study_dfs_dict once get_output_study_file is implemented"
-
     def add_extracted_autofill_data(self):
         """Appends new rows from self.autofill_dict to self.dfs_dict.
+
+        Populate the dfs_dict sheets (keys) with some basal data (e.g. tissues in the tissues sheet), then add data that
+        was missing, as indicated via the exceptions generated from having tried to load the submitted accucor/isocorr
+        (and/or existing study doc), to the template by appending rows.
+
         Args:
             None
         Exceptions:
@@ -522,6 +517,32 @@ class DataValidationView(FormView):
             # Increment the new row number
             index += 1
 
+    def get_study_sheet_column_display_order(self):
+        """Returns a list of lists to specify the sheet and column order of a created study excel file.
+
+        The structure of the returned list is:
+
+            [
+                [sheet_name, [column_names]],
+                ...
+            ]
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            list of lists of a string (sheet name) and list of strings (column names)
+        """
+        return [
+            [self.ANIMALS_SHEET, self.animals_ordered_display_headers],
+            [self.SAMPLES_SHEET, self.samples_ordered_display_headers],
+            [ProtocolsLoader.DataSheetName, ProtocolsLoader.get_ordered_display_headers()],
+            [TissuesLoader.DataSheetName, TissuesLoader.get_ordered_display_headers()],
+        ]
+
     def get_next_row_index(self, sheet):
         """Retrieves the next row index from self.dfs_dict[sheet] (from the first arbitrary column).
 
@@ -540,8 +561,16 @@ class DataValidationView(FormView):
             # This assumes that indexes are contiguous starting from 0 and that the values are never None
             return len(self.dfs_dict[sheet][hdr].keys())
 
-    def get_or_create_study_dataframes(self, version=default_version):
+    def get_or_create_dfs_dict(self, version=default_version):
         """Get or create dataframes dict templates for each sheet in self.animal_sample_file as a dict keyed on sheet.
+
+        Generate a dict for the returned study doc (based on either the study doc supplied or create a fresh one).
+
+        Note that creation populates the dfs_dict sheets (keys) with some basal data (e.g. tissues in the tissues
+        sheet), but the "get" method does not.  Any missing data will need to be added via exceptions.  The intent
+        being, that we initially give users all the data.  If they remove any that's not relevant to their study, that's
+        fine.  We only want to add data if another sheet references it and it's not there.  That will be handled outside
+        of this method.
 
         Args:
             version (string) [2]: tracebase study doc version number
@@ -699,16 +728,46 @@ class DataValidationView(FormView):
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: {},
             SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: {},
             SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: {},
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT: {},
             SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: {},
             SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: {},
         }
+
+    @property
+    def animals_ordered_display_headers(self):
+        """Property to return the ordered Animals sheet headers intended to be included in the template.
+
+        Headers may be a subset of those in self.animals_dict.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
+        return [
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT,
+            SampleTableLoader.DefaultSampleTableHeaders.INFUSATE,
+            SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS,
+            SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME,
+            SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION,
+        ]
 
     @property
     def samples_dict(self):
@@ -729,6 +788,29 @@ class DataValidationView(FormView):
             SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: {},
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: {},
         }
+
+    @property
+    def samples_ordered_display_headers(self):
+        """Property to return the ordered Samples sheet headers intended to be included in the template.
+
+        Headers may be a subset of those in self.samples_dict.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
+        return [
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME,
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE,
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER,
+            SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME,
+            SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED,
+            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME,
+        ]
 
     def get_study_dfs_dict(self, version=default_version):
         """Read in each sheet in self.animal_sample_file as a dict of dicts keyed on sheet (filling in any missing
@@ -1104,6 +1186,100 @@ class DataValidationView(FormView):
             suffixes.extend(cls.DEFAULT_SAMPLE_HEADER_SUFFIXES)
 
         return re.compile(r"(" + "|".join(suffixes) + r")+$")
+
+    def create_study_file_writer(self, stream_obj: BytesIO):
+        """Returns an xlsxwriter for an excel file created from the self.dfs_dict.
+
+        The created writer will output to the supplied stream_obj.
+
+        Args:
+            stream_obj (BytesIO)
+        Exceptions:
+            None
+        Returns:
+            xlwriter (xlsxwriter)
+        """
+        xlswriter = pd.ExcelWriter(stream_obj, engine='xlsxwriter')
+
+        for order_spec in self.get_study_sheet_column_display_order():
+
+            sheet = order_spec[0]
+            columns = order_spec[1]
+
+            # Error-check the ordered sheets/columns
+            if sheet not in self.dfs_dict.keys():
+                raise KeyError(
+                    f"Sheet [{sheet}] from get_study_sheet_column_display_order not in self.dfs_dict: "
+                    f"{self.dfs_dict.keys()}"
+                )
+            else:
+                missing_headers = []
+                for header in columns:
+                    if header not in self.dfs_dict[sheet].keys():
+                        missing_headers.append(header)
+                if len(missing_headers) > 0:
+                    KeyError(
+                        f"The following headers for sheet [{sheet}] obtained from get_study_sheet_column_display_order "
+                        f"are not in self.dfs_dict[{sheet}]: {missing_headers}"
+                    )
+
+            # Create a dataframe and add it as an excel object to an xlwriter sheet
+            pd.DataFrame.from_dict(self.dfs_dict[sheet]).to_excel(
+                excel_writer=xlswriter,
+                sheet_name=sheet,
+                columns=columns
+            )
+
+        return xlswriter
+
+    def multipart_stream_generator(self, streams, boundary):
+        """This generator mixes data streams for a multipart response.  It allows a single data stream to be sent to the
+        client, but containing inside it, multiple separate streams.
+
+        Args:
+            streams (list of IO objects [BytesIO or StringIO]): This contains streams of separate data streams (e.g. a
+                binary file for download and HTML for rendering)
+
+        Exceptions:
+            None
+
+        Returns:
+            the next data chunk on each call via yield (string)
+        """
+        for stream in streams:
+            if isinstance(stream, BytesIO):
+                data = stream.getvalue()
+                content_type = "application/octet-stream"
+            elif isinstance(stream, StringIO):
+                data = stream.getvalue().encode("utf-8")
+                content_type = "text/html"
+            else:
+                continue
+
+            stream_length = len(data)
+            yield f"--{boundary}\r\n"
+            yield f"Content-Type: {content_type}\r\n"
+            yield f"Content-Range: bytes 0-{stream_length-1}/{stream_length}\r\n"
+            yield f"\r\n"
+            yield data
+            yield f"\r\n"
+
+        yield f"--{boundary}--\r\n"
+
+    def render_to_download_and_page_response(
+        self,
+        download_bytestream: BytesIO,
+        context=None,
+        boundary="3d6b6a416f9b5"
+    ):
+        streams = [
+            download_bytestream,
+            StringIO(render_to_string(self.template_name, context=context))
+        ]
+        return StreamingHttpResponse(
+            self.multipart_stream_generator(streams, boundary),
+            content_type=f"multipart/byteranges; boundary={boundary}"
+        )
 
 
 def validation_disabled(request):
