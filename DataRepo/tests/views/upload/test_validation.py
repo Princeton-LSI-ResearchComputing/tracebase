@@ -142,7 +142,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         dvv = DataValidationView()
         dvv.animal_sample_file = None
 
-        dfs_dict = dvv.get_or_create_study_dataframes()
+        dfs_dict = dvv.get_or_create_dfs_dict()
         expected = {
             "Animals": {
                 "Age": {},
@@ -198,7 +198,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
 
-        dfs_dict = dvv.get_or_create_study_dataframes()
+        dfs_dict = dvv.get_or_create_dfs_dict()
         expected = {
             "Animals": {
                 "Age": {0: None},
