@@ -2440,7 +2440,7 @@ class TableLoader(ABC):
             filter (dict): A dict of field names and values to filter on.
 
         Exceptions:
-            Exception
+            NotImplementedError
 
         Returns:
             converted_out_dict (dict of dicts): This is intended to match pandas' version of a dict of lists, where the
@@ -2451,7 +2451,7 @@ class TableLoader(ABC):
 
         if populate is True:
             if len(self.Models) > 1:
-                raise Exception(
+                raise NotImplementedError(
                     f"get_dataframe_template does not currently support multiple models ({len(self.Models)} present: "
                     f"{self.Models}).  The derived class must override this method to add support."
                 )
@@ -2483,18 +2483,17 @@ class TableLoader(ABC):
         return converted_out_dict
 
     def get_ordered_display_headers(self, all=False):
-        """This returns current header names in the order in which the headers were defined in DataTableHeaders, that do
-        not have class-defined default values.
+        """This returns current header names in the order in which the headers were defined in DataTableHeaders and
+        whose DataDefaultValues is None.
 
-        The reason it only excludes class-defined defaults (e.g. header columns that do not have a non-None value
-        defined in DataDefaultValues) is for consistency in the assortment of headers returned.  A user can define
-        defaults for any column, but that shouldn't change the columns in the output display.
+        The reason it excludes headers that have defaults is for consistency in the assortment of headers returned.
+        We don't want user-defined defaults to change the columns in the output display.
 
-        The selection of the defaulted columns is arbitrary because it fits the current need.  If you want a different
-        behavior, just override this method in the derived class and return whichever headers you want in whichever
-        order you want.
+        This choice to exclude columns with class defaults was arbitrary, because it fit the current need.  If you want
+        a different behavior, just override this method in the derived class and return whichever headers you want in
+        whichever order you want.
 
-        It's notable that even thogh self.all_headers should be in order, doubly derived classes can redefine an
+        Technical note: Even though self.all_headers should be in order, doubly derived classes can redefine an
         alternate header order in self.DataTableHeaders, but it turns out that the default __init__ call to
         super().__init__ must happen after the superclass, because my testing showed the superclass order.  Thus, always
         basing it on the current order in self.DataTableHeaders is the safest way to ensure the desired/current order.
