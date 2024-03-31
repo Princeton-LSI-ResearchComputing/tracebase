@@ -192,7 +192,7 @@ class DataValidationView(FormView):
 
         self.set_files(
             tmp_sample_file,
-            sample_filename=str(sample_file),
+            sample_filename=str(sample_file) if sample_file is not None else None,
             peak_annotation_files=[
                 fp.temporary_file_path() for fp in peak_annotation_files
             ],
@@ -205,32 +205,6 @@ class DataValidationView(FormView):
         """
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
-        # TODO: Turn the following into a means to create a sample sheet
-        # peak_annot_file_name = None
-        # peak_annot_files = list(set(self.accucor_files).union(set(self.isocorr_files)))
-
-        # if len(peak_annot_files) == 1:
-        #     # This assumes that, due to the form class's clean method, there is exactly 1 peak annotation file
-        #     peak_annot_file = list(
-        #         set(self.accucor_files).union(set(self.isocorr_files))
-        #     )[0]
-
-        #     # Assumes the second sheet (index 1) is the "corrected" (accucor) or "absolte" (isocorr)
-        #     corrected_sheet = 1
-        #     peak_annot_sample_headers = get_sample_headers(
-        #         read_headers_from_file(
-        #             peak_annot_file, sheet=corrected_sheet, filetype="excel"
-        #         )
-        #     )
-
-        #     peak_annot_file_name = list(
-        #         set(self.accucor_filenames).union(set(self.isocorr_filenames))
-        #     )[0]
-
-        #     lcms_dict = self.build_lcms_dict(
-        #         peak_annot_sample_headers,
-        #         peak_annot_file_name,
-        #     )
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
@@ -248,15 +222,15 @@ class DataValidationView(FormView):
 
         xlsxwriter = self.create_study_file_writer(study_stream)
 
-        # TODO: Use the xlsxwriter to decorate the template with errors/warnings as cell comments, colors to indicate
-        # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
+        self.annotate_study_excel(xlsxwriter)
+
         xlsxwriter.close()
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
         study_stream.seek(0)
 
         study_data = base64.b64encode(study_stream.read()).decode("utf-8")
         study_filename = self.animal_sample_filename
-        if self.animal_sample_filename is None:
+        if study_filename is None:
             study_filename = "study.xlsx"
 
         return self.render_to_response(
@@ -272,6 +246,24 @@ class DataValidationView(FormView):
                 study_filename=study_filename,
             ),
         )
+
+    def annotate_study_excel(self, xlsxwriter):
+        """Add annotations, formulas, colors (indicating errors/warning/required-values/read-only-values/etc).
+
+        Also performs some formatting, such as setting the column width.
+
+        Args:
+            xlsxwriter (xlsxwriter): A study doc in an xlsx writer object.
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # TODO: Use the xlsxwriter to decorate the excel sheets with errors/warnings as cell comments, colors to
+        # indicate errors/warning/required-values/read-only-values, and formulas for inter-sheet population of
+        # dropdowns.
+        for sheet in xlsxwriter.sheets.keys():
+            xlsxwriter.sheets[sheet].autofit()
 
     def extract_autofill_exceptions(self):
         """Remove exceptions related to references to missing underlying data and extract their data.
@@ -1236,7 +1228,7 @@ class DataValidationView(FormView):
 
             # Create a dataframe and add it as an excel object to an xlsxwriter sheet
             pd.DataFrame.from_dict(self.dfs_dict[sheet]).to_excel(
-                excel_writer=xlsxwriter, sheet_name=sheet, columns=columns
+                excel_writer=xlsxwriter, sheet_name=sheet, columns=columns, index=False
             )
 
         return xlsxwriter
