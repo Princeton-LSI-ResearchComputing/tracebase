@@ -88,6 +88,10 @@ class DataValidationView(FormView):
         self.exceptions = {}
         self.ordered_keys = []
         self.load_status_data: Optional[MultiLoadStatus] = None
+        self.tissues_loader = TissuesLoader()
+        # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
+        # TODO: Make it possible to explicitly set the type of headers we want so that a dummy file name is not required
+        self.treatments_loader = ProtocolsLoader(file="dummy.xlsx")
 
     def set_files(
         self,
@@ -105,6 +109,12 @@ class DataValidationView(FormView):
         self.animal_sample_filename = sample_filename
         if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
+
+        if self.animal_sample_file is not None:
+            # Refresh the loader objects using the actual supplied file
+            self.tissues_loader = TissuesLoader(file=self.animal_sample_file)
+            # Providing an excel file will change the headers in the returned column types to the custom excel headers
+            self.treatments_loader = ProtocolsLoader(file=self.animal_sample_file)
 
         if (
             peak_annotation_filenames is None
@@ -237,13 +247,15 @@ class DataValidationView(FormView):
 
         study_stream = BytesIO()
 
-        xlswriter = self.create_study_file_writer(study_stream)
+        xlsxwriter = self.create_study_file_writer(study_stream)
 
-        # TODO: Use the xlswriter to decorate the template with errors/warnings as cell comments, colors to indicate
+        # TODO: Use the xlsxwriter to decorate the template with errors/warnings as cell comments, colors to indicate
         # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
-        xlswriter.close()
+        xlsxwriter.close()
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
         study_stream.seek(0)
+
+        boundary = "3d6b6a416f9b5"
 
         return self.render_to_download_and_page_response(
             download_bytestream=study_stream,
@@ -255,7 +267,9 @@ class DataValidationView(FormView):
                 exceptions=self.exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=self.ordered_keys,
-            )
+                boundary=boundary,
+            ),
+            boundary=boundary,
         )
 
     def extract_autofill_exceptions(self):
@@ -539,8 +553,8 @@ class DataValidationView(FormView):
         return [
             [self.ANIMALS_SHEET, self.animals_ordered_display_headers],
             [self.SAMPLES_SHEET, self.samples_ordered_display_headers],
-            [ProtocolsLoader.DataSheetName, ProtocolsLoader.get_ordered_display_headers()],
-            [TissuesLoader.DataSheetName, TissuesLoader.get_ordered_display_headers()],
+            [ProtocolsLoader.DataSheetName, self.treatments_loader.get_ordered_display_headers()],
+            [TissuesLoader.DataSheetName, self.tissues_loader.get_ordered_display_headers()],
         ]
 
     def get_next_row_index(self, sheet):
@@ -606,11 +620,6 @@ class DataValidationView(FormView):
         Returns:
             dfs_dict (dict of dicts): pandas' style list-dicts keyed on sheet name
         """
-        tl = TissuesLoader()
-        # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
-        # TODO: Make it possible to explicitly set the type of headers we want so that a dummy file name is not required
-        pl = ProtocolsLoader(file="dummy.xlsx")
-
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
@@ -621,11 +630,11 @@ class DataValidationView(FormView):
                     # The sample table loader has not yet been refactored/split
                     self.ANIMALS_SHEET: self.animals_dict,
                     self.SAMPLES_SHEET: self.samples_dict,
-                    ProtocolsLoader.DataSheetName: pl.get_dataframe_template(
+                    ProtocolsLoader.DataSheetName: self.treatments_loader.get_dataframe_template(
                         populate=True,
                         filter={"category": Protocol.ANIMAL_TREATMENT},
                     ),
-                    TissuesLoader.DataSheetName: tl.get_dataframe_template(
+                    TissuesLoader.DataSheetName: self.tissues_loader.get_dataframe_template(
                         populate=True
                     ),
                 }
@@ -654,10 +663,10 @@ class DataValidationView(FormView):
                 self.fill_in_missing_columns(
                     dfs_dict,
                     ProtocolsLoader.DataSheetName,
-                    pl.get_dataframe_template(),
+                    self.treatments_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[ProtocolsLoader.DataSheetName] = pl.get_dataframe_template(
+                dfs_dict[ProtocolsLoader.DataSheetName] = self.treatments_loader.get_dataframe_template(
                     populate=True
                 )
 
@@ -665,10 +674,10 @@ class DataValidationView(FormView):
                 self.fill_in_missing_columns(
                     dfs_dict,
                     TissuesLoader.DataSheetName,
-                    tl.get_dataframe_template(),
+                    self.tissues_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[TissuesLoader.DataSheetName] = tl.get_dataframe_template(
+                dfs_dict[TissuesLoader.DataSheetName] = self.tissues_loader.get_dataframe_template(
                     populate=True
                 )
 
@@ -859,10 +868,6 @@ class DataValidationView(FormView):
         Returns:
             dtypes (Dict[str, Dict[str, type]]): dtype dicts keyed by sheet name
         """
-        tl = TissuesLoader()
-        # Providing an excel file will change the headers in the returned column types to the custom excel headers
-        pl = ProtocolsLoader(file=self.animal_sample_file)
-
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
@@ -875,8 +880,8 @@ class DataValidationView(FormView):
                     animal_sample_headers.ANIMAL_TREATMENT: str,
                 },
                 self.SAMPLES_SHEET: {animal_sample_headers.ANIMAL_NAME: str},
-                ProtocolsLoader.DataSheetName: pl.get_column_types(),
-                TissuesLoader.DataSheetName: tl.get_column_types(),
+                ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(),
+                TissuesLoader.DataSheetName: self.tissues_loader.get_column_types(),
             }
         raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
@@ -1197,9 +1202,9 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            xlwriter (xlsxwriter)
+            xlsxwriter (xlsxwriter)
         """
-        xlswriter = pd.ExcelWriter(stream_obj, engine='xlsxwriter')
+        xlsxwriter = pd.ExcelWriter(stream_obj, engine='xlsxwriter')
 
         for order_spec in self.get_study_sheet_column_display_order():
 
@@ -1223,14 +1228,14 @@ class DataValidationView(FormView):
                         f"are not in self.dfs_dict[{sheet}]: {missing_headers}"
                     )
 
-            # Create a dataframe and add it as an excel object to an xlwriter sheet
+            # Create a dataframe and add it as an excel object to an xlsxwriter sheet
             pd.DataFrame.from_dict(self.dfs_dict[sheet]).to_excel(
-                excel_writer=xlswriter,
+                excel_writer=xlsxwriter,
                 sheet_name=sheet,
                 columns=columns
             )
 
-        return xlswriter
+        return xlsxwriter
 
     def multipart_stream_generator(self, streams, boundary):
         """This generator mixes data streams for a multipart response.  It allows a single data stream to be sent to the
