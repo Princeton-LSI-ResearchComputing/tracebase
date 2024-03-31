@@ -1,6 +1,5 @@
 import base64
 import os.path
-import pandas as pd
 import re
 import shutil
 import tempfile
@@ -246,11 +245,13 @@ class DataValidationView(FormView):
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
         study_stream.seek(0)
 
-        boundary = "3d6b6a416f9b5"
+        study_data = base64.b64encode(study_stream.read()).decode("utf-8")
+        study_filename = self.animal_sample_filename
+        if self.animal_sample_filename is None:
+            study_filename = "study.xlsx"
 
-        return self.render_to_download_and_page_response(
-            download_bytestream=study_stream,
-            context=self.get_context_data(
+        return self.render_to_response(
+            self.get_context_data(
                 results=self.results,
                 debug=debug,
                 valid=self.valid,
@@ -562,8 +563,14 @@ class DataValidationView(FormView):
         return [
             [self.ANIMALS_SHEET, self.animals_ordered_display_headers],
             [self.SAMPLES_SHEET, self.samples_ordered_display_headers],
-            [ProtocolsLoader.DataSheetName, self.treatments_loader.get_ordered_display_headers()],
-            [TissuesLoader.DataSheetName, self.tissues_loader.get_ordered_display_headers()],
+            [
+                ProtocolsLoader.DataSheetName,
+                self.treatments_loader.get_ordered_display_headers(),
+            ],
+            [
+                TissuesLoader.DataSheetName,
+                self.tissues_loader.get_ordered_display_headers(),
+            ],
         ]
 
     def get_next_row_index(self, sheet):
@@ -675,9 +682,9 @@ class DataValidationView(FormView):
                     self.treatments_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[ProtocolsLoader.DataSheetName] = self.treatments_loader.get_dataframe_template(
-                    populate=True
-                )
+                dfs_dict[
+                    ProtocolsLoader.DataSheetName
+                ] = self.treatments_loader.get_dataframe_template(populate=True)
 
             if TissuesLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -686,9 +693,9 @@ class DataValidationView(FormView):
                     self.tissues_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[TissuesLoader.DataSheetName] = self.tissues_loader.get_dataframe_template(
-                    populate=True
-                )
+                dfs_dict[
+                    TissuesLoader.DataSheetName
+                ] = self.tissues_loader.get_dataframe_template(populate=True)
 
             return dfs_dict
 
