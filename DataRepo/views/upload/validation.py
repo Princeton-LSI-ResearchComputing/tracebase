@@ -1,19 +1,18 @@
+import base64
 import os.path
-import pandas as pd
 import re
 import shutil
 import tempfile
 from collections import defaultdict
-from io import BytesIO, StringIO
+from io import BytesIO
 from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, cast
 
+import pandas as pd
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
-from django.http import StreamingHttpResponse
 from django.shortcuts import redirect, render
-from django.template.loader import render_to_string
 from django.views.generic.edit import FormView
 from jsonschema import ValidationError
 
@@ -255,11 +254,13 @@ class DataValidationView(FormView):
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
         study_stream.seek(0)
 
-        boundary = "3d6b6a416f9b5"
+        study_data = base64.b64encode(study_stream.read()).decode("utf-8")
+        study_filename = self.animal_sample_filename
+        if self.animal_sample_filename is None:
+            study_filename = "study.xlsx"
 
-        return self.render_to_download_and_page_response(
-            download_bytestream=study_stream,
-            context=self.get_context_data(
+        return self.render_to_response(
+            self.get_context_data(
                 results=self.results,
                 debug=debug,
                 valid=self.valid,
@@ -267,9 +268,9 @@ class DataValidationView(FormView):
                 exceptions=self.exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=self.ordered_keys,
-                boundary=boundary,
+                study_data=study_data,
+                study_filename=study_filename,
             ),
-            boundary=boundary,
         )
 
     def extract_autofill_exceptions(self):
@@ -549,8 +550,14 @@ class DataValidationView(FormView):
         return [
             [self.ANIMALS_SHEET, self.animals_ordered_display_headers],
             [self.SAMPLES_SHEET, self.samples_ordered_display_headers],
-            [ProtocolsLoader.DataSheetName, self.treatments_loader.get_ordered_display_headers()],
-            [TissuesLoader.DataSheetName, self.tissues_loader.get_ordered_display_headers()],
+            [
+                ProtocolsLoader.DataSheetName,
+                self.treatments_loader.get_ordered_display_headers(),
+            ],
+            [
+                TissuesLoader.DataSheetName,
+                self.tissues_loader.get_ordered_display_headers(),
+            ],
         ]
 
     def get_next_row_index(self, sheet):
@@ -662,9 +669,9 @@ class DataValidationView(FormView):
                     self.treatments_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[ProtocolsLoader.DataSheetName] = self.treatments_loader.get_dataframe_template(
-                    populate=True
-                )
+                dfs_dict[
+                    ProtocolsLoader.DataSheetName
+                ] = self.treatments_loader.get_dataframe_template(populate=True)
 
             if TissuesLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -673,9 +680,9 @@ class DataValidationView(FormView):
                     self.tissues_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[TissuesLoader.DataSheetName] = self.tissues_loader.get_dataframe_template(
-                    populate=True
-                )
+                dfs_dict[
+                    TissuesLoader.DataSheetName
+                ] = self.tissues_loader.get_dataframe_template(populate=True)
 
             return dfs_dict
 
@@ -1200,10 +1207,9 @@ class DataValidationView(FormView):
         Returns:
             xlsxwriter (xlsxwriter)
         """
-        xlsxwriter = pd.ExcelWriter(stream_obj, engine='xlsxwriter')
+        xlsxwriter = pd.ExcelWriter(stream_obj, engine="xlsxwriter")
 
         for order_spec in self.get_study_sheet_column_display_order():
-
             sheet = order_spec[0]
             columns = order_spec[1]
 
@@ -1226,61 +1232,10 @@ class DataValidationView(FormView):
 
             # Create a dataframe and add it as an excel object to an xlsxwriter sheet
             pd.DataFrame.from_dict(self.dfs_dict[sheet]).to_excel(
-                excel_writer=xlsxwriter,
-                sheet_name=sheet,
-                columns=columns
+                excel_writer=xlsxwriter, sheet_name=sheet, columns=columns
             )
 
         return xlsxwriter
-
-    def multipart_stream_generator(self, streams, boundary):
-        """This generator mixes data streams for a multipart response.  It allows a single data stream to be sent to the
-        client, but containing inside it, multiple separate streams.
-
-        Args:
-            streams (list of IO objects [BytesIO or StringIO]): This contains streams of separate data streams (e.g. a
-                binary file for download and HTML for rendering)
-
-        Exceptions:
-            None
-
-        Returns:
-            the next data chunk on each call via yield (string)
-        """
-        for stream in streams:
-            if isinstance(stream, BytesIO):
-                data = stream.getvalue()
-                content_type = "application/octet-stream"
-            elif isinstance(stream, StringIO):
-                data = stream.getvalue().encode("utf-8")
-                content_type = "text/html"
-            else:
-                continue
-
-            stream_length = len(data)
-            yield f"--{boundary}\r\n"
-            yield f"Content-Type: {content_type}\r\n"
-            yield f"Content-Range: bytes 0-{stream_length-1}/{stream_length}\r\n"
-            yield f"\r\n"
-            yield data
-            yield f"\r\n"
-
-        yield f"--{boundary}--\r\n"
-
-    def render_to_download_and_page_response(
-        self,
-        download_bytestream: BytesIO,
-        context=None,
-        boundary="3d6b6a416f9b5"
-    ):
-        streams = [
-            download_bytestream,
-            StringIO(render_to_string(self.template_name, context=context))
-        ]
-        return StreamingHttpResponse(
-            self.multipart_stream_generator(streams, boundary),
-            content_type=f"multipart/byteranges; boundary={boundary}"
-        )
 
 
 def validation_disabled(request):

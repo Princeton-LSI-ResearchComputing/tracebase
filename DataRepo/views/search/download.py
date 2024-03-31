@@ -63,13 +63,9 @@ class AdvancedSearchTSVView(FormView):
         )
 
         if isValidQryObjPopulated(qry):
-            res, _, _ = self.basv_metadata.performQuery(
-                qry, qry["selectedtemplate"]
-            )
+            res, _, _ = self.basv_metadata.performQuery(qry, qry["selectedtemplate"])
         else:
-            res, _, _ = self.basv_metadata.getAllBrowseData(
-                qry["selectedtemplate"]
-            )
+            res, _, _ = self.basv_metadata.getAllBrowseData(qry["selectedtemplate"])
 
         headtmplt = loader.get_template(self.header_template)
         rowtmplt = loader.get_template(self.row_template)
