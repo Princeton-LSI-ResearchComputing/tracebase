@@ -240,11 +240,13 @@ class DataValidationView(FormView):
 
         xlswriter = self.create_study_file_writer(study_stream)
 
-        # TODO: Use the xlswriter to decorate the template with errors/warnings as cell comments, colors to indicate
+        # TODO: Use the xlsxwriter to decorate the template with errors/warnings as cell comments, colors to indicate
         # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
-        xlswriter.close()
+        xlsxwriter.close()
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
         study_stream.seek(0)
+
+        boundary = "3d6b6a416f9b5"
 
         return self.render_to_download_and_page_response(
             download_bytestream=study_stream,
@@ -560,14 +562,8 @@ class DataValidationView(FormView):
         return [
             [self.ANIMALS_SHEET, self.animals_ordered_display_headers],
             [self.SAMPLES_SHEET, self.samples_ordered_display_headers],
-            [
-                ProtocolsLoader.DataSheetName,
-                self.treatments_loader.get_ordered_display_headers(),
-            ],
-            [
-                TissuesLoader.DataSheetName,
-                self.tissues_loader.get_ordered_display_headers(),
-            ],
+            [ProtocolsLoader.DataSheetName, self.treatments_loader.get_ordered_display_headers()],
+            [TissuesLoader.DataSheetName, self.tissues_loader.get_ordered_display_headers()],
         ]
 
     def get_next_row_index(self, sheet):
@@ -679,9 +675,9 @@ class DataValidationView(FormView):
                     self.treatments_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[
-                    ProtocolsLoader.DataSheetName
-                ] = self.treatments_loader.get_dataframe_template(populate=True)
+                dfs_dict[ProtocolsLoader.DataSheetName] = self.treatments_loader.get_dataframe_template(
+                    populate=True
+                )
 
             if TissuesLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -690,9 +686,9 @@ class DataValidationView(FormView):
                     self.tissues_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[
-                    TissuesLoader.DataSheetName
-                ] = self.tissues_loader.get_dataframe_template(populate=True)
+                dfs_dict[TissuesLoader.DataSheetName] = self.tissues_loader.get_dataframe_template(
+                    populate=True
+                )
 
             return dfs_dict
 
