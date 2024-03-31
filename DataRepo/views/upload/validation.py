@@ -247,7 +247,7 @@ class DataValidationView(FormView):
 
         study_data = base64.b64encode(study_stream.read()).decode("utf-8")
         study_filename = self.animal_sample_filename
-        if self.animal_sample_filename is None:
+        if study_filename is None:
             study_filename = "study.xlsx"
 
         return self.render_to_response(
