@@ -22,3 +22,16 @@ function browserDownloadText (filename, text) { // eslint-disable-line no-unused
   element.click()
   document.body.removeChild(element)
 }
+
+function browserDownloadExcel (filename, base64Text) { // eslint-disable-line no-unused-vars
+  const element = document.createElement('a')
+  element.setAttribute(
+    'href',
+    'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + encodeURIComponent(base64Text)
+  )
+  element.setAttribute('download', filename)
+  element.style.display = 'none'
+  document.body.appendChild(element)
+  element.click()
+  document.body.removeChild(element)
+}

@@ -8,11 +8,18 @@
     <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
     <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
     <script src="{% static 'js/file_list_drop_area.js' %}"></script>
+    <script src="{% static 'js/browser_download.js' %}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function(){
             peak_annot_input = document.getElementById('peak_annotation_files_field');
             peak_annot_list = document.getElementById('pending_peak_annot_files');
+            study_file_content_tag = document.getElementById('output_study_file')
             current_peak_annot_files = null;
+
+            // If there is a study file that was produced
+            if ( typeof study_file_content_tag !== "undefined" && study_file_content_tag ) {
+                browserDownloadExcel('{{ study_filename }}', study_file_content_tag.innerHTML)
+            }
 
             // Note that the reset button does not trigger a change event, so see its onclick code
             peak_annot_input.addEventListener(
@@ -42,7 +49,6 @@
                 current_peak_annot_files = peak_annot_input.files;
                 showPeakAnnotFiles(peak_annot_input.files);
             }
-
         })
 
         function showPeakAnnotFiles (files) {
@@ -123,6 +129,7 @@
                 {% endwith %}
             {% endfor %}
         </ul>
+        <pre style="display: none" id="output_study_file">{{study_data}}</pre>
     {% endif %}
 
 {% endblock %}
