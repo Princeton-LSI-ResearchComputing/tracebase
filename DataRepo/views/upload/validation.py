@@ -235,21 +235,6 @@ class DataValidationView(FormView):
 
         self.add_extracted_autofill_data()
 
-        study_stream = BytesIO()
-
-        xlsxwriter = self.create_study_file_writer(study_stream)
-
-        # TODO: Use the xlsxwriter to decorate the template with errors/warnings as cell comments, colors to indicate
-        # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
-        xlsxwriter.close()
-        # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
-        study_stream.seek(0)
-
-        study_data = base64.b64encode(study_stream.read()).decode("utf-8")
-        study_filename = self.animal_sample_filename
-        if study_filename is None:
-            study_filename = "study.xlsx"
-
         return self.render_to_response(
             self.get_context_data(
                 results=self.results,
@@ -335,23 +320,30 @@ class DataValidationView(FormView):
             ProtocolsLoader.DataSheetName: defaultdict(dict),
         }
         warning_load_key = "Autofill Note"
+        # This just contains notes about numbers of values (that will be) added.  These messages will be saved in the
+        # MissingDataAdded exception class (as a warning)
         data_added = []
+
         # For every AggregatedErrors objects associated with a file or category
         for aes in [
             v["aggregated_errors"]
             for v in self.load_status_data.statuses.values()
             if v["aggregated_errors"] is not None
         ]:
+
             # For each exception class we want to extract from the AggregatedErrors object (in order to "fix" the data)
             for exc_class in [
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
             ]:
+
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
                 for exc in aes.remove_exception_type(exc_class, modify=False):
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
+                        # This is the goal of this method - save the exceptions removed, which contain the data we want
+                        # to add
                         self.extracted_exceptions[exc_class.__name__]["errors"].append(
                             exc
                         )
@@ -372,9 +364,13 @@ class DataValidationView(FormView):
                             )
                             self.extract_all_missing_treatments(exc)
                     else:
+                        # We will also save the warnings because they link to originating file where the values came
+                        # from
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
+
+        # If there was any data extracted
         if len(data_added) > 0:
             # Refresh the load statuses
             new_load_status_data = MultiLoadStatus()
