@@ -1,7 +1,7 @@
 # Contributing to the TraceBase project
 
-This document described the basics of how to set up the TraceBase Project Repo
-in order to start developing/contributing.
+This document described the basics of how to set up the TraceBase Project
+repository in order to start developing/contributing.
 
 ## Getting Started
 
@@ -164,7 +164,7 @@ but this section describes how to lint your changes locally.
 
 ##### Individual linters
 
-For the most commonly used linters (*e.g.* for python, HTML, and markdown
+For the most commonly used linters (*e.g.* for python, HTML, and Markdown
 files) it is recommended to install linters locally and run them in your
 editor. Some linters that may be useful to install locally include:
 
@@ -216,7 +216,7 @@ Create a script outside of the repository that runs superlinter via docker and r
 from the repository root directory. Example script:
 
     #!/usr/bin/env sh
-    docker pull github/super-linter:slim-v4
+    docker pull github/super-linter:slim-v6
 
     docker run \
         -e FILTER_REGEX_EXCLUDE="(\.pylintrc|migrations|static\/bootstrap.*)" \
