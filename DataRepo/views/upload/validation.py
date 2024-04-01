@@ -21,6 +21,10 @@ from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
+    AllMissingSamplesError,
+    AllMissingTissues,
+    AllMissingTreatments,
+    MissingDataAdded,
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
@@ -60,6 +64,26 @@ class DataValidationView(FormView):
     # Study doc version (default and supported list)
     default_version = "2"
     supported_versions = [default_version]
+    ANIMALS_SHEET = "Animals"
+    SAMPLES_SHEET = "Samples"
+
+    def __init__(self):
+        super().__init__()
+        self.autofill_dict = {
+            self.SAMPLES_SHEET: defaultdict(dict),
+            TissuesLoader.DataSheetName: defaultdict(dict),
+            ProtocolsLoader.DataSheetName: defaultdict(dict),
+        }
+        self.extracted_exceptions = {
+            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
+            AllMissingTissues.__name__: {"errors": [], "warnings": []},
+            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
+        }
+        self.valid = None
+        self.results = {}
+        self.exceptions = {}
+        self.ordered_keys = []
+        self.load_status_data: Optional[MultiLoadStatus] = None
 
     def set_files(
         self,
@@ -197,31 +221,324 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        valid, results, exceptions, ordered_keys = self.get_validation_results()
+        self.validate_study()
+
+        self.extract_autofill_exceptions()
+
+        self.format_validation_results_for_template()
 
         study_file = self.get_output_study_file()
 
         return self.render_to_response(
             self.get_context_data(
-                results=results,
+                results=self.results,
                 debug=debug,
-                valid=valid,
+                valid=self.valid,
                 form=form,
-                exceptions=exceptions,
+                exceptions=self.exceptions,
                 submission_url=self.submission_url,
-                ordered_keys=ordered_keys,
+                ordered_keys=self.ordered_keys,
                 study_file=study_file,
             )
         )
 
-    def get_output_study_file(self):
-        # TODO: In subsequent PRs, uncomment, generate an excel file with a custom column order, then populate from
-        # data contained in exceptions, comment with warning and error messages, and add formulas for inter-sheet
-        # population of drop-downs
+    def extract_autofill_exceptions(self):
+        """Remove exceptions related to references to missing underlying data and extract their data.
 
-        # study_dfs_dict = self.get_or_create_study_dataframes()
+        This produces a dict named autofill_dict keyed on sheet name.
+
+        This method detects:
+        - AllMissingSamplesError
+          - Error exceptions
+            - Removes the exception
+            - Puts {unique_record_key: {header: sample_name}} in the Samples sheet key of autofill_dict
+            - Puts {unique_record_key: {sample_hdr: sample_name, header_hdr: header_name, peak_annot_hdr: peak_annot}}
+                in Peak Annotation Details sheet
+            - Puts {unique_record_key: {peak_annot_hdr: peak_annot, filetype_hdr: filetype}} in Peak Annotation Files
+                sheet
+          - Warning exceptions
+            - Removes the exception
+        - AllMissingTissues
+          - Error exceptions
+            - Removes the exception
+            - Puts {unique_record_key: {header: tissue_name}} in the Tissues sheet key of autofill_dict
+          - Warning exceptions
+            - Removes the exception
+        - AllMissingTreatments
+          - Error exceptions
+            - Removes the exception
+            - Puts {unique_record_key: {header: treatment_name}} in the Treatments sheet key of autofill_dict
+          - Warning exceptions
+            - Removes the exception
+        - In any of the above cases:
+          - If the load key's value ends up empty, the load key is removed
+
+        TODO: It does not yet handle AllMissingCompounds, as there's not a sheet yet for compounds in the animal/sample
+        doc
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.extracted_exceptions = {
+            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
+            AllMissingTissues.__name__: {"errors": [], "warnings": []},
+            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
+        }
+        # Init the autofill dict for the subsequent calls
+        self.autofill_dict = {
+            self.SAMPLES_SHEET: defaultdict(dict),
+            TissuesLoader.DataSheetName: defaultdict(dict),
+            ProtocolsLoader.DataSheetName: defaultdict(dict),
+        }
+        warning_load_key = "Autofill Note"
+        data_added = []
+        # For every AggregatedErrors objects associated with a file or category
+        for aes in [
+            v["aggregated_errors"]
+            for v in self.load_status_data.statuses.values()
+            if v["aggregated_errors"] is not None
+        ]:
+            # For each exception class we want to extract from the AggregatedErrors object (in order to "fix" the data)
+            for exc_class in [
+                AllMissingSamplesError,
+                AllMissingTissues,
+                AllMissingTreatments,
+            ]:
+                # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
+                for exc in aes.remove_exception_type(exc_class, modify=False):
+                    # If this is an error (as opposed to a warning)
+                    if not hasattr(exc, "is_error") or exc.is_error:
+                        self.extracted_exceptions[exc_class.__name__]["errors"].append(
+                            exc
+                        )
+
+                        if exc_class == AllMissingSamplesError:
+                            data_added.append(
+                                f"{len(exc.missing_samples_dict['all_missing_samples'].keys())} sample names"
+                            )
+                            self.extract_all_missing_samples(exc)
+                        elif exc_class == AllMissingTissues:
+                            data_added.append(
+                                f"{len(exc.missing_tissue_errors)} tissue names"
+                            )
+                            self.extract_all_missing_tissues(exc)
+                        elif exc_class == AllMissingTreatments:
+                            data_added.append(
+                                f"{len(exc.missing_treatment_errors)} treatment names"
+                            )
+                            self.extract_all_missing_treatments(exc)
+                    else:
+                        self.extracted_exceptions[exc_class.__name__][
+                            "warnings"
+                        ].append(exc)
+        if len(data_added) > 0:
+            # Refresh the load statuses
+            new_load_status_data = MultiLoadStatus()
+            new_load_status_data.copy_constructor(self.load_status_data)
+            self.load_status_data = new_load_status_data
+
+            # Add a warning about added data
+            added_warning = MissingDataAdded(
+                addition_notes=data_added, file="Output Study Doc"
+            )
+            added_warning.is_error = False
+            added_warning.is_fatal = False
+            self.load_status_data.set_load_exception(added_warning, warning_load_key)
+
+    def extract_all_missing_samples(self, exc):
+        """Extracts autofill data from the supplied AllMissingSamplesError exception and puts it in self.autofill_dict.
+        The contained missing sample data is in the form of accucor/isocorr column headers, so an attempt is made to
+        remove common appended suffixes, e.g. sample1_pos_scan1.
+
+        self.autofill_dict = {
+            "Samples": {unique_record_key: {header: sample_name}},  # Fills in entries here
+            "Tissues": defaultdict(dict),
+            "Treatments": defaultdict(dict),
+        }
+
+        Args:
+            exc (AllMissingSamplesError): And exception object containing data about missing Samples.
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
+        for sample_header in exc.missing_samples_dict["all_missing_samples"].keys():
+            pattern = self.get_approx_sample_header_replacement_regex()
+            sample_name = re.sub(pattern, "", sample_header)
+            # TODO: Check if the modified name exists in the dfs_dict or in the database already.  If it does, then
+            # nothing needs to be added to the samples sheet.  We just need to add to the LCMS data/sheet (once that's
+            # done).  Note, we could also opt to supply the lcms file produced by the code developed earlier (below).
+            # See build_lcms_dict().
+            self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
+                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
+            }
+
+    def extract_all_missing_tissues(self, exc):
+        """Extracts autofill data from the supplied AllMissingTissues exception and puts it in self.autofill_dict.
+
+        self.autofill_dict = {
+            "Samples": defaultdict(dict),
+            "Tissues": {unique_record_key: {header: tissue_name}},  # Fills in entries here
+            "Treatments": defaultdict(dict),
+        }
+
+        Args:
+            exc (AllMissingTissues): And exception object containing data about missing Tissues.
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
+        for mte in exc.missing_tissue_errors:
+            self.autofill_dict[TissuesLoader.DataSheetName][mte.tissue_name] = {
+                TissuesLoader.DataHeaders.NAME: mte.tissue_name
+            }
+
+    def extract_all_missing_treatments(self, exc):
+        """Extracts autofill data from the supplied AllMissingTreatments exception and puts it in self.autofill_dict.
+
+        self.autofill_dict = {
+            "Samples": defaultdict(dict),
+            "Tissues": defaultdict(dict),
+            "Treatments": {unique_record_key: {header: treatment_name}},  # Fills in entries here
+        }
+
+        Args:
+            exc (AllMissingTreatments): And exception object containing data about missing Treatments.
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
+        for mte in exc.missing_treatment_errors:
+            self.autofill_dict[ProtocolsLoader.DataSheetName][mte.treatment_name] = {
+                ProtocolsLoader.DataHeadersExcel.NAME: mte.treatment_name
+            }
+
+    def get_output_study_file(self):
+        """Generagte a study doc (based on either the one supplied or create a fresh one) that is initially populated
+        with some basal data (e.g. tissues in the tissues sheet), then add data that was missing, as indicated via the
+        exceptions generated from having tried to load the submitted accucor/isocorr (and/or existing study doc), to the
+        template by appending rows.  Turn the data into an excel file.  Then...
+
+        TODO: decorate the template with errors/warnings as cell comments, colors to indicate errors/warning/required-
+        values/read-only-values, and formulas for inter-sheet population of dropdowns.
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            Excel file
+        """
+        self.dfs_dict = self.get_or_create_study_dataframes()
+        self.add_extracted_autofill_data()
+
+        # TODO: In subsequent PRs, generate an excel file with a custom column order, comment with warning and error
+        # messages, and add formulas for inter-sheet population of drop-downs
 
         return "TODO: Return study_dfs_dict once get_output_study_file is implemented"
+
+    def add_extracted_autofill_data(self):
+        """Appends new rows from self.autofill_dict to self.dfs_dict.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.add_autofill_data(self.SAMPLES_SHEET)
+        self.add_autofill_data(TissuesLoader.DataSheetName)
+        self.add_autofill_data(ProtocolsLoader.DataSheetName)
+
+    def add_autofill_data(self, sheet):
+        """This method, given a sheet name, adds the data from self.autofill_dict[sheet] to self.dfs_dict[sheet],
+        starting at the first empty row.
+
+        Note the structures of the source dicts involved:
+        - self.autofill_dict[sheet] is structured like {unique_key_str: {header1: value1, header2: value2}}
+        - self.dfs_dict[sheet] is structured like {header1: {0: rowindex0_value, 1: rowindex1_value}}
+
+        Note: It assumes a few things:
+        - sheet is a key in both self.dfs_dict and self.autofill_dict.
+        - self.dfs_dict[sheet] and self.autofill_dict[sheet] each contain a dict.
+        - None of the data in self.autofill_dict[sheet] is already present on an existing row.
+        - The keys in the self.dfs_dict[sheet] dict are contiguous integers starting from 0 (which must be true at the
+            time of implementation).
+
+        Args:
+            sheet (string): The name of the sheet, which is the first key in both the self.autofill_dict and
+                self.dfs_dict.
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
+        # Get the first row index where we will be adding data (we will be incrementing this)
+        index = self.get_next_row_index(sheet)
+        # We don't need the record keys, so we're going to iterate over the records of new data
+        for sheet_dict in self.autofill_dict[sheet].values():
+            # We're going to iterate over the headers present in the dfs_dict, but we need to keep track is and headers
+            # in the sheet_dict are absent in the dfs_dict, so we can catch it up after the loop
+            headers_present = dict((k, False) for k in sheet_dict.keys())
+            # For the columns in the sheet (dfs_dict)
+            for header in self.dfs_dict[sheet].keys():
+                # If the header is one we're adding data to
+                if header in sheet_dict.keys():
+                    # Record that the header was found
+                    headers_present[header] = True
+                    # Add the new data  in the next row
+                    self.dfs_dict[sheet][header][index] = sheet_dict[header]
+                else:
+                    # Fill in the columns we're not adding data to with None
+                    self.dfs_dict[sheet][header][index] = None
+            # Now catch up any columns that were not present
+            for missing_header in [
+                h for h, present in headers_present.items() if not present
+            ]:
+                # Create the column
+                self.dfs_dict[sheet][missing_header] = {}
+                # Iterate over the missing rows and set them to None
+                for missing_index in range(index):
+                    self.dfs_dict[sheet][missing_header][missing_index] = None
+                # Now set the new row value for the missing column
+                self.dfs_dict[sheet][header][index] = sheet_dict[header]
+            # Increment the new row number
+            index += 1
+
+    def get_next_row_index(self, sheet):
+        """Retrieves the next row index from self.dfs_dict[sheet] (from the first arbitrary column).
+
+        Note: This assumes each column has the same number of rows
+
+        Args:
+            sheet (string): Name of the sheet to get the last row from
+
+        Exceptions:
+            None
+
+        Returns:
+            last_index (Optional[int]): None if there are no rows, otherwise the max row index.
+        """
+        for hdr in self.dfs_dict[sheet].keys():
+            # This assumes that indexes are contiguous starting from 0 and that the values are never None
+            return len(self.dfs_dict[sheet][hdr].keys())
 
     def get_or_create_study_dataframes(self, version=default_version):
         """Get or create dataframes dict templates for each sheet in self.animal_sample_file as a dict keyed on sheet.
@@ -273,8 +590,8 @@ class DataValidationView(FormView):
                 return {
                     # TODO: Update the animal and sample entries below once the loader has been refactored
                     # The sample table loader has not yet been refactored/split
-                    "Animals": self.animals_dict,
-                    "Samples": self.samples_dict,
+                    self.ANIMALS_SHEET: self.animals_dict,
+                    self.SAMPLES_SHEET: self.samples_dict,
                     ProtocolsLoader.DataSheetName: pl.get_dataframe_template(
                         populate=True,
                         filter={"category": Protocol.ANIMAL_TREATMENT},
@@ -284,15 +601,25 @@ class DataValidationView(FormView):
                     ),
                 }
 
-            if "Animals" in dfs_dict.keys() and len(dfs_dict["Animals"].keys()) > 0:
-                self.fill_in_missing_columns(dfs_dict, "Animals", self.animals_dict)
+            if (
+                self.ANIMALS_SHEET in dfs_dict.keys()
+                and len(dfs_dict[self.ANIMALS_SHEET].keys()) > 0
+            ):
+                self.fill_in_missing_columns(
+                    dfs_dict, self.ANIMALS_SHEET, self.animals_dict
+                )
             else:
-                dfs_dict["Animals"] = self.animals_dict
+                dfs_dict[self.ANIMALS_SHEET] = self.animals_dict
 
-            if "Samples" in dfs_dict.keys() and len(dfs_dict["Samples"].keys()) > 0:
-                self.fill_in_missing_columns(dfs_dict, "Samples", self.samples_dict)
+            if (
+                self.SAMPLES_SHEET in dfs_dict.keys()
+                and len(dfs_dict[self.SAMPLES_SHEET].keys()) > 0
+            ):
+                self.fill_in_missing_columns(
+                    dfs_dict, self.SAMPLES_SHEET, self.samples_dict
+                )
             else:
-                dfs_dict["Samples"] = self.samples_dict
+                dfs_dict[self.SAMPLES_SHEET] = self.samples_dict
 
             if ProtocolsLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -461,11 +788,11 @@ class DataValidationView(FormView):
             return {
                 # TODO: Update the animal and sample entries below once the loader has been refactored
                 # The sample table loader has not yet been refactored/split
-                "Animals": {
+                self.ANIMALS_SHEET: {
                     animal_sample_headers.ANIMAL_NAME: str,
                     animal_sample_headers.ANIMAL_TREATMENT: str,
                 },
-                "Samples": {animal_sample_headers.ANIMAL_NAME: str},
+                self.SAMPLES_SHEET: {animal_sample_headers.ANIMAL_NAME: str},
                 ProtocolsLoader.DataSheetName: pl.get_column_types(),
                 TissuesLoader.DataSheetName: tl.get_column_types(),
             }
@@ -473,24 +800,22 @@ class DataValidationView(FormView):
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
-    def get_validation_results(self):
-        load_status_data = self.validate_study()
-
-        valid = load_status_data.is_valid
+    def format_validation_results_for_template(self):
+        valid = self.load_status_data.is_valid
         results = {}
         exceptions = {}
         ordered_keys = []
 
-        for load_key in load_status_data.get_ordered_status_keys():
+        for load_key in self.load_status_data.get_ordered_status_keys():
             # The load_key is the absolute path, but we only want to report errors in the context of the file's name
             short_load_key = os.path.basename(load_key)
 
             ordered_keys.append(short_load_key)
-            results[short_load_key] = load_status_data.statuses[load_key]["state"]
+            results[short_load_key] = self.load_status_data.statuses[load_key]["state"]
 
             exceptions[short_load_key] = []
             # Get the AggregatedErrors object
-            aes = load_status_data.statuses[load_key]["aggregated_errors"]
+            aes = self.load_status_data.statuses[load_key]["aggregated_errors"]
             # aes is None if there were no exceptions
             if aes is not None:
                 for exc in aes.exceptions:
@@ -505,7 +830,12 @@ class DataValidationView(FormView):
                         }
                     )
 
-        return valid, results, exceptions, ordered_keys
+        self.valid = valid
+        self.results = results
+        self.exceptions = exceptions
+        self.ordered_keys = ordered_keys
+
+        return valid
 
     # No need to disable autoupdates adding the @no_autoupdates decorator to this function because supplying
     # `validate=True` automatically disables them
@@ -535,7 +865,9 @@ class DataValidationView(FormView):
 
         tmpdir_obj.cleanup()
 
-        return load_status_data
+        self.load_status_data = load_status_data
+
+        return self.load_status_data.is_valid
 
     def create_yaml(self, tmpdir):
         basic_loading_data = {
