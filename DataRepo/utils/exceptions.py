@@ -946,7 +946,7 @@ class AggregatedErrors(Exception):
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if isinstance(exception, exception_class):
-                if remove:
+                if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
                     exception.is_fatal = False

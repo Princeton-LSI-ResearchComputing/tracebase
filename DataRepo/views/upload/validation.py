@@ -296,17 +296,21 @@ class DataValidationView(FormView):
         }
         warning_load_key = "Autofill Note"
         data_added = []
+        # For every AggregatedErrors objects associated with a file or category
         for aes in [
             v["aggregated_errors"]
             for v in self.load_status_data.statuses.values()
             if v["aggregated_errors"] is not None
         ]:
+            # For each exception class we want to extract from the AggregatedErrors object (in order to "fix" the data)
             for exc_class in [
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
             ]:
+                # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
                 for exc in aes.remove_exception_type(exc_class, modify=False):
+                    # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
                         self.extracted_exceptions[exc_class.__name__]["errors"].append(
                             exc
