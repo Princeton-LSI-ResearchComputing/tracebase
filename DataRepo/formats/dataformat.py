@@ -440,16 +440,16 @@ class Format:
                     # Have to use the value as the metadatakey, because retrieval of the example/about strings will be
                     # based on the units select list's selected value
                     unitsdict[fldkey]["metadata"][unit_key] = {}
-                    unitsdict[fldkey]["metadata"][unit_key][
-                        "example"
-                    ] = self.unit_options[key]["entry_options"][unit_key]["example"]
+                    unitsdict[fldkey]["metadata"][unit_key]["example"] = (
+                        self.unit_options[key]["entry_options"][unit_key]["example"]
+                    )
                     if (
                         "about"
                         in self.unit_options[key]["entry_options"][unit_key].keys()
                     ):
-                        unitsdict[fldkey]["metadata"][unit_key][
-                            "about"
-                        ] = self.unit_options[key]["entry_options"][unit_key]["about"]
+                        unitsdict[fldkey]["metadata"][unit_key]["about"] = (
+                            self.unit_options[key]["entry_options"][unit_key]["about"]
+                        )
                     else:
                         unitsdict[fldkey]["metadata"][unit_key]["about"] = None
 
