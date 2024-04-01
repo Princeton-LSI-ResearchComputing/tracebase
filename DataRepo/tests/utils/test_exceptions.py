@@ -13,6 +13,7 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
+    MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
     MutuallyExclusiveOptions,
@@ -939,16 +940,16 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("Available sheets: ['A', 'B']", str(esnf))
 
     def test_MissingTissue(self):
-        mt = MissingTreatment(
-            treatment_name="sphincter",
+        mt = MissingTissue(
+            tissue_name="sphincter",
             file="study.xlsx",
             sheet="Samples",
-            column="Treatment",
+            column="Tissue",
             rownum=2,
         )
-        self.assertIn("Treatment 'sphincter'", str(mt))
+        self.assertIn("Tissue 'sphincter'", str(mt))
         self.assertIn(
-            "column [Treatment] on row [2] of sheet [Samples] in file [study.xlsx]",
+            "column [Tissue] on row [2] of sheet [Samples] in file [study.xlsx]",
             str(mt),
         )
 

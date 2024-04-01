@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Added
+
+### Changed
+
+### Removed
+
+## [3.0.0-beta] - 2024-03-13
+
+### Fixed
+
 - Fixed PeakData and PeakGroups links from ArchiveFile detail page
 
 ### Added

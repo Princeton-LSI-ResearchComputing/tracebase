@@ -917,7 +917,7 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if type(exception) == exception_class:
+            if isinstance(exception, exception_class):
                 if remove:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
@@ -967,7 +967,7 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if type(exception) == exception_class:
+            if isinstance(exception, exception_class):
                 if is_error is not None:
                     exception.is_error = is_error
                 if is_fatal is not None:
@@ -1364,7 +1364,7 @@ class DuplicateValues(InfileError):
                 # issue worse.  Before, it was called with a message arg, which avoided the issue.  Now it's not called
                 # with a message.  This strategy needs to be consolidated.
                 idxs = l
-                if type(l) == dict:
+                if isinstance(l, dict):
                     idxs = l["rowidxs"]
                 dupdeets.append(
                     f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"

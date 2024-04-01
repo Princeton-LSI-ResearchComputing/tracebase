@@ -551,7 +551,7 @@ class SampleTableLoader:
         without the units, also in string format.  It buffers a warning exception, because the value could be
         malformed, so the user should be alerted about it to potentially fix it.
         """
-        if type(val) != str:
+        if not isinstance(val, str):
             # Assume that if it's not a string, it already doesn't contain units, because pandas converted it
             return val
 
