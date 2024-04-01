@@ -92,27 +92,12 @@
     </div>
 
     {% if results %}
-        {% if not valid %}
-            <br>
-            <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>
-            <div class="level-indent">
-                Please address the issues below in your file and try again.<br>
-                <div class="level-indent small">
-                    <span class="{{ 'FAILED'|getClass }}">Errors are in red.</span><br>
-                    <span class="{{ 'WARNING'|getClass }}">Warnings are in yellow.</span><br>
-                    <span class="{{ 'PASSED'|getClass }}">Validated files are in green.</span><br>
-                    <!-- There currently is no unchecked files possible, but planned in issue #659, hence this is commented
-                        <span class="{{ 'INFO'|getClass }}">Unchecked files are in blue.</span><br>
-                    -->
-                </div>
-                If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue for you.
-            </div>
-            <hr>
-        {% else %}
-            <br>
-            <br>
-            <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
+        <br>
+        <br>
+        {% if valid %}
+            <h5 class="text-success">Your data looks good! You may proceed to the <a href="{{ submission_url }}">submission form</a> if you are ready to add this data to TraceBase.</h5>
         {% endif %}
+        <hr>
         <ul class="ul-nopadding">
             {% for key in ordered_keys %}
                 {% with status=results|index:key status_class=results|index:key|getClass err_status="ERROR" wrn_status="WARNING" %}
