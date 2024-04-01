@@ -5,12 +5,14 @@ from zipfile import BadZipFile
 
 import pandas as pd
 import yaml
+from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.utils.exceptions import (
     DateParseError,
     DuplicateFileHeaders,
+    ExcelSheetNotFound,
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaders,
@@ -80,12 +82,21 @@ def read_from_file(
     elif filetype == "yaml":
         retval = _read_from_yaml(filepath)
 
+    return retval
+
+
+def _check_dtype_arg(
+    filepath,
+    result,
+    sheet=0,
+    dtype=None,
+):
     # Error-check the dtype argument supplied
-    if dtype is not None and len(dtype.keys()) > 0 and retval is not None:
+    if dtype is not None and len(dtype.keys()) > 0 and result is not None:
         # This assumes the retval is a dataframe
         missing = []
         for dtk in dtype.keys():
-            if dtk not in retval.columns:
+            if dtk not in result.columns:
                 missing.append(dtk)
         if len(missing) == len(dtype.keys()):
             # None of the keys are present in the dataframe
@@ -94,19 +105,17 @@ def read_from_file(
                 dtype,
                 file=filepath,
                 sheet=sheet,
-                columns=list(retval.columns),
+                columns=list(result.columns),
             )
         elif len(missing) > 0:
             idk = InvalidDtypeKeys(
                 missing,
                 file=filepath,
                 sheet=sheet,
-                columns=list(retval.columns),
+                columns=list(result.columns),
             )
             # Some columns may be optional, so if at least 1 is correct, just issue a warning.
             print(f"WARNING: {type(idk).__name__}: {idk}")
-
-    return retval
 
 
 def read_headers_from_file(
@@ -155,14 +164,19 @@ def _get_file_type(filepath, filetype=None):
         "yml": "yaml",
     }
 
+    if isinstance(filepath, TemporaryUploadedFile):
+        filepath = filepath.temporary_file_path()
+
     if filetype is None:
         ext = pathlib.Path(filepath).suffix.strip(".")
+
         if ext in extensions.keys():
             filetype = extensions[ext]
-        elif ext not in extensions.keys():
-            if is_excel(filepath):
+        else:
+            try:
+                pd.ExcelFile(filepath, engine="openpyxl")
                 filetype = "excel"
-            else:
+            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
                 raise CommandError(
                     'Invalid file extension: "%s", expected one of %s',
                     ext,
@@ -193,9 +207,47 @@ def _read_from_xlsx(
     na_values=None,
 ):
     sheet_name = sheet
-    orig_sheet = sheet
-    sheets = pd.ExcelFile(filepath, engine="openpyxl").sheet_names
-    if sheet_name is None or str(sheet_name) not in sheets:
+    sheets = get_sheet_names(filepath)
+
+    if sheet is None:
+        sheet_name = sheets
+
+    # If more than 1 sheet is being read, make recursive calls to get dataframes using the intended dtype dict
+    if isinstance(sheet_name, list):
+        if expected_headers is not None:
+            raise NotImplementedError(
+                "expected_headers not supported with multiple sheets."
+            )
+
+        # dtype is assumed to be a 2D dict by sheet and column
+        df_dict = {}
+        for sheet_n in sheet_name:
+            dtype_n = None
+            if isinstance(dtype, dict):
+                dtype_n = dtype.get(sheet_n, None)
+
+            # Recursive calls
+            df_dict[sheet_n] = read_from_file(
+                filepath,
+                sheet=sheet_n,
+                dtype=dtype_n,
+                keep_default_na=keep_default_na,
+                dropna=dropna,
+                # TODO: Add support for expected headers
+                # expected_headers=None,
+                na_values=na_values,
+            )
+
+        return df_dict
+
+    if (
+        sheet_name is not None
+        and not isinstance(sheet_name, int)
+        and sheet_name not in sheets
+        and (expected_headers is not None or len(sheets) == 1)
+    ):
+        # If we know the expected headers or there's only 1 sheet, let's take a chance that the first sheet is correct,
+        # despite a name mismatch.  If this isn't true, there will either be an IndexError or a downstream error.
         sheet_name = 0
 
     try:
@@ -205,14 +257,16 @@ def _read_from_xlsx(
             expected_headers,
         )
     except IndexError as ie:
-        if orig_sheet is None or orig_sheet not in sheets:
-            raise ValueError(
-                f"Valid sheet name required for file {filepath}.  {orig_sheet} supplied."
-            )
+        if (
+            sheet_name is not None
+            and not isinstance(sheet_name, int)
+            and sheet_name not in sheets
+        ):
+            raise ExcelSheetNotFound(sheet=sheet_name, file=filepath, all_sheets=sheets)
         raise ie
 
     kwargs = {
-        "sheet_name": sheet_name,  # The first sheet
+        "sheet_name": sheet_name,
         "engine": "openpyxl",
         "keep_default_na": keep_default_na,
     }
@@ -236,7 +290,14 @@ def _read_from_xlsx(
         dropna = False
 
     if dropna:
-        return df.dropna(axis=0, how="all")
+        df = df.dropna(axis=0, how="all")
+
+    _check_dtype_arg(
+        filepath,
+        df,
+        sheet=sheet,
+        dtype=dtype,
+    )
 
     return df
 
@@ -265,7 +326,13 @@ def _read_from_tsv(
         dropna = False
 
     if dropna:
-        return df.dropna(axis=0, how="all")
+        df = df.dropna(axis=0, how="all")
+
+    _check_dtype_arg(
+        filepath,
+        df,
+        dtype=dtype,
+    )
 
     return df
 
@@ -294,7 +361,13 @@ def _read_from_csv(
         dropna = False
 
     if dropna:
-        return df.dropna(axis=0, how="all")
+        df = df.dropna(axis=0, how="all")
+
+    _check_dtype_arg(
+        filepath,
+        df,
+        dtype=dtype,
+    )
 
     return df
 
@@ -446,8 +519,7 @@ def is_excel(filepath):
         bool: Whether the file is an excel file or not
     """
     try:
-        pd.ExcelFile(filepath, engine="openpyxl")
-        return True
+        return filepath is not None and _get_file_type(filepath) == "excel"
     except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
         return False
 

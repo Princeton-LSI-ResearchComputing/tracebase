@@ -684,7 +684,7 @@ class Format:
 
                     # Check to make sure it doesn't exist
                     if annot_fld in self.rootmodel.__dict__.keys():
-                        raise Exception(
+                        raise ValueError(
                             f"Many-to-many model {mdl_inst_nm} with split_rows=True in format {self.id} must have a "
                             "value for [root_annot_fld].  This is the name that will be used to associate a root "
                             "table record with its M:M field in a unique combination."
@@ -920,7 +920,7 @@ class Format:
                 units_lookup.pop(old_fld)
         else:
             type = getFilterType(subtree)
-            raise Exception(f"Qry type: [{type}] must be either 'group' or 'query'.")
+            raise ValueError(f"Qry type: [{type}] must be either 'group' or 'query'.")
 
     def reRootFieldPath(self, fld, reroot_instance_name):
         """
@@ -974,7 +974,7 @@ class Format:
             map(lambda m: self.model_instances[m]["path"], self.model_instances.keys())
         )
         if path not in avail:
-            raise Exception(
+            raise FieldPathError(
                 f"Field path: [{path}] not found in model instances of format [{self.id}].  "
                 f"Available paths are: [{', '.join(avail)}]."
             )
@@ -986,9 +986,11 @@ class Format:
         # Determine the model name based on either the supplied model or model instance name
         mdl_nm = model_name
         if mdl_inst_nm is None and model_name is None:
-            raise Exception("Either a model instance name or model name is required.")
+            raise ConditionallyRequiredArgumentError(
+                "Either a model instance name or model name is required."
+            )
         elif mdl_inst_nm is not None and model_name is not None:
-            raise Exception(
+            raise MutuallyExclusiveArgumentsError(
                 "mdl_inst_nm and model_name are mutually exclusive options."
             )
         elif model_name is None:
@@ -1278,3 +1280,15 @@ class TypeUnitsMismatch(Exception):
         )
         super().__init__(message)
         self.type = type
+
+
+class ConditionallyRequiredArgumentError(Exception):
+    pass
+
+
+class MutuallyExclusiveArgumentsError(Exception):
+    pass
+
+
+class FieldPathError(Exception):
+    pass

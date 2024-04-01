@@ -3,11 +3,13 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from typing import Dict, Optional, Type
 
+import pandas as pd
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 
+from DataRepo.models.utilities import get_model_fields
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
@@ -347,8 +349,10 @@ class TableLoader(ABC):
         """
         self.headers = self._merge_headers(custom_headers)
 
-        # Create a list of all header string values from a namedtuple of header key/value pairs
-        self.all_headers = list(self.headers._asdict().values())
+        # Create a list of all header string values from a namedtuple of header key/value pairs.  Note, this is in the
+        # order in which the namedtuple defined them, but this instance variable is not gur=aranteed to have the right
+        # order if the derived class changes it.  Use get_ordered_display_headers instead to guarantee the order.
+        self.all_headers = [getattr(self.headers, hk) for hk in self.headers._fields]
 
         # Create a dict of header names that map to header key (a reverse lookup)
         duphns = defaultdict(int)
@@ -2428,3 +2432,93 @@ class TableLoader(ABC):
         return (hasattr(fld, "name") and fld.name in fld_names) or (
             hasattr(fld, "field_name") and fld.field_name in fld_names
         )
+
+    def get_dataframe_template(
+        self, all=False, populate=False, filter: Optional[dict] = None
+    ):
+        """Generate a pandas dataframe either populated with all database records or not.  Note, only loader classes
+        with a single model are supported.  Override this method to generate a dataframe with data from multiple models.
+
+        Args:
+            all (boolean) [False]: Whether to include all headers (that are mapped to a field).
+            populate (boolean) [False]: Whether to add all of the database data to the dataframe.
+            filter (dict): A dict of field names and values to filter on.
+
+        Exceptions:
+            NotImplementedError
+
+        Returns:
+            A pandas dataframe with current headers as the column names and any model field that directly maps to a
+            column pre-populated with the record field values.
+        """
+        display_headers = self.get_ordered_display_headers(all=all)
+        out_dict: Dict[str, list] = dict([(hdr, []) for hdr in display_headers])
+
+        if populate is True:
+            if len(self.Models) > 1:
+                raise NotImplementedError(
+                    f"get_dataframe_template does not currently support multiple models ({len(self.Models)} present: "
+                    f"{self.Models}).  The derived class must override this method to add support."
+                )
+            for model_class in [
+                mdl for mdl in self.Models if mdl.__name__ in self.FieldToHeader.keys()
+            ]:
+                if filter is None:
+                    qs = model_class.objects.all()
+                else:
+                    qs = model_class.objects.filter(**filter)
+
+                for rec in qs:
+                    for fld_obj in get_model_fields(model_class):
+                        fld = fld_obj.name
+                        if fld in self.FieldToHeader[model_class.__name__].keys():
+                            header = self.FieldToHeader[model_class.__name__][fld]
+                            if header in display_headers:
+                                out_dict[header].append(getattr(rec, fld))
+
+                for hdr in display_headers:
+                    if hdr not in out_dict.keys():
+                        out_dict[hdr] = [None for _ in range(qs.count())]
+
+        return pd.DataFrame.from_dict(out_dict)
+
+    def get_ordered_display_headers(self, all=False):
+        """This returns current header names in the order in which the headers were defined in DataTableHeaders and
+        whose DataDefaultValues is None.
+
+        The reason it excludes headers that have defaults is for consistency in the assortment of headers returned.
+        We don't want user-defined defaults to change the columns in the output display.
+
+        This choice to exclude columns with class defaults was arbitrary, because it fit the current need.  If you want
+        a different behavior, just override this method in the derived class and return whichever headers you want in
+        whichever order you want.
+
+        Technical note: Even though self.all_headers should be in order, doubly derived classes can redefine an
+        alternate header order in self.DataTableHeaders, but it turns out that the default __init__ call to
+        super().__init__ must happen after the superclass, because my testing showed the superclass order.  Thus, always
+        basing it on the current order in self.DataTableHeaders is the safest way to ensure the desired/current order.
+
+        Args:
+            all (boolean) [False]: Whether to return all ordered current headers (or just those without class defaults)
+
+        Exceptions:
+            None
+
+        Returns:
+            header names (list of strings): Current header names (not keys) in the order in which they were defined in
+                DataTableHeaders
+        """
+        if all is True:
+            # This is to mitigate the unexpected case where all columns have default values
+            return [getattr(self.headers, hk) for hk in self.DataTableHeaders._fields]
+
+        class_undefaulted_header_names = [
+            getattr(self.headers, hk)
+            for hk in self.DataTableHeaders._fields
+            if (
+                self.DataDefaultValues is None
+                or getattr(self.DataDefaultValues, hk) is None
+            )
+        ]
+
+        return [hn for hn in class_undefaulted_header_names]
