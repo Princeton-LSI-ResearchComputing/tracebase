@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from typing import Dict, Optional, Type
 
-import pandas as pd
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
@@ -2448,8 +2447,8 @@ class TableLoader(ABC):
             NotImplementedError
 
         Returns:
-            A pandas dataframe with current headers as the column names and any model field that directly maps to a
-            column pre-populated with the record field values.
+            converted_out_dict (dict of dicts): This is intended to match pandas' version of a dict of lists, where the
+                lists are actually dicts indexed by integers
         """
         display_headers = self.get_ordered_display_headers(all=all)
         out_dict: Dict[str, list] = dict([(hdr, []) for hdr in display_headers])
@@ -2480,7 +2479,12 @@ class TableLoader(ABC):
                     if hdr not in out_dict.keys():
                         out_dict[hdr] = [None for _ in range(qs.count())]
 
-        return pd.DataFrame.from_dict(out_dict)
+        # Convert the out_dict into a dict containing pandas' version of a list (a dict indexed by integers)
+        converted_out_dict = dict(
+            (k, dict((i, v) for i, v in enumerate(l))) for k, l in out_dict.items()
+        )
+
+        return converted_out_dict
 
     def get_ordered_display_headers(self, all=False):
         """This returns current header names in the order in which the headers were defined in DataTableHeaders and
