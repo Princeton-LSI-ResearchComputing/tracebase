@@ -665,9 +665,9 @@ class DataValidationView(FormView):
                     self.treatments_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[
-                    ProtocolsLoader.DataSheetName
-                ] = self.treatments_loader.get_dataframe_template(populate=True)
+                dfs_dict[ProtocolsLoader.DataSheetName] = (
+                    self.treatments_loader.get_dataframe_template(populate=True)
+                )
 
             if TissuesLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -676,9 +676,9 @@ class DataValidationView(FormView):
                     self.tissues_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[
-                    TissuesLoader.DataSheetName
-                ] = self.tissues_loader.get_dataframe_template(populate=True)
+                dfs_dict[TissuesLoader.DataSheetName] = (
+                    self.tissues_loader.get_dataframe_template(populate=True)
+                )
 
             return dfs_dict
 
