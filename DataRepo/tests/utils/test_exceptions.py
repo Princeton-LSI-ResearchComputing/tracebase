@@ -2,6 +2,7 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllMissingTreatments,
     CompoundDoesNotExist,
     DateParseError,
     DuplicateValueErrors,
@@ -12,6 +13,8 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
+    MissingTissue,
+    MissingTreatment,
     MultiLoadStatus,
     MutuallyExclusiveOptions,
     NoLoadData,
@@ -935,3 +938,42 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("[Not Present] not found", str(esnf))
         self.assertIn("in file [an_excel_file.xlsx]", str(esnf))
         self.assertIn("Available sheets: ['A', 'B']", str(esnf))
+
+    def test_MissingTissue(self):
+        mt = MissingTissue(
+            tissue_name="sphincter",
+            file="study.xlsx",
+            sheet="Samples",
+            column="Tissue",
+            rownum=2,
+        )
+        self.assertIn("Tissue 'sphincter'", str(mt))
+        self.assertIn(
+            "column [Tissue] on row [2] of sheet [Samples] in file [study.xlsx]",
+            str(mt),
+        )
+
+    def test_AllMissingTreatments(self):
+        amt = AllMissingTreatments(
+            [
+                MissingTreatment(
+                    treatment_name="sphincter",
+                    file="study.xlsx",
+                    sheet="Samples",
+                    column="Treatment",
+                    rownum=2,
+                ),
+                MissingTreatment(
+                    treatment_name="elbow_pit",
+                    file="study.xlsx",
+                    sheet="Samples",
+                    column="Treatment",
+                    rownum=3,
+                ),
+            ],
+        )
+        self.assertIn(
+            "column [Treatment] of sheet [Samples] in file [study.xlsx]", str(amt)
+        )
+        self.assertIn("sphincter on row(s): ['2']", str(amt))
+        self.assertIn("elbow_pit on row(s): ['3']", str(amt))

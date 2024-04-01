@@ -19,10 +19,10 @@ from DataRepo.utils.exceptions import (
     AllMissingCompounds,
     AllMissingSamplesError,
     AllMissingTissues,
+    AllMissingTreatments,
     DryRun,
     MissingCompounds,
     MissingSamplesError,
-    MissingTissues,
     MultiLoadStatus,
     NoSamplesError,
 )
@@ -64,7 +64,8 @@ class Command(BaseCommand):
             "files_missing_some": defaultdict(list),
             "all_missing_samples": defaultdict(list),
         }  # For NoSamplesError and MissingSamplesError
-        self.missing_tissues = defaultdict(dict)
+        self.missing_tissue_errors = []
+        self.missing_treatment_errors = []
         self.missing_compounds = defaultdict(dict)
         self.load_statuses = MultiLoadStatus()
 
@@ -439,20 +440,20 @@ class Command(BaseCommand):
                         )
 
             missing_tissue_exceptions = exception.modify_exception_type(
-                MissingTissues, is_fatal=False, is_error=False
+                AllMissingTissues, is_fatal=False, is_error=False
             )
             for missing_tissue_exception in missing_tissue_exceptions:
-                # Look through the sample names saved in the exception and add them to the master list
-                for tissue in missing_tissue_exception.tissues_dict.keys():
-                    if tissue not in self.missing_tissues["tissues"].keys():
-                        self.missing_tissues["tissues"][tissue] = defaultdict(list)
-                    self.missing_tissues["tissues"][tissue][filename] = (
-                        missing_tissue_exception.tissues_dict[tissue]
-                    )
-                    if "existing" not in self.missing_tissues.keys():
-                        self.missing_tissues["existing"] = (
-                            missing_tissue_exception.existing
-                        )
+                self.missing_tissue_errors.extend(
+                    missing_tissue_exception.missing_tissue_errors
+                )
+
+            missing_treatment_exceptions = exception.modify_exception_type(
+                AllMissingTreatments, is_fatal=False, is_error=False
+            )
+            for missing_treatment_exception in missing_treatment_exceptions:
+                self.missing_treatment_errors.extend(
+                    missing_treatment_exception.missing_treatment_errors
+                )
 
             # Consolidate related cross-file exceptions, like missing compounds
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
@@ -507,11 +508,19 @@ class Command(BaseCommand):
                 top=True,
             )
 
-        # Collect all the missing compounds in 1 error to add to the compounds file
-        if len(self.missing_tissues) > 0:
+        # Collect all the missing tissues in 1 error to add to the tissues file
+        if len(self.missing_tissue_errors) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingTissues(self.missing_tissues),
+                AllMissingTissues(self.missing_tissue_errors),
                 "All Tissues Exist in the Database",
+                top=True,
+            )
+
+        # Collect all the missing treatments in 1 error to add to the treatments file
+        if len(self.missing_treatment_errors) > 0:
+            self.load_statuses.set_load_exception(
+                AllMissingTreatments(self.missing_treatment_errors),
+                "All Treatments Exist in the Database",
                 top=True,
             )
 
