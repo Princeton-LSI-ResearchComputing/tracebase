@@ -237,7 +237,7 @@ class DataValidationView(FormView):
 
         study_stream = BytesIO()
 
-        xlswriter = self.create_study_file_writer(study_stream)
+        xlsxwriter = self.create_study_file_writer(study_stream)
 
         # TODO: Use the xlsxwriter to decorate the template with errors/warnings as cell comments, colors to indicate
         # errors/warning/required-values/read-only-values, and formulas for inter-sheet population of dropdowns.  Then:
