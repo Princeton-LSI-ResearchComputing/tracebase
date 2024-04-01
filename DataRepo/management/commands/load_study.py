@@ -472,15 +472,15 @@ class Command(BaseCommand):
             )
             for missing_compound_exception in missing_compound_exceptions:
                 for compound in missing_compound_exception.compounds_dict.keys():
-                    self.missing_compounds[compound][
-                        "formula"
-                    ] = missing_compound_exception.compounds_dict[compound]["formula"]
+                    self.missing_compounds[compound]["formula"] = (
+                        missing_compound_exception.compounds_dict[compound]["formula"]
+                    )
                     if "files" in self.missing_compounds[compound].keys():
-                        self.missing_compounds[compound]["files"][
-                            filename
-                        ] = missing_compound_exception.compounds_dict[compound][
-                            "rownums"
-                        ]
+                        self.missing_compounds[compound]["files"][filename] = (
+                            missing_compound_exception.compounds_dict[compound][
+                                "rownums"
+                            ]
+                        )
                     else:
                         self.missing_compounds[compound]["files"] = {
                             filename: missing_compound_exception.compounds_dict[

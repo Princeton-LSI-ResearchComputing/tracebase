@@ -1,7 +1,11 @@
 ---
 name: TraceBase Tests
 
-on: [push, workflow_dispatch]
+"on": [push, workflow_dispatch]
+
+# Set permissions for GITHUB_TOKEN
+# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+permissions: read-all
 
 jobs:
   build:
