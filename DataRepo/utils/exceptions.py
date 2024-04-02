@@ -578,7 +578,12 @@ class MultiLoadStatus(Exception):
         }
 
     def set_load_exception(
-        self, exception, load_key, top=False, is_error=True, is_fatal=True
+        self,
+        exception,
+        load_key,
+        top=False,
+        default_is_error=True,
+        default_is_fatal=True,
     ):
         """Records the status of a load in a data member called statuses.  It tracks some overall stats and can set
         whether this load status should appear at the top of the reported statuses or not.
@@ -589,12 +594,12 @@ class MultiLoadStatus(Exception):
                 associated with any errors), e.g. "All samples exist in the database".
             top (boolean): Whether the file or category's pass/fail state should be among the first listed in the status
                 report.
-            is_error (boolean): If the added exception is an error (as opposed to a warning).  Ignored when exception is
-                an AggregatedErrors object.  Overwrites exception.is_error, if present.
-            is_fatal (boolean): If the added exception should be construed as having halted execution of the load
-                associated with the load_key.  This is useful when summarizing a category of common exceptions from
-                multiple load_keys.  Ignored when exception is an AggregatedErrors object.  Overwrites
-                exception.is_fatal, if present.
+            default_is_error (boolean): If the added exception is an error (as opposed to a warning).  Ignored when
+                exception is an AggregatedErrors object.  Otherwise only used if exception.is_error, is not present.
+            default_is_fatal (boolean): If the added exception should be construed as having halted execution of the
+                load associated with the load_key.  This is useful when summarizing a category of common exceptions from
+                multiple load_keys.  Ignored when exception is an AggregatedErrors object.  Otherwise only used if
+                exception.is_fatal, is not present.
 
         Exceptions:
             None
@@ -622,6 +627,16 @@ class MultiLoadStatus(Exception):
 
             # Wrap the exception in an AggregatedErrors class
             new_aes = AggregatedErrors()
+            is_error = (
+                exception.is_error
+                if hasattr(exception, "is_error")
+                else default_is_error
+            )
+            is_fatal = (
+                exception.is_fatal
+                if hasattr(exception, "is_fatal")
+                else default_is_fatal
+            )
             # NOTE: This will cause the exception trace to be printed
             new_aes.buffer_exception(exception, is_error=is_error, is_fatal=is_fatal)
 
@@ -761,12 +776,14 @@ class MultiLoadStatus(Exception):
         Returns:
             removed_exceptions (list of Exception): The return of AggregatedErrors.remove_exception_type()
         """
-        removed_exceptions = self.statuses[load_key][
-            "aggregated_errors"
-        ].remove_exception_type(*args, **kwargs)
+        removed_exceptions = []
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            removed_exceptions = self.statuses[load_key][
+                "aggregated_errors"
+            ].remove_exception_type(*args, **kwargs)
+            if len(self.statuses[load_key]["aggregated_errors"].exceptions) == 0:
+                self.statuses[load_key]["aggregated_errors"] = None
         self.update_state(load_key)
-        if len(self.statuses[load_key]["aggregated_errors"].exceptions) == 0:
-            self.statuses[load_key]["aggregated_errors"] = None
         return removed_exceptions
 
     def update_state(self, load_key):
