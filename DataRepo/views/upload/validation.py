@@ -218,13 +218,10 @@ class DataValidationView(FormView):
         self.validate_study()
 
         # If a sample file was provided, keep warnings that show where missing data (added to sample sheet) came from
-        retain_as_warnings = self.animal_sample_file is not None
-        # If a sample file was provided, alert users with a summary at the top, how much data was added to sample sheet
-        add_autofill_warning = self.animal_sample_file is not None
-
+        # and alert users with a summary at the top, how much data was added to sample sheet
         self.extract_autofill_exceptions(
-            retain_as_warnings=retain_as_warnings,
-            add_autofill_warning=add_autofill_warning,
+            retain_as_warnings=not self.autofill_only_mode,
+            add_autofill_warning=not self.autofill_only_mode,
         )
 
         self.format_validation_results_for_template()
