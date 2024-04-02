@@ -92,6 +92,8 @@ class DataValidationView(FormView):
         # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
         # TODO: Make it possible to explicitly set the type of headers we want so that a dummy file name is not required
         self.treatments_loader = ProtocolsLoader(file="dummy.xlsx")
+        self.output_study_filename = "study.xlsx"
+        self.autofill_only_mode = True
 
     def set_files(
         self,
@@ -109,6 +111,10 @@ class DataValidationView(FormView):
         self.animal_sample_filename = sample_filename
         if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
+
+        if self.animal_sample_filename is not None:
+            self.output_study_filename = self.animal_sample_filename
+            self.autofill_only_mode = False
 
         if self.animal_sample_file is not None:
             # Refresh the loader objects using the actual supplied file
@@ -211,9 +217,6 @@ class DataValidationView(FormView):
 
         self.validate_study()
 
-        print(
-            f"self.animal_sample_file is not None? {self.animal_sample_file is not None}"
-        )
         # If a sample file was provided, keep warnings that show where missing data (added to sample sheet) came from
         retain_as_warnings = self.animal_sample_file is not None
         # If a sample file was provided, alert users with a summary at the top, how much data was added to sample sheet
@@ -241,9 +244,6 @@ class DataValidationView(FormView):
         study_stream.seek(0)
 
         study_data = base64.b64encode(study_stream.read()).decode("utf-8")
-        study_filename = self.animal_sample_filename
-        if study_filename is None:
-            study_filename = "study.xlsx"
 
         return self.render_to_response(
             self.get_context_data(
@@ -255,7 +255,8 @@ class DataValidationView(FormView):
                 submission_url=self.submission_url,
                 ordered_keys=self.ordered_keys,
                 study_data=study_data,
-                study_filename=study_filename,
+                study_filename=self.output_study_filename,
+                quiet_mode=self.autofill_only_mode,
             ),
         )
 
@@ -342,23 +343,23 @@ class DataValidationView(FormView):
         data_added = []
 
         # For every AggregatedErrors objects associated with a file or category
-        for load_key, aes in [
-            (k, v["aggregated_errors"])
+        for load_key in [
+            k
             for k, v in self.load_status_data.statuses.items()
             if v["aggregated_errors"] is not None
         ]:
-
-            # For each exception class we want to extract from the AggregatedErrors object (in order to "fix" the data)
+            # For each exception class we want to extract from the AggregatedErrors object (in order to both "fix" the
+            # data and to remove related errors that those fixes address)
             for exc_class in [
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
                 NoSamplesError,
             ]:
-
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
-                for exc in aes.remove_exception_type(exc_class, modify=False):
-
+                for exc in self.load_status_data.remove_exception_type(
+                    load_key, exc_class, modify=False
+                ):
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
                         if retain_as_warnings:
@@ -388,18 +389,17 @@ class DataValidationView(FormView):
                             "warnings"
                         ].append(exc)
 
-            # We removed exceptions, so the state may change
-            self.load_status_data.update_state(load_key)
-
         if len(data_added) > 0 and add_autofill_warning:
             # Add a warning about added data
             added_warning = MissingDataAdded(
                 addition_notes=data_added, file="Output Study Doc"
             )
-            added_warning.is_error = False
-            added_warning.is_fatal = False
             self.load_status_data.set_load_exception(
-                added_warning, warning_load_key, top=True
+                added_warning,
+                warning_load_key,
+                top=True,
+                is_error=False,
+                is_fatal=False,
             )
 
     def extract_all_missing_samples(self, exc):
@@ -695,9 +695,9 @@ class DataValidationView(FormView):
                     self.treatments_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[ProtocolsLoader.DataSheetName] = (
-                    self.treatments_loader.get_dataframe_template(populate=True)
-                )
+                dfs_dict[
+                    ProtocolsLoader.DataSheetName
+                ] = self.treatments_loader.get_dataframe_template(populate=True)
 
             if TissuesLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -706,9 +706,9 @@ class DataValidationView(FormView):
                     self.tissues_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[TissuesLoader.DataSheetName] = (
-                    self.tissues_loader.get_dataframe_template(populate=True)
-                )
+                dfs_dict[
+                    TissuesLoader.DataSheetName
+                ] = self.tissues_loader.get_dataframe_template(populate=True)
 
             return dfs_dict
 

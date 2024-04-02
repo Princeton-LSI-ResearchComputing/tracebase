@@ -307,6 +307,23 @@ class MultiLoadStatusTests(TracebaseTestCase):
         self.assertEqual("PASSED", mls2.statuses["mykey"]["state"])
         self.assertEqual("FAILED", mls2.statuses["mykey2"]["state"])
 
+    def test_mls_remove_exception_type(self):
+        """Indirectly also tests update_state()"""
+        mls = MultiLoadStatus(["mykey"])
+
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes, "mykey")
+
+        mls.remove_exception_type("mykey", ValueError)
+
+        self.assertTrue(mls.is_valid)
+        self.assertEqual("PASSED", mls.state)
+        self.assertEqual(0, mls.num_errors)
+        self.assertEqual(0, mls.num_warnings)
+        self.assertIsNone(mls.statuses["mykey"]["aggregated_errors"])
+        self.assertFalse(mls.statuses["mykey"]["top"])
+
 
 class AggregatedErrorsTests(TracebaseTestCase):
     def test_merge_aggregated_errors_object(self):

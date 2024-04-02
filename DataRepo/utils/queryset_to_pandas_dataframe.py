@@ -166,10 +166,10 @@ class QuerysetToPandasDataFrame:
         infusate_all_df = cls.qs_to_df(inf_qs, qry_to_df_fields)
 
         # handle possible null values for three name fields
-        infusate_all_df[["infusate_name", "tracer_name", "tracer_label"]] = (
-            infusate_all_df[["infusate_name", "tracer_name", "tracer_label"]].fillna(
-                cls.null_rpl_str
-            )
+        infusate_all_df[
+            ["infusate_name", "tracer_name", "tracer_label"]
+        ] = infusate_all_df[["infusate_name", "tracer_name", "tracer_label"]].fillna(
+            cls.null_rpl_str
         )
 
         # re-index based on column order

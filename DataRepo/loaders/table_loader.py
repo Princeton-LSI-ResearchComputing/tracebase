@@ -141,9 +141,8 @@ class TableLoader(ABC):
 
     # DataColumnTypes is optional unless read_from_file needs a dtype argument
     # (converted to by-header-name in get_column_types)
-    DataColumnTypes: Optional[Dict[str, Type[str]]] = (
-        None  # dict of types by header key
-    )
+    # dict of types by header key
+    DataColumnTypes: Optional[Dict[str, Type[str]]] = None
 
     # For the defaults sheet...
     DefaultsSheetName = "Defaults"

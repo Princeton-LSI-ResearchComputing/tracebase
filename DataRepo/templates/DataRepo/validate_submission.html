@@ -92,28 +92,35 @@
     </div>
 
     {% if results %}
-        <br>
-        <br>
-        {% if valid %}
-            <h5 class="text-success">Your data looks good! You may proceed to the <a href="{{ submission_url }}">submission form</a> if you are ready to add this data to TraceBase.</h5>
+        {% if not quiet_mode %}
+            <br>
+            <br>
+            {% if valid %}
+                <h5 class="text-success">Your data looks good! You may proceed to the <a href="{{ submission_url }}">submission form</a> if you are ready to add this data to TraceBase.</h5>
+            {% endif %}
         {% endif %}
-        <hr>
-        <ul class="ul-nopadding">
-            {% for key in ordered_keys %}
-                {% with status=results|index:key status_class=results|index:key|getClass err_status="ERROR" wrn_status="WARNING" %}
-                    <li class="{{ status_class }}">
-                        <u><b>{{ status }}: {{ key }}</b></u>
-                        {% if exceptions|index:key %}
-                            <ul class="ul-nopadding">
-                                {% for exception in exceptions|index:key %}
-                                    <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b><br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
-                    </li>
-                {% endwith %}
-            {% endfor %}
-        </ul>
+        {% if not valid or not quiet_mode %}
+            <hr>
+            <h5>Status Report <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-report">expand</a></h5>
+            <div id="study-submission-report" class="collapse">
+                <ul class="ul-nopadding">
+                    {% for key in ordered_keys %}
+                        {% with status=results|index:key status_class=results|index:key|getClass err_status="ERROR" wrn_status="WARNING" %}
+                            <li class="{{ status_class }}">
+                                <u><b>{{ status }}: {{ key }}</b></u>
+                                {% if exceptions|index:key %}
+                                    <ul class="ul-nopadding">
+                                        {% for exception in exceptions|index:key %}
+                                            <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b><br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </li>
+                        {% endwith %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
         <pre style="display: none" id="output_study_file">{{study_data}}</pre>
     {% endif %}
 
