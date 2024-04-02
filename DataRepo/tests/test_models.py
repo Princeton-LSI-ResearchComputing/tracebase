@@ -2400,7 +2400,7 @@ class StudyLoadingTests(TracebaseTestCase):
         )
         # The file had 3 errors that should have been changed to warnings (MissingSamplesError, MissingCompounds, and
         # MissingTissues)
-        self.assertEqual(3, lsc.load_statuses.num_errors)
+        self.assertEqual(3, lsc.load_statuses.num_warnings)
 
         # Each of these keys should have been added as error categories
         self.assertIn(
