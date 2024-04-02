@@ -356,6 +356,7 @@ class DataValidationView(FormView):
                 AllMissingTreatments,
                 NoSamplesError,
             ]:
+
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
                 for exc in self.load_status_data.remove_exception_type(
                     load_key, exc_class, modify=False
