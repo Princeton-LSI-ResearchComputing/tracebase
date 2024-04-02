@@ -31,6 +31,7 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
+    NoSamplesError,
 )
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.lcms_metadata_parser import (
@@ -210,7 +211,18 @@ class DataValidationView(FormView):
 
         self.validate_study()
 
-        self.extract_autofill_exceptions()
+        print(
+            f"self.animal_sample_file is not None? {self.animal_sample_file is not None}"
+        )
+        # If a sample file was provided, keep warnings that show where missing data (added to sample sheet) came from
+        retain_as_warnings = self.animal_sample_file is not None
+        # If a sample file was provided, alert users with a summary at the top, how much data was added to sample sheet
+        add_autofill_warning = self.animal_sample_file is not None
+
+        self.extract_autofill_exceptions(
+            retain_as_warnings=retain_as_warnings,
+            add_autofill_warning=add_autofill_warning,
+        )
 
         self.format_validation_results_for_template()
 
@@ -265,7 +277,9 @@ class DataValidationView(FormView):
         for sheet in xlsxwriter.sheets.keys():
             xlsxwriter.sheets[sheet].autofit()
 
-    def extract_autofill_exceptions(self):
+    def extract_autofill_exceptions(
+        self, retain_as_warnings=True, add_autofill_warning=True
+    ):
         """Remove exceptions related to references to missing underlying data and extract their data.
 
         This produces a dict named autofill_dict keyed on sheet name.
@@ -300,9 +314,16 @@ class DataValidationView(FormView):
         doc
 
         Args:
-            None
+            retain_as_warnings (boolean): Track extracted error and warning exceptions as warnings.  If False, no pre-
+                existing errors or warnings will be reported.  See add_autofill_warning for the separately added
+                warnings about added data.
+            add_autofill_warning (boolean): If any data will be autofilled and this option is True, a MissingDataAdded
+                warning will be buffered.
         Exceptions:
-            None
+            Buffers:
+                MissingDataAdded
+            Raises:
+                None
         Returns:
             None
         """
@@ -319,25 +340,31 @@ class DataValidationView(FormView):
         }
         warning_load_key = "Autofill Note"
         data_added = []
+
         # For every AggregatedErrors objects associated with a file or category
-        for aes in [
-            v["aggregated_errors"]
-            for v in self.load_status_data.statuses.values()
+        for load_key, aes in [
+            (k, v["aggregated_errors"])
+            for k, v in self.load_status_data.statuses.items()
             if v["aggregated_errors"] is not None
         ]:
+
             # For each exception class we want to extract from the AggregatedErrors object (in order to "fix" the data)
             for exc_class in [
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
+                NoSamplesError,
             ]:
+
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
                 for exc in aes.remove_exception_type(exc_class, modify=False):
+
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
-                        self.extracted_exceptions[exc_class.__name__]["errors"].append(
-                            exc
-                        )
+                        if retain_as_warnings:
+                            self.extracted_exceptions[exc_class.__name__][
+                                "errors"
+                            ].append(exc)
 
                         if exc_class == AllMissingSamplesError:
                             data_added.append(
@@ -354,23 +381,26 @@ class DataValidationView(FormView):
                                 f"{len(exc.missing_treatment_errors)} treatment names"
                             )
                             self.extract_all_missing_treatments(exc)
-                    else:
+                        # We're only removing NoSamplesErrors. All their samples are added to the AllMissingSamplesError
+
+                    elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
-        if len(data_added) > 0:
-            # Refresh the load statuses
-            new_load_status_data = MultiLoadStatus()
-            new_load_status_data.copy_constructor(self.load_status_data)
-            self.load_status_data = new_load_status_data
 
+            # We removed exceptions, so the state may change
+            self.load_status_data.update_state(load_key)
+
+        if len(data_added) > 0 and add_autofill_warning:
             # Add a warning about added data
             added_warning = MissingDataAdded(
                 addition_notes=data_added, file="Output Study Doc"
             )
             added_warning.is_error = False
             added_warning.is_fatal = False
-            self.load_status_data.set_load_exception(added_warning, warning_load_key)
+            self.load_status_data.set_load_exception(
+                added_warning, warning_load_key, top=True
+            )
 
     def extract_all_missing_samples(self, exc):
         """Extracts autofill data from the supplied AllMissingSamplesError exception and puts it in self.autofill_dict.

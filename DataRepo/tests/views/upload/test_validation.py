@@ -462,9 +462,17 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
                 ].exceptions
             ),
         )
-        self.assertEqual(0, vo.load_status_data.statuses["Autofill Note"]["num_errors"])
         self.assertEqual(
-            1, vo.load_status_data.statuses["Autofill Note"]["num_warnings"]
+            0,
+            vo.load_status_data.statuses["Autofill Note"][
+                "aggregated_errors"
+            ].num_errors,
+        )
+        self.assertEqual(
+            1,
+            vo.load_status_data.statuses["Autofill Note"][
+                "aggregated_errors"
+            ].num_warnings,
         )
         self.assertEqual(
             "WARNING", vo.load_status_data.statuses["Autofill Note"]["state"]
