@@ -90,6 +90,7 @@ class DataValidationView(FormView):
         self.treatments_loader = ProtocolsLoader(file="dummy.xlsx")
         self.output_study_filename = "study.xlsx"
         self.autofill_only_mode = True
+        self.dfs_dict = self.create_study_dfs_dict()
 
     def set_files(
         self,
