@@ -380,7 +380,7 @@ class Command(BaseCommand):
 
             # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
             # a rollback of everything
-            if not self.load_statuses.get_success_status():
+            if not self.load_statuses.is_valid:
                 raise self.load_statuses.get_final_exception()
 
             if self.dry_run:
