@@ -78,11 +78,7 @@ class DataValidationView(FormView):
             TissuesLoader.DataSheetName: defaultdict(dict),
             ProtocolsLoader.DataSheetName: defaultdict(dict),
         }
-        self.extracted_exceptions = {
-            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
-            AllMissingTissues.__name__: {"errors": [], "warnings": []},
-            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
-        }
+        self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         self.valid = None
         self.results = {}
         self.exceptions = {}
@@ -217,6 +213,8 @@ class DataValidationView(FormView):
 
         self.validate_study()
 
+        self.dfs_dict = self.get_or_create_dfs_dict()
+
         # If a sample file was provided, keep warnings that show where missing data (added to sample sheet) came from
         # and alert users with a summary at the top, how much data was added to sample sheet
         self.extract_autofill_exceptions(
@@ -225,8 +223,6 @@ class DataValidationView(FormView):
         )
 
         self.format_validation_results_for_template()
-
-        self.dfs_dict = self.get_or_create_dfs_dict()
 
         self.add_extracted_autofill_data()
 
@@ -386,7 +382,7 @@ class DataValidationView(FormView):
         if len(data_added) > 0 and add_autofill_warning:
             # Add a warning about added data
             added_warning = MissingDataAdded(
-                addition_notes=data_added, file="Output Study Doc"
+                addition_notes=data_added, file=self.output_study_filename
             )
             self.load_status_data.set_load_exception(
                 added_warning,
@@ -416,16 +412,25 @@ class DataValidationView(FormView):
         Returns:
             None
         """
+        # Get sample names that are already in the sample sheet (so we can skip them)
+        existing_sample_names = []
+        if (
+            self.dfs_dict is not None
+            and self.SAMPLES_SHEET in self.dfs_dict.keys()
+            and SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            in self.dfs_dict[self.SAMPLES_SHEET].keys()
+        ):
+            existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
+                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            ].values()
+
         for sample_header in exc.missing_samples_dict["all_missing_samples"].keys():
             pattern = self.get_approx_sample_header_replacement_regex()
             sample_name = re.sub(pattern, "", sample_header)
-            # TODO: Check if the modified name exists in the dfs_dict or in the database already.  If it does, then
-            # nothing needs to be added to the samples sheet.  We just need to add to the LCMS data/sheet (once that's
-            # done).  Note, we could also opt to supply the lcms file produced by the code developed earlier (below).
-            # See build_lcms_dict().
-            self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
-                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
-            }
+            if sample_name not in existing_sample_names:
+                self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
+                    SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
+                }
 
     def extract_all_missing_tissues(self, exc):
         """Extracts autofill data from the supplied AllMissingTissues exception and puts it in self.autofill_dict.
