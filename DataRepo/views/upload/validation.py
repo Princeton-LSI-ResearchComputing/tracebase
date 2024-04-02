@@ -17,7 +17,10 @@ from django.views.generic.edit import FormView
 from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.accucor_data_loader import (
+    AccuCorDataLoader,
+    get_sample_headers,
+)
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
@@ -33,7 +36,7 @@ from DataRepo.utils.exceptions import (
     NonUniqueSampleDataHeaders,
     NoSamplesError,
 )
-from DataRepo.utils.file_utils import read_from_file
+from DataRepo.utils.file_utils import read_from_file, read_headers_from_file
 from DataRepo.utils.lcms_metadata_parser import (
     LCMS_DB_SAMPLE_HDR,
     LCMS_FL_SAMPLE_HDR,
@@ -104,14 +107,20 @@ class DataValidationView(FormView):
         reporting) to accommodate random temporary file names.  If file names are not supplied, the basename of the
         actual files is used for reporting.
         """
+        self.all_infile_names = []
+
         self.animal_sample_file = sample_file
         self.animal_sample_filename = sample_filename
         if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
 
+        # Get an initial dfs_dict (a dict representation of the output study doc, either created or obtained from user)
+        self.dfs_dict = self.get_or_create_dfs_dict()
+        self.determine_study_file_readiness()
+
         if self.animal_sample_filename is not None:
             self.output_study_filename = self.animal_sample_filename
-            self.autofill_only_mode = False
+            self.all_infile_names.append(self.animal_sample_filename)
 
         if self.animal_sample_file is not None:
             # Refresh the loader objects using the actual supplied file
@@ -119,6 +128,7 @@ class DataValidationView(FormView):
             # Providing an excel file will change the headers in the returned column types to the custom excel headers
             self.treatments_loader = ProtocolsLoader(file=self.animal_sample_file)
 
+        self.peak_annotation_files = peak_annotation_files
         if (
             peak_annotation_filenames is None
             and peak_annotation_files is not None
@@ -141,16 +151,22 @@ class DataValidationView(FormView):
                 f"number of peak annotation files [{peak_annotation_files}]."
             )
 
+        # Initialize the accucor and isocorr files and filenames
+        # TODO: We will not need to separate these files once the accucor loader is refactored.
         not_peak_annot_files = []
         self.accucor_files = []
         self.isocorr_files = []
         self.accucor_filenames = []
         self.isocorr_filenames = []
+        self.peak_annotation_filenames = []
         if peak_annotation_files is not None and len(peak_annotation_files) > 0:
             # Convince mypy that peak_annotation_files is defined
             peak_annot_filenames: List[str] = cast(List[str], peak_annotation_filenames)
             for index, peak_annot_file in enumerate(peak_annotation_files):
                 peak_annotation_filename = peak_annot_filenames[index]
+                self.all_infile_names.append(peak_annotation_filename)
+                self.peak_annotation_filenames.append(peak_annotation_filename)
+
                 if AccuCorDataLoader.is_accucor(peak_annot_file):
                     self.accucor_files.append(peak_annot_file)
                     self.accucor_filenames.append(peak_annotation_filename)
@@ -212,18 +228,27 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        self.validate_study()
+        # Initialize a status object for the results for each input file
+        # TODO: Make the MultiLoadStatus class more of a "status" class for multuple "categories" of things that
+        # must succeed (as opposed to just load-related things)
+        self.load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
-        self.dfs_dict = self.get_or_create_dfs_dict()
+        if self.autofill_only_mode:
+            # autofill_only_mode means that there was no study file submitted.  (The form validation guarantees that
+            # we have at least 2 peak annotation file.)
 
-        # If a sample file was provided, keep warnings that show where missing data (added to sample sheet) came from
-        # and alert users with a summary at the top, how much data was added to sample sheet
-        self.extract_autofill_exceptions(
-            retain_as_warnings=not self.autofill_only_mode,
-            add_autofill_warning=not self.autofill_only_mode,
-        )
+            # Extract autofill data directly from the peak annotation files
+            self.extract_autofill_from_peak_annotation_files()
+        else:
+            self.validate_study()
 
-        self.format_validation_results_for_template()
+            # Extract errors from the validation that can be used to autofill missing values in the study doc
+            self.extract_autofill_from_exceptions(
+                retain_as_warnings=not self.autofill_only_mode,
+                add_autofill_warning=not self.autofill_only_mode,
+            )
+
+        self.format_results_for_template()
 
         self.add_extracted_autofill_data()
 
@@ -254,6 +279,43 @@ class DataValidationView(FormView):
             ),
         )
 
+    def determine_study_file_readiness(self):
+        """Determines if the study file is ready for validation by seeing it the samples sheet has any values in it
+        other than sample names.  It does this by inspecting self.animal_sample_file and the data parsed into
+        self.dfs_dict.
+
+        The purpose of this method is to avoid time consuming processing of a file only destined to have missing sample
+        data errors by identifying this futile case and setting self.autofill_only_mode to True (or False).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if (
+            self.animal_sample_file is None
+            or self.dfs_dict is None
+            or self.SAMPLES_SHEET not in self.dfs_dict.keys()
+        ):
+            self.autofill_only_mode = True
+            return
+
+        for header in self.samples_ordered_display_headers:
+            if (
+                header == SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+                or header not in self.dfs_dict[self.SAMPLES_SHEET].keys()
+            ):
+                continue
+
+            for val in self.dfs_dict[self.SAMPLES_SHEET].values():
+                if val is not None:
+                    self.autofill_only_mode = False
+                    break
+
+        self.autofill_only_mode = True
+
     def annotate_study_excel(self, xlsxwriter):
         """Add annotations, formulas, colors (indicating errors/warning/required-values/read-only-values/etc).
 
@@ -272,7 +334,58 @@ class DataValidationView(FormView):
         for sheet in xlsxwriter.sheets.keys():
             xlsxwriter.sheets[sheet].autofit()
 
-    def extract_autofill_exceptions(
+    def extract_autofill_from_peak_annotation_files(self):
+        """Extracts data from multiple accucor/isocorr files that can be used to populate a made-from-scratch study doc.
+        Populates self.autofill_dict.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        existing_sample_names = []
+        if (
+            self.dfs_dict is not None
+            and self.SAMPLES_SHEET in self.dfs_dict.keys()
+            and SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            in self.dfs_dict[self.SAMPLES_SHEET].keys()
+        ):
+            existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
+                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            ].values()
+
+        corrected_sheet = 1  # Second sheet in both accucor and isocorr
+        peak_annot_sample_headers = {}
+        for i in range(len(self.peak_annotation_files)):
+            peak_annot_file = self.peak_annotation_files[i]
+            peak_annot_filename = self.peak_annotation_filenames[i]
+            print(f"Extracting samples from {peak_annot_filename}")
+            for header in get_sample_headers(
+                read_headers_from_file(
+                    peak_annot_file, sheet=corrected_sheet, filetype="excel"
+                )
+            ):
+                peak_annot_sample_headers[header] = (
+                    0  # We only want the keys for uniqueness
+                )
+
+        pattern = self.get_approx_sample_header_replacement_regex()
+
+        for sample_header in sorted(peak_annot_sample_headers.keys()):
+            sample_name = re.sub(pattern, "", sample_header)
+            # Skip likely blanks
+            # TODO: Consolidate this logic test with the blank test in the accucor loader.
+            if (
+                "blank" not in sample_name.lower()
+                and sample_name not in existing_sample_names
+            ):
+                self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
+                    SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
+                }
+
+    def extract_autofill_from_exceptions(
         self, retain_as_warnings=True, add_autofill_warning=True
     ):
         """Remove exceptions related to references to missing underlying data and extract their data.
@@ -425,8 +538,9 @@ class DataValidationView(FormView):
                 SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
             ].values()
 
+        pattern = self.get_approx_sample_header_replacement_regex()
+
         for sample_header in exc.missing_samples_dict["all_missing_samples"].keys():
-            pattern = self.get_approx_sample_header_replacement_regex()
             sample_name = re.sub(pattern, "", sample_header)
             if sample_name not in existing_sample_names:
                 self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
@@ -916,7 +1030,7 @@ class DataValidationView(FormView):
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
 
-    def format_validation_results_for_template(self):
+    def format_results_for_template(self):
         valid = self.load_status_data.is_valid
         results = {}
         exceptions = {}
@@ -966,7 +1080,7 @@ class DataValidationView(FormView):
         # provided and that none of the accucor/isocorr files have the same name)
         yaml_file = self.create_yaml(tmpdir)
 
-        load_status_data = MultiLoadStatus()
+        load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
         try:
             call_command(

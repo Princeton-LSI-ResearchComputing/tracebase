@@ -982,7 +982,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         vo.set_files(sample_file=sample_file, peak_annotation_files=accucor_files)
         # Now try validating the load files
         vo.validate_study()
-        vo.format_validation_results_for_template()
+        vo.format_results_for_template()
         valid = vo.valid
         results = vo.results
         exceptions = vo.exceptions

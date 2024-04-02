@@ -420,7 +420,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
     def test_extract_autofill_exceptions(self):
         vo = self.get_data_validation_object_with_errors()
 
-        vo.extract_autofill_exceptions()
+        vo.extract_autofill_from_exceptions()
 
         self.assertEqual(
             1, len(vo.extracted_exceptions[AllMissingSamplesError.__name__]["errors"])
@@ -567,7 +567,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         # Create the dfs_dict (to which data will be added)
         vo.dfs_dict = vo.create_study_dfs_dict()
         # Extract the errors into the autofill_dict (in the object)
-        vo.extract_autofill_exceptions()
+        vo.extract_autofill_from_exceptions()
         # Add the extracted data to the dfs_dict
         vo.add_extracted_autofill_data()
         self.assertDictEqual(
@@ -607,7 +607,14 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
             vo.dfs_dict,
         )
 
+    def test_extract_autofill_from_peak_annotation_files(self):
+        # TODO: Implement test
+        pass
+
+    def test_determine_study_file_readiness(self):
+        # TODO: Implement test
+        pass
+
     def test_get_output_study_file(self):
-        # TODO: Implement test once method fleshed out in step 11. of issue #829 in comment:
-        # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/829#issuecomment-2015852430
+        # TODO: Implement test
         pass
