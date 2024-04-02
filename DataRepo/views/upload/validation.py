@@ -325,11 +325,7 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        self.extracted_exceptions = {
-            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
-            AllMissingTissues.__name__: {"errors": [], "warnings": []},
-            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
-        }
+        self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         # Init the autofill dict for the subsequent calls
         self.autofill_dict = {
             self.SAMPLES_SHEET: defaultdict(dict),
