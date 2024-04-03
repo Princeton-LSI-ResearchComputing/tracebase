@@ -454,12 +454,12 @@ class AccuCorDataLoader:
                 )
 
     def initialize_sample_names(self):
-        self.corrected_sample_headers = get_sample_headers(
+        self.corrected_sample_headers = self.get_sample_headers(
             self.accucor_corrected_df.columns, self.skip_samples
         )
 
         if self.accucor_original_df is not None:
-            self.original_sample_headers = get_sample_headers(
+            self.original_sample_headers = self.get_sample_headers(
                 self.accucor_original_df.columns, self.skip_samples
             )
 
@@ -2196,6 +2196,44 @@ class AccuCorDataLoader:
     def is_a_blank(cls, sample_name):
         return "blank" in sample_name.lower()
 
+    @classmethod
+    def get_sample_headers(cls, df_columns, skip_samples=None, sheet="corrected"):
+        if skip_samples is None:
+            skip_samples = []
+        minimum_sample_index = cls.get_first_sample_column_index(df_columns)
+        if minimum_sample_index is None:
+            # Sample columns are required to proceed
+            raise SampleIndexNotFound(sheet, list(df_columns), NONSAMPLE_COLUMN_NAMES)
+        return [
+            sample
+            for sample in list(df_columns)[minimum_sample_index:]
+            if sample not in skip_samples
+        ]
+
+    @classmethod
+    def get_first_sample_column_index(cls, df_columns):
+        """
+        Given a dataframe's list of column names, return the column index of the likely "first" sample column
+        """
+
+        final_index = None
+        max_nonsample_index = 0
+        found = False
+        for col_name in NONSAMPLE_COLUMN_NAMES:
+            try:
+                if list(df_columns).index(col_name) > max_nonsample_index:
+                    max_nonsample_index = list(df_columns).index(col_name)
+                    found = True
+            except ValueError:
+                # column is not found, so move on
+                pass
+
+        if found:
+            final_index = max_nonsample_index + 1
+
+        # the sample index should be the next column
+        return final_index
+
 
 def hash_file(path_obj, allow_missing=False):
     """
@@ -2227,41 +2265,3 @@ def hash_file(path_obj, allow_missing=False):
 
     # return the hex representation of digest
     return h.hexdigest()
-
-
-def get_first_sample_column_index(df_columns):
-    """
-    Given a dataframe's list of column names, return the column index of the likely "first" sample column
-    """
-
-    final_index = None
-    max_nonsample_index = 0
-    found = False
-    for col_name in NONSAMPLE_COLUMN_NAMES:
-        try:
-            if list(df_columns).index(col_name) > max_nonsample_index:
-                max_nonsample_index = list(df_columns).index(col_name)
-                found = True
-        except ValueError:
-            # column is not found, so move on
-            pass
-
-    if found:
-        final_index = max_nonsample_index + 1
-
-    # the sample index should be the next column
-    return final_index
-
-
-def get_sample_headers(df_columns, skip_samples=None, sheet="corrected"):
-    if skip_samples is None:
-        skip_samples = []
-    minimum_sample_index = get_first_sample_column_index(df_columns)
-    if minimum_sample_index is None:
-        # Sample columns are required to proceed
-        raise SampleIndexNotFound(sheet, list(df_columns), NONSAMPLE_COLUMN_NAMES)
-    return [
-        sample
-        for sample in list(df_columns)[minimum_sample_index:]
-        if sample not in skip_samples
-    ]

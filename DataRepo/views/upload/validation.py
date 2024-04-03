@@ -17,10 +17,7 @@ from django.views.generic.edit import FormView
 from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.loaders.accucor_data_loader import (
-    AccuCorDataLoader,
-    get_sample_headers,
-)
+from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
@@ -42,11 +39,6 @@ from DataRepo.utils.lcms_metadata_parser import (
     LCMS_FL_SAMPLE_HDR,
     LCMS_PEAK_ANNOT_HDR,
 )
-
-# TODO: If these are still unused once the study submission refactor is done, delete them.
-# from sqlite3 import ProgrammingError
-# from DataRepo.loaders.accucor_data_loader import get_sample_headers
-# from DataRepo.utils.file_utils import read_headers_from_file
 
 
 class DataValidationView(FormView):
@@ -286,12 +278,14 @@ class DataValidationView(FormView):
         )
 
     def determine_study_file_validation_readiness(self):
-        """Determines if the study file is ready for validation by seeing it the samples sheet has any values in it
-        other than sample names.  It does this by inspecting self.animal_sample_file and the data parsed into
-        self.dfs_dict.
+        """Determines if the data is ready for validation by seeing it the study doc has any values in it other than
+        sample names and if there are peak annotation files to populate it.  It does this by inspecting
+        self.animal_sample_file, self.peak_annotation_files, and the data parsed into self.dfs_dict from
+        self.animal_sample_file.
 
-        The purpose of this method is to avoid time consuming processing of a file only destined to have missing sample
-        data errors by identifying this futile case and setting self.autofill_only_mode to True (or False).
+        The purpose of this method is to avoid time consuming processing of a file that is only destined to produce
+        missing sample name errors by identifying this futile case and setting self.autofill_only_mode to True (or
+        False).
 
         Args:
             None
@@ -305,11 +299,7 @@ class DataValidationView(FormView):
             self.autofill_only_mode = False
             return not self.autofill_only_mode
 
-        if (
-            self.animal_sample_file is None
-            or self.dfs_dict is None
-            or self.SAMPLES_SHEET not in self.dfs_dict.keys()
-        ):
+        if self.animal_sample_file is None or not self.dfs_dict_is_valid():
             # If there's no study data, we will want to autofill
             self.autofill_only_mode = True
             return not self.autofill_only_mode
@@ -379,7 +369,7 @@ class DataValidationView(FormView):
 
             # Log print
             print(f"Extracting samples from {peak_annot_filename}")
-            for header in get_sample_headers(
+            for header in AccuCorDataLoader.get_sample_headers(
                 read_headers_from_file(
                     peak_annot_file, sheet=corrected_sheet, filetype="excel"
                 )
@@ -544,12 +534,7 @@ class DataValidationView(FormView):
         """
         # Get sample names that are already in the sample sheet (so we can skip them)
         existing_sample_names = []
-        if (
-            self.dfs_dict is not None
-            and self.SAMPLES_SHEET in self.dfs_dict.keys()
-            and SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
-            in self.dfs_dict[self.SAMPLES_SHEET].keys()
-        ):
+        if self.dfs_dict_is_valid():
             existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
                 SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
             ].values()
