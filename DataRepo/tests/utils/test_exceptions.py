@@ -59,14 +59,12 @@ class MultiLoadStatusTests(TracebaseTestCase):
                 "mykey": {
                     "aggregated_errors": None,
                     "state": "PASSED",
-                    "num_errors": 0,
-                    "num_warnings": 0,
                     "top": True,  # Passing files will appear first
                 },
             },
             mls.statuses,
         )
-        self.assertTrue(mls.get_success_status())
+        self.assertTrue(mls.is_valid)
         self.assertEqual(("Load PASSED", "PASSED"), mls.get_status_message())
 
     def test_constructor_with_key_list(self):
@@ -87,15 +85,11 @@ class MultiLoadStatusTests(TracebaseTestCase):
                 "mykey": {
                     "aggregated_errors": None,
                     "state": "PASSED",
-                    "num_errors": 0,
-                    "num_warnings": 0,
                     "top": True,  # Passing files will appear first
                 },
                 "mykey2": {
                     "aggregated_errors": None,
                     "state": "PASSED",
-                    "num_errors": 0,
-                    "num_warnings": 0,
                     "top": True,  # Passing files will appear first
                 },
             },
@@ -122,8 +116,6 @@ class MultiLoadStatusTests(TracebaseTestCase):
         self.assertEqual(1, len(mls.statuses.keys()))
         self.assertEqual(
             {
-                "num_errors": 0,
-                "num_warnings": 1,
                 "top": True,
                 "aggregated_errors": aes,
                 "state": "WARNING",
@@ -132,7 +124,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
         )
         self.assertFalse(mls.is_valid)
         self.assertEqual("WARNING", mls.state)
-        self.assertFalse(mls.get_success_status())
+        self.assertFalse(mls.is_valid)
         self.assertEqual(
             ("Load WARNING 1 warnings", "WARNING"), mls.get_status_message()
         )
@@ -156,8 +148,6 @@ class MultiLoadStatusTests(TracebaseTestCase):
         self.assertEqual(1, len(mls.statuses.keys()))
         self.assertEqual(
             {
-                "num_errors": 1,
-                "num_warnings": 0,
                 "top": False,
                 "aggregated_errors": aes,
                 "state": "FAILED",
@@ -166,7 +156,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
         )
         self.assertFalse(mls.is_valid)
         self.assertEqual("FAILED", mls.state)
-        self.assertFalse(mls.get_success_status())
+        self.assertFalse(mls.is_valid)
         self.assertEqual(("Load FAILED 1 errors", "FAILED"), mls.get_status_message())
 
     def test_set_load_exception_other_exceptions(self):
@@ -212,23 +202,14 @@ class MultiLoadStatusTests(TracebaseTestCase):
             hasattr(mls.statuses["mykey"]["aggregated_errors"], "buffered_tb_str")
         )
 
-        # We will assert that the 1 status recorded has these values (excluding the AggregatedErrors object, which will
-        # differ)
-        status_vals = {
-            "num_errors": 1,
-            "num_warnings": 0,
-            "top": False,
-            "state": "FAILED",
-        }
-        for key in status_vals.keys():
-            self.assertEqual(
-                status_vals[key],
-                mls.statuses["mykey"][key],
-            )
+        self.assertFalse(mls.statuses["mykey"]["top"])
+        self.assertEqual("FAILED", mls.statuses["mykey"]["state"])
+        self.assertEqual(1, mls.statuses["mykey"]["aggregated_errors"].num_errors)
+        self.assertEqual(0, mls.statuses["mykey"]["aggregated_errors"].num_warnings)
 
         self.assertFalse(mls.is_valid)
         self.assertEqual("FAILED", mls.state)
-        self.assertFalse(mls.get_success_status())
+        self.assertFalse(mls.is_valid)
         self.assertEqual(("Load FAILED 1 errors", "FAILED"), mls.get_status_message())
 
     def test_set_load_exception_key_exists(self):
@@ -241,7 +222,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
         aes2.buffer_error(ValueError("Test error"))
         mls.set_load_exception(aes2, "mykey", top=True)
         self.assertEqual(1, mls.num_errors)
-        self.assertEqual(1, mls.num_warnings)
+        self.assertEqual(1, mls.num_errors)
         self.assertTrue(mls.statuses["mykey"]["top"])
         self.assertEqual("FAILED", mls.statuses["mykey"]["state"])
         self.assertEqual("FAILED", mls.state)
@@ -325,6 +306,23 @@ class MultiLoadStatusTests(TracebaseTestCase):
         mls2.copy_constructor(mls)
         self.assertEqual("PASSED", mls2.statuses["mykey"]["state"])
         self.assertEqual("FAILED", mls2.statuses["mykey2"]["state"])
+
+    def test_mls_remove_exception_type(self):
+        """Indirectly also tests update_state()"""
+        mls = MultiLoadStatus(["mykey"])
+
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes, "mykey")
+
+        mls.remove_exception_type("mykey", ValueError)
+
+        self.assertTrue(mls.is_valid)
+        self.assertEqual("PASSED", mls.state)
+        self.assertEqual(0, mls.num_errors)
+        self.assertEqual(0, mls.num_warnings)
+        self.assertIsNone(mls.statuses["mykey"]["aggregated_errors"])
+        self.assertFalse(mls.statuses["mykey"]["top"])
 
 
 class AggregatedErrorsTests(TracebaseTestCase):

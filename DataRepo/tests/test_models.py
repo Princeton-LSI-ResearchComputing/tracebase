@@ -2434,44 +2434,52 @@ class StudyLoadingTests(TracebaseTestCase):
         self.assertEqual(
             1,
             lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
-                "num_errors"
-            ],
+                "aggregated_errors"
+            ].num_errors,
         )
         self.assertEqual(
             1,
             lsc.load_statuses.statuses["All Tissues Exist in the Database"][
-                "num_errors"
-            ],
+                "aggregated_errors"
+            ].num_errors,
         )
         self.assertEqual(
             1,
             lsc.load_statuses.statuses["All Compounds Exist in the Database"][
-                "num_errors"
-            ],
+                "aggregated_errors"
+            ].num_errors,
         )
-        self.assertEqual(0, lsc.load_statuses.statuses["accucor.xlsx"]["num_errors"])
+        self.assertEqual(
+            0,
+            lsc.load_statuses.statuses["accucor.xlsx"]["aggregated_errors"].num_errors,
+        )
 
         # Number of warnings in the MultiLoadStatus objects is correct (the accucor file's errors were changed to
         # warnings)
         self.assertEqual(
             0,
             lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
-                "num_warnings"
-            ],
+                "aggregated_errors"
+            ].num_warnings,
         )
         self.assertEqual(
             0,
             lsc.load_statuses.statuses["All Tissues Exist in the Database"][
-                "num_warnings"
-            ],
+                "aggregated_errors"
+            ].num_warnings,
         )
         self.assertEqual(
             0,
             lsc.load_statuses.statuses["All Compounds Exist in the Database"][
-                "num_warnings"
-            ],
+                "aggregated_errors"
+            ].num_warnings,
         )
-        self.assertEqual(3, lsc.load_statuses.statuses["accucor.xlsx"]["num_warnings"])
+        self.assertEqual(
+            3,
+            lsc.load_statuses.statuses["accucor.xlsx"][
+                "aggregated_errors"
+            ].num_warnings,
+        )
 
         # Every error/warning group is inside an AggregatedErrors object
         self.assertTrue(

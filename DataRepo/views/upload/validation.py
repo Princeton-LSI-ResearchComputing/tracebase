@@ -31,6 +31,7 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
+    NoSamplesError,
 )
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.lcms_metadata_parser import (
@@ -77,11 +78,7 @@ class DataValidationView(FormView):
             TissuesLoader.DataSheetName: defaultdict(dict),
             ProtocolsLoader.DataSheetName: defaultdict(dict),
         }
-        self.extracted_exceptions = {
-            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
-            AllMissingTissues.__name__: {"errors": [], "warnings": []},
-            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
-        }
+        self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         self.valid = None
         self.results = {}
         self.exceptions = {}
@@ -91,6 +88,9 @@ class DataValidationView(FormView):
         # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
         # TODO: Make it possible to explicitly set the type of headers we want so that a dummy file name is not required
         self.treatments_loader = ProtocolsLoader(file="dummy.xlsx")
+        self.output_study_filename = "study.xlsx"
+        self.autofill_only_mode = True
+        self.dfs_dict = self.create_study_dfs_dict()
 
     def set_files(
         self,
@@ -108,6 +108,10 @@ class DataValidationView(FormView):
         self.animal_sample_filename = sample_filename
         if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
+
+        if self.animal_sample_filename is not None:
+            self.output_study_filename = self.animal_sample_filename
+            self.autofill_only_mode = False
 
         if self.animal_sample_file is not None:
             # Refresh the loader objects using the actual supplied file
@@ -210,11 +214,16 @@ class DataValidationView(FormView):
 
         self.validate_study()
 
-        self.extract_autofill_exceptions()
+        self.dfs_dict = self.get_or_create_dfs_dict()
+
+        # If a sample file was provided, keep warnings that show where missing data (added to sample sheet) came from
+        # and alert users with a summary at the top, how much data was added to sample sheet
+        self.extract_autofill_exceptions(
+            retain_as_warnings=not self.autofill_only_mode,
+            add_autofill_warning=not self.autofill_only_mode,
+        )
 
         self.format_validation_results_for_template()
-
-        self.dfs_dict = self.get_or_create_dfs_dict()
 
         self.add_extracted_autofill_data()
 
@@ -229,9 +238,6 @@ class DataValidationView(FormView):
         study_stream.seek(0)
 
         study_data = base64.b64encode(study_stream.read()).decode("utf-8")
-        study_filename = self.animal_sample_filename
-        if study_filename is None:
-            study_filename = "study.xlsx"
 
         return self.render_to_response(
             self.get_context_data(
@@ -243,7 +249,8 @@ class DataValidationView(FormView):
                 submission_url=self.submission_url,
                 ordered_keys=self.ordered_keys,
                 study_data=study_data,
-                study_filename=study_filename,
+                study_filename=self.output_study_filename,
+                quiet_mode=self.autofill_only_mode,
             ),
         )
 
@@ -265,7 +272,9 @@ class DataValidationView(FormView):
         for sheet in xlsxwriter.sheets.keys():
             xlsxwriter.sheets[sheet].autofit()
 
-    def extract_autofill_exceptions(self):
+    def extract_autofill_exceptions(
+        self, retain_as_warnings=True, add_autofill_warning=True
+    ):
         """Remove exceptions related to references to missing underlying data and extract their data.
 
         This produces a dict named autofill_dict keyed on sheet name.
@@ -300,17 +309,20 @@ class DataValidationView(FormView):
         doc
 
         Args:
-            None
+            retain_as_warnings (boolean): Track extracted error and warning exceptions as warnings.  If False, no pre-
+                existing errors or warnings will be reported.  See add_autofill_warning for the separately added
+                warnings about added data.
+            add_autofill_warning (boolean): If any data will be autofilled and this option is True, a MissingDataAdded
+                warning will be buffered.
         Exceptions:
-            None
+            Buffers:
+                MissingDataAdded
+            Raises:
+                None
         Returns:
             None
         """
-        self.extracted_exceptions = {
-            AllMissingSamplesError.__name__: {"errors": [], "warnings": []},
-            AllMissingTissues.__name__: {"errors": [], "warnings": []},
-            AllMissingTreatments.__name__: {"errors": [], "warnings": []},
-        }
+        self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         # Init the autofill dict for the subsequent calls
         self.autofill_dict = {
             self.SAMPLES_SHEET: defaultdict(dict),
@@ -319,25 +331,32 @@ class DataValidationView(FormView):
         }
         warning_load_key = "Autofill Note"
         data_added = []
+
         # For every AggregatedErrors objects associated with a file or category
-        for aes in [
-            v["aggregated_errors"]
-            for v in self.load_status_data.statuses.values()
+        for load_key in [
+            k
+            for k, v in self.load_status_data.statuses.items()
             if v["aggregated_errors"] is not None
         ]:
-            # For each exception class we want to extract from the AggregatedErrors object (in order to "fix" the data)
+            # For each exception class we want to extract from the AggregatedErrors object (in order to both "fix" the
+            # data and to remove related errors that those fixes address)
             for exc_class in [
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
+                NoSamplesError,
             ]:
+
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
-                for exc in aes.remove_exception_type(exc_class, modify=False):
+                for exc in self.load_status_data.remove_exception_type(
+                    load_key, exc_class, modify=False
+                ):
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
-                        self.extracted_exceptions[exc_class.__name__]["errors"].append(
-                            exc
-                        )
+                        if retain_as_warnings:
+                            self.extracted_exceptions[exc_class.__name__][
+                                "errors"
+                            ].append(exc)
 
                         if exc_class == AllMissingSamplesError:
                             data_added.append(
@@ -354,23 +373,25 @@ class DataValidationView(FormView):
                                 f"{len(exc.missing_treatment_errors)} treatment names"
                             )
                             self.extract_all_missing_treatments(exc)
-                    else:
+                        # We're only removing NoSamplesErrors. All their samples are added to the AllMissingSamplesError
+
+                    elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
-        if len(data_added) > 0:
-            # Refresh the load statuses
-            new_load_status_data = MultiLoadStatus()
-            new_load_status_data.copy_constructor(self.load_status_data)
-            self.load_status_data = new_load_status_data
 
+        if len(data_added) > 0 and add_autofill_warning:
             # Add a warning about added data
             added_warning = MissingDataAdded(
-                addition_notes=data_added, file="Output Study Doc"
+                addition_notes=data_added, file=self.output_study_filename
             )
-            added_warning.is_error = False
-            added_warning.is_fatal = False
-            self.load_status_data.set_load_exception(added_warning, warning_load_key)
+            self.load_status_data.set_load_exception(
+                added_warning,
+                warning_load_key,
+                top=True,
+                default_is_error=False,
+                default_is_fatal=False,
+            )
 
     def extract_all_missing_samples(self, exc):
         """Extracts autofill data from the supplied AllMissingSamplesError exception and puts it in self.autofill_dict.
@@ -392,16 +413,25 @@ class DataValidationView(FormView):
         Returns:
             None
         """
+        # Get sample names that are already in the sample sheet (so we can skip them)
+        existing_sample_names = []
+        if (
+            self.dfs_dict is not None
+            and self.SAMPLES_SHEET in self.dfs_dict.keys()
+            and SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            in self.dfs_dict[self.SAMPLES_SHEET].keys()
+        ):
+            existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
+                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            ].values()
+
         for sample_header in exc.missing_samples_dict["all_missing_samples"].keys():
             pattern = self.get_approx_sample_header_replacement_regex()
             sample_name = re.sub(pattern, "", sample_header)
-            # TODO: Check if the modified name exists in the dfs_dict or in the database already.  If it does, then
-            # nothing needs to be added to the samples sheet.  We just need to add to the LCMS data/sheet (once that's
-            # done).  Note, we could also opt to supply the lcms file produced by the code developed earlier (below).
-            # See build_lcms_dict().
-            self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
-                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
-            }
+            if sample_name not in existing_sample_names:
+                self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
+                    SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
+                }
 
     def extract_all_missing_tissues(self, exc):
         """Extracts autofill data from the supplied AllMissingTissues exception and puts it in self.autofill_dict.

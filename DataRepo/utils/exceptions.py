@@ -563,10 +563,6 @@ class MultiLoadStatus(Exception):
     """
 
     def __init__(self, load_keys=None):
-        self.state = "PASSED"
-        self.is_valid = True
-        self.num_errors = 0
-        self.num_warnings = 0
         self.statuses = {}
         # Initialize the load status of all load keys (e.g. file names).  Note, you can create arbitrary keys for group
         # statuses, e.g. for AllMissingCompounds errors that consolidate all missing compounds
@@ -578,12 +574,17 @@ class MultiLoadStatus(Exception):
         self.statuses[load_key] = {
             "aggregated_errors": None,
             "state": "PASSED",
-            "num_errors": 0,
-            "num_warnings": 0,
             "top": True,  # Passing files will appear first
         }
 
-    def set_load_exception(self, exception, load_key, top=False):
+    def set_load_exception(
+        self,
+        exception,
+        load_key,
+        top=False,
+        default_is_error=True,
+        default_is_fatal=True,
+    ):
         """Records the status of a load in a data member called statuses.  It tracks some overall stats and can set
         whether this load status should appear at the top of the reported statuses or not.
 
@@ -593,6 +594,12 @@ class MultiLoadStatus(Exception):
                 associated with any errors), e.g. "All samples exist in the database".
             top (boolean): Whether the file or category's pass/fail state should be among the first listed in the status
                 report.
+            default_is_error (boolean): If the added exception is an error (as opposed to a warning).  Ignored when
+                exception is an AggregatedErrors object.  Otherwise only used if exception.is_error, is not present.
+            default_is_fatal (boolean): If the added exception should be construed as having halted execution of the
+                load associated with the load_key.  This is useful when summarizing a category of common exceptions from
+                multiple load_keys.  Ignored when exception is an AggregatedErrors object.  Otherwise only used if
+                exception.is_fatal, is not present.
 
         Exceptions:
             None
@@ -620,13 +627,19 @@ class MultiLoadStatus(Exception):
 
             # Wrap the exception in an AggregatedErrors class
             new_aes = AggregatedErrors()
-            is_error = exception.is_error if hasattr(exception, "is_error") else True
-            is_fatal = exception.is_fatal if hasattr(exception, "is_fatal") else True
-            # This will cause the exception trace to be printed
+            is_error = (
+                exception.is_error
+                if hasattr(exception, "is_error")
+                else default_is_error
+            )
+            is_fatal = (
+                exception.is_fatal
+                if hasattr(exception, "is_fatal")
+                else default_is_fatal
+            )
+            # NOTE: This will cause the exception trace to be printed
             new_aes.buffer_exception(exception, is_error=is_error, is_fatal=is_fatal)
 
-        new_num_errors = new_aes.num_errors
-        new_num_warnings = new_aes.num_warnings
         if self.statuses[load_key]["aggregated_errors"] is not None:
             merged_aes = self.statuses[load_key]["aggregated_errors"]
             merged_aes.merge_aggregated_errors_object(new_aes)
@@ -640,28 +653,164 @@ class MultiLoadStatus(Exception):
         # We have edited AggregatedErrors above, but we are explicitly not accounting for removed exceptions.
         # Those will be tallied later in handle_packaged_exceptions, because for example, we only want 1 missing
         # compounds error that accounts for all missing compounds among all the study files.
-        self.num_errors += new_num_errors
-        self.num_warnings += new_num_warnings
-        self.statuses[load_key]["num_errors"] = merged_aes.num_errors
-        self.statuses[load_key]["num_warnings"] = merged_aes.num_warnings
         self.statuses[load_key]["top"] = top
 
-        # Any error or warning should make is_valid False and the user should decide whether they can ignore the
-        # warnings or not.
-        self.is_valid = False
         if self.statuses[load_key]["aggregated_errors"].is_error:
             self.statuses[load_key]["state"] = "FAILED"
-            self.state = "FAILED"
         else:
             self.statuses[load_key]["state"] = "WARNING"
-            self.state = "WARNING"
 
-    def get_success_status(self):
-        return self.is_valid
+    @property
+    def num_errors(self):
+        """Determined the formerly "num_errors" number, but doing it on the fly to simplify determination given the new
+        features elsewhere of fixing and removing exceptions.
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            num_errors (boolean)
+        """
+        num_errors = 0
+        for lk in self.statuses.keys():
+            if (
+                "aggregated_errors" in self.statuses[lk].keys()
+                and self.statuses[lk]["aggregated_errors"] is not None
+            ):
+                num_errors += self.statuses[lk]["aggregated_errors"].num_errors
+        return num_errors
+
+    @property
+    def num_warnings(self):
+        """Determined the formerly "num_warnings" number, but doing it on the fly to simplify determination given the
+        new features elsewhere of fixing and removing exceptions.
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            num_warnings (boolean)
+        """
+        num_warnings = 0
+        for lk in self.statuses.keys():
+            if (
+                "aggregated_errors" in self.statuses[lk].keys()
+                and self.statuses[lk]["aggregated_errors"] is not None
+            ):
+                num_warnings += self.statuses[lk]["aggregated_errors"].num_warnings
+        return num_warnings
+
+    @property
+    def state(self):
+        """Determined the formerly "state" status, but doing it on the fly to simplify determination given the
+        new features elsewhere of fixing and removing exceptions.
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            state (string): "PASSED", "WARNING", or "FAILED"
+        """
+        state = "PASSED"
+        for lk in self.statuses.keys():
+            # Any exception (warning or error) results in an invalid load state (either FAILED or WARNING)
+            if (
+                "aggregated_errors" in self.statuses[lk].keys()
+                and self.statuses[lk]["aggregated_errors"] is not None
+            ):
+                if self.statuses[lk]["aggregated_errors"].num_errors > 0:
+                    return "FAILED"
+                elif self.statuses[lk]["aggregated_errors"].num_warnings > 0:
+                    state = "WARNING"
+        return state
+
+    @property
+    def is_valid(self):
+        """Determine the "is_valid" state, but do it on the fly to simplify determination given the new features
+        elsewhere of fixing and removing exceptions.
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            is_valid (boolean)
+        """
+        for lk in self.statuses.keys():
+            # Any exception (warning or error) results in an invalid load state (either FAILED or WARNING)
+            if (
+                "aggregated_errors" in self.statuses[lk].keys()
+                and self.statuses[lk]["aggregated_errors"] is not None
+                and len(self.statuses[lk]["aggregated_errors"].exceptions) > 0
+            ):
+                return False
+        return True
+
+    def remove_exception_type(self, load_key, *args, **kwargs):
+        """An interface to AggregatedErrors.remove_exception_type that keeps the "state" of the load_key in the statuses
+        member up-to-date.  Call this instead of calling
+        obj.statuses[load_key]["aggregated_errors"].remove_exception_type().  If you do that, you must manually handle
+        keeping obj.statuses[load_key]["state"] up to date.
+
+        Args:
+            load_key (string): Key into self.statuses dict where each aggregated errors object is stored.
+            args (list): Positional arguments to the AggregatedErrors.remove_exception_type() method.
+                exception_class (Exception): Required.  See AggregatedErrors.remove_exception_type().
+            kwargs (dict): Keyword arguments to the AggregatedErrors.remove_exception_type() method.
+                modify (boolean): See AggregatedErrors.remove_exception_type().
+
+        Exceptions:
+            ValueError
+
+        Returns:
+            removed_exceptions (list of Exception): The return of AggregatedErrors.remove_exception_type()
+        """
+        removed_exceptions = []
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            removed_exceptions = self.statuses[load_key][
+                "aggregated_errors"
+            ].remove_exception_type(*args, **kwargs)
+            if len(self.statuses[load_key]["aggregated_errors"].exceptions) == 0:
+                self.statuses[load_key]["aggregated_errors"] = None
+        self.update_state(load_key)
+        return removed_exceptions
+
+    def update_state(self, load_key):
+        """Set the state of an individual load key on the fly to simplify determination given the new features
+        elsewhere of fixing and removing exceptions.
+
+        Args:
+            load_ley (string): Key to self.statuses
+
+        Exceptions:
+            None
+
+        Returns:
+            state (string): "PASSED", "WARNING", or "FAILED"
+        """
+        if self.statuses[load_key]["aggregated_errors"] is None:
+            self.statuses[load_key]["state"] = "PASSED"
+        elif self.statuses[load_key]["aggregated_errors"].num_errors > 0:
+            self.statuses[load_key]["state"] = "FAILED"
+        elif self.statuses[load_key]["aggregated_errors"].num_warnings > 0:
+            self.statuses[load_key]["state"] = "WARNING"
+        else:
+            self.statuses[load_key]["state"] = "PASSED"
 
     def get_final_exception(self, message=None):
         # If success, return None
-        if self.get_success_status():
+        if self.is_valid:
             return None
 
         aggregated_errors_dict = {}
@@ -676,7 +825,7 @@ class MultiLoadStatus(Exception):
         # Sanity check
         if len(aggregated_errors_dict.keys()) == 0:
             raise ValueError(
-                f"Success status is {self.get_success_status()} but there are no aggregated exceptions for any "
+                f"Success status is {self.is_valid} but there are no aggregated exceptions for any "
                 "files."
             )
 
@@ -684,13 +833,14 @@ class MultiLoadStatus(Exception):
 
     def get_status_message(self):
         # Overall status message
-        message = f"Load {self.state}"
+        state = self.state
+        message = f"Load {state}"
         if self.num_warnings > 0:
             message += f" {self.num_warnings} warnings"
         if self.num_errors > 0:
             message += f" {self.num_errors} errors"
 
-        return message, self.state
+        return message, state
 
     def get_status_messages(self):
         messages = []
@@ -742,7 +892,10 @@ class MultiLoadStatus(Exception):
             for load_key in instance.statuses.keys():
                 self.init_load(load_key)
         for load_key in instance.statuses.keys():
-            if len(instance.statuses[load_key]["aggregated_errors"].exceptions) > 0:
+            if (
+                instance.statuses[load_key]["aggregated_errors"] is not None
+                and len(instance.statuses[load_key]["aggregated_errors"].exceptions) > 0
+            ):
                 self.set_load_exception(
                     instance.statuses[load_key]["aggregated_errors"],
                     load_key,
