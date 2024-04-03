@@ -94,6 +94,9 @@ class DataValidationView(FormView):
         self.output_study_filename = "study.xlsx"
         self.autofill_only_mode = True
         self.dfs_dict = self.create_study_dfs_dict()
+        self.animal_sample_file = None
+        self.peak_annotation_files = None
+        self.peak_annotation_filenames = None
 
     def set_files(
         self,
@@ -113,10 +116,6 @@ class DataValidationView(FormView):
         self.animal_sample_filename = sample_filename
         if sample_filename is None and sample_file is not None:
             self.animal_sample_filename = str(os.path.basename(sample_file))
-
-        # Get an initial dfs_dict (a dict representation of the output study doc, either created or obtained from user)
-        self.dfs_dict = self.get_or_create_dfs_dict()
-        self.determine_study_file_readiness()
 
         if self.animal_sample_filename is not None:
             self.output_study_filename = self.animal_sample_filename
@@ -150,6 +149,13 @@ class DataValidationView(FormView):
                 f"The number of peak annotation file names [{len(peak_annotation_filenames)}] must be equal to the "
                 f"number of peak annotation files [{peak_annotation_files}]."
             )
+
+        # Get an initial dfs_dict (a dict representation of the output study doc, either created or as obtained from the
+        # user)
+        self.dfs_dict = self.get_or_create_dfs_dict()
+        # Now that self.animal_sample_file, self.peak_annotation_files, and self.dfs_dict have been set, determine
+        # validation readiness
+        self.determine_study_file_validation_readiness()
 
         # Initialize the accucor and isocorr files and filenames
         # TODO: We will not need to separate these files once the accucor loader is refactored.
@@ -279,7 +285,7 @@ class DataValidationView(FormView):
             ),
         )
 
-    def determine_study_file_readiness(self):
+    def determine_study_file_validation_readiness(self):
         """Determines if the study file is ready for validation by seeing it the samples sheet has any values in it
         other than sample names.  It does this by inspecting self.animal_sample_file and the data parsed into
         self.dfs_dict.
@@ -292,15 +298,21 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            ready_for_validation (boolean): The opposite of the autofill_only_mode
         """
+        if self.peak_annotation_files is None or len(self.peak_annotation_files) == 0:
+            # Cannot do autofill-only if there is no source of autofill data (currently)
+            self.autofill_only_mode = False
+            return not self.autofill_only_mode
+
         if (
             self.animal_sample_file is None
             or self.dfs_dict is None
             or self.SAMPLES_SHEET not in self.dfs_dict.keys()
         ):
+            # If there's no study data, we will want to autofill
             self.autofill_only_mode = True
-            return
+            return not self.autofill_only_mode
 
         for header in self.samples_ordered_display_headers:
             if (
@@ -309,12 +321,16 @@ class DataValidationView(FormView):
             ):
                 continue
 
-            for val in self.dfs_dict[self.SAMPLES_SHEET].values():
+            for ridx, val in self.dfs_dict[self.SAMPLES_SHEET][header].items():
                 if val is not None:
+                    # If any data has been manually added, we should check for mistakes (so, validate, i.e. autofill-
+                    # only = False)
                     self.autofill_only_mode = False
-                    break
+                    return not self.autofill_only_mode
 
+        # There is nothing that needs to be validated
         self.autofill_only_mode = True
+        return not self.autofill_only_mode
 
     def annotate_study_excel(self, xlsxwriter):
         """Add annotations, formulas, colors (indicating errors/warning/required-values/read-only-values/etc).
@@ -346,12 +362,7 @@ class DataValidationView(FormView):
             None
         """
         existing_sample_names = []
-        if (
-            self.dfs_dict is not None
-            and self.SAMPLES_SHEET in self.dfs_dict.keys()
-            and SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
-            in self.dfs_dict[self.SAMPLES_SHEET].keys()
-        ):
+        if self.dfs_dict_is_valid():
             existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
                 SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
             ].values()
@@ -360,7 +371,13 @@ class DataValidationView(FormView):
         peak_annot_sample_headers = {}
         for i in range(len(self.peak_annotation_files)):
             peak_annot_file = self.peak_annotation_files[i]
-            peak_annot_filename = self.peak_annotation_filenames[i]
+            peak_annot_filename = (
+                self.peak_annotation_filenames[i]
+                if self.peak_annotation_filenames is not None
+                else self.peak_annotation_files[i]
+            )
+
+            # Log print
             print(f"Extracting samples from {peak_annot_filename}")
             for header in get_sample_headers(
                 read_headers_from_file(
@@ -376,9 +393,8 @@ class DataValidationView(FormView):
         for sample_header in sorted(peak_annot_sample_headers.keys()):
             sample_name = re.sub(pattern, "", sample_header)
             # Skip likely blanks
-            # TODO: Consolidate this logic test with the blank test in the accucor loader.
             if (
-                "blank" not in sample_name.lower()
+                not AccuCorDataLoader.is_a_blank(sample_name)
                 and sample_name not in existing_sample_names
             ):
                 self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
@@ -1031,6 +1047,20 @@ class DataValidationView(FormView):
         )
 
     def format_results_for_template(self):
+        """This populates:
+        - self.valid
+        - self.results
+        - self.exceptions
+        - self.ordered_keys
+        based on the contents of self.load_status_data
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
         valid = self.load_status_data.is_valid
         results = {}
         exceptions = {}
@@ -1064,8 +1094,6 @@ class DataValidationView(FormView):
         self.results = results
         self.exceptions = exceptions
         self.ordered_keys = ordered_keys
-
-        return valid
 
     # No need to disable autoupdates adding the @no_autoupdates decorator to this function because supplying
     # `validate=True` automatically disables them
@@ -1347,6 +1375,11 @@ class DataValidationView(FormView):
         Returns:
             xlsxwriter (xlsxwriter)
         """
+        if not self.dfs_dict_is_valid():
+            raise ValueError(
+                "Cannot call create_study_file_writer when dfs_dict is not valid/created."
+            )
+
         xlsxwriter = pd.ExcelWriter(stream_obj, engine="xlsxwriter")
 
         for order_spec in self.get_study_sheet_column_display_order():
@@ -1376,6 +1409,46 @@ class DataValidationView(FormView):
             )
 
         return xlsxwriter
+
+    def dfs_dict_is_valid(self):
+        """This determines whether self.dfs_dict is correctly populated.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            valid (boolean)
+        """
+        if (
+            self.dfs_dict is None
+            or len(
+                [
+                    s
+                    for s in self.get_study_sheet_column_display_order()
+                    if s[0] in self.dfs_dict.keys()
+                ]
+            )
+            != 4
+        ):
+            return False
+
+        missing_treat_heads, _ = self.treatments_loader.get_missing_headers(
+            self.dfs_dict[ProtocolsLoader.DataSheetName].keys()
+        )
+        missing_tiss_heads, _ = self.tissues_loader.get_missing_headers(
+            self.dfs_dict[TissuesLoader.DataSheetName].keys()
+        )
+
+        return (
+            # Required headers present in each sheet
+            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+            in self.dfs_dict[self.SAMPLES_SHEET].keys()
+            and SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME
+            in self.dfs_dict[self.ANIMALS_SHEET].keys()
+            and missing_treat_heads is None
+            and missing_tiss_heads is None
+        )
 
 
 def validation_disabled(request):

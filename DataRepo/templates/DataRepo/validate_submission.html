@@ -64,21 +64,17 @@
         <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
 
-            <label for="peak_annotation_files" class="form-label" style="margin-bottom: 0.25rem;">
-                <span style="margin-top: 0.25rem;margin-bottom: 0.25rem;">
-                    Peak Annotation Files:
-                    <span class="small"><span class="small text-muted">(AccuCor and/or IsoCorr <span class="fst-italic">excel</span> files)</span></span>
-                </span>
+            <label for="peak_annotation_files" class="tight-form-label">
+                Peak Annotation Files:
+                <span class="small"><span class="small text-muted">(AccuCor/IsoCorr <span class="fst-italic">excel</span>)</span></span>
             </label>
             {{ form.peak_annotation_files }}
             <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
             <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
 
-            <label for="animal_sample_table" class="form-label" style="margin-bottom: 0.25rem;">
-                <span style="margin-top: 0.25rem;margin-bottom: 0.25rem;">
-                    Output Animal and Sample File:
-                    <span class="small"><span class="small text-muted">(if you have an existing Animal and Sample <span class="fst-italic">excel</span> file you want to update)</span></span>
-                </span>
+            <label for="animal_sample_table" class="tight-form-label">
+                Output Animal and Sample File:
+                <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
             </label>
             {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
             <!-- Errors, if they exist, add an extra like which makes the spacing off -->
@@ -121,7 +117,7 @@
                 </ul>
             </div>
         {% endif %}
-        <pre style="display: none" id="output_study_file">{{study_data}}</pre>
+        <pre class="d-none" id="output_study_file">{{study_data}}</pre>
     {% endif %}
 
 {% endblock %}

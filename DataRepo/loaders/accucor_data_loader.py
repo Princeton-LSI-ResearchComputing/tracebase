@@ -995,7 +995,7 @@ class AccuCorDataLoader:
         likely_missing = []
         if len(self.missing_samples) != 0:
             for ms in self.missing_samples:
-                if "blank" in ms.lower():
+                if self.is_a_blank(ms):
                     possible_blanks.append(ms)
                 else:
                     likely_missing.append(ms)
@@ -2191,6 +2191,10 @@ class AccuCorDataLoader:
         if file is not None and is_excel(file):
             sheets = get_sheet_names(file)
         return sheets == cls.ISOCORR_SHEETS
+
+    @classmethod
+    def is_a_blank(cls, sample_name):
+        return "blank" in sample_name.lower()
 
 
 def hash_file(path_obj, allow_missing=False):
