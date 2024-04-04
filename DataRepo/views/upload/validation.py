@@ -357,8 +357,12 @@ class DataValidationView(FormView):
                 SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
             ].values()
 
+        pattern = self.get_approx_sample_header_replacement_regex()
+
         corrected_sheet = 1  # Second sheet in both accucor and isocorr
-        peak_annot_sample_headers = {}
+        peak_annot_sample_headers = defaultdict(
+            lambda: {"sample_name": None, "metadata": defaultdict(dict)}
+        )
         for i in range(len(self.peak_annotation_files)):
             peak_annot_file = self.peak_annotation_files[i]
             peak_annot_filename = (
@@ -367,21 +371,29 @@ class DataValidationView(FormView):
                 else self.peak_annotation_files[i]
             )
 
-            # Log print
-            print(f"Extracting samples from {peak_annot_filename}")
-            for header in AccuCorDataLoader.get_sample_headers(
+            # Extracting sample header list from the peak annotation file
+            for fl_sample_header in AccuCorDataLoader.get_sample_headers(
                 read_headers_from_file(
                     peak_annot_file, sheet=corrected_sheet, filetype="excel"
                 )
             ):
-                peak_annot_sample_headers[header] = (
-                    0  # We only want the keys for uniqueness
-                )
+                db_sample_name = re.sub(pattern, "", fl_sample_header)
+                # We only want the fl_sample_header keys for uniqueness, but saving the lcms metadata for later autofill
+                # of the yet-to-be-added LCMS sheets
+                peak_annot_sample_headers[fl_sample_header][
+                    "sample_name"
+                ] = db_sample_name
+                # TODO: Add autofill of the LCMS sheet(s)
+                peak_annot_sample_headers[fl_sample_header]["metadata"][
+                    peak_annot_filename
+                ] = {
+                    LCMS_DB_SAMPLE_HDR: db_sample_name,
+                    LCMS_FL_SAMPLE_HDR: fl_sample_header,
+                    LCMS_PEAK_ANNOT_HDR: peak_annot_filename,
+                }
 
-        pattern = self.get_approx_sample_header_replacement_regex()
-
-        for sample_header in sorted(peak_annot_sample_headers.keys()):
-            sample_name = re.sub(pattern, "", sample_header)
+        for fl_sample_header in sorted(peak_annot_sample_headers.keys()):
+            sample_name = peak_annot_sample_headers[fl_sample_header]["sample_name"]
             # Skip likely blanks
             if (
                 not AccuCorDataLoader.is_a_blank(sample_name)
