@@ -1,4 +1,6 @@
+import base64
 import re
+from io import BytesIO
 
 from DataRepo.loaders import ProtocolsLoader, SampleTableLoader, TissuesLoader
 from DataRepo.models import Protocol, Tissue
@@ -420,7 +422,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
     def test_extract_autofill_exceptions(self):
         vo = self.get_data_validation_object_with_errors()
 
-        vo.extract_autofill_exceptions()
+        vo.extract_autofill_from_exceptions()
 
         self.assertEqual(
             1, len(vo.extracted_exceptions[AllMissingSamplesError.__name__]["errors"])
@@ -560,6 +562,41 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
+    def get_autofilled_study_dfs_dict(self):
+        return {
+            "Animals": {
+                "Study Name": {},
+                "Study Description": {},
+                "Animal ID": {},
+                "Animal Body Weight": {},
+                "Animal Genotype": {},
+                "Animal Treatment": {},
+                "Age": {},
+                "Sex": {},
+                "Diet": {},
+                "Feeding Status": {},
+                "Infusate": {},
+                "Infusion Rate": {},
+                "Tracer Concentrations": {},
+            },
+            "Samples": {
+                "Animal ID": {0: None},
+                "Collection Time": {0: None},
+                "Date Collected": {0: None},
+                "Researcher Name": {0: None},
+                "Sample Name": {0: "s1"},  # ADDED
+                "Tissue": {0: None},
+            },
+            "Tissues": {
+                "Description": {0: None},
+                "Tissue": {0: "elbow pit"},  # ADDED
+            },
+            "Treatments": {
+                "Animal Treatment": {0: "wined-and-dined"},  # ADDED
+                "Treatment Description": {0: None},
+            },
+        }
+
     def test_add_extracted_autofill_data(self):
         """Asserts that extracted data is added to the dfs_dict.  This indirectly also tests add_autofill_data."""
         # Obtain a DataValidationView object containing errors
@@ -567,47 +604,66 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         # Create the dfs_dict (to which data will be added)
         vo.dfs_dict = vo.create_study_dfs_dict()
         # Extract the errors into the autofill_dict (in the object)
-        vo.extract_autofill_exceptions()
+        vo.extract_autofill_from_exceptions()
         # Add the extracted data to the dfs_dict
         vo.add_extracted_autofill_data()
         self.assertDictEqual(
-            {
-                "Animals": {
-                    "Study Name": {},
-                    "Study Description": {},
-                    "Animal ID": {},
-                    "Animal Body Weight": {},
-                    "Animal Genotype": {},
-                    "Animal Treatment": {},
-                    "Age": {},
-                    "Sex": {},
-                    "Diet": {},
-                    "Feeding Status": {},
-                    "Infusate": {},
-                    "Infusion Rate": {},
-                    "Tracer Concentrations": {},
-                },
-                "Samples": {
-                    "Animal ID": {0: None},
-                    "Collection Time": {0: None},
-                    "Date Collected": {0: None},
-                    "Researcher Name": {0: None},
-                    "Sample Name": {0: "s1"},  # ADDED
-                    "Tissue": {0: None},
-                },
-                "Tissues": {
-                    "Description": {0: None},
-                    "Tissue": {0: "elbow pit"},  # ADDED
-                },
-                "Treatments": {
-                    "Animal Treatment": {0: "wined-and-dined"},  # ADDED
-                    "Treatment Description": {0: None},
-                },
-            },
+            self.get_autofilled_study_dfs_dict(),
             vo.dfs_dict,
         )
 
-    def test_get_output_study_file(self):
-        # TODO: Implement test once method fleshed out in step 11. of issue #829 in comment:
-        # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/829#issuecomment-2015852430
-        pass
+    def test_extract_autofill_from_peak_annotation_files(self):
+        dvv = DataValidationView()
+        dvv.peak_annotation_files = [
+            "DataRepo/data/tests/data_submission/accucor1.xlsx"
+        ]
+        dvv.extract_autofill_from_peak_annotation_files()
+        self.assertDictEqual(
+            {
+                "Samples": {
+                    "072920_XXX1_1_TS1": {"Sample Name": "072920_XXX1_1_TS1"},
+                    "072920_XXX1_2_bra": {"Sample Name": "072920_XXX1_2_bra"},
+                },
+                "Tissues": {},
+                "Treatments": {},
+            },
+            dvv.autofill_dict,
+        )
+
+    def test_determine_study_file_readiness_no_peak_files(self):
+        dvv = DataValidationView()
+        dvv.set_files(
+            sample_file="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+            sample_filename=None,
+            peak_annotation_files=None,
+            peak_annotation_filenames=None,
+        )
+        # Should be true because no peak annotation files, so all there is to do is validation of the sample study doc
+        self.assertTrue(dvv.determine_study_file_validation_readiness())
+
+    def test_determine_study_file_readiness_study_file_with_sample_names_only(self):
+        dvv = DataValidationView()
+        dvv.animal_sample_file = "study.xlsx"  # Invalid, but does not matter
+        dvv.peak_annotation_files = ["accucor.xlsx"]  # Invalid, but does not matter
+        dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
+        # Should be false because no manually fleshed data (nothing to validate)
+        self.assertFalse(dvv.determine_study_file_validation_readiness())
+
+    def test_determine_study_file_readiness_fleshed_study_file(self):
+        dvv = DataValidationView()
+        dvv.animal_sample_file = "study.xlsx"  # Invalid, but does not matter
+        dvv.peak_annotation_files = ["accucor.xlsx"]  # Invalid, but does not matter
+        dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
+        # Flesh it (with a single manually entered value)
+        dvv.dfs_dict["Samples"]["Animal ID"] = {0: "george"}
+        # Should be true because manually added data (animal ID) in addition to the sample names
+        self.assertTrue(dvv.determine_study_file_validation_readiness())
+
+    def test_create_study_file_writer(self):
+        # This also tests annotate_study_excel and dfs_dict_is_valid (indirectly)
+        dvv = DataValidationView()
+        study_stream = BytesIO()
+        xlsxwriter = dvv.create_study_file_writer(study_stream)
+        dvv.annotate_study_excel(xlsxwriter)
+        xlsxwriter.close()
+        self.assertEqual(0, len(base64.b64encode(study_stream.read()).decode("utf-8")))

@@ -24,3 +24,7 @@
   font-size: 1.5rem !important;
   padding: 1.5rem !important;
 }
+
+.tight-form-label {
+  margin-bottom: 0.25rem;
+}
