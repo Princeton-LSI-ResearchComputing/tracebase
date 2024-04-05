@@ -1,0 +1,160 @@
+/* https://codepen.io/defims/pen/DBaVXM
+ *
+ * Example:
+ *
+ * <div class="tree">
+ *   <ul>
+ *     <li><i class="fa fa-folder-open"></i> Project
+ *       <ul>
+ *         <li><i class="fa fa-folder-open"></i> Opened Folder <span>- 15kb</span>
+ *           <ul>
+ *             <li><i class="fa fa-folder-open"></i> css
+ *               <ul>
+ *                 <li><i class="fa fa-code"></i> CSS Files <span>- 3kb</span>
+ *                 </li>
+ *               </ul>
+ *             </li>
+ *             <li><i class="fa fa-folder"></i> Folder close <span>- 10kb</span>
+ *             </li>
+ *             <li><i class="fab fa-html5"></i> index.html</li>
+ *             <li><i class="fa fa-picture-o"></i> favicon.ico</li>
+ *           </ul>
+ *         </li>
+ *         <li><i class="fa fa-folder"></i> Folder close <span>- 420kb</span>
+ *         </li>
+ *       </ul>
+ *     </li>
+ *   </ul>
+ * </div>
+ */
+
+body {
+  font-size: 1rem;
+  background: #f5f5f5;
+}
+
+.fa-folder-open, .fa-folder {
+  color: #007bff;
+}
+
+.fa-html5 {
+  color: #f21f10;
+}
+
+.tree {
+  position: relative;
+  padding: 20px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: .85rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+
+  span {
+    font-size: 13px;
+    font-style: italic;
+    letter-spacing: .4px;
+    color: #a8a8a8;
+  }
+
+  ul {
+    padding-left: 5px;
+    list-style: none;
+
+    li {
+      position: relative;
+      padding-top: 5px;
+      padding-bottom: 5px;
+      padding-left: 15px;
+      -webkit-box-sizing: border-box;
+      -moz-box-sizing: border-box;
+      box-sizing: border-box;
+
+      &:before {
+        position: absolute;
+        top: 15px;
+        left: 0;
+        width: 10px;
+        height: 1px;
+        margin: auto;
+        content: '';
+        background-color: #666;
+      }
+
+      &:after {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 1px;
+        height: 100%;
+        content: '';
+        background-color: #666;
+      }
+
+      &:last-child:after {
+        height: 15px;
+      }
+    }
+
+    a {
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+}
+
+.tooltip-hint {
+  -webkit-text-decoration: underline dotted;
+  text-decoration: underline dotted;
+  cursor: help;
+  -webkit-text-decoration-skip-ink: none;
+  text-decoration-skip-ink: none;
+}
+
+.tooltip-hint[text-tooltip] {
+  position: relative;
+}
+
+.tooltip-hint[text-tooltip]:after {
+  content: attr(text-tooltip);
+  position: absolute;
+  left: 50%;
+  padding: 0.25rem;
+  bottom: 100%; /* put it on the top */
+  background-color: lightgray;
+  width: max-content;
+  opacity: 0;
+  word-wrap: normal;
+  pointer-events: none;
+  -webkit-transition: opacity 0.0s; /* Change timing to control how fast tooltip appears. */
+  transition: none;
+}
+
+.tooltip-hint[text-tooltip]:hover:after {
+  opacity: 1;
+}
+
+[file-tooltip] {
+  position: relative;
+}
+
+[file-tooltip]:after {
+  content: attr(file-tooltip);
+  position: absolute;
+  left: 15rem;
+  padding: 0.75rem;
+  bottom: 0%;
+  background-color: lightgray;
+  width: max-content;
+  opacity: 0;
+  -webkit-transition: opacity 0.0s; /* Change timing to control how fast tooltip appears. */
+  transition: none;
+}
+
+[file-tooltip]:hover:after {
+  opacity: 1;
+}

@@ -1,112 +1,161 @@
 {% extends "base.html" %}
 {% load static %}
-{% block content %}
-    <div>
 
-        <h4 id="animal-sample-accucor-data-submission-process">Data Submission Process</h4>
-        <hr />
-        <p>An important part of TraceBase is collecting and maintaining a consistent set of metadata for each sample. Use the following instructions to submit your Animal, Sample, &amp; Accucor Data.</p>
-        <p>See the <a
-            href="https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Upload/">TraceBase
-            documentation on uploading data</a> for a more complete set of
-        instructions and FAQ.</p>
-        <ol>
-            <h5 id="create-a-sample-sheet"><li>Create a Sample Sheet</li></h5>
+{% block head_extras %}
+    {{ block.super }}
+
+    <link href="{% static 'css/file_tree.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+    <h4 id="animal-sample-accucor-data-submission-process">Data Submission Process</h4>
+    <hr />
+    <small class="text-muted">
+        Feel free to submit data as you generate it.  Your study does not have to be complete for submission.  You can
+        iteratively submit accucor/isocorr files with their metadata described in the study doc (aka animal/sample
+        sheet), as you finish them.  Each one can be an additional separate submission to the same study.<br>
+        <br>
+    </small>
+    <ol>
+        <h5><li><a href="{% url 'validate' %}">Build a TraceBase Submission</a> <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#build-submission">more</a></li></h5>
+        <div id="build-submission" class="collapse">
             <ol>
-                <li><a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy?copyComments=true">Copy</a> the TraceBase Animal and Sample Table Template.
+                <li>
+                    Go to the
+                    <a href="{% url 'validate' %}">Build a TraceBase Submission</a>
+                    page and enter
+                    <span class="tooltip-hint" text-tooltip="AccuCor/IsoCorr excel files">peak annotation files</span>
+                    into the peak annotation files field
                 </li>
-                <li>Fill in the <em>Animals</em> sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-animals">more</a>
-                    <div id="fill-animals" class="collapse">
+                <li>
+                    OPTIONAL: Enter an existing
+                    <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>
+                </li>
+                <li>
+                    You will get back a new (or updated) study doc copy that is automatically downloaded.  If any issues
+                    are detected, a status report will be added to the page.
+                </li>
+                <li>
+                    Move on to the next section, but note that after you flesh out your study doc, you can at any point,
+                    come back to this page and submit your study file and peak annotation files to automatically
+                    add more samples, get a status report detailing any issues uncovered in your data, and also
+                    automatically fix some issues.
+                </li>
+            </ol>
+        </div>
+        <h5><li>Fill in Animal/Sample details <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#flesh-submission">more</a></li></h5>
+        <div id="flesh-submission" class="collapse">
+            <ol>
+                <li>
+                    Fill in the Animals sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#animals-details">more</a>
+                    <div id="animals-details" class="collapse">
                         <ol>
-                            <li>Give each mouse in your study a <em>unique id</em>.</li>
-                            <li>Fill in additional details about each of the mice in your study. Note that
-                                there are comments in the column headers to help describe each of the
-                                fields.
+                            <li>
+                                Give each mouse in your study a unique id.
                             </li>
-                            <li>Pay particular attention to the <em>Infusate</em>, <em>Feeding Status</em>,
-                                <em>Treatment</em>, and <em>Study</em> fields.
+                            <li>
+                                Fill in additional details about each of the mice in your study. Note that there are
+                                comments in the column headers to help describe each of the fields.
+                            </li>
+                            <li>
+                                Pay particular attention to the Infusate, Feeding Status, Treatment, and Study fields.
                             </li>
                         </ol>
                     </div>
                 </li>
-                <li>Fill in the <em>Samples</em> sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-samples">more</a>
-                    <div id="fill-samples" class="collapse">
+                <li>
+                    Fill in the Samples sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#samples-details">more</a>
+                    <div id="samples-details" class="collapse">
                         <ol>
-                            <li><strong>IMPORTANT</strong> - Ensure that the <em>Sample Name</em> column is consistent with the
-                                sample names in your AccuCor/IsoCorr files.
+                            <li>
+                                IMPORTANT - Ensure that the Sample Name column is consistent with the sample names in
+                                your AccuCor/IsoCorr files.
                             </li>
-                            <li>Fill in additional sample details, making sure that the <em>Tissue</em> values
-                                match one of those in the <em>Tissue</em> sheet and the <em>Animal ID</em> values match
-                                one of those in the <em>Animals</em> sheet.
+                            <li>
+                                Fill in additional sample details, making sure that the Tissue values match one of
+                                those in the Tissue sheet and the Animal ID values match one of those in the Animals
+                                sheet.
                             </li>
                         </ol>
                     </div>
                 </li>
-                <li>Fill in <em>Treatments</em> sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-treatments">more</a>
-                    <div id="fill-treatments" class="collapse">
+                <li>
+                    Fill in Treatments sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#treatments-details">more</a>
+                    <div id="treatments-details" class="collapse">
                         <ol>
-                            <li>Provide a list of treatments used in the study, along with a description
-                                of each.</li>
+                            <li>
+                                Existing treatment options will have been pre-filled-in
+                            </li>
+                            <li>
+                                If there are any novel treatments in your study, add a name and description for each.
+                            </li>
                         </ol>
                     </div>
                 </li>
             </ol>
-                <h5 id="optional-validate-your-data" class="mt-2"><li><em>Ecouraged</em>: Validate your data</li></h5>
-                <p class="text-muted">Validating your data will speed up the processing of your submission and mitigate the need for repeated interactions between the TraceBase curator loading the data and you (the researcher) to determine how to resolve issues uncovered in the data.</p>
-                <ol>
-                    <li>Download your Animal and Sample Table in Excel format.</li>
-                    <li><a href="{% url 'validate' %}">Validate</a> your sample table and AccuCor/IsoCorr files</li>
-                    <li>If there are any errors reported, fix them in the Google spreadsheet and return to step 1.<br/>
-                        <div class="text-muted">Note: In general, you should <strong>NOT</strong> edit your AccuCor/IsoCorr
-                            files. It&#39;s simplest and often best to resolve issues by
-                            editing your animal and sample table file.</div>
-                    </li>
-                </ol>
-            <h5 id="submit-your-data-on-google-drive" class="mt-2"><li>Submit your data on Google Drive</li></h5>
+        </div>
+        <h5><li><a href="{{ submission_form_url }}">Submit your data</a> <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#send-submission">more</a></li></h5>
+        <div id="send-submission" class="collapse">
             <ol>
-                <li>Create a folder for your study in the <a target="_blank"
-                    href="https://drive.google.com/drive/folders/1cBy3eezfr_0vmaz8RGodga6A8n3hkm1m?usp=sharing">TraceBase
-                    Study Submission folder</a> on Google Drive <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-folder-details">more</a></li>
-                <div id="study-submission-folder-details" class="collapse">
-                    <ol>
-                        <li>Create a folder with your name (if it doesn&#39;t already exist).</li>
-                        <li>Create a new folder for this study.</li>
-                    </ol>
-                </div>
-                <li>Copy the Animal and Sample spread sheet and any AccuCor/IsoCorr files that should be included in the study</li>
-                <li>Submit the <a href="https://forms.gle/vEfJEfhPbCbkybpE7">TraceBase Study Submission
-                    form</a> <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-details">more</a>
-                    <div id="study-submission-details" class="collapse">
-                        The form will ask for the following information:
-                        <ol>
-                            <li>Study Name</li>
-                            <li>Link to Google Drive folder with study submission.</li>
-                            <li>Mass Spectrometry Details
-                                <ol>
-                                    <li>Mass Spec Run Date</li>
-                                    <li>Mass Spec Operator</li>
-                                    <li>LC method(s)</li>
-                                    <li>MS mode(s)</li>
-                                </ol>
+                <li>
+                    Add your data (<code>study.xlsx</code>, <code>accucor.xlsx</code> & <code>isocorr.xlsx</code>
+                    files, and optional <code>sample.mzXML</code> files) to the <em>{{ submission_drive_type }}</em>:
+                    <code>{{ submission_drive_folder }}</code> with the following structure:
+                    <div class="tree">
+                        <ul>
+                            <li>
+                                <i class="fa fa-folder-open"></i> {{ submission_drive_folder }}
+                                <ul>
+                                    <li>
+                                        <i class="fa fa-folder-open"></i> user_name
+                                        <ul>
+                                            <li>
+                                                <i class="fa fa-folder-open"></i> study_name_1
+                                                <ul>
+                                                    <li><div file-tooltip="aka animal/sample sheet">study_name.xlsx</div></li>
+                                                    <div file-tooltip="Organize AccuCor/IsoCorr files in subdirectories however you wish">
+                                                        <li>peak_annotation_name_1.xlsx</li>
+                                                        <li>peak_annotation_name_2.xlsx</li>
+                                                        <li>peak_annotation_name_N.xlsx</li>
+                                                    </div>
+                                                    <li><div file-tooltip="Organize mzXML files in subdirectories however you wish">*.mzXML</div></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                </ul>
                             </li>
-                        </ol>
-                    </div>
+                        </ul>
+                    </ul>
+                </li>
+                <li>
+                    Fill out and submit the <a href="{{ submission_form_url }}">TraceBase Study Submission form</a>
                 </li>
             </ol>
-            <h5 id="what-happens-next" class="mt-2"><li>What happens next</li></h5>
-            <ol>
-                <li>We&#39;ll review your study to ensure that everything will load smoothly. If
-                    there are any issues, we&#39;ll contact you to sort everything out.
-                </li>
-                <li>The study data will be loaded into TraceBase and we&#39;ll send you an email
-                    with a link to view the data to make sure everything looks correct and you
-                    can start browsing your data.
-                </li>
-            </ol>
-            <p><a href="https://forms.gle/LNk4kk6RJKZWM6za9">Contact us</a> anytime if you have any
-                questions, concerns, or comments If, after your submission, you need to
-                follow-up or would like to check-in on the upload status, <a href="https://forms.gle/LNk4kk6RJKZWM6za9">let us
-                    know</a>.</p>
-        </ol>
-    </div>
+        </div>
+    </ol>
+    <h6>What happens next</h6>
+    <ol>
+        <li>
+            We'll review your study to ensure that everything will load smoothly. If there are any issues, we'll contact
+            you to sort everything out.
+        </li>
+        <li>
+            The study data will be loaded into TraceBase and we'll send you an email with a link to view the data to
+            make sure everything looks correct and you can start browsing your data.
+        </li>
+    </ol>
+    <hr>
+    <small class="text-muted">
+        <p>
+            <a href="{{ submission_feedback_url }}">Contact us</a>
+            anytime if you have any questions, concerns, or comments If, after your submission, you need to follow-up
+            or would like to check-in on the upload status,
+            <a href="{{ submission_feedback_url }}">let us know</a>.<br>
+
+            See the
+            <a href="{{ submission_doc_url }}">{{ submission_doc_name }}</a>
+            for a more complete set of instructions and FAQ.
+        </p>
+    </small>
 {% endblock %}
