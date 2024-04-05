@@ -50,62 +50,66 @@ body {
   font-weight: 400;
   line-height: 1.5;
   color: #212529;
+}
 
-  span {
-    font-size: 13px;
-    font-style: italic;
-    letter-spacing: .4px;
-    color: #a8a8a8;
-  }
+.tree span {
+  font-size: 13px;
+  font-style: italic;
+  letter-spacing: .4px;
+  color: #a8a8a8;
+}
 
-  ul {
-    padding-left: 5px;
-    list-style: none;
+.tree ul {
+  padding-left: 5px;
+  list-style: none;
+}
 
-    li {
-      position: relative;
-      padding-top: 5px;
-      padding-bottom: 5px;
-      padding-left: 15px;
-      -webkit-box-sizing: border-box;
-      -moz-box-sizing: border-box;
-      box-sizing: border-box;
+.tree ul a {
+  cursor: pointer;
+}
 
-      &::before {
-        position: absolute;
-        top: 15px;
-        left: 0;
-        width: 10px;
-        height: 1px;
-        margin: auto;
-        content: '';
-        background-color: #666;
-      }
+.tree ul:hover {
+  text-decoration: none;
+}
 
-      &::after {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        width: 1px;
-        height: 100%;
-        content: '';
-        background-color: #666;
-      }
+.tree ul li {
+  position: relative;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  padding-left: 15px;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
 
-      &:last-child::after {
-        height: 15px;
-      }
-    }
+.tree ul li::before {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  width: 10px;
+  height: 1px;
+  margin: auto;
+  content: '';
+  background-color: #666;
+}
 
-    a {
-      cursor: pointer;
+.tree ul li::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  height: 100%;
+  content: '';
+  background-color: #666;
+}
 
-      &:hover {
-        text-decoration: none;
-      }
-    }
-  }
+.tree ul li:last-child::after {
+  height: 15px;
+}
+
+.tree ul div li:last-child::after {
+  height: 31px;
 }
 
 .tooltip-hint {
@@ -146,7 +150,7 @@ body {
 [file-tooltip]::after {
   content: attr(file-tooltip);
   position: absolute;
-  left: 15rem;
+  left: 17rem;
   padding: 0.75rem;
   bottom: 0%;
   background-color: lightgray;
@@ -160,3 +164,7 @@ body {
   opacity: 1;
 }
 /* stylelint-enable property-no-vendor-prefix */
+
+.major-li {
+  margin-bottom: 1rem;
+}

@@ -8,6 +8,7 @@ def upload(request):
         "submission_form_url": settings.SUBMISSION_FORM_URL,
         "submission_doc_url": settings.SUBMISSION_DOC_URL,
         "submission_doc_name": settings.SUBMISSION_DOC_NAME,
+        "submission_drive_doc_url": settings.SUBMISSION_DRIVE_DOC_URL,
         "submission_drive_type": settings.SUBMISSION_DRIVE_TYPE,
         "submission_drive_folder": settings.SUBMISSION_DRIVE_FOLDER,
     }

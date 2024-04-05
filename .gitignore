@@ -138,3 +138,6 @@ archive
 
 # Robs custom ignores - I use the following file that I haven't made into an "app" yet
 DataRepo/management/commands/list_tests.py
+node_modules
+package-lock.json
+package.json

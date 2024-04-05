@@ -5,6 +5,63 @@
     {{ block.super }}
 
     <link href="{% static 'css/file_tree.css' %}" rel="stylesheet">
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            var buildsubdeets = document.getElementById("build-submission")
+            var buildsubdeetsbtn = document.getElementById("build-submission-button")
+            buildsubdeets.addEventListener("hide.bs.collapse", function () {
+                buildsubdeetsbtn.src = "{% static 'images/plus.png' %}"
+            })
+            buildsubdeets.addEventListener("show.bs.collapse", function () {
+                buildsubdeetsbtn.src = "{% static 'images/minus.png' %}"
+            })
+
+            var fleshsubdeets = document.getElementById("flesh-submission")
+            var fleshsubdeetsbtn = document.getElementById("flesh-submission-button")
+            fleshsubdeets.addEventListener("hide.bs.collapse", function () {
+                fleshsubdeetsbtn.src = "{% static 'images/plus.png' %}"
+            })
+            fleshsubdeets.addEventListener("show.bs.collapse", function () {
+                fleshsubdeetsbtn.src = "{% static 'images/minus.png' %}"
+            })
+
+            var animalsdetails = document.getElementById("animals-details")
+            var animalsdetailsbtn = document.getElementById("animals-details-button")
+            animalsdetails.addEventListener("hide.bs.collapse", function () {
+                animalsdetailsbtn.src = "{% static 'images/plus.png' %}"
+            })
+            animalsdetails.addEventListener("show.bs.collapse", function () {
+                animalsdetailsbtn.src = "{% static 'images/minus.png' %}"
+            })
+
+            var samplesdetails = document.getElementById("samples-details")
+            var samplesdetailsbtn = document.getElementById("samples-details-button")
+            samplesdetails.addEventListener("hide.bs.collapse", function () {
+                samplesdetailsbtn.src = "{% static 'images/plus.png' %}"
+            })
+            samplesdetails.addEventListener("show.bs.collapse", function () {
+                samplesdetailsbtn.src = "{% static 'images/minus.png' %}"
+            })
+
+            var treatmentsdetails = document.getElementById("treatments-details")
+            var treatmentsdetailsbtn = document.getElementById("treatments-details-button")
+            treatmentsdetails.addEventListener("hide.bs.collapse", function () {
+                treatmentsdetailsbtn.src = "{% static 'images/plus.png' %}"
+            })
+            treatmentsdetails.addEventListener("show.bs.collapse", function () {
+                treatmentsdetailsbtn.src = "{% static 'images/minus.png' %}"
+            })
+
+            var sendsubmission = document.getElementById("send-submission")
+            var sendsubmissionbtn = document.getElementById("send-submission-button")
+            sendsubmission.addEventListener("hide.bs.collapse", function () {
+                sendsubmissionbtn.src = "{% static 'images/plus.png' %}"
+            })
+            sendsubmission.addEventListener("show.bs.collapse", function () {
+                sendsubmissionbtn.src = "{% static 'images/minus.png' %}"
+            })
+        })
+    </script>
 {% endblock %}
 
 {% block content %}
@@ -17,19 +74,19 @@
         <br>
     </small>
     <ol>
-        <h5><li><a href="{% url 'validate' %}">Build a TraceBase Submission</a> <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#build-submission">more</a></li></h5>
-        <div id="build-submission" class="collapse">
+        <h5><li><a href="{% url 'validate' %}">Build a TraceBase Submission</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#build-submission"><img id="build-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <div id="build-submission" class="major-li collapse">
             <ol>
                 <li>
                     Go to the
                     <a href="{% url 'validate' %}">Build a TraceBase Submission</a>
                     page and enter
                     <span class="tooltip-hint" text-tooltip="AccuCor/IsoCorr excel files">peak annotation files</span>
-                    into the peak annotation files field
+                    into the peak annotation files field.
                 </li>
                 <li>
-                    OPTIONAL: Enter an existing
-                    <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>
+                    <em>OPTIONAL</em>: Enter an existing
+                    <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>.
                 </li>
                 <li>
                     You will get back a new (or updated) study doc copy that is automatically downloaded.  If any issues
@@ -43,68 +100,69 @@
                 </li>
             </ol>
         </div>
-        <h5><li>Fill in Animal/Sample details <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#flesh-submission">more</a></li></h5>
-        <div id="flesh-submission" class="collapse">
+        <h5><li>Fill in Animal/Sample details &nbsp;<a data-bs-toggle="collapse" data-bs-target="#flesh-submission"><img id="flesh-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <div id="flesh-submission" class="major-li collapse">
             <ol>
                 <li>
-                    Fill in the Animals sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#animals-details">more</a>
+                    Fill in the Animals sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#animals-details"><img id="animals-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
                     <div id="animals-details" class="collapse">
-                        <ol>
+                        <ul>
                             <li>
                                 Provide a unique identifier for each  mouse in your study.
                             </li>
                             <li>
-                                Fill in additional details about each of the mice in your study. Note that there are
-                                comments in the column headers to help describe each of the fields.
+                                Fill in additional details about each of the mice in your study.
                             </li>
                             <li>
-                                Pay particular attention to the Infusate, Feeding Status, Treatment, and Study fields.
+                                Take note of column header comments for tips and guidance.
                             </li>
-                        </ol>
+                        </ul>
                     </div>
                 </li>
                 <li>
-                    Fill in the Samples sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#samples-details">more</a>
+                    Fill in the Samples sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#samples-details"><img id="samples-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
                     <div id="samples-details" class="collapse">
-                        <ol>
+                        <ul>
                             <li>
-                                IMPORTANT - Ensure that the Sample Name column is consistent with the sample names in
-                                your AccuCor/IsoCorr files.
+                                <em>IMPORTANT</em>: Ensure that the Sample Name column is consistent with the sample
+                                names in your AccuCor/IsoCorr files.
                             </li>
                             <li>
-                                Fill in additional sample details, making sure that the Tissue values match one of
-                                those in the Tissue sheet and the Animal ID values match one of those in the Animals
-                                sheet.
+                                Fill in additional sample details, making sure that cross-sheet reference values, like
+                                Tissue, Treatment, and particularly: Animal IDs in the Samples sheet, match the values
+                                in their respective sheets.
                             </li>
-                        </ol>
+                        </ul>
                     </div>
                 </li>
                 <li>
-                    Fill in Treatments sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#treatments-details">more</a>
+                    Fill in Treatments sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#treatments-details"><img id="treatments-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
                     <div id="treatments-details" class="collapse">
-                        <ol>
+                        <ul>
                             <li>
-                                Treatment options used in previously loaded datasets will have been pre-filled, choose from these if they are appropriate to maintain consistency.
+                                Treatment options used in previously loaded datasets will have been pre-filled, choose
+                                from these if they are appropriate to maintain consistency.
                             </li>
                             <li>
                                 If there are any novel treatments in your study, add a name and description for each.
                             </li>
-                        </ol>
+                        </ul>
                     </div>
                 </li>
             </ol>
+            <small><small class="text-muted">For more details, refer to the <a target="_blank" href="{{ submission_doc_url }}">submission documentation</a></small></small>
         </div>
-        <h5><li><a href="{{ submission_form_url }}">Submit your data</a> <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#send-submission">more</a></li></h5>
-        <div id="send-submission" class="collapse">
+        <h5><li><a href="{{ submission_form_url }}">Submit your data</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#send-submission"><img id="send-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <div id="send-submission" class="major-li collapse">
             <ol>
                 <li>
                     Add your data (<code>study.xlsx</code>, <code>accucor.xlsx</code> & <code>isocorr.xlsx</code>
-                    files, and optional <code>sample.mzXML</code> files) to the <em>{{ submission_drive_type }}</em>:
+                    files, and optional <code>sample.mzXML</code> files) to the <a target="_blank" href="{{ submission_drive_doc_url }}">{{ submission_drive_type }}</a>:
                     <code>{{ submission_drive_folder }}</code> with the following structure:
                     <div class="tree">
                         <ul>
                             <li>
-                                <i class="fa fa-folder-open"></i> {{ submission_drive_folder }}
+                                <a target="_blank" href="{{ submission_drive_doc_url }}"><i class="fa fa-folder-open"></i></a>  <a target="_blank" href="{{ submission_drive_doc_url }}">{{ submission_drive_folder }}</a>
                                 <ul>
                                     <li>
                                         <i class="fa fa-folder-open"></i> user_name
@@ -118,7 +176,11 @@
                                                         <li>peak_annotation_name_2.xlsx</li>
                                                         <li>peak_annotation_name_N.xlsx</li>
                                                     </div>
-                                                    <li><div file-tooltip="Organize mzXML files in subdirectories however you wish">*.mzXML</div></li>
+                                                    <div file-tooltip="Organize mzXML files in subdirectories however you wish">
+                                                        <li>sample_name_1.mzXML</li>
+                                                        <li>sample_name_2.mzXML</li>
+                                                        <li>sample_name_N.mzXML</li>
+                                                    </div>
                                                 </ul>
                                             </li>
                                         </ul>
@@ -126,7 +188,7 @@
                                 </ul>
                             </li>
                         </ul>
-                    </ul>
+                    </div>
                 </li>
                 <li>
                     Fill out and submit the <a href="{{ submission_form_url }}">TraceBase Study Submission form</a>
@@ -137,12 +199,18 @@
     <h6>What happens next</h6>
     <ol>
         <li>
-            We'll review your study to ensure that everything will load smoothly. If there are any issues, we'll contact
-            you to sort everything out.
+            We will review your study to ensure that everything will load smoothly.
+            <ul>
+                <li>
+                    If there are any issues, we'll contact you to sort everything out.
+                </li>
+                <li>
+                    Once all issues are resolved, the data will be loaded into TraceBase.
+                </li>
+            </ul>
         </li>
         <li>
-            The study data will be loaded into TraceBase and we'll send you an email with a link to view the data to
-            make sure everything looks correct and you can start browsing your data.
+            We will send you an email with a link to your data for your review.
         </li>
     </ol>
     <hr>
@@ -154,7 +222,7 @@
             <a href="{{ submission_feedback_url }}">let us know</a>.<br>
 
             See the
-            <a href="{{ submission_doc_url }}">{{ submission_doc_name }}</a>
+            <a target="_blank" href="{{ submission_doc_url }}">{{ submission_doc_name }}</a>
             for a more complete set of instructions and FAQ.
         </p>
     </small>
