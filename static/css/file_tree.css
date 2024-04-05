@@ -108,7 +108,7 @@ body {
   height: 15px;
 }
 
-.tree ul div li:last-child::after {
+.tree ul .tree-extend li:last-child::after {
   height: 31px;
 }
 

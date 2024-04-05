@@ -10,57 +10,91 @@
             var buildsubdeets = document.getElementById("build-submission")
             var buildsubdeetsbtn = document.getElementById("build-submission-button")
             buildsubdeets.addEventListener("hide.bs.collapse", function () {
-                buildsubdeetsbtn.src = "{% static 'images/plus.png' %}"
+                buildsubdeetsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("build-submission-shown", "false");
             })
             buildsubdeets.addEventListener("show.bs.collapse", function () {
-                buildsubdeetsbtn.src = "{% static 'images/minus.png' %}"
+                buildsubdeetsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("build-submission-shown", "true");
             })
+            let shown = getCookie("build-submission-shown")
+            if (shown === "true") {buildsubdeetsbtn.click();}
 
             var fleshsubdeets = document.getElementById("flesh-submission")
             var fleshsubdeetsbtn = document.getElementById("flesh-submission-button")
             fleshsubdeets.addEventListener("hide.bs.collapse", function () {
-                fleshsubdeetsbtn.src = "{% static 'images/plus.png' %}"
+                fleshsubdeetsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("flesh-submission-shown", "false");
             })
             fleshsubdeets.addEventListener("show.bs.collapse", function () {
-                fleshsubdeetsbtn.src = "{% static 'images/minus.png' %}"
+                fleshsubdeetsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("flesh-submission-shown", "true");
             })
+            shown = getCookie("flesh-submission-shown")
+            if (shown === "true") {fleshsubdeetsbtn.click();}
 
             var animalsdetails = document.getElementById("animals-details")
             var animalsdetailsbtn = document.getElementById("animals-details-button")
             animalsdetails.addEventListener("hide.bs.collapse", function () {
-                animalsdetailsbtn.src = "{% static 'images/plus.png' %}"
+                animalsdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("animals-details-shown", "false");
             })
             animalsdetails.addEventListener("show.bs.collapse", function () {
-                animalsdetailsbtn.src = "{% static 'images/minus.png' %}"
+                animalsdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("animals-details-shown", "true");
             })
+            shown = getCookie("animals-details-shown")
+            if (shown === "true") {animalsdetailsbtn.click();}
 
             var samplesdetails = document.getElementById("samples-details")
             var samplesdetailsbtn = document.getElementById("samples-details-button")
             samplesdetails.addEventListener("hide.bs.collapse", function () {
-                samplesdetailsbtn.src = "{% static 'images/plus.png' %}"
+                samplesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("samples-details-shown", "false");
             })
             samplesdetails.addEventListener("show.bs.collapse", function () {
-                samplesdetailsbtn.src = "{% static 'images/minus.png' %}"
+                samplesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("samples-details-shown", "true");
             })
+            shown = getCookie("samples-details-shown")
+            if (shown === "true") {samplesdetailsbtn.click();}
 
             var treatmentsdetails = document.getElementById("treatments-details")
             var treatmentsdetailsbtn = document.getElementById("treatments-details-button")
             treatmentsdetails.addEventListener("hide.bs.collapse", function () {
-                treatmentsdetailsbtn.src = "{% static 'images/plus.png' %}"
+                treatmentsdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("treatments-details-shown", "false");
             })
             treatmentsdetails.addEventListener("show.bs.collapse", function () {
-                treatmentsdetailsbtn.src = "{% static 'images/minus.png' %}"
+                treatmentsdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("treatments-details-shown", "true");
             })
+            shown = getCookie("treatments-details-shown")
+            if (shown === "true") {treatmentsdetailsbtn.click();}
 
             var sendsubmission = document.getElementById("send-submission")
             var sendsubmissionbtn = document.getElementById("send-submission-button")
             sendsubmission.addEventListener("hide.bs.collapse", function () {
-                sendsubmissionbtn.src = "{% static 'images/plus.png' %}"
+                sendsubmissionbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("send-submission-shown", "false");
             })
             sendsubmission.addEventListener("show.bs.collapse", function () {
-                sendsubmissionbtn.src = "{% static 'images/minus.png' %}"
+                sendsubmissionbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("send-submission-shown", "true");
             })
+            shown = getCookie("send-submission-shown")
+            if (shown === "true") {sendsubmissionbtn.click();}
         })
+
+        // Get a Cookie
+        const getCookie = (name) => (
+            document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
+        )
+
+        // Set a Cookie
+        function setCookie(name, val) {
+            document.cookie = name + "=" + val + "; path=/";
+        }
     </script>
 {% endblock %}
 
@@ -171,7 +205,7 @@
                                                 <i class="fa fa-folder-open"></i> study_name_1
                                                 <ul>
                                                     <li><div file-tooltip="aka animal/sample sheet">study_name.xlsx</div></li>
-                                                    <div file-tooltip="Organize AccuCor/IsoCorr files in subdirectories however you wish">
+                                                    <div class="tree-extend" file-tooltip="Organize AccuCor/IsoCorr files in subdirectories however you wish">
                                                         <li>peak_annotation_name_1.xlsx</li>
                                                         <li>peak_annotation_name_2.xlsx</li>
                                                         <li>peak_annotation_name_N.xlsx</li>
