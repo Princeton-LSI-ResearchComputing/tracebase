@@ -70,7 +70,7 @@ body {
       -moz-box-sizing: border-box;
       box-sizing: border-box;
 
-      &:before {
+      &::before {
         position: absolute;
         top: 15px;
         left: 0;
@@ -81,7 +81,7 @@ body {
         background-color: #666;
       }
 
-      &:after {
+      &::after {
         position: absolute;
         top: 0;
         bottom: 0;
@@ -92,7 +92,7 @@ body {
         background-color: #666;
       }
 
-      &:last-child:after {
+      &:last-child::after {
         height: 15px;
       }
     }
@@ -119,7 +119,8 @@ body {
   position: relative;
 }
 
-.tooltip-hint[text-tooltip]:after {
+/* stylelint-disable property-no-vendor-prefix */
+.tooltip-hint[text-tooltip]::after {
   content: attr(text-tooltip);
   position: absolute;
   left: 50%;
@@ -133,8 +134,9 @@ body {
   -webkit-transition: opacity 0.0s; /* Change timing to control how fast tooltip appears. */
   transition: none;
 }
+/* stylelint-enable property-no-vendor-prefix */
 
-.tooltip-hint[text-tooltip]:hover:after {
+.tooltip-hint[text-tooltip]:hover::after {
   opacity: 1;
 }
 
@@ -142,7 +144,8 @@ body {
   position: relative;
 }
 
-[file-tooltip]:after {
+/* stylelint-disable property-no-vendor-prefix */
+[file-tooltip]::after {
   content: attr(file-tooltip);
   position: absolute;
   left: 15rem;
@@ -154,7 +157,8 @@ body {
   -webkit-transition: opacity 0.0s; /* Change timing to control how fast tooltip appears. */
   transition: none;
 }
+/* stylelint-enable property-no-vendor-prefix */
 
-[file-tooltip]:hover:after {
+[file-tooltip]:hover::after {
   opacity: 1;
 }
