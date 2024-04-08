@@ -51,7 +51,7 @@ class DataValidationView(FormView):
     isocorr_files: List[str] = []
     animal_sample_filename = None
     animal_sample_file = None
-    submission_url = settings.DATA_SUBMISSION_URL
+    submission_url = settings.SUBMISSION_FORM_URL
     # These are common suffixes repeatedly appended to accucor/isocorr sample names to make them unique across different
     # polarities and scan ranges.  This is not perfect.  See the get_approx_sample_header_replacement_regex method for
     # the full pattern.
