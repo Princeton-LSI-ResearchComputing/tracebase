@@ -404,7 +404,6 @@ class DataValidationView(FormView):
                         wrapped,
                         {
                             "author": "TraceBase Dev Team",
-                            "color": "#FEF49C",
                             "font_name": "Courier",  # Fixed width for box height/width calcs
                             "font_size": font_height,
                             "height": nlines * line_height,
