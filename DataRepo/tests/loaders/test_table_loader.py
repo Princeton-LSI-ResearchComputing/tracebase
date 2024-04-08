@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from django.db.models import AutoField, CharField, Model, UniqueConstraint
 from django.test.utils import isolate_apps
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
@@ -72,6 +73,10 @@ class TableLoaderTests(TracebaseTestCase):
             DataRequiredValues = DataRequiredHeaders
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {mdl.__name__: {"name": "NAME", "choice": "CHOICE"}}
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                CHOICE=TableColumn.init_flat(field=mdl.choice),
+            )
             Models = [mdl]
 
             def load_data(self):
@@ -95,6 +100,11 @@ class TableLoaderTests(TracebaseTestCase):
                 "TestUCModel": {"name": "NAME", "uf1": "UFONE", "uf2": "UFTWO"}
             }
             Models = [mdl]
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                UFONE=TableColumn.init_flat(name="UFOne Header"),
+                UFTWO=TableColumn.init_flat(name="UFTwo Header"),
+            )
 
             def load_data(self):
                 return None
@@ -389,6 +399,10 @@ class TableLoaderTests(TracebaseTestCase):
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             Models = [self.TestModel]
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                CHOICE=TableColumn.init_flat(name="Choice Header"),
+            )
 
             def load_data(self):
                 return None
@@ -444,6 +458,10 @@ class TableLoaderTests(TracebaseTestCase):
             DataUniqueColumnConstraints = [["NAME"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "NAME", "choice": "CHOICE"}}
             Models = [self.TestModel]
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                CHOICE=TableColumn.init_flat(name="Choice Header"),
+            )
 
             def load_data(self):
                 return None
@@ -586,6 +604,10 @@ class TableLoaderTests(TracebaseTestCase):
             DataUniqueColumnConstraints = None
             FieldToDataHeaderKey = None
             Models = None
+            DataColumnMetadata = DataTableHeaders(
+                NAME=TableColumn.init_flat(name="Name Header"),
+                CHOICE=TableColumn.init_flat(name="Choice Header"),
+            )
 
             def load_data(self):
                 return None
@@ -599,13 +621,13 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Invalid attributes:\n"
-                "\tattribute [TestInvalidLoader.DataHeaders] namedtuple required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.DataHeaders] namedtuple required, NoneType set\n"
                 "\tattribute [TestInvalidLoader.DataRequiredHeaders] N-dimensional list of strings required, "
                 "but contains ['NoneType']\n"
                 "\tattribute [TestInvalidLoader.DataRequiredValues] N-dimensional list of strings required, "
                 "but contains ['NoneType']\n"
-                "\tattribute [TestInvalidLoader.DataUniqueColumnConstraints] list required, <class 'NoneType'> set\n"
-                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, <class 'NoneType'> set\n"
+                "\tattribute [TestInvalidLoader.DataUniqueColumnConstraints] list required, NoneType set\n"
+                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, NoneType set\n"
                 "\tModels is required to have at least 1 Model class"
             ),
             str(aes.exceptions[0]),
@@ -632,6 +654,9 @@ class TableLoaderTests(TracebaseTestCase):
             DataUniqueColumnConstraints = [["TEST"]]
             FieldToDataHeaderKey = {"TestModel": {"name": "TEST"}}
             Models = [TestModel]
+            DataColumnMetadata = DataTableHeaders(
+                TEST=TableColumn.init_flat(name="Test Header")
+            )
 
             def load_data(self):
                 pass
@@ -734,8 +759,8 @@ class TableLoaderTests(TracebaseTestCase):
             # pylint: enable=abstract-class-instantiated
         self.assertEqual(
             (
-                "Can't instantiate abstract class TestEmptyLoader with abstract methods DataHeaders, "
-                "DataRequiredHeaders, DataRequiredValues, DataSheetName, DataTableHeaders, "
+                "Can't instantiate abstract class TestEmptyLoader with abstract methods DataColumnMetadata, "
+                "DataHeaders, DataRequiredHeaders, DataRequiredValues, DataSheetName, DataTableHeaders, "
                 "DataUniqueColumnConstraints, FieldToDataHeaderKey, Models, load_data"
             ),
             str(ar.exception),
@@ -1519,3 +1544,11 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertDictEqual(
             expected, todl.get_dataframe_template(all=True, populate=True)
         )
+
+    def test_get_header_metadata(self):
+        tl = self.TestLoader()
+        self.assertListEqual(
+            ["Choice", "Name"], sorted(tl.get_header_metadata().keys())
+        )
+        # Just going to assert a single attribute is properly set
+        self.assertEqual("TestModel Choice", tl.get_header_metadata()["Choice"].name)

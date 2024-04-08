@@ -3,12 +3,13 @@ import os.path
 import re
 import shutil
 import tempfile
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from io import BytesIO
 from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, cast
 
 import pandas as pd
+import xlsxwriter
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
@@ -20,8 +21,18 @@ from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
+from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.tissues_loader import TissuesLoader
-from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
+from DataRepo.models import (
+    Animal,
+    InfusateTracer,
+    LCMethod,
+    MSRunSample,
+    MSRunSequence,
+    Researcher,
+    Sample,
+    Study,
+)
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
     AllMissingSamplesError,
@@ -65,6 +76,36 @@ class DataValidationView(FormView):
     supported_versions = [default_version]
     ANIMALS_SHEET = "Animals"
     SAMPLES_SHEET = "Samples"
+    SAMPLE_HEADS = SampleTableLoader.DefaultSampleTableHeaders
+    AnimalColumns = namedtuple(
+        "AnimalColumns",
+        [
+            "ANIMAL_NAME",
+            "ANIMAL_AGE",
+            "ANIMAL_SEX",
+            "ANIMAL_GENOTYPE",
+            "ANIMAL_TREATMENT",
+            "ANIMAL_WEIGHT",
+            "INFUSATE",
+            "TRACER_CONCENTRATIONS",
+            "ANIMAL_INFUSION_RATE",
+            "ANIMAL_DIET",
+            "ANIMAL_FEEDING_STATUS",
+            "STUDY_NAME",
+            "STUDY_DESCRIPTION",
+        ],
+    )
+    SampleColumns = namedtuple(
+        "SampleColumns",
+        [
+            "SAMPLE_NAME",
+            "SAMPLE_DATE",
+            "SAMPLE_RESEARCHER",
+            "TISSUE_NAME",
+            "TIME_COLLECTED",
+            "ANIMAL_NAME",
+        ],
+    )
 
     def __init__(self):
         super().__init__()
@@ -306,12 +347,12 @@ class DataValidationView(FormView):
 
         for header in self.samples_ordered_display_headers:
             if (
-                header == SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+                header == self.SAMPLE_HEADS.SAMPLE_NAME
                 or header not in self.dfs_dict[self.SAMPLES_SHEET].keys()
             ):
                 continue
 
-            for ridx, val in self.dfs_dict[self.SAMPLES_SHEET][header].items():
+            for val in self.dfs_dict[self.SAMPLES_SHEET][header].values():
                 if val is not None:
                     # If any data has been manually added, we should check for mistakes (so, validate, i.e. autofill-
                     # only = False)
@@ -337,7 +378,23 @@ class DataValidationView(FormView):
         # TODO: Use the xlsxwriter to decorate the excel sheets with errors/warnings as cell comments, colors to
         # indicate errors/warning/required-values/read-only-values, and formulas for inter-sheet population of
         # dropdowns.
-        for sheet in xlsxwriter.sheets.keys():
+        column_metadata = {
+            self.ANIMALS_SHEET: self.get_animal_header_metadata(),
+            self.SAMPLES_SHEET: self.get_sample_header_metadata(),
+            self.tissues_loader.DataSheetName: self.tissues_loader.get_header_metadata(),
+            self.treatments_loader.DataSheetName: self.treatments_loader.get_header_metadata(),
+        }
+        for order_spec in self.get_study_sheet_column_display_order():
+            sheet = order_spec[0]
+            worksheet = xlsxwriter.sheets[sheet]
+            headers = order_spec[1]
+
+            # Add comments to header cells
+            for header in headers:
+                comment = column_metadata[sheet][header].comment
+                if comment is not None:
+                    cell = self.header_to_cell(sheet=sheet, header=header)
+                    worksheet.write_comment(cell, comment)
             xlsxwriter.sheets[sheet].autofit()
 
     def extract_autofill_from_peak_annotation_files(self):
@@ -354,7 +411,7 @@ class DataValidationView(FormView):
         existing_sample_names = []
         if self.dfs_dict_is_valid():
             existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
-                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+                self.SAMPLE_HEADS.SAMPLE_NAME
             ].values()
 
         pattern = self.get_approx_sample_header_replacement_regex()
@@ -400,7 +457,7 @@ class DataValidationView(FormView):
                 and sample_name not in existing_sample_names
             ):
                 self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
-                    SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
+                    self.SAMPLE_HEADS.SAMPLE_NAME: sample_name
                 }
 
     def extract_autofill_from_exceptions(
@@ -548,7 +605,7 @@ class DataValidationView(FormView):
         existing_sample_names = []
         if self.dfs_dict_is_valid():
             existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
-                SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+                self.SAMPLE_HEADS.SAMPLE_NAME
             ].values()
 
         pattern = self.get_approx_sample_header_replacement_regex()
@@ -557,7 +614,7 @@ class DataValidationView(FormView):
             sample_name = re.sub(pattern, "", sample_header)
             if sample_name not in existing_sample_names:
                 self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
-                    SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: sample_name
+                    self.SAMPLE_HEADS.SAMPLE_NAME: sample_name
                 }
 
     def extract_all_missing_tissues(self, exc):
@@ -712,6 +769,34 @@ class DataValidationView(FormView):
                 self.tissues_loader.get_ordered_display_headers(),
             ],
         ]
+
+    def header_to_cell(self, sheet, header, letter_only=False):
+        """Convert a sheet name and header string into the corresponding excel cell location, e.g. "A1".
+        Args:
+            sheet (string): Name of the target sheet
+            header (string): Name of the column header
+            letter_only (boolean): Whether to include the row number
+        Exceptions:
+            Raises:
+                ValueError
+        Returns:
+            (string): Cell location or column letter
+        """
+        headers = []
+        if sheet == self.ANIMALS_SHEET:
+            headers = self.animals_ordered_display_headers
+        elif sheet == self.SAMPLES_SHEET:
+            headers = self.samples_ordered_display_headers
+        elif sheet == ProtocolsLoader.DataSheetName:
+            headers = self.treatments_loader.get_ordered_display_headers()
+        elif sheet == TissuesLoader.DataSheetName:
+            headers = self.tissues_loader.get_ordered_display_headers()
+        else:
+            raise ValueError(f"Invalid sheet: [{sheet}].")
+        column_letter = xlsxwriter.utility.xl_col_to_name(headers.index(header))
+        if letter_only:
+            return column_letter
+        return f"{column_letter}1"
 
     def get_next_row_index(self, sheet):
         """Retrieves the next row index from self.dfs_dict[sheet] (from the first arbitrary column).
@@ -885,24 +970,10 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            dict of empty dicts keyed on header
         """
         # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return {
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT: {},
-            SampleTableLoader.DefaultSampleTableHeaders.INFUSATE: {},
-            SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT: {},
-            SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME: {},
-            SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION: {},
-        }
+        return dict((h, {}) for h in self.animals_ordered_display_headers)
 
     @property
     def animals_ordered_display_headers(self):
@@ -915,7 +986,7 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            list of strings
         """
         # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
         return [
@@ -935,6 +1006,70 @@ class DataValidationView(FormView):
         ]
 
     @property
+    def animals_sheet_metadata(self):
+        """Property to return metadata about the excel column.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            namedtuple (AnimalColumns) of TableColumns
+        """
+        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
+        return self.AnimalColumns(
+            ANIMAL_NAME=TableColumn.init_flat(
+                field=Animal.name,
+                reference=ColumnReference(
+                    header=self.SAMPLE_HEADS.ANIMAL_NAME,
+                    sheet=self.SAMPLES_SHEET,
+                ),
+            ),
+            ANIMAL_AGE=TableColumn.init_flat(
+                field=Animal.age,
+                format="Units: weeks (integer or decimal).",
+            ),
+            ANIMAL_SEX=TableColumn.init_flat(field=Animal.sex),
+            ANIMAL_GENOTYPE=TableColumn.init_flat(field=Animal.genotype),
+            ANIMAL_WEIGHT=TableColumn.init_flat(field=Animal.body_weight),
+            INFUSATE=TableColumn.init_flat(
+                field=Animal.age,
+                guidance=(
+                    "Individual tracer compounds will be formatted: compound_name-[weight element count,weight "
+                    "element count]\nexample: valine-[13C5,15N1]\n"
+                    "\n"
+                    "Mixtures of compounds will be formatted: tracer_group_name {tracer; tracer}\n"
+                    "example:\n"
+                    "BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}"
+                ),
+            ),
+            TRACER_CONCENTRATIONS=TableColumn.init_flat(
+                field=InfusateTracer.concentration,
+                guidance=(
+                    f"Multiple tracers in a single {self.SAMPLE_HEADS.INFUSATE} should have "
+                    f"{self.SAMPLE_HEADS.TRACER_CONCENTRATIONS} specified as a semi-colon delimited list in the "
+                    f"same order and cardinality as the list of tracers in the {self.SAMPLE_HEADS.INFUSATE} column."
+                ),
+            ),
+            ANIMAL_INFUSION_RATE=TableColumn.init_flat(field=Animal.infusion_rate),
+            ANIMAL_DIET=TableColumn.init_flat(field=Animal.diet),
+            ANIMAL_FEEDING_STATUS=TableColumn.init_flat(
+                field=Animal.feeding_status,
+                guidance=(
+                    "Any value can be entered, despite the list of choices.  Indicate length of fasting/feeding in "
+                    f"'{self.SAMPLE_HEADS.STUDY_DESCRIPTION}'."
+                ),
+                static_choices=[
+                    ("fasted", "fasted"),
+                    ("fed", "fed"),
+                    ("refed", "refed"),
+                ],
+            ),
+            ANIMAL_TREATMENT=TableColumn.init_flat(field=Animal.treatment),
+            STUDY_NAME=TableColumn.init_flat(field=Study.name),
+            STUDY_DESCRIPTION=TableColumn.init_flat(field=Study.description),
+        )
+
+    @property
     def samples_dict(self):
         """Property to return an empty dict template for the Samples sheet.
         Args:
@@ -942,17 +1077,10 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            dict of empty dicts keyed on header.
         """
         # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return {
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME: {},
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE: {},
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER: {},
-            SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME: {},
-            SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED: {},
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME: {},
-        }
+        return dict((h, {}) for h in self.samples_ordered_display_headers)
 
     @property
     def samples_ordered_display_headers(self):
@@ -965,7 +1093,7 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            list of strings (headers)
         """
         # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
         return [
@@ -976,6 +1104,53 @@ class DataValidationView(FormView):
             SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED,
             SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME,
         ]
+
+    @property
+    def samples_sheet_metadata(self):
+        """Property to return metadata about the excel column.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            namedtuple (SampleColumns) of TableColumns
+        """
+        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
+        return self.SampleColumns(
+            SAMPLE_NAME=TableColumn.init_flat(
+                field=Sample.name,
+                guidance=(
+                    "MUST match the sample names in the peak annotation file, minus any appended suffixes (e.g. "
+                    "'_pos')."
+                ),
+            ),
+            SAMPLE_DATE=TableColumn.init_flat(
+                field=Sample.date,
+                format="Format: YYYY-MM-DD.",
+            ),
+            SAMPLE_RESEARCHER=TableColumn.init_flat(
+                name=self.SAMPLE_HEADS.SAMPLE_RESEARCHER,
+                help_text="Name of researcher who collected the sample.",
+            ),
+            TISSUE_NAME=TableColumn.init_flat(
+                field=Sample.tissue,
+                reference=ColumnReference(
+                    loader_class=TissuesLoader,
+                    loader_header_key=TissuesLoader.NAME_KEY,
+                ),
+            ),
+            TIME_COLLECTED=TableColumn.init_flat(
+                field=Sample.time_collected,
+                format="Units: minutes.",
+            ),
+            ANIMAL_NAME=TableColumn.init_flat(
+                field=Sample.animal,
+                reference=ColumnReference(
+                    header=self.SAMPLE_HEADS.ANIMAL_NAME,
+                    sheet=self.ANIMALS_SHEET,
+                ),
+            ),
+        )
 
     def get_study_dfs_dict(self, version=default_version):
         """Read in each sheet in self.animal_sample_file as a dict of dicts keyed on sheet (filling in any missing
@@ -1027,15 +1202,14 @@ class DataValidationView(FormView):
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
-            animal_sample_headers = SampleTableLoader.DefaultSampleTableHeaders
             return {
                 # TODO: Update the animal and sample entries below once the loader has been refactored
                 # The sample table loader has not yet been refactored/split
                 self.ANIMALS_SHEET: {
-                    animal_sample_headers.ANIMAL_NAME: str,
-                    animal_sample_headers.ANIMAL_TREATMENT: str,
+                    self.SAMPLE_HEADS.ANIMAL_NAME: str,
+                    self.SAMPLE_HEADS.ANIMAL_TREATMENT: str,
                 },
-                self.SAMPLES_SHEET: {animal_sample_headers.ANIMAL_NAME: str},
+                self.SAMPLES_SHEET: {self.SAMPLE_HEADS.ANIMAL_NAME: str},
                 ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(),
                 TissuesLoader.DataSheetName: self.tissues_loader.get_column_types(),
             }
@@ -1439,12 +1613,39 @@ class DataValidationView(FormView):
 
         return (
             # Required headers present in each sheet
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
-            in self.dfs_dict[self.SAMPLES_SHEET].keys()
-            and SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME
+            self.SAMPLE_HEADS.SAMPLE_NAME in self.dfs_dict[self.SAMPLES_SHEET].keys()
+            and self.SAMPLE_HEADS.ANIMAL_NAME
             in self.dfs_dict[self.ANIMALS_SHEET].keys()
             and missing_treat_heads is None
             and missing_tiss_heads is None
+        )
+
+    def get_animal_header_metadata(self):
+        """Returns a dict keyed on current animal headers, whose values are ColumnHeader objects.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            dict of ColumnHeaders keyed on column names
+        """
+        return dict(
+            (getattr(self.SAMPLE_HEADS, hk), v.header)
+            for hk, v in self.animals_sheet_metadata._asdict().items()
+        )
+
+    def get_sample_header_metadata(self):
+        """Returns a dict keyed on current sample headers, whose values are ColumnHeader objects.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            dict of ColumnHeaders keyed on column names
+        """
+        return dict(
+            (getattr(self.SAMPLE_HEADS, hk), v.header)
+            for hk, v in self.samples_sheet_metadata._asdict().items()
         )
 
 

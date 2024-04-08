@@ -54,6 +54,7 @@ class TableLoader(ABC):
         DataColumnTypes (Optional[dict]): Column value types by header key.
         DataDefaultValues (Optional[DataTableHeaders of objects]): Column default values by header key.  Auto-filled.
         Models (list of Models): List of model classes.
+        DataColumnMetadata (DataTableHeaders of TableColumns): TableColumn objects by header key.
 
     Instance Attributes:
         headers (DataTableHeaders of strings): Customized header names by header key.
@@ -122,6 +123,12 @@ class TableLoader(ABC):
     @abstractmethod
     def FieldToDataHeaderKey(self):
         # dict of model dicts of field names and header keys
+        pass
+
+    @property
+    @abstractmethod
+    def DataColumnMetadata(self):
+        # namedtuple of TableColumns
         pass
 
     @abstractmethod
@@ -749,6 +756,7 @@ class TableLoader(ABC):
             FieldToDataHeaderKey (class attribute, dict): Header keys by field name
             DataColumnTypes (class attribute, Optional[dict]): Column value types by header key
             DataDefaultValues (Optional[namedtuple of DataTableHeaders of objects]): Column default values by header key
+            DataColumnMetadata (class attribute, namedtuple of DataTableHeaders of TableColumns)
 
         Fills in default None values for header keys in DataDefaultValues.
 
@@ -772,28 +780,35 @@ class TableLoader(ABC):
             if not cls.isnamedtupletype(cls.DataTableHeaders):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.DataTableHeaders] (namedtuple) type required, "
-                    f"{type(cls.DataTableHeaders)} set"
+                    f"{type(cls.DataTableHeaders).__name__} set"
                 )
 
             if not cls.isnamedtupletype(cls.DefaultsTableHeaders):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.DefaultsTableHeaders] (namedtuple) type required, "
-                    f"{type(cls.DefaultsTableHeaders)} set"
+                    f"{type(cls.DefaultsTableHeaders).__name__} set"
                 )
 
             if not isinstance(cls.DataSheetName, str):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DataSheetName] str required, {type(cls.DataSheetName)} set"
+                    f"attribute [{cls.__name__}.DataSheetName] str required, {type(cls.DataSheetName).__name__} set"
                 )
 
             if not isinstance(cls.DefaultsSheetName, str):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DefaultsSheetName] str required, {type(cls.DefaultsSheetName)} set"
+                    f"attribute [{cls.__name__}.DefaultsSheetName] str required, "
+                    f"{type(cls.DefaultsSheetName).__name__} set"
                 )
 
             if not cls.isnamedtuple(cls.DataHeaders):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DataHeaders] namedtuple required, {type(cls.DataHeaders)} set"
+                    f"attribute [{cls.__name__}.DataHeaders] namedtuple required, {type(cls.DataHeaders).__name__} set"
+                )
+
+            if not cls.isnamedtuple(cls.DataColumnMetadata):
+                typeerrs.append(
+                    f"attribute [{cls.__name__}.DataColumnMetadata] namedtuple required, "
+                    f"{type(cls.DataColumnMetadata).__name__} set"
                 )
 
             invalid_types = cls.get_invalid_types_from_ndim_strings(
@@ -817,13 +832,13 @@ class TableLoader(ABC):
             if not isinstance(cls.DataUniqueColumnConstraints, list):
                 typeerrs.append(
                     f"attribute [{cls.__name__}.DataUniqueColumnConstraints] list required, "
-                    f"{type(cls.DataUniqueColumnConstraints)} set"
+                    f"{type(cls.DataUniqueColumnConstraints).__name__} set"
                 )
 
             if not isinstance(cls.FieldToDataHeaderKey, dict):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.FieldToDataHeaderKey] dict required, {type(cls.FieldToDataHeaderKey)} "
-                    "set"
+                    f"attribute [{cls.__name__}.FieldToDataHeaderKey] dict required, "
+                    f"{type(cls.FieldToDataHeaderKey).__name__} set"
                 )
 
             valid_types = False
@@ -832,7 +847,8 @@ class TableLoader(ABC):
                 valid_types = True
                 if not isinstance(cls.DataColumnTypes, dict):
                     typeerrs.append(
-                        f"attribute [{cls.__name__}.DataColumnTypes] dict required, {type(cls.DataColumnTypes)} set"
+                        f"attribute [{cls.__name__}.DataColumnTypes] dict required, "
+                        f"{type(cls.DataColumnTypes).__name__} set"
                     )
                     valid_types = False
                 elif cls.DataHeaders is not None:
@@ -842,7 +858,7 @@ class TableLoader(ABC):
                             if not isinstance(cls.DataColumnTypes[hk], type):
                                 typeerrs.append(
                                     f"dict attribute [{cls.__name__}.DataColumnTypes] must have values that are types, "
-                                    f"but key [{hk}] has {type(cls.DataColumnTypes[hk])}"
+                                    f"but key [{hk}] has {type(cls.DataColumnTypes[hk]).__name__}"
                                 )
                                 valid_types = False
                         else:
@@ -862,8 +878,8 @@ class TableLoader(ABC):
                     cls.DataDefaultValues = cls.DataHeaders._replace(**dv_dict)
             elif not cls.isnamedtuple(cls.DataDefaultValues):
                 typeerrs.append(
-                    f"attribute [{cls.__name__}.DataDefaultValues] namedtuple required, {type(cls.DataDefaultValues)} "
-                    "set"
+                    f"attribute [{cls.__name__}.DataDefaultValues] namedtuple required, "
+                    f"{type(cls.DataDefaultValues).__name__} set"
                 )
             elif valid_types:
                 # Check the types of the default values
@@ -1094,6 +1110,20 @@ class TableLoader(ABC):
             outdict[hdr] = indict[key]
 
         return outdict
+
+    def get_header_metadata(self):
+        """Returns a dict keyed on the current header, whose values are ColumnHeader objects.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        return dict(
+            (getattr(self.headers, hk), v.header)
+            for hk, v in self.DataColumnMetadata._asdict().items()
+        )
 
     def header_name_to_key(self, indict):
         """Returns the supplied indict, but its keys are changed from header name to header key.

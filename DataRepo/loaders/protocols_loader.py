@@ -3,6 +3,7 @@ from typing import Dict
 
 from django.db import transaction
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Protocol
 from DataRepo.utils.file_utils import is_excel
@@ -74,6 +75,12 @@ class ProtocolsLoader(TableLoader):
             "description": DESC_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        NAME=TableColumn.init_flat(field=Protocol.name),
+        CATEGORY=TableColumn.init_flat(field=Protocol.category),
+        DESCRIPTION=TableColumn.init_flat(field=Protocol.description),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Protocol]

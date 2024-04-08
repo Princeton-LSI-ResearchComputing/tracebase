@@ -3,6 +3,7 @@ import re
 from io import BytesIO
 
 from DataRepo.loaders import ProtocolsLoader, SampleTableLoader, TissuesLoader
+from DataRepo.loaders.table_column import ColumnHeader, TableColumn
 from DataRepo.models import Protocol, Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
 from DataRepo.utils.exceptions import (
@@ -667,3 +668,41 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         dvv.annotate_study_excel(xlsxwriter)
         xlsxwriter.close()
         self.assertEqual(0, len(base64.b64encode(study_stream.read()).decode("utf-8")))
+
+    def test_header_to_cell(self):
+        dvv = DataValidationView()
+
+        # Get cell location success
+        result = dvv.header_to_cell("Animals", "Age")
+        self.assertEqual("B1", result)
+
+        # Get column letter success
+        result2 = dvv.header_to_cell("Animals", "Age", letter_only=True)
+        self.assertEqual("B", result2)
+
+        # Invalid column name
+        with self.assertRaises(ValueError):
+            result2 = dvv.header_to_cell("Animals", "Invalid")
+
+        # Invalid sheet name
+        with self.assertRaises(ValueError):
+            result2 = dvv.header_to_cell("Invalid", "Age")
+
+    def test_animals_sheet_metadata(self):
+        dvv = DataValidationView()
+        self.assertTrue(isinstance(dvv.animals_sheet_metadata.ANIMAL_AGE, TableColumn))
+
+    def test_samples_sheet_metadata(self):
+        # result = dvv.samples_sheet_metadata
+        dvv = DataValidationView()
+        self.assertTrue(isinstance(dvv.samples_sheet_metadata.SAMPLE_NAME, TableColumn))
+
+    def test_get_animal_header_metadata(self):
+        dvv = DataValidationView()
+        result = dvv.get_animal_header_metadata()
+        self.assertTrue(isinstance(result["Age"], ColumnHeader))
+
+    def test_get_sample_header_metadata(self):
+        dvv = DataValidationView()
+        result = dvv.get_sample_header_metadata()
+        self.assertTrue(isinstance(result["Sample Name"], ColumnHeader))
