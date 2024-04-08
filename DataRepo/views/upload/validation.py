@@ -346,6 +346,8 @@ class DataValidationView(FormView):
             self.autofill_only_mode = True
             return not self.autofill_only_mode
 
+        # TODO: This none_vals strategy was copied from table_loader.  Encapsulate it in 1 place.
+        none_vals = ["", "nan"]
         for header in self.samples_ordered_display_headers:
             if (
                 header == self.SAMPLE_HEADS.SAMPLE_NAME
@@ -354,7 +356,7 @@ class DataValidationView(FormView):
                 continue
 
             for val in self.dfs_dict[self.SAMPLES_SHEET][header].values():
-                if val is not None:
+                if val is not None and isinstance(val, str) and val not in none_vals:
                     # If any data has been manually added, we should check for mistakes (so, validate, i.e. autofill-
                     # only = False)
                     self.autofill_only_mode = False
@@ -1606,17 +1608,13 @@ class DataValidationView(FormView):
         Returns:
             valid (boolean)
         """
-        if (
-            self.dfs_dict is None
-            or len(
-                [
-                    s
-                    for s in self.get_study_sheet_column_display_order()
-                    if s[0] in self.dfs_dict.keys()
-                ]
-            )
-            != 4
-        ):
+        if self.dfs_dict is None or len(
+            [
+                s
+                for s in self.get_study_sheet_column_display_order()
+                if s[0] in self.dfs_dict.keys()
+            ]
+        ) < len(self.get_study_sheet_column_display_order()):
             return False
 
         missing_treat_heads, _ = self.treatments_loader.get_missing_headers(
