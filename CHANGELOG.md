@@ -8,13 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Fixed
-
 ### Added
 
-### Changed
+- Build a TraceBase Submission Page
+  - Ability to extract sample names from AccuCor/IsoCorr files
+  - Ability to strip suffixed like _pos, _neg, and _scan1 from peak annotation file sample headers
+  - Added ability to "add" files in the form (since selecting new ones replaced previously selected ones in Windows)
+  - Downloaded file has instructions for each column attached to headers as comments
+  - Automatically populates existing tissues and treatments
+  - Ability to add samples iteratively, to an existing sample sheet/study doc
+- Lots of groundwork laid for autofilling lots of data and annotations such as data that has errors associated with it
 
 ### Removed
+
+- Obscured references to edge-cases where an extra file is needed when submitting data, to simplify and streamline the process.
 
 ## [3.0.0-beta] - 2024-03-13
 
