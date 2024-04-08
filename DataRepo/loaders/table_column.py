@@ -131,7 +131,7 @@ class ColumnHeader:
         if name is None and field is None:
             raise ConditionallyRequiredOptions("name or field is required")
 
-        # field is not saved here, but it can be supplied to automaticallt set some attributes
+        # field is not saved here, but it can be supplied to automatically set some attributes
         if field is not None:
             # Convert to the class
             field = field.field
