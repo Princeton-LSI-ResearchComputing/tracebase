@@ -50,6 +50,7 @@ from DataRepo.utils.lcms_metadata_parser import (
     LCMS_FL_SAMPLE_HDR,
     LCMS_PEAK_ANNOT_HDR,
 )
+from DataRepo.utils.text_utils import autowrap
 
 
 class DataValidationView(FormView):
@@ -394,7 +395,21 @@ class DataValidationView(FormView):
                 comment = column_metadata[sheet][header].comment
                 if comment is not None:
                     cell = self.header_to_cell(sheet=sheet, header=header)
-                    worksheet.write_comment(cell, comment)
+                    wrapped, nlines, nchars = autowrap(comment)
+                    font_width = 8
+                    font_height = 10
+                    line_height = 18
+                    worksheet.write_comment(
+                        cell,
+                        wrapped,
+                        {
+                            "author": "TraceBase Dev Team",
+                            "font_name": "Courier",  # Fixed width for box height/width calcs
+                            "font_size": font_height,
+                            "height": nlines * line_height,
+                            "width": nchars * font_width,
+                        },
+                    )
             xlsxwriter.sheets[sheet].autofit()
 
     def extract_autofill_from_peak_annotation_files(self):
