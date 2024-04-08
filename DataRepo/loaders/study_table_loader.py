@@ -2,6 +2,7 @@ from collections import namedtuple
 
 from django.db import transaction
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Study
 
@@ -55,6 +56,12 @@ class StudyTableLoader(TableLoader):
             "description": DESC_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        CODE=TableColumn.init_flat(field=Study.code),
+        NAME=TableColumn.init_flat(field=Study.name),
+        DESCRIPTION=TableColumn.init_flat(field=Study.description),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Study]

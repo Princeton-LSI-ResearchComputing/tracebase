@@ -4,6 +4,7 @@ from typing import Dict
 
 from django.db import transaction
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.utils.exceptions import RequiredColumnValueWhenNovel
@@ -99,6 +100,31 @@ class SequencesLoader(TableLoader):
             "description": LC_DESC_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        ID=TableColumn.init_flat(
+            name="Sequence Number",
+            help_text="Sequential integer starting from 1.",
+            guidance="This column is used to populate Sequence Number choices in the Peak Annotation Details sheet.",
+            type=int,
+        ),
+        OPERATOR=TableColumn.init_flat(
+            name="Operator",
+            help_text="Researcher who operated the Mass Spec instrument.",
+        ),
+        DATE=TableColumn.init_flat(
+            field=MSRunSequence.date,
+            format="Format: YYYY-MM-DD.",
+        ),
+        INSTRUMENT=TableColumn.init_flat(field=MSRunSequence.instrument),
+        LC_PROTOCOL=TableColumn.init_flat(field=LCMethod.type),
+        LC_RUNLEN=TableColumn.init_flat(
+            field=LCMethod.run_length,
+            format="Units: minutes.",
+        ),
+        LC_DESC=TableColumn.init_flat(field=LCMethod.description),
+        NOTES=TableColumn.init_flat(field=MSRunSequence.notes),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [MSRunSequence, LCMethod]

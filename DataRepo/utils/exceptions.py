@@ -2511,6 +2511,10 @@ class MutuallyExclusiveOptions(CommandError):
     pass
 
 
+class ConditionallyRequiredOptions(CommandError):
+    pass
+
+
 class NoLoadData(Exception):
     pass
 

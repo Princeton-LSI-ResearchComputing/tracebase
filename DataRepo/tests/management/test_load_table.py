@@ -5,6 +5,7 @@ from collections import namedtuple
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -33,6 +34,9 @@ class TestLoader(TableLoader):
     DataDefaultValues = DataTableHeaders(TEST="five")
     DataUniqueColumnConstraints = [["TEST"]]
     FieldToDataHeaderKey = {"LoadTableTestModel": {"name": "TEST"}}
+    DataColumnMetadata = DataTableHeaders(
+        TEST=TableColumn.init_flat(name="Test Header")
+    )
     Models = [LoadTableTestModel]
 
     def load_data(self):

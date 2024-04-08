@@ -4,6 +4,7 @@ from typing import Optional
 from django.db import transaction
 from django.db.utils import IntegrityError
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
@@ -72,6 +73,18 @@ class CompoundsLoader(TableLoader):
             "compound": NAME_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        NAME=TableColumn.init_flat(field=Compound.name),
+        HMDB_ID=TableColumn.init_flat(field=Compound.hmdb_id),
+        FORMULA=TableColumn.init_flat(field=Compound.formula),
+        SYNONYMS=TableColumn.init_flat(
+            field=CompoundSynonym.name,
+            header_required=True,
+            value_required=False,
+            format="Semicolon-delimited list of synonym names.",
+        ),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Compound, CompoundSynonym]

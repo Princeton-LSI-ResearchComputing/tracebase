@@ -1,6 +1,7 @@
 from collections import namedtuple
 from typing import Dict
 
+from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Tissue
 
@@ -54,6 +55,11 @@ class TissuesLoader(TableLoader):
             "description": DESC_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        NAME=TableColumn.init_flat(field=Tissue.name),
+        DESCRIPTION=TableColumn.init_flat(field=Tissue.description),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Tissue]
