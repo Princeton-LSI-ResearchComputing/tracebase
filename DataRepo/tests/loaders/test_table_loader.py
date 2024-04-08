@@ -1547,7 +1547,6 @@ class TableLoaderTests(TracebaseTestCase):
 
     def test_get_header_metadata(self):
         tl = self.TestLoader()
-        print(tl.get_header_metadata())
         self.assertListEqual(
             ["Choice", "Name"], sorted(tl.get_header_metadata().keys())
         )
