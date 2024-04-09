@@ -28,11 +28,6 @@
  * </div>
  */
 
-body {
-  font-size: 1rem;
-  background: #f5f5f5;
-}
-
 .fa-folder-open, .fa-folder {
   color: #007bff;
 }
@@ -90,7 +85,6 @@ body {
   height: 1px;
   margin: auto;
   content: '';
-  background-color: #666;
 }
 
 .tree ul li::after {
@@ -101,7 +95,6 @@ body {
   width: 1px;
   height: 100%;
   content: '';
-  background-color: #666;
 }
 
 .tree ul li:last-child::after {
@@ -130,7 +123,6 @@ body {
   left: 50%;
   padding: 0.25rem;
   bottom: 100%; /* put it on the top */
-  background-color: lightgray;
   width: max-content;
   opacity: 0;
   word-wrap: normal;
@@ -153,7 +145,6 @@ body {
   left: 17rem;
   padding: 0.75rem;
   bottom: 0%;
-  background-color: lightgray;
   width: max-content;
   opacity: 0;
   -webkit-transition: opacity 0.0s; /* Change timing to control how fast tooltip appears. */

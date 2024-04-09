@@ -174,14 +174,25 @@ STORAGES = {
 FILE_UPLOAD_HANDLERS = [
     "django.core.files.uploadhandler.TemporaryFileUploadHandler",
 ]
-SUBMISSION_FORM_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
-FEEDBACK_URL = "https://forms.gle/LNk4kk6RJKZWM6za9"
-SUBMISSION_DOC_URL = "https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Upload/"
-SUBMISSION_DOC_NAME = "TraceBase upload documentation"
-SUBMISSION_DRIVE_DOC_URL = "https://lsidocs.princeton.edu/index.php/MSDATA_Users"
-SUBMISSION_DRIVE_TYPE = "MS Data Share"
-SUBMISSION_DRIVE_FOLDER = PureWindowsPath(
-    "gen-iota-cifs", "msdata", "tracebase-submissions"
+SUBMISSION_FORM_URL = env.str(
+    "SUBMISSION_FORM_URL", default="https://forms.gle/Jyp94aiGmhBNLZh6A"
+)
+FEEDBACK_URL = env.str("FEEDBACK_URL", default="https://forms.gle/LNk4kk6RJKZWM6za9")
+SUBMISSION_DOC_URL = env.str(
+    "SUBMISSION_DOC_URL",
+    default="https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Upload/",
+)
+SUBMISSION_DOC_NAME = env.str(
+    "SUBMISSION_DOC_NAME", default="TraceBase upload documentation"
+)
+SUBMISSION_DRIVE_DOC_URL = env.str(
+    "SUBMISSION_DRIVE_DOC_URL",
+    default="https://lsidocs.princeton.edu/index.php/MSDATA_Users",
+)
+SUBMISSION_DRIVE_TYPE = env.str("SUBMISSION_DRIVE_TYPE", default="MS Data Share")
+SUBMISSION_DRIVE_FOLDER = env.str(
+    "SUBMISSION_DRIVE_FOLDER",
+    default=PureWindowsPath("gen-iota-cifs", "msdata", "tracebase-submissions"),
 )
 
 # Set up caching used by model cached_properties
