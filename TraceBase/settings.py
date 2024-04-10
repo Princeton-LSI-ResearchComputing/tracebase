@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Dict
 
 import environ
@@ -175,24 +175,20 @@ FILE_UPLOAD_HANDLERS = [
     "django.core.files.uploadhandler.TemporaryFileUploadHandler",
 ]
 SUBMISSION_FORM_URL = env.str(
-    "SUBMISSION_FORM_URL", default="https://forms.gle/Jyp94aiGmhBNLZh6A"
+    "SUBMISSION_FORM_URL",
+    default="javascript:alert('Environment variable: SUBMISSION_FORM_URL not set.')",
 )
-FEEDBACK_URL = env.str("FEEDBACK_URL", default="https://forms.gle/LNk4kk6RJKZWM6za9")
-SUBMISSION_DOC_URL = env.str(
-    "SUBMISSION_DOC_URL",
-    default="https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Upload/",
-)
-SUBMISSION_DOC_NAME = env.str(
-    "SUBMISSION_DOC_NAME", default="TraceBase upload documentation"
+FEEDBACK_URL = env.str(
+    "FEEDBACK_URL",
+    default="javascript:alert('Environment variable: FEEDBACK_URL not set.')",
 )
 SUBMISSION_DRIVE_DOC_URL = env.str(
     "SUBMISSION_DRIVE_DOC_URL",
-    default="https://lsidocs.princeton.edu/index.php/MSDATA_Users",
+    default="javascript:alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')",
 )
-SUBMISSION_DRIVE_TYPE = env.str("SUBMISSION_DRIVE_TYPE", default="MS Data Share")
+SUBMISSION_DRIVE_TYPE = env.str("SUBMISSION_DRIVE_TYPE", default="Shared Drive")
 SUBMISSION_DRIVE_FOLDER = env.str(
-    "SUBMISSION_DRIVE_FOLDER",
-    default=PureWindowsPath("gen-iota-cifs", "msdata", "tracebase-submissions"),
+    "SUBMISSION_DRIVE_FOLDER", default="tracebase-submissions"
 )
 
 # Set up caching used by model cached_properties
