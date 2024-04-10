@@ -166,26 +166,17 @@ STORAGES = {
     },
 }
 
-# Data submission and validation settings
-
+# File storage handling for tests
 # https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
 # Added to make the validate_submission.html form work.  Could not figure out how to specify this handler for
 # individual fields.  This avoids files using the InMemoryUploadedFile, which the load script complains about.
-FILE_UPLOAD_HANDLERS = [
-    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
-]
-SUBMISSION_FORM_URL = env.str(
-    "SUBMISSION_FORM_URL",
-    default="javascript:alert('Environment variable: SUBMISSION_FORM_URL not set.')",
-)
-FEEDBACK_URL = env.str(
-    "FEEDBACK_URL",
-    default="javascript:alert('Environment variable: FEEDBACK_URL not set.')",
-)
-SUBMISSION_DRIVE_DOC_URL = env.str(
-    "SUBMISSION_DRIVE_DOC_URL",
-    default="javascript:alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')",
-)
+FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
+
+# Custom URLs and content
+FEEDBACK_URL = env.str("FEEDBACK_URL", default=None)
+# Data submission and validation
+SUBMISSION_FORM_URL = env.str("SUBMISSION_FORM_URL", default=None)
+SUBMISSION_DRIVE_DOC_URL = env.str("SUBMISSION_DRIVE_DOC_URL", default=None)
 SUBMISSION_DRIVE_TYPE = env.str("SUBMISSION_DRIVE_TYPE", default="Shared Drive")
 SUBMISSION_DRIVE_FOLDER = env.str(
     "SUBMISSION_DRIVE_FOLDER", default="tracebase-submissions"

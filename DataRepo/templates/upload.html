@@ -197,17 +197,18 @@
                 </li>
             </ol>
         </div>
-        <h5><li><a href={% if "javascript" in submission_form_url %}"javascript:void(0);" onclick="{{ submission_form_url }}"{% else %}"{{ submission_form_url }}"{% endif %}>Submit your data</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#send-submission"><img id="send-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <h5><li><a {% if submission_form_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FORM_URL not set.')"{% else %}href="{{ submission_form_url }}"{% endif %}>Submit your data</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#send-submission"><img id="send-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
         <div id="send-submission" class="major-li collapse">
             <ol>
                 <li>
                     Add your data (<code>study.xlsx</code>, <code>accucor.xlsx</code> & <code>isocorr.xlsx</code>
-                    files, and optional <code>sample.mzXML</code> files) to the <a target="_blank" href={% if "javascript" in submission_drive_doc_url %}"javascript:void(0);" onclick="{{ submission_drive_doc_url }}"{% else %}"{{ submission_drive_doc_url }}"{% endif %}>{{ submission_drive_type }}</a>:
+                    files, and optional <code>sample.mzXML</code> files) to the <a {% if submission_drive_doc_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')"{% else %}target="_blank" href="{{ submission_drive_doc_url }}"{% endif %}>{{ submission_drive_type }}</a>:
                     <code>{{ submission_drive_folder }}</code> with the following structure:
                     <div class="tree">
                         <ul>
                             <li>
-                                <a target="_blank" href={% if "javascript" in submission_drive_doc_url %}"javascript:void(0);" onclick="{{ submission_drive_doc_url }}"{% else %}"{{ submission_drive_doc_url }}"{% endif %}><i class="fa fa-folder-open"></i></a>  <a target="_blank" href={% if "javascript" in submission_drive_doc_url %}"javascript:void(0);" onclick="{{ submission_drive_doc_url }}"{% else %}"{{ submission_drive_doc_url }}"{% endif %}>{{ submission_drive_folder }}</a>
+                                <a {% if submission_drive_doc_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')"{% else %}target="_blank" href="{{ submission_drive_doc_url }}"{% endif %}><i class="fa fa-folder-open"></i></a>
+                                <a {% if submission_drive_doc_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')"{% else %}target="_blank" href="{{ submission_drive_doc_url }}"{% endif %}>{{ submission_drive_folder }}</a>
                                 <ul>
                                     <li>
                                         <i class="fa fa-folder-open"></i> user_name
@@ -236,7 +237,7 @@
                     </div>
                 </li>
                 <li>
-                    Fill out and submit the <a href={% if "javascript" in submission_form_url %}"javascript:void(0);" onclick="{{ submission_form_url }}"{% else %}"{{ submission_form_url }}"{% endif %}>TraceBase Study Submission form</a>
+                    Fill out and submit the <a {% if submission_form_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FORM_URL not set.')"{% else %}href="{{ submission_form_url }}"{% endif %}>TraceBase Study Submission form</a>
                 </li>
             </ol>
         </div>
@@ -261,10 +262,10 @@
     <hr>
     <small class="text-muted">
         <p>
-            <a href={% if "javascript" in submission_feedback_url %}"javascript:void(0);" onclick="{{ submission_feedback_url }}"{% else %}"{{ submission_feedback_url }}"{% endif %}>Contact us</a>
+            <a {% if submission_feedback_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FEEDBACK_URL not set.')"{% else %}target="_blank" href="{{ submission_feedback_url }}"{% endif %}>Contact us</a>
             anytime if you have any questions, concerns, or comments If, after your submission, you need to follow-up
             or would like to check-in on the upload status,
-            <a href={% if "javascript" in submission_feedback_url %}"javascript:void(0);" onclick="{{ submission_feedback_url }}"{% else %}"{{ submission_feedback_url }}"{% endif %}>let us know</a>.<br>
+            <a {% if submission_feedback_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FEEDBACK_URL not set.')"{% else %}target="_blank" href="{{ submission_feedback_url }}"{% endif %}>let us know</a>.<br>
         </p>
     </small>
 {% endblock %}
