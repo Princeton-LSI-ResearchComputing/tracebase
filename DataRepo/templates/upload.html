@@ -9,11 +9,13 @@
         document.addEventListener("DOMContentLoaded", function(){
             var buildsubdeets = document.getElementById("build-submission")
             var buildsubdeetsbtn = document.getElementById("build-submission-button")
-            buildsubdeets.addEventListener("hide.bs.collapse", function () {
+            buildsubdeets.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
                 buildsubdeetsbtn.src = "{% static 'images/plus.png' %}";
                 setCookie("build-submission-shown", "false");
             })
-            buildsubdeets.addEventListener("show.bs.collapse", function () {
+            buildsubdeets.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
                 buildsubdeetsbtn.src = "{% static 'images/minus.png' %}";
                 setCookie("build-submission-shown", "true");
             })
@@ -22,11 +24,13 @@
 
             var fleshsubdeets = document.getElementById("flesh-submission")
             var fleshsubdeetsbtn = document.getElementById("flesh-submission-button")
-            fleshsubdeets.addEventListener("hide.bs.collapse", function () {
+            fleshsubdeets.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
                 fleshsubdeetsbtn.src = "{% static 'images/plus.png' %}";
                 setCookie("flesh-submission-shown", "false");
             })
-            fleshsubdeets.addEventListener("show.bs.collapse", function () {
+            fleshsubdeets.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
                 fleshsubdeetsbtn.src = "{% static 'images/minus.png' %}";
                 setCookie("flesh-submission-shown", "true");
             })
@@ -35,11 +39,13 @@
 
             var animalsdetails = document.getElementById("animals-details")
             var animalsdetailsbtn = document.getElementById("animals-details-button")
-            animalsdetails.addEventListener("hide.bs.collapse", function () {
+            animalsdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
                 animalsdetailsbtn.src = "{% static 'images/plus.png' %}";
                 setCookie("animals-details-shown", "false");
             })
-            animalsdetails.addEventListener("show.bs.collapse", function () {
+            animalsdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
                 animalsdetailsbtn.src = "{% static 'images/minus.png' %}";
                 setCookie("animals-details-shown", "true");
             })
@@ -48,11 +54,13 @@
 
             var samplesdetails = document.getElementById("samples-details")
             var samplesdetailsbtn = document.getElementById("samples-details-button")
-            samplesdetails.addEventListener("hide.bs.collapse", function () {
+            samplesdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
                 samplesdetailsbtn.src = "{% static 'images/plus.png' %}";
                 setCookie("samples-details-shown", "false");
             })
-            samplesdetails.addEventListener("show.bs.collapse", function () {
+            samplesdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
                 samplesdetailsbtn.src = "{% static 'images/minus.png' %}";
                 setCookie("samples-details-shown", "true");
             })
@@ -61,11 +69,13 @@
 
             var treatmentsdetails = document.getElementById("treatments-details")
             var treatmentsdetailsbtn = document.getElementById("treatments-details-button")
-            treatmentsdetails.addEventListener("hide.bs.collapse", function () {
+            treatmentsdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
                 treatmentsdetailsbtn.src = "{% static 'images/plus.png' %}";
                 setCookie("treatments-details-shown", "false");
             })
-            treatmentsdetails.addEventListener("show.bs.collapse", function () {
+            treatmentsdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
                 treatmentsdetailsbtn.src = "{% static 'images/minus.png' %}";
                 setCookie("treatments-details-shown", "true");
             })
@@ -74,11 +84,13 @@
 
             var sendsubmission = document.getElementById("send-submission")
             var sendsubmissionbtn = document.getElementById("send-submission-button")
-            sendsubmission.addEventListener("hide.bs.collapse", function () {
+            sendsubmission.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
                 sendsubmissionbtn.src = "{% static 'images/plus.png' %}";
                 setCookie("send-submission-shown", "false");
             })
-            sendsubmission.addEventListener("show.bs.collapse", function () {
+            sendsubmission.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
                 sendsubmissionbtn.src = "{% static 'images/minus.png' %}";
                 setCookie("send-submission-shown", "true");
             })
@@ -184,19 +196,19 @@
                     </div>
                 </li>
             </ol>
-            <small><small class="text-muted">For more details, refer to the <a target="_blank" href="{{ submission_doc_url }}">submission documentation</a></small></small>
         </div>
-        <h5><li><a href="{{ submission_form_url }}">Submit your data</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#send-submission"><img id="send-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <h5><li><a {% if submission_form_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FORM_URL not set.')"{% else %}href="{{ submission_form_url }}"{% endif %}>Submit your data</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#send-submission"><img id="send-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
         <div id="send-submission" class="major-li collapse">
             <ol>
                 <li>
                     Add your data (<code>study.xlsx</code>, <code>accucor.xlsx</code> & <code>isocorr.xlsx</code>
-                    files, and optional <code>sample.mzXML</code> files) to the <a target="_blank" href="{{ submission_drive_doc_url }}">{{ submission_drive_type }}</a>:
-                    <code>{{ submission_drive_folder }}</code> with the following structure:
+                    files, and optional <code>sample.mzXML</code> files) to the <a {% if submission_drive_doc_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')"{% else %}target="_blank" href="{{ submission_drive_doc_url }}"{% endif %}>{{ submission_drive_type }}</a>
+                    <code>{{ submission_drive_folder }}</code> folder with the following structure:
                     <div class="tree">
                         <ul>
                             <li>
-                                <a target="_blank" href="{{ submission_drive_doc_url }}"><i class="fa fa-folder-open"></i></a>  <a target="_blank" href="{{ submission_drive_doc_url }}">{{ submission_drive_folder }}</a>
+                                <a {% if submission_drive_doc_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')"{% else %}target="_blank" href="{{ submission_drive_doc_url }}"{% endif %}><i class="fa fa-folder-open"></i></a>
+                                <a {% if submission_drive_doc_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_DRIVE_DOC_URL not set.')"{% else %}target="_blank" href="{{ submission_drive_doc_url }}"{% endif %}>{{ submission_drive_folder }}</a>
                                 <ul>
                                     <li>
                                         <i class="fa fa-folder-open"></i> user_name
@@ -225,7 +237,7 @@
                     </div>
                 </li>
                 <li>
-                    Fill out and submit the <a href="{{ submission_form_url }}">TraceBase Study Submission form</a>
+                    Fill out and submit the <a {% if submission_form_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FORM_URL not set.')"{% else %}href="{{ submission_form_url }}"{% endif %}>TraceBase Study Submission form</a>
                 </li>
             </ol>
         </div>
@@ -250,14 +262,10 @@
     <hr>
     <small class="text-muted">
         <p>
-            <a href="{{ submission_feedback_url }}">Contact us</a>
+            <a {% if submission_feedback_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FEEDBACK_URL not set.')"{% else %}target="_blank" href="{{ submission_feedback_url }}"{% endif %}>Contact us</a>
             anytime if you have any questions, concerns, or comments If, after your submission, you need to follow-up
             or would like to check-in on the upload status,
-            <a href="{{ submission_feedback_url }}">let us know</a>.<br>
-
-            See the
-            <a target="_blank" href="{{ submission_doc_url }}">{{ submission_doc_name }}</a>
-            for a more complete set of instructions and FAQ.
+            <a {% if submission_feedback_url is None %}href="javascript:void(0);" onclick="alert('Environment variable: SUBMISSION_FEEDBACK_URL not set.')"{% else %}target="_blank" href="{{ submission_feedback_url }}"{% endif %}>let us know</a>.<br>
         </p>
     </small>
 {% endblock %}

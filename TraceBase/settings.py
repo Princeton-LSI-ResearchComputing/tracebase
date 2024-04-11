@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Dict
 
 import environ
@@ -166,22 +166,20 @@ STORAGES = {
     },
 }
 
-# Data submission and validation settings
-
+# File storage handling for tests
 # https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
 # Added to make the validate_submission.html form work.  Could not figure out how to specify this handler for
 # individual fields.  This avoids files using the InMemoryUploadedFile, which the load script complains about.
-FILE_UPLOAD_HANDLERS = [
-    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
-]
-SUBMISSION_FORM_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
-FEEDBACK_URL = "https://forms.gle/LNk4kk6RJKZWM6za9"
-SUBMISSION_DOC_URL = "https://princeton-lsi-researchcomputing.github.io/tracebase/Upload/How%20to%20Upload/"
-SUBMISSION_DOC_NAME = "TraceBase upload documentation"
-SUBMISSION_DRIVE_DOC_URL = "https://lsidocs.princeton.edu/index.php/MSDATA_Users"
-SUBMISSION_DRIVE_TYPE = "MS Data Share"
-SUBMISSION_DRIVE_FOLDER = PureWindowsPath(
-    "gen-iota-cifs", "msdata", "tracebase-submissions"
+FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
+
+# Custom URLs and content
+FEEDBACK_URL = env.str("FEEDBACK_URL", default=None)
+# Data submission and validation
+SUBMISSION_FORM_URL = env.str("SUBMISSION_FORM_URL", default=None)
+SUBMISSION_DRIVE_DOC_URL = env.str("SUBMISSION_DRIVE_DOC_URL", default=None)
+SUBMISSION_DRIVE_TYPE = env.str("SUBMISSION_DRIVE_TYPE", default="Shared Drive")
+SUBMISSION_DRIVE_FOLDER = env.str(
+    "SUBMISSION_DRIVE_FOLDER", default="tracebase-submissions"
 )
 
 # Set up caching used by model cached_properties
