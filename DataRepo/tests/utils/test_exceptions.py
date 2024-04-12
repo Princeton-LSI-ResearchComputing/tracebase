@@ -1,4 +1,5 @@
 from DataRepo.models.researcher import UnknownResearcherError
+from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -22,6 +23,7 @@ from DataRepo.utils.exceptions import (
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
     OptionsNotAvailable,
+    RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
     RequiredColumnValuesWhenNovel,
@@ -1002,4 +1004,14 @@ class ExceptionTests(TracebaseTestCase):
         self.assertEqual(
             "Missing data ['5 sample names'] was added to file [Study doc.xlsx].",
             str(mda),
+        )
+
+    def test_RecordDoesNotExist(self):
+        rdne = RecordDoesNotExist(
+            model=get_model_by_name("Tissue"),
+            query_dict={"name": "invalid"},
+        )
+        self.assertEqual(
+            "Tissue record matching {'name': 'invalid'} from the load file data does not exist.",
+            str(rdne),
         )

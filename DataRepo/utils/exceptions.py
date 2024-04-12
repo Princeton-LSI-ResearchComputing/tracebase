@@ -2538,6 +2538,16 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         self.name = name
 
 
+class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
+    def __init__(self, model, query_dict, **kwargs):
+        message = (
+            f"{model.__name__} record matching {query_dict} from %s does not exist."
+        )
+        super().__init__(message, **kwargs)
+        self.query_dict = query_dict
+        self.model = model
+
+
 class MissingDataAdded(InfileError):
     """Use this for warnings only, for when missing data exceptions were dealt with."""
 

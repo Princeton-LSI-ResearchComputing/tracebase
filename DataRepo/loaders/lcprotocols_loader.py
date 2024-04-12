@@ -79,11 +79,14 @@ class LCProtocolsLoader(TableLoader):
             field=LCMethod.name,
             type=str,
             readonly=True,
-            # TODO: Add an excel formula that creates f"{type}-{run_length}-min" using the spreadsheet columns
+            # TODO: Create the method that applies the cormula to the NAME column on every row
+            # Excel formula that creates f"{type}-{run_length}-min" using the spreadsheet columns on the current row
+            # The header keys will be replaced by the excel column letters:
             # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), "-", INDIRECT("C" & ROW()), "-min")'
-            # Only, make it so that instead of "B" and "C", it uses TYPE_KEY and RUNLEN_KEY, translated using
-            # DataValidationView.header_to_cell
-            formula="",
+            formula=(
+                f'=CONCATENATE(INDIRECT("{{{TYPE_KEY}}}" & ROW()), "-", INDIRECT("{{{RUNLEN_KEY}}}" & ROW()), '
+                '"-min")'
+            ),
         ),
         TYPE=TableColumn.init_flat(field=LCMethod.type),
         RUNLEN=TableColumn.init_flat(
@@ -158,7 +161,7 @@ class LCProtocolsLoader(TableLoader):
             # down lists for columns in other sheets, which is why it is a readonly column, but if the user does
             # unexpectedly change the value in the column, we should warn them th=at the result will not be what they
             # expect.
-            if name != computed_name:
+            if name is not None and name != computed_name:
                 self.aggregated_errors_object.buffer_warning(
                     ConflictingValueError(
                         rec=None,
@@ -185,6 +188,8 @@ class LCProtocolsLoader(TableLoader):
                 "run_length": run_length,
                 "description": description,
             }
+
+            rec, created = LCMethod.objects.get_or_create(**rec_dict)
 
             if created:
                 rec.full_clean()

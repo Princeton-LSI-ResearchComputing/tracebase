@@ -19,6 +19,7 @@ from DataRepo.utils.exceptions import (
     DuplicateValues,
     ExcelSheetsNotFound,
     InfileDatabaseError,
+    InfileError,
     InvalidHeaderCrossReferenceError,
     NoLoadData,
     RequiredColumnValue,
@@ -679,7 +680,7 @@ class TableLoader(ABC):
         Raises:
             AggregatedErrors
                 TypeError
-                ValueError
+                InfileError
 
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
@@ -718,26 +719,29 @@ class TableLoader(ABC):
             final_defaults = final_defaults._replace(**new_dv_dict)
 
         # If user defaults are defined, overwrite anything previously set with them
-        extras = []
         tmp_user_defaults = self.get_user_defaults()
         if tmp_user_defaults is not None:
-            user_defaults = self.header_name_to_key(tmp_user_defaults)
             new_ud_dict = final_defaults._asdict()
+
+            try:
+                user_defaults = self.header_name_to_key(tmp_user_defaults)
+            except KeyError as ke:
+                raise self.aggregated_errors_object.buffer_error(
+                    InfileError(
+                        (
+                            f"Unexpected default headers: {ke.unmatched.keys()} in %s.  Expected: "
+                            f"{list(self.headers._asdict().values())}"
+                        ),
+                        file=self.defaults_file,
+                        sheet=self.defaults_sheet,
+                        column=self.DefaultsHeaders.COLUMN_NAME,
+                    )
+                )
+
             # To support incomplete headers dicts
             for hk in user_defaults.keys():
                 if hk in new_ud_dict.keys():
                     new_ud_dict[hk] = user_defaults[hk]
-                else:
-                    extras.append(hk)
-
-            # Raise programming errors immediately
-            if len(extras) > 0:
-                # We create an aggregated errors object in class methods because we may not have an instance with one
-                raise self.aggregated_errors_object.buffer_error(
-                    ValueError(
-                        f"Unexpected default keys: {extras} in user defaults.  Expected: {list(new_ud_dict.keys())}"
-                    )
-                )
 
             final_defaults = final_defaults._replace(**new_ud_dict)
 
@@ -1135,9 +1139,9 @@ class TableLoader(ABC):
 
         Exceptions:
             Raises:
-                Nothing
-            Buffers:
                 KeyError
+            Buffers:
+                None
 
         Returns:
             outdict (dict): objects by header name (instead of by header key)
@@ -1146,16 +1150,20 @@ class TableLoader(ABC):
             return None
 
         outdict = {}
+        unmatched = {}
         for hn, dv in indict.items():
             if hn not in self.reverse_headers.keys():
-                self.aggregated_errors_object.buffer_error(
-                    KeyError(
-                        f"Header [{hn}] not in reverse headers: {self.reverse_headers}"
-                    )
-                )
-                outdict[hn] = dv
+                unmatched[hn] = dv
                 continue
             outdict[self.reverse_headers[hn]] = dv
+
+        if len(unmatched.keys()) > 0:
+            ke = KeyError(
+                f"Header(s) {unmatched.keys()} not in reverse headers: {self.reverse_headers}"
+            )
+            ke.unmatched = unmatched
+            ke.outdict = outdict
+            raise ke
 
         return outdict
 
@@ -1685,10 +1693,10 @@ class TableLoader(ABC):
         return val
 
     def get_user_defaults(self):
-        """Retrieves user defaults from a dataframe.
+        """Retrieves a user defaults dict (only uncluding keys with defined values only) from a dataframe.
 
         The dataframe contains defaults for different types.  Only the defaults relating to the currently loaded data
-        are returned.
+        and WITH non-empty values are returned.
 
         Args:
             None

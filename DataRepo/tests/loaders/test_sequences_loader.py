@@ -26,7 +26,7 @@ class SequencesLoaderTests(TracebaseTestCase):
             SequencesLoader.DataSheetName,
             dtype=SequencesLoader.header_key_to_name(SequencesLoader.DataColumnTypes),
         )
-        sl = SequencesLoader(df=df, file="DataRepo/data/tests/submission_v3/study_v2.xlsx")
+        sl = SequencesLoader(df=df, file="DataRepo/data/tests/submission_v3/study.xlsx")
         sl.load_data()
         self.assertEqual(3, MSRunSequence.objects.count())
         seq = MSRunSequence.objects.filter(researcher="Xianfeng Zeng").first()
@@ -37,7 +37,7 @@ class SequencesLoaderTests(TracebaseTestCase):
         for _, row in self.TEST_DF.iterrows():
             break
         sl = SequencesLoader()
-        rec = sl.get_lc_method(row)
+        rec = sl.get_lc_method("polar-HILIC-25-min")
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
         self.assertEqual("polar-HILIC-25-min", rec.name)
 

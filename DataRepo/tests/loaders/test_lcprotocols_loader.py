@@ -18,13 +18,17 @@ class LCProtocolsLoaderTests(TracebaseTestCase):
 
     def test_load_data(self):
         df = read_from_file(
-            "DataRepo/data/tests/submission_v3/study_v2.xlsx",
+            "DataRepo/data/tests/submission_v3/study.xlsx",
             LCProtocolsLoader.DataSheetName,
-            dtype=LCProtocolsLoader.header_key_to_name(LCProtocolsLoader.DataColumnTypes),
+            dtype=LCProtocolsLoader.header_key_to_name(
+                LCProtocolsLoader.DataColumnTypes
+            ),
         )
-        ll = LCProtocolsLoader(df=df, file="DataRepo/data/tests/submission_v3/study_v2.xlsx")
+        ll = LCProtocolsLoader(
+            df=df, file="DataRepo/data/tests/submission_v3/study.xlsx"
+        )
         ll.load_data()
-        self.assertEqual(3, LCMethod.objects.count())
+        self.assertEqual(1, LCMethod.objects.count())
         lcr = LCMethod.objects.first()
         self.assertEqual("polar-HILIC-25-min", lcr.name)
 

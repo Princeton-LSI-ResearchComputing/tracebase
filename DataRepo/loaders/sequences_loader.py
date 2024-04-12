@@ -1,6 +1,5 @@
 from collections import namedtuple
 from typing import Dict
-import sys
 
 from django.db import transaction
 
@@ -8,7 +7,7 @@ from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.utils.exceptions import InfileError
+from DataRepo.utils.exceptions import InfileError, RecordDoesNotExist
 from DataRepo.utils.file_utils import string_to_datetime
 
 
@@ -40,9 +39,9 @@ class SequencesLoader(TableLoader):
     DataHeaders = DataTableHeaders(
         SEQNAME="Sequence Name",
         OPERATOR="Operator",
-        DATE="Date",
-        INSTRUMENT="Instrument",
         LCNAME="LC Protocol Name",
+        INSTRUMENT="Instrument",
+        DATE="Date",
         NOTES="Notes",
     )
 
@@ -104,6 +103,19 @@ class SequencesLoader(TableLoader):
                 f"- {DataHeaders.INSTRUMENT}\n"
                 f"- {DataHeaders.DATE}"
             ),
+            # TODO: Create the method that applies the cormula to the SEQNAME column on every row
+            # Excel formula that creates f"{operator}, {lc_name}, {instrument}, {date}" using the spreadsheet columns on
+            # the current row.  The header keys will be replaced by the excel column letters:
+            # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), ", ", INDIRECT("C" & ROW()), ", ", INDIRECT("D" & ROW()), ", ",
+            # INDIRECT("E" & ROW()))'
+            formula=(
+                "=CONCATENATE("
+                f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
+                f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
+                f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
+                f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
+                ")"
+            ),
         ),
         OPERATOR=TableColumn.init_flat(
             name="Operator",
@@ -116,6 +128,7 @@ class SequencesLoader(TableLoader):
         INSTRUMENT=TableColumn.init_flat(field=MSRunSequence.instrument),
         LCNAME=TableColumn.init_flat(
             field=LCMethod.name,
+            # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
             dynamic_choices=ColumnReference(
                 loader_class=LCProtocolsLoader,
                 loader_header_key=LCProtocolsLoader.NAME_KEY,
@@ -141,7 +154,7 @@ class SequencesLoader(TableLoader):
         """
         for _, row in self.df.iterrows():
             try:
-                lc_rec = self.get_lc_method(self.get_row_val(row, self.headers.OPERATOR))
+                lc_rec = self.get_lc_method(self.get_row_val(row, self.headers.LCNAME))
             except Exception:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -171,10 +184,21 @@ class SequencesLoader(TableLoader):
             rec (Optional[LCMethod])
         """
         rec = None
+        query_dict = {"name": name}
         try:
-            rec = LCMethod.objects.get(name=name)
+            rec = LCMethod.objects.get(**query_dict)
+        except LCMethod.DoesNotExist:
+            self.aggregated_errors_object.buffer_error(
+                RecordDoesNotExist(
+                    model=LCMethod,
+                    query_dict=query_dict,
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.file,
+                )
+            )
         except Exception as e:
-            # Package errors (like LCMethod.DoesNotExist) with file-location metadata
+            # Package other errors with file-location metadata
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
@@ -206,7 +230,6 @@ class SequencesLoader(TableLoader):
         created = False
 
         try:
-            # See TODO 1 above, and read in study_code and seq_id
             researcher = self.get_row_val(row, self.headers.OPERATOR)
             date_str = self.get_row_val(row, self.headers.DATE)
             date = string_to_datetime(
