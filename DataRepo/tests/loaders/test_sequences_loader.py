@@ -11,13 +11,11 @@ class SequencesLoaderTests(TracebaseTestCase):
 
     TEST_DF = pd.DataFrame.from_dict(
         {
-            "Sequence Number": [1],
+            "Sequence Name": ["Xianfeng Zeng, polar-HILIC-25-min, QE2, 10/19/2021"],
             "Operator": ["Xianfeng Zeng"],
             "Date": ["2021-10-19 00:00:00"],
-            "Instrument": ["HILIC"],
-            "LC Protocol": ["polar-HILIC"],
-            "LC Run Length": [25],
-            "LC Description": [""],
+            "Instrument": ["QE2"],
+            "LC Protocol Name": ["polar-HILIC-25-min"],
             "Notes": [""],
         },
     )
@@ -28,23 +26,19 @@ class SequencesLoaderTests(TracebaseTestCase):
             SequencesLoader.DataSheetName,
             dtype=SequencesLoader.header_key_to_name(SequencesLoader.DataColumnTypes),
         )
-        sl = SequencesLoader(df=df, file="DataRepo/data/tests/submission_v3/study.xlsx")
+        sl = SequencesLoader(df=df, file="DataRepo/data/tests/submission_v3/study_v2.xlsx")
         sl.load_data()
         self.assertEqual(3, MSRunSequence.objects.count())
         seq = MSRunSequence.objects.filter(researcher="Xianfeng Zeng").first()
 
-        lcr = seq.lc_method
-        self.assertEqual("polar-HILIC-25-min", lcr.name)
-        self.assertEqual("polar-HILIC", lcr.type)
-        self.assertEqual(25, int(lcr.run_length.total_seconds() / 60))
+        self.assertEqual("polar-HILIC-25-min", seq.lc_method.name)
 
-    def test_get_or_create_lc_method(self):
+    def test_get_lc_method(self):
         for _, row in self.TEST_DF.iterrows():
             break
         sl = SequencesLoader()
-        rec, created = sl.get_or_create_lc_method(row)
+        rec = sl.get_lc_method(row)
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
-        self.assertFalse(created)
         self.assertEqual("polar-HILIC-25-min", rec.name)
 
     def test_get_or_create_sequence(self):
@@ -57,4 +51,4 @@ class SequencesLoaderTests(TracebaseTestCase):
         self.assertTrue(created)
         self.assertEqual("polar-HILIC-25-min", rec.lc_method.name)
         self.assertEqual("Xianfeng Zeng", rec.researcher)
-        self.assertEqual("HILIC", rec.instrument)
+        self.assertEqual("QE2", rec.instrument)
