@@ -7,22 +7,12 @@ from django.db.models import (
     CharField,
     FloatField,
     ForeignKey,
+    Model,
     UniqueConstraint,
 )
 
-from DataRepo.models import HierCachedModel, MaintainedModel
 
-
-@MaintainedModel.relation(
-    generation=2,
-    parent_field_name="sample",
-    # child_field_names=["peak_groups"],  # Only propagate up
-    update_label="fcirc_calcs",
-)
-class MSRunSample(HierCachedModel, MaintainedModel):
-    parent_related_key_name = "sample"
-    child_related_key_names = ["peak_groups"]
-
+class MSRunSample(Model):
     POLARITY_CHOICES = [
         ("unknown", "unknown"),
         ("positive", "positive"),
@@ -94,8 +84,8 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     )
     ms_raw_file = ForeignKey(
         to="DataRepo.ArchiveFile",
-        null=True,
-        blank=True,
+        null=False,
+        blank=False,
         # Block ArchiveFile deletion unless all MSRunSamples linked to it are deleted via a different field's cascade
         on_delete=RESTRICT,
         related_name="raw_to_msrunsamples",
@@ -108,8 +98,8 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     )
     ms_data_file = ForeignKey(
         to="DataRepo.ArchiveFile",
-        null=True,
-        blank=True,
+        null=False,
+        blank=False,
         # Block ArchiveFile deletion unless all MSRunSamples linked to it are deleted via a different field's cascade
         on_delete=RESTRICT,
         related_name="mz_to_msrunsamples",

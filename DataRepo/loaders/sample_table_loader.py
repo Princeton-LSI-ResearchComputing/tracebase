@@ -404,6 +404,8 @@ class SampleTableLoader:
         return tissue_rec, is_blank
 
     def get_or_create_study(self, rownum, row, animal_rec):
+        # TODO: Change the study column to a comma-delimited field (so that if an animal belongs to multiple studies,
+        # you only need 1 row for it)
         study_name = self.getRowVal(row, "STUDY_NAME")
         study_desc = self.getRowVal(row, "STUDY_DESCRIPTION")
 

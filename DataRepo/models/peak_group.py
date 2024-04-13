@@ -1,5 +1,4 @@
-from django.db import models
-from django.db.models import Sum
+from django.db.models import AutoField, CASCADE, CharField, ForeignKey, ManyToManyField, RESTRICT, Sum, UniqueConstraint
 from django.utils.functional import cached_property
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
@@ -8,40 +7,59 @@ from DataRepo.models.utilities import atom_count_in_formula
 
 
 @MaintainedModel.relation(
-    generation=3,
-    parent_field_name="msrun_sample",
+    generation=2,
+    parent_field_name="sample",
+    # child_field_names=[],  # No children.  Insertions/deletions to this model affect FCirc calculations, upward only.
     update_label="fcirc_calcs",
 )
 class PeakGroup(HierCachedModel, MaintainedModel):
-    parent_related_key_name = "msrun_sample"
+    parent_related_key_name = "sample"
     child_related_key_names = ["labels"]
 
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(
+    id = AutoField(primary_key=True)
+    name = CharField(
         max_length=256,
         help_text='The compound or isomer group name (e.g. "citrate/isocitrate", "glucose").',
     )
-    formula = models.CharField(
+    formula = CharField(
         max_length=256,
         null=False,
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
-    msrun_sample = models.ForeignKey(
-        to="DataRepo.MSRunSample",
-        on_delete=models.CASCADE,
+    sample = ForeignKey(
+        to="DataRepo.Sample",
         null=False,
         blank=False,
+        # If the linked Sample is deleted, delete this record
+        on_delete=CASCADE,
         related_name="peak_groups",
-        help_text="The MS Run this PeakGroup belongs to.",
+        help_text="The sample this PeakGroup came from.",
     )
-    compounds = models.ManyToManyField(
+    msrun_sequence = ForeignKey(
+        to="DataRepo.MSRunSequence",
+        null=False,
+        blank=False,
+        # Block MSRunSequence deletion unless all PeakGroups linked to it are deleted via a different field's cascade
+        on_delete=RESTRICT,
+        related_name="peak_groups",
+        help_text="The mass spec batch sequence from which this peak group was derived.",
+    )
+    msrun_sample = ForeignKey(
+        to="DataRepo.MSRunSample",
+        on_delete=CASCADE,
+        null=True,
+        blank=True,
+        related_name="peak_groups",
+        help_text="The MS Run this PeakGroup came from.",
+    )
+    compounds = ManyToManyField(
         to="DataRepo.Compound",
         related_name="peak_groups",
         help_text="The compound(s) that this PeakGroup is presumed to represent.",
     )
-    peak_annotation_file = models.ForeignKey(
+    peak_annotation_file = ForeignKey(
         to="DataRepo.ArchiveFile",
-        on_delete=models.RESTRICT,
+        on_delete=RESTRICT,
         null=False,
         blank=False,
         related_name="peak_groups",
@@ -91,7 +109,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
 
         # composite key
         constraints = [
-            models.UniqueConstraint(
+            UniqueConstraint(
                 fields=["name", "msrun_sample"],
                 name="unique_peakgroup",
             ),
