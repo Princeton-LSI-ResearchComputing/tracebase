@@ -2409,31 +2409,21 @@ class DualPeakGroup(InfileError):
 class DualPeakGroups(Exception):
     def __init__(self, dpg_list: DualPeakGroup):
         deets = ""
-        dpg_dict = defaultdict(lambda: defaultdict(list))
+        dpg_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         for dpg in dpg_list:
-            dpg_dict[dpg.file_loc][dpg.pg_rec.peak_annotation_file.filename].append(dpg)
-        for load_peak_annot_file in dpg_dict.keys():
-            deets += f"\t{load_peak_annot_file}:\n"
-            for prev_peak_annot_file in dpg_dict[load_peak_annot_file].keys():
-                deets += f"\t\t{prev_peak_annot_file}:\n"
-                for dpg in dpg_dict[load_peak_annot_file][prev_peak_annot_file]:
-                    deets += "\n\t\t\t".join(
-                        [
-                            (
-                                f"PeakGroup/Compound [{dpg.pg_rec.name}] "
-                                f"for sample [{dpg.pg_rec.sample}] "
-                                f"in Sequence: [{dpg.pg_rec.msrun_sequence}] "
-                                f"in {dpg.cell_loc}"
-                            )
-                            for dpg in dpg_dict[load_peak_annot_file][prev_peak_annot_file]
-                        ]
-                    )
+            dpg_dict[dpg.pg_rec.msrun_sequence][dpg.pg_rec.name][f"{dpg.file_loc}\n\t\t\t{dpg.pg_rec.peak_annotation_file.filename}"].append(dpg)
+        for seq in dpg_dict.keys():
+            deets += f"\t{seq}:\n"
+            for pgname in dpg_dict[seq].keys():
+                deets += f"\t\t{pgname}:\n"
+                for annot_file_pair in dpg_dict[seq][pgname].keys():
+                    deets += f"\t\t\t{annot_file_pair}\n"
         message = (
             "Multiple different representations of peak group compound(s) for a sample/sequence encountered.  Only one "
             "peak group is allowed per compound/sample/sequence.  Either these peak groups should be associated with "
             "different sequences (i.e. set a different date, researcher, or protocol for the sequences), or you must "
-            "select which peak group to use for each compound and delete the other.  The "
-            f"conflicting peak groups are sorted below by the peak annotation files they were found in:\n{deets}"
+            "select which peak group to use for each compound and delete the other.  The conflicting peak groups are "
+            f"sorted below by the peak annotation files they were found in:\n{deets}"
         )
         super().__init__(message)
         self.dpg_list = dpg_list
@@ -2553,7 +2543,7 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
         loc_str += f"row [{rownum}]"
     if cell_only:
         return loc_str
-    else:
+    elif loc_str != "":
         loc_str += " "
     if loc_str != "" and sheet is not None:
         loc_str += "of "
@@ -2562,7 +2552,10 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     if loc_str != "":
         loc_str += "in "
     if file is not None:
-        loc_str += f"file [{file}]"
+        if loc_str == "":
+            loc_str += file
+        else:
+            loc_str += f"file [{file}]"
     else:
         loc_str += "the load file data"
     return loc_str
