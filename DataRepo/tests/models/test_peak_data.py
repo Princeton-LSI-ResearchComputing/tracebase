@@ -103,6 +103,8 @@ class PeakDataData(TracebaseTestCase):
             formula="C6H12O6",
             msrun_sample=msr,
             peak_annotation_file=accucor_file,
+            sample=smpl,
+            msrun_sequence=seq,
         )
         PeakData.objects.create(
             raw_abundance=1000.0,

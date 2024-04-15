@@ -33,6 +33,12 @@ class InfileError(Exception):
         loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
         )
+        file_loc = generate_file_location_string(
+            sheet=sheet, file=file
+        )
+        cell_loc = generate_file_location_string(
+            rownum=rownum, column=column, cell_only=True
+        )
         if "%s" not in message:
             message += "  Location: %s."
         if order is not None:
@@ -70,6 +76,8 @@ class InfileError(Exception):
             message = message % loc
         super().__init__(message)
         self.loc = loc
+        self.file_loc = file_loc
+        self.cell_loc = cell_loc
 
 
 class HeaderError(Exception):
@@ -2385,52 +2393,50 @@ class MzxmlParseError(Exception):
     pass
 
 
-class AmbiguousMSRun(InfileError):
-    def __init__(self, pg_rec, peak_annot1, peak_annot2, **kwargs):
+class DualPeakGroup(InfileError):
+    def __init__(self, pg_rec, **kwargs):
         message = (
-            f"When processing the peak data located in %s for sample [{pg_rec.msrun_sample.sample}] and compound(s) "
-            f"{pg_rec.name}, a duplicate peak group was found that was linked to MSRunSample: "
-            f"{model_to_dict(pg_rec.msrun_sample)}, but the peak annotation file it was loaded from [{peak_annot1}] "
-            f"was not the same as the current load file: [{peak_annot2}].  Either this is true duplicate peak data and "
-            "should be removed from this file or this data is a different scan (polarity and/or scan range), in which "
-            "case, both files should be loaded with a distinct polarity, mz_min, and mz_max.  If the mzXML file is "
-            "unavailable, mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr "
-            "data."
+            f"Multiple representations of a peak group for compound(s) [{pg_rec.name}] encountered for sample "
+            f"[{pg_rec.sample}] in Sequence: [{pg_rec.msrun_sequence}].  The peak groups are located in peak "
+            f"annotation files [{pg_rec.peak_annotation_file.filename}] and [%s].  Either these peak groups should be "
+            "associated with different sequences (i.e. set a different date, researcher, or protocol for the "
+            "sequences), or you must select which peak group to use for this compound and delete the other."
         )
         super().__init__(message, **kwargs)
         self.pg_rec = pg_rec
-        self.peak_annot1 = peak_annot1
-        self.peak_annot2 = peak_annot2
 
 
-class AmbiguousMSRuns(Exception):
-    def __init__(self, ambig_dict, infile):
+class DualPeakGroups(Exception):
+    def __init__(self, dpg_list: DualPeakGroup):
         deets = ""
-        for orig_file in ambig_dict.keys():
-            deets += f"\tAmbiguous MSRun details between current [{infile}] and original [{orig_file}] load files:\n"
-            for amsre in ambig_dict[orig_file].values():
-                deets += (
-                    f"\t\tSample [{amsre.pg_rec.msrun_sample.sample}] "
-                    f"PeakGroup [{amsre.pg_rec.name}] "
-                    f"MSRun Polarity [{amsre.pg_rec.msrun_sample.polarity}] "
-                    f"MSRun MZ Min [{amsre.pg_rec.msrun_sample.mz_min}] "
-                    f"MSRun MZ Max [{amsre.pg_rec.msrun_sample.mz_max}]\n"
-                )
+        dpg_dict = defaultdict(lambda: defaultdict(list))
+        for dpg in dpg_list:
+            dpg_dict[dpg.file_loc][dpg.pg_rec.peak_annotation_file.filename].append(dpg)
+        for load_peak_annot_file in dpg_dict.keys():
+            deets += f"\t{load_peak_annot_file}:\n"
+            for prev_peak_annot_file in dpg_dict[load_peak_annot_file].keys():
+                deets += f"\t\t{prev_peak_annot_file}:\n"
+                for dpg in dpg_dict[load_peak_annot_file][prev_peak_annot_file]:
+                    deets += "\n\t\t\t".join(
+                        [
+                            (
+                                f"PeakGroup/Compound [{dpg.pg_rec.name}] "
+                                f"for sample [{dpg.pg_rec.sample}] "
+                                f"in Sequence: [{dpg.pg_rec.msrun_sequence}] "
+                                f"in {dpg.cell_loc}"
+                            )
+                            for dpg in dpg_dict[load_peak_annot_file][prev_peak_annot_file]
+                        ]
+                    )
         message = (
-            f"When processing the peak data located in {infile}, duplicate peak groups were found that link to "
-            "existing MSRunSample records, but the peak annotation file the original peak groups were loaded from were "
-            "not the same as the current load file.  Either they are true duplicate peak groups and should be removed "
-            "from this file or this data represents a different scan (polarity and/or scan range), in which case, both "
-            "files should be loaded with a distinct polarity or mz_min and mz_max.  If the mzXML file is unavailable, "
-            "mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr data.  The "
-            "conflicting MSRunSample records below were encountered associated with the following table data:\n"
-            f"{deets}"
-            "Use --polarity, --mz-min, and --mz-max to set different MSRun characteristics for an entire peak "
-            "annotations file or set per sample (header) values in the --lcms-file."
+            "Multiple different representations of peak group compound(s) for a sample/sequence encountered.  Only one "
+            "peak group is allowed per compound/sample/sequence.  Either these peak groups should be associated with "
+            "different sequences (i.e. set a different date, researcher, or protocol for the sequences), or you must "
+            "select which peak group to use for each compound and delete the other.  The "
+            f"conflicting peak groups are sorted below by the peak annotation files they were found in:\n{deets}"
         )
         super().__init__(message)
-        self.ambig_dict = ambig_dict
-        self.infile = infile
+        self.dpg_list = dpg_list
 
 
 class CompoundSynonymExists(Exception):
@@ -2537,14 +2543,18 @@ class MissingDataAdded(InfileError):
         super().__init__(message, **kwargs)
 
 
-def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
+def generate_file_location_string(column=None, rownum=None, sheet=None, file=None, cell_only=False):
     loc_str = ""
     if column is not None:
         loc_str += f"column [{column}] "
     if loc_str != "" and rownum is not None:
         loc_str += "on "
     if rownum is not None:
-        loc_str += f"row [{rownum}] "
+        loc_str += f"row [{rownum}]"
+    if cell_only:
+        return loc_str
+    else:
+        loc_str += " "
     if loc_str != "" and sheet is not None:
         loc_str += "of "
     if sheet is not None:

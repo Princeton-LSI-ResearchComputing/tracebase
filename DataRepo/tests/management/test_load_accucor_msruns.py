@@ -24,7 +24,7 @@ from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
-    AmbiguousMSRuns,
+    DualPeakGroups,
     ConflictingValueError,
     DryRun,
     NoSamplesError,
@@ -361,8 +361,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ConflictingValueError):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun_sample=peak_group.msrun_sample,
+                sample=peak_group.msrun_sample.sample,
+                msrun_sequence=peak_group.msrun_sample.msrun_sequence,
                 peak_annotation_file=peak_group.peak_annotation_file,
+                msrun_sample=peak_group.msrun_sample,
             )
 
     def test_multiple_accucor_labels(self):
@@ -464,11 +466,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 new_researcher=False,
                 polarity="positive",
             )
+            print(f"SUCCEEDED NUM SEQS: {MSRunSequence.objects.count()}")
         # Check second file failed (duplicate compound)
         aes = ar.exception
-        print(f"{aes}")
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
+        self.assertTrue(isinstance(aes.exceptions[0], DualPeakGroups))
 
     @tag("multi-msrun")
     def test_resolve_ambiguous_msruns_error(self):
@@ -934,7 +936,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             polarity="positive",
         )
         pg = (
-            PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc")
+            PeakGroup.objects.filter(sample__name="xzl5_panc")
             .filter(name__exact="serine")
             .filter(
                 peak_annotation_file__filename="alafasted_cor.xlsx",
@@ -1029,14 +1031,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         self.assertFalse(batraw_loc.is_file())
         self.assertFalse(brraw_loc.is_file())
 
-    def test_peakgroup_msrunsample_null_is_false(self):
-        """
-        Issue #712
-        Requirement: 3. PeakGroup.msrun_sample.null must be set to False
-        Requirement: 4. Add migration for PeakGroup.msrun_sample change
-        """
-        self.assertFalse(PeakGroup.msrun_sample.__dict__["field"].null)
-
+    # NOTE: Test for Issue #712, Requirements 3 & 4 have been made obsolete by issue #947
     # NOTE: Test for Issue #712, Requirement 5 (All broken_until_issue712 test tags must be removed) is unnecessary
     # NOTE: Test for Issue #712, Requirement 6 is in test_exceptions.py
 

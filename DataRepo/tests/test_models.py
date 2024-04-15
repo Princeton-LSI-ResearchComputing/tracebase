@@ -200,6 +200,8 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             formula=initial_peak_group["formula"],
             msrun_sample=self.msrs,
             peak_annotation_file=self.peak_annotation_file,
+            sample=self.sample,
+            msrun_sequence=self.msrs.msrun_sequence,
         )
         # actual code would have to more careful in retrieving compounds based
         # on the data's peak_group name
@@ -280,7 +282,10 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.assertRaises(
             IntegrityError,
             lambda: PeakGroup.objects.create(
-                name=self.peak_group.name, msrun_sample=self.msrs
+                name=self.peak_group.name,
+                msrun_sample=self.msrs,
+                sample=self.sample,
+                msrun_sequence=self.msrs.msrun_sequence,
             ),
         )
 
@@ -540,7 +545,7 @@ class DataLoadingTests(TracebaseTestCase):
     def test_peak_group_peak_data_2(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="histidine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         # There should be a peak_data for each label count 0-6
@@ -556,7 +561,7 @@ class DataLoadingTests(TracebaseTestCase):
     def test_peak_group_peak_data_3(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="histidine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
 
@@ -870,7 +875,7 @@ class PropertyTests(TracebaseTestCase):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
         peak_groups = PeakGroup.objects.filter(
-            msrun_sample__sample__id__exact=last_serum_sample.id
+            sample__id__exact=last_serum_sample.id
         )
         # ALL the sample's PeakGroup objects in the QuerySet total 13
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
@@ -897,7 +902,7 @@ class PropertyTests(TracebaseTestCase):
         (test_sample_peak_data, above) are now 0/gone
         """
         peakdata = PeakData.objects.filter(
-            peak_group__msrun_sample__sample__exact=last_serum_sample
+            peak_group__sample__exact=last_serum_sample
         ).filter(
             peak_group__compounds__id=animal.infusate.tracers.first().compound.id,
         )
@@ -922,7 +927,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
@@ -946,7 +951,7 @@ class PropertyTests(TracebaseTestCase):
         # null original data
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf_corrected.csv")
             .get()
         )
@@ -973,7 +978,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peak_group_peak_data_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labels__count=0).get()
@@ -1088,7 +1093,7 @@ class PropertyTests(TracebaseTestCase):
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         peak_group.formula = None
@@ -1098,7 +1103,7 @@ class PropertyTests(TracebaseTestCase):
     def test_enrichment_fraction_missing_bad_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         peak_group.formula = "H2O"
@@ -1108,7 +1113,7 @@ class PropertyTests(TracebaseTestCase):
     def test_enrichment_fraction_missing_labeled_element(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
 
@@ -1123,7 +1128,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peak_group_peak_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
 
@@ -1132,19 +1137,19 @@ class PropertyTests(TracebaseTestCase):
     def test_peak_group_tracer_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
 
         self.assertEqual(
             ["C"],
-            peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements(),
+            peak_group.sample.animal.infusate.tracer_labeled_elements(),
         )
 
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
@@ -1211,13 +1216,15 @@ class PropertyTests(TracebaseTestCase):
             formula=peak_group.formula,
             msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,
+            sample=msrs.sample,
+            msrun_sequence=msrs.msrun_sequence,
         )
         second_serum_peak_group.compounds.add(
-            peak_group.msrun_sample.sample.animal.infusate.tracers.first().compound
+            peak_group.sample.animal.infusate.tracers.first().compound
         )
         first_serum_peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         first_serum_peak_group_label = first_serum_peak_group.labels.first()
@@ -1257,7 +1264,7 @@ class PropertyTests(TracebaseTestCase):
         """
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
@@ -1343,13 +1350,15 @@ class PropertyTests(TracebaseTestCase):
             formula=peak_group.formula,
             msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,
+            sample=msrs.sample,
+            msrun_sequence=msrs.msrun_sequence,
         )
         second_serum_peak_group.compounds.add(
-            peak_group.msrun_sample.sample.animal.infusate.tracers.first().compound
+            peak_group.sample.animal.infusate.tracers.first().compound
         )
         first_serum_peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         PeakGroupLabel.objects.create(
@@ -1402,14 +1411,14 @@ class PropertyTests(TracebaseTestCase):
     def test_normalized_labeling_missing_serum_peak_group(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
         peak_group_serum = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(msrun_sample__sample__name="serum-xz971")
+            .filter(sample__name="serum-xz971")
             .get()
         )
         peak_group_serum.delete()
@@ -1420,7 +1429,7 @@ class PropertyTests(TracebaseTestCase):
     def test_normalized_labeling_missing_serum_sample(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
@@ -1438,7 +1447,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peak_data_fraction(self):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
             .peak_data.filter(labels__count=0)
@@ -1450,7 +1459,7 @@ class PropertyTests(TracebaseTestCase):
         # Test various calculations do not raise exceptions when total_abundance is zero
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(msrun_sample__sample__name="BAT-xz971")
+            .filter(sample__name="BAT-xz971")
             .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
@@ -1485,7 +1494,7 @@ class PropertyTests(TracebaseTestCase):
         )
         msrs = MSRunSample(
             msrun_sequence=seq,
-            sample=peak_group.msrun_sample.sample,
+            sample=peak_group.sample,
             polarity="positive",
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
@@ -1498,6 +1507,8 @@ class PropertyTests(TracebaseTestCase):
             formula=peak_group.formula,
             msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,
+            sample=msrs.sample,
+            msrun_sequence=msrs.msrun_sequence,
         )
 
         labeled_elems = []
@@ -1702,7 +1713,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
 
     def test_peak_labeled_elements_one(self):
         # succinate has no nitrogen
-        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+        pg = PeakGroup.objects.filter(sample__name="xzl5_panc").get(
             name="succinate"
         )
         output = pg.peak_labeled_elements
@@ -1711,7 +1722,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertEqual(expected, output)
 
     def test_peak_labeled_elements_two(self):
-        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+        pg = PeakGroup.objects.filter(sample__name="xzl5_panc").get(
             name="glutamine"
         )
         output = pg.peak_labeled_elements
@@ -1719,7 +1730,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertEqual(expected, output)
 
     def test_enrichment_abundance(self):
-        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+        pg = PeakGroup.objects.filter(sample__name="xzl5_panc").get(
             name="glutamine"
         )
         pgc = pg.labels.get(element__exact="C").enrichment_abundance
@@ -1731,7 +1742,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedn, pgn)
 
     def test_normalized_labeling_2_elements(self):
-        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+        pg = PeakGroup.objects.filter(sample__name="xzl5_panc").get(
             name="glutamine"
         )
         pgc = pg.labels.get(element__exact="C").normalized_labeling

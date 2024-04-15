@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, ListView
 
-from DataRepo.models import MSRunSample, PeakGroup
+from DataRepo.models import MSRunSample, PeakGroup, Sample
 
 
 class PeakGroupListView(ListView):
@@ -14,7 +14,7 @@ class PeakGroupListView(ListView):
     queryset = PeakGroup.objects.all()
     context_object_name = "peakgroup_list"
     template_name = "DataRepo/peakgroup_list.html"
-    ordering = ["msrun_sample_id", "peak_annotation_file_id", "name"]
+    ordering = ["msrun_sequence_id", "msrun_sample_id", "peak_annotation_file_id", "name"]
     paginate_by = 50
 
     # filter the peakgroup_list by msrun_sample_id
@@ -22,9 +22,13 @@ class PeakGroupListView(ListView):
         queryset = super().get_queryset()
         # get query string from request
         msrun_sample_pk = self.request.GET.get("msrun_sample_id", None)
+        sample_pk = self.request.GET.get("sample_id", None)
         if msrun_sample_pk is not None:
             self.msrun = get_object_or_404(MSRunSample, id=msrun_sample_pk)
             queryset = PeakGroup.objects.filter(msrun_sample_id=msrun_sample_pk)
+        elif sample_pk is not None:
+            self.smpl = get_object_or_404(Sample, id=sample_pk)
+            queryset = PeakGroup.objects.filter(sample_id=sample_pk)
         return queryset
 
 

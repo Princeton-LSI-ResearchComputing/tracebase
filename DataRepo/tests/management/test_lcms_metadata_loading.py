@@ -10,6 +10,7 @@ from DataRepo.loaders.sample_table_loader import (
     SampleTableLoader,
 )
 from DataRepo.models import LCMethod, MaintainedModel, MSRunSample, Sample
+from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; NoMZXMLFiles,
     AggregatedErrors,
@@ -682,25 +683,18 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unrelated_data_only.tsv",
             polarity="positive",
         )
-        self.assertEqual(2, MSRunSample.objects.count())
-        msr1 = MSRunSample.objects.first()
-        msr2 = MSRunSample.objects.last()
+        self.assertEqual(0, MSRunSample.objects.count())
+        self.assertEqual(1, MSRunSequence.objects.count())
+        msrs = MSRunSequence.objects.first()
         lcmr = LCMethod.objects.get(name="polar-HILIC-25-min")
-        sample1 = Sample.objects.get(name="BAT-xz971")
-        sample2 = Sample.objects.get(name="Br-xz971")
         researcher = "Michael Neinast"
         date = datetime.date(datetime.strptime("2021-04-29", "%Y-%m-%d"))
-        # TODO: Test for Instrument (which is not yet saved)
         # TODO: Test for mzxml_file (which is not yet saved)
 
-        self.assertEqual(researcher, msr1.msrun_sequence.researcher)
-        self.assertEqual(researcher, msr2.msrun_sequence.researcher)
-        self.assertEqual(date, msr1.msrun_sequence.date)
-        self.assertEqual(date, msr2.msrun_sequence.date)
-        self.assertEqual(lcmr, msr1.msrun_sequence.lc_method)
-        self.assertEqual(lcmr, msr2.msrun_sequence.lc_method)
-        self.assertEqual(sample1, msr1.sample)
-        self.assertEqual(sample2, msr2.sample)
+        self.assertEqual(researcher, msrs.researcher)
+        self.assertEqual(date, msrs.date)
+        self.assertEqual(lcmr, msrs.lc_method)
+        self.assertEqual("unknown", msrs.instrument)
 
     @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good_no_defaults(self):
@@ -744,25 +738,19 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_only_reqd_col_vals.tsv",
             polarity="positive",
         )
-        self.assertEqual(2, MSRunSample.objects.count())
-        msr1 = MSRunSample.objects.first()
-        msr2 = MSRunSample.objects.last()
+        self.assertEqual(0, MSRunSample.objects.count())
+        self.assertEqual(1, MSRunSequence.objects.count())
+        msrs = MSRunSequence.objects.first()
         lcmr = LCMethod.objects.get(name="polar-HILIC-25-min")
-        sample1 = Sample.objects.get(name="BAT-xz971")
-        sample2 = Sample.objects.get(name="Br-xz971")
         date = datetime.date(datetime.strptime("2021-04-29", "%Y-%m-%d"))
         researcher = "Michael Neinast"
-        # TODO: Test for Instrument (which is not yet saved)
         # TODO: Test for mzxml_file (which is not yet saved)
 
-        self.assertEqual(researcher, msr2.msrun_sequence.researcher)
-        self.assertEqual(researcher, msr1.msrun_sequence.researcher)
-        self.assertEqual(date, msr1.msrun_sequence.date)
-        self.assertEqual(date, msr2.msrun_sequence.date)
-        self.assertEqual(lcmr, msr2.msrun_sequence.lc_method)
-        self.assertEqual(lcmr, msr1.msrun_sequence.lc_method)
-        self.assertEqual(sample1, msr1.sample)
-        self.assertEqual(sample2, msr2.sample)
+        self.assertEqual(researcher, msrs.researcher)
+        self.assertEqual(date, msrs.date)
+        self.assertEqual(lcmr, msrs.lc_method)
+        self.assertEqual(lcmr, msrs.lc_method)
+        self.assertEqual("unknown", msrs.instrument)
 
     @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_missing_header_error(self):

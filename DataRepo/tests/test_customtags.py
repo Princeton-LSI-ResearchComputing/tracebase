@@ -56,19 +56,19 @@ class CustomTagsTests(TracebaseTestCase):
     def test_get_many_related_rec_value(self):
         """Ensure the one record matching the pk is returned in a 1-member list."""
         pgs = PeakGroup.objects.filter(
-            msrun_sample__sample__animal__studies__name__iexact="small_obob"
+            sample__animal__studies__name__iexact="small_obob"
         )[0:1]
         of = Study.objects.get(name__iexact="obob_fasted")
-        recs = get_many_related_rec(pgs[0].msrun_sample.sample.animal.studies, of.pk)
+        recs = get_many_related_rec(pgs[0].sample.animal.studies, of.pk)
         self.assertEqual(recs, [of])
 
     def test_get_many_related_rec_novalue(self):
         """Ensure the supplied records are returned if pk is empty."""
         pgs = PeakGroup.objects.filter(
-            msrun_sample__sample__animal__studies__name__iexact="small_obob"
+            sample__animal__studies__name__iexact="small_obob"
         )[0:1]
         of = Study.objects.filter(name__icontains="obob")
-        recs = get_many_related_rec(pgs[0].msrun_sample.sample.animal.studies, "")
+        recs = get_many_related_rec(pgs[0].sample.animal.studies, "")
         self.assertEqual(recs.count(), of.count())
         self.assertEqual(recs.count(), 2)
         self.assertEqual([recs[0].name, recs[1].name], ["obob_fasted", "small_obob"])
@@ -83,7 +83,7 @@ class CustomTagsTests(TracebaseTestCase):
                     "type": "query",
                     "pos": "",
                     "ncmp": "istartswith",
-                    "fld": "msrun_sample__sample__tissue__name",
+                    "fld": "sample__tissue__name",
                     "val": "brai",
                     "static": False,
                 },

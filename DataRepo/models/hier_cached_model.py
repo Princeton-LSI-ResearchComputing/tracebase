@@ -174,7 +174,7 @@ class HierCachedModel(Model):
 
     # Set these related key names in the derived class (including the backwards relationships whose names are specified
     # in the related class). E.g. In the Sample class set the parent_related_key_name to 'animal' and the
-    # child_related_key_names to ['msrun_samples']
+    # child_related_key_names to ['peak_groups']
     parent_related_key_name: Optional[str] = None
     child_related_key_names: Optional[List[str]] = []
 

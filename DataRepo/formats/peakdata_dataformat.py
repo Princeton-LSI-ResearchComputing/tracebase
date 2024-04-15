@@ -18,7 +18,7 @@ class PeakDataFormat(Format):
     stats = [
         {
             "displayname": "Animals",
-            "distincts": ["peak_group__msrun_sample__sample__animal__name"],
+            "distincts": ["peak_group__sample__animal__name"],
             "filter": None,
         },
         {
@@ -32,7 +32,7 @@ class PeakDataFormat(Format):
         },
         {
             "displayname": "Feeding Statuses",
-            "distincts": ["peak_group__msrun_sample__sample__animal__feeding_status"],
+            "distincts": ["peak_group__sample__animal__feeding_status"],
             "filter": None,
         },
         {
@@ -45,18 +45,18 @@ class PeakDataFormat(Format):
         },
         {
             "displayname": "Samples",
-            "distincts": ["peak_group__msrun_sample__sample__name"],
+            "distincts": ["peak_group__sample__name"],
             "filter": None,
         },
         {
             "displayname": "Tissues",
-            "distincts": ["peak_group__msrun_sample__sample__tissue__name"],
+            "distincts": ["peak_group__sample__tissue__name"],
             "filter": None,
         },
         {
             "displayname": "Tracer Compounds",
             "distincts": [
-                "peak_group__msrun_sample__sample__animal__infusate__tracers__compound__name"
+                "peak_group__sample__animal__infusate__tracers__compound__name"
             ],
             "filter": None,
         },
@@ -266,8 +266,8 @@ class PeakDataFormat(Format):
         },
         "Sample": {
             "model": "Sample",
-            "path": "peak_group__msrun_sample__sample",
-            "reverse_path": "msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample",
+            "reverse_path": "peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -307,8 +307,8 @@ class PeakDataFormat(Format):
         },
         "Tissue": {
             "model": "Tissue",
-            "path": "peak_group__msrun_sample__sample__tissue",
-            "reverse_path": "samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__tissue",
+            "reverse_path": "samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -333,8 +333,8 @@ class PeakDataFormat(Format):
         },
         "Animal": {
             "model": "Animal",
-            "path": "peak_group__msrun_sample__sample__animal",
-            "reverse_path": "samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal",
+            "reverse_path": "samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -412,8 +412,8 @@ class PeakDataFormat(Format):
         },
         "Protocol": {
             "model": "Protocol",
-            "path": "peak_group__msrun_sample__sample__animal__treatment",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal__treatment",
+            "reverse_path": "animals__samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -438,8 +438,8 @@ class PeakDataFormat(Format):
         },
         "Infusate": {
             "model": "Compound",
-            "path": "peak_group__msrun_sample__sample__animal__infusate",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal__infusate",
+            "reverse_path": "animals__samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -464,8 +464,8 @@ class PeakDataFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "peak_group__msrun_sample__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal__infusate__tracer_links",
+            "reverse_path": "infusate__animals__samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,
@@ -490,8 +490,8 @@ class PeakDataFormat(Format):
         },
         "Tracer": {
             "model": "Tracer",
-            "path": "peak_group__msrun_sample__sample__animal__infusate__tracers",
-            "reverse_path": "infusates__animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal__infusate__tracers",
+            "reverse_path": "infusates__animals__samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": True,
                 "through": False,
@@ -516,8 +516,8 @@ class PeakDataFormat(Format):
         },
         "TracerCompound": {
             "model": "Compound",
-            "path": "peak_group__msrun_sample__sample__animal__infusate__tracers__compound",
-            "reverse_path": "tracers__infusates__animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal__infusate__tracers__compound",
+            "reverse_path": "tracers__infusates__animals__samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": True,
                 "through": False,
@@ -542,8 +542,8 @@ class PeakDataFormat(Format):
         },
         "Study": {
             "model": "Study",
-            "path": "peak_group__msrun_sample__sample__animal__studies",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__sample__animal__studies",
+            "reverse_path": "animals__samples__peak_groups__peak_data",
             "manyrelated": {
                 "is": True,
                 "through": False,
@@ -569,8 +569,8 @@ class PeakDataFormat(Format):
         },
         "MSRunSequence": {
             "model": "MSRunSequence",
-            "path": "peak_group__msrun_sample__msrun_sequence",
-            "reverse_path": "msrun_samples__peak_groups__peak_data",
+            "path": "peak_group__msrun_sequence",
+            "reverse_path": "peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
                 "manytomany": False,

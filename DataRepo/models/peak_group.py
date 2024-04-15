@@ -91,7 +91,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         included in the returned list.
         """
         peak_labeled_elements = []
-        for atom in self.msrun_sample.sample.animal.infusate.tracer_labeled_elements():
+        for atom in self.sample.animal.infusate.tracer_labeled_elements():
             if atom_count_in_formula(self.formula, atom) > 0:
                 peak_labeled_elements.append(atom)
         return peak_labeled_elements
@@ -100,7 +100,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     @cached_property
     def animal(self):
         """Convenient instance method to cache the animal this PeakGroup came from"""
-        return self.msrun_sample.sample.animal
+        return self.sample.animal
 
     class Meta:
         verbose_name = "peak group"
@@ -110,10 +110,18 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # composite key
         constraints = [
             UniqueConstraint(
-                fields=["name", "msrun_sample"],
+                fields=["name", "sample", "msrun_sequence"],
                 name="unique_peakgroup",
             ),
         ]
 
     def __str__(self):
         return str(self.name)
+
+    @property
+    def full_name(self):
+        """Provide a full/unique peak group name."""
+        return (
+            f"PeakGroup for compound {self.name} in sample {self.sample.name} measured in sequence: "
+            f"[{self.msrun_sequence}]."
+        )

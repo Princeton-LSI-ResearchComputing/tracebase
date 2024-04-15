@@ -149,6 +149,8 @@ class FCircTests(TracebaseTestCase):
                 formula=tracer.compound.formula,
                 msrun_sample=msrs,
                 peak_annotation_file=self.peak_annotation_file,
+                sample=self.newlss,
+                msrun_sequence=seq,
             )
             pg.compounds.add(tracer.compound)
             # We don't need to call pg.save() here because I added an m2m handler to make .add() calls trigger a save.
@@ -380,6 +382,8 @@ class FCircTests(TracebaseTestCase):
                 formula=tracer.compound.formula,
                 msrun_sample=msrs,
                 peak_annotation_file=self.peak_annotation_file,
+                sample=self.newlss,
+                msrun_sequence=seq,
             )
             pg.compounds.add(tracer.compound)
             # We don't need to call pg.save() here because I added an m2m handler to make .add() calls trigger a save.

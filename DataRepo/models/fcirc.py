@@ -142,9 +142,9 @@ class FCirc(MaintainedModel, HierCachedModel):
         from DataRepo.models.peak_group import PeakGroup
 
         peakgroups = (
-            PeakGroup.objects.filter(msrun_sample__sample__exact=self.serum_sample)
+            PeakGroup.objects.filter(sample__exact=self.serum_sample)
             .filter(compounds__exact=self.tracer.compound)
-            .order_by("msrun_sample__msrun_sequence__date")
+            .order_by("msrun_sequence__date")
         )
 
         if peakgroups.count() == 0:
@@ -237,7 +237,7 @@ class FCirc(MaintainedModel, HierCachedModel):
             # TODO: MSRunSequence.date can no longer be null, so these warnings can probably be removed
             if (
                 # If the date of the MSRunSequence containing the "last" self.tracer peak group is none
-                self.last_peak_group_in_sample.msrun_sample.msrun_sequence.date is None
+                self.last_peak_group_in_sample.msrun_sequence.date is None
                 # and there exist other (potentially last) MSRunSamples that might contain a self.tracer peak group
                 and self.serum_sample.msrun_samples.count() > 1
             ):
@@ -250,7 +250,7 @@ class FCirc(MaintainedModel, HierCachedModel):
                     "or should not be for the 'last' peak group for this serum sample."
                 )
             elif (
-                self.last_peak_group_in_sample.msrun_sample.msrun_sequence.date is None
+                self.last_peak_group_in_sample.msrun_sequence.date is None
                 and self.serum_sample.msrun_samples.count() == 1
             ):
                 # This doesn't trigger/override the valid or level settings, but it does append a message

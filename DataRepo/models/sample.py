@@ -12,7 +12,7 @@ from DataRepo.models.peak_group import PeakGroup
 
 class Sample(MaintainedModel, HierCachedModel):
     parent_related_key_name = "animal"
-    child_related_key_names = ["msrun_samples", "fcircs"]
+    child_related_key_names = ["peak_groups", "fcircs"]
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -95,9 +95,9 @@ class Sample(MaintainedModel, HierCachedModel):
         last_peakgroup_ids = []
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
-                PeakGroup.objects.filter(msrun_sample__sample__id__exact=self.id)
+                PeakGroup.objects.filter(sample__id__exact=self.id)
                 .filter(compounds__id__exact=tracer.compound.id)
-                .order_by("msrun_sample__msrun_sequence__date")
+                .order_by("msrun_sequence__date")
                 .last()
             )
             if tracer_peak_group:

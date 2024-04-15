@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from sqlite3 import ProgrammingError
-from typing import List, TypedDict
+from typing import List, Optional, TypedDict
 
 import regex
 import xmltodict
@@ -43,8 +43,8 @@ from DataRepo.models.researcher import (
 from DataRepo.models.utilities import handle_load_db_errors
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AmbiguousMSRun,
-    AmbiguousMSRuns,
+    DualPeakGroup,
+    DualPeakGroups,
     ConflictingValueError,
     ConflictingValueErrors,
     CorrectedCompoundHeaderMissing,
@@ -81,7 +81,7 @@ from DataRepo.utils.exceptions import (
     UnexpectedLCMSSampleDataHeaders,
     UnskippedBlanksError,
 )
-from DataRepo.utils.file_utils import get_sheet_names, is_excel
+from DataRepo.utils.file_utils import get_sheet_names, is_excel, string_to_datetime
 from DataRepo.utils.lcms_metadata_parser import (
     lcms_df_to_dict,
     lcms_headers_are_valid,
@@ -232,7 +232,7 @@ class AccuCorDataLoader:
         self.mixed_polarities = {}
         self.conflicting_mzxml_values = defaultdict(dict)
         self.conflicting_archive_files = []
-        self.ambiguous_msruns = defaultdict(dict)
+        self.dual_peakgroup_errors = []
 
     def process_default_lcms_opts(self):
         """
@@ -1449,8 +1449,10 @@ class AccuCorDataLoader:
     def insert_peak_group(
         self,
         peak_group_attrs: PeakGroupAttrs,
-        msrun_sample: MSRunSample,
+        sample: Sample,
+        msrun_sequence: MSRunSequence,
         peak_annotation_file: ArchiveFile,
+        msrun_sample: Optional[MSRunSample] = None,
         rownum=None,
         col=None,
     ):
@@ -1461,7 +1463,9 @@ class AccuCorDataLoader:
 
         Args:
             peak_group_attrs: dictionary of peak group atrributes
-            msrun_sample: MSRunSample object the PeakGroup belongs to
+            sample: Sample object the PeakGroup comes from
+            msrun_sequence: MSRunSequence object the PeakGroup comes from
+            msrun_sample: MSRunSample object the PeakGroup comes from
             peak_annotation_file: ArchiveFile object of the peak annotation file the peak group was loaded from
 
         Returns:
@@ -1475,25 +1479,49 @@ class AccuCorDataLoader:
 
         if self.verbosity >= 1:
             print(
-                f"\tInserting {peak_group_attrs['name']} peak group for sample {msrun_sample.sample}"
+                f"\tInserting {peak_group_attrs['name']} peak group for sample {sample}"
             )
         try:
-            peak_group, created = PeakGroup.objects.get_or_create(
-                msrun_sample=msrun_sample,
+            full_pg_rec_dict = {
+                "sample": sample,
+                "msrun_sequence": msrun_sequence,
+                "msrun_sample": msrun_sample,
+                "name": peak_group_attrs["name"],
+                "formula": peak_group_attrs["formula"],
+                "peak_annotation_file": peak_annotation_file,
+            }
+            peak_group_qs = PeakGroup.objects.filter(
+                sample=sample,
+                msrun_sequence=msrun_sequence,
                 name=peak_group_attrs["name"],
                 formula=peak_group_attrs["formula"],
                 peak_annotation_file=peak_annotation_file,
             )
-            if not created:
+            if peak_group_qs.count() == 1:
+                peak_group = peak_group_qs.first()
+                created = False
+                print("FOUND ONE")
+                if peak_group.msrun_sample != msrun_sample:
+                    print("GETTING OR CREATING")
+                    peak_group, created = PeakGroup.objects.get_or_create(**full_pg_rec_dict)
+            elif peak_group_qs.count() != 1:
+                print(f"FOUND {peak_group_qs.count()} - GETTING OR CREATING WITH {full_pg_rec_dict}")
+                peak_group, created = PeakGroup.objects.get_or_create(**full_pg_rec_dict)
+                print(f"CREATED PEAKGROUP?: {created}")
+            if not created and (msrun_sample is None or peak_group.msrun_sample != msrun_sample):
                 raise DuplicatePeakGroup(
                     adding_file=peak_annotation_file.filename,
                     msrun_sample=msrun_sample,
-                    sample=msrun_sample.sample,
+                    sample=sample,
                     peak_group_name=peak_group_attrs["name"],
                     existing_peak_annotation_file=peak_group.peak_annotation_file,
                 )
+            # msrun_sample is optional (i.e. can be None), so we didn't include it in the get_or_create.  We set it here
+            # in case it's not None, which will update it when it's saved again below.
+            peak_group.msrun_sample = msrun_sample
             peak_group.full_clean()
             peak_group.save()
+            print(f"SAVED {peak_group.full_name}")
         except IntegrityError as ie:
             iestr = str(ie)
             if (
@@ -1501,7 +1529,7 @@ class AccuCorDataLoader:
                 in iestr
             ):
                 existing_peak_group = PeakGroup.objects.get(
-                    msrun_sample=msrun_sample, name=peak_group_attrs["name"]
+                    sample=sample, msrun_sequence=msrun_sequence, name=peak_group_attrs["name"]
                 )
                 # TODO: Check more than just formula and peak_annotation_file.  Otherwise, if there are other
                 # differences, they will all be labeled inaccurately as AmbiguousMSRuns, though users should be able to
@@ -1521,10 +1549,9 @@ class AccuCorDataLoader:
                     len(differences.keys()) == 1
                     and "peak_annotation_file" in differences.keys()
                 ):
-                    raise AmbiguousMSRun(
+                    raise DualPeakGroup(
                         pg_rec=existing_peak_group,
-                        peak_annot1=existing_peak_group.peak_annotation_file.filename,
-                        peak_annot2=peak_annotation_file.filename,
+                        file=peak_annotation_file.filename,
                         column=col,
                         rownum=rownum,
                         sheet="absolte" if self.isocorr_format else "Corrected",
@@ -1587,12 +1614,12 @@ class AccuCorDataLoader:
         sequences = {}
         sample_msrun_dict = {}
 
-        # Each sample gets its own msrun_sample
+        # Each sample gets its own optional msrun_sample
         for sample_data_header in self.db_samples_dict.keys():
             lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
 
             if lc_protocol is None:
-                # Cannot create the msrun_sample record without protocols
+                # Cannot create the msrun_sequence record without protocols
                 # An exception will have already been buffered by get_or_create_lc_protocol, so just move on
                 continue
 
@@ -1607,6 +1634,7 @@ class AccuCorDataLoader:
             )
             if sequence_key not in sequences.keys():
                 try:
+                    print(f"DATEDATE: {type(self.lcms_metadata[sample_data_header]['date']).__name__} {self.lcms_metadata[sample_data_header]['date']}")
                     (
                         sequences[sequence_key],
                         created,
@@ -1618,6 +1646,7 @@ class AccuCorDataLoader:
                         # TODO: implement the ability to load the notes field (which is not a part of issue #712 and was
                         # not partially implemented in #774 like it did with instrument and the mzxml files)
                     )
+                    print(f"CREATED?: {created}")
                 except Exception as e:
                     # Note, there should be no reason to catch any IntegrityErrors UNTIL the notes field is added, since
                     # all the fields being added are a part of the unique constraint.
@@ -1650,34 +1679,40 @@ class AccuCorDataLoader:
                 "ms_raw_file": ms_raw_file,
             }
             try:
-                # This relies on sample name lookup and accurate msrun_sample information (researcher, date, instrument,
-                # etc).  Including mzXML files with accucor files will help ensure accurate msrun_sample lookup since we
-                # will have checksums for the mzXML files and those are always associated with one MSRunSample record
-                msrun_sample, created = MSRunSample.objects.get_or_create(
-                    **msrunsample_dict
-                )
-                if created:
-                    msrun_sample.full_clean()
-                    # Already saved via create
+                msrun_sample = None
+                if ms_data_file is not None:
+                    # This relies on sample name lookup and accurate msrun_sequence information (researcher, date,
+                    # instrument,  etc).  Including mzXML files with accucor files will trigger the creation of an
+                    # msrun_sample record
+                    msrun_sample, created = MSRunSample.objects.get_or_create(
+                        **msrunsample_dict
+                    )
+                    if created:
+                        msrun_sample.full_clean()
+                        # Already saved via create
+
+                    if self.update_caches is True:
+                        if (
+                            self.db_samples_dict[sample_data_header].animal not in animals_to_uncache
+                            and self.db_samples_dict[sample_data_header].animal.caches_exist()
+                        ):
+                            animals_to_uncache.append(self.db_samples_dict[sample_data_header].animal)
+                        elif (
+                            not self.db_samples_dict[sample_data_header].animal.caches_exist()
+                            and self.verbosity >= 1
+                        ):
+                            print(
+                                f"No cache exists for animal {self.db_samples_dict[sample_data_header].animal.id} "
+                                f"linked to Sample {self.db_samples_dict[sample_data_header].id}"
+                            )
 
                 # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
                 # msrun_sample creations failed.
-                sample_msrun_dict[sample_data_header] = msrun_sample
-
-                if self.update_caches is True:
-                    if (
-                        msrun_sample.sample.animal not in animals_to_uncache
-                        and msrun_sample.sample.animal.caches_exist()
-                    ):
-                        animals_to_uncache.append(msrun_sample.sample.animal)
-                    elif (
-                        not msrun_sample.sample.animal.caches_exist()
-                        and self.verbosity >= 1
-                    ):
-                        print(
-                            f"No cache exists for animal {msrun_sample.sample.animal.id} linked to Sample "
-                            f"{msrun_sample.sample.id}"
-                        )
+                sample_msrun_dict[sample_data_header] = {
+                    "msrun_sample": msrun_sample,
+                    "sample": self.db_samples_dict[sample_data_header],
+                    "msrun_sequence": sequences[sequence_key],
+                }
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
@@ -1687,7 +1722,9 @@ class AccuCorDataLoader:
 
         # Create all PeakGroups
         for sample_data_header in sample_msrun_dict.keys():
-            msrun_sample = sample_msrun_dict[sample_data_header]
+            msrun_sample = sample_msrun_dict[sample_data_header]["msrun_sample"]
+            msrun_sequence = sample_msrun_dict[sample_data_header]["msrun_sequence"]
+            sample = sample_msrun_dict[sample_data_header]["sample"]
 
             # Pass through the rows once to identify the PeakGroups
             for idx, corr_row in self.accucor_corrected_df.iterrows():
@@ -1719,14 +1756,16 @@ class AccuCorDataLoader:
                         try:
                             peak_group = self.insert_peak_group(
                                 peak_group_attrs=self.peak_group_dict[peak_group_name],
-                                msrun_sample=msrun_sample,
+                                sample=sample,
+                                msrun_sequence=msrun_sequence,
                                 peak_annotation_file=peak_annotation_file,
+                                msrun_sample=msrun_sample,
                                 rownum=idx + 2,
                                 col=sample_data_header,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
-                        except AmbiguousMSRun as amsr:
-                            self.ambiguous_msruns[amsr.peak_annot1][amsr.loc] = amsr
+                        except DualPeakGroup as dpgr:
+                            self.dual_peakgroup_errors.append(dpgr)
                         except DuplicatePeakGroup as dup_pg:
                             self.duplicate_peak_groups.append(dup_pg)
                         except ConflictingValueError as cve:
@@ -1925,11 +1964,10 @@ class AccuCorDataLoader:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
 
-        if len(self.ambiguous_msruns.keys()) > 0:
+        if len(self.dual_peakgroup_errors) > 0:
             self.aggregated_errors_object.buffer_exception(
-                AmbiguousMSRuns(
-                    self.ambiguous_msruns,
-                    peak_annotation_file.filename,
+                DualPeakGroups(
+                    self.dual_peakgroup_errors,
                 )
             )
 

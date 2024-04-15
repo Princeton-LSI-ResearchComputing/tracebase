@@ -158,22 +158,22 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         # Get the last peakgroup for each tracer that has this label
         last_serum_peakgroup_ids = []
         (tc_extra_args, tc_is_null_field) = create_is_null_field(
-            "msrun_sample__sample__time_collected"
+            "sample__time_collected"
         )
         for tracer in self.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(
-                    msrun_sample__sample__animal__id__exact=self.id
+                    sample__animal__id__exact=self.id
                 )
                 .filter(compounds__id__exact=tracer.compound.id)
                 .filter(
-                    msrun_sample__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+                    sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
                 )
                 .extra(**tc_extra_args)
                 .order_by(
                     f"-{tc_is_null_field}",
-                    "msrun_sample__sample__time_collected",
-                    "msrun_sample__msrun_sequence__date",
+                    "sample__time_collected",
+                    "msrun_sequence__date",
                 )
                 .last()
             )

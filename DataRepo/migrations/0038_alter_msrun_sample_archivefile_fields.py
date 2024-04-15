@@ -43,4 +43,29 @@ class Migration(migrations.Migration):
                 ),
             ),
         ),
+
+        # NOTE: The following change will require removing some peakgroups which have multiple representations in some
+        # samples/sequences.  To see which peak groups will need to be addressed, run the following in the shell:
+        #
+        # from DataRepo.models import PeakGroup
+        # pgs = PeakGroup.objects.all()
+        # ddict = {}
+        # for pg in pgs:
+        #     pgk = f"{pg.name} {pg.sample} {pg.msrun_sequence}"
+        #     if pgk not in ddict.keys():
+        #         ddict[pgk] = 0
+        #     ddict[pgk] += 1
+        # for dpg in [pgk for pgk in ddict.keys() if ddict[pgk] > 1]:
+        #     print(f"{dpg}: {ddict[dpg]}")
+
+        migrations.RemoveConstraint(
+            model_name="peakgroup",
+            name="unique_peakgroup",
+        ),
+        migrations.AddConstraint(
+            model_name="peakgroup",
+            constraint=models.UniqueConstraint(
+                fields=("name", "sample", "msrun_sequence"), name="unique_peakgroup"
+            ),
+        ),
     ]

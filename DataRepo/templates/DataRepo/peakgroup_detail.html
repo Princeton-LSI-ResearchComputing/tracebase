@@ -32,13 +32,25 @@
         </tr>
         <tr>
             <td>MS Run</td>
-            <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.researcher }}, {{ peakgroup.msrun_sample.date }}</a></td>
+            <td>
+                {% if peakgroup.msrun_sample %}
+                    <a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.msrun_sequence }}</a>
+                {% else %}
+                    No MSRun record (/mzXML file) linked
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>MS Run Sequence</td>
+            <td>
+                <a href="{% url 'msrunsequence_detail' peakgroup.msrun_sequence.id %}">{{ peakgroup.msrun_sequence }}</a>
+            </td>
         </tr>
         <tr>
             <td>Sample</td>
             <td>
-                <a href="{% url 'sample_detail' peakgroup.msrun_sample.sample.id %}">
-                    {{ peakgroup.msrun_sample.sample.name }}
+                <a href="{% url 'sample_detail' peakgroup.sample.id %}">
+                    {{ peakgroup.sample.name }}
                 </a>
             </td>
         </tr>

@@ -13,7 +13,7 @@ class PeakGroupsFormat(Format):
     stats = [
         {
             "displayname": "Animals",
-            "distincts": ["msrun_sample__sample__animal__name"],
+            "distincts": ["sample__animal__name"],
             "filter": None,
         },
         {
@@ -28,41 +28,41 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Samples",
-            "distincts": ["msrun_sample__sample__name"],
+            "distincts": ["sample__name"],
             "filter": None,
         },
         {
             "displayname": "Tissues",
-            "distincts": ["msrun_sample__sample__tissue__name"],
+            "distincts": ["sample__tissue__name"],
             "filter": None,
         },
         {
             "displayname": "Tracer Compounds",
             "distincts": [
-                "msrun_sample__sample__animal__infusate__tracers__compound__name"
+                "sample__animal__infusate__tracers__compound__name"
             ],
             "filter": None,
         },
         {
             "displayname": "Studies",
-            "distincts": ["msrun_sample__sample__animal__studies__name"],
+            "distincts": ["sample__animal__studies__name"],
             "filter": None,
         },
         {
             "displayname": "Feeding Statuses",
-            "distincts": ["msrun_sample__sample__animal__feeding_status"],
+            "distincts": ["sample__animal__feeding_status"],
             "filter": None,
         },
         {
             "displayname": "Infusion Rates",
-            "distincts": ["msrun_sample__sample__animal__infusion_rate"],
+            "distincts": ["sample__animal__infusion_rate"],
             "filter": None,
         },
         {
             "displayname": "Tracer Concentrations",
             "distincts": [
-                "msrun_sample__sample__animal__infusate__tracers__compound__name",
-                "msrun_sample__sample__animal__infusate__tracer_links__concentration",
+                "sample__animal__infusate__tracers__compound__name",
+                "sample__animal__infusate__tracer_links__concentration",
             ],
             "filter": None,
             "delimiter": ":",
@@ -175,8 +175,8 @@ class PeakGroupsFormat(Format):
         },
         "Protocol": {
             "model": "Protocol",
-            "path": "msrun_sample__sample__animal__treatment",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups",
+            "path": "sample__animal__treatment",
+            "reverse_path": "animals__samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -201,8 +201,8 @@ class PeakGroupsFormat(Format):
         },
         "Sample": {
             "model": "Sample",
-            "path": "msrun_sample__sample",
-            "reverse_path": "msrun_samples__peak_groups",
+            "path": "sample",
+            "reverse_path": "peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -242,8 +242,8 @@ class PeakGroupsFormat(Format):
         },
         "Tissue": {
             "model": "Tissue",
-            "path": "msrun_sample__sample__tissue",
-            "reverse_path": "samples__msrun_samples__peak_groups",
+            "path": "sample__tissue",
+            "reverse_path": "samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -268,8 +268,8 @@ class PeakGroupsFormat(Format):
         },
         "Animal": {
             "model": "Animal",
-            "path": "msrun_sample__sample__animal",
-            "reverse_path": "samples__msrun_samples__peak_groups",
+            "path": "sample__animal",
+            "reverse_path": "samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -347,8 +347,8 @@ class PeakGroupsFormat(Format):
         },
         "Infusate": {
             "model": "InfusateTracer",
-            "path": "msrun_sample__sample__animal__infusate",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups",
+            "path": "sample__animal__infusate",
+            "reverse_path": "animals__samples__peak_groups",
             "manyrelated": {
                 "is": True,  # searching for PeakGroups via Infusate.pk can produce many peak groups
                 "manytomany": False,  # but animal->infusate results in 1 infusate
@@ -373,8 +373,8 @@ class PeakGroupsFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "msrun_sample__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups",
+            "path": "sample__animal__infusate__tracer_links",
+            "reverse_path": "infusate__animals__samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,  # searching for peakGroups via InfusateTracer.pk can produce many peak groups
@@ -399,8 +399,8 @@ class PeakGroupsFormat(Format):
         },
         "Tracer": {
             "model": "Tracer",
-            "path": "msrun_sample__sample__animal__infusate__tracers",
-            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups",
+            "path": "sample__animal__infusate__tracers",
+            "reverse_path": "infusate__animals__samples__peak_groups",
             "manyrelated": {
                 "is": True,  # searching for PeakGroups via Tracer.pk can produce many peak groups
                 "manytomany": True,  # and searching for tracers via PG.pk can also produce many tracers
@@ -425,8 +425,8 @@ class PeakGroupsFormat(Format):
         },
         "TracerCompound": {
             "model": "Compound",
-            "path": "msrun_sample__sample__animal__infusate__tracers__compound",
-            "reverse_path": "tracer__infusates__animals__samples__msrun_samples__peak_groups",
+            "path": "sample__animal__infusate__tracers__compound",
+            "reverse_path": "tracer__infusates__animals__samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,  # searching for peakGroups via compound.pk can produce many peak groups
@@ -504,8 +504,8 @@ class PeakGroupsFormat(Format):
         },
         "Study": {
             "model": "Study",
-            "path": "msrun_sample__sample__animal__studies",
-            "reverse_path": "animals__samples__msrun_samples__peak_groups",
+            "path": "sample__animal__studies",
+            "reverse_path": "animals__samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,
@@ -531,8 +531,8 @@ class PeakGroupsFormat(Format):
         },
         "MSRunSequence": {
             "model": "MSRunSequence",
-            "path": "msrun_sample__msrun_sequence",
-            "reverse_path": "msrun_samples__peak_groups",
+            "path": "msrun_sequence",
+            "reverse_path": "peak_groups",
             "manyrelated": {
                 "is": False,
                 "manytomany": False,

@@ -15,6 +15,7 @@
             <th>Formula</th>
             <th>Sample</th>
             <th>MS Run</th>
+            <th>MS Run Sequence</th>
             <th>Peak Annotation Filename</th>
             </tr>
             {% for peakgroup in peakgroup_list %}
@@ -22,11 +23,20 @@
             <td><a href="{% url 'peakgroup_detail' peakgroup.id %}">{{ peakgroup.name }}</a></td>
             <td>{{ peakgroup.formula }}</td>
             <td>
-                <a href="{% url 'sample_detail' peakgroup.msrun_sample.sample.id %}">
-                    {{ peakgroup.msrun_sample.sample.name }}
+                <a href="{% url 'sample_detail' peakgroup.sample.id %}">
+                    {{ peakgroup.sample.name }}
                 </a>
             </td>
-            <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.researcher }}, {{ peakgroup.msrun_sample.date }}</a></td>
+            <td>
+                {% if peakgroup.msrun_sample %}
+                    <a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sequence }}</a>
+                {% else %}
+                    No MSRun record (/mzXML file) linked
+                {% endif %}
+            </td>
+            <td>
+                <a href="{% url 'msrunsequence_detail' peakgroup.msrun_sequence.id %}">{{ peakgroup.msrun_sequence }}</a>
+            </td>
             <td>
                 {% if peakgroup.peak_annotation_file %}
                 <a href="{% url 'archive_file_detail' peakgroup.peak_annotation_file.id %}">

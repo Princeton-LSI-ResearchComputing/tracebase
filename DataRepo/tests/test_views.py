@@ -401,7 +401,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["peakdata_list"]), pd.count())
 
     def test_peakdata_list_per_peakgroup(self):
-        pg1 = PeakGroup.objects.filter(msrun_sample__sample__name="serum-xz971").first()
+        pg1 = PeakGroup.objects.filter(sample__name="serum-xz971").first()
         pd1 = PeakData.objects.filter(peak_group_id=pg1.pk)
         response = self.client.get("/DataRepo/peakdata/?peak_group_id=" + str(pg1.pk))
         self.assertEqual(response.status_code, 200)
@@ -435,7 +435,7 @@ class ViewTests(TracebaseTestCase):
             "form-TOTAL_FORMS": "3",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "pgtemplate-PeakGroups-selected.0-all-False.0",
-            "form-0-fld": "msrun_sample__sample__tissue__name",
+            "form-0-fld": "sample__tissue__name",
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
             "form-0-units": "identity",
@@ -444,7 +444,7 @@ class ViewTests(TracebaseTestCase):
             "form-1-ncmp": "iexact",
             "form-1-units": "identity",
             "form-2-pos": "fctemplate-FCirc.0-all-False.0",
-            "form-2-fld": "msrun_sample__sample__animal__name",
+            "form-2-fld": "sample__animal__name",
             "form-2-ncmp": "iexact",
             "form-2-units": "identity",
         }
@@ -473,7 +473,7 @@ class ViewTests(TracebaseTestCase):
                             {
                                 "type": "query",
                                 "pos": "",
-                                "fld": "msrun_sample__sample__tissue__name",
+                                "fld": "sample__tissue__name",
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "Brain",
@@ -513,7 +513,7 @@ class ViewTests(TracebaseTestCase):
                             {
                                 "type": "query",
                                 "pos": "",
-                                "fld": "msrun_sample__sample__animal__name",
+                                "fld": "sample__animal__name",
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "",
@@ -531,8 +531,8 @@ class ViewTests(TracebaseTestCase):
         Do a simple advanced search and make sure the results are correct
         """
         qs = PeakGroup.objects.filter(
-            msrun_sample__sample__tissue__name__iexact="Brain"
-        ).prefetch_related("msrun_sample__sample__animal__studies")
+            sample__tissue__name__iexact="Brain"
+        ).prefetch_related("sample__animal__studies")
         [filledform, qry, ignore] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
