@@ -10,7 +10,6 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     Q,
-    QuerySet,
     UniqueConstraint,
 )
 
