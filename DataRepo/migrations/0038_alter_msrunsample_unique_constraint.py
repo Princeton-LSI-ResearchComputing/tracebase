@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("DataRepo", "0036_update_instruments"),
+        ("DataRepo", "0037_msrunsample_null_eq_null_data_migration"),
     ]
 
     operations = [
