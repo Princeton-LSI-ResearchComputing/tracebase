@@ -467,40 +467,37 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
         # Check second file failed (duplicate compound)
         aes = ar.exception
-        print(f"{aes}")
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
 
     @tag("multi-msrun")
-    def test_resolve_ambiguous_msruns_error(self):
+    def test_msrun_sample_null_equals_null_unique_constraint(self):
         """
-        Tests that an AmbiguousMSRuns exception can be gotten around by adding a distinct scan range, identifying it as
-        an independent MSRun.
+        Tests that an AmbiguousMSRuns exception cannot be circumvented by adding a scan range.
         """
         self.load_glucose_data()
-        call_command(
-            "load_accucor_msruns",
-            # We just need a different file name with the same data, so _2 is a copy of the original
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=False,
-            polarity="positive",
-            mz_min=0,
-            mz_max=500,
-        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="unknown",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=False,
+                polarity="positive",
+                mz_min=0,
+                mz_max=500,
+            )
 
-        # Check both files loaded
-        SAMPLES_COUNT = 2  # Same number of original samples
-        PEAKDATA_ROWS = 7 * 2
-        MEASURED_COMPOUNDS_COUNT = 1 * 2  # Glucose, in 2 ranges
+        aes = ar.exception
 
-        self.assertEqual(
-            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
-        )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+        self.assertIn("[mz_min] values differ", str(aes.exceptions[0]))
+        self.assertIn("[mz_max] values differ", str(aes.exceptions[0]))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

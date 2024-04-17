@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.apps import apps
 from django.core.management import call_command
 from django.db import IntegrityError
+from django.db.models import Q
 from django.forms import ValidationError, model_to_dict
 
 from DataRepo.models import Animal, LCMethod, MSRunSequence, Study
@@ -122,19 +123,11 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         model = get_model_by_name(mdl_name)
         unique_field_sets = get_unique_constraint_fields(model)
         self.assertEqual(2, len(unique_field_sets))
-        self.assertEqual(("ms_data_file",), unique_field_sets[0])
         self.assertEqual(
-            (
-                "msrun_sequence",
-                "sample",
-                "polarity",
-                "ms_raw_file",
-                "ms_data_file",
-                "mz_min",
-                "mz_max",
-            ),
-            unique_field_sets[1],
+            ["msrun_sequence", "sample", Q(**{"ms_data_file__isnull": True})],
+            unique_field_sets[0],
         )
+        self.assertEqual(["ms_data_file"], unique_field_sets[1])
 
     # TODO: When the SampleTableLoader inherits from TableLoader, remove this test already copied to loader.py
     def test_get_non_auto_model_fields(self):

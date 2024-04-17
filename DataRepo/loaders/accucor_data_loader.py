@@ -30,6 +30,7 @@ from DataRepo.models import (
     PeakGroupLabel,
     Researcher,
     Sample,
+    handle_load_db_errors,
 )
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
@@ -40,7 +41,6 @@ from DataRepo.models.researcher import (
     get_researchers,
     validate_researchers,
 )
-from DataRepo.models.utilities import handle_load_db_errors
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AmbiguousMSRun,
@@ -232,6 +232,7 @@ class AccuCorDataLoader:
         self.conflicting_mzxml_values = defaultdict(dict)
         self.conflicting_archive_files = []
         self.ambiguous_msruns = defaultdict(dict)
+        self.conflicting_msrun_samples = []
 
     def process_default_lcms_opts(self):
         """
@@ -1576,7 +1577,16 @@ class AccuCorDataLoader:
                             f"{msrun_sample.sample.id}"
                         )
             except Exception as e:
-                self.aggregated_errors_object.buffer_error(e)
+                if not handle_load_db_errors(
+                    e,
+                    MSRunSample,
+                    msrunsample_dict,
+                    aes=self.aggregated_errors_object,
+                    conflicts_list=self.conflicting_msrun_samples,
+                    sheet="absolte" if self.isocorr_format else "Corrected",
+                    file=peak_annotation_file.filename,
+                ):
+                    self.aggregated_errors_object.buffer_error(e)
                 continue
 
         # each msrun/sample has its own set of peak groups
@@ -1846,6 +1856,11 @@ class AccuCorDataLoader:
                 ),
                 is_fatal=self.validate,
                 is_error=False,
+            )
+
+        if len(self.conflicting_msrun_samples) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                ConflictingValueErrors(self.conflicting_msrun_samples),
             )
 
         if len(self.conflicting_archive_files) > 0:

@@ -9,6 +9,7 @@ from django.db.models import (
     CharField,
     FloatField,
     ForeignKey,
+    Q,
     UniqueConstraint,
 )
 
@@ -122,23 +123,20 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     class Meta:
         verbose_name = "mass spectrometry run sample"
         verbose_name_plural = "mass spectrometry samples"
-        ordering = ["msrun_sequence", "sample", "ms_raw_file", "ms_data_file"]
+        ordering = [
+            "msrun_sequence",
+            "sample",
+            "ms_raw_file__filename",
+            "ms_data_file__filename",
+        ]
         constraints = [
             UniqueConstraint(
-                fields=["ms_data_file"],
-                name="unique_ms_data_file",
+                fields=("msrun_sequence", "sample"),
+                name="unique_msrunsample_placeholder",
+                condition=Q(ms_data_file__isnull=True),
             ),
-            # Since ms_data_file can be null (& null != null), the following prevents duplicate sequence/sample records
             UniqueConstraint(
-                fields=[
-                    "msrun_sequence",
-                    "sample",
-                    "polarity",
-                    "ms_raw_file",
-                    "ms_data_file",
-                    "mz_min",
-                    "mz_max",
-                ],
+                fields=["ms_data_file"],
                 name="unique_msrunsample",
             ),
         ]
