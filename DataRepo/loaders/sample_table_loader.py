@@ -394,7 +394,7 @@ class SampleTableLoader:
                     MissingTissue(
                         tissue_name,
                         column=self.headers.TISSUE_NAME,
-                        rownum=row.name + 2,
+                        rownum=rownum + 1,
                     ),
                 )
             except Exception as e:
