@@ -6,31 +6,32 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class AccuCorDataLoaderTests(TracebaseTestCase):
 
     fixtures = ["data_formats.yaml"]
-    accucor_format = DataFormat.objects.get(code="accucor")
-    isocorr_format = DataFormat.objects.get(code="isocorr")
 
     def test_detect_filetype_accucor_xlsx(self):
+        accucor_format = DataFormat.objects.get(code="accucor")
         self.assertEquals(
             AccuCorDataLoader.detect_data_format(
                 file="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx"
             ),
-            self.accucor_format,
+            accucor_format,
         )
 
     def test_detect_filetype_accucor_csv(self):
+        accucor_format = DataFormat.objects.get(code="accucor")
         self.assertEquals(
             AccuCorDataLoader.detect_data_format(
                 file="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv"
             ),
-            self.accucor_format,
+            accucor_format,
         )
 
     def test_detect_filetype_isocorr(self):
+        isocorr_format = DataFormat.objects.get(code="isocorr")
         self.assertEquals(
             AccuCorDataLoader.detect_data_format(
                 file="DataRepo/data/tests/multiple_tracers/bcaafasted_cor.xlsx"
             ),
-            self.isocorr_format,
+            isocorr_format,
         )
 
     def test_detect_filetype_none(self):
