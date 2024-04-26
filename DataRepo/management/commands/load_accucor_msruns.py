@@ -1,9 +1,10 @@
 import argparse
 import os
 
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandError
 
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.models import DataFormat
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
@@ -31,6 +32,7 @@ class Command(BaseCommand):
             ),
             required=True,
         )
+        # Retain for backward compatibility only (not used)
         parser.add_argument(
             "--isocorr-format",
             required=False,
@@ -190,7 +192,14 @@ class Command(BaseCommand):
         if options["lcms_file"] is not None:
             lcms_metadata_df = read_lcms_metadata_from_file(options["lcms_file"])
 
-        fmt = "Isocorr" if options["isocorr_format"] else "Accucor"
+        fmt = self.determine_data_format(
+            is_isocorr=options["isocorr_format"],
+            peak_annot_file=options["accucor_file"],
+        )
+        if fmt is None:
+            raise CommandError(
+                f"Unknown peak annotation file format for file: {options['accucor_file']}"
+            )
         print(f"Reading {fmt} file: {options['accucor_file']}")
         print(f"LOADING WITH PREFIX: {options['sample_name_prefix']}")
 
@@ -212,7 +221,7 @@ class Command(BaseCommand):
 
         loader = AccuCorDataLoader(
             # Peak annotation file data
-            isocorr_format=options["isocorr_format"],
+            data_format=fmt,
             accucor_original_df=self.original,
             accucor_corrected_df=self.corrected,
             peak_annotation_file=peak_annotation_file,
@@ -272,3 +281,26 @@ class Command(BaseCommand):
             corrected_sheet_name = "Corrected"
 
         self.corrected = read_from_file(peak_annot_file, sheet=corrected_sheet_name)
+
+    def determine_data_format(self, is_isocorr, peak_annot_file):
+        """Detect format of Excel files, otherwise use arguments to determine format
+
+        Args:
+            is_isocorr: boolean flag indicating if file is isocorrr (ignored for Excel files)
+            peak_annot_file: peak annotation file name
+
+        Returns:
+            fmt: DataFormat of peak annotation file, None if it cannot be determined
+        """
+
+        fmt = None
+        if is_excel(peak_annot_file):
+            # Detect format of Excel files
+            fmt = AccuCorDataLoader.detect_data_format(peak_annot_file)
+        elif is_isocorr:
+            # csv and isocorr specified
+            fmt = DataFormat.objects.get(code="isocorr")
+        else:
+            # csv format is assumed to be accucor unless --isocorr_format is specified
+            fmt = DataFormat.objects.get(code="accucor")
+        return fmt

@@ -152,6 +152,7 @@ class AccuCorDataLoader:
         accucor_original_df,
         accucor_corrected_df,
         peak_annotation_file,
+        data_format,
         peak_annotation_filename=None,
         lcms_metadata_df=None,
         instrument=None,
@@ -166,16 +167,15 @@ class AccuCorDataLoader:
         sample_name_prefix=None,
         allow_new_researchers=False,
         validate=False,
-        isocorr_format=False,
         verbosity=1,
         dry_run=False,
         update_caches=True,
     ):
         # File data
+        self.data_format = data_format
         self.accucor_original_df = accucor_original_df
         self.accucor_corrected_df = accucor_corrected_df
         self.peak_annotation_filepath = peak_annotation_file
-        self.isocorr_format = isocorr_format
         self.lcms_metadata_df = lcms_metadata_df
         self.mzxml_files_list = mzxml_files
         self.peak_annotation_filename = None
@@ -386,7 +386,7 @@ class AccuCorDataLoader:
         # Strip white space from all corrected sheet headers
         self.accucor_corrected_df.rename(columns=lambda x: x.strip())
 
-        if self.isocorr_format:  # Isocorr
+        if self.data_format.code == "isocorr":  # Isocorr
             self.compound_header = "compound"
             self.labeled_element_header = "isotopeLabel"
             self.labeled_element = None  # Determined on each row
@@ -898,7 +898,7 @@ class AccuCorDataLoader:
                     if sample not in corrected_only
                 ]
 
-        if not self.isocorr_format:
+        if not self.data_format.code == "isocorr":
             # Filter for all columns that match the labeled element header pattern
             labeled_df = self.accucor_corrected_df.filter(regex=(ACCUCOR_LABEL_PATTERN))
             if len(labeled_df.columns) != 1:
@@ -936,7 +936,7 @@ class AccuCorDataLoader:
                 )
                 master_dupe_dict["original"] = orig_dupe_dict
 
-        if self.isocorr_format:
+        if self.data_format.code == "isocorr":
             labeled_element_header = "isotopeLabel"
         else:
             labeled_element_header = self.labeled_element_header
@@ -1028,7 +1028,7 @@ class AccuCorDataLoader:
             # If there are no "missing samples", but still no samples...
             raise NoSampleHeaders(
                 file=self.peak_annotation_filename,
-                sheet="absolte" if self.isocorr_format else "Corrected",
+                sheet="absolte" if self.data_format.code == "isocorr" else "Corrected",
             )
 
         self.db_samples_dict = sample_dict
@@ -1057,7 +1057,7 @@ class AccuCorDataLoader:
                 if this_label not in tracer_labeled_elements:
                     tracer_labeled_elements.append(this_label)
 
-        if not self.isocorr_format:
+        if not self.data_format.code == "isocorr":
             # To allow animal and sample sheets to contain tracers with multiple labels, we will restrict the tracer
             # labeled elements to just those in the Accucor file
             accucor_labeled_elems = [
@@ -1093,7 +1093,7 @@ class AccuCorDataLoader:
             peak_group_name_key = "compound"
             # original data has a formula column
             peak_group_formula_key = "formula"
-        elif self.isocorr_format:
+        elif self.data_format.code == "isocorr":
             # absolut data has a formula column
             peak_group_formula_key = "formula"
 
@@ -1527,7 +1527,11 @@ class AccuCorDataLoader:
                         peak_annot2=peak_annotation_file.filename,
                         column=col,
                         rownum=rownum,
-                        sheet="absolte" if self.isocorr_format else "Corrected",
+                        sheet=(
+                            "absolte"
+                            if self.data_format.code == "isocorr"
+                            else "Corrected"
+                        ),
                     )
                 raise ConflictingValueError(
                     rec=existing_peak_group,
@@ -1535,7 +1539,9 @@ class AccuCorDataLoader:
                     file=peak_annotation_file.filename,
                     rownum=rownum,
                     column=col,
-                    sheet="absolte" if self.isocorr_format else "Corrected",
+                    sheet=(
+                        "absolte" if self.data_format.code == "isocorr" else "Corrected"
+                    ),
                 )
 
             else:
@@ -1580,7 +1586,7 @@ class AccuCorDataLoader:
         peak_annotation_file = self.get_or_create_archive_file(
             path_obj=path_obj,
             code="ms_peak_annotation",
-            format="isocorr" if self.isocorr_format else "accucor",
+            format="isocorr" if self.data_format.code == "isocorr" else "accucor",
             is_binary="xls" in path_obj.suffix,
         )
 
@@ -2008,7 +2014,7 @@ class AccuCorDataLoader:
         Given a row of corrected data, it retrieves the labeled element, count, and mass_number using a method
         corresponding to the file format.
         """
-        if self.isocorr_format:
+        if self.data_format.code == "isocorr":
             # Establish the set of labeled elements we're working from, either all labeled elements among the tracers
             # in the infusate (when there are no observed compounds) or those in common with the measured compound
             if observed_compound_recs is None:
@@ -2194,23 +2200,29 @@ class AccuCorDataLoader:
 
     @classmethod
     def is_accucor(cls, file=None, sheets=None):
-        if (file is None and sheets is None) or (
-            file is not None and sheets is not None
-        ):
+        is_accucor = False
+        if file is not None:
+            fmt = AccuCorDataLoader.detect_data_format(file=file)
+            if fmt == DataFormat.objects.get(code="accucor"):
+                is_accucor = True
+        elif sheets is not None:
+            is_accucor = sheets == cls.ACCUCOR_SHEETS
+        else:
             raise ProgrammingError("1 of either file or sheets is required.")
-        if file is not None and is_excel(file):
-            sheets = get_sheet_names(file)
-        return sheets == cls.ACCUCOR_SHEETS
+        return is_accucor
 
     @classmethod
     def is_isocorr(cls, file=None, sheets=None):
-        if (file is None and sheets is None) or (
-            file is not None and sheets is not None
-        ):
+        is_isocorr = False
+        if file is not None:
+            fmt = AccuCorDataLoader.detect_data_format(file=file)
+            if fmt == DataFormat.objects.get(code="isocorr"):
+                is_isocorr = True
+        elif sheets is not None:
+            is_isocorr = sheets == cls.ISOCORR_SHEETS
+        else:
             raise ProgrammingError("1 of either file or sheets is required.")
-        if file is not None and is_excel(file):
-            sheets = get_sheet_names(file)
-        return sheets == cls.ISOCORR_SHEETS
+        return is_isocorr
 
     @classmethod
     def is_a_blank(cls, sample_name):

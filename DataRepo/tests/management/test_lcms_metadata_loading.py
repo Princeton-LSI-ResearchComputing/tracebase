@@ -9,7 +9,13 @@ from DataRepo.loaders.sample_table_loader import (
     LCMSDBSampleMissing,
     SampleTableLoader,
 )
-from DataRepo.models import LCMethod, MaintainedModel, MSRunSample, Sample
+from DataRepo.models import (
+    DataFormat,
+    LCMethod,
+    MaintainedModel,
+    MSRunSample,
+    Sample,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; NoMZXMLFiles,
     AggregatedErrors,
@@ -47,6 +53,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -77,6 +84,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -97,6 +105,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -117,6 +126,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -139,6 +149,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -167,6 +178,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -245,6 +257,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
@@ -287,6 +300,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -312,6 +326,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -332,6 +347,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename=None,
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -363,6 +379,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -385,6 +402,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             peak_annotation_filename=None,
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -412,6 +430,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             ).dropna(axis=0, how="all"),
             peak_annotation_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            data_format=DataFormat.objects.get(code="accucor"),
             date="1972-11-24",
             instrument="unknown",
             lcms_metadata_df=read_from_file(
@@ -445,6 +464,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             ).dropna(axis=0, how="all"),
             peak_annotation_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            data_format=DataFormat.objects.get(code="accucor"),
             date="1972-11-24",
             lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos_no_extras.tsv"
