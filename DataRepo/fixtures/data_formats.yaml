@@ -26,3 +26,8 @@
     code: isocorr
     name: "IsoCorr13C15N"
     description: "IsoCorr13C15N format peak data from a mass spectrometry run"
+- model: DataRepo.dataformat
+  fields:
+    code: isoautocorr
+    name: "Iso-Autocorr"
+    description: "Iso-Autocorr corrected peak data"
