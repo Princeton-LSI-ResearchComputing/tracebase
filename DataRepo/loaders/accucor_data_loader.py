@@ -2173,6 +2173,29 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
     @classmethod
+    def detect_data_format(cls, file):
+        """Detect the data format of an Excel workbook
+
+        Args:
+            file: path to Excel file
+
+        Returns:
+            data_format: DataFormat model object or None if unknown
+        """
+
+        data_format = None
+        if not is_excel(file):
+            # Accucor format is assumed if files are not Excel
+            data_format = DataFormat.objects.get(code="accucor")
+        else:
+            sheets = get_sheet_names(file)
+            if sheets == cls.ACCUCOR_SHEETS:
+                data_format = DataFormat.objects.get(code="accucor")
+            elif sheets == cls.ISOCORR_SHEETS:
+                data_format = DataFormat.objects.get(code="isocorr")
+        return data_format
+
+    @classmethod
     def is_accucor(cls, file=None, sheets=None):
         if (file is None and sheets is None) or (
             file is not None and sheets is not None
