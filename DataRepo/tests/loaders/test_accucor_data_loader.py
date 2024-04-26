@@ -16,15 +16,6 @@ class AccuCorDataLoaderTests(TracebaseTestCase):
             accucor_format,
         )
 
-    def test_detect_filetype_accucor_csv(self):
-        accucor_format = DataFormat.objects.get(code="accucor")
-        self.assertEquals(
-            AccuCorDataLoader.detect_data_format(
-                file="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv"
-            ),
-            accucor_format,
-        )
-
     def test_detect_filetype_isocorr(self):
         isocorr_format = DataFormat.objects.get(code="isocorr")
         self.assertEquals(
@@ -34,7 +25,15 @@ class AccuCorDataLoaderTests(TracebaseTestCase):
             isocorr_format,
         )
 
-    def test_detect_filetype_none(self):
+    def test_detect_filetype_csv(self):
+        self.assertEquals(
+            AccuCorDataLoader.detect_data_format(
+                file="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv"
+            ),
+            None,
+        )
+
+    def test_detect_filetype_invalid_xlsx(self):
         self.assertEquals(
             AccuCorDataLoader.detect_data_format(
                 file="DataRepo/data/tests/submission_v3/study.xlsx"

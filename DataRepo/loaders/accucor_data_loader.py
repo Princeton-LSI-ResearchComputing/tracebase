@@ -2184,10 +2184,7 @@ class AccuCorDataLoader:
         """
 
         data_format = None
-        if not is_excel(file):
-            # Accucor format is assumed if files are not Excel
-            data_format = DataFormat.objects.get(code="accucor")
-        else:
+        if is_excel(file):
             sheets = get_sheet_names(file)
             if sheets == cls.ACCUCOR_SHEETS:
                 data_format = DataFormat.objects.get(code="accucor")
