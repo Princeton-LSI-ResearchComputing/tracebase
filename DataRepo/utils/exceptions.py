@@ -20,7 +20,7 @@ class InfileError(Exception):
     def __init__(
         self,
         message,
-        rownum: Optional[int] = None,
+        rownum: Optional[object] = None,
         sheet=None,
         file=None,
         column=None,
@@ -1552,7 +1552,7 @@ class DuplicateValues(InfileError):
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
             dupdeets = []
-            for v, l in dupe_dict.items():
+            for v, lst in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
 
@@ -1560,9 +1560,9 @@ class DuplicateValues(InfileError):
                 # structures (originating from either get_column_dupes or get_one_column_dupes).  A refactor made the
                 # issue worse.  Before, it was called with a message arg, which avoided the issue.  Now it's not called
                 # with a message.  This strategy needs to be consolidated.
-                idxs = l
-                if isinstance(l, dict):
-                    idxs = l["rowidxs"]
+                idxs = lst
+                if isinstance(lst, dict):
+                    idxs = lst["rowidxs"]
                 dupdeets.append(
                     f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"
                 )
@@ -2523,6 +2523,10 @@ class MutuallyExclusiveOptions(CommandError):
     pass
 
 
+class MutuallyExclusiveArgs(InfileError):
+    pass
+
+
 class ConditionallyRequiredOptions(CommandError):
     pass
 
@@ -2539,10 +2543,11 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
-    def __init__(self, model, query_dict, **kwargs):
-        message = (
-            f"{model.__name__} record matching {query_dict} from %s does not exist."
-        )
+    def __init__(self, model, query_dict, message=None, **kwargs):
+        if message is None:
+            message = (
+                f"{model.__name__} record matching {query_dict} from %s does not exist."
+            )
         super().__init__(message, **kwargs)
         self.query_dict = query_dict
         self.model = model

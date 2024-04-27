@@ -928,10 +928,10 @@ class SampleTableLoader:
         if len(sample_dupes.keys()) > 0:
             # Custom message to explain the case with Study name
             dupdeets = []
-            for combo_val, l in sample_dupes.items():
+            for combo_val, lst in sample_dupes.items():
                 sample = sample_dupes[combo_val]["vals"][sample_name_header]
                 dupdeets.append(
-                    f"{sample} (rows*: {', '.join(list(map(lambda i: str(i + 2), l['rowidxs'])))})"
+                    f"{sample} (rows*: {', '.join(list(map(lambda i: str(i + 2), lst['rowidxs'])))})"
                 )
             nltab = "\n\t"
             message = (

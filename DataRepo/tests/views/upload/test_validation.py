@@ -1,5 +1,4 @@
 import base64
-import re
 from io import BytesIO
 
 from DataRepo.loaders import ProtocolsLoader, SampleTableLoader, TissuesLoader
@@ -95,24 +94,27 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
             str(self.LCMS_DICT["c"]["error"]), str(dvv.lcms_build_errors.nusdh_list[0])
         )
 
-    def test_get_approx_sample_header_replacement_regex_default(self):
-        pattern = DataValidationView.get_approx_sample_header_replacement_regex()
-        samplename = re.sub(pattern, "", "mysample_neg_pos_scan2")
-        self.assertEqual("mysample", samplename)
+    # TODO: Transfer this test to test_msruns_loader
+    # def test_get_approx_sample_header_replacement_regex_default(self):
+    #     pattern = DataValidationView.get_approx_sample_header_replacement_regex()
+    #     samplename = re.sub(pattern, "", "mysample_neg_pos_scan2")
+    #     self.assertEqual("mysample", samplename)
 
-    def test_get_approx_sample_header_replacement_regex_add_custom(self):
-        pattern = DataValidationView.get_approx_sample_header_replacement_regex(
-            [r"_blah"]
-        )
-        samplename = re.sub(pattern, "", "mysample_pos_blah_scan1")
-        self.assertEqual("mysample", samplename)
+    # TODO: Transfer this test to test_msruns_loader
+    # def test_get_approx_sample_header_replacement_regex_add_custom(self):
+    #     pattern = DataValidationView.get_approx_sample_header_replacement_regex(
+    #         [r"_blah"]
+    #     )
+    #     samplename = re.sub(pattern, "", "mysample_pos_blah_scan1")
+    #     self.assertEqual("mysample", samplename)
 
-    def test_get_approx_sample_header_replacement_regex_just_custom(self):
-        pattern = DataValidationView.get_approx_sample_header_replacement_regex(
-            [r"_blah"], add=False
-        )
-        samplename = re.sub(pattern, "", "mysample_pos_blah")
-        self.assertEqual("mysample_pos", samplename)
+    # TODO: Transfer this test to test_msruns_loader
+    # def test_get_approx_sample_header_replacement_regex_just_custom(self):
+    #     pattern = DataValidationView.get_approx_sample_header_replacement_regex(
+    #         [r"_blah"], add=False
+    #     )
+    #     samplename = re.sub(pattern, "", "mysample_pos_blah")
+    #     self.assertEqual("mysample_pos", samplename)
 
     def test_lcms_dict_to_tsv_string(self):
         lcms_data = DataValidationView.lcms_dict_to_tsv_string(self.LCMS_DICT)

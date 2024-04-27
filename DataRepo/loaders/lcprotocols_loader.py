@@ -202,7 +202,7 @@ class LCProtocolsLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, LCMethod, rec_dict)
             self.errored(LCMethod.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e
 
         return rec, created

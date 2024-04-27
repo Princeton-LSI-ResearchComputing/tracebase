@@ -131,5 +131,5 @@ class StudyTableLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Study, rec_dict)
             self.errored()
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e

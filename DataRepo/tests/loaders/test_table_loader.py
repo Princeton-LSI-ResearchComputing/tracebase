@@ -299,6 +299,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "updated": 0,
                     "skipped": 0,
                     "errored": 0,
                 }
@@ -313,11 +314,12 @@ class TableLoaderTests(TracebaseTestCase):
     def test_created(self):
         tl = self.TestLoader()
         tl.created()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 1,
                     "existed": 0,
+                    "updated": 0,
                     "skipped": 0,
                     "errored": 0,
                 }
@@ -333,6 +335,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 1,
+                    "updated": 0,
                     "skipped": 0,
                     "errored": 0,
                 }
@@ -348,6 +351,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "updated": 0,
                     "skipped": 1,
                     "errored": 0,
                 }
@@ -363,6 +367,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "updated": 0,
                     "skipped": 0,
                     "errored": 1,
                 }

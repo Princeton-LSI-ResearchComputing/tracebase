@@ -1338,6 +1338,8 @@ class AccuCorDataLoader:
             format="ms_raw",
         )
 
+    # TODO: Remove this method (as it was copied to MSRunsLoader) once this accucor loader has been refactored as a part
+    # of issue #825
     def parse_mzxml(self, mzxml_path_obj, full_dict=False):
         """Creates a dict of select data parsed from an mzXML file
 
@@ -2251,7 +2253,8 @@ def hash_file(path_obj, allow_missing=False):
         # open file for reading in binary mode
         with path_obj.open("rb") as file:
             # loop till the end of the file
-            chunk = 0
+            chunk = file.read(1024)
+            h.update(chunk)
             while chunk != b"":
                 # read only 1024 bytes at a time
                 chunk = file.read(1024)
