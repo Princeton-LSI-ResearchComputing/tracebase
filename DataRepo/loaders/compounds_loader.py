@@ -94,14 +94,19 @@ class CompoundsLoader(TableLoader):
 
         Args:
             Superclass Args:
-                df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-                headers (Optional[Tableheaders namedtuple]) [DataHeaders]: Header names by header key.
-                defaults (Optional[Tableheaders namedtuple]) [DataDefaultValues]: Default values by header key.
+            Superclass Args:
+                df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
                 file (Optional[str]) [None]: File name (for error reporting).
+                user_headers (Optional[dict]): Header names by header key.
+                defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
+                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+                defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
             Derived (this) class Args:
                 synonyms_delimiter (Optional[str]) [;]: Synonym string delimiter.
 

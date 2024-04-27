@@ -87,7 +87,7 @@ class SequencesLoader(TableLoader):
 
     DataColumnMetadata = DataTableHeaders(
         SEQNAME=TableColumn.init_flat(
-            name="Sequence Name",
+            name=DataHeaders.SEQNAME,
             help_text=(
                 "A unique sequence identifier.\n\nNote that a sequence record is unique to a researcher, protocol, "
                 "instrument model, and date.  If a researcher performs multiple such Mass Spec runs on the same day, "
@@ -103,7 +103,7 @@ class SequencesLoader(TableLoader):
                 f"- {DataHeaders.INSTRUMENT}\n"
                 f"- {DataHeaders.DATE}"
             ),
-            # TODO: Create the method that applies the cormula to the SEQNAME column on every row
+            # TODO: Create the method that applies the formula to the SEQNAME column on every row
             # Excel formula that creates f"{operator}, {lc_name}, {instrument}, {date}" using the spreadsheet columns on
             # the current row.  The header keys will be replaced by the excel column letters:
             # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), ", ", INDIRECT("C" & ROW()), ", ", INDIRECT("D" & ROW()), ", ",
@@ -118,15 +118,17 @@ class SequencesLoader(TableLoader):
             ),
         ),
         OPERATOR=TableColumn.init_flat(
-            name="Operator",
+            name=DataHeaders.OPERATOR,
             help_text="Researcher who operated the Mass Spec instrument.",
         ),
         DATE=TableColumn.init_flat(
+            name=DataHeaders.DATE,
             field=MSRunSequence.date,
             format="Format: YYYY-MM-DD.",
         ),
         INSTRUMENT=TableColumn.init_flat(field=MSRunSequence.instrument),
         LCNAME=TableColumn.init_flat(
+            name=DataHeaders.LCNAME,
             field=LCMethod.name,
             # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
             dynamic_choices=ColumnReference(
@@ -268,7 +270,7 @@ class SequencesLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, MSRunSequence, rec_dict)
             self.errored(MSRunSequence.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e
 
         return rec, created
