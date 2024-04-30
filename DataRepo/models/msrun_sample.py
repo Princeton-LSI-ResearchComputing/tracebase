@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import transaction
 from django.db.models import (
     CASCADE,
     RESTRICT,
@@ -10,66 +9,10 @@ from django.db.models import (
     CharField,
     FloatField,
     ForeignKey,
-    QuerySet,
     UniqueConstraint,
 )
 
 from DataRepo.models import HierCachedModel, MaintainedModel
-
-
-class MSRunSampleQuerySet(QuerySet):
-    @transaction.atomic
-    def get_create_or_update(self, **kwargs) -> tuple[MSRunSample, bool, bool]:
-        """Instead of using get_or_create, we need a way to additionally update placeholder records that do not have
-        links to ArchiveFile records for mzXML files, if an mzXML file is being added after initially having been a
-        placeholder.
-
-        It works like this:
-        1. If ms_data_file is defined in the arguments, but a placeholder record exists, update it with all the data:
-            the ArchiveFile records for RAW and mzXML and all the metadata parsed from the mzxml (polarity, mz_min, and
-            mz_max)
-        2. Otherwise, do a get_or_create
-
-        Args:
-            kwargs (dict): The field names (keys) and values.
-        Exceptions:
-            None
-        Returns:
-            rec (MSRunSample)
-            created (boolean)
-            updated (boolean)
-        """
-        created = False
-        updated = False
-
-        # See if there's a placeholder record
-        placeholder_args = {
-            "msrun_sequence": kwargs.get("msrun_sequence"),
-            "sample": kwargs.get("sample"),
-            "ms_data_file__isnull": True,
-            # We ignore other optional data.  It could change
-        }
-        try:
-            placeholder_queryset = self.filter(**placeholder_args)
-            if placeholder_queryset.count() > 0:
-                # This intentionally raises in the case of MultipleObjectsReturned
-                # If the ms_data_file is defined
-                if (
-                    "ms_data_file" in kwargs.keys()
-                    and kwargs["ms_data_file"] is not None
-                ):
-                    update_placeholder_rec = placeholder_queryset.update(**kwargs).get()
-                    updated = True
-                else:
-                    update_placeholder_rec = placeholder_queryset.get()
-                return update_placeholder_rec, created, updated
-        except MSRunSample.DoesNotExist:
-            # Move on to a regular get_or_create
-            pass
-
-        rec, created = self.get_or_create(**kwargs)
-
-        return rec, created, updated
 
 
 @MaintainedModel.relation(
@@ -82,8 +25,6 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     parent_related_key_name = "sample"
     child_related_key_names = ["peak_groups"]
 
-    objects = MSRunSampleQuerySet().as_manager()
-
     POLARITY_CHOICES = [
         ("unknown", "unknown"),
         ("positive", "positive"),
@@ -94,6 +35,7 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     # > value provided on the command line > This default value.  An exception will be raised if the mzXML file value
     # and the LCMS Metadata values differ.
     POLARITY_DEFAULT = POLARITY_CHOICES[0][0]
+    UNKNOWN_POLARITY = POLARITY_CHOICES[0][0]
     # These polarity values are used to convert the polarity representation parsed from an mzXML file (which records
     # polarity using the symbols "=" and "-")
     POSITIVE_POLARITY = POLARITY_CHOICES[1][0]
@@ -233,6 +175,7 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                     f"Invalid ms_raw_file ({self.ms_raw_file.filename}) data format: "
                     f"[{self.ms_raw_file.data_format.code}], must be one of [{self.VALID_RAW_FILES['FORMATS']}]."
                 )
+
         if self.ms_data_file is not None:
             if self.ms_data_file.data_type.code not in self.VALID_DATA_FILES["TYPES"]:
                 raise ValidationError(
@@ -247,6 +190,33 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                     f"Invalid ms_data_file ({self.ms_data_file.filename}) data format: "
                     f"[{self.ms_data_file.data_format.code}], must be one of [{self.VALID_DATA_FILES['FORMATS']}]."
                 )
+
+        # TODO: Create a migration that removes polarity, mz_min, & mz_max from the MSRunSample placeholder records
+
+        # PR REVIEW NOTE: This should be handled in a separate issue, as this causes over 300 tests to fail (though a
+        # lot of them are because class setup fails).  This is necessary to keep from associating peak groups with the
+        # wrong polarity and/or scan range that are forced to be wrong due to the new null == null unique constraint.
+
+        # TODO: Create an issue to uncomment this code.  A bunch of tests will have to be fixed.  This should probably
+        # be addressed during the peak annotation loader refactor.
+        # else:
+        #     # Since there can only be 1 placeholder record (when we don't have an ms_data_file), and peak groups could
+        #     # have been created from scans of different polarities and scan ranges, we do not allow polarity, mz_min,
+        #     # or mz_max to be set when there is no ms_data_file.
+        #     disallowed = []
+        #     if self.polarity is not None and self.polarity != self.UNKNOWN_POLARITY:
+        #         disallowed.append(f"polarity ({self.polarity})")
+        #     if self.mz_min is not None:
+        #         disallowed.append(f"mz_min ({self.mz_min})")
+        #     if self.mz_max is not None:
+        #         disallowed.append(f"mz_max ({self.mz_max})")
+        #     if len(disallowed) > 0:
+        #         raise ValidationError(
+        #             f"This/these value(s) {disallowed} cannot be defined when ms_data_file is not defined.  Multiple "
+        #             "PeakGroup records, originating from different mzXML files with different polarities and scan "
+        #             "ranges, could link to this placeholder record."
+        #         )
+
         if (
             self.mz_min is not None
             and self.mz_max is not None

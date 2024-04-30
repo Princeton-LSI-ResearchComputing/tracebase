@@ -6,11 +6,12 @@ from typing import Dict, List, Optional
 
 import xmltodict
 from django.db import transaction
+from django.db.models import Max, Min, Q
 
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import MSRunSample, MSRunSequence
+from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.sample import Sample
 from DataRepo.utils.exceptions import (
@@ -167,7 +168,7 @@ class MSRunsLoader(TableLoader):
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.
-    Models = [MSRunSample]
+    Models = [MSRunSample, PeakGroup, ArchiveFile]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -456,7 +457,7 @@ class MSRunsLoader(TableLoader):
             row (pandas dataframe row)
         Exceptions:
             Raises:
-                None (this are created here)
+                None (that are created here)
             Buffers:
                 RecordDoesNotExist
         Returns:
@@ -468,6 +469,7 @@ class MSRunsLoader(TableLoader):
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+            annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
 
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
@@ -501,10 +503,156 @@ class MSRunsLoader(TableLoader):
                 "ms_data_file": mzxml_metadata["mzaf_record"],
             }
 
-            # This has an atomic transaction
-            _, created, updated = MSRunSample.objects.get_create_or_update(
-                **msrs_rec_dict
+            created = False
+            updated = False
+
+            # At this point, we have the right sample and sequence, and we either have no mzXML file or we have an mzXML
+            # file with extracted metadata.  In either case, we need to...
+
+            # See if there exists a matching placeholder record
+            existing_placeholder_qs = MSRunSample.objects.filter(
+                msrun_sequence=msrun_sequence,
+                sample=sample,
+                ms_data_file__isnull=True,
             )
+
+            # We're going to assume that the placeholder unique constraint will prevent the possibility of multiple
+            # placeholders returned.
+
+            if mzxml_metadata["mzaf_record"] is None:
+                if existing_placeholder_qs.count() == 0:
+                    # Create a placeholder record
+                    MSRunSample.objects.create(**msrs_rec_dict)
+                    created = True
+
+                # NOTE: We are going to allow peak groups from different peak annotation files to link to the same
+                # placeholder record, but note that this means that we MUST not assign polarity, mz_min, or mz_max in a
+                # placeholder record.  This also means that when we add an mzXML file to an MSRunSample placeholder
+                # record, we must ensure that the peak groups are relinked to the correct record (either keeping a
+                # placeholder for the unmatching ones or just updating the placeholder to add the mzXML)
+            else:
+                # We now need to determine if there's a placeholder record that we should update or whether we should
+                # create a new record.
+                if existing_placeholder_qs.count() == 0:
+                    # Get or create a record with an mzXML file
+                    # We can assume that the peak annotation files linked in the peak groups are correct (even if they
+                    # differ, because the same mzXML could have been used in multiple peak annotation files)
+                    _, created = MSRunSample.objects.get_or_create(**msrs_rec_dict)
+                else:
+                    # A peak group can only link to 1 MSRunSample record, and thereby can only link to 1 mzXML file (for
+                    # a particular sample).  For any particular peak group linked to the MSRunSample placeholder record,
+                    # we can look at its peak data and sort the peak groups into 2 groups: those whose medMzs fall into
+                    # the scan range and those that don't.  If all are in the scan range, we just update the placeholder
+                    # to add the mzXML.  If none do, we just create a separate MSRunSample record.  And if it's split,
+                    # we create a new MSRunSample record and the peak groups that fall in range will get updated links
+                    # to the new record.
+
+                    # This will be a greedy heuristic.  If there are any mzXMLs with overplapping scan ranges, the peak
+                    # groups will end up linked to the first one that's loaded, because we don't look in MSRunSample
+                    # records that have different mzsXML files in them - only in the placeholder records.
+
+                    # A placeholder record exists, so we need to see if this concrete record should update the
+                    # placeholder, be separately created, or, if it already exists, should be a delete/update combo (or
+                    # an error)
+                    existing_concrete_rec = MSRunSample.objects.filter(
+                        **msrs_rec_dict
+                    ).first()  # possibly None
+                    existing_placeholder_rec = existing_placeholder_qs.get()
+
+                    matching_peakgroups_qs, unmatching_peakgroups_qs = (
+                        self.separate_placeholder_peak_groups(
+                            msrs_rec_dict,
+                            annot_name,
+                            existing_placeholder_rec,
+                        )
+                    )
+
+                    if (
+                        matching_peakgroups_qs.count() > 0
+                        and unmatching_peakgroups_qs.count() == 0
+                    ):
+                        # The concrete record matches all of the placeholder's peakgroups (i.e. a placeholder was
+                        # created in the past and associated with accucor data and we now have an mzXML file for it).
+
+                        updated = True
+
+                        # If there is no existing concrete record
+                        if existing_concrete_rec is None:
+                            # Just update the placeholder
+                            existing_placeholder_qs.update(**msrs_rec_dict)
+                        else:
+                            # The Peak Annotation Details sheet has newly associated 2 existing records: a placeholder
+                            # and one with an mzXML.  This could happen if the mzXML was loaded without peak data and
+                            # then peak data was loaded without having had an mzXML associated with it, then the Peak
+                            # Annotation Details sheet is updated to associate the peak data (peak annotation file) with
+                            # an mzXML, sample, and sequence).
+
+                            # We need to do something different based on the existing concrete record's currently linked
+                            # peak groups
+
+                            if existing_concrete_rec.peak_groups.count() == 0:
+                                # The existing record has no peak groups, so delete it and update the placeholder (since
+                                # all its peakgroups match)
+                                existing_concrete_rec.delete()
+                                existing_placeholder_qs.update(**msrs_rec_dict)
+                                # We're counting what is essentially a "merge" event here as an update event
+                            else:
+                                # Both the placeholder and the existing concrete MSRunSample records have peak groups,
+                                # so update the peak groups (belonging to the placeholder to assign them to the existing
+                                # concrete record) and delete the placeholder.
+
+                                # Link the matching peak groups to the existing concrete MSRunSample record
+                                matching_peakgroups_qs.update(
+                                    msrun_sample=existing_concrete_rec
+                                )
+                                # Delete the newly empty placeholder record, as we no longer need it.
+                                existing_placeholder_rec.delete()
+                                # Count the PeakGroup records as having been updated.
+                                self.updated(
+                                    PeakGroup.__name__,
+                                    num=matching_peakgroups_qs.count(),
+                                )
+
+                    elif matching_peakgroups_qs.count() == 0:
+                        # The concrete record matches none of the placeholder's peakgroups (i.e. this is either for an
+                        # as-yet unanalyzed mzXML file or its data just hasn't been loaded yet).
+
+                        # If there is no existing concrete record
+                        if existing_concrete_rec is None:
+                            created = True
+                            MSRunSample.objects.create(**msrs_rec_dict)
+
+                    elif (
+                        matching_peakgroups_qs.count() > 0
+                        and unmatching_peakgroups_qs.count() > 0
+                    ):
+                        # Some peak groups linked to the placeholder record appear to match the mzXML file.  Others do
+                        # not.
+
+                        # Not setting updated to True, because we're not changing the existing concrete MSRunSample
+                        # record.  Instead, we are updating the matching peakgroup records to link to it (insteasd of
+                        # (formerly) to the placeholder record).
+
+                        concrete_msrun_sample_rec = existing_concrete_rec
+
+                        # If there is no existing concrete record
+                        if existing_concrete_rec is None:
+                            created = True
+
+                            # Create a new concrete MSRunSample record
+                            concrete_msrun_sample_rec = MSRunSample.objects.create(
+                                **msrs_rec_dict
+                            )
+
+                        # Now, update the matching peakgroups to link to the concrete record
+                        matching_peakgroups_qs.update(
+                            msrun_sample=concrete_msrun_sample_rec
+                        )
+                        # We are not deleting the placeholder, because it still has some of its own peak groups.
+
+                        self.updated(
+                            PeakGroup.__name__, num=matching_peakgroups_qs.count()
+                        )
 
             if created:
                 self.created(MSRunSample.__name__)
@@ -595,7 +743,7 @@ class MSRunsLoader(TableLoader):
                 }
         Exceptions:
             Raises:
-                None (this are created here)
+                None (that are created here)
             Buffers:
                 RecordDoesNotExist
         Returns:
@@ -612,18 +760,13 @@ class MSRunsLoader(TableLoader):
                 "ms_data_file": mzxml_metadata["mzaf_record"],
             }
 
-            # This has an atomic transaction
-            _, created, updated = MSRunSample.objects.get_create_or_update(
-                **msrs_rec_dict
-            )
+            _, created = MSRunSample.objects.get_or_create(**msrs_rec_dict)
 
             # Update the fact this one has been handled
             mzxml_metadata["added"] = True
 
             if created:
                 self.created(MSRunSample.__name__)
-            elif updated:
-                self.updated(MSRunSample.__name__)
             else:
                 self.existed(MSRunSample.__name__)
 
@@ -772,19 +915,19 @@ class MSRunsLoader(TableLoader):
         sample_header: Optional[str],
         mzxml_path: Optional[str],
     ) -> Optional[List[dict]]:
-        """Identifies and retrieves the mzXML file/metadata that matches the row data so that it is associated with the
-        MSRunSample record belonging to the correct MSRunSequence.  To do this, it uses (in the following precedence
-        order) mzXML name, sample header, or sample name to match a set of files (each with that name).  It then
-        optionally (if there is more than 1 file with the same name) matches the path of the mzXML file from the mzXML
-        name column with the actual directory path of the actual files.
+        """Identifies and retrieves the mzXML file (and metadata) that matches the row of the Peak Annotation Details
+        sheet so that it is associated with the MSRunSample record belonging to the correct MSRunSequence.  To do this,
+        it tries looking up the metadata by (in the following order of precedence): mzXML name, sample header, or sample
+        name to match a set of files (each with that name).  It then optionally (if there is more than 1 file with the
+        same name) matches the path of the mzXML file from the mzXML name column with the actual directory path of the
+        actual files.
 
         Note, the user may not have added a path to the mzXML column, and we don't want to have to force them to fill
         that out, since most times, the name is sufficient.  If no match is found, an error will be printed with the
         available (matching) paths (this will be all files with the same name if no path was supplied).  The user is
         then instructed to edit the mzXML name on the indicated row to include one of the displayed file paths.
 
-        Uses self.mzxml_dict, which contains data parsed from mzXML files indexes by mzXML basename, directory, and
-        ArchiveFile primary key.
+        Uses self.mzxml_dict, which contains data parsed from mzXML files indexes by mzXML basename and directory.
 
         Args:
             sample_name (str): Name of a sample in the database.
@@ -793,7 +936,7 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             None
         Returns:
-            Optional[dict]: All dicts from mzxml_dict[mzxml basename][mzxml dir][archive file pk*]
+            Optional[dict]: A single dict of mzXML metadata from self.mzxml_dict[mzxml basename][mzxml dir]
         """
         mzxml_string_dir = ""
         mzxml_name = None
@@ -865,6 +1008,99 @@ class MSRunsLoader(TableLoader):
             return None
 
         return matches[0]
+
+    def separate_placeholder_peak_groups(
+        self,
+        rec_dict,
+        annot_name,
+        rec,
+    ):
+        """This method retrieves peakgroups from the provided MSRunSample record and separates them based on the peak
+        annotation file name (annot_name) the dict is associated with compared with the one in the PeakGroup record.
+
+        Note that technically (though not in practice), multiple different mzXML files for the same sample/sequence can
+        be used in a single peak annotation file.  One peak group could originate from one such mzXML file and the other
+        from another mzXML file, so mz_min and mz_max are used as an additional check, however, since polarity isn't
+        saved in the peak data from the peak annotation file data, this is not perfect.  Thus, this method could
+        associate some peak groups with the wrong mzXML file.  It's not perfect.
+
+        It error-checks that the msrun_sequence and sample in both the rec_dict and the rec are the same.
+
+        The basic idea is that the rec_dict represents a proposed/potential MSRunSample record that was found in a row
+        of the Peak Annotation Details sheet and that the supplied rec is an MSRunSample record that is a placeholder
+        that has various PeakGroup records linked to it, that may have originated from the mzXML file that is being
+        added in the rec_dict.  This method compares the metadata in the PeakGroup's data with the annot_name and the
+        metadata extracted from the mzXML file that populated the rec_dict.  While this metadata contains polarity and
+        the polarity was available in the peak annotation file (inferred from the adductName of the PARENT), those
+        values are/were not saved in the peak data.  So if the annot_name is the same and the medMZ is between mz_min
+        and mz_max, then the peak group matches the new file.  The peak group records linked to the placeholder record
+        are thus returned in 2 groups: matching and unmatching.
+
+        Note that since scan ranges can overlap, this could also work with a non-placeholder record to shift peak groups
+        from one to the other MSRunSample record..
+
+        The record represented by rec_dict is assumed to be different from the supplied record.
+
+        Args:
+            rec_dict (dict of MSRunSample field values): Field value pairs of an MSRunSample record that may or may not
+                exist in the database, WITH values for polarity, mz_min, and mz_max.
+            rec (MSRunSample): An MSRunSample record.  This is intended to be a placeholder record without an
+                ms_data_file value, but either way, the metadata (ms_data_file, polarity, mz_min, and mz_max) in the
+                record is ignored.
+        Exceptions:
+            None
+        Returns:
+            matching (QuerySet of PeakGroup records)
+            unmatching (QuerySet of PeakGroup records)
+        """
+        # Do not associate any peak group records with the proposed record in rec_dict, if there is no associated
+        # annot_name.
+        if annot_name is None:
+            return PeakGroup.objects.none(), rec.peak_groups.all()
+
+        # Make sure that the sequence and sample are the same
+        if rec_dict["sample"] != rec.sample:
+            self.aggregated_errors_object.buffer_error(
+                ValueError(
+                    "separate_placeholder_peak_groups called with MSRunSample record data not from the same sample: "
+                    f"{rec_dict['sample']} (ID: {rec_dict['sample'].id}) != {rec.sample} (ID: {rec.sample.id})"
+                )
+            )
+            # All peak groups are unmatching
+            return PeakGroup.objects.none(), rec.peak_groups.all()
+        elif rec_dict["msrun_sequence"] != rec.msrun_sequence:
+            self.aggregated_errors_object.buffer_error(
+                ValueError(
+                    "separate_placeholder_peak_groups called with MSRunSample record data not from the same "
+                    f"MSRunSequence: {rec_dict['msrun_sequence']} (ID: {rec_dict['msrun_sequence'].id}) != "
+                    f"{rec.msrun_sequence} (ID: {rec.msrun_sequence.id})"
+                )
+            )
+            # All peak groups are unmatching
+            return PeakGroup.objects.none(), rec.peak_groups.all()
+
+        # Annotate the peak groups with the min and max med_mz of its peak_data
+        qs = PeakGroup.objects.annotate(
+            min_med_mz=Min("peak_data__med_mz", default=None),
+            max_med_mz=Max("peak_data__med_mz", default=None),
+        )
+
+        # Filtering criteria
+        matching_q_exp = (
+            Q(peak_annotation_file__filename=annot_name)
+            & Q(Q(min_med_mz__isnull=True) | Q(min_med_mz__gte=rec_dict["mz_min"]))
+            & Q(Q(max_med_mz__isnull=True) | Q(max_med_mz__lte=rec_dict["mz_max"]))
+        )
+
+        # Generate the matching and unmatching PeakGroup QuerySets
+        matching_qs = qs.filter(matching_q_exp)
+        unmatching_qs = qs.filter(~matching_q_exp)
+
+        # Clear out the annotations so that .update can be called on the querysets
+        matching_qs.query.annotations.clear()
+        unmatching_qs.query.annotations.clear()
+
+        return matching_qs, unmatching_qs
 
     def parse_mzxml(self, mzxml_path_obj, full_dict=False):
         """Creates a dict of select data parsed from an mzXML file
