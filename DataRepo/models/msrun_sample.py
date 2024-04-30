@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import transaction
 from django.db.models import (
     CASCADE,
     RESTRICT,
@@ -18,61 +17,6 @@ from django.db.models import (
 from DataRepo.models import HierCachedModel, MaintainedModel
 
 
-class MSRunSampleQuerySet(QuerySet):
-    @transaction.atomic
-    def get_create_or_update(self, **kwargs) -> tuple[MSRunSample, bool, bool]:
-        """Instead of using get_or_create, we need a way to additionally update placeholder records that do not have
-        links to ArchiveFile records for mzXML files, if an mzXML file is being added after initially having been a
-        placeholder.
-
-        It works like this:
-        1. If ms_data_file is defined in the arguments, but a placeholder record exists, update it with all the data:
-            the ArchiveFile records for RAW and mzXML and all the metadata parsed from the mzxml (polarity, mz_min, and
-            mz_max)
-        2. Otherwise, do a get_or_create
-
-        Args:
-            kwargs (dict): The field names (keys) and values.
-        Exceptions:
-            None
-        Returns:
-            rec (MSRunSample)
-            created (boolean)
-            updated (boolean)
-        """
-        created = False
-        updated = False
-
-        # See if there's a placeholder record
-        placeholder_args = {
-            "msrun_sequence": kwargs.get("msrun_sequence"),
-            "sample": kwargs.get("sample"),
-            "ms_data_file__isnull": True,
-            # We ignore other optional data.  It could change
-        }
-        try:
-            placeholder_queryset = self.filter(**placeholder_args)
-            if placeholder_queryset.count() > 0:
-                # This intentionally raises in the case of MultipleObjectsReturned
-                # If the ms_data_file is defined
-                if (
-                    "ms_data_file" in kwargs.keys()
-                    and kwargs["ms_data_file"] is not None
-                ):
-                    update_placeholder_rec = placeholder_queryset.update(**kwargs).get()
-                    updated = True
-                else:
-                    update_placeholder_rec = placeholder_queryset.get()
-                return update_placeholder_rec, created, updated
-        except MSRunSample.DoesNotExist:
-            # Move on to a regular get_or_create
-            pass
-
-        rec, created = self.get_or_create(**kwargs)
-
-        return rec, created, updated
-
-
 @MaintainedModel.relation(
     generation=2,
     parent_field_name="sample",
@@ -82,8 +26,6 @@ class MSRunSampleQuerySet(QuerySet):
 class MSRunSample(HierCachedModel, MaintainedModel):
     parent_related_key_name = "sample"
     child_related_key_names = ["peak_groups"]
-
-    objects = MSRunSampleQuerySet().as_manager()
 
     POLARITY_CHOICES = [
         ("unknown", "unknown"),
