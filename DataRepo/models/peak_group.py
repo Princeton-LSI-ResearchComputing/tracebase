@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Max, Min, Sum
 from django.utils.functional import cached_property
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
@@ -63,6 +63,20 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         return self.peak_data.all().aggregate(
             total_abundance=Sum("corrected_abundance", default=0)
         )["total_abundance"]
+
+    @cached_property
+    def min_med_mz(self):
+        """Get the minimum med_mz value from all the peak_data that links to this peak group"""
+        return self.peak_data.filter(med_mz__isnull=False).aggregate(
+            min_med_mz=Min("med_mz", default=None)
+        )["min_med_mz"]
+
+    @cached_property
+    def max_med_mz(self):
+        """Get the maximum med_mz value from all the peak_data that links to this peak group"""
+        return self.peak_data.filter(med_mz__isnull=False).aggregate(
+            max_med_mz=Max("med_mz", default=None)
+        )["max_med_mz"]
 
     @property  # type: ignore
     @cached_function
