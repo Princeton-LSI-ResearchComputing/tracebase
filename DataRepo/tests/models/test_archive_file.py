@@ -45,3 +45,45 @@ class ArchiveFileTests(TracebaseTestCase):
         """ArchiveFile lookup by checksum"""
         accucor_file = ArchiveFile.objects.get(checksum=self.accucor_file.checksum)
         self.assertEqual(accucor_file.filename, self.accucor_file.filename)
+
+    def test_hash_file(self):
+        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        expected_hash = "c95f714d690bdd2ad069a7a0345dee9cb7cc1e23"
+        self.assertEqual(expected_hash, ArchiveFile.hash_file(Path(fn)))
+
+    def test_file_is_binary_true(self):
+        fn = "DataRepo/data/tests/small_obob/small_obob_study.xlsx"
+        self.assertTrue(ArchiveFile.file_is_binary(fn))
+
+    def test_file_is_binary_false(self):
+        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        self.assertFalse(ArchiveFile.file_is_binary(fn))
+
+    def test_get_or_create_override(self):
+        """This tests the essential functionality of the get_or_create method override, which is to ignore the
+        randomized hash string appended to file_location.  but it also tests the conveniences (takes a path string,
+        extracts the file name, generates a hash, and takes the codes for DataType and DataFormat).
+        """
+        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        rec_dict = {
+            # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
+            # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
+            # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+            "file_location": fn,  # Intentionally a string and not a File object
+            "data_type": "ms_data",
+            "data_format": "mzxml",
+        }
+        # Called the first time to create
+        created_rec, created = ArchiveFile.objects.get_or_create(**rec_dict)
+        self.assertTrue(created)
+        self.assertEqual(
+            "c95f714d690bdd2ad069a7a0345dee9cb7cc1e23", created_rec.checksum
+        )
+        self.assertEqual("mzxml", created_rec.data_format.code)
+        self.assertEqual("ms_data", created_rec.data_type.code)
+        self.assertEqual("BAT-xz971.mzXML", created_rec.filename)
+
+        # Called a second time to "get"
+        gotten_rec, second_created = ArchiveFile.objects.get_or_create(**rec_dict)
+        self.assertFalse(second_created)
+        self.assertEqual(created_rec.id, gotten_rec.id)
