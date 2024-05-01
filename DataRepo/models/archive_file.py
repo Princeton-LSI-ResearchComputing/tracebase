@@ -147,7 +147,7 @@ class ArchiveFileQuerySet(models.QuerySet):
 
         # Compute and/or check the checksum.
         supplied_checksum = kwargs.get("checksum", None)
-        computed_checksum = hash_file(path_obj)
+        computed_checksum = ArchiveFile.hash_file(path_obj)
         if supplied_checksum is not None and computed_checksum != supplied_checksum:
             raise ValueError(
                 f"The supplied checksum [{supplied_checksum}] does not match the computed checksum "
@@ -177,7 +177,9 @@ class ArchiveFileQuerySet(models.QuerySet):
         if created or archivefile_rec.file_location is None:
             # Create a File object
             mode = "r"
-            if (is_binary is not None and is_binary) or file_is_binary(file_location):
+            if (is_binary is not None and is_binary) or ArchiveFile.file_is_binary(
+                file_location
+            ):
                 mode = "rb"
             with path_obj.open(mode=mode) as file_handle:
                 tmp_file_location = File(file_handle, name=path_obj.name)
@@ -234,49 +236,51 @@ class ArchiveFile(models.Model):
     def __str__(self):
         return f"{self.filename} ({self.checksum})"
 
+    @classmethod
+    def file_is_binary(cls, filepath):
+        """Guesses whether a file is binary or text.  Partially based on:
+        https://stackoverflow.com/a/7392391/2057516
+        Args:
+            filepath (string): The path to a file.
+        Exceptions:
+            None
+        Returns:
+            is_binary (boolean)
+        """
+        textchars = bytearray(
+            {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F}
+        )
+        file_sample = None
+        is_binary = False
+        try:
+            with open(filepath, "rb") as fl:
+                file_sample = fl.read(1024)
+            is_binary = bool(file_sample.translate(None, textchars))
+        except Exception:
+            # Fall back to guessing by extension
+            supported_binary_exts = ["xlsx", "xls"]
+            _, ext = os.path.splitext(filepath)
+            if ext in supported_binary_exts:
+                is_binary = True
+        return is_binary
 
-def file_is_binary(filepath):
-    """Guesses whether a file is binary or text.  Partially based on:
-    https://stackoverflow.com/a/7392391/2057516
-    Args:
-        filepath (string): The path to a file.
-    Exceptions:
-        None
-    Returns:
-        is_binary (boolean)
-    """
-    textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
-    file_sample = None
-    is_binary = False
-    try:
-        with open(filepath, "rb") as fl:
-            file_sample = fl.read(1024)
-        is_binary = bool(file_sample.translate(None, textchars))
-    except Exception:
-        # Fall back to guessing by extension
-        supported_binary_exts = ["xlsx", "xls"]
-        _, ext = os.path.splitext(filepath)
-        if ext in supported_binary_exts:
-            is_binary = True
-    return is_binary
+    @classmethod
+    def hash_file(cls, path_obj: File):
+        """Determine the SHA-1 hash of a file.  Note, it does not matter if the file is binary or not.
+        Args:
+            path_obj (Path)
+        Exceptions:
+            None
+        Returns:
+            hex (string): the hex representation of digest
+        """
+        hash_obj = hashlib.sha1()
 
-
-def hash_file(path_obj: File):
-    """Determine the SHA-1 hash of a file.  Note, it does not matter if the file is binary or not.
-    Args:
-        path_obj (Path)
-    Exceptions:
-        None
-    Returns:
-        hex (string): the hex representation of digest
-    """
-    hash_obj = hashlib.sha1()
-
-    with path_obj.open("rb") as file_handle:
-        chunk = file_handle.read(1024)
-        hash_obj.update(chunk)
-        while chunk != b"":
+        with path_obj.open("rb") as file_handle:
             chunk = file_handle.read(1024)
             hash_obj.update(chunk)
+            while chunk != b"":
+                chunk = file_handle.read(1024)
+                hash_obj.update(chunk)
 
-    return hash_obj.hexdigest()
+        return hash_obj.hexdigest()
