@@ -1155,7 +1155,7 @@ class TableLoader(ABC):
 
         if len(unmatched.keys()) > 0:
             ke = KeyError(
-                f"Header(s) {unmatched.keys()} not in reverse headers: {self.reverse_headers}"
+                f"Header(s) {list(unmatched.keys())} not in reverse headers: {self.reverse_headers}"
             )
             ke.unmatched = unmatched
             ke.outdict = outdict

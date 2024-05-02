@@ -216,69 +216,77 @@ class MSRunsLoader(TableLoader):
         )
         seqdefaults = seqloader.get_user_defaults()
 
-        mutex_arg_errs = []
-        mutex_def_errs = []
+        if seqdefaults is not None:
+            mutex_arg_errs = []
+            mutex_def_errs = []
 
-        # get the operator_default from either the defaults sheet/file or from the arg
-        self.operator_default = seqdefaults[seqloader.DataHeaders.OPERATOR]
-        if (
-            self.operator_default is not None
-            and operator_default is not None
-            and self.operator_default != operator_default
-        ):
-            mutex_arg_errs.append("operator")
-            mutex_def_errs.append(seqloader.DataHeaders.OPERATOR)
+            # get the operator_default from either the defaults sheet/file or from the arg
+            self.operator_default = seqdefaults[seqloader.DataHeaders.OPERATOR]
+            if (
+                self.operator_default is not None
+                and operator_default is not None
+                and self.operator_default != operator_default
+            ):
+                mutex_arg_errs.append("operator")
+                mutex_def_errs.append(seqloader.DataHeaders.OPERATOR)
+            else:
+                self.operator_default = operator_default
+
+            # get the date_default from either the defaults sheet/file or from the arg
+            self.date_default = seqdefaults[seqloader.DataHeaders.DATE]
+            if (
+                self.date_default is not None
+                and date_default is not None
+                and self.date_default != date_default
+            ):
+                mutex_arg_errs.append("date")
+                mutex_def_errs.append(seqloader.DataHeaders.DATE)
+            else:
+                self.date_default = date_default
+
+            # get the lc_protocol_name_default from either the defaults sheet/file or from the arg
+            self.lc_protocol_name_default = seqdefaults[seqloader.DataHeaders.LCNAME]
+            if (
+                self.lc_protocol_name_default is not None
+                and lc_protocol_name_default is not None
+                and self.lc_protocol_name_default != lc_protocol_name_default
+            ):
+                mutex_arg_errs.append("lc_protocol_name")
+                mutex_def_errs.append(seqloader.DataHeaders.LCNAME)
+            else:
+                self.lc_protocol_name_default = lc_protocol_name_default
+
+            # get the instrument_default from either the defaults sheet/file or from the arg
+            self.instrument_default = seqdefaults[seqloader.DataHeaders.INSTRUMENT]
+            if (
+                self.instrument_default is not None
+                and instrument_default is not None
+                and self.instrument_default != instrument_default
+            ):
+                mutex_arg_errs.append("instrument")
+                mutex_def_errs.append(seqloader.DataHeaders.INSTRUMENT)
+            else:
+                self.instrument_default = instrument_default
+
+            if len(mutex_arg_errs) > 0:
+                raise MutuallyExclusiveArgs(
+                    (
+                        f"The following arguments {mutex_arg_errs} have have conflicting values with the "
+                        f"{seqloader.DataSheetName} defaults {mutex_def_errs} (respectively) defined in %s."
+                    ),
+                    file=(
+                        self.defaults_file
+                        if self.defaults_file is not None
+                        else self.file
+                    ),
+                    sheet=self.sheet,
+                    column=seqloader.DefaultsHeaders.DEFAULT_VALUE,
+                )
         else:
             self.operator_default = operator_default
-
-        # get the date_default from either the defaults sheet/file or from the arg
-        self.date_default = seqdefaults[seqloader.DataHeaders.DATE]
-        if (
-            self.date_default is not None
-            and date_default is not None
-            and self.date_default != date_default
-        ):
-            mutex_arg_errs.append("date")
-            mutex_def_errs.append(seqloader.DataHeaders.DATE)
-        else:
             self.date_default = date_default
-
-        # get the lc_protocol_name_default from either the defaults sheet/file or from the arg
-        self.lc_protocol_name_default = seqdefaults[seqloader.DataHeaders.LCNAME]
-        if (
-            self.lc_protocol_name_default is not None
-            and lc_protocol_name_default is not None
-            and self.lc_protocol_name_default != lc_protocol_name_default
-        ):
-            mutex_arg_errs.append("lc_protocol_name")
-            mutex_def_errs.append(seqloader.DataHeaders.LCNAME)
-        else:
             self.lc_protocol_name_default = lc_protocol_name_default
-
-        # get the instrument_default from either the defaults sheet/file or from the arg
-        self.instrument_default = seqdefaults[seqloader.DataHeaders.INSTRUMENT]
-        if (
-            self.instrument_default is not None
-            and instrument_default is not None
-            and self.instrument_default != instrument_default
-        ):
-            mutex_arg_errs.append("instrument")
-            mutex_def_errs.append(seqloader.DataHeaders.INSTRUMENT)
-        else:
             self.instrument_default = instrument_default
-
-        if len(mutex_arg_errs) > 0:
-            raise MutuallyExclusiveArgs(
-                (
-                    f"The following arguments {mutex_arg_errs} have have conflicting values with the "
-                    f"{seqloader.DataSheetName} defaults {mutex_def_errs} (respectively) defined in %s."
-                ),
-                file=(
-                    self.defaults_file if self.defaults_file is not None else self.file
-                ),
-                sheet=self.sheet,
-                column=seqloader.DefaultsHeaders.DEFAULT_VALUE,
-            )
 
         # This will contain metadata parsed from the mzXML files (and the created ArchiveFile records to be added to
         # MSRunSample records

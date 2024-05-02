@@ -81,6 +81,11 @@ class LoadTableCommand(ABC, BaseCommand):
         default_required_optnames = set(["infile"])
         if required_optname_groups is not None and required_optnames is None:
             for optgroup in required_optname_groups:
+                if not isinstance(optgroup, list):
+                    # I don't know why the type hint doesn't raise this exception...
+                    raise AggregatedErrors().buffer_error(
+                        TypeError("required_optname_groups must be a list of lists.")
+                    )
                 default_required_optnames -= set(optgroup)
         self.required_optnames = (
             list(default_required_optnames)
@@ -363,8 +368,10 @@ class LoadTableCommand(ABC, BaseCommand):
                 cond_reqd_opt_sets_str = "\n\t".join(
                     [", ".join([f"{cros}" for cros in failed_cond_reqd_opt_sets])]
                 )
-                raise ConditionallyRequiredOptions(
-                    f"One of each of the following sets of options is required:\n\t{cond_reqd_opt_sets_str}"
+                raise AggregatedErrors().buffer_error(
+                    ConditionallyRequiredOptions(
+                        f"One of each of the following sets of options is required:\n\t{cond_reqd_opt_sets_str}"
+                    )
                 )
 
             # So that derived classes don't need to call init_loader unless their derived loader class takes custom
@@ -441,7 +448,7 @@ class LoadTableCommand(ABC, BaseCommand):
             mdl_name = mdl.__name__
             if mdl_name in load_stats.keys():
                 msg += (
-                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], and errored: [%i]."
+                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], and errored: [%i].\n"
                     % (
                         mdl_name,
                         load_stats[mdl_name]["created"],
