@@ -9,7 +9,12 @@ from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors, OptionsNotAvailable
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConditionallyRequiredOptions,
+    OptionsNotAvailable,
+    RequiredOptions,
+)
 
 
 # Class (Model) used for testing
@@ -63,6 +68,65 @@ class LoadTableCommandTests(TracebaseTestCase):
         "verbosity": 0,
         "defaults_file": None,
     }
+
+    def test_init_required_optnames_default_infile(self):
+        """Tests that if required_optnames is not supplied, the only required argument is the infile arg."""
+        tc = TestCommand()
+        with self.assertRaises(RequiredOptions) as ar:
+            tc.handle(
+                infile=None,
+                headers=None,
+                defer_rollback=None,
+                dry_run=None,
+                data_sheet=None,
+                verbosity=0,
+                defaults_file=None,
+            )
+        exc = ar.exception
+        self.assertEqual("Missing required options: ['infile'].", str(exc))
+
+    def test_init_required_optnames_custom(self):
+        """Tests that if required_optnames is supplied, the default required arguments changes."""
+        tc = TestCommand(required_optnames=[])
+        tc.handle(
+            infile=None,
+            headers=None,
+            defer_rollback=None,
+            dry_run=None,
+            data_sheet=None,
+            verbosity=0,
+            defaults_file=None,
+        )
+        # No exception = successful test
+
+    def test_init_required_optname_groups_success(self):
+        """Tests that if required_optname_groups is supplied, one of a group of options can be required."""
+        tc = TestCommand(required_optname_groups=[["infile", "defaults_file"]])
+        tc.handle(
+            infile=None,
+            headers=None,
+            defer_rollback=None,
+            dry_run=None,
+            data_sheet=None,
+            verbosity=0,
+            defaults_file="DataRepo/data/tests/load_table/defaults.tsv",
+        )
+
+    def test_init_required_optname_groups_error(self):
+        """Tests that if required_optname_groups is supplied, one of a group of options can be required."""
+        tc = TestCommand(required_optname_groups=[["infile", "defaults_file"]])
+        with self.assertRaises(ConditionallyRequiredOptions) as ar:
+            tc.handle(
+                infile=None,
+                headers=None,
+                defer_rollback=None,
+                dry_run=None,
+                data_sheet=None,
+                verbosity=0,
+                defaults_file=None,
+            )
+        exc = ar.exception
+        self.assertIn("['infile', 'defaults_file']", str(exc))
 
     def test_abstract_attributes_enforced(self):
         """
