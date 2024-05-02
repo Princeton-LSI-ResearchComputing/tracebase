@@ -2527,6 +2527,13 @@ class MutuallyExclusiveArgs(InfileError):
     pass
 
 
+class RequiredOptions(CommandError):
+    def __init__(self, missing, **kwargs):
+        message = f"Missing required options: {missing}."
+        super().__init__(message, **kwargs)
+        self.missing = missing
+
+
 class ConditionallyRequiredOptions(CommandError):
     pass
 

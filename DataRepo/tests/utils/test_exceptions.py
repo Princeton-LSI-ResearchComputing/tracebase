@@ -28,6 +28,7 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValues,
     RequiredColumnValuesWhenNovel,
     RequiredColumnValueWhenNovel,
+    RequiredOptions,
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
@@ -1031,3 +1032,7 @@ class ExceptionTests(TracebaseTestCase):
             "Tissue record matching {'name': 'invalid'} from the load file data does not exist.",
             str(rdne),
         )
+
+    def test_RequiredOptions(self):
+        ro = RequiredOptions(["infile"])
+        self.assertEqual("Missing required options: ['infile'].", str(ro))
