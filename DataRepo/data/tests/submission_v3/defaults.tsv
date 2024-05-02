@@ -1,7 +1,5 @@
 Sheet Name	Column Header	Default Value
 Sequences	Operator	Xianfeng Zeng
-Peak Annotation Files	Peak Annotation File Type	isocorr
-Peak Annotation Details	Polarity	positive
 Sequences	Date	2020-11-01
 Sequences	LC Protocol Name	polar-HILIC-25-min
 Sequences	Instrument	HILIC

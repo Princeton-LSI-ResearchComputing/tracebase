@@ -115,7 +115,7 @@ class LoadTableCommandTests(TracebaseTestCase):
     def test_init_required_optname_groups_error(self):
         """Tests that if required_optname_groups is supplied, one of a group of options can be required."""
         tc = TestCommand(required_optname_groups=[["infile", "defaults_file"]])
-        with self.assertRaises(ConditionallyRequiredOptions) as ar:
+        with self.assertRaises(AggregatedErrors) as ar:
             tc.handle(
                 infile=None,
                 headers=None,
@@ -125,7 +125,10 @@ class LoadTableCommandTests(TracebaseTestCase):
                 verbosity=0,
                 defaults_file=None,
             )
-        exc = ar.exception
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        exc = aes.exceptions[0]
+        self.assertEqual(ConditionallyRequiredOptions, type(exc))
         self.assertIn("['infile', 'defaults_file']", str(exc))
 
     def test_abstract_attributes_enforced(self):

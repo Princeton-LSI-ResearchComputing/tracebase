@@ -12,7 +12,11 @@ class Command(LoadTableCommand):
 
     def __init__(self, *args, **kwargs):
         # Don't require any options (i.e. don't require the --infile option)
-        super().__init__(*args, required_optnames=[], **kwargs)
+        super().__init__(
+            *args,
+            required_optname_groups=[["mzxml_files", "infile"]],
+            **kwargs,
+        )
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass
@@ -107,10 +111,18 @@ class Command(LoadTableCommand):
                 or options.get("instrument") is None
             )
         ):
+            missing = [
+                f"{flag}"
+                for flag in ["operator", "date", "lc_protocol_name", "instrument"]
+                if options.get(flag) is None
+            ]
+            missing_str = ""
+            if len(missing) > 0:
+                missing_str = f" or {missing}"
             raise ConditionallyRequiredOptions(
                 "When --mzxml-files are supplied without an --infile, either a --defaults-file must be provided or "
                 "each of these default options must all be supplied: --operator, --date, --lc-protocol-name, and "
-                "--instrument."
+                f"--instrument.  Missing: infile or defaults_file{missing_str}."
             )
 
         # The MSRunsLoader class constructor has custom arguments, so we must call init_loader to supply them
