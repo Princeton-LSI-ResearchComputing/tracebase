@@ -15,6 +15,7 @@ from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.sample import Sample
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     InfileError,
     MixedPolarityErrors,
     MutuallyExclusiveArgs,
@@ -406,9 +407,11 @@ class MSRunsLoader(TableLoader):
             raise e
 
         mzxml_dir, _ = os.path.split(mzxml_file)
-        mzxml_path_obj = Path(mzxml_file)
+
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
-        mzxml_metadata = self.parse_mzxml(mzxml_path_obj)
+        mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+        if len(errs.exceptions) > 0:
+            self.aggregated_errors_object.merge_aggregated_errors_object(errs)
 
         # Get or create an ArchiveFile record for a raw file
         try:
@@ -448,7 +451,7 @@ class MSRunsLoader(TableLoader):
 
         # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
-        mzxml_basename, _ = os.path.splitext(mzxml_path_obj.name)
+        mzxml_basename, _ = os.path.splitext(mzxml_file)
         self.mzxml_dict[mzxml_basename][mzxml_dir].append(mzxml_metadata)
 
     @transaction.atomic
@@ -1110,7 +1113,8 @@ class MSRunsLoader(TableLoader):
 
         return matching_qs, unmatching_qs
 
-    def parse_mzxml(self, mzxml_path_obj, full_dict=False):
+    @classmethod
+    def parse_mzxml(cls, mzxml_path, full_dict=False):
         """Creates a dict of select data parsed from an mzXML file
 
         This extracts the raw file name, raw file's sha1, and the polarity from an mzxml file and returns a condensed
@@ -1121,7 +1125,7 @@ class MSRunsLoader(TableLoader):
         If not all polarities of all the scans are the same, an error will be buffered.
 
         Args:
-            mzxml_path_obj (Path): mzXML file Path object
+            mzxml_path (str or Path): mzXML file path
             full_dict (boolean): Whether to return the raw/full dict of the mzXML file
 
         Exceptions:
@@ -1131,7 +1135,7 @@ class MSRunsLoader(TableLoader):
                 ValueError
 
         Returns:
-            If mzxml_path_obj is not a real existing file:
+            If mzxml_path is not a real existing file:
                 None
             If full_dict=False:
                 {
@@ -1144,6 +1148,14 @@ class MSRunsLoader(TableLoader):
             If full_dict=True:
                 xmltodict.parse(xml_content)
         """
+        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
+        errs_buffer = AggregatedErrors()
+
+        # Assume Path object
+        mzxml_path_obj = mzxml_path
+        if isinstance(mzxml_path, str):
+            mzxml_path_obj = Path(mzxml_path)
+
         if not mzxml_path_obj.is_file():
             # mzXML files are optional, but the file names are supplied in a file, in which case, we may have a name,
             # but not the file, so just return None if what we have isn't a real file.
@@ -1164,7 +1176,7 @@ class MSRunsLoader(TableLoader):
             ).name
             raw_file_sha1 = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileSha1"]
             if raw_file_type != "RAWData":
-                self.aggregated_errors_object.buffer_error(
+                errs_buffer.buffer_error(
                     ValueError(
                         f"Unsupported file type [{raw_file_type}] encountered in mzXML file [{str(mzxml_path_obj)}].  "
                         "Expected: [RAWData]."
@@ -1201,17 +1213,17 @@ class MSRunsLoader(TableLoader):
                             "scan": entry_dict["@num"],
                         }
             if len(mixed_polarities.keys()) > 0:
-                self.aggregated_errors_object.buffer_exception(
+                errs_buffer.buffer_exception(
                     MixedPolarityErrors(mixed_polarities),
                 )
         except KeyError as ke:
-            self.aggregated_errors_object.buffer_error(MzxmlParseError(str(ke)))
+            errs_buffer.buffer_error(MzxmlParseError(str(ke)))
         if symbol_polarity == "+":
             polarity = MSRunSample.POSITIVE_POLARITY
         elif symbol_polarity == "-":
             polarity = MSRunSample.NEGATIVE_POLARITY
         elif symbol_polarity != "":
-            self.aggregated_errors_object.buffer_error(
+            errs_buffer.buffer_error(
                 ValueError(
                     f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
                     f"[{str(mzxml_path_obj)}]."
@@ -1224,7 +1236,7 @@ class MSRunsLoader(TableLoader):
             "polarity": polarity,
             "mz_min": mz_min,
             "mz_max": mz_max,
-        }
+        }, errs_buffer
 
     def leftover_mzxml_files_exist(self):
         """Traverse self.mzxml_dict and return True if any mzXML files have not yet been added to an MSRunSample record
