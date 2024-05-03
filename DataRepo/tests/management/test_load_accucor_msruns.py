@@ -7,6 +7,7 @@ from django.core.management import call_command
 from django.test import override_settings, tag
 
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader, hash_file
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     ArchiveFile,
     Infusate,
@@ -1052,34 +1053,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         ]
         self.assertEqual(choices, MSRunSample.POLARITY_CHOICES)
 
-    @MaintainedModel.no_autoupdates()
-    def test_parse_mzxml(self):
-        """
-        Issue #712
-        Requirement: 7.2. Parse polarity from the mzXML
-        """
-        expected = {
-            "raw_file_name": "BAT-xz971.raw",
-            "raw_file_sha1": "31bc554534cf9f1e568529d110caa85f1fd0a8c8",
-            "polarity": MSRunSample.POSITIVE_POLARITY,
-            "mz_max": 502.9,
-            "mz_min": 1.0,
-        }
-        adl = AccuCorDataLoader(
-            None,
-            None,
-            None,
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-        )
-        mz_dict = adl.parse_mzxml(
-            Path(
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
-            )
-        )
-        self.assertEqual(expected, mz_dict)
+    # NOTE: Test for Issue #712, Requirement 7.2 was moved to test_msruns_loader.py
 
     # NOTE: Test for Issue #712, Requirement 7.3 (A default polarity should be removed from the study submission form)
     # is unnecessary
@@ -1210,7 +1184,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
     def test_get_or_create_raw_file(self):
         fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         adl = self.create_AccuCorDataLoader_object()
-        mz_dict = adl.parse_mzxml(Path(fn))
+        mz_dict, _ = MSRunsLoader.parse_mzxml(Path(fn))
 
         # Test that a new record is created
         inafs = ArchiveFile.objects.count()
