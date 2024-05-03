@@ -725,7 +725,7 @@ class TableLoader(ABC):
                 raise self.aggregated_errors_object.buffer_error(
                     InfileError(
                         (
-                            f"Unexpected default headers: {ke.unmatched.keys()} in %s.  Expected: "
+                            f"Unexpected default headers: {list(ke.unmatched.keys())} in %s.  Expected: "
                             f"{list(self.headers._asdict().values())}"
                         ),
                         file=self.defaults_file,
@@ -962,7 +962,9 @@ class TableLoader(ABC):
         """
         typeerrs = []
 
-        self.defaults_current_type = self.sheet
+        self.defaults_current_type = (
+            self.sheet if self.sheet is not None else self.DataSheetName
+        )
         if is_excel(self.file):
             if self.defaults_df is not None:
                 self.defaults_file = self.file

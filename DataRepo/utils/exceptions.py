@@ -1294,7 +1294,9 @@ class AggregatedErrors(Exception):
             ]
         )
 
-    def buffer_exception(self, exception, is_error=True, is_fatal=True):
+    def buffer_exception(
+        self, exception, is_error=True, is_fatal=True, orig_exception=None
+    ):
         """
         Don't raise this exception. Save it to report later, after more errors have been accumulated and reported as a
         group.  The buffered_exception has a buffered_tb_str and a boolean named is_error added to it.  Returns self so
@@ -1311,6 +1313,11 @@ class AggregatedErrors(Exception):
         buffered_exception = None
         if hasattr(exception, "__traceback__") and exception.__traceback__:
             added_exc_str = "".join(traceback.format_tb(exception.__traceback__))
+            buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
+            buffered_exception = exception
+        elif hasattr(orig_exception, "__traceback__") and orig_exception.__traceback__:
+            setattr(exception, "__traceback__", orig_exception.__traceback__)
+            added_exc_str = "".join(traceback.format_tb(orig_exception.__traceback__))
             buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
             buffered_exception = exception
         else:
@@ -1347,11 +1354,15 @@ class AggregatedErrors(Exception):
 
         return self
 
-    def buffer_error(self, exception, is_fatal=True):
-        return self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
+    def buffer_error(self, exception, is_fatal=True, orig_exception=None):
+        return self.buffer_exception(
+            exception, is_error=True, is_fatal=is_fatal, orig_exception=orig_exception
+        )
 
-    def buffer_warning(self, exception, is_fatal=False):
-        return self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
+    def buffer_warning(self, exception, is_fatal=False, orig_exception=None):
+        return self.buffer_exception(
+            exception, is_error=False, is_fatal=is_fatal, orig_exception=orig_exception
+        )
 
     def print_all_buffered_exceptions(self):
         for exc in self.exceptions:
@@ -2600,7 +2611,13 @@ def summarize_int_list(intlist):
     sum_list = []
     last_num = None
     waiting_num = None
-    for num in [int(n) for n in sorted([i for i in intlist if i is not None])]:
+    for num in [n for n in sorted([i for i in intlist if i is not None])]:
+        try:
+            num = int(num)
+        except ValueError:
+            # Assume this is a "named" row
+            sum_list.append(num)
+            continue
         if last_num is None:
             waiting_num = num
         else:

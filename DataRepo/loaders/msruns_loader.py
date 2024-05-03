@@ -11,7 +11,7 @@ from django.db.models import Max, Min, Q
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
+from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, researcher
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.sample import Sample
 from DataRepo.utils.exceptions import (
@@ -22,6 +22,7 @@ from DataRepo.utils.exceptions import (
     MzxmlParseError,
     RecordDoesNotExist,
     RequiredColumnValue,
+    RequiredColumnValues,
 )
 from DataRepo.utils.file_utils import string_to_datetime
 
@@ -212,10 +213,16 @@ class MSRunsLoader(TableLoader):
 
         # We are going to use defaults from the SequencesLoader if no dataframe (i.e. --infile) was provided
         seqloader = SequencesLoader(
+            df=self.file,  # Only used for reporting errors with the defaults sheet
             defaults_df=self.defaults_df,
             defaults_file=self.defaults_file,
         )
         seqdefaults = seqloader.get_user_defaults()
+        # TODO: Figure out a better way to handle buffered exceptions so that methods raise them as a group instead of
+        # needing to incorporate instance loaders like this for buffered errors
+        self.aggregated_errors_object.merge_aggregated_errors_object(
+            seqloader.aggregated_errors_object
+        )
 
         if seqdefaults is not None:
             mutex_arg_errs = []
@@ -230,7 +237,7 @@ class MSRunsLoader(TableLoader):
             ):
                 mutex_arg_errs.append("operator")
                 mutex_def_errs.append(seqloader.DataHeaders.OPERATOR)
-            else:
+            elif self.operator_default is None and operator_default is not None:
                 self.operator_default = operator_default
 
             # get the date_default from either the defaults sheet/file or from the arg
@@ -242,7 +249,7 @@ class MSRunsLoader(TableLoader):
             ):
                 mutex_arg_errs.append("date")
                 mutex_def_errs.append(seqloader.DataHeaders.DATE)
-            else:
+            elif self.date_default is None and date_default is not None:
                 self.date_default = date_default
 
             # get the lc_protocol_name_default from either the defaults sheet/file or from the arg
@@ -254,7 +261,10 @@ class MSRunsLoader(TableLoader):
             ):
                 mutex_arg_errs.append("lc_protocol_name")
                 mutex_def_errs.append(seqloader.DataHeaders.LCNAME)
-            else:
+            elif (
+                self.lc_protocol_name_default is None
+                and lc_protocol_name_default is not None
+            ):
                 self.lc_protocol_name_default = lc_protocol_name_default
 
             # get the instrument_default from either the defaults sheet/file or from the arg
@@ -266,7 +276,7 @@ class MSRunsLoader(TableLoader):
             ):
                 mutex_arg_errs.append("instrument")
                 mutex_def_errs.append(seqloader.DataHeaders.INSTRUMENT)
-            else:
+            elif self.instrument_default is None and instrument_default is not None:
                 self.instrument_default = instrument_default
 
             if len(mutex_arg_errs) > 0:
@@ -819,7 +829,7 @@ class MSRunsLoader(TableLoader):
                 column = self.DefaultsHeaders.DEFAULT_VALUE
                 rownum = self.rownum
 
-                operator, lcprotname, instrument, date_str = name.split(r",\s*")
+                operator, lcprotname, instrument, date_str = re.split(r",\s*", name)
 
                 date = string_to_datetime(
                     date_str,
@@ -830,13 +840,23 @@ class MSRunsLoader(TableLoader):
                     rownum=rownum,
                 )
             else:
+                # Error-reporting info
                 if self.df is None:
-                    file = self.defaults_file
+                    file = (
+                        self.defaults_file
+                        if self.defaults_file is not None
+                        else "the defaults file"
+                    )
                     sheet = None
                 else:
-                    file = self.defaults_file
-                    sheet = self.defaults_sheet
+                    file = self.file
+                    sheet = (
+                        self.defaults_sheet
+                        if self.defaults_file is not None
+                        else "the defaults sheet"
+                    )
                 column = self.DefaultsHeaders.DEFAULT_VALUE
+                rownum = None
 
                 if (
                     len(
@@ -888,17 +908,27 @@ class MSRunsLoader(TableLoader):
                         missing_defaults_header_rows.append(
                             SequencesLoader.DataHeaders.DATE
                         )
-                    rownum = ", ".join(missing_defaults_header_rows)
+                    rownum = ", ".join(
+                        [
+                            f"{self.DefaultsSheetName} {rowname}"
+                            for rowname in missing_defaults_header_rows
+                        ]
+                    )
 
-                    raise RequiredColumnValue(
-                        file=file,
-                        sheet=sheet,
-                        column=column,
-                        rownum=rownum,
+                    raise RequiredColumnValues(
+                        [
+                            RequiredColumnValue(
+                                file=file,
+                                sheet=sheet,
+                                column=column,
+                                rownum=f"{self.DefaultsSheetName} {rowname}",
+                            )
+                            for rowname in missing_defaults_header_rows
+                        ]
                     )
 
             msrseq = MSRunSequence.objects.get(
-                operator=operator,
+                researcher=operator,
                 date=date,
                 lc_method__name=lcprotname,
                 instrument=instrument,
@@ -915,7 +945,8 @@ class MSRunsLoader(TableLoader):
                         sheet=sheet,
                         column=column,
                         rownum=rownum,
-                    )
+                    ),
+                    orig_exception=e,
                 )
             msrseq = None
 

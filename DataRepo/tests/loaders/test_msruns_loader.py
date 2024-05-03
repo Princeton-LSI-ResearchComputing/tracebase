@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pandas as pd
 from django.core.files import File
 
 from DataRepo.loaders.msruns_loader import MSRunsLoader
@@ -112,7 +113,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         seq = MSRunSequence.objects.create(
             researcher="John Doe",
-            date=datetime.now(),
+            date=datetime.strptime("1991-5-7".strip(), "%Y-%m-%d"),
             instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
@@ -515,9 +516,58 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertDictEqual(expected, mzxml_metadata)
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
 
-    def test_get_msrun_sequence(self):
-        # TODO: Implement test
-        pass
+    def test_get_msrun_sequence_supplied(self):
+        msrl = MSRunsLoader()
+        msrl.set_row_index(2)
+        operator = "John Doe"
+        lcprotname = "polar-HILIC-25-min"
+        instrument = MSRunSequence.INSTRUMENT_CHOICES[0][0]
+        date_str = "1991-05-7"
+        seqname = ", ".join([operator, lcprotname, instrument, date_str])
+        seq = msrl.get_msrun_sequence(seqname)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(self.msr.msrun_sequence, seq)
+
+    def test_get_msrun_sequence_custom_default(self):
+        msrl = MSRunsLoader(
+            lc_protocol_name="polar-HILIC-25-min",
+            operator="John Doe",
+            date="1991-05-07",
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
+        )
+        seq = msrl.get_msrun_sequence()
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(self.msr.msrun_sequence, seq)
+
+    def test_get_msrun_sequence_defaults_file(self):
+        inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
+        msrl = MSRunsLoader(
+            defaults_df=pd.DataFrame.from_dict(
+                {
+                    MSRunsLoader.DefaultsHeaders.SHEET_NAME: [
+                        "Sequences",
+                        "Sequences",
+                        "Sequences",
+                        "Sequences",
+                    ],
+                    MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
+                        "Date",
+                        "Operator",
+                        "Instrument",
+                        "LC Protocol Name",
+                    ],
+                    MSRunsLoader.DefaultsHeaders.DEFAULT_VALUE: [
+                        "1991-5-7",
+                        "John Doe",
+                        inst,
+                        "polar-HILIC-25-min",
+                    ],
+                }
+            ),
+        )
+        seq = msrl.get_msrun_sequence()
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(self.msr.msrun_sequence, seq)
 
     def test_get_create_or_update_msrun_sample_from_leftover_mzxml(self):
         # TODO: Implement test
