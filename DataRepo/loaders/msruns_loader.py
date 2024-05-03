@@ -11,7 +11,7 @@ from django.db.models import Max, Min, Q
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, researcher
+from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.sample import Sample
 from DataRepo.utils.exceptions import (
@@ -693,6 +693,8 @@ class MSRunsLoader(TableLoader):
         """Get a Sample record by name.
         Args:
             sample_name (string)
+            from_mzxml (boolean): Whether the sample_name supplied was extracted from an mzXML file name or not (so that
+                the error can reference it if not found)
         Exceptions:
             Raises:
                 None
