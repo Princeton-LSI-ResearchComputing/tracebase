@@ -569,11 +569,12 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
         self.assertEqual(self.msr.msrun_sequence, seq)
 
-    def test_get_create_or_update_msrun_sample_from_leftover_mzxml(self):
-        # TODO: Implement test
-        pass
-
     def test_get_sample_by_name(self):
+        msrl = MSRunsLoader()
+        sample = msrl.get_sample_by_name("Sample Name")
+        self.assertEqual(Sample.objects.get(), sample)
+
+    def test_get_create_or_update_msrun_sample_from_leftover_mzxml(self):
         # TODO: Implement test
         pass
 
