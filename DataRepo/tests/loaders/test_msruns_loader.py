@@ -22,15 +22,67 @@ class MSRunsLoaderTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
     MOCK_MZXML_DICT = {
-        "mysample1": {
-            "/path/to/first/file/": [{"added": True}],
-            "/path/to/second/file/": [{"added": True}],
+        "mysample1_edited_filename": {
+            "/path/to/first/file": [
+                {
+                    "added": True,
+                    "raw_file_name": "mysample1_edited_filename.raw",
+                    "raw_file_sha1": "uniquerawhash1",
+                    "polarity": "positive",
+                    "mz_min": 1.0,
+                    "mz_max": 8.0,
+                    "mzaf_record": "ignore this invalid value",
+                    "rawaf_record": "ignore this invalid value",
+                    "mzxml_filename": "mysample1_edited_filename.mzXML",
+                    "mzxml_dir": "/path/to/first/file",
+                }
+            ],
+            "/path/to/second/file": [
+                {
+                    "added": True,
+                    "raw_file_name": "mysample1_edited_filename.raw",
+                    "raw_file_sha1": "uniquerawhash2",
+                    "polarity": "positive",
+                    "mz_min": 1.0,
+                    "mz_max": 8.0,
+                    "mzaf_record": "ignore this invalid value",
+                    "rawaf_record": "ignore this invalid value",
+                    "mzxml_filename": "mysample1_edited_filename.mzXML",
+                    "mzxml_dir": "/path/to/second/file",
+                }
+            ],
         },
         "mysample_neg_pos_scan1": {
-            "/path/to/unique/file/name/set/": [{"added": True}],
+            "/path/to/unique/file/name/set": [
+                {
+                    "added": True,
+                    "raw_file_name": "mysample_neg_pos_scan1.raw",
+                    "raw_file_sha1": "uniquerawhash3",
+                    "polarity": "positive",
+                    "mz_min": 1.0,
+                    "mz_max": 8.0,
+                    "mzaf_record": "ignore this invalid value",
+                    "rawaf_record": "ignore this invalid value",
+                    "mzxml_filename": "mysample_neg_pos_scan1.mzXML",
+                    "mzxml_dir": "/path/to/unique/file/name/set",
+                }
+            ],
         },
         "mysample_neg_pos_scan2": {
-            "/path/to/unique/file/name/set/": [{"added": False}],
+            "/path/to/unique/file/name/set": [
+                {
+                    "added": False,
+                    "raw_file_name": "mysample_neg_pos_scan2.raw",
+                    "raw_file_sha1": "uniquerawhash4",
+                    "polarity": "positive",
+                    "mz_min": 1.0,
+                    "mz_max": 8.0,
+                    "mzaf_record": "ignore this invalid value",
+                    "rawaf_record": "ignore this invalid value",
+                    "mzxml_filename": "mysample_neg_pos_scan2.mzXML",
+                    "mzxml_dir": "/path/to/unique/file/name/set",
+                }
+            ],
         },
     }
 
@@ -310,7 +362,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        msrl.mzxml_dict["mysample_neg_pos_scan2"]["/path/to/unique/file/name/set/"][0][
+        msrl.mzxml_dict["mysample_neg_pos_scan2"]["/path/to/unique/file/name/set"][0][
             "added"
         ] = True
         self.assertFalse(msrl.leftover_mzxml_files_exist())
@@ -406,9 +458,62 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(0, matching_peakgroups_qs.count())
         self.assertEqual(2, unmatching_peakgroups_qs.count())
 
-    def test_get_matching_mzxml_metadata(self):
-        # TODO: Implement test
-        pass
+    def test_get_matching_mzxml_metadata_error(self):
+        """Tests the case where there are multiple mzXML files with the same name and the user will be prompted to add a
+        path to the infile."""
+        msrl = MSRunsLoader()
+        msrl.set_row_index(2)
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+            "mysample1",  # Sample name - does not match
+            "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
+            "mysample1_edited_filename.mzXML",  # file name without path will match multiple
+        )
+        self.assertIsNone(mzxml_metadata)
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIn(
+            "Multiple mzXML files", str(msrl.aggregated_errors_object.exceptions[0])
+        )
+        self.assertIn(
+            "/path/to/first/file/mysample1_edited_filename.mzXML",
+            str(msrl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "/path/to/second/file/mysample1_edited_filename.mzXML",
+            str(msrl.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_get_matching_mzxml_metadata_adding_path_fix(self):
+        """Tests the case where there are multiple mzXML files with the same name and the user fixes the issue by adding
+        a path to the mzXML Name column in the --infile."""
+        msrl = MSRunsLoader()
+        msrl.set_row_index(2)
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+            "mysample1",  # Sample name - does not match
+            "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
+            "/path/to/second/file/mysample1_edited_filename.mzXML",  # file name with path will match 1
+        )
+        expected = self.MOCK_MZXML_DICT["mysample1_edited_filename"][
+            "/path/to/second/file"
+        ][0]
+        self.assertDictEqual(expected, mzxml_metadata)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+
+    def test_get_matching_mzxml_metadata_header_matches_uniquely(self):
+        msrl = MSRunsLoader()
+        msrl.set_row_index(2)
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        expected = self.MOCK_MZXML_DICT["mysample_neg_pos_scan1"][
+            "/path/to/unique/file/name/set"
+        ][0]
+        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+            "mysample",  # Sample name - does not match
+            "mysample_neg_pos_scan1",  # Sample header - does match
+            "mysample_neg_pos_scan1.mzXML",  # file name or path
+        )
+        self.assertDictEqual(expected, mzxml_metadata)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
 
     def test_get_msrun_sequence(self):
         # TODO: Implement test

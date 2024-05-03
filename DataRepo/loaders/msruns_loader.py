@@ -406,7 +406,7 @@ class MSRunsLoader(TableLoader):
             # Raise to do a rollback
             raise e
 
-        mzxml_dir, _ = os.path.split(mzxml_file)
+        mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
 
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
@@ -445,13 +445,14 @@ class MSRunsLoader(TableLoader):
         mzxml_metadata["rawaf_record"] = rawaf_rec
         # And we'll use this for error reporting
         mzxml_metadata["mzxml_dir"] = mzxml_dir
+        mzxml_metadata["mzxml_filename"] = mzxml_filename
 
         # We will use this to know when to add leftovers that were not in the infile
         mzxml_metadata["added"] = False
 
         # Save the metadata by mzxml name (which may not be unique, so we're using the record ID as a second key, so
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
-        mzxml_basename, _ = os.path.splitext(mzxml_file)
+        mzxml_basename, _ = os.path.splitext(mzxml_filename)
         self.mzxml_dict[mzxml_basename][mzxml_dir].append(mzxml_metadata)
 
     @transaction.atomic
@@ -974,13 +975,11 @@ class MSRunsLoader(TableLoader):
 
         # Now we have a multiple_mzxml_dict with potentially multiple mzXML files' metadata
         # If there's only 1, return it:
-        if len(multiple_mzxml_dict.keys()) == 1:  # Directories
-            single_dir_dict = list(multiple_mzxml_dict.values())[0]
-            if (
-                len(single_dir_dict.keys()) == 1
-            ):  # ArchiveFile (for mzXMLs) primary keys
-                single_archive_file_dict = list(single_dir_dict.values())[0]
-                return single_archive_file_dict
+        if len(multiple_mzxml_dict.keys()) == 1:  # The keys are directories
+            single_dir_key = list(multiple_mzxml_dict.keys())[0]
+            single_dir_list_of_dicts = multiple_mzxml_dict[single_dir_key]
+            if len(single_dir_list_of_dicts) == 1:
+                return single_dir_list_of_dicts[0]
 
         # Otherwise, we need to try and match it using the directory portion of the mzXML file reported in the infile.
         # We need to do this in order to match the sequence.  There may be multiple sequences in the infile.
@@ -998,7 +997,7 @@ class MSRunsLoader(TableLoader):
             match_files = "\n\t".join(
                 [
                     # Not using dr["mzaf_record"].file_location because Django appends a randomized hash string
-                    os.path.join(dr["mzxml_dir"], mzxml_basename)
+                    os.path.join(dr["mzxml_dir"], dr["mzxml_filename"])
                     for dr in matches
                 ]
             )
