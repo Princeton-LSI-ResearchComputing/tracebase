@@ -640,11 +640,69 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertFalse(created)
         self.assertIsNone(rec)
 
-    def test_get_create_or_update_msrun_sample_from_row(self):
-        # TODO: Implement test
-        pass
+    def test_get_or_create_mzxml_and_raw_archive_files_str(self):
+        """Tests: 1. Accepts a path in string form.  Both creates and gets."""
+        msrl = MSRunsLoader()
+        (
+            mzaf_rec,
+            mzaf_created,
+            rawaf_rec,
+            rawaf_created,
+        ) = msrl.get_or_create_mzxml_and_raw_archive_files(
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        )
+        self.assertEqual(ArchiveFile, type(mzaf_rec))
+        self.assertTrue(mzaf_created)
+        self.assertEqual(ArchiveFile, type(rawaf_rec))
+        self.assertTrue(rawaf_created)
 
-    def test_get_or_create_mzxml_and_raw_archive_files(self):
+        # Now test that the raw record is not created when loading a different mzxml from the same raw
+        (
+            mzaf2_rec,
+            mzaf2_created,
+            rawaf2_rec,
+            rawaf2_created,
+        ) = msrl.get_or_create_mzxml_and_raw_archive_files(
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML"
+        )
+        self.assertEqual(ArchiveFile, type(mzaf2_rec))
+        self.assertTrue(mzaf2_created)
+        self.assertEqual(rawaf_rec, rawaf2_rec)
+        self.assertFalse(rawaf2_created)
+
+        # Now test that the mzxml record is not created when loading the same file
+        (
+            mzaf3_rec,
+            mzaf3_created,
+            rawaf3_rec,
+            rawaf3_created,
+        ) = msrl.get_or_create_mzxml_and_raw_archive_files(
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML"
+        )
+        self.assertEqual(mzaf2_rec, mzaf3_rec)
+        self.assertFalse(mzaf3_created)
+        self.assertEqual(rawaf2_rec, rawaf3_rec)
+        self.assertFalse(rawaf3_created)
+
+    def test_get_or_create_mzxml_and_raw_archive_files_path(self):
+        """Tests that the argument can be a Path object"""
+        msrl = MSRunsLoader()
+        (
+            mzaf_rec,
+            mzaf_created,
+            rawaf_rec,
+            rawaf_created,
+        ) = msrl.get_or_create_mzxml_and_raw_archive_files(
+            Path(
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+            )
+        )
+        self.assertEqual(ArchiveFile, type(mzaf_rec))
+        self.assertTrue(mzaf_created)
+        self.assertEqual(ArchiveFile, type(rawaf_rec))
+        self.assertTrue(rawaf_created)
+
+    def test_get_create_or_update_msrun_sample_from_row(self):
         # TODO: Implement test
         pass
 
