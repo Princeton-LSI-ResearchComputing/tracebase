@@ -861,6 +861,8 @@ class MSRunsLoader(TableLoader):
 
         return rec, created
 
+        return rec, created
+
     def get_msrun_sequence(self, name: Optional[str] = None) -> Optional[MSRunSequence]:
         """Retrieves an MSRunSequence record using either the value in the supplied SEQNAME column or via defaults for
         the Sequences sheet.
