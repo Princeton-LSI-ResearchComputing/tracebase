@@ -378,7 +378,7 @@ class MSRunsLoader(TableLoader):
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
         """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates self.mzxml_dict.
         Args:
-            mzxml_file (File)
+            mzxml_file (str or Path object)
         Exceptions:
             Raises:
                 DataType.DoesNotExist
@@ -387,7 +387,10 @@ class MSRunsLoader(TableLoader):
                 DataType.DoesNotExist
                 DataFormat.DoesNotExist
         Returns:
-            None
+            mzaf_rec (ArchiveFile)
+            mzaf_created (boolean)
+            rawaf_rec (ArchiveFile)
+            rawaf_created (boolean)
         """
         # Get or create the ArchiveFile record for the mzXML
         try:
@@ -399,8 +402,8 @@ class MSRunsLoader(TableLoader):
                 "data_type": DataType.objects.get(code="ms_data"),
                 "data_format": DataFormat.objects.get(code="mzxml"),
             }
-            mzaf_rec, created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
-            if created:
+            mzaf_rec, mzaf_created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
+            if mzaf_created:
                 self.created(ArchiveFile.__name__)
             else:
                 self.existed(ArchiveFile.__name__)
@@ -433,8 +436,8 @@ class MSRunsLoader(TableLoader):
                 "data_type": DataType.objects.get(code="ms_data"),
                 "data_format": DataFormat.objects.get(code="ms_raw"),
             }
-            rawaf_rec, created = ArchiveFile.objects.get_or_create(**raw_rec_dict)
-            if created:
+            rawaf_rec, rawaf_created = ArchiveFile.objects.get_or_create(**raw_rec_dict)
+            if rawaf_created:
                 self.created(ArchiveFile.__name__)
             else:
                 self.existed(ArchiveFile.__name__)
@@ -464,6 +467,13 @@ class MSRunsLoader(TableLoader):
         # that we can later associate a sample header (with the same non-unique issue) to its multiple mzXMLs).
         mzxml_basename, _ = os.path.splitext(mzxml_filename)
         self.mzxml_dict[mzxml_basename][mzxml_dir].append(mzxml_metadata)
+
+        return (
+            mzaf_rec,
+            mzaf_created,
+            rawaf_rec,
+            rawaf_created,
+        )
 
     @transaction.atomic
     def get_create_or_update_msrun_sample_from_row(self, row):
