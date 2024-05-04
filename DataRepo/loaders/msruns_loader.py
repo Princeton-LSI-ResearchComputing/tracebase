@@ -366,7 +366,7 @@ class MSRunsLoader(TableLoader):
                                 continue
 
                             try:
-                                self.get_create_or_update_msrun_sample_from_leftover_mzxml(
+                                self.get_or_create_msrun_sample_from_mzxml(
                                     sample, msrun_sequence, mzxml_metadata
                                 )
                             except Exception:
@@ -396,8 +396,8 @@ class MSRunsLoader(TableLoader):
                 # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "imported_timestamp": xxx,  # Gets automatically filled in by the model
                 "file_location": mzxml_file,  # Intentionally a string and not a File object
-                "data_type": DataType.objects.get("ms_data"),
-                "data_format": DataFormat.objects.get("mzxml"),
+                "data_type": DataType.objects.get(code="ms_data"),
+                "data_format": DataFormat.objects.get(code="mzxml"),
             }
             mzaf_rec, created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
             if created:
@@ -430,8 +430,8 @@ class MSRunsLoader(TableLoader):
                 "checksum": mzxml_metadata["raw_file_sha1"],
                 # "imported_timestamp": xxx,  # Gets automatically filled in by the model
                 # "file_location": xxx,  # We do not store raw files
-                "data_type": DataType.objects.get("ms_data"),
-                "data_format": DataFormat.objects.get("raw"),
+                "data_type": DataType.objects.get(code="ms_data"),
+                "data_format": DataFormat.objects.get(code="ms_raw"),
             }
             rawaf_rec, created = ArchiveFile.objects.get_or_create(**raw_rec_dict)
             if created:
@@ -512,7 +512,9 @@ class MSRunsLoader(TableLoader):
                 self.skipped(MSRunSample.__name__)
                 return
 
-            # Mark this particular mz ArchiveFile record as having been gotten/created
+            # Mark this particular mz ArchiveFile record as having been added to an MSRunSample record (even though
+            # retrieval and/or creation may fail below [which will buffer an error that eventually will be raised],
+            # because the important part is that we don't try and get or create it again)
             mzxml_metadata["added"] = True
 
             msrs_rec_dict = {
@@ -739,16 +741,28 @@ class MSRunsLoader(TableLoader):
         return rec
 
     @transaction.atomic
-    def get_create_or_update_msrun_sample_from_leftover_mzxml(
+    def get_or_create_msrun_sample_from_mzxml(
         self,
         sample,
         msrun_sequence,
         mzxml_metadata,
     ):
         """Takes a sample record, msrun_sequence record, and metadata parsed from the mzxml (including ArchiveFile
-        records created from the file) and gets, creates, or updates MSRunSample records.  Updates occur if a
-        placeholder record was found to pre-exist.  This method effectively results in eliminating those placeholders
-        (by updating them to include an actual mzXML file ArchiveFile record).
+        records created from the file) and gets or creates MSRunSample records.
+
+        Note, this will not update PeakGroup records.  Updating PeakGroup records is necessary to keep things in synch
+        if PeakGroups from this file were previously added to a placeholder record.
+
+        See get_create_or_update_msrun_sample_from_row to add mzXML files to MSRunSample records while updating
+        PeakGroup records.
+
+        This method assumes that either no placeholder MSRunSample record exists or none of the PeakGroup records
+        that link to it were confirmed to have matched this mzXML.  A PeakGroup record only matches an mzXML if the Peak
+        Annotation Details sheet (i.e. the --infile) annotates the mzXML filename and/or matching peak annotation sample
+        header as belonging to a specific peak annotation file (e.g. accucor file) AND the PeakGroup.med_mz falls into
+        the scan range parsed from the file.  (NOTE: There is no reliable way to check the polarity associated with a
+        PeakGroup record, because that is not reliably recorded in (and cannot be reliably derived from) the
+        PeakAnnotation files).
 
         Args:
             sample (Sample)
@@ -771,8 +785,18 @@ class MSRunsLoader(TableLoader):
             Buffers:
                 RecordDoesNotExist
         Returns:
-            None
+            rec (MSRunSample)
+            created (boolean)
         """
+        if mzxml_metadata["added"] is True:
+            self.aggregated_errors_object.buffer_warning(
+                ValueError(
+                    f"An MSRunSample record has already been associated with this mzXML: {mzxml_metadata}.  Do not "
+                    "call this method with mzxml_metadata where 'added' is True."
+                )
+            )
+            return None, False
+
         try:
             msrs_rec_dict = {
                 "msrun_sequence": msrun_sequence,
@@ -784,7 +808,7 @@ class MSRunsLoader(TableLoader):
                 "ms_data_file": mzxml_metadata["mzaf_record"],
             }
 
-            _, created = MSRunSample.objects.get_or_create(**msrs_rec_dict)
+            rec, created = MSRunSample.objects.get_or_create(**msrs_rec_dict)
 
             # Update the fact this one has been handled
             mzxml_metadata["added"] = True
@@ -799,6 +823,8 @@ class MSRunsLoader(TableLoader):
             self.errored(MSRunSample.__name__)
             # Trigger a rollback of this record
             raise e
+
+        return rec, created
 
     def get_msrun_sequence(self, name: Optional[str] = None) -> Optional[MSRunSequence]:
         """Retrieves an MSRunSequence record using either the value in the supplied SEQNAME column or via defaults for

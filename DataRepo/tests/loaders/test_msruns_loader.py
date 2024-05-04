@@ -22,71 +22,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class MSRunsLoaderTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
-    MOCK_MZXML_DICT = {
-        "mysample1_edited_filename": {
-            "/path/to/first/file": [
-                {
-                    "added": True,
-                    "raw_file_name": "mysample1_edited_filename.raw",
-                    "raw_file_sha1": "uniquerawhash1",
-                    "polarity": "positive",
-                    "mz_min": 1.0,
-                    "mz_max": 8.0,
-                    "mzaf_record": "ignore this invalid value",
-                    "rawaf_record": "ignore this invalid value",
-                    "mzxml_filename": "mysample1_edited_filename.mzXML",
-                    "mzxml_dir": "/path/to/first/file",
-                }
-            ],
-            "/path/to/second/file": [
-                {
-                    "added": True,
-                    "raw_file_name": "mysample1_edited_filename.raw",
-                    "raw_file_sha1": "uniquerawhash2",
-                    "polarity": "positive",
-                    "mz_min": 1.0,
-                    "mz_max": 8.0,
-                    "mzaf_record": "ignore this invalid value",
-                    "rawaf_record": "ignore this invalid value",
-                    "mzxml_filename": "mysample1_edited_filename.mzXML",
-                    "mzxml_dir": "/path/to/second/file",
-                }
-            ],
-        },
-        "mysample_neg_pos_scan1": {
-            "/path/to/unique/file/name/set": [
-                {
-                    "added": True,
-                    "raw_file_name": "mysample_neg_pos_scan1.raw",
-                    "raw_file_sha1": "uniquerawhash3",
-                    "polarity": "positive",
-                    "mz_min": 1.0,
-                    "mz_max": 8.0,
-                    "mzaf_record": "ignore this invalid value",
-                    "rawaf_record": "ignore this invalid value",
-                    "mzxml_filename": "mysample_neg_pos_scan1.mzXML",
-                    "mzxml_dir": "/path/to/unique/file/name/set",
-                }
-            ],
-        },
-        "mysample_neg_pos_scan2": {
-            "/path/to/unique/file/name/set": [
-                {
-                    "added": False,
-                    "raw_file_name": "mysample_neg_pos_scan2.raw",
-                    "raw_file_sha1": "uniquerawhash4",
-                    "polarity": "positive",
-                    "mz_min": 1.0,
-                    "mz_max": 8.0,
-                    "mzaf_record": "ignore this invalid value",
-                    "rawaf_record": "ignore this invalid value",
-                    "mzxml_filename": "mysample_neg_pos_scan2.mzXML",
-                    "mzxml_dir": "/path/to/unique/file/name/set",
-                }
-            ],
-        },
-    }
-
     @classmethod
     def setUpTestData(cls):
         inf = Infusate()
@@ -200,6 +135,87 @@ class MSRunsLoaderTests(TracebaseTestCase):
             med_mz=2.0,
             med_rt=2.0,
         )
+
+        bat_mzxml_file = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+        with path.open(mode="rb") as f:
+            BAT_xz971_mz_af = ArchiveFile.objects.create(
+                filename="BAT-xz971.mzXML",
+                checksum=ArchiveFile.hash_file(Path(bat_mzxml_file)),
+                file_location=File(f, name=path.name),
+                data_type=DataType.objects.get(code="ms_data"),
+                data_format=DataFormat.objects.get(code="mzxml"),
+            )
+        BAT_xz971_raw_af = ArchiveFile.objects.create(
+            filename="BAT-xz971.raw",
+            checksum="uniquerawhash4",
+            data_type=DataType.objects.get(code="ms_data"),
+            data_format=DataFormat.objects.get(code="ms_raw"),
+        )
+
+        cls.MOCK_MZXML_DICT = {
+            "mysample1_edited_filename": {
+                "/path/to/first/file": [
+                    {
+                        "added": True,
+                        "raw_file_name": "mysample1_edited_filename.raw",
+                        "raw_file_sha1": "uniquerawhash1",
+                        "polarity": "positive",
+                        "mz_min": 1.0,
+                        "mz_max": 8.0,
+                        "mzaf_record": "ignore this invalid value",
+                        "rawaf_record": "ignore this invalid value",
+                        "mzxml_filename": "mysample1_edited_filename.mzXML",
+                        "mzxml_dir": "/path/to/first/file",
+                    }
+                ],
+                "/path/to/second/file": [
+                    {
+                        "added": True,
+                        "raw_file_name": "mysample1_edited_filename.raw",
+                        "raw_file_sha1": "uniquerawhash2",
+                        "polarity": "positive",
+                        "mz_min": 1.0,
+                        "mz_max": 8.0,
+                        "mzaf_record": "ignore this invalid value",
+                        "rawaf_record": "ignore this invalid value",
+                        "mzxml_filename": "mysample1_edited_filename.mzXML",
+                        "mzxml_dir": "/path/to/second/file",
+                    }
+                ],
+            },
+            "Br-xz971": {
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls": [
+                    {
+                        "added": True,
+                        "raw_file_name": "Br-xz971.raw",
+                        "raw_file_sha1": "uniquerawhash3",
+                        "polarity": "positive",
+                        "mz_min": 1.0,
+                        "mz_max": 8.0,
+                        "mzaf_record": "ignore this invalid value",
+                        "rawaf_record": "ignore this invalid value",
+                        "mzxml_filename": "Br-xz971.mzXML",
+                        "mzxml_dir": "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+                    }
+                ],
+            },
+            "BAT-xz971": {
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls": [
+                    {
+                        "added": False,
+                        "raw_file_name": "BAT-xz971.raw",
+                        "raw_file_sha1": "uniquerawhash4",
+                        "polarity": "positive",
+                        "mz_min": 100.9,
+                        "mz_max": 502.9,
+                        "mzaf_record": BAT_xz971_mz_af,
+                        "rawaf_record": BAT_xz971_raw_af,
+                        "mzxml_filename": "BAT-xz971.mzXML",
+                        "mzxml_dir": "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+                    }
+                ],
+            },
+        }
 
         super().setUpTestData()
 
@@ -363,9 +379,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        msrl.mzxml_dict["mysample_neg_pos_scan2"]["/path/to/unique/file/name/set"][0][
-            "added"
-        ] = True
+        msrl.mzxml_dict["BAT-xz971"][
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+        ][0]["added"] = True
         self.assertFalse(msrl.leftover_mzxml_files_exist())
 
     def test_parse_mzxml(self):
@@ -505,13 +521,13 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
         msrl.mzxml_dict = self.MOCK_MZXML_DICT
-        expected = self.MOCK_MZXML_DICT["mysample_neg_pos_scan1"][
-            "/path/to/unique/file/name/set"
+        expected = self.MOCK_MZXML_DICT["Br-xz971"][
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         mzxml_metadata = msrl.get_matching_mzxml_metadata(
             "mysample",  # Sample name - does not match
-            "mysample_neg_pos_scan1",  # Sample header - does match
-            "mysample_neg_pos_scan1.mzXML",  # file name or path
+            "Br-xz971",  # Sample header - does match
+            "Br-xz971.mzXML",  # file name or path
         )
         self.assertDictEqual(expected, mzxml_metadata)
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
@@ -574,9 +590,55 @@ class MSRunsLoaderTests(TracebaseTestCase):
         sample = msrl.get_sample_by_name("Sample Name")
         self.assertEqual(Sample.objects.get(), sample)
 
-    def test_get_create_or_update_msrun_sample_from_leftover_mzxml(self):
-        # TODO: Implement test
-        pass
+    def test_get_or_create_msrun_sample_from_mzxml_success(self):
+        msrl = MSRunsLoader()
+        sample = self.msr.sample
+        msrun_sequence = self.msr.msrun_sequence
+
+        # Copy the metadata, because the method will modify it
+        mzxml_metadata = deepcopy(
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]
+        )
+
+        # Test create
+        rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
+            sample, msrun_sequence, mzxml_metadata
+        )
+        self.assertTrue(created)
+        self.assertEqual(rec.sample, sample)
+        self.assertEqual(rec.msrun_sequence, msrun_sequence)
+        self.assertEqual(mzxml_metadata["mzaf_record"], rec.ms_data_file)
+
+        # Test get
+        # Copy the metadata again
+        mzxml_metadata2 = deepcopy(
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]
+        )
+        rec2, created2 = msrl.get_or_create_msrun_sample_from_mzxml(
+            sample, msrun_sequence, mzxml_metadata2
+        )
+        self.assertFalse(created2)
+        self.assertEqual(rec, rec2)
+
+    def test_get_or_create_msrun_sample_from_mzxml_error(self):
+        msrl = MSRunsLoader()
+        sample = self.msr.sample
+        msrun_sequence = self.msr.msrun_sequence
+        # Copy the metadata, because the method will modify it
+        mzxml_metadata = deepcopy(
+            self.MOCK_MZXML_DICT["Br-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]
+        )
+        rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
+            sample, msrun_sequence, mzxml_metadata
+        )
+        self.assertFalse(created)
+        self.assertIsNone(rec)
 
     def test_get_create_or_update_msrun_sample_from_row(self):
         # TODO: Implement test
