@@ -68,32 +68,32 @@ class MSRunsLoaderTests(TracebaseTestCase):
             myfile = File(f, name=path.name)
             ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
             accucor_format = DataFormat.objects.get(code="accucor")
-            accucor_file = ArchiveFile.objects.create(
+            cls.accucor_file1 = ArchiveFile.objects.create(
                 filename="small_obob_maven_6eaas_inf.xlsx",
                 file_location=myfile,
                 checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
                 data_type=ms_peak_annotation,
                 data_format=accucor_format,
             )
-            accucor_file.save()
-        pg = PeakGroup.objects.create(
+            cls.accucor_file1.save()
+        cls.pg1 = PeakGroup.objects.create(
             name="gluc",
             formula="C6H12O6",
             msrun_sample=cls.msr,
-            peak_annotation_file=accucor_file,
+            peak_annotation_file=cls.accucor_file1,
         )
         PeakData.objects.create(
             raw_abundance=1000.0,
             corrected_abundance=1000.0,
-            peak_group=pg,
-            med_mz=4.0,
+            peak_group=cls.pg1,
+            med_mz=200.0,
             med_rt=1.0,
         )
         PeakData.objects.create(
             raw_abundance=2000.0,
             corrected_abundance=2000.0,
-            peak_group=pg,
-            med_mz=2.0,
+            peak_group=cls.pg1,
+            med_mz=201.0,
             med_rt=2.0,
         )
 
@@ -107,32 +107,32 @@ class MSRunsLoaderTests(TracebaseTestCase):
             myfile = File(f, name=path.name)
             ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
             accucor_format = DataFormat.objects.get(code="accucor")
-            accucor_file2 = ArchiveFile.objects.create(
+            cls.accucor_file2 = ArchiveFile.objects.create(
                 filename="small_obob_maven_6eaas_inf_lactate.xlsx",
                 file_location=myfile,
                 checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
                 data_type=ms_peak_annotation,
                 data_format=accucor_format,
             )
-            accucor_file2.save()
-        pg2 = PeakGroup.objects.create(
+            cls.accucor_file2.save()
+        cls.pg2 = PeakGroup.objects.create(
             name="lact",
             formula="C6H12O5",
             msrun_sample=cls.msr,
-            peak_annotation_file=accucor_file2,
+            peak_annotation_file=cls.accucor_file2,
         )
         PeakData.objects.create(
             raw_abundance=500.0,
             corrected_abundance=500.0,
-            peak_group=pg2,
-            med_mz=4.0,
+            peak_group=cls.pg2,
+            med_mz=300.0,
             med_rt=1.0,
         )
         PeakData.objects.create(
             raw_abundance=800.0,
             corrected_abundance=800.0,
-            peak_group=pg2,
-            med_mz=2.0,
+            peak_group=cls.pg2,
+            med_mz=301.0,
             med_rt=2.0,
         )
 
@@ -150,6 +150,23 @@ class MSRunsLoaderTests(TracebaseTestCase):
             checksum="uniquerawhash4",
             data_type=DataType.objects.get(code="ms_data"),
             data_format=DataFormat.objects.get(code="ms_raw"),
+        )
+
+        cls.sample_with_no_msr = Sample.objects.create(
+            name="sample_with_no_msr",
+            tissue=tsu,
+            animal=anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+
+        cls.seqname = ", ".join(
+            [
+                cls.msr.msrun_sequence.researcher,
+                cls.msr.msrun_sequence.lc_method.name,
+                cls.msr.msrun_sequence.instrument,
+                "1991-5-7",  # Simpler to just supply as string here
+            ]
         )
 
         cls.MOCK_MZXML_DICT = {
@@ -219,133 +236,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def deletecreate_msrun_sample_placeholder_rec(self):
-        inf = Infusate()
-        inf.save()
-        anml = Animal.objects.create(
-            name="test_animal",
-            age=timedelta(weeks=int(13)),
-            sex="M",
-            genotype="WT",
-            body_weight=200,
-            diet="normal",
-            feeding_status="fed",
-            infusate=inf,
-        )
-        tsu = Tissue.objects.create(name="Brain")
-        smpl = Sample.objects.create(
-            name="Sample Name",
-            tissue=tsu,
-            animal=anml,
-            researcher="John Doe",
-            date=datetime.now(),
-        )
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-
-        seq = MSRunSequence(
-            researcher="John Doe",
-            date=datetime.now(),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
-            lc_method=lcm,
-        )
-        seq.full_clean()
-        seq.save()
-        mstype = DataType.objects.get(code="ms_data")
-        rawfmt = DataFormat.objects.get(code="ms_raw")
-        mzxfmt = DataFormat.objects.get(code="mzxml")
-        rawrec = ArchiveFile.objects.create(
-            filename="test.raw",
-            file_location=None,
-            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
-            data_type=mstype,
-            data_format=rawfmt,
-        )
-        mzxrec = ArchiveFile.objects.create(
-            filename="test.mzxml",
-            file_location=None,
-            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
-            data_type=mstype,
-            data_format=mzxfmt,
-        )
-        msr = MSRunSample.objects.create(
-            msrun_sequence=seq,
-            sample=smpl,
-            polarity="unknown",
-            ms_raw_file=rawrec,
-            ms_data_file=mzxrec,
-        )
-        msr.full_clean()
-        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
-        with path.open(mode="rb") as f:
-            myfile = File(f, name=path.name)
-            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
-            accucor_format = DataFormat.objects.get(code="accucor")
-            accucor_file = ArchiveFile.objects.create(
-                filename="small_obob_maven_6eaas_inf.xlsx",
-                file_location=myfile,
-                checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
-                data_type=ms_peak_annotation,
-                data_format=accucor_format,
-            )
-            accucor_file.save()
-        pg = PeakGroup.objects.create(
-            name="gluc",
-            formula="C6H12O6",
-            msrun_sample=msr,
-            peak_annotation_file=accucor_file,
-        )
-        PeakData.objects.create(
-            raw_abundance=1000.0,
-            corrected_abundance=1000.0,
-            peak_group=pg,
-            med_mz=4.0,
-            med_rt=1.0,
-        )
-        PeakData.objects.create(
-            raw_abundance=2000.0,
-            corrected_abundance=2000.0,
-            peak_group=pg,
-            med_mz=2.0,
-            med_rt=2.0,
-        )
-
-        # This may not have the same samples, but it doesn't matter for this test
-        path = Path(
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
-        )
-        with path.open(mode="rb") as f:
-            myfile = File(f, name=path.name)
-            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
-            accucor_format = DataFormat.objects.get(code="accucor")
-            accucor_file2 = ArchiveFile.objects.create(
-                filename="small_obob_maven_6eaas_inf_lactate.xlsx",
-                file_location=myfile,
-                checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
-                data_type=ms_peak_annotation,
-                data_format=accucor_format,
-            )
-            accucor_file2.save()
-        pg2 = PeakGroup.objects.create(
-            name="lact",
-            formula="C6H12O5",
-            msrun_sample=msr,
-            peak_annotation_file=accucor_file2,
-        )
-        PeakData.objects.create(
-            raw_abundance=500.0,
-            corrected_abundance=500.0,
-            peak_group=pg2,
-            med_mz=None,  # Allow match from separate_placeholder_peak_groups based on annot file only
-            med_rt=1.0,
-        )
-        PeakData.objects.create(
-            raw_abundance=800.0,
-            corrected_abundance=800.0,
-            peak_group=pg2,
-            med_mz=None,  # Allow match from separate_placeholder_peak_groups based on annot file only
-            med_rt=2.0,
-        )
-
     def test_guess_sample_name_default(self):
         samplename = MSRunsLoader.guess_sample_name("mysample_neg_pos_scan2")
         self.assertEqual("mysample", samplename)
@@ -370,7 +260,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         described in the infile because they weren't used in the production of a peak annotation file).
         """
         msrl = MSRunsLoader()
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
         self.assertTrue(msrl.leftover_mzxml_files_exist())
 
     def test_leftover_mzxml_files_exist_false(self):
@@ -402,20 +292,22 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(expected, mz_dict)
         self.assertEqual(0, len(errs.exceptions))
 
-    def test_separate_placeholder_peak_groups_match_all(self):
+    def test_separate_placeholder_peak_groups_match_med_mz_none(self):
+        PeakData.objects.update(med_mz=None)
+        self.assertEqual(4, PeakData.objects.filter(med_mz__isnull=True).count())
         msrs = self.msr
         msrl = MSRunsLoader()
         # Although this is only ever called when adding an mzXML, we're not setting ms_data_file or ms_raw_file in the
         # rec_dict below, because the method doesn't use it.  It only uses the peak groups and their annotation files to
-        # separate the peak grouos belonging to the existing MSRunSample placeholder record.
+        # separate the peak groups belonging to the existing MSRunSample placeholder record.
         matching_peakgroups_qs, unmatching_peakgroups_qs = (
             msrl.separate_placeholder_peak_groups(
                 {
                     "msrun_sequence": msrs.msrun_sequence,
                     "sample": msrs.sample,
                     "polarity": "positive",
-                    "mz_min": 0.0,  # Encompasses 4.0
-                    "mz_max": 10.0,  # Encompasses 4.0
+                    "mz_min": 100.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
+                    "mz_max": 400.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
                     "ms_raw_file": None,  # See comment above
                     "ms_data_file": None,  # See comment above
                 },
@@ -429,24 +321,23 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual("lact", unmatching_peakgroups_qs.first().name)
 
     def test_separate_placeholder_peak_groups_match_annot(self):
-        msrs = self.msr
         msrl = MSRunsLoader()
         # Although this is only ever called when adding an mzXML, we're not setting ms_data_file or ms_raw_file in the
         # rec_dict below, because the method doesn't use it.  It only uses the peak groups and their annotation files to
-        # separate the peak grouos belonging to the existing MSRunSample placeholder record.
+        # separate the peak groups belonging to the existing MSRunSample placeholder record.
         matching_peakgroups_qs, unmatching_peakgroups_qs = (
             msrl.separate_placeholder_peak_groups(
                 {
-                    "msrun_sequence": msrs.msrun_sequence,
-                    "sample": msrs.sample,
+                    "msrun_sequence": self.msr.msrun_sequence,
+                    "sample": self.msr.sample,
                     "polarity": "positive",
-                    "mz_min": 0.0,  # Match's med_mz (in small_obob_maven_6eaas_inf_lactate.xlsx) is None
-                    "mz_max": 10.0,  # Match's med_mz (in small_obob_maven_6eaas_inf_lactate.xlsx) is None
+                    "mz_min": 100.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
+                    "mz_max": 400.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
                     "ms_raw_file": None,  # See comment above
                     "ms_data_file": None,  # See comment above
                 },
                 "small_obob_maven_6eaas_inf_lactate.xlsx",
-                msrs,
+                self.msr,
             )
         )
         self.assertEqual(1, matching_peakgroups_qs.count())
@@ -480,7 +371,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         path to the infile."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
         mzxml_metadata = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
@@ -505,7 +396,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         a path to the mzXML Name column in the --infile."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
         mzxml_metadata = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
@@ -520,7 +411,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_get_matching_mzxml_metadata_header_matches_uniquely(self):
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
-        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
         expected = self.MOCK_MZXML_DICT["Br-xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
@@ -588,7 +479,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_get_sample_by_name(self):
         msrl = MSRunsLoader()
         sample = msrl.get_sample_by_name("Sample Name")
-        self.assertEqual(Sample.objects.get(), sample)
+        self.assertEqual(Sample.objects.get(name="Sample Name"), sample)
 
     def test_get_or_create_msrun_sample_from_mzxml_success(self):
         msrl = MSRunsLoader()
@@ -702,8 +593,312 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(ArchiveFile, type(rawaf_rec))
         self.assertTrue(rawaf_created)
 
-    def test_get_create_or_update_msrun_sample_from_row(self):
-        # TODO: Implement test
+    def test_get_create_or_update_msrun_sample_from_row_creating_placeholder_no_placeholder_exists(
+        self,
+    ):
+        """Case: get/create a placeholder record
+        No placeholder record exists
+        Result: placeholder created
+        """
+        # if mzxml_metadata["mzaf_record"] is None:
+        #     if existing_placeholder_qs.count() == 0:
+        msrl = MSRunsLoader()
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.sample_with_no_msr.name}_pos",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "",  # Creating placeholder
+                MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+            }
+        )
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.sample_with_no_msr, rec.sample)
+        self.assertIsNone(rec.ms_data_file)
+        self.assertTrue(created)
+        self.assertFalse(updated)
+
+    def test_get_create_or_update_msrun_sample_from_row_creating_placeholder_placeholder_exists(
+        self,
+    ):
+        """Case: get/create a placeholder record
+        Placeholder record exists
+        Result: placeholder gotten
+        """
+        # if mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        msrl = MSRunsLoader()
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.msr.sample.name}_pos",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "",  # Getting placeholder
+                MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+            }
+        )
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.msr.sample, rec.sample)
+        self.assertIsNone(rec.ms_data_file)
+        self.assertFalse(created)
+        self.assertFalse(updated)
+
+    def test_get_create_or_update_msrun_sample_from_row_no_concrete_no_placeholder(
+        self,
+    ):
+        """Case: get/create a concrete record
+        No placeholder record exists
+        Result: concrete created
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if existing_placeholder_qs.count() == 0:
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.msr.sample.name}_neg",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "BAT-xz971.mzXML",  # Creating concrete
+                MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+            }
+        )
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.msr.sample, rec.sample)
+        self.assertEqual(
+            rec.ms_data_file,
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]["mzaf_record"],
+        )
+        self.assertTrue(created)
+        self.assertFalse(updated)
+
+    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_placeholder(
+        self,
+    ):
+        """Case: get/create a concrete record
+        No placeholder record exists
+        Result: concrete gotten
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if existing_placeholder_qs.count() == 0:
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+        # Assure no placeholder exists
+        self.assertEqual(
+            0,
+            MSRunSample.objects.filter(
+                msrun_sequence=self.msr.msrun_sequence,
+                sample=self.sample_with_no_msr,
+                ms_data_file__isnull=True,
+            ).count(),
+        )
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.sample_with_no_msr.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.sample_with_no_msr.name}_neg",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "BAT-xz971.mzXML",  # Creating concrete
+                MSRunsLoader.DataHeaders.ANNOTNAME: "accucor_file.xlsx",
+            }
+        )
+        # Create
+        msrl.get_create_or_update_msrun_sample_from_row(row)
+        # Get
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.sample_with_no_msr, rec.sample)
+        self.assertEqual(
+            rec.ms_data_file,
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]["mzaf_record"],
+        )
+        self.assertFalse(created)
+        self.assertFalse(updated)
+
+    def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_all_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with matching peak groups exists and no concrete record already exists
+        Result: placeholder MSRunSample updated to concrete record with mzXML
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
+        #             if existing_concrete_rec is None:
+
+        # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
+        # existing placeholder record (created in setUpTestData) will match the added mzXML file / concrete msrun_sample
+        # record
+        self.pg2.peak_annotation_file = self.accucor_file1
+        self.pg2.save()
+
+        # Set up the loader object
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.msr.sample.name}_neg",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "BAT-xz971.mzXML",  # Creating concrete
+                MSRunsLoader.DataHeaders.ANNOTNAME: self.accucor_file1.filename,
+            }
+        )
+
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.msr.sample, rec.sample)
+
+        # Check that the existing placeholder now has the mzXML
+        self.assertEqual(self.msr.id, rec.id)
+        self.assertEqual(
+            rec.ms_data_file,
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]["mzaf_record"],
+        )
+        self.assertFalse(created)
+        self.assertTrue(updated)
+
+    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_pgs_placeholder_all_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with matching peak groups exists and concrete record with no peak groups already exists
+        Result: placeholder MSRunSample updated to concrete record with mzXML and existing concrete record is deleted
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
+        #             if NOT existing_concrete_rec is None:
+        #                 if existing_concrete_rec.peak_groups.count() == 0:
+
+        # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
+        # existing placeholder record (created in setUpTestData) will match the added mzXML file / concrete msrun_sample
+        # record
+        self.pg2.peak_annotation_file = self.accucor_file1
+        self.pg2.save()
+
+        # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak grpoups link to it)
+        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT-xz971"][
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+        ][0]
+        empty_concrete_rec_dict = {
+            "msrun_sequence": self.msr.msrun_sequence,
+            "sample": self.msr.sample,
+            "polarity": concrete_mzxml_dict["polarity"],
+            "mz_min": concrete_mzxml_dict["mz_min"],
+            "mz_max": concrete_mzxml_dict["mz_max"],
+            "ms_data_file": concrete_mzxml_dict["mzaf_record"],
+            "ms_raw_file": concrete_mzxml_dict["rawaf_record"],
+        }
+        empty_concrete_rec = MSRunSample.objects.create(**empty_concrete_rec_dict)
+        empty_concrete_rec.full_clean()
+        empty_concrete_rec_id = empty_concrete_rec.id
+
+        # Set up the loader object
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.msr.sample.name}_neg",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "BAT-xz971.mzXML",  # Creating concrete
+                MSRunsLoader.DataHeaders.ANNOTNAME: self.accucor_file1.filename,
+            }
+        )
+
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.msr.sample, rec.sample)
+
+        # Check that the existing placeholder now has the mzXML
+        self.assertEqual(self.msr.id, rec.id)
+        self.assertEqual(
+            rec.ms_data_file,
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]["mzaf_record"],
+        )
+        self.assertFalse(created)
+        self.assertTrue(updated)
+
+        # Check that the existing concrete record was deleted
+        self.assertEqual(
+            0, MSRunSample.objects.filter(id=empty_concrete_rec_id).count()
+        )
+
+    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_with_pgs_placeholder_all_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with matching peak groups exists and concrete record with peak groups already exists
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
+        #             if NOT existing_concrete_rec is None:
+        #                 if NOT existing_concrete_rec.peak_groups.count() == 0:
+        pass
+
+    def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_exists_but_no_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with no matching peak groups exists and no concrete record exists
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         elif matching_peakgroups_qs.count() == 0:
+        #             if existing_concrete_rec is None:
+        pass
+
+    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_placeholder_exists_but_no_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with no matching peak groups exists and concrete record exists
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         elif matching_peakgroups_qs.count() == 0:
+        #             if NOT existing_concrete_rec is None:
+        pass
+
+    def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_exists_some_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with some matching peak groups exists and no concrete record exists
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         elif matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() > 0:
+        #             if existing_concrete_rec is None:
+        pass
+
+    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_placeholder_exists_some_pgs_match(
+        self,
+    ):
+        """Case: get/create a concrete record
+        Placeholder record with some matching peak groups exists and concrete record exists
+        """
+        # if NOT mzxml_metadata["mzaf_record"] is None:
+        #     if NOT existing_placeholder_qs.count() == 0:
+        #         elif matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() > 0:
+        #             if NOT existing_concrete_rec is None:
         pass
 
     def test_load_data(self):

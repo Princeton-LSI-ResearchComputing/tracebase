@@ -273,6 +273,25 @@ def exists_in_db(mdl_obj):
     return True
 
 
+def update_rec(rec, rec_dict):
+    """Update the supplied model record using the fields and values in the supplied rec_dict.
+    This could be accomplished using a queryset.update() call, but if it changes a field that was used in the original
+    query, and that query no longer matches, you cannot iterate through the records of the queryset to save the changes
+    you've made, thus the need for this method.
+    Args:
+        rec (Model)
+        rec_dict (dict): field values keyed on field name
+    Exceptions:
+        None
+    Returns:
+        None
+    """
+    for fld, val in rec_dict.items():
+        setattr(rec, fld, val)
+    rec.full_clean()
+    rec.save()
+
+
 # TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None):
     """
