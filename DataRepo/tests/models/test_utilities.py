@@ -95,6 +95,10 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(model_output.__class__.__name__, "ModelBase")
         self.assertEqual(mdl_input, model_output.__name__)
 
+    def test_update_rec(self):
+        # TODO: Implement test
+        pass
+
     # TODO: When the SampleTableLoader inherits from TableLoader, remove this test already copied to loader.py
     def test_get_unique_constraint_fields(self):
         mdl_name = "MSRunSample"
