@@ -927,8 +927,79 @@ class MSRunsLoaderTests(TracebaseTestCase):
         #                 if existing_concrete_rec.peak_groups.count() == 0:
         #                 else:
 
-        # TODO: Implement test
-        pass
+        # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak grpoups link to it)
+        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT-xz971"][
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+        ][0]
+        concrete_rec_dict = {
+            "msrun_sequence": self.msr.msrun_sequence,
+            "sample": self.msr.sample,
+            "polarity": concrete_mzxml_dict["polarity"],
+            "mz_min": concrete_mzxml_dict["mz_min"],
+            "mz_max": concrete_mzxml_dict["mz_max"],
+            "ms_data_file": concrete_mzxml_dict["mzaf_record"],
+            "ms_raw_file": concrete_mzxml_dict["rawaf_record"],
+        }
+
+        # Create a concrete record, to which we will add 1 peakgroup using a preparatory call to
+        # get_create_or_update_msrun_sample_from_row
+        concrete_rec = MSRunSample.objects.create(**concrete_rec_dict)
+        concrete_rec.full_clean()
+
+        # Set up the loader object
+        msrl = MSRunsLoader()
+        msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+
+        # The row data we will attempt to load
+        row = pd.Series(
+            {
+                MSRunsLoader.DataHeaders.SEQNAME: self.seqname,
+                MSRunsLoader.DataHeaders.SAMPLENAME: self.msr.sample.name,
+                MSRunsLoader.DataHeaders.SAMPLEHEADER: f"{self.msr.sample.name}_neg",
+                MSRunsLoader.DataHeaders.MZXMLNAME: "BAT-xz971.mzXML",  # Creating concrete
+                MSRunsLoader.DataHeaders.ANNOTNAME: self.accucor_file1.filename,
+            }
+        )
+
+        # This is an initial call to assign 1 peak group (from the existing placeholder) to the concrete record we
+        # created above
+        msrl.get_create_or_update_msrun_sample_from_row(row)
+
+        # Now we have both a placeholder and concrete record, each with 1 peak group.  Let's change the placeholder's
+        # peak group to now match the existing concrete record, to simulate a newly made association...
+
+        # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
+        # existing placeholder record (created in setUpTestData) will match the mzXML file / concrete msrun_sample
+        # record that is now associated with a peak annotation file
+        self.pg2.peak_annotation_file = self.accucor_file1
+        self.pg2.save()
+
+        # Keep track of the placeholder record's ID so we can check it gets deleted
+        placeholder_rec_id = self.msr.id
+
+        # This is the method we're testing
+        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+
+        # Make sure that the record returned belongs to the expected sample and sequence
+        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(self.msr.sample, rec.sample)
+
+        # Check that the record has the mzXML
+        self.assertEqual(concrete_rec.id, rec.id)
+        self.assertEqual(
+            rec.ms_data_file,
+            self.MOCK_MZXML_DICT["BAT-xz971"][
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
+            ][0]["mzaf_record"],
+        )
+        self.assertFalse(created)
+        self.assertTrue(updated)
+
+        # Check that the existing concrete record now has 2 peak groups
+        self.assertEqual(2, rec.peak_groups.count())
+
+        # Check that the existing placeholder record was deleted
+        self.assertEqual(0, MSRunSample.objects.filter(id=placeholder_rec_id).count())
 
     def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_exists_but_no_pgs_match(
         self,
