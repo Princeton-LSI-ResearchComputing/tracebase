@@ -941,7 +941,7 @@ class ExceptionTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Tests that rownum can be a string.  Location: column [Col5] on row [record name] of sheet [Test Sheet "
-                "1] in file [testrowname.xlsx]."
+                "1] in testrowname.xlsx."
             ),
             str(ie),
         )
