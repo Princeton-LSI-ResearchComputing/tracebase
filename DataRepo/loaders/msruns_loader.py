@@ -994,16 +994,30 @@ class MSRunsLoader(TableLoader):
                         ]
                     )
 
-            msrseq = MSRunSequence.objects.get(
-                researcher=operator,
-                date=date,
-                lc_method__name=lcprotname,
-                instrument=instrument,
-            )
+            msrseq_query_dict = {
+                "researcher": operator,
+                "date": date,
+                "lc_method__name": lcprotname,
+                "instrument": instrument,
+            }
+
+            msrseq = MSRunSequence.objects.get(**msrseq_query_dict)
 
         except Exception as e:
             if isinstance(e, InfileError):
                 self.aggregated_errors_object.buffer_error(e)
+            elif isinstance(e, MSRunSequence.DoesNotExist):
+                seqsource = self.file if self.file is not None else self.defaults_file
+                if seqsource is None:
+                    seqsource = "the default arguments: [operator, date, instrument, and lc_protocol_name]"
+                self.aggregated_errors_object.buffer_error(
+                    RecordDoesNotExist(
+                        MSRunSequence,
+                        msrseq_query_dict,
+                        file=seqsource,
+                        sheet=self.sheet,
+                    )
+                )
             else:
                 self.aggregated_errors_object.buffer_error(
                     InfileError(
