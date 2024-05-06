@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.apps import apps
 from django.core.management import call_command
 from django.db import IntegrityError
+from django.forms import ValidationError, model_to_dict
 
 from DataRepo.models import Animal, LCMethod, MSRunSequence, Study
 from DataRepo.models.utilities import (
@@ -15,6 +16,7 @@ from DataRepo.models.utilities import (
     get_unique_constraint_fields,
     get_unique_fields,
     handle_load_db_errors,
+    update_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
 from DataRepo.utils.exceptions import (
@@ -96,8 +98,23 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(mdl_input, model_output.__name__)
 
     def test_update_rec(self):
-        # TODO: Implement test
-        pass
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        lcm_id = lcm.id
+        update_dict = model_to_dict(lcm)
+        update_dict["name"] = "polar-HILIC-20-min"
+        update_dict["run_length"] = timedelta(minutes=20)
+        update_dict["description"] = "Edited description"
+        update_rec(lcm, update_dict)
+        updated_lcm = LCMethod.objects.get(name__exact="polar-HILIC-20-min")
+        self.assertEqual(lcm_id, updated_lcm.id)
+        self.assertEqual(timedelta(minutes=20), updated_lcm.run_length)
+        self.assertEqual("Edited description", updated_lcm.description)
+
+        # Test that it calls full clean by making it raise a ValidationError
+        # The clean method assures that the name matches the type and run length, so change run length and not the name
+        update_dict["run_length"] = timedelta(minutes=25)
+        with self.assertRaises(ValidationError):
+            update_rec(lcm, update_dict)
 
     # TODO: When the SampleTableLoader inherits from TableLoader, remove this test already copied to loader.py
     def test_get_unique_constraint_fields(self):

@@ -8,7 +8,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class MSRunSequenceTests(TracebaseTestCase):
     def setUp(self):
         self.lcm = LCMethod(
-            name="L.C. McMethod",
+            name="unknown",
             type="unknown",
             description="A long time ago, in a galaxy far far away...",
         )

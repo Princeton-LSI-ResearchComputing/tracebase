@@ -23,7 +23,7 @@ class MSRunSampleTests(TracebaseTestCase):
 
     def setUp(self):
         lcm = LCMethod(
-            name="L.C. McMethod",
+            name="unknown",
             type="unknown",
             description="A long time ago, in a galaxy far far away...",
         )
