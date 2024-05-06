@@ -731,6 +731,8 @@ class MSRunsLoader(TableLoader):
 
         return rec, created, updated
 
+        return rec, created, updated
+
     def get_sample_by_name(self, sample_name, from_mzxml=False):
         """Get a Sample record by name.
         Args:
