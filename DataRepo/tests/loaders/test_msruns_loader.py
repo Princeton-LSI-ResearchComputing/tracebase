@@ -17,6 +17,11 @@ from DataRepo.models.peak_group import PeakGroup
 from DataRepo.models.sample import Sample
 from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    InfileError,
+    MutuallyExclusiveArgs,
+)
 
 
 class MSRunsLoaderTests(TracebaseTestCase):
@@ -1287,10 +1292,71 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # And that the concrete record was given 1 peak group
         self.assertEqual(1, rec.peak_groups.count())
 
-    def test_load_data(self):
-        # TODO: Implement test
-        pass
+    def test_constructor_conflicting_defaults(self):
+        inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
+        with self.assertRaises(AggregatedErrors) as ar:
+            MSRunsLoader(
+                defaults_df=pd.DataFrame.from_dict(
+                    {
+                        MSRunsLoader.DefaultsHeaders.SHEET_NAME: [
+                            "Sequences",
+                            "Sequences",
+                            "Sequences",
+                            "Sequences",
+                        ],
+                        MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
+                            "Date",
+                            "Operator",
+                            "Instrument",
+                            "LC Protocol Name",
+                        ],
+                        MSRunsLoader.DefaultsHeaders.DEFAULT_VALUE: [
+                            "1991-5-7",
+                            "John Doe",
+                            inst,
+                            "polar-HILIC-25-min",
+                        ],
+                    }
+                ),
+                operator="L.C. McMethod",
+                date="2024-05-06",
+                instrument="QE2",
+                lc_protocol_name="polar-HILIC-20-min",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MutuallyExclusiveArgs, type(aes.exceptions[0]))
+        self.assertIn(
+            "['Operator', 'Date', 'LC Protocol Name', 'Instrument']",
+            str(aes.exceptions[0]),
+        )
 
-    def test_constructor_custom_defaults(self):
+    def test_constructor_sequences_loader_error(self):
+        """Trigger an error from the SequencesLoader class, which exists as an instance inside the MSRunsLoader, to
+        ensure that the errors it buffers are extracted and incorporated into the MSRunsLoader object.
+        """
+        with self.assertRaises(AggregatedErrors) as ar:
+            MSRunsLoader(
+                defaults_df=pd.DataFrame.from_dict(
+                    {
+                        MSRunsLoader.DefaultsHeaders.SHEET_NAME: ["Sequences"],
+                        MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
+                            "Invalid Column Name"
+                        ],
+                        MSRunsLoader.DefaultsHeaders.DEFAULT_VALUE: [
+                            "Any irrelevant value"
+                        ],
+                    }
+                ),
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(InfileError, type(aes.exceptions[0]))
+        self.assertIn(
+            "Expected: ['Sequence Name', 'Operator', 'LC Protocol Name', ",
+            str(aes.exceptions[0]),
+        )
+
+    def test_load_data(self):
         # TODO: Implement test
         pass

@@ -219,8 +219,9 @@ class MSRunsLoader(TableLoader):
             defaults_file=self.defaults_file,
         )
         seqdefaults = seqloader.get_user_defaults()
-        # TODO: Figure out a better way to handle buffered exceptions so that methods raise them as a group instead of
-        # needing to incorporate instance loaders like this for buffered errors
+        # TODO: Figure out a better way to handle buffered exceptions from another class that are only raised from a
+        # specific method, so that methods raise them as a group instead of needing to incorporate instance loaders like
+        # this for buffered errors
         self.aggregated_errors_object.merge_aggregated_errors_object(
             seqloader.aggregated_errors_object
         )
@@ -281,18 +282,22 @@ class MSRunsLoader(TableLoader):
                 self.instrument_default = instrument_default
 
             if len(mutex_arg_errs) > 0:
-                raise MutuallyExclusiveArgs(
-                    (
-                        f"The following arguments {mutex_arg_errs} have have conflicting values with the "
-                        f"{seqloader.DataSheetName} defaults {mutex_def_errs} (respectively) defined in %s."
-                    ),
-                    file=(
-                        self.defaults_file
-                        if self.defaults_file is not None
-                        else self.file
-                    ),
-                    sheet=self.sheet,
-                    column=seqloader.DefaultsHeaders.DEFAULT_VALUE,
+                raise self.aggregated_errors_object.buffer_error(
+                    MutuallyExclusiveArgs(
+                        (
+                            f"Multiple conflicting defaults defined via both arguments {mutex_arg_errs} and via the "
+                            f"{seqloader.DataSheetName} defaults sheet/file {mutex_def_errs}: %s.  Please use either "
+                            f"the {seqloader.DataSheetName} defaults sheet/file or the command line arguments (not "
+                            "both)."
+                        ),
+                        file=(
+                            self.defaults_file
+                            if self.defaults_file is not None
+                            else self.file
+                        ),
+                        sheet=self.sheet,
+                        column=seqloader.DefaultsHeaders.DEFAULT_VALUE,
+                    )
                 )
         else:
             self.operator_default = operator_default
@@ -361,19 +366,14 @@ class MSRunsLoader(TableLoader):
 
                 for mzxml_dir in self.mzxml_dict[mzxml_basename].keys():
                     for mzxml_metadata in self.mzxml_dict[mzxml_basename][mzxml_dir]:
-                        if mzxml_metadata["added"] is False:
-                            if msrun_sequence is None or sample is None:
-                                self.skipped(MSRunSample.__name__)
-                                continue
-
-                            try:
-                                self.get_or_create_msrun_sample_from_mzxml(
-                                    sample, msrun_sequence, mzxml_metadata
-                                )
-                            except Exception:
-                                # Exception handling was handled
-                                # Continue processing rows to find more errors
-                                pass
+                        try:
+                            self.get_or_create_msrun_sample_from_mzxml(
+                                sample, msrun_sequence, mzxml_metadata
+                            )
+                        except Exception:
+                            # Exception handling was handled
+                            # Continue processing rows to find more errors
+                            pass
 
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
@@ -832,13 +832,8 @@ class MSRunsLoader(TableLoader):
             rec (MSRunSample)
             created (boolean)
         """
-        if mzxml_metadata["added"] is True:
-            self.aggregated_errors_object.buffer_warning(
-                ValueError(
-                    f"An MSRunSample record has already been associated with this mzXML: {mzxml_metadata}.  Do not "
-                    "call this method with mzxml_metadata where 'added' is True."
-                )
-            )
+        if mzxml_metadata["added"] is True or msrun_sequence is None or sample is None:
+            self.skipped(MSRunSample.__name__)
             return None, False
 
         try:
