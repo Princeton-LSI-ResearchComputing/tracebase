@@ -1957,6 +1957,18 @@ class TableLoader(ABC):
                         # Add this unanticipated error to the other buffered errors
                         self.aggregated_errors_object.buffer_error(e)
 
+                    if self.aggregated_errors_object.exception_type_exists(NoLoadData):
+                        # Check to see if data was actually loaded from the derived class using an alternate means than
+                        # the dataframe (/infile) option, by assuming that if there are any stats (created, skipped,
+                        # existed, or updated), it means that data was successfully processed
+                        for stats_dict in self.record_counts.values():
+                            for count in stats_dict.values():
+                                if count > 0:
+                                    self.aggregated_errors_object.remove_exception_type(
+                                        NoLoadData
+                                    )
+                                    break
+
                     # Summarize any ConflictingValueError errors reported
                     cves = self.aggregated_errors_object.remove_exception_type(
                         ConflictingValueError

@@ -1183,7 +1183,7 @@ class AggregatedErrors(Exception):
 
         Args:
             exception_class (Exception): The class of exceptions to remove
-            modify (boolean): Whether the convert the removed exception to a warning
+            modify (boolean): Whether to convert the removed exception to a warning
         """
         return self.get_exception_type(exception_class, remove=True, modify=modify)
 
@@ -2597,7 +2597,7 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     if loc_str != "":
         loc_str += "in "
     if file is not None:
-        loc_str += f"file [{file}]"
+        loc_str += file
     else:
         loc_str += "the load file data"
     return loc_str

@@ -31,7 +31,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def setUpTestData(cls):
         inf = Infusate()
         inf.save()
-        anml = Animal.objects.create(
+        cls.anml = Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
             sex="M",
@@ -41,11 +41,11 @@ class MSRunsLoaderTests(TracebaseTestCase):
             feeding_status="fed",
             infusate=inf,
         )
-        tsu = Tissue.objects.create(name="Brain")
+        cls.tsu = Tissue.objects.create(name="Brain")
         smpl = Sample.objects.create(
             name="Sample Name",
-            tissue=tsu,
-            animal=anml,
+            tissue=cls.tsu,
+            animal=cls.anml,
             researcher="John Doe",
             date=datetime.now(),
         )
@@ -53,7 +53,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         seq = MSRunSequence.objects.create(
             researcher="John Doe",
-            date=datetime.strptime("1991-5-7".strip(), "%Y-%m-%d"),
+            date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
             instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
@@ -159,8 +159,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         cls.sample_with_no_msr = Sample.objects.create(
             name="sample_with_no_msr",
-            tissue=tsu,
-            animal=anml,
+            tissue=cls.tsu,
+            animal=cls.anml,
             researcher="John Doe",
             date=datetime.now(),
         )
@@ -1339,6 +1339,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
             MSRunsLoader(
                 defaults_df=pd.DataFrame.from_dict(
                     {
+                        # These are defaults for the Sequences sheet, used by the SequencesLoader instance that is a
+                        # member of an MSRunsLoader instance
                         MSRunsLoader.DefaultsHeaders.SHEET_NAME: ["Sequences"],
                         MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                             "Invalid Column Name"
@@ -1358,5 +1360,49 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
     def test_load_data(self):
-        # TODO: Implement test
-        pass
+        """This tests loading JUST the mzxml files with just the files themselves and defaults arguments (/command line
+        options).  I.e. no dataframe (/infile)."""
+
+        seq = MSRunSequence.objects.create(
+            researcher="L.C. McMethod",
+            date=datetime.strptime("2024-05-06", "%Y-%m-%d"),
+            instrument="QE2",
+            lc_method=LCMethod.objects.get(name__exact="polar-HILIC-25-min"),
+        )
+        smpl = Sample.objects.create(
+            name="BAT-xz971",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+
+        # Set up the loader object
+        msrl = MSRunsLoader(
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+            ],
+            operator="L.C. McMethod",
+            date="2024-05-06",
+            instrument="QE2",
+            lc_protocol_name="polar-HILIC-25-min",
+        )
+
+        # Ensure record does not exist at first (so we know this test is meaningful)
+        self.assertEqual(
+            0,
+            MSRunSample.objects.filter(
+                sample=smpl,
+                msrun_sequence=seq,
+            ).count(),
+        )
+
+        # This is the method we're testing
+        msrl.load_data()
+
+        MSRunSample.objects.get(
+            sample=smpl,
+            msrun_sequence=seq,
+            ms_data_file__filename="BAT-xz971.mzXML",
+        )
+        # No exception = successful test
