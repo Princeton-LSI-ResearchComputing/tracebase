@@ -103,7 +103,7 @@ class SequencesLoader(TableLoader):
                 f"- {DataHeaders.INSTRUMENT}\n"
                 f"- {DataHeaders.DATE}"
             ),
-            # TODO: Create the method that applies the cormula to the SEQNAME column on every row
+            # TODO: Create the method that applies the formula to the SEQNAME column on every row
             # Excel formula that creates f"{operator}, {lc_name}, {instrument}, {date}" using the spreadsheet columns on
             # the current row.  The header keys will be replaced by the excel column letters:
             # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), ", ", INDIRECT("C" & ROW()), ", ", INDIRECT("D" & ROW()), ", ",

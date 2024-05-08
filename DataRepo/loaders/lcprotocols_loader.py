@@ -79,7 +79,7 @@ class LCProtocolsLoader(TableLoader):
             field=LCMethod.name,
             type=str,
             readonly=True,
-            # TODO: Create the method that applies the cormula to the NAME column on every row
+            # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates f"{type}-{run_length}-min" using the spreadsheet columns on the current row
             # The header keys will be replaced by the excel column letters:
             # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), "-", INDIRECT("C" & ROW()), "-min")'

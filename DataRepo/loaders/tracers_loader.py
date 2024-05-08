@@ -4,6 +4,8 @@ from typing import Dict
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import ProgrammingError, transaction
 
+from DataRepo.loaders.compounds_loader import CompoundsLoader
+from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, MaintainedModel, Tracer, TracerLabel
 from DataRepo.utils.exceptions import (
@@ -132,6 +134,70 @@ class TracersLoader(TableLoader):
             "positions": LABEL_POSITIONS_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        ID=TableColumn.init_flat(
+            name=DataHeaders.ID,
+            help_text=(
+                "Arbitrary number that identifies every row containing a label that belongs to a single tracer.  This "
+                f"is not loaded into the database.  The {DataHeaders.NAME} column is populated using an excel formula "
+                f"based on all rows containing the same {DataHeaders.ID}."
+            ),
+            type=int,
+        ),
+        COMPOUND=TableColumn.init_flat(
+            name=DataHeaders.COMPOUND,
+            field=Tracer.compound,
+            help_text="Primary compound name.",
+            type=str,
+            # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
+            dynamic_choices=ColumnReference(
+                loader_class=CompoundsLoader,
+                loader_header_key=CompoundsLoader.NAME_KEY,
+            ),
+        ),
+        ELEMENT=TableColumn.init_flat(
+            name=DataHeaders.ELEMENT,
+            field=TracerLabel.element,
+            type=str,
+        ),
+        MASSNUMBER=TableColumn.init_flat(
+            name=DataHeaders.MASSNUMBER,
+            field=TracerLabel.mass_number,
+            type=int,
+        ),
+        LABELCOUNT=TableColumn.init_flat(
+            name=DataHeaders.LABELCOUNT,
+            field=TracerLabel.count,
+            type=int,
+        ),
+        LABELPOSITIONS=TableColumn.init_flat(
+            name=DataHeaders.LABELPOSITIONS,
+            field=TracerLabel.positions,
+            format="Comma-delimited string of integers.",
+            type=str,
+        ),
+        NAME=TableColumn.init_flat(
+            name=DataHeaders.NAME,
+            field=Tracer.name,
+            # TODO: Replace "Infusates" and "Tracer Name" below with a reference to its loader's DataSheetName and the
+            # corresponding column, respectively
+            guidance="This column is used to populate Tracer Name choices in the Infusates sheet.",
+            type=str,
+            # TODO: Create the method that applies the formula to the NAME column on every row
+            # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
+            # current row.  The header keys will be replaced by the excel column letters.
+            # TODO: Copy out the formula from the example excel sheet I created on my laptop
+            # formula=(
+            #     "=CONCATENATE("
+            #     f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
+            #     f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
+            #     f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
+            #     f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
+            #     ")"
+            # ),
+        ),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Tracer, TracerLabel]
