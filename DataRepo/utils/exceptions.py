@@ -17,6 +17,53 @@ if TYPE_CHECKING:
 
 
 class InfileError(Exception):
+    """An exception class to provide file location context to other exceptions (when used as a base class).
+
+    It brings consistency between error types to make all exceptions that reference a position in a table-like file,
+    conform to a single way of formatting file location information (file name, excel sheet name, row number, and column
+    name (or number)).
+
+    Often, the derived class may opt to list multiple columns or row numbers (but reference the same file or sheet), so
+    none of the arguments are required.  If none are provided, the file will be generically referenced (showing that the
+    erroneous data is located in an input file (as opposed to a database, for example)).
+
+    Example usage:
+
+    class MyException(InfileError):
+        def __init__(self, erroneous_value, **kwargs):
+            message = f"This is my error about {erroneous_value}, found here: %s. You chould change it to 'good value'."
+            super().__init__(message, **kwargs)
+
+    def some_load_method(dataframe, file, sheet):
+        for rownum, row in dataframe.iterrows():
+            value = row["my data column"]
+            if value_is_bad(value):
+                raise MyException(value, rownum=rownum, column="my data column", sheet=sheet, file=file)
+            else:
+                load_value(value)
+
+    Args:
+        message (string): An error message containing at least 1 `%s` placeholder for where to put the file location
+            information.  If `%s` isn't in the supplied message, it will be appended.  Optionally, the message may
+            contain up to 4 more occurrences of `%s`.  See the `order` arg for more information.
+        rownum (integer or string): The row number (or name) where the erroneous data was encountered.
+        column (integer or string): The column name (or number) where the erroneous data was encountered.
+        sheet (integer or string): The sheet name (or index) of an excel file where the erroneous data was encountered.
+        file (string): The name of the file where the erroneous data was encountered.
+        order (list of strings) {"rownum", "sheet", "file", "column", "loc"}: By default, the message is assumed to have
+            a single `%s` occurrence where the file location information ("loc"), but if `order` is populated, the
+            number of `%s` occurrences is expected to be the same as the length of order.  However, "loc" must be
+            included.  If it is not, it is appended (and if necessary, a `%s` is appended to the message as well).  The
+            values of the corresponding arguments are inserted into the message at the locations of the `%s` occurrences
+            in the given order.
+
+    Raises:
+        ValueError: If the length of the order list doesn't match the `%s` occurrences in the message.
+
+    Returns:
+        Instance
+    """
+
     def __init__(
         self,
         message,
@@ -26,6 +73,7 @@ class InfileError(Exception):
         column=None,
         order=None,
     ):
+        location_args = ["rownum", "column", "file", "sheet"]
         self.rownum = rownum
         self.sheet = sheet
         self.file = file
@@ -33,16 +81,22 @@ class InfileError(Exception):
         loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
         )
+        self.loc = loc
+
         if "%s" not in message:
+            # The purpose of this (base) class is to provide file location context of erroneous data to exception
+            # messages in a uniform way.  It inserts that information where `%s` occurs in the supplied message.
+            # Instead of making `%s` (in the simplest case) required, and raise an exception, the `%s` is just appended.
             message += "  Location: %s."
+
         if order is not None:
-            if "loc" not in order and len(order) != 4:
-                if message.count("%s") != len(order) + 1:
-                    raise ValueError(
-                        "You must either provide all location arguments in your order list: [rownum, column, file, "
-                        "sheet] or provide an extra '%s' in your message for the leftover location information."
-                    )
+            if "loc" not in order and len(order) != len(location_args):
                 order.append("loc")
+                if message.count("%s") != len(order):
+                    raise ValueError(
+                        f"You must either provide all location arguments in your order list: {location_args} or "
+                        "provide an extra '%s' in your message for the leftover location information."
+                    )
             # Save the arguments in a dict
             vdict = {
                 "file": file,
@@ -62,14 +116,13 @@ class InfileError(Exception):
             loc = generate_file_location_string(
                 rownum=rownum, sheet=sheet, file=file, column=column
             )
-            insertions = [vdict[k] if k != "loc" else loc for k in order]
-            if "loc" not in order and len(order) != 4:
-                insertions.append(loc)
+            vdict["loc"] = loc
+            self.loc = loc
+            insertions = [vdict[k] for k in order]
             message = message % tuple(insertions)
         else:
             message = message % loc
         super().__init__(message)
-        self.loc = loc
 
 
 class HeaderError(Exception):
