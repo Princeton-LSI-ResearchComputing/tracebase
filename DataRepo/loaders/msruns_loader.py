@@ -1311,7 +1311,7 @@ class MSRunsLoader(TableLoader):
                 raw_file_name = None
                 raw_file_sha1 = None
 
-            polarity = MSRunSample.POLARITY_DEFAULT
+            polarity = None
             mz_min = None
             mz_max = None
             symbol_polarity = ""

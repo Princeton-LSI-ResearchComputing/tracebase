@@ -31,14 +31,9 @@ class MSRunSample(HierCachedModel, MaintainedModel):
         ("positive", "positive"),
         ("negative", "negative"),
     ]
-    # The default polarity is used in loading, tests, and the validation interface as placeholders.  During loading,
-    # the precedence is: polarity parsed from mzXML file > value recorded in the LCMS Metadata file for the given sample
-    # > value provided on the command line > This default value.  An exception will be raised if the mzXML file value
-    # and the LCMS Metadata values differ.
-    POLARITY_DEFAULT = POLARITY_CHOICES[0][0]
     UNKNOWN_POLARITY = POLARITY_CHOICES[0][0]
     # These polarity values are used to convert the polarity representation parsed from an mzXML file (which records
-    # polarity using the symbols "=" and "-")
+    # polarity using the symbols "+" and "-")
     POSITIVE_POLARITY = POLARITY_CHOICES[1][0]
     NEGATIVE_POLARITY = POLARITY_CHOICES[2][0]
 

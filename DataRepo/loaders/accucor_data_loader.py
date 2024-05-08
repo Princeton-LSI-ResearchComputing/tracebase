@@ -255,7 +255,7 @@ class AccuCorDataLoader:
             "date": None,
             "researcher": None,
             "instrument": None,
-            "polarity": None,
+            "polarity": None,  # TODO: Will be eliminated in a refactor. There should be no default 4 this or mz_min/max
             "mz_min": None,
             "mz_max": None,
             "peak_annot_file": self.peak_annotation_filename,
@@ -514,8 +514,8 @@ class AccuCorDataLoader:
         missing_header_defaults = defaultdict(dict)
         placeholders_needed = False
         for sample_header in self.corrected_sample_headers:
-            # Determine the polarity using the LCMS metadata file's value, the parsed mzXML file value, the command line
-            # default value, and the global default value.
+            # TODO: This will be eliminated in a refactor.  Polarity, mz_min, and mz_max should only ever be populated
+            # as derived from the mzXML.  Minimal edits were made to this code to quickly accomplish that here.
             # Precedence: mzXML > LCMS file > Command line default > global default.
             polarity = self.lcms_defaults["polarity"]
             mz_min = self.lcms_defaults["mz_min"]
@@ -542,8 +542,6 @@ class AccuCorDataLoader:
                         and parsed_polarity is not None
                         # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
                         and self.lcms_metadata[sample_header]["polarity"] is not None
-                        and self.lcms_metadata[sample_header]["polarity"]
-                        != MSRunSample.POLARITY_DEFAULT
                         and parsed_polarity
                         != self.lcms_metadata[sample_header]["polarity"]
                     ):
@@ -809,13 +807,7 @@ class AccuCorDataLoader:
 
     def get_missing_required_lcms_defaults(self):
         optionals = ["polarity", "mz_min", "mz_max"]
-        # polarity, mz_min, and mz_max will default to the values parsed from the mzXML file.  In the case of polarity,
-        # if the mzXML file is not supplied, the supplied --polarity default will be used, and if that default is not
-        # supplied, it will default to MSRunSample.POLARITY_DEFAULT.  For mz_min and mz_max, if the mzXML file is not
-        # supplied, there will be no default value (i.e. it will be None).  If there are multiple scans of the same
-        # sample at the same polarity, a unique constraint violation error will be raised complaining that the peak
-        # annotation file linked to the peak group will conflict with the prior loaded record (this will be because the
-        # linked MSRunSample record is wrong).
+        # TODO: A pending refactor will eliminate the above defaults as defaults.
         return [
             key
             for key in self.lcms_defaults.keys()

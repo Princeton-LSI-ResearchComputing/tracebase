@@ -923,7 +923,6 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            # polarity="positive",  # Use parsed mzxml as default
             mzxml_files=[
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",

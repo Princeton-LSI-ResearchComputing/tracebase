@@ -176,7 +176,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1022,7 +1022,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1187,7 +1187,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=second_serum_sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1307,7 +1307,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=second_serum_sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1474,7 +1474,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=peak_group.msrun_sample.sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )

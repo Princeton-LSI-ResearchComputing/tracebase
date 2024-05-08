@@ -310,7 +310,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 {
                     "msrun_sequence": msrs.msrun_sequence,
                     "sample": msrs.sample,
-                    "polarity": "positive",
+                    "polarity": MSRunSample.POSITIVE_POLARITY,
                     "mz_min": 100.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
                     "mz_max": 400.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
                     "ms_raw_file": None,  # See comment above
@@ -335,7 +335,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 {
                     "msrun_sequence": self.msr.msrun_sequence,
                     "sample": self.msr.sample,
-                    "polarity": "positive",
+                    "polarity": MSRunSample.POSITIVE_POLARITY,
                     "mz_min": 100.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
                     "mz_max": 400.0,  # Encompasses 200.0, 201.0, 300.0, and 301.0
                     "ms_raw_file": None,  # See comment above
@@ -358,7 +358,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 {
                     "msrun_sequence": msrs.msrun_sequence,
                     "sample": msrs.sample,
-                    "polarity": "positive",
+                    "polarity": MSRunSample.POSITIVE_POLARITY,
                     "mz_min": 50.0,  # Does not encompass 4.0
                     "mz_max": 100.0,  # Does not encompass 4.0
                     "ms_raw_file": None,

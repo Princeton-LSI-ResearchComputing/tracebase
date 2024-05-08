@@ -135,7 +135,7 @@ class FCircTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.newlss,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -366,7 +366,7 @@ class FCircTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.newlss,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
