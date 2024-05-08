@@ -1460,23 +1460,30 @@ class ConflictingValueError(InfileError):
         differences,
         rec_dict=None,
         message=None,
+        derived=False,
         **kwargs,
     ):
         """Constructor
 
         Args:
-            rec (Model): Matching existing database record that caused the unique constraint violation.
-            differences (Dict(str)): Dictionary keyed on field name and whose values are dics whose keys are "orig" and
-                "new", and the values are the value of the field in the database and file, respectively.  Example:
+            rec (Optional[Model]): Matching existing database record that caused the unique constraint violation.
+            differences (Optional[Dict(str)]): Dictionary keyed on field name and whose values are dicts whose keys are
+                "orig" and "new", and the values are the value of the field in the database and file, respectively.
+                Example:
                 {
                     "description": {
                         "orig": "the database decription",
                         "new": "the file description",
                 }
-            rownum (int): The row or line number with the data that caused the conflict.
-            sheet (str): The name of the excel sheet where the conflict was encountered.
+            rec_dict (dict obf objects): The dict that was (or would be) supplied to Model.get_or_create()
+            derived (boolean): Whether the database value was a generated value or not.  Certain fields in the database
+                are automatically maintained, and values in the loading file may not actually be loaded, thus
+                differences with generated values should be designated as warnings only.
             message (str): The error message.
-            file (str): The name/path of the file where the conflict was encoutnered.
+            kwargs:
+                rownum (int): The row or line number with the data that caused the conflict.
+                sheet (str): The name of the excel sheet where the conflict was encountered.
+                file (str): The name/path of the file where the conflict was encoutnered.
         """
         if not message:
             mdl = "No record provided"
@@ -1497,6 +1504,11 @@ class ConflictingValueError(InfileError):
                     )
             else:
                 message += "\tDifferences not provided"
+            if derived:
+                message += (
+                    "\nNote, the database field value(s) shown are automatically generated.  The database record may "
+                    "nor may not exist.  The value in your file conflicts with the generated value."
+                )
         super().__init__(message, **kwargs)
         self.rec = rec  # Model record that conflicts
         self.rec_dict = rec_dict  # Dict created from file
@@ -2524,6 +2536,16 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         message = f"Compound [{name}] from %s does not exist as either a primary compound name or synonym."
         super().__init__(message, **kwargs)
         self.name = name
+
+
+class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
+    def __init__(self, model, query_dict, **kwargs):
+        message = (
+            f"{model.__name__} record matching {query_dict} from %s does not exist."
+        )
+        super().__init__(message, **kwargs)
+        self.query_dict = query_dict
+        self.model = model
 
 
 class MissingDataAdded(InfileError):

@@ -1,4 +1,4 @@
-Sequence Number	Operator	Date	Instrument	LC Protocol	LC Run Length	LC Description	Notes
-1	Xianfeng Zeng	2021-6-8	HILIC	polar-HILIC	25		
-2	Xianfeng Zeng	2021-10-19	HILIC	polar-HILIC	25		
-3	Xianfeng Zeng	2020-7-22	HILIC	polar-HILIC	25		
+Sequence Name	Operator	Date	Instrument	LC Protocol Name	Notes
+Xianfeng Zeng, polar-HILIC-25-min, QE2, 2021-6-8	Xianfeng Zeng	2021-6-8	QE2	polar-HILIC-25-min	
+Xianfeng Zeng, polar-HILIC-25-min, QE2, 2021-10-19	Xianfeng Zeng	2021-10-19	QE2	polar-HILIC-25-min	
+Xianfeng Zeng, polar-HILIC-25-min, QE2, 2020-7-22	Xianfeng Zeng	2020-7-22	QE2	polar-HILIC-25-min	
