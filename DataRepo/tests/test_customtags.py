@@ -38,7 +38,6 @@ class CustomTagsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
-            polarity="positive",
         )
         super().setUpTestData()
 

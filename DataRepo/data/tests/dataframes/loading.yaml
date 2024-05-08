@@ -10,7 +10,6 @@ accucor_data:
     - name: "accucor_df_test1.xlsx"
   lc_protocol: "unknown"
   instrument: "unknown"
-  polarity: "positive"
   date: "2021-06-29"
   researcher: "Xianfeng Zeng"
   new_researcher: False

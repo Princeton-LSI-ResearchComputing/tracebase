@@ -10,7 +10,6 @@ accucor_data:
     - name: "small_obob_maven_6eaas_inf_glucose.xlsx"
   lc_protocol: "polar-HILIC-25-min"
   instrument: "unknown"
-  polarity: "positive"
   date: "2021-04-29"
   researcher: "Xianfeng Zeng"
   new_researcher: False

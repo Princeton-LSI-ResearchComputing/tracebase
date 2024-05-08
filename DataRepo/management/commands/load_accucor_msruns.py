@@ -77,38 +77,6 @@ class Command(BaseCommand):
             required=False,
         )
         parser.add_argument(
-            "--polarity",
-            type=str,
-            help=(
-                "Default ion mode of the LCMS instrument that analyzed the samples.  Used if --lcms-file is not "
-                "supplied, or specifies no polarity for a sample."
-            ),
-            default=None,
-            required=False,
-        )
-        parser.add_argument(
-            "--mz-min",
-            type=float,
-            help=(
-                "Default unsigned minimum charge of the MSRun scan range.  Only required if a study contains multiple "
-                "MSRuns with the same polarity.  Automatically parsed from mzXML.  If unavailable, the minimum medMz "
-                "value from the accucor/isocorr file is acceptable."
-            ),
-            default=None,
-            required=False,
-        )
-        parser.add_argument(
-            "--mz-max",
-            type=float,
-            help=(
-                "Default unsigned maximum charge of the MSRun scan range.  Only required if a study contains multiple "
-                "MSRuns with the same polarity.  Automatically parsed from mzXML.  If unavailable, the maximum medMz "
-                "value from the accucor/isocorr file is acceptable."
-            ),
-            default=None,
-            required=False,
-        )
-        parser.add_argument(
             "--date",
             type=str,
             help=(
@@ -223,9 +191,6 @@ class Command(BaseCommand):
             lc_protocol_name=options["lc_protocol_name"],
             researcher=options["researcher"],
             instrument=options["instrument"],
-            polarity=options["polarity"],
-            mz_min=options["mz_min"],
-            mz_max=options["mz_max"],
             mzxml_files=mzxml_files,
             peak_annotation_filename=peak_annotation_filename,
             # Sample options

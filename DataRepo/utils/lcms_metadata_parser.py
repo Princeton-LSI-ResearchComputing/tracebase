@@ -18,9 +18,6 @@ LCMS_MZXML_HDR = "mzxml filename"
 LCMS_PEAK_ANNOT_HDR = "peak annotation filename"
 LCMS_INSTRUMENT_HDR = "instrument"
 LCMS_OPERATOR_HDR = "operator"
-LCMS_POLARITY_HDR = "polarity"
-LCMS_MINMZ_HDR = "mz min"
-LCMS_MAXMZ_HDR = "mz max"
 LCMS_DATE_HDR = "date"
 LCMS_LCMETHOD_HDR = "lc method"
 LCMS_RUNLEN_HDR = "lc run length"
@@ -33,9 +30,6 @@ LCMS_HEADERS = (
     LCMS_PEAK_ANNOT_HDR,
     LCMS_INSTRUMENT_HDR,
     LCMS_OPERATOR_HDR,
-    LCMS_POLARITY_HDR,
-    LCMS_MINMZ_HDR,
-    LCMS_MAXMZ_HDR,
     LCMS_DATE_HDR,
     LCMS_LCMETHOD_HDR,
     LCMS_RUNLEN_HDR,
@@ -96,14 +90,6 @@ def lcms_df_to_dict(df, aes=None):
         if row[LCMS_RUNLEN_HDR] is not None:
             run_len = timedelta(minutes=int(row[LCMS_RUNLEN_HDR]))
 
-        mz_min = None
-        if row[LCMS_MINMZ_HDR] is not None:
-            mz_min = float(row[LCMS_MINMZ_HDR])
-
-        mz_max = None
-        if row[LCMS_MAXMZ_HDR] is not None:
-            mz_max = float(row[LCMS_MAXMZ_HDR])
-
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
@@ -116,9 +102,9 @@ def lcms_df_to_dict(df, aes=None):
             "lc_type": row[LCMS_LCMETHOD_HDR],
             "lc_run_length": run_len,
             "lc_description": row[LCMS_LCDESC_HDR],
-            "polarity": row[LCMS_POLARITY_HDR],
-            "mz_min": mz_min,
-            "mz_max": mz_max,
+            "polarity": None,
+            "mz_min": None,
+            "mz_max": None,
             "row_num": str(idx + 2),  # From 1, not including header row
         }
 

@@ -60,12 +60,6 @@ properties:
               type: string
             instrument:
               type: string
-            polarity:
-              type: string
-            mz_min:
-              type: number
-            mz_max:
-              type: number
             date:
               type: string
             mzxml_files:
@@ -94,15 +88,6 @@ properties:
       instrument:
         type: string
         description: default name of LCMS instrument
-      polarity:
-        type: string
-        description: default ion mode of ms run
-      mz_min:
-        type: number
-        description: default mass charge scan range minimum
-      mz_max:
-        type: number
-        description: default mass charge scan range maximum
       date:
         type: string
         description: default date of ms run
@@ -132,5 +117,4 @@ properties:
       - instrument
       - date
       - researcher
-      - polarity
     additionalProperties: false

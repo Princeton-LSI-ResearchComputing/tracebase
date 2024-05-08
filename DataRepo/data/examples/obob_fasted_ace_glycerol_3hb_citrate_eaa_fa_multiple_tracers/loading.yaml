@@ -15,7 +15,6 @@ accucor_data:
       isocorr_format: true
   lc_protocol: "polar-HILIC-25-min"
   instrument: "unknown"
-  polarity: "positive"
   date: "2020-11-01"
   researcher: "Xianfeng Zeng"
   new_researcher: false

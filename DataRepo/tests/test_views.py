@@ -85,7 +85,6 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
-            polarity="positive",
         )
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
@@ -100,7 +99,6 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
-            polarity="positive",
         )
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1
@@ -799,7 +797,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             #     "Sol-xz971.mzxml",
             #     "Sp-xz971.mzxml",
             # ],
-            polarity="positive",
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
