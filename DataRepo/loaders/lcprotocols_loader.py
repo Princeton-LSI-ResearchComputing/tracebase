@@ -159,7 +159,7 @@ class LCProtocolsLoader(TableLoader):
 
             # We're not going to use the name from the file.  The name column is onlky used for the creation of drop-
             # down lists for columns in other sheets, which is why it is a readonly column, but if the user does
-            # unexpectedly change the value in the column, we should warn them th=at the result will not be what they
+            # unexpectedly change the value in the column, we should warn them that the result will not be what they
             # expect.
             if name is not None and name != computed_name:
                 self.aggregated_errors_object.buffer_warning(
