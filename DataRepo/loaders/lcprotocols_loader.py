@@ -147,12 +147,13 @@ class LCProtocolsLoader(TableLoader):
             raw_run_length = self.get_row_val(row, self.headers.RUNLEN)
             description = self.get_row_val(row, self.headers.DESC)
 
-            # In case run_length was None, let's prevent an exception at the timedelta
+            # This row is added to skip_row_indexes (by get_row_val) when run_length is None, because it's a required
+            # value (see DataRequiredValues).  So we skip before instantiating a timedelta object to avoid buffering an
+            # unnecessary exception, as a RequiredColumnValue exception would have already been buffered.
             if self.is_skip_row():
                 self.errored(LCMethod.__name__)
                 return rec, created
 
-            # run_length is a required value (see DataRequiredValues), and is typed to be an int (see DataColumnTypes)
             run_length = timedelta(minutes=raw_run_length)
 
             computed_name = LCMethod.create_name(type=type, run_length=run_length)

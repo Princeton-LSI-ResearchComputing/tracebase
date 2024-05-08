@@ -34,16 +34,13 @@ class SequencesLoaderTests(TracebaseTestCase):
         self.assertEqual("polar-HILIC-25-min", seq.lc_method.name)
 
     def test_get_lc_method(self):
-        for _, row in self.TEST_DF.iterrows():
-            break
         sl = SequencesLoader()
         rec = sl.get_lc_method("polar-HILIC-25-min")
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
         self.assertEqual("polar-HILIC-25-min", rec.name)
 
     def test_get_or_create_sequence(self):
-        for _, row in self.TEST_DF.iterrows():
-            break
+        _, row = next(self.TEST_DF.iterrows())
         sl = SequencesLoader()
         lcrec = LCMethod.objects.get(name="polar-HILIC-25-min")
         rec, created = sl.get_or_create_sequence(row, lcrec)
