@@ -41,7 +41,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
 
     DUDERINO_INFUSATE_DATAFRAME = pd.DataFrame.from_dict(
         {
-            "Infusate Number": [1],
+            "Infusate Row Group": [1],
             "Infusate Name": ["duderino{lysine-[13C6]}"],
             "Tracer Group Name": ["duderino"],
             "Tracer Name": ["lysine-[13C6]"],
@@ -328,14 +328,14 @@ class InfusatesLoaderTests(TracebaseTestCase):
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[2]))
 
         self.assertIn(
-            "Infusate Number and Tracer Group Name",
+            "Infusate Row Group and Tracer Group Name",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "'Infusate Number' 1 ", str(tl.aggregated_errors_object.exceptions[0])
+            "'Infusate Row Group' 1 ", str(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertIn(
-            "one 'Tracer Group Name' is allowed per 'Infusate Number'",
+            "one 'Tracer Group Name' is allowed per 'Infusate Row Group'",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -346,14 +346,14 @@ class InfusatesLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Infusate Name and Infusate Number",
+            "Infusate Name and Infusate Row Group",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
-            "'Infusate Number' 2 ", str(tl.aggregated_errors_object.exceptions[1])
+            "'Infusate Row Group' 2 ", str(tl.aggregated_errors_object.exceptions[1])
         )
         self.assertIn(
-            "one 'Infusate Name' is allowed per 'Infusate Number'",
+            "one 'Infusate Name' is allowed per 'Infusate Row Group'",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
@@ -366,7 +366,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Infusate Number and Infusate Name",
+            "Infusate Row Group and Infusate Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
@@ -374,7 +374,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
-            "one 'Infusate Number' is allowed per 'Infusate Name'",
+            "one 'Infusate Row Group' is allowed per 'Infusate Name'",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(

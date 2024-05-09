@@ -1,4 +1,4 @@
-Tracer Number	Compound Name	Element	Mass Number	Label Count	Label Positions	Tracer Name
+Tracer Row Group	Compound Name	Element	Mass Number	Label Count	Label Positions	Tracer Name
 1	lysine	C	13	6		lysine-[13C6,15N2]
 1	lysine	N	15	2		lysine-[13C6,15N2]
 2	isoleucine	C	13	6		isoleucine-[13C6,15N1]

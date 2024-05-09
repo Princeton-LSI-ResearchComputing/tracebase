@@ -1,3 +1,4 @@
+import importlib
 import math
 from collections import defaultdict, namedtuple
 from typing import Dict
@@ -20,6 +21,9 @@ from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_string,
 )
+
+# Avoid circular import
+tlp = importlib.import_module("DataRepo.loaders.tracers_loader")
 
 
 class InfusatesLoader(TableLoader):
@@ -48,7 +52,7 @@ class InfusatesLoader(TableLoader):
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        ID="Infusate Number",
+        ID="Infusate Row Group",
         TRACERGROUP="Tracer Group Name",
         TRACERNAME="Tracer Name",
         TRACERCONC="Tracer Concentration",
@@ -122,12 +126,19 @@ class InfusatesLoader(TableLoader):
             name=DataHeaders.ID,
             help_text=(
                 "Arbitrary number that identifies every row containing a tracer that belongs to a single infusate.  "
-                f"This is not loaded into the database.  The {DataHeaders.NAME} column is populated using an excel "
-                f"formula based on all rows containing the same {DataHeaders.ID}."
+                f"Each row defines 1 tracer (at a particular {DataHeaders.TRACERCONC}) and this value links them "
+                "together."
+            ),
+            guidance=(
+                "The values in this column are not loaded into the database.  It is only used to populate the "
+                f"{DataHeaders.NAME} column using an excel formula.  All rows having the same {DataHeaders.ID} are "
+                f"used to build the {DataHeaders.NAME} column values."
             ),
             type=int,
         ),
         TRACERGROUP=TableColumn.init_flat(
+            # TODO: Make the name (and the DataHeaders) automatically populated using a title-case version of a model
+            # field's verbose_name.  Also make the type default map as well.
             name=DataHeaders.TRACERGROUP,
             field=Infusate.tracer_group_name,
             type=str,
@@ -135,16 +146,18 @@ class InfusatesLoader(TableLoader):
         TRACERNAME=TableColumn.init_flat(
             name=DataHeaders.TRACERNAME,
             field=InfusateTracer.tracer,
-            help_text=f"Tracer included in an infusate at a specific {DataHeaders.TRACERCONC}.",
+            # TODO: Add help text to the field in the Tracer model
+            help_text=f"Name of a tracer in this infusate at a specific {DataHeaders.TRACERCONC}.",
             guidance=(
-                f"The dropdown menus in this column are populated by the {TracersLoader.DataHeaders.NAME} column in "
-                f"the {TracersLoader.DataSheetName} sheet."
+                f"Select a {DataHeaders.TRACERNAME} from the dropdowns in this column.  Those dropdowns are populated "
+                f"by the {tlp.TracersLoader.DataHeaders.NAME} column in the {tlp.TracersLoader.DataSheetName} sheet.  "
+                f"All of the {DataHeaders.TRACERNAME}s in an infusate with multiple {DataHeaders.TRACERNAME}s are "
+                f"defined on separate rows and associated via the values in the {DataHeaders.ID} column."
             ),
             type=str,
-            # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
             dynamic_choices=ColumnReference(
-                loader_class=TracersLoader,
-                loader_header_key=TracersLoader.NAME_KEY,
+                loader_class=tlp.TracersLoader,
+                loader_header_key=tlp.TracersLoader.NAME_KEY,
             ),
         ),
         TRACERCONC=TableColumn.init_flat(
@@ -155,25 +168,41 @@ class InfusatesLoader(TableLoader):
         NAME=TableColumn.init_flat(
             name=DataHeaders.NAME,
             field=Infusate.name,
-            # TODO: Replace "Animals" and "Infusate" below with a reference to its loader's DataSheetName and the
-            # corresponding column, respectively.  (In this case, the AnimalsLoader does not yet exist.)
+            type=str,
+            # TODO: Replace "Infusate" and "Animals" below with a reference to its loader's column and DataSheetName
             guidance=(
                 "This column is automatically filled in using an excel formula and its values are used to populate "
                 "Infusate choices in the Animals sheet."
             ),
-            type=str,
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
             # current row.  The header keys will be replaced by the excel column letters.
-            # TODO: Copy out the formula from the example excel sheet I created on my laptop
-            # formula=(
-            #     "=CONCATENATE("
-            #     f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
-            #     ")"
-            # ),
+            # Example:
+            # =CONCATENATE(
+            #   IF(ISBLANK(B2),"",CONCATENATE(B2," ")),
+            #   IF(ROWS(FILTER(A:A,A:A=A2,""))>1,"{",""),
+            #   TEXTJOIN(";",TRUE,
+            #     SORT(
+            #       MAP(
+            #         FILTER(C:C,A:A=A2,""),
+            #         FILTER(D:D,A:A=A2,""),
+            #         LAMBDA(a,b,CONCATENATE(a,"[",b,"]"))
+            #       )
+            #     )
+            #   ),
+            #   IF(ROWS(FILTER(A:A,A:A=A2,""))>1,"}","")
+            # )
+            formula=(
+                "=CONCATENATE("
+                f'IF(ISBLANK(INDIRECT("{{{GROUP_NAME_KEY}}}" & ROW())),"",CONCATENATE(INDIRECT("{{{GROUP_NAME_KEY}}}" '
+                f'& ROW())," ")),'
+                f'IF(ROWS(FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),'
+                f'""))>1,"{{",""),TEXTJOIN(";",TRUE,SORT(MAP(FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},'
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),FILTER({{{CONC_KEY}}}:{{{CONC_KEY}}},'
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),LAMBDA(a,b,CONCATENATE(a,"[",b,"]")))'
+                f")),IF(ROWS(FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}="
+                f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"}}",""))'
+            ),
         ),
     )
 
