@@ -1,4 +1,3 @@
-import importlib
 import math
 from collections import defaultdict, namedtuple
 from typing import Dict
@@ -21,9 +20,6 @@ from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_string,
 )
-
-# Avoid circular import
-tlp = importlib.import_module("DataRepo.loaders.tracers_loader")
 
 
 class InfusatesLoader(TableLoader):
@@ -150,14 +146,14 @@ class InfusatesLoader(TableLoader):
             help_text=f"Name of a tracer in this infusate at a specific {DataHeaders.TRACERCONC}.",
             guidance=(
                 f"Select a {DataHeaders.TRACERNAME} from the dropdowns in this column.  Those dropdowns are populated "
-                f"by the {tlp.TracersLoader.DataHeaders.NAME} column in the {tlp.TracersLoader.DataSheetName} sheet.  "
+                f"by the {TracersLoader.DataHeaders.NAME} column in the {TracersLoader.DataSheetName} sheet.  "
                 f"All of the {DataHeaders.TRACERNAME}s in an infusate with multiple {DataHeaders.TRACERNAME}s are "
                 f"defined on separate rows and associated via the values in the {DataHeaders.ID} column."
             ),
             type=str,
             dynamic_choices=ColumnReference(
-                loader_class=tlp.TracersLoader,
-                loader_header_key=tlp.TracersLoader.NAME_KEY,
+                loader_class=TracersLoader,
+                loader_header_key=TracersLoader.NAME_KEY,
             ),
         ),
         TRACERCONC=TableColumn.init_flat(
