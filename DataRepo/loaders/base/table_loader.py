@@ -1339,9 +1339,12 @@ class TableLoader(ABC):
                 if not _anded:
                     return None, _anded
             elif isinstance(missing_header_item, list) and sublist_anded == _anded:
-                # If the sublist and outer list are both "anded" or both "ored", merge them
-                missing.extend(missing_header_item)
-            else:
+                # If the sublist and outer list are both "anded" or both "ored", merge them, excluding ones that are
+                # already present (e.g. if the same one was in 2 lists)
+                for item in missing_header_item:
+                    if item not in missing:
+                        missing.append(item)
+            elif missing_header_item not in missing:
                 missing.append(missing_header_item)
 
         if len(missing) == 0:

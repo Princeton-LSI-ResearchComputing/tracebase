@@ -67,7 +67,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
 
     DUDERINO_INFUSATE_DATAFRAME = pd.DataFrame.from_dict(
         {
-            "Infusate Number": [1],
+            "Infusate Row Group": [1],
             "Infusate Name": ["duderino{lysine-[13C6]}"],
             "Tracer Group Name": ["duderino"],
             "Tracer Name": ["lysine-[13C6]"],
@@ -155,7 +155,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "lysine-[13C6][20.0] (on rows with 'Infusate Number's: [1, 3])",
+            "lysine-[13C6][20.0] (on rows with 'Infusate Row Group's: [1, 3])",
             str(aes.exceptions[0]),
         )
 
@@ -177,7 +177,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "'Infusate Number' 1 is associated with multiple 'Infusate Name's",
+            "'Infusate Row Group' 1 is associated with multiple 'Infusate Name's",
             str(aes.exceptions[1]),
         )
         self.assertIn(
@@ -217,7 +217,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(1, len(aes.get_exception_type(InfileError)))
         self.assertIn(
-            "Only one 'Tracer Group Name' is allowed per 'Infusate Number'",
+            "Only one 'Tracer Group Name' is allowed per 'Infusate Row Group'",
             str(aes.exceptions[0]),
         )
         self.assertIn(
@@ -243,11 +243,11 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "lysine-[13C6] (on rows with 'Infusate Number's: [1])",
+            "lysine-[13C6] (on rows with 'Infusate Row Group's: [1])",
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "isoleucine-[13C6] (on rows with 'Infusate Number's: [2])",
+            "isoleucine-[13C6] (on rows with 'Infusate Row Group's: [2])",
             str(aes.exceptions[0]),
         )
 
@@ -271,11 +271,11 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "duderino (on rows with 'Infusate Number's: [1])",
+            "duderino (on rows with 'Infusate Row Group's: [1])",
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "rinodude (on rows with 'Infusate Number's: [2])",
+            "rinodude (on rows with 'Infusate Row Group's: [2])",
             str(aes.exceptions[0]),
         )
 
@@ -372,11 +372,11 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(1, len(aes.get_exception_type(InfileError)))
         self.assertIn(
-            "None (on rows with 'Infusate Number's: [1])",
+            "None (on rows with 'Infusate Row Group's: [1])",
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "duderino (on rows with 'Infusate Number's: [2])",
+            "duderino (on rows with 'Infusate Row Group's: [2])",
             str(aes.exceptions[0]),
         )
         self.assertIn(
