@@ -760,16 +760,16 @@ class InfusatesLoader(TableLoader):
             # Identify groups of tracers with different tracer group names
             tracer_group_dict[tracer_group_key][tgn].append(infusate_number)
             if len(tracer_group_dict[tracer_group_key].keys()) > 1:
-                self.inconsistent_tracer_groups["mult_names"][
-                    tracer_group_key
-                ] = tracer_group_dict[tracer_group_key]
+                self.inconsistent_tracer_groups["mult_names"][tracer_group_key] = (
+                    tracer_group_dict[tracer_group_key]
+                )
 
             # Identify duplicate occurrences of groups of tracers with the same concentrations
             tracer_group_conc_dict[tracer_group_conc_key].append(infusate_number)
             if len(tracer_group_conc_dict[tracer_group_conc_key]) > 1:
-                self.inconsistent_tracer_groups["dupes"][
-                    tracer_group_conc_key
-                ] = tracer_group_conc_dict[tracer_group_conc_key]
+                self.inconsistent_tracer_groups["dupes"][tracer_group_conc_key] = (
+                    tracer_group_conc_dict[tracer_group_conc_key]
+                )
 
             # Identify tracer group names associated with different groups of tracers
             group_name_dict[tgn][tracer_group_key].append(infusate_number)
