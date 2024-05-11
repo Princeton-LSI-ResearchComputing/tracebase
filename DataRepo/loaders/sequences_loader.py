@@ -7,7 +7,11 @@ from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.utils.exceptions import InfileError, RecordDoesNotExist
+from DataRepo.utils.exceptions import (
+    InfileError,
+    RecordDoesNotExist,
+    RollbackException,
+)
 from DataRepo.utils.file_utils import string_to_datetime
 
 
@@ -168,7 +172,7 @@ class SequencesLoader(TableLoader):
 
             try:
                 self.get_or_create_sequence(row, lc_rec)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
@@ -219,10 +223,8 @@ class SequencesLoader(TableLoader):
         Args:
             row (pandas dataframe row)
             lc_rec (LCMethod)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             rec (Optional[MSRunSequence])
             created (boolean): Only returned for use in tests
@@ -270,7 +272,6 @@ class SequencesLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, MSRunSequence, rec_dict)
             self.errored(MSRunSequence.__name__)
-            # Now that the exception has been handled, trigger a rollback of this record load attempt
-            raise e
+            raise RollbackException()
 
         return rec, created

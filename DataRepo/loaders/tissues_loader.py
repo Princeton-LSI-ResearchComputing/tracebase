@@ -4,6 +4,7 @@ from typing import Dict
 from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Tissue
+from DataRepo.utils.exceptions import RollbackException
 
 
 class TissuesLoader(TableLoader):
@@ -79,20 +80,17 @@ class TissuesLoader(TableLoader):
         for _, row in self.df.iterrows():
             try:
                 self.get_or_create_tissue(row)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
     def get_or_create_tissue(self, row):
         """Get or create a tissue record and buffer exceptions before raising.
-
         Args:
             row (pandas dataframe row)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             Nothing
         """
@@ -127,4 +125,4 @@ class TissuesLoader(TableLoader):
             self.handle_load_db_errors(e, Tissue, rec_dict)
             self.errored()
             # Now that the exception has been handled, trigger a rollback of this record load attempt
-            raise e
+            raise RollbackException()

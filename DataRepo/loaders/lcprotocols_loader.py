@@ -7,7 +7,7 @@ from django.db import transaction
 from DataRepo.loaders.table_column import TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod
-from DataRepo.utils.exceptions import ConflictingValueError
+from DataRepo.utils.exceptions import ConflictingValueError, RollbackException
 
 
 class LCProtocolsLoader(TableLoader):
@@ -114,7 +114,7 @@ class LCProtocolsLoader(TableLoader):
         for _, row in self.df.iterrows():
             try:
                 self.get_or_create_lc_method(row)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
@@ -129,10 +129,8 @@ class LCProtocolsLoader(TableLoader):
 
         Args:
             row (pandas dataframe row)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             rec (Optional[LCMethod])
             created (boolean): Only returned for use in tests
@@ -204,6 +202,6 @@ class LCProtocolsLoader(TableLoader):
             self.handle_load_db_errors(e, LCMethod, rec_dict)
             self.errored(LCMethod.__name__)
             # Now that the exception has been handled, trigger a rollback of this record load attempt
-            raise e
+            raise RollbackException()
 
         return rec, created

@@ -2582,6 +2582,17 @@ class MissingDataAdded(InfileError):
         super().__init__(message, **kwargs)
 
 
+class RollbackException(Exception):
+    """This class only exists in order to be raised after specific exception handling has already occurred and an
+    exception needs to be raised in order to trigger a rollback.  Often times, the exception handling is prefereable to
+    co-locate with the code that attempts the database load, and it is done inside a method that is calledf from a loop
+    on an input file so that exceptions can be safely handled and buffered (for later raising) in order to be able to
+    proceed and report as many errors as possible to reduce time-consuming re-loads just to get the next error.
+    """
+
+    pass
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:

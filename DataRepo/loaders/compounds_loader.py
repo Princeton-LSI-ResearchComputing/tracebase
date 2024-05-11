@@ -10,6 +10,7 @@ from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,
     DuplicateValues,
+    RollbackException,
     SynonymExistsAsMismatchedCompound,
 )
 
@@ -149,7 +150,7 @@ class CompoundsLoader(TableLoader):
 
             try:
                 cmpd_rec = self.get_or_create_compound(row)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 cmpd_rec = None
@@ -166,7 +167,7 @@ class CompoundsLoader(TableLoader):
             for synonym in synonyms:
                 try:
                     self.get_or_create_synonym(synonym, cmpd_rec)
-                except Exception:
+                except RollbackException:
                     # Exception handling was handled in get_or_create_*
                     # Continue processing rows to find more errors
                     pass
@@ -174,13 +175,10 @@ class CompoundsLoader(TableLoader):
     @transaction.atomic
     def get_or_create_compound(self, row):
         """Get or create a compound record.
-
         Args:
             row (pandas dataframe row)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             rec (Optional[Compound])
         """
@@ -227,21 +225,18 @@ class CompoundsLoader(TableLoader):
             else:
                 self.handle_load_db_errors(e, Compound, rec_dict)
             self.errored(Compound.__name__)
-            raise e
+            raise RollbackException()
 
         return rec
 
     @transaction.atomic
     def get_or_create_synonym(self, synonym, cmpd_rec):
         """Get or create a compound synonym record.
-
         Args:
             synonym (string)
             cmpd_rec (Compound)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             Nothing
         """
@@ -263,11 +258,11 @@ class CompoundsLoader(TableLoader):
         except SynonymExistsAsMismatchedCompound as seamc:
             self.aggregated_errors_object.buffer_error(seamc)
             self.errored(CompoundSynonym.__name__)
-            raise seamc
+            raise RollbackException()
         except Exception as e:
             self.handle_load_db_errors(e, CompoundSynonym, rec_dict)
             self.errored(CompoundSynonym.__name__)
-            raise e
+            raise RollbackException()
 
     def parse_synonyms(self, synonyms_string: Optional[str]) -> list:
         """Parse the synonyms column value using the self.synonyms_delimiter.

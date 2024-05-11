@@ -24,6 +24,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
+    RollbackException,
 )
 from DataRepo.utils.file_utils import string_to_datetime
 
@@ -330,7 +331,7 @@ class MSRunsLoader(TableLoader):
         for mzxml_file in self.mzxml_files:
             try:
                 self.get_or_create_mzxml_and_raw_archive_files(mzxml_file)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
@@ -343,7 +344,7 @@ class MSRunsLoader(TableLoader):
             for _, row in self.df.iterrows():
                 try:
                     self.get_create_or_update_msrun_sample_from_row(row)
-                except Exception:
+                except RollbackException:
                     # Exception handling was handled
                     # Continue processing rows to find more errors
                     pass
@@ -370,7 +371,7 @@ class MSRunsLoader(TableLoader):
                             self.get_or_create_msrun_sample_from_mzxml(
                                 sample, msrun_sequence, mzxml_metadata
                             )
-                        except Exception:
+                        except RollbackException:
                             # Exception handling was handled
                             # Continue processing rows to find more errors
                             pass
@@ -382,8 +383,7 @@ class MSRunsLoader(TableLoader):
             mzxml_file (str or Path object)
         Exceptions:
             Raises:
-                DataType.DoesNotExist
-                DataFormat.DoesNotExist
+                RollbackException
             Buffers:
                 DataType.DoesNotExist
                 DataFormat.DoesNotExist
@@ -412,13 +412,12 @@ class MSRunsLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(dne)
             self.skipped(ArchiveFile.__name__)
             self.skipped(ArchiveFile.__name__)  # Skipping raw file below
-            raise dne
+            raise RollbackException()
         except Exception as e:
             self.handle_load_db_errors(e, ArchiveFile, mz_rec_dict)
             self.errored(ArchiveFile.__name__)
             self.skipped(ArchiveFile.__name__)  # Skipping raw file below
-            # Raise to do a rollback
-            raise e
+            raise RollbackException()
 
         mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
 
@@ -447,12 +446,11 @@ class MSRunsLoader(TableLoader):
             self.skipped(ArchiveFile.__name__)
             # Skipping mzXML file above (rolled back)
             self.skipped(ArchiveFile.__name__)
-            raise dne
+            raise RollbackException()
         except Exception as e:
             self.handle_load_db_errors(e, ArchiveFile, raw_rec_dict)
             self.errored(ArchiveFile.__name__)
-            # Raise to do a rollback
-            raise e
+            raise RollbackException()
 
         # Add in the ArchiveFile record objects
         mzxml_metadata["mzaf_record"] = mzaf_rec
@@ -490,7 +488,7 @@ class MSRunsLoader(TableLoader):
             row (pandas dataframe row)
         Exceptions:
             Raises:
-                None (that are created here)
+                RollbackException
             Buffers:
                 RecordDoesNotExist
         Returns:
@@ -729,8 +727,7 @@ class MSRunsLoader(TableLoader):
         except Exception as e:
             self.handle_load_db_errors(e, MSRunSample, msrs_rec_dict)
             self.errored(MSRunSample.__name__)
-            # Trigger a rollback of this record only
-            raise e
+            raise RollbackException()
 
         return rec, created, updated
 
@@ -825,7 +822,7 @@ class MSRunsLoader(TableLoader):
                 }
         Exceptions:
             Raises:
-                None (that are created here)
+                RollbackException
             Buffers:
                 RecordDoesNotExist
         Returns:
@@ -860,8 +857,7 @@ class MSRunsLoader(TableLoader):
         except Exception as e:
             self.handle_load_db_errors(e, MSRunSample, msrs_rec_dict)
             self.errored(MSRunSample.__name__)
-            # Trigger a rollback of this record
-            raise e
+            raise RollbackException()
 
         return rec, created
 
@@ -1178,6 +1174,9 @@ class MSRunsLoader(TableLoader):
         Args:
             rec_dict (dict of MSRunSample field values): Field value pairs of an MSRunSample record that may or may not
                 exist in the database, WITH values for polarity, mz_min, and mz_max.
+            annot_name (str): Peak annotation file name associated with the data that populated the rec_dict (i.e. the
+                value from the Peak Annotation File column of the Peak Annotation Details sheet/file that the researcher
+                has explicitly associated the mzXML, sample, sample header, and sequence with.
             rec (MSRunSample): An MSRunSample record.  This is intended to be a placeholder record without an
                 ms_data_file value, but either way, the metadata (ms_data_file, polarity, mz_min, and mz_max) in the
                 record is ignored.
