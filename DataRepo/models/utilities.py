@@ -7,7 +7,7 @@ from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Model, Q
 from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -271,6 +271,25 @@ def exists_in_db(mdl_obj):
             return False
         raise e
     return True
+
+
+def update_rec(rec: Model, rec_dict: dict):
+    """Update the supplied model record using the fields and values in the supplied rec_dict.
+    This could be accomplished using a queryset.update() call, but if it changes a field that was used in the original
+    query, and that query no longer matches, you cannot iterate through the records of the queryset to save the changes
+    you've made, thus the need for this method.
+    Args:
+        rec (Model)
+        rec_dict (dict): field values keyed on field name
+    Exceptions:
+        None
+    Returns:
+        None
+    """
+    for fld, val in rec_dict.items():
+        setattr(rec, fld, val)
+    rec.full_clean()
+    rec.save()
 
 
 # TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)

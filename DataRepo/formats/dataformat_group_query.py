@@ -139,7 +139,7 @@ def isQryObjValid(qry, form_class_list):
     """
 
     if (
-        type(qry) is dict
+        isinstance(qry, dict)
         and "selectedtemplate" in qry
         and "searches" in qry
         and len(form_class_list) == len(qry["searches"].keys())
@@ -147,7 +147,7 @@ def isQryObjValid(qry, form_class_list):
         for key in form_class_list:
             if (
                 key not in qry["searches"]
-                or type(qry["searches"][key]) is not dict
+                or not isinstance(qry["searches"][key], dict)
                 or "tree" not in qry["searches"][key]
                 or "name" not in qry["searches"][key]
             ):

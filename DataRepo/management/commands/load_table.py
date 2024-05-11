@@ -1,5 +1,6 @@
 import argparse
 from abc import ABC, abstractmethod
+from typing import List, Optional
 
 from django.core.management import BaseCommand
 
@@ -9,10 +10,12 @@ from DataRepo.utils import (
     DryRun,
     MutuallyExclusiveOptions,
     OptionsNotAvailable,
+    RequiredOptions,
     get_sheet_names,
     is_excel,
     read_from_file,
 )
+from DataRepo.utils.exceptions import ConditionallyRequiredOptions
 
 
 class LoadTableCommand(ABC, BaseCommand):
@@ -58,8 +61,40 @@ class LoadTableCommand(ABC, BaseCommand):
     def loader_class(self):  # type[TableLoader]
         pass
 
-    def __init__(self, *args, **kwargs):
-        """This init auto-applies a decorator to the derived class's handle method."""
+    def __init__(
+        self,
+        *args,
+        required_optnames: Optional[List[str]] = None,
+        required_optname_groups: Optional[List[List[str]]] = None,
+        **kwargs,
+    ):
+        """This init auto-applies a decorator to the derived class's handle method.
+        Args:
+            required_optnames (list of strings): The variable version of this class's options that should be required.
+            required_optname_groups (list of lists of strings):  Groups of the variable version of this class's options
+                that should be coniditionally required, e.g. either infile or defaults_file are required.
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
+        default_required_optnames = set(["infile"])
+        if required_optname_groups is not None and required_optnames is None:
+            for optgroup in required_optname_groups:
+                if not isinstance(optgroup, list):
+                    # I don't know why the type hint doesn't raise this exception...
+                    raise AggregatedErrors().buffer_error(
+                        TypeError("required_optname_groups must be a list of lists.")
+                    )
+                default_required_optnames -= set(optgroup)
+        self.required_optnames = (
+            list(default_required_optnames)
+            if required_optnames is None
+            else required_optnames
+        )
+        self.required_optname_groups = (
+            [] if required_optname_groups is None else required_optname_groups
+        )
         # Apply the handler decorator to the handle method in the derived class
         self.apply_handle_wrapper()
         self.check_class_attributes()
@@ -197,7 +232,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 f"Path to either a tab-delimited or excel file (with a sheet named '{self.loader_class.DataSheetName}' "
                 "- See --data-sheet).  See --headers for column composition."
             ),
-            required=True,
+            required="infile" in self.required_optnames,
         )
 
         parser.add_argument(
@@ -207,6 +242,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 "Name of excel sheet/tab.  Only used if --infile is an excel spreadsheet.  Default: [%(default)s]."
             ),
             default=self.loader_class.DataSheetName,
+            required="data_sheet" in self.required_optnames,
         )
 
         parser.add_argument(
@@ -217,7 +253,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 "--defaults-sheet instead.  Required headers: "
                 f"{self.loader_class.DefaultsHeaders._asdict().values()}."
             ),
-            required=False,
+            required="defaults_file" in self.required_optnames,
         )
 
         parser.add_argument(
@@ -229,12 +265,14 @@ class LoadTableCommand(ABC, BaseCommand):
                 "for column composition."
             ),
             default=self.loader_class.DefaultsSheetName,
+            required="defaults_sheet" in self.required_optnames,
         )
 
         parser.add_argument(
             "--headers",
             type=str,
             help=f"YAML file defining headers to be used.  Default headers: {self.loader.get_pretty_headers()}.",
+            required="headers" in self.required_optnames,
         )
 
         parser.add_argument(
@@ -306,6 +344,35 @@ class LoadTableCommand(ABC, BaseCommand):
             self.saved_aes = None
             retval = None
             self.options = options
+
+            missing_reqd = []
+            for optname in options.keys():
+                if options[optname] is None and optname in self.required_optnames:
+                    missing_reqd.append(optname)
+            if len(missing_reqd) > 0:
+                raise RequiredOptions(missing_reqd)
+
+            # Raise an error if any of a set of conditionally required options was not supplied
+            # self.required_optname_groups is a list of lists of option names, at least one option of each set is
+            # required (if any were supplied in __init__).
+            failed_cond_reqd_opt_sets = []
+            for cond_reqd_opt_set in self.required_optname_groups:
+                reqd_err = True
+                for optname in cond_reqd_opt_set:
+                    if options.get(optname) is not None:
+                        reqd_err = False
+                        break
+                if reqd_err:
+                    failed_cond_reqd_opt_sets.append(cond_reqd_opt_set)
+            if len(failed_cond_reqd_opt_sets) > 0:
+                cond_reqd_opt_sets_str = "\n\t".join(
+                    [", ".join([f"{cros}" for cros in failed_cond_reqd_opt_sets])]
+                )
+                raise AggregatedErrors().buffer_error(
+                    ConditionallyRequiredOptions(
+                        f"One of each of the following sets of options is required:\n\t{cond_reqd_opt_sets_str}"
+                    )
+                )
 
             # So that derived classes don't need to call init_loader unless their derived loader class takes custom
             # arguments
@@ -381,11 +448,12 @@ class LoadTableCommand(ABC, BaseCommand):
             mdl_name = mdl.__name__
             if mdl_name in load_stats.keys():
                 msg += (
-                    "%s records created: [%i], existed: [%i], skipped [%i], and errored: [%i]."
+                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], and errored: [%i].\n"
                     % (
                         mdl_name,
                         load_stats[mdl_name]["created"],
                         load_stats[mdl_name]["existed"],
+                        load_stats[mdl_name]["updated"],
                         load_stats[mdl_name]["skipped"],
                         load_stats[mdl_name]["errored"],
                     )
@@ -440,6 +508,10 @@ class LoadTableCommand(ABC, BaseCommand):
         file = self.get_infile()
         sheet = self.options["data_sheet"]
         dtypes = self.loader.get_column_types()
+        if file is None:
+            # The derived class can decide to handle the load completely without an input file (e.g. using all defaults
+            # and/or custom options
+            return None
         df = None
         if dtypes is None:
             df = read_from_file(file, sheet=sheet)
@@ -517,7 +589,7 @@ class LoadTableCommand(ABC, BaseCommand):
         return self.loader.get_defaults()
 
     def set_defaults(self, custom_defaults=None):
-        """Sets instance's default values.  If no custom defaults are provided, it reverts to user-privided and/or class
+        """Sets instance's default values.  If no custom defaults are provided, it reverts to user-provided and/or class
         defaults.
 
         There are a few places where defaults can be defined:
@@ -532,7 +604,7 @@ class LoadTableCommand(ABC, BaseCommand):
             User > Developer > Loader
 
         Args:
-            custom_defaults (namedtupe of loader_class.DataTableHeaders): Header names by header key
+            custom_defaults (namedtupe of loader_class.DataTableHeaders): Default values by header key
 
         Raises:
             Nothing

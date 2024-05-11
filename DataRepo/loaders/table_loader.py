@@ -670,10 +670,6 @@ class TableLoader(ABC):
     def _merge_defaults(self, custom_defaults):
         """Merges base class, derived class, and user defaults hierarchically, returning the merged result.
 
-        This method also sets the following instance attributes because they involve header names (not header keys):
-
-        - defaults_by_header
-
         Args:
             custom_defaults (dict): Default values by header key
 
@@ -729,7 +725,7 @@ class TableLoader(ABC):
                 raise self.aggregated_errors_object.buffer_error(
                     InfileError(
                         (
-                            f"Unexpected default headers: {ke.unmatched.keys()} in %s.  Expected: "
+                            f"Unexpected default headers: {list(ke.unmatched.keys())} in %s.  Expected: "
                             f"{list(self.headers._asdict().values())}"
                         ),
                         file=self.defaults_file,
@@ -947,11 +943,10 @@ class TableLoader(ABC):
         method).
 
         Metadata initialized:
-        - record_counts (dict of dicts of ints): Created, existed, and errored counts by model.
+        - record_counts (dict of dicts of ints): Created, existed, updated, and errored counts by model.
         - defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
         - sheet (str): Name of the data sheet in an excel file (changes to None if not excel).
         - defaults_sheet (str): Name of the defaults sheet in an excel file (changes to None if not excel).
-        - record_counts (dict): Record created, existed, and errored counts by model name.  All set to 0.
         - Note, other attributes are initialized in set_headers and set_defaults
 
         Args:
@@ -967,7 +962,9 @@ class TableLoader(ABC):
         """
         typeerrs = []
 
-        self.defaults_current_type = self.sheet
+        self.defaults_current_type = (
+            self.sheet if self.sheet is not None else self.DataSheetName
+        )
         if is_excel(self.file):
             if self.defaults_df is not None:
                 self.defaults_file = self.file
@@ -1002,6 +999,7 @@ class TableLoader(ABC):
         for mdl in self.Models:
             self.record_counts[mdl.__name__]["created"] = 0
             self.record_counts[mdl.__name__]["existed"] = 0
+            self.record_counts[mdl.__name__]["updated"] = 0
             self.record_counts[mdl.__name__]["skipped"] = 0
             self.record_counts[mdl.__name__]["errored"] = 0
 
@@ -1159,7 +1157,7 @@ class TableLoader(ABC):
 
         if len(unmatched.keys()) > 0:
             ke = KeyError(
-                f"Header(s) {unmatched.keys()} not in reverse headers: {self.reverse_headers}"
+                f"Header(s) {list(unmatched.keys())} not in reverse headers: {self.reverse_headers}"
             )
             ke.unmatched = unmatched
             ke.outdict = outdict
@@ -1693,7 +1691,7 @@ class TableLoader(ABC):
         return val
 
     def get_user_defaults(self):
-        """Retrieves a user defaults dict (only uncluding keys with defined values only) from a dataframe.
+        """Retrieves a user defaults dict (only including keys with defined values only) from a dataframe.
 
         The dataframe contains defaults for different types.  Only the defaults relating to the currently loaded data
         and WITH non-empty values are returned.
@@ -1959,6 +1957,18 @@ class TableLoader(ABC):
                         # Add this unanticipated error to the other buffered errors
                         self.aggregated_errors_object.buffer_error(e)
 
+                    if self.aggregated_errors_object.exception_type_exists(NoLoadData):
+                        # Check to see if data was actually loaded from the derived class using an alternate means than
+                        # the dataframe (/infile) option, by assuming that if there are any stats (created, skipped,
+                        # existed, or updated), it means that data was successfully processed
+                        for stats_dict in self.record_counts.values():
+                            for count in stats_dict.values():
+                                if count > 0:
+                                    self.aggregated_errors_object.remove_exception_type(
+                                        NoLoadData
+                                    )
+                                    break
+
                     # Summarize any ConflictingValueError errors reported
                     cves = self.aggregated_errors_object.remove_exception_type(
                         ConflictingValueError
@@ -2020,7 +2030,7 @@ class TableLoader(ABC):
 
         If model_name is supplied, it returns that model name.  If not supplied, and models is of length 1, it returns
         that one model.  The purpose of this method is so that simple 1-model loaders do not need to supply the model
-        name to the created, existed, and errored methods.
+        name to the created, existed, updated, and errored methods.
 
         Args:
             model_name (str)
@@ -2071,6 +2081,20 @@ class TableLoader(ABC):
             Nothing
         """
         self.record_counts[self._get_model_name(model_name)]["created"] += num
+
+    def updated(self, model_name: Optional[str] = None, num=1):
+        """Increments an updated record count for a model.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["updated"] += num
 
     def existed(self, model_name: Optional[str] = None, num=1):
         """Increments an existed record count for a model.
@@ -2518,7 +2542,8 @@ class TableLoader(ABC):
 
         # Convert the out_dict into a dict containing pandas' version of a list (a dict indexed by integers)
         converted_out_dict = dict(
-            (k, dict((i, v) for i, v in enumerate(l))) for k, l in out_dict.items()
+            (k, dict((i, v) for i, v in enumerate(dlst)))
+            for k, dlst in out_dict.items()
         )
 
         return converted_out_dict

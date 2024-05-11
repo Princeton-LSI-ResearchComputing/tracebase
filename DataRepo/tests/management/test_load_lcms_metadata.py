@@ -680,7 +680,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unrelated_data_only.tsv",
-            polarity="positive",
         )
         self.assertEqual(2, MSRunSample.objects.count())
         msr1 = MSRunSample.objects.first()
@@ -742,7 +741,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_only_reqd_col_vals.tsv",
-            polarity="positive",
         )
         self.assertEqual(2, MSRunSample.objects.count())
         msr1 = MSRunSample.objects.first()

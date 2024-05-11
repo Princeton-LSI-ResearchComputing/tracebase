@@ -1,6 +1,5 @@
 import base64
 import os.path
-import re
 import shutil
 import tempfile
 from collections import defaultdict, namedtuple
@@ -19,6 +18,7 @@ from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
@@ -64,14 +64,6 @@ class DataValidationView(FormView):
     animal_sample_filename = None
     animal_sample_file = None
     submission_url = settings.SUBMISSION_FORM_URL
-    # These are common suffixes repeatedly appended to accucor/isocorr sample names to make them unique across different
-    # polarities and scan ranges.  This is not perfect.  See the get_approx_sample_header_replacement_regex method for
-    # the full pattern.
-    DEFAULT_SAMPLE_HEADER_SUFFIXES = [
-        r"_pos",
-        r"_neg",
-        r"_scan[0-9]+",
-    ]
     # Study doc version (default and supported list)
     default_version = "2"
     supported_versions = [default_version]
@@ -431,8 +423,6 @@ class DataValidationView(FormView):
                 self.SAMPLE_HEADS.SAMPLE_NAME
             ].values()
 
-        pattern = self.get_approx_sample_header_replacement_regex()
-
         corrected_sheet = 1  # Second sheet in both accucor and isocorr
         peak_annot_sample_headers = defaultdict(
             lambda: {"sample_name": None, "metadata": defaultdict(dict)}
@@ -451,7 +441,7 @@ class DataValidationView(FormView):
                     peak_annot_file, sheet=corrected_sheet, filetype="excel"
                 )
             ):
-                db_sample_name = re.sub(pattern, "", fl_sample_header)
+                db_sample_name = MSRunsLoader.guess_sample_name(fl_sample_header)
                 # We only want the fl_sample_header keys for uniqueness, but saving the lcms metadata for later autofill
                 # of the yet-to-be-added LCMS sheets
                 peak_annot_sample_headers[fl_sample_header][
@@ -625,10 +615,8 @@ class DataValidationView(FormView):
                 self.SAMPLE_HEADS.SAMPLE_NAME
             ].values()
 
-        pattern = self.get_approx_sample_header_replacement_regex()
-
         for sample_header in exc.missing_samples_dict["all_missing_samples"].keys():
-            sample_name = re.sub(pattern, "", sample_header)
+            sample_name = MSRunsLoader.guess_sample_name(sample_header)
             if sample_name not in existing_sample_names:
                 self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
                     self.SAMPLE_HEADS.SAMPLE_NAME: sample_name
@@ -1430,8 +1418,8 @@ class DataValidationView(FormView):
             peak_annot_sample_headers (list of strings): Sample headers (including blanks) parsed from the accucor or
                 isocorr file
             peak_annot_file_name (string): And accucor or isocorr file name without the path
-            sample_suffixes (list of raw strings) [self.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Regular expressions of suffix
-                strings found at the end of a peak annotation file sample header (e.g. "_pos")
+            sample_suffixes (list of raw strings): Regular expressions of suffix strings found at the end of a peak
+                annotation file sample header (e.g. "_pos")
 
         Exceptions:
             ProgrammingError
@@ -1439,11 +1427,6 @@ class DataValidationView(FormView):
         Returns:
             lcms_dict
         """
-
-        # Set the suffixes to be stripped from the sample header names to convert them to database sample names
-        if sample_suffixes is None:
-            suffixes = self.DEFAULT_SAMPLE_HEADER_SUFFIXES
-        pattern = self.get_approx_sample_header_replacement_regex(suffixes)
 
         # Initialize the dict we'll be returning
         lcms_dict = defaultdict(dict)
@@ -1455,7 +1438,11 @@ class DataValidationView(FormView):
             # The tracebase sample name is the header with manually (and repeatedly) added suffixes removed
             # This is a heuristic.  It is not perfect.  If may be possible to allow the user to enter them in the form
             # in the future, but for now, this uses the common ones.
-            db_sample_name = re.sub(pattern, "", peak_annot_sample_header)
+            db_sample_name = MSRunsLoader.guess_sample_name(
+                peak_annot_sample_header,
+                suffix_patterns=sample_suffixes,
+                add_patterns=True,
+            )
 
             # If we've already seen this header, it is a duplicate
             if peak_annot_sample_header in dupe_headers.keys():
@@ -1528,28 +1515,6 @@ class DataValidationView(FormView):
             )
 
         return lcms_data
-
-    @classmethod
-    def get_approx_sample_header_replacement_regex(cls, suffixes=None, add=True):
-        """Returns a regular expression combining sample header suffixes, to be used to generate tracebase sample names.
-
-        Args:
-            suffixes (list of raw strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: Uncompiled regular expressions for
-                individual suffixed, e.g. r"_scan[0-9]+"
-            add (boolean): Whether or not to add the supplied suffixes or replace them
-
-        Exceptions:
-            None
-
-        Returns:
-            Python re compiled regular expression
-        """
-        if suffixes is None:
-            suffixes = cls.DEFAULT_SAMPLE_HEADER_SUFFIXES
-        elif add:
-            suffixes.extend(cls.DEFAULT_SAMPLE_HEADER_SUFFIXES)
-
-        return re.compile(r"(" + "|".join(suffixes) + r")+$")
 
     def create_study_file_writer(self, stream_obj: BytesIO):
         """Returns an xlsxwriter for an excel file created from the self.dfs_dict.

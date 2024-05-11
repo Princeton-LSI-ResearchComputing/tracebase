@@ -28,6 +28,7 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValues,
     RequiredColumnValuesWhenNovel,
     RequiredColumnValueWhenNovel,
+    RequiredOptions,
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
@@ -655,7 +656,7 @@ class ExceptionTests(TracebaseTestCase):
             column=2, rownum=3, sheet="Animals", file="animals.xlsx"
         )
         self.assertEqual(
-            "column [2] on row [3] of sheet [Animals] in file [animals.xlsx]", lstr
+            "column [2] on row [3] of sheet [Animals] in animals.xlsx", lstr
         )
         lstr = generate_file_location_string(column=2, rownum=3, sheet="Animals")
         self.assertEqual(
@@ -664,13 +665,13 @@ class ExceptionTests(TracebaseTestCase):
         lstr = generate_file_location_string(
             rownum=3, sheet="Animals", file="animals.xlsx"
         )
-        self.assertEqual("row [3] of sheet [Animals] in file [animals.xlsx]", lstr)
+        self.assertEqual("row [3] of sheet [Animals] in animals.xlsx", lstr)
         lstr = generate_file_location_string(
             column=2, sheet="Animals", file="animals.xlsx"
         )
-        self.assertEqual("column [2] of sheet [Animals] in file [animals.xlsx]", lstr)
+        self.assertEqual("column [2] of sheet [Animals] in animals.xlsx", lstr)
         lstr = generate_file_location_string(column=2, rownum=3, file="animals.xlsx")
-        self.assertEqual("column [2] on row [3] in file [animals.xlsx]", lstr)
+        self.assertEqual("column [2] on row [3] in animals.xlsx", lstr)
 
     def test_DuplicateValueErrors(self):
         """Test that DuplicateValueErrors correctly summarizes a series of DuplicateValues exceptions"""
@@ -684,12 +685,12 @@ class ExceptionTests(TracebaseTestCase):
         expected = (
             "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences on the "
             "indicated rows:\n"
-            "\tfile [loadme.txt]\n"
+            "\tloadme.txt\n"
             "\t\tColumn(s) ['col2']\n"
             "\t\t\tx (rows*: 2-3)\n"
             "\t\tColumn(s) ['col3']\n"
             "\t\t\t2 (rows*: 2-3)\n"
-            "\tfile [loadme2.txt]\n"
+            "\tloadme2.txt\n"
             "\t\tColumn(s) ['col2']\n"
             "\t\t\tx (rows*: 2-3)\n"
             "\t\tColumn(s) ['col3']\n"
@@ -707,7 +708,7 @@ class ExceptionTests(TracebaseTestCase):
         rcv = RequiredColumnValues(rcvs)
         expected = (
             "Required column values missing on the indicated rows:\n"
-            "\tsheet [Tissues] in file [loadme.tsv]\n"
+            "\tsheet [Tissues] in loadme.tsv\n"
             "\t\tColumn: [col2] on rows: ['5-8']\n"
         )
         self.assertEqual(expected, str(rcv))
@@ -757,7 +758,7 @@ class ExceptionTests(TracebaseTestCase):
         rve = RequiredValueErrors(rves)
         expected = (
             "Required values found missing during loading:\n"
-            "\tsheet [tissues] in file [tissues.tsv]:\n"
+            "\tsheet [tissues] in tissues.tsv:\n"
             "\t\tField: [Tissue.name] Column: [Tissue Name] on row(s): 3-4\n"
         )
         self.assertEqual(expected, str(rve))
@@ -795,7 +796,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "The following excel sheet(s) parsed from column [Sheet Name] of sheet [defs] in file [test.xlsx] on "
+                "The following excel sheet(s) parsed from column [Sheet Name] of sheet [defs] in test.xlsx on "
                 "the indicated rows were not found.\n"
                 "\t[x] on rows: ['2-3', '5']\n"
                 "The available sheets are: [['a', 'b']]."
@@ -815,10 +816,10 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "The following column-references parsed from column [Column Header] of sheet [Defaults] in file "
-                "[test.xlsx]:\n"
+                "The following column-references parsed from column [Column Header] of sheet [Defaults] in "
+                "test.xlsx:\n"
                 "\t[X] on row(s): ['2', '5-7']\n"
-                "were not found in sheet [Data] in file [test.xlsx], which has the following columns:\n"
+                "were not found in sheet [Data] in test.xlsx, which has the following columns:\n"
                 "\tA, B."
             ),
             str(ihcre),
@@ -848,7 +849,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "Invalid dtype dict supplied for parsing sheet [SheetName] in file [afile.xlsx].  None of its keys "
+                "Invalid dtype dict supplied for parsing sheet [SheetName] in afile.xlsx.  None of its keys "
                 "['Wrong', 'WrongAgain'] are present in the dataframe, whose columns are ['A', 'B']."
             ),
             str(idd),
@@ -863,7 +864,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "Missing dtype dict keys supplied for parsing sheet [SheetName] in file [afile.xlsx].  These keys "
+                "Missing dtype dict keys supplied for parsing sheet [SheetName] in afile.xlsx.  These keys "
                 "['Wrong'] are not present in the resulting dataframe, whose available columns are ['A', 'Right']."
             ),
             str(idk),
@@ -891,7 +892,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "You did something weird here: column [Col1] on row [2] of sheet [Test Sheet] in file [test.xlsx]. You "
+                "You did something weird here: column [Col1] on row [2] of sheet [Test Sheet] in test.xlsx. You "
                 "shouldn't do that."
             ),
             str(ie),
@@ -908,7 +909,23 @@ class ExceptionTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "You did something weird. You shouldn't do that.  Location: column [Col1] on row [2] of sheet [Test "
-                "Sheet] in file [test.xlsx]."
+                "Sheet] in test.xlsx."
+            ),
+            str(ie),
+        )
+
+    def test_InfileError_string_rownum(self):
+        ie = InfileError(
+            "Tests that rownum can be a string.",
+            rownum="record name",
+            sheet="Test Sheet 1",
+            file="testrowname.xlsx",
+            column="Col5",
+        )
+        self.assertEqual(
+            (
+                "Tests that rownum can be a string.  Location: column [Col5] on row [record name] of sheet [Test Sheet "
+                "1] in testrowname.xlsx."
             ),
             str(ie),
         )
@@ -923,7 +940,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertEqual(
             (
-                "Compound [compound x] from column [Col1] on row [2] of sheet [Test Sheet] in file [test.xlsx] does "
+                "Compound [compound x] from column [Col1] on row [2] of sheet [Test Sheet] in test.xlsx does "
                 "not exist as either a primary compound name or synonym."
             ),
             str(cdne),
@@ -957,7 +974,7 @@ class ExceptionTests(TracebaseTestCase):
             sheet="Not Present", file="an_excel_file.xlsx", all_sheets=["A", "B"]
         )
         self.assertIn("[Not Present] not found", str(esnf))
-        self.assertIn("in file [an_excel_file.xlsx]", str(esnf))
+        self.assertIn("in an_excel_file.xlsx", str(esnf))
         self.assertIn("Available sheets: ['A', 'B']", str(esnf))
 
     def test_MissingTissue(self):
@@ -970,7 +987,7 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertIn("Tissue 'sphincter'", str(mt))
         self.assertIn(
-            "column [Tissue] on row [2] of sheet [Samples] in file [study.xlsx]",
+            "column [Tissue] on row [2] of sheet [Samples] in study.xlsx",
             str(mt),
         )
 
@@ -993,16 +1010,14 @@ class ExceptionTests(TracebaseTestCase):
                 ),
             ],
         )
-        self.assertIn(
-            "column [Treatment] of sheet [Samples] in file [study.xlsx]", str(amt)
-        )
+        self.assertIn("column [Treatment] of sheet [Samples] in study.xlsx", str(amt))
         self.assertIn("sphincter on row(s): ['2']", str(amt))
         self.assertIn("elbow_pit on row(s): ['3']", str(amt))
 
     def test_MissingDataAdded(self):
         mda = MissingDataAdded(["5 sample names"], file="Study doc.xlsx")
         self.assertEqual(
-            "Missing data ['5 sample names'] was added to file [Study doc.xlsx].",
+            "Missing data ['5 sample names'] was added to Study doc.xlsx.",
             str(mda),
         )
 
@@ -1015,3 +1030,7 @@ class ExceptionTests(TracebaseTestCase):
             "Tissue record matching {'name': 'invalid'} from the load file data does not exist.",
             str(rdne),
         )
+
+    def test_RequiredOptions(self):
+        ro = RequiredOptions(["infile"])
+        self.assertEqual("Missing required options: ['infile'].", str(ro))

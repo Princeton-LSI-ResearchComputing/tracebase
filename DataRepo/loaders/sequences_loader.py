@@ -7,7 +7,11 @@ from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.utils.exceptions import InfileError, RecordDoesNotExist
+from DataRepo.utils.exceptions import (
+    InfileError,
+    RecordDoesNotExist,
+    RollbackException,
+)
 from DataRepo.utils.file_utils import string_to_datetime
 
 
@@ -87,7 +91,7 @@ class SequencesLoader(TableLoader):
 
     DataColumnMetadata = DataTableHeaders(
         SEQNAME=TableColumn.init_flat(
-            name="Sequence Name",
+            name=DataHeaders.SEQNAME,
             help_text=(
                 "A unique sequence identifier.\n\nNote that a sequence record is unique to a researcher, protocol, "
                 "instrument model, and date.  If a researcher performs multiple such Mass Spec runs on the same day, "
@@ -118,15 +122,17 @@ class SequencesLoader(TableLoader):
             ),
         ),
         OPERATOR=TableColumn.init_flat(
-            name="Operator",
+            name=DataHeaders.OPERATOR,
             help_text="Researcher who operated the Mass Spec instrument.",
         ),
         DATE=TableColumn.init_flat(
+            name=DataHeaders.DATE,
             field=MSRunSequence.date,
             format="Format: YYYY-MM-DD.",
         ),
         INSTRUMENT=TableColumn.init_flat(field=MSRunSequence.instrument),
         LCNAME=TableColumn.init_flat(
+            name=DataHeaders.LCNAME,
             field=LCMethod.name,
             # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
             dynamic_choices=ColumnReference(
@@ -166,7 +172,7 @@ class SequencesLoader(TableLoader):
 
             try:
                 self.get_or_create_sequence(row, lc_rec)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
@@ -217,10 +223,8 @@ class SequencesLoader(TableLoader):
         Args:
             row (pandas dataframe row)
             lc_rec (LCMethod)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             rec (Optional[MSRunSequence])
             created (boolean): Only returned for use in tests
@@ -268,7 +272,6 @@ class SequencesLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, MSRunSequence, rec_dict)
             self.errored(MSRunSequence.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
-            raise e
+            raise RollbackException()
 
         return rec, created

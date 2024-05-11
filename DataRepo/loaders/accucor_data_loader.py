@@ -8,12 +8,12 @@ from sqlite3 import ProgrammingError
 from typing import List, TypedDict
 
 import regex
-import xmltodict
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files import File
 from django.db import IntegrityError, transaction
 
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -68,7 +68,6 @@ from DataRepo.utils.exceptions import (
     MultipleAccucorTracerLabelColumnsError,
     MultipleMassNumbers,
     MzxmlConflictErrors,
-    MzxmlParseError,
     NoSampleHeaders,
     NoSamplesError,
     NoTracerLabeledElements,
@@ -535,7 +534,13 @@ class AccuCorDataLoader:
                 parsed_mz_max = None
                 path_obj = Path(str(self.mzxml_files_dict[sample_header]["path"]))
                 if path_obj.is_file():
-                    self.mzxml_data[sample_header] = self.parse_mzxml(path_obj)
+                    self.mzxml_data[sample_header], errs = MSRunsLoader.parse_mzxml(
+                        path_obj
+                    )
+                    if len(errs.exceptions) > 0:
+                        self.aggregated_errors_object.merge_aggregated_errors_object(
+                            errs
+                        )
                     parsed_polarity = self.mzxml_data[sample_header]["polarity"]
                     if (
                         sample_header in self.lcms_metadata.keys()
@@ -1338,114 +1343,6 @@ class AccuCorDataLoader:
             code="ms_data",
             format="ms_raw",
         )
-
-    def parse_mzxml(self, mzxml_path_obj, full_dict=False):
-        """Creates a dict of select data parsed from an mzXML file
-
-        This extracts the raw file name, raw file's sha1, and the polarity from an mzxml file and returns a condensed
-        dictionary of only those values (for simplicity).  The construction of the condensed dict will perform
-        validation and conversion of the desired values, which will not occur when the full_dict is requested.  If
-        full_dict is True, it will return the uncondensed version.
-
-        If not all polarities of all the scans are the same, an error will be buffered.
-
-        Args:
-            mzxml_path_obj (Path): mzXML file Path object
-            full_dict (boolean): Whether to return the raw/full dict of the mzXML file
-
-        Returns:
-            If mzxml_path_obj is not a real existing file:
-                None
-            If full_dict=False:
-                {
-                    "raw_file_name": <raw file base name parsed from mzXML file>,
-                    "raw_file_sha1": <sha1 string parsed from mzXML file>,
-                    "polarity": "positive" or "negative" (based on first polarity parsed from mzXML file),
-                    "mz_min": <float parsed from lowMz from the mzXML file>,
-                    "mz_max": <float parsed from highMz from the mzXML file>,
-                }
-            If full_dict=True:
-                xmltodict.parse(xml_content)
-
-        Raises:
-            Nothing, but buffers a ValueError
-        """
-        if not mzxml_path_obj.is_file():
-            # mzXML files are optional, but the file names are supplied in a file, in which case, we may have a name,
-            # but not the file, so just return None if what we have isn't a real file.
-            return None
-
-        # Parse the xml content
-        with mzxml_path_obj.open(mode="r") as f:
-            xml_content = f.read()
-        mzxml_dict = xmltodict.parse(xml_content)
-
-        if full_dict:
-            return mzxml_dict
-
-        try:
-            raw_file_type = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileType"]
-            raw_file_name = Path(
-                mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileName"]
-            ).name
-            raw_file_sha1 = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileSha1"]
-            if raw_file_type != "RAWData":
-                self.aggregated_errors_object.buffer_error(
-                    ValueError(
-                        f"Unsupported file type [{raw_file_type}] encountered in mzXML file [{str(mzxml_path_obj)}].  "
-                        "Expected: [RAWData]."
-                    )
-                )
-                raw_file_name = None
-                raw_file_sha1 = None
-
-            polarity = MSRunSample.POLARITY_DEFAULT
-            mz_min = None
-            mz_max = None
-            symbol_polarity = ""
-            for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
-                # Parse the mz_min
-                tmp_mz_min = float(entry_dict["@lowMz"])
-                # Get the min of the mins
-                if mz_min is None or tmp_mz_min < mz_min:
-                    mz_min = tmp_mz_min
-                # Parse the mz_max
-                tmp_mz_max = float(entry_dict["@highMz"])
-                # Get the max of the maxes
-                if mz_max is None or tmp_mz_max > mz_max:
-                    mz_max = tmp_mz_max
-                # Parse the polarity
-                # If we haven't run into a polarity conflict (yet)
-                if str(mzxml_path_obj) not in self.mixed_polarities.keys():
-                    if symbol_polarity == "":
-                        symbol_polarity = entry_dict["@polarity"]
-                    elif symbol_polarity != entry_dict["@polarity"]:
-                        self.mixed_polarities[str(mzxml_path_obj)] = {
-                            "first": symbol_polarity,
-                            "different": entry_dict["@polarity"],
-                            "scan": entry_dict["@num"],
-                        }
-        except KeyError as ke:
-            self.aggregated_errors_object.buffer_error(MzxmlParseError(str(ke)))
-        if symbol_polarity == "+":
-            polarity = MSRunSample.POSITIVE_POLARITY
-        elif symbol_polarity == "-":
-            polarity = MSRunSample.NEGATIVE_POLARITY
-        elif symbol_polarity != "":
-            self.aggregated_errors_object.buffer_error(
-                ValueError(
-                    f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
-                    f"[{str(mzxml_path_obj)}]."
-                )
-            )
-
-        return {
-            "raw_file_name": raw_file_name,
-            "raw_file_sha1": raw_file_sha1,
-            "polarity": polarity,
-            "mz_min": mz_min,
-            "mz_max": mz_max,
-        }
 
     def insert_peak_group(
         self,
@@ -2266,7 +2163,8 @@ def hash_file(path_obj, allow_missing=False):
         # open file for reading in binary mode
         with path_obj.open("rb") as file:
             # loop till the end of the file
-            chunk = 0
+            chunk = file.read(1024)
+            h.update(chunk)
             while chunk != b"":
                 # read only 1024 bytes at a time
                 chunk = file.read(1024)

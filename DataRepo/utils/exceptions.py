@@ -67,7 +67,7 @@ class InfileError(Exception):
     def __init__(
         self,
         message,
-        rownum: Optional[int] = None,
+        rownum: Optional[object] = None,
         sheet=None,
         file=None,
         column=None,
@@ -1236,7 +1236,7 @@ class AggregatedErrors(Exception):
 
         Args:
             exception_class (Exception): The class of exceptions to remove
-            modify (boolean): Whether the convert the removed exception to a warning
+            modify (boolean): Whether to convert the removed exception to a warning
         """
         return self.get_exception_type(exception_class, remove=True, modify=modify)
 
@@ -1347,7 +1347,9 @@ class AggregatedErrors(Exception):
             ]
         )
 
-    def buffer_exception(self, exception, is_error=True, is_fatal=True):
+    def buffer_exception(
+        self, exception, is_error=True, is_fatal=True, orig_exception=None
+    ):
         """
         Don't raise this exception. Save it to report later, after more errors have been accumulated and reported as a
         group.  The buffered_exception has a buffered_tb_str and a boolean named is_error added to it.  Returns self so
@@ -1364,6 +1366,11 @@ class AggregatedErrors(Exception):
         buffered_exception = None
         if hasattr(exception, "__traceback__") and exception.__traceback__:
             added_exc_str = "".join(traceback.format_tb(exception.__traceback__))
+            buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
+            buffered_exception = exception
+        elif hasattr(orig_exception, "__traceback__") and orig_exception.__traceback__:
+            setattr(exception, "__traceback__", orig_exception.__traceback__)
+            added_exc_str = "".join(traceback.format_tb(orig_exception.__traceback__))
             buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
             buffered_exception = exception
         else:
@@ -1400,11 +1407,15 @@ class AggregatedErrors(Exception):
 
         return self
 
-    def buffer_error(self, exception, is_fatal=True):
-        return self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
+    def buffer_error(self, exception, is_fatal=True, orig_exception=None):
+        return self.buffer_exception(
+            exception, is_error=True, is_fatal=is_fatal, orig_exception=orig_exception
+        )
 
-    def buffer_warning(self, exception, is_fatal=False):
-        return self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
+    def buffer_warning(self, exception, is_fatal=False, orig_exception=None):
+        return self.buffer_exception(
+            exception, is_error=False, is_fatal=is_fatal, orig_exception=orig_exception
+        )
 
     def print_all_buffered_exceptions(self):
         for exc in self.exceptions:
@@ -1605,7 +1616,7 @@ class DuplicateValues(InfileError):
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
             dupdeets = []
-            for v, l in dupe_dict.items():
+            for v, lst in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
 
@@ -1613,9 +1624,9 @@ class DuplicateValues(InfileError):
                 # structures (originating from either get_column_dupes or get_one_column_dupes).  A refactor made the
                 # issue worse.  Before, it was called with a message arg, which avoided the issue.  Now it's not called
                 # with a message.  This strategy needs to be consolidated.
-                idxs = l
-                if isinstance(l, dict):
-                    idxs = l["rowidxs"]
+                idxs = lst
+                if isinstance(lst, dict):
+                    idxs = lst["rowidxs"]
                 dupdeets.append(
                     f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"
                 )
@@ -2576,6 +2587,17 @@ class MutuallyExclusiveOptions(CommandError):
     pass
 
 
+class MutuallyExclusiveArgs(InfileError):
+    pass
+
+
+class RequiredOptions(CommandError):
+    def __init__(self, missing, **kwargs):
+        message = f"Missing required options: {missing}."
+        super().__init__(message, **kwargs)
+        self.missing = missing
+
+
 class ConditionallyRequiredOptions(CommandError):
     pass
 
@@ -2592,10 +2614,11 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
-    def __init__(self, model, query_dict, **kwargs):
-        message = (
-            f"{model.__name__} record matching {query_dict} from %s does not exist."
-        )
+    def __init__(self, model, query_dict, message=None, **kwargs):
+        if message is None:
+            message = (
+                f"{model.__name__} record matching {query_dict} from %s does not exist."
+            )
         super().__init__(message, **kwargs)
         self.query_dict = query_dict
         self.model = model
@@ -2610,6 +2633,17 @@ class MissingDataAdded(InfileError):
             message += f"{addition_notes} "
         message += "was added to %s."
         super().__init__(message, **kwargs)
+
+
+class RollbackException(Exception):
+    """This class only exists in order to be raised after specific exception handling has already occurred and an
+    exception needs to be raised in order to trigger a rollback.  Often times, the exception handling is prefereable to
+    co-locate with the code that attempts the database load, and it is done inside a method that is calledf from a loop
+    on an input file so that exceptions can be safely handled and buffered (for later raising) in order to be able to
+    proceed and report as many errors as possible to reduce time-consuming re-loads just to get the next error.
+    """
+
+    pass
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
@@ -2627,7 +2661,7 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     if loc_str != "":
         loc_str += "in "
     if file is not None:
-        loc_str += f"file [{file}]"
+        loc_str += file
     else:
         loc_str += "the load file data"
     return loc_str
@@ -2641,7 +2675,13 @@ def summarize_int_list(intlist):
     sum_list = []
     last_num = None
     waiting_num = None
-    for num in [int(n) for n in sorted([i for i in intlist if i is not None])]:
+    for num in [n for n in sorted([i for i in intlist if i is not None])]:
+        try:
+            num = int(num)
+        except ValueError:
+            # Assume this is a "named" row
+            sum_list.append(num)
+            continue
         if last_num is None:
             waiting_num = num
         else:

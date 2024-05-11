@@ -1,4 +1,11 @@
-from django.db import models
+from __future__ import annotations
+
+import hashlib
+import os
+from pathlib import Path
+
+from django.core.files import File
+from django.db import models, transaction
 from django.utils.text import get_valid_filename
 
 
@@ -84,8 +91,115 @@ def data_type_path(instance, filename):
     return f"archive_files/{date_folder}/{data_type_folder}/{filename_clean}"
 
 
+class ArchiveFileQuerySet(models.QuerySet):
+    @transaction.atomic
+    def get_or_create(self, is_binary=None, **kwargs) -> tuple[ArchiveFile, bool]:
+        """An override of get_or_create (if provided a Path object or a path string for file_location) can avoid unique
+        constraint violations due to the fact that Django appends a short random hash string to file names at the end of
+        the file_location to ensure uniqueness without worrying about the path.
+
+        Also provides the following conveniences:
+        - Accepts either a file path string, Path object, or File object for file_location.
+          - If file_location is a File object, there are no special features. It just calls super.get_or_create.
+          - Otherwise, it has the features described below...
+        - Checks or fills in the checksum (if a valid file_location is provided).
+        - Fills in the filename (if None).
+        - If the data_type is a string, it retrieves the DataType record using that string as DataType.code.
+        - If the data_format is a string, it retrieves the DataFormat record using that string as DataFormat.code.
+        - Performs a full_clean if created.
+
+        Args:
+            kwargs (dict): The field names (keys) and values.
+            is_binary (boolean): An optional way to indicate if the file is binary or not, overriding the automatic
+                guess/determination.
+        Exceptions:
+            FileNotFoundError
+            ValueError
+        Returns:
+            archivefile_rec (ArchiveFile)
+            created (boolean)
+        """
+
+        file_location = kwargs.pop("file_location", None)
+
+        if file_location is None:
+            return super().get_or_create(**kwargs)
+
+        if isinstance(file_location, File):
+            # No special features if this is already a Django File object
+            kwargs["file_location"] = file_location
+            return super().get_or_create(**kwargs)
+        elif isinstance(file_location, Path):
+            path_obj = file_location
+        elif isinstance(file_location, str):
+            path_obj = Path(file_location)
+        else:
+            raise ValueError(
+                f"file_location must be either a Path object or string, not {type(file_location).__name__}."
+            )
+
+        # Compute the filename if not provided, but allow it to differ from the name of the file_location
+        if path_obj.is_file():
+            if kwargs.get("filename") is None:
+                kwargs["filename"] = path_obj.name
+        else:
+            raise FileNotFoundError(f"No such file: {str(path_obj)}")
+
+        # Compute and/or check the checksum.
+        supplied_checksum = kwargs.get("checksum", None)
+        computed_checksum = ArchiveFile.hash_file(path_obj)
+        if supplied_checksum is not None and computed_checksum != supplied_checksum:
+            raise ValueError(
+                f"The supplied checksum [{supplied_checksum}] does not match the computed checksum "
+                f"[{computed_checksum}]."
+            )
+        elif supplied_checksum is None:
+            kwargs["checksum"] = computed_checksum
+
+        # Fill in the data_type, using the provided value as the code if it is a string
+        data_type = kwargs.get("data_type")
+        if data_type is not None and isinstance(data_type, str):
+            kwargs["data_type"] = DataType.objects.get(code=data_type)
+
+        # Fill in the data_format, using the provided value as the code if it is a string
+        data_format = kwargs.get("data_format")
+        if data_format is not None and isinstance(data_format, str):
+            kwargs["data_format"] = DataFormat.objects.get(code=data_format)
+
+        # When an ArchiveFile record is get_or_created, and you expect a `get` to occur, the handling of the
+        # `file_location` value results in an unexpected outcome.  Instead of `getting` the record, since the
+        # path and name is the same, the Django code appends a short random hash value to the file name before the
+        # file extension.  This results in the `get_or_create` method trying to "create" a record, because one
+        # of the field values differ.  This then results in a unique constraint violation, because the hash must
+        # be unique.  So to work around this, we will perform a `get_or_create` *without* the `file_location`
+        # value, and instead add the file after, only *if* the record was created...
+        archivefile_rec, created = super().get_or_create(**kwargs)
+        if created or archivefile_rec.file_location is None:
+            # Create a File object
+            mode = "r"
+            if (is_binary is not None and is_binary) or ArchiveFile.file_is_binary(
+                file_location
+            ):
+                mode = "rb"
+            with path_obj.open(mode=mode) as file_handle:
+                tmp_file_location = File(file_handle, name=path_obj.name)
+
+            if created:
+                archivefile_rec.file_location = tmp_file_location
+                archivefile_rec.full_clean()
+            elif archivefile_rec.file_location is None:
+                # Re-do the get_or_create WITH the file_location (since we know a record exists WITHOUT a value for
+                # file_location) in order to generate the expected/usual exception about a unique-constraint violation
+                kwargs["file_location"] = tmp_file_location
+                archivefile_rec = super().get_or_create(**kwargs)
+
+        return archivefile_rec, created
+
+
 class ArchiveFile(models.Model):
     """Store the file location, checksum, datatype, and format of files."""
+
+    objects = ArchiveFileQuerySet().as_manager()
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -121,3 +235,52 @@ class ArchiveFile(models.Model):
 
     def __str__(self):
         return f"{self.filename} ({self.checksum})"
+
+    @classmethod
+    def file_is_binary(cls, filepath):
+        """Guesses whether a file is binary or text.  Partially based on:
+        https://stackoverflow.com/a/7392391/2057516
+        Args:
+            filepath (string): The path to a file.
+        Exceptions:
+            None
+        Returns:
+            is_binary (boolean)
+        """
+        textchars = bytearray(
+            {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F}
+        )
+        file_sample = None
+        is_binary = False
+        try:
+            with open(filepath, "rb") as fl:
+                file_sample = fl.read(1024)
+            is_binary = bool(file_sample.translate(None, textchars))
+        except Exception:
+            # Fall back to guessing by extension
+            supported_binary_exts = ["xlsx", "xls"]
+            _, ext = os.path.splitext(filepath)
+            if ext in supported_binary_exts:
+                is_binary = True
+        return is_binary
+
+    @classmethod
+    def hash_file(cls, path_obj: File):
+        """Determine the SHA-1 hash of a file.  Note, it does not matter if the file is binary or not.
+        Args:
+            path_obj (Path)
+        Exceptions:
+            None
+        Returns:
+            hex (string): the hex representation of digest
+        """
+        hash_obj = hashlib.sha1()
+
+        with path_obj.open("rb") as file_handle:
+            chunk = file_handle.read(1024)
+            hash_obj.update(chunk)
+            while chunk != b"":
+                chunk = file_handle.read(1024)
+                hash_obj.update(chunk)
+
+        return hash_obj.hexdigest()
