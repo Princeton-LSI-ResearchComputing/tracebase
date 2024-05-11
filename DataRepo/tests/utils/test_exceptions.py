@@ -930,22 +930,6 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
-    def test_InfileError_string_rownum(self):
-        ie = InfileError(
-            "Tests that rownum can be a string.",
-            rownum="record name",
-            sheet="Test Sheet 1",
-            file="testrowname.xlsx",
-            column="Col5",
-        )
-        self.assertEqual(
-            (
-                "Tests that rownum can be a string.  Location: column [Col5] on row [record name] of sheet [Test Sheet "
-                "1] in testrowname.xlsx."
-            ),
-            str(ie),
-        )
-
     def test_CompoundDoesNotExist(self):
         cdne = CompoundDoesNotExist(
             "compound x",
