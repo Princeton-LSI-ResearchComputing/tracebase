@@ -731,6 +731,8 @@ class MSRunsLoader(TableLoader):
 
         return rec, created, updated
 
+        return rec, created, updated
+
     def get_sample_by_name(self, sample_name, from_mzxml=False):
         """Get a Sample record by name.
         Args:
@@ -858,6 +860,8 @@ class MSRunsLoader(TableLoader):
             self.handle_load_db_errors(e, MSRunSample, msrs_rec_dict)
             self.errored(MSRunSample.__name__)
             raise RollbackException()
+
+        return rec, created
 
         return rec, created
 
