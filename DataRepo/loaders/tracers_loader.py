@@ -149,6 +149,10 @@ class TracersLoader(TableLoader):
             name=DataHeaders.COMPOUND,
             field=Tracer.compound,
             help_text="Primary compound name.",
+            guidance=(
+                f"The dropdown menus in this column are populated by the {CompoundsLoader.DataHeaders.NAME} column in "
+                f"the {CompoundsLoader.DataSheetName} sheet."
+            ),
             type=str,
             # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
             dynamic_choices=ColumnReference(
@@ -182,7 +186,10 @@ class TracersLoader(TableLoader):
             field=Tracer.name,
             # TODO: Replace "Infusates" and "Tracer Name" below with a reference to its loader's DataSheetName and the
             # corresponding column, respectively
-            guidance="This column is used to populate Tracer Name choices in the Infusates sheet.",
+            guidance=(
+                "This column is automatically filled in using an excel formula and its values are used to populate "
+                "Tracer Name choices in the Infusates sheet."
+            ),
             type=str,
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the

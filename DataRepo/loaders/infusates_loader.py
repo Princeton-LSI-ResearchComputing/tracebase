@@ -5,7 +5,9 @@ from typing import Dict
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
+from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
 from DataRepo.utils.exceptions import (
     InfileError,
@@ -114,6 +116,66 @@ class InfusatesLoader(TableLoader):
             "tracer_group_name": GROUP_NAME_KEY,
         },
     }
+
+    DataColumnMetadata = DataTableHeaders(
+        ID=TableColumn.init_flat(
+            name=DataHeaders.ID,
+            help_text=(
+                "Arbitrary number that identifies every row containing a tracer that belongs to a single infusate.  "
+                f"This is not loaded into the database.  The {DataHeaders.NAME} column is populated using an excel "
+                f"formula based on all rows containing the same {DataHeaders.ID}."
+            ),
+            type=int,
+        ),
+        TRACERGROUP=TableColumn.init_flat(
+            name=DataHeaders.TRACERGROUP,
+            field=Infusate.tracer_group_name,
+            type=str,
+        ),
+        TRACERNAME=TableColumn.init_flat(
+            name=DataHeaders.TRACERNAME,
+            field=InfusateTracer.tracer,
+            help_text=f"Tracer included in an infusate at a specific {DataHeaders.TRACERCONC}.",
+            guidance=(
+                f"The dropdown menus in this column are populated by the {TracersLoader.DataHeaders.NAME} column in "
+                f"the {TracersLoader.DataSheetName} sheet."
+            ),
+            type=str,
+            # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
+            dynamic_choices=ColumnReference(
+                loader_class=TracersLoader,
+                loader_header_key=TracersLoader.NAME_KEY,
+            ),
+        ),
+        TRACERCONC=TableColumn.init_flat(
+            name=DataHeaders.TRACERCONC,
+            field=InfusateTracer.concentration,
+            type=float,
+        ),
+        NAME=TableColumn.init_flat(
+            name=DataHeaders.NAME,
+            field=Infusate.name,
+            # TODO: Replace "Animals" and "Infusate" below with a reference to its loader's DataSheetName and the
+            # corresponding column, respectively.  (In this case, the AnimalsLoader does not yet exist.)
+            guidance=(
+                "This column is automatically filled in using an excel formula and its values are used to populate "
+                "Infusate choices in the Animals sheet."
+            ),
+            type=str,
+            # TODO: Create the method that applies the formula to the NAME column on every row
+            # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
+            # current row.  The header keys will be replaced by the excel column letters.
+            # TODO: Copy out the formula from the example excel sheet I created on my laptop
+            # formula=(
+            #     "=CONCATENATE("
+            #     f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
+            #     f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
+            #     f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
+            #     f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
+            #     ")"
+            # ),
+        ),
+    )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [InfusateTracer, Infusate]
@@ -690,8 +752,8 @@ class InfusatesLoader(TableLoader):
             except ObjectDoesNotExist:
                 self.aggregated_errors_object.buffer_error(
                     RecordDoesNotExist(
-                        model=Tracer,
-                        name=tracer_name,
+                        Tracer,
+                        {"name": tracer_name},
                         rownum=tracer_dict["rownum"],
                         column=self.headers.TRACERNAME,
                         file=self.file,
