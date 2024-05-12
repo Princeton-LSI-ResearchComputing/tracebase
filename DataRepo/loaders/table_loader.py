@@ -8,8 +8,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 
-from DataRepo.models.utilities import get_model_fields
 from DataRepo.models.maintained_model import AutoUpdateFailed
+from DataRepo.models.utilities import get_model_fields
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
