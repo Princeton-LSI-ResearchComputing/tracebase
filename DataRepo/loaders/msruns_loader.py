@@ -12,7 +12,7 @@ from django.forms import model_to_dict
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
+from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, Sample
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
@@ -21,6 +21,7 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.sample import Sample
 from DataRepo.models.utilities import exists_in_db, update_rec
+from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
