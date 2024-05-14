@@ -72,6 +72,7 @@ from DataRepo.utils.exceptions import (
     NoSampleHeaders,
     NoSamplesError,
     NoTracerLabeledElements,
+    PeakAnnotationParseError,
     PeakAnnotFileMismatches,
     ResearcherNotNew,
     SampleColumnInconsistency,
@@ -2173,14 +2174,20 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
     @classmethod
-    def detect_data_format(cls, file):
-        """Detect the data format of an Excel workbook
+    def detect_data_format(cls, file: str):
+        """Detect the data format of a peak annotation file
+
+        Currently, this only works with Excel workbooks, other file format will
+        return `None`.
 
         Args:
-            file: path to Excel file
+            file (str): path to a peak annotation file
 
         Returns:
-            data_format: DataFormat model object or None if unknown
+            data_format (Optional[DataFormat]): DataFormat model object or None if unknown
+
+        Raises:
+            PeakAnnotationParseError
         """
 
         data_format = None
@@ -2190,6 +2197,15 @@ class AccuCorDataLoader:
                 data_format = DataFormat.objects.get(code="accucor")
             elif sheets == cls.ISOCORR_SHEETS:
                 data_format = DataFormat.objects.get(code="isocorr")
+            else:
+                raise PeakAnnotationParseError(
+                    message=f'Unable to determine data format of peak annoataion file "{file}".\n'
+                    "The list of sheets did not match known data formats.\n"
+                    f"Found sheets: {sheets}\n"
+                    "Known formats:\n"
+                    f"accucor: {cls.ACCUCOR_SHEETS}\n"
+                    f"isocorr: {cls.ISOCORR_SHEETS}\n"
+                )
         return data_format
 
     @classmethod

@@ -1,6 +1,7 @@
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
 from DataRepo.models import DataFormat
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import PeakAnnotationParseError
 
 
 class AccuCorDataLoaderTests(TracebaseTestCase):
@@ -34,12 +35,10 @@ class AccuCorDataLoaderTests(TracebaseTestCase):
         )
 
     def test_detect_filetype_invalid_xlsx(self):
-        self.assertEquals(
+        with self.assertRaises(PeakAnnotationParseError):
             AccuCorDataLoader.detect_data_format(
                 file="DataRepo/data/tests/submission_v3/study.xlsx"
             ),
-            None,
-        )
 
     def test_is_accucor_file(self):
         self.assertFalse(
