@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
+
 import pandas as pd
 
-from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import PeakData, PeakGroup
+# from DataRepo.loaders.table_loader import TableLoader
+# from DataRepo.models import PeakData, PeakGroup
 
 
-class PeakAnnotationsLoader(TableLoader, ABC):
+# class PeakAnnotationsLoader(TableLoader, ABC):
+class PeakAnnotationsLoader(ABC):
     @property
     @abstractmethod
     def merged_column_rename_dict(self):
@@ -55,34 +57,76 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         """
         pass
 
-    def convert_df(self, df):
+    def __init__(self, *args, **kwargs):
+        """Constructor.
+        Args:
+            Superclass Args:
+                df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
+                dry_run (Optional[boolean]) [False]: Dry run mode.
+                defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
+                    MUST HANDLE THE ROLLBACK.
+                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                file (Optional[str]) [None]: File name (for error reporting).
+                user_headers (Optional[dict]): Header names by header key.
+                defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
+                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+                defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+            Derived (this) class Args:
+                None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if "df" in kwargs.keys():
+            kwargs["df"] = self.convert_df(kwargs["df"])
+        super().__init__(*args, **kwargs)
 
-        single_sheet = self.merge_dict["first_sheet"]
+    @classmethod
+    def convert_df(cls, df):
+        """Uses the abstract properties defined in a derived class to convert the given data format (e.g. an accucor
+        excel file or an isocorr csv file) into a universal format accepted by this parent class's loading code.
+        Args:
+            df (pandas DataFrame or dict of pandas DataFrames): Basically, anything returned by the read_from_file
+                method in the file_utils library
+        Exceptions:
+            ValueError
+        Returns:
+            outdf (pandas DataFrame): Converted single DataFrame
+        """
+        single_sheet = cls.merge_dict["first_sheet"]
         # If there's only 1 key in the merge_dict and its value is None, it is inferred to mean that no merge is
         # necessary.  Just set the outdf to that one dataframe indicated by the sole sheet key.
-        if self.merge_dict["next_merge_dict"] is not None:
+        if cls.merge_dict["next_merge_dict"] is not None:
             single_sheet = None
 
         if isinstance(df, pd.DataFrame):
             outdf = df.copy(deep=True)
             if single_sheet is None:
-                ValueError(f"A dataframe dict containing the following sheets/keys: {list(df.keys())} is required.")
-            self.add_df_columns({single_sheet: outdf})
+                raise ValueError(
+                    f"A dataframe dict containing the following sheets/keys: {list(df.keys())} is required."
+                )
+            cls.add_df_columns({single_sheet: outdf})
         elif isinstance(df, dict):
             outdf = dict((sheet, adf.copy(deep=True)) for sheet, adf in df.items())
             # If there's only 1 sheet that we need
             if single_sheet is not None:
                 if single_sheet in outdf.keys():
-                    self.add_df_columns(outdf)
+                    cls.add_df_columns(outdf)
                 else:
-                    ValueError(f"Sheet [{single_sheet}] missing in the dataframe dict: {list(outdf.keys())}")
+                    raise ValueError(
+                        f"Sheet [{single_sheet}] missing in the dataframe dict: {list(outdf.keys())}"
+                    )
 
-            outdf = self.merge_df_sheets(outdf)
+            outdf = cls.merge_df_sheets(outdf)
 
-        return outdf.rename(columns=self.column_renames)
+        return outdf.rename(columns=cls.merged_column_rename_dict)
 
-    def add_df_columns(self, df_dict: dict):
-        """Creates/adds columns to a pandas DataFrame dict based on the methods in self.add_columns_dict that generate
+    @classmethod
+    def add_df_columns(cls, df_dict: dict):
+        """Creates/adds columns to a pandas DataFrame dict based on the methods in cls.add_columns_dict that generate
         columns from existing DataFrame columns.
         Args:
             df_dict (dict of pandas DataFrames)
@@ -91,18 +135,19 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         Returns:
             None
         """
-        for sheet, column_dict in self.add_columns_dict.items():
+        for sheet, column_dict in cls.add_columns_dict.items():
             for new_column, method in column_dict.items():
                 df_dict[sheet][new_column] = method(df_dict[sheet])
 
-    def merge_df_sheets(self, df_dict, _outdf=None, _merge_dict=None, _first_sheet=None):
-        """Uses self.merge_dict to recursively merge df_dict's sheets into a single merged dataframe.
+    @classmethod
+    def merge_df_sheets(cls, df_dict, _outdf=None, _merge_dict=None, _first_sheet=None):
+        """Uses cls.merge_dict to recursively merge df_dict's sheets into a single merged dataframe.
         Args:
             df_dict (dict of pandas DataFrames): A dict of dataframes keyed on sheet names (i.e. the return of
                 read_from_file when called with an excel doc)
-            _outdf (Optional[pandas DataFrame]) [df_dict[self.merge_dict["first_sheet"]]]: Used in recursive calls to
+            _outdf (Optional[pandas DataFrame]) [df_dict[cls.merge_dict["first_sheet"]]]: Used in recursive calls to
                 build up a dataframe from 2 or more sheets in df_dict.
-            _merge_dict (Optional[dict]) [self.merge_dict]: A recursively constructed dict describing how to merge the
+            _merge_dict (Optional[dict]) [cls.merge_dict]: A recursively constructed dict describing how to merge the
                 sheets in df_dict.  Example:
                     {
                         "first_sheet": "Corrected",  # This key ponly occurs once in the outermost dict
@@ -115,7 +160,7 @@ class PeakAnnotationsLoader(TableLoader, ABC):
                             "next_merge_dict": None,
                         }
                     }
-            _first_sheet (Optional[str]) [self.merge_dict["first_sheet"]]: The first sheet to use as the left dataframe
+            _first_sheet (Optional[str]) [cls.merge_dict["first_sheet"]]: The first sheet to use as the left dataframe
                 in the first merge.  Every subsequence recursive merge uses outdf and does not use _first_sheet.
         Exceptions:
             Buffers:
@@ -125,10 +170,10 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         Returns:
             _outdf (pandas DataFrame): Dataframe that has been merged from df_dict based on _merge_dict.  Note, if
                 _merge_dict["next_merge_dict"] is None at the outermost level of the dict,
-                df_dict[self.merge_dict["first_sheet"]] is returned (i.e. no merge is performed).
+                df_dict[cls.merge_dict["first_sheet"]] is returned (i.e. no merge is performed).
         """
         if _merge_dict is None:
-            _merge_dict = self.merge_dict.copy()
+            _merge_dict = cls.merge_dict.copy()
 
         if _outdf is None:
             if _first_sheet is None:
@@ -157,8 +202,8 @@ class PeakAnnotationsLoader(TableLoader, ABC):
 
         if _merge_dict["next_merge_dict"] is None:
             return _outdf
-        
-        return self.merge_df_sheets(
+
+        return cls.merge_df_sheets(
             df_dict,
             _outdf=_outdf,
             _merge_dict=_merge_dict["next_merge_dict"].copy(),
@@ -166,6 +211,13 @@ class PeakAnnotationsLoader(TableLoader, ABC):
 
 
 class IsocorrLoader(PeakAnnotationsLoader):
+    """Derived class of PeakAnnotationsLoader that just defines how to convert an isocorr excel file to the format
+    accepted by the parent class's load_data method.
+
+    PeakAnnotationsLoader is an abstract base class.  It has a method called convert_df() that uses the data described
+    here to automatically convert self.df to the format it accepts.
+    """
+
     merged_column_rename_dict = {
         "formula": "Formula",
         "medMz": "MedMz",
@@ -182,7 +234,15 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "next_merge_dict": None,
     }
 
+
 class AccucorLoader(PeakAnnotationsLoader):
+    """Derived class of PeakAnnotationsLoader that just defines how to convert an accucor excel file to the format
+    accepted by the parent class's load_data method.
+
+    PeakAnnotationsLoader is an abstract base class.  It has a method called convert_df() that uses the data described
+    here to automatically convert self.df to the format it accepts.
+    """
+
     merged_column_rename_dict = {
         "formula": "Formula",
         "medMz": "MedMz",
@@ -195,7 +255,12 @@ class AccucorLoader(PeakAnnotationsLoader):
         # Sheet: dict
         "Original": {
             # New column name: method that takes a dataframe to create the new column
-            "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
+            "C_Label": (
+                lambda df: df["isotopeLabel"]
+                .str.split("-")
+                .str.get(-1)
+                .replace({"C12 PARENT": "0"})
+            ),
             "Compound": lambda df: df["compound"],
         }
     }
@@ -209,5 +274,5 @@ class AccucorLoader(PeakAnnotationsLoader):
             "right_columns": ["formula", "medMz", "medRt", "isotopeLabel"],
             "how": "left",
             "next_merge_dict": None,
-        }
+        },
     }
