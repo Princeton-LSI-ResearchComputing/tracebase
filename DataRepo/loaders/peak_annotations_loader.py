@@ -72,7 +72,7 @@ class PeakAnnotationsLoader(ABC):
     FORMULA_KEY = "FORMULA"
     COMPOUND_KEY = "COMPOUND"
 
-    DataSheetName = "Peak Annotation Details"
+    DataSheetName = "Corrected"
 
     # The tuple used to store different kinds of data per column at the class level
     DataTableHeaders = namedtuple(
