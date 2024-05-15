@@ -252,9 +252,9 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
 
 
 class RequiredHeadersError(InfileError, HeaderError):
-    def __init__(self, missing, message=None, **kwargs):
+    def __init__(self, missing: list, message=None, **kwargs):
         if not message:
-            message = f"Required header(s) missing: [{missing}] in %s."
+            message = f"Required header(s) missing: {missing} in %s."
         super().__init__(message, **kwargs)
         self.missing = missing
 

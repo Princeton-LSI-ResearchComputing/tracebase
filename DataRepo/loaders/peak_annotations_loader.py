@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
+from collections import namedtuple
+from typing import Dict, Optional
 
 import pandas as pd
+
+from DataRepo.utils.exceptions import RequiredHeadersError
 
 # from DataRepo.loaders.table_loader import TableLoader
 # from DataRepo.models import PeakData, PeakGroup
@@ -43,19 +47,75 @@ class PeakAnnotationsLoader(ABC):
         """
         pass
 
-    @property
-    @abstractmethod
-    def add_columns_dict(self):
-        """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
-        Example:
-            {
-                "Original": {
-                    "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
-                    "Compound": lambda df: df["compound"],
-                }
+    """add_columns_dict is a 2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
+    Example:
+        {
+            "Original": {
+                "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
+                "Compound": lambda df: df["compound"],
             }
-        """
-        pass
+        }
+    """
+    add_columns_dict: Optional[dict] = None
+
+    """merged_drop_columns_list is a list of columns to specifically remove after merge.  No error will be raised if the
+    column is already absent.
+    Example:
+        ["compound"]
+    """
+    merged_drop_columns_list: Optional[list] = None
+
+    # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
+    MEDMZ_KEY = "MEDMZ"
+    MEDRT_KEY = "MEDRT"
+    ISOTOPELABEL_KEY = "ISOTOPELABEL"
+    FORMULA_KEY = "FORMULA"
+    COMPOUND_KEY = "COMPOUND"
+
+    DataSheetName = "Peak Annotation Details"
+
+    # The tuple used to store different kinds of data per column at the class level
+    DataTableHeaders = namedtuple(
+        "DataTableHeaders",
+        [
+            "MEDMZ",
+            "MEDRT",
+            "ISOTOPELABEL",
+            "FORMULA",
+            "COMPOUND",
+        ],
+    )
+
+    # The default header names (which can be customized via yaml file via the corresponding load script)
+    DataHeaders = DataTableHeaders(
+        MEDMZ="MedMz",
+        MEDRT="MedRt",
+        ISOTOPELABEL="IsotopeLabel",
+        FORMULA="Formula",
+        COMPOUND="Compound",
+    )
+
+    # List of required header keys
+    DataRequiredHeaders = [
+        MEDMZ_KEY,
+        MEDRT_KEY,
+        ISOTOPELABEL_KEY,
+        FORMULA_KEY,
+        COMPOUND_KEY,
+    ]
+
+    # List of header keys for columns that require a value
+    DataRequiredValues = DataRequiredHeaders
+
+    # No DataDefaultValues needed
+
+    DataColumnTypes: Dict[str, type] = {
+        MEDMZ_KEY: float,
+        MEDRT_KEY: float,
+        ISOTOPELABEL_KEY: str,
+        FORMULA_KEY: str,
+        COMPOUND_KEY: str,
+    }
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -96,33 +156,51 @@ class PeakAnnotationsLoader(ABC):
         Returns:
             outdf (pandas DataFrame): Converted single DataFrame
         """
-        single_sheet = cls.merge_dict["first_sheet"]
         # If there's only 1 key in the merge_dict and its value is None, it is inferred to mean that no merge is
         # necessary.  Just set the outdf to that one dataframe indicated by the sole sheet key.
-        if cls.merge_dict["next_merge_dict"] is not None:
-            single_sheet = None
+        single_sheet = (
+            cls.merge_dict["first_sheet"]
+            if cls.merge_dict["next_merge_dict"] is not None
+            else None
+        )
 
         if isinstance(df, pd.DataFrame):
             outdf = df.copy(deep=True)
-            if single_sheet is None:
+            if single_sheet is not None:
+                try:
+                    cls.add_df_columns({single_sheet: outdf})
+                except KeyError:
+                    # We will assume they did the merge themselves and that KeyErrors from adding columns come from
+                    # sheets without the corrected sample data, and that adding columns to other sheets is only to
+                    # facilitate the merge, and thus, we can ignore all KeyErrors
+                    # An error will occur below if this is not the case
+                    pass
+            # If we're getting a single dataframe when multiple sheets to merge are required, we will assume the merge
+            # has already been done and that all required columns are present
+        elif isinstance(df, dict):
+            outdf = dict((sheet, adf.copy(deep=True)) for sheet, adf in df.items())
+            cls.add_df_columns(outdf)
+            outdf = cls.merge_df_sheets(outdf)
+
+        try:
+            outdf = outdf.rename(columns=cls.merged_column_rename_dict)
+        except Exception as e:
+            if isinstance(df, pd.DataFrame) and single_sheet is None:
                 raise ValueError(
                     f"A dataframe dict containing the following sheets/keys: {list(df.keys())} is required."
                 )
-            cls.add_df_columns({single_sheet: outdf})
-        elif isinstance(df, dict):
-            outdf = dict((sheet, adf.copy(deep=True)) for sheet, adf in df.items())
-            # If there's only 1 sheet that we need
-            if single_sheet is not None:
-                if single_sheet in outdf.keys():
-                    cls.add_df_columns(outdf)
-                else:
-                    raise ValueError(
-                        f"Sheet [{single_sheet}] missing in the dataframe dict: {list(outdf.keys())}"
-                    )
+            else:
+                raise e
 
-            outdf = cls.merge_df_sheets(outdf)
+        # TODO: Replace this with a mechanism that uses self.headers once we inherit from TableLoader
+        missing = []
+        for hdr in cls.DataHeaders._asdict().values():
+            if hdr not in outdf.columns:
+                missing.append(hdr)
+        if len(missing) > 0:
+            raise RequiredHeadersError(missing)
 
-        return outdf.rename(columns=cls.merged_column_rename_dict)
+        return outdf.drop(cls.merged_drop_columns_list, axis=1, errors="ignore")
 
     @classmethod
     def add_df_columns(cls, df_dict: dict):
@@ -183,8 +261,9 @@ class PeakAnnotationsLoader(ABC):
                 _first_sheet = _merge_dict["first_sheet"]
             _outdf = df_dict[_first_sheet]
 
-        if _merge_dict["next_merge_dict"] is None:
-            return _outdf
+            if _merge_dict["next_merge_dict"] is None:
+                return _outdf
+            _merge_dict = _merge_dict["next_merge_dict"]
 
         left_df = _outdf
         if _merge_dict["left_columns"] is not None:
@@ -192,7 +271,10 @@ class PeakAnnotationsLoader(ABC):
 
         right_df = df_dict[_merge_dict["right_sheet"]]
         if _merge_dict["right_columns"] is not None:
-            right_df = _outdf.drop_duplicates(subset=_merge_dict["right_columns"])
+            right_sheet = _merge_dict["right_sheet"]
+            right_df = df_dict[right_sheet].drop_duplicates(
+                subset=_merge_dict["right_columns"]
+            )
 
         _outdf = pd.merge(
             left=left_df,
@@ -227,7 +309,20 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "compound": "Compound",
     }
 
-    add_columns_dict = None
+    merged_drop_columns_list = [
+        "compound",
+        "label",
+        "metaGroupId",
+        "groupId",
+        "goodPeakCount",
+        "maxQuality",
+        "compoundId",
+        "expectedRtDiff",
+        "ppmDiff",
+        "parent",
+    ]
+
+    # add_columns_dict is unnecessary (no columns to add)
 
     # No merge necessary, just use the absolte sheet
     merge_dict = {
@@ -249,8 +344,22 @@ class AccucorLoader(PeakAnnotationsLoader):
         "medMz": "MedMz",
         "medRt": "MedRt",
         "isotopeLabel": "IsotopeLabel",
-        "Compound": "Compound",
     }
+
+    merged_drop_columns_list = [
+        "compound",
+        "adductName",
+        "label",
+        "metaGroupId",
+        "groupId",
+        "goodPeakCount",
+        "maxQuality",
+        "compoundId",
+        "expectedRtDiff",
+        "ppmDiff",
+        "parent",
+        "C_Label",
+    ]
 
     add_columns_dict = {
         # Sheet: dict
@@ -261,13 +370,15 @@ class AccucorLoader(PeakAnnotationsLoader):
                 .str.split("-")
                 .str.get(-1)
                 .replace({"C12 PARENT": "0"})
+                .astype(int)
             ),
+            # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
             "Compound": lambda df: df["compound"],
         }
     }
 
     merge_dict = {
-        "first_sheet": "Corrected",  # This key ponly occurs once in the outermost dict
+        "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
             "on": ["Compound", "C_Label"],
             "left_columns": None,  # all
