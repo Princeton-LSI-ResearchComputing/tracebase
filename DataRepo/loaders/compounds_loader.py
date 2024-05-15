@@ -95,7 +95,6 @@ class CompoundsLoader(TableLoader):
 
         Args:
             Superclass Args:
-            Superclass Args:
                 df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
