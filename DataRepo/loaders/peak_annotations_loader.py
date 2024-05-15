@@ -135,9 +135,10 @@ class PeakAnnotationsLoader(ABC):
         Returns:
             None
         """
-        for sheet, column_dict in cls.add_columns_dict.items():
-            for new_column, method in column_dict.items():
-                df_dict[sheet][new_column] = method(df_dict[sheet])
+        if cls.add_columns_dict is not None:
+            for sheet, column_dict in cls.add_columns_dict.items():
+                for new_column, method in column_dict.items():
+                    df_dict[sheet][new_column] = method(df_dict[sheet])
 
     @classmethod
     def merge_df_sheets(cls, df_dict, _outdf=None, _merge_dict=None, _first_sheet=None):
