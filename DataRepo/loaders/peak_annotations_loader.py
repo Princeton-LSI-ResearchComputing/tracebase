@@ -156,7 +156,7 @@ class PeakAnnotationsLoader(ABC):
         Returns:
             outdf (pandas DataFrame): Converted single DataFrame
         """
-        # If there's only 1 key in the merge_dict and its value is None, it is inferred to mean that no merge is
+        # If the value for key 'next_merge_dict' is None, it is inferred to mean that no merge is
         # necessary.  Just set the outdf to that one dataframe indicated by the sole sheet key.
         single_sheet = (
             cls.merge_dict["first_sheet"]
