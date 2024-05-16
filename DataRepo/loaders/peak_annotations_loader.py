@@ -6,12 +6,24 @@ import pandas as pd
 
 from DataRepo.utils.exceptions import RequiredHeadersError
 
+# TODO: Finish making this a TableLoader class
 # from DataRepo.loaders.table_loader import TableLoader
 # from DataRepo.models import PeakData, PeakGroup
 
 
+# TODO: Delete TEMPTableLoader once TableLoader is added as a superclass.
+# This was only added to test the constructor's convert_df method, and it was useful, because I found out that I cannot
+# just call super(), because ABC's constructor requires a metaclass positional argument.
+class TEMPTableLoader:
+    def __init__(self, *args, **kwargs):
+        self.df = None
+        if "df" in kwargs.keys():
+            self.df = kwargs["df"]
+
+
+# TODO: Inherit from TableLoader
 # class PeakAnnotationsLoader(TableLoader, ABC):
-class PeakAnnotationsLoader(ABC):
+class PeakAnnotationsLoader(TEMPTableLoader, ABC):
     @property
     @abstractmethod
     def merged_column_rename_dict(self):
@@ -47,23 +59,28 @@ class PeakAnnotationsLoader(ABC):
         """
         pass
 
-    """add_columns_dict is a 2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
-    Example:
-        {
-            "Original": {
-                "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
-                "Compound": lambda df: df["compound"],
+    @property
+    @abstractmethod
+    def add_columns_dict(self) -> Optional[dict]:
+        """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
+        Example:
+            {
+                "Original": {
+                    "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
+                    "Compound": lambda df: df["compound"],
+                }
             }
-        }
-    """
-    add_columns_dict: Optional[dict] = None
+        """
+        pass
 
-    """merged_drop_columns_list is a list of columns to specifically remove after merge.  No error will be raised if the
-    column is already absent.
-    Example:
-        ["compound"]
-    """
-    merged_drop_columns_list: Optional[list] = None
+    @property
+    @abstractmethod
+    def merged_drop_columns_list(self) -> Optional[list]:
+        """List of columns to specifically remove after merge.  No error will be raised if the column is already absent.
+        Example:
+            ["compound"]
+        """
+        pass
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     MEDMZ_KEY = "MEDMZ"
@@ -142,10 +159,9 @@ class PeakAnnotationsLoader(ABC):
         """
         if "df" in kwargs.keys():
             kwargs["df"] = self.convert_df(kwargs["df"])
-        super().__init__(*args, **kwargs)
+        TEMPTableLoader.__init__(self, *args, **kwargs)
 
-    @classmethod
-    def convert_df(cls, df):
+    def convert_df(self, df):
         """Uses the abstract properties defined in a derived class to convert the given data format (e.g. an accucor
         excel file or an isocorr csv file) into a universal format accepted by this parent class's loading code.
         Args:
@@ -159,8 +175,8 @@ class PeakAnnotationsLoader(ABC):
         # If the value for key 'next_merge_dict' is None, it is inferred to mean that no merge is
         # necessary.  Just set the outdf to that one dataframe indicated by the sole sheet key.
         single_sheet = (
-            cls.merge_dict["first_sheet"]
-            if cls.merge_dict["next_merge_dict"] is not None
+            self.merge_dict["first_sheet"]
+            if self.merge_dict["next_merge_dict"] is not None
             else None
         )
 
@@ -168,7 +184,7 @@ class PeakAnnotationsLoader(ABC):
             outdf = df.copy(deep=True)
             if single_sheet is not None:
                 try:
-                    cls.add_df_columns({single_sheet: outdf})
+                    self.add_df_columns({single_sheet: outdf})
                 except KeyError:
                     # We will assume they did the merge themselves and that KeyErrors from adding columns come from
                     # sheets without the corrected sample data, and that adding columns to other sheets is only to
@@ -179,11 +195,11 @@ class PeakAnnotationsLoader(ABC):
             # has already been done and that all required columns are present
         elif isinstance(df, dict):
             outdf = dict((sheet, adf.copy(deep=True)) for sheet, adf in df.items())
-            cls.add_df_columns(outdf)
-            outdf = cls.merge_df_sheets(outdf)
+            self.add_df_columns(outdf)
+            outdf = self.merge_df_sheets(outdf)
 
         try:
-            outdf = outdf.rename(columns=cls.merged_column_rename_dict)
+            outdf = outdf.rename(columns=self.merged_column_rename_dict)
         except Exception as e:
             if isinstance(df, pd.DataFrame) and single_sheet is None:
                 raise ValueError(
@@ -194,17 +210,19 @@ class PeakAnnotationsLoader(ABC):
 
         # TODO: Replace this with a mechanism that uses self.headers once we inherit from TableLoader
         missing = []
-        for hdr in cls.DataHeaders._asdict().values():
+        for hdr in self.DataHeaders._asdict().values():
             if hdr not in outdf.columns:
                 missing.append(hdr)
         if len(missing) > 0:
             raise RequiredHeadersError(missing)
 
-        return outdf.drop(cls.merged_drop_columns_list, axis=1, errors="ignore")
+        if self.merged_drop_columns_list is not None:
+            outdf = outdf.drop(self.merged_drop_columns_list, axis=1, errors="ignore")
 
-    @classmethod
-    def add_df_columns(cls, df_dict: dict):
-        """Creates/adds columns to a pandas DataFrame dict based on the methods in cls.add_columns_dict that generate
+        return outdf
+
+    def add_df_columns(self, df_dict: dict):
+        """Creates/adds columns to a pandas DataFrame dict based on the methods in self.add_columns_dict that generate
         columns from existing DataFrame columns.
         Args:
             df_dict (dict of pandas DataFrames)
@@ -213,20 +231,21 @@ class PeakAnnotationsLoader(ABC):
         Returns:
             None
         """
-        if cls.add_columns_dict is not None:
-            for sheet, column_dict in cls.add_columns_dict.items():
+        if self.add_columns_dict is not None:
+            for sheet, column_dict in self.add_columns_dict.items():
                 for new_column, method in column_dict.items():
                     df_dict[sheet][new_column] = method(df_dict[sheet])
 
-    @classmethod
-    def merge_df_sheets(cls, df_dict, _outdf=None, _merge_dict=None, _first_sheet=None):
-        """Uses cls.merge_dict to recursively merge df_dict's sheets into a single merged dataframe.
+    def merge_df_sheets(
+        self, df_dict, _outdf=None, _merge_dict=None, _first_sheet=None
+    ):
+        """Uses self.merge_dict to recursively merge df_dict's sheets into a single merged dataframe.
         Args:
             df_dict (dict of pandas DataFrames): A dict of dataframes keyed on sheet names (i.e. the return of
                 read_from_file when called with an excel doc)
-            _outdf (Optional[pandas DataFrame]) [df_dict[cls.merge_dict["first_sheet"]]]: Used in recursive calls to
+            _outdf (Optional[pandas DataFrame]) [df_dict[self.merge_dict["first_sheet"]]]: Used in recursive calls to
                 build up a dataframe from 2 or more sheets in df_dict.
-            _merge_dict (Optional[dict]) [cls.merge_dict]: A recursively constructed dict describing how to merge the
+            _merge_dict (Optional[dict]) [self.merge_dict]: A recursively constructed dict describing how to merge the
                 sheets in df_dict.  Example:
                     {
                         "first_sheet": "Corrected",  # This key ponly occurs once in the outermost dict
@@ -239,7 +258,7 @@ class PeakAnnotationsLoader(ABC):
                             "next_merge_dict": None,
                         }
                     }
-            _first_sheet (Optional[str]) [cls.merge_dict["first_sheet"]]: The first sheet to use as the left dataframe
+            _first_sheet (Optional[str]) [self.merge_dict["first_sheet"]]: The first sheet to use as the left dataframe
                 in the first merge.  Every subsequence recursive merge uses outdf and does not use _first_sheet.
         Exceptions:
             Buffers:
@@ -249,10 +268,10 @@ class PeakAnnotationsLoader(ABC):
         Returns:
             _outdf (pandas DataFrame): Dataframe that has been merged from df_dict based on _merge_dict.  Note, if
                 _merge_dict["next_merge_dict"] is None at the outermost level of the dict,
-                df_dict[cls.merge_dict["first_sheet"]] is returned (i.e. no merge is performed).
+                df_dict[self.merge_dict["first_sheet"]] is returned (i.e. no merge is performed).
         """
         if _merge_dict is None:
-            _merge_dict = cls.merge_dict.copy()
+            _merge_dict = self.merge_dict.copy()
 
         if _outdf is None:
             if _first_sheet is None:
@@ -286,7 +305,7 @@ class PeakAnnotationsLoader(ABC):
         if _merge_dict["next_merge_dict"] is None:
             return _outdf
 
-        return cls.merge_df_sheets(
+        return self.merge_df_sheets(
             df_dict,
             _outdf=_outdf,
             _merge_dict=_merge_dict["next_merge_dict"].copy(),
@@ -322,7 +341,8 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "parent",
     ]
 
-    # add_columns_dict is unnecessary (no columns to add)
+    # No columns to add
+    add_columns_dict = None
 
     # No merge necessary, just use the absolte sheet
     merge_dict = {
