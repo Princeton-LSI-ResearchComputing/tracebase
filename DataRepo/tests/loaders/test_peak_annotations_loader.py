@@ -5,7 +5,7 @@ from DataRepo.loaders.peak_annotations_loader import (
     IsocorrLoader,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import RequiredHeadersError
+from DataRepo.utils.exceptions import AggregatedErrors, RequiredHeadersError
 
 
 class PeakAnnotationsLoaderTests(TracebaseTestCase):
@@ -92,7 +92,6 @@ class PeakAnnotationsLoaderTests(TracebaseTestCase):
                     "C12 PARENT",
                     "C13-label-1",
                 ],
-                "compound": ["Serine", "Serine", "Glycine", "Glycine"],
                 "formula": ["C3H7NO3", "C3H7NO3", "C2H5NO2", "C2H5NO2"],
                 "Compound": ["Serine", "Serine", "Glycine", "Glycine"],
                 "C_Label": [0, 1, 0, 1],
@@ -149,10 +148,15 @@ class PeakAnnotationsLoaderTests(TracebaseTestCase):
         pd.testing.assert_frame_equal(expected, outdf)
 
     def test_convert_df_accucor_tsv(self):
-        with self.assertRaises(RequiredHeadersError) as ar:
+        """The user provides only a single sheet (Corrected), so we expect to get an exception about missing headers."""
+        with self.assertRaises(AggregatedErrors) as ar:
             AccucorLoader().convert_df(self.ACCUCOR_DF_DICT["Corrected"])
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], RequiredHeadersError)
         self.assertIn(
-            "missing: ['MedMz', 'MedRt', 'IsotopeLabel', 'Formula']", str(ar.exception)
+            "missing: {'Unnamed sheet': ['medMz', 'medRt', 'isotopeLabel', 'formula']}",
+            str(aes.exceptions[0]),
         )
 
     def get_converted_isocorr_df(self):
@@ -238,7 +242,7 @@ class PeakAnnotationsLoaderTests(TracebaseTestCase):
         pd.testing.assert_frame_equal(expected, outdf)
 
     def test_AccucorLoader_constructor_conversion(self):
-        al = AccucorLoader(df=self.ACCUCOR_DF_DICT)
+        al = AccucorLoader(df=self.ACCUCOR_DF_DICT, file="test.xlsx")
         outdf = al.df
         expected = self.get_converted_accucor_df()
 
@@ -248,7 +252,7 @@ class PeakAnnotationsLoaderTests(TracebaseTestCase):
         pd.testing.assert_frame_equal(expected, outdf)
 
     def test_IsocorrLoader_constructor_conversion(self):
-        il = IsocorrLoader(df=self.ISOCORR_DF_DICT)
+        il = IsocorrLoader(df=self.ISOCORR_DF_DICT, file="test.xlsx")
         outdf = il.df
         expected = self.get_converted_isocorr_df()
 

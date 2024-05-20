@@ -256,7 +256,7 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
 
 
 class RequiredHeadersError(InfileError, HeaderError):
-    def __init__(self, missing: list, message=None, **kwargs):
+    def __init__(self, missing, message=None, **kwargs):
         if not message:
             message = f"Required header(s) missing: {missing} in %s."
         super().__init__(message, **kwargs)
@@ -396,6 +396,15 @@ class DuplicatePeakGroups(Exception):
         self.duplicate_peak_groups = duplicate_peak_groups
 
 
+class UnknownHeaderError(InfileError, HeaderError):
+    def __init__(self, unknown, known=None, message=None, **kwargs):
+        if not message:
+            message = f"Unknown header encountered: [{unknown}] in %s."
+            if known is not None:
+                message += f"  Must be one of {known}."
+        super().__init__(message, **kwargs)
+
+
 class UnknownHeadersError(InfileError, HeaderError):
     def __init__(self, unknowns, message=None, **kwargs):
         if not message:
@@ -492,6 +501,32 @@ class MissingSamplesError(Exception):
             )
         super().__init__(message)
         self.missing_samples = missing_samples
+
+
+class RequiredArgument(Exception):
+    def __init__(self, argname, methodname=None):
+        if methodname is None:
+            message = f"A non-None value for argument '{argname}' is required."
+        else:
+            message = (
+                f"{methodname} requires a non-None value for argument '{argname}'."
+            )
+        super().__init__(message)
+        self.argname = argname
+        self.methodname = methodname
+
+
+class HeaderAsSampleDoesNotExist(InfileError):
+    def __init__(self, sample_header, suggestion=None, message=None, **kwargs):
+        if sample_header is None:
+            raise RequiredArgument("sample_header", type(self).__name__)
+        if not message:
+            message = f"Sample header '{sample_header}' does not match an existing Sample record name."
+        if suggestion is not None:
+            message += f"  {suggestion}"
+        super().__init__(message, **kwargs)
+        self.sample_header = sample_header
+        self.suggestion = suggestion
 
 
 class UnskippedBlanksError(MissingSamplesError):
@@ -1699,8 +1734,16 @@ class SheetMergeError(Exception):
 
 
 class NoTracerLabeledElements(Exception):
-    def __init__(self):
-        message = "tracer_labeled_elements required to process PARENT entries."
+    def __init__(self, compound: Optional[str] = None, elements: Optional[list] = None):
+        cpdstr = ""
+        if compound is not None:
+            cpdstr = f" [{compound}]"
+        tcrstr = ""
+        if elements is not None:
+            tcrstr = f" {elements}"
+        message = (
+            f"PeakGroup compound{cpdstr} contains no tracer_labeled_elements{tcrstr}."
+        )
         super().__init__(message)
 
 
@@ -2601,6 +2644,10 @@ class RequiredOptions(CommandError):
 
 
 class ConditionallyRequiredOptions(CommandError):
+    pass
+
+
+class ConditionallyRequiredArgs(CommandError):
     pass
 
 
