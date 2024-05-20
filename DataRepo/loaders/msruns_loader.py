@@ -102,6 +102,10 @@ class MSRunsLoader(TableLoader):
         # and SEQUENCE_KEY will be ignored.  Duplicates can exist if the same mzXML was used in multiple peak annotation
         # files.
         [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
+        # A header must be unique per annot file.  The pair cannot repeat in the file.  It either has an mzXML file
+        # associated or not and it can have a sequence or not, and can only ever link to a single sample.
+        # Multiple different annot files of the same name are not supported.
+        [SAMPLEHEADER_KEY, ANNOTNAME_KEY],
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
@@ -310,7 +314,7 @@ class MSRunsLoader(TableLoader):
         self.mzxml_dict = defaultdict(lambda: defaultdict(list))
 
     def load_data(self):
-        """Loads the MSRunSequence table from the dataframe.
+        """Loads the MSRunSample table from the dataframe.
         Args:
             None
         Exceptions:
@@ -374,6 +378,104 @@ class MSRunsLoader(TableLoader):
                             # Exception handling was handled
                             # Continue processing rows to find more errors
                             pass
+
+    def get_loaded_msrun_sample_dict(
+        self, peak_annot_file: str
+    ) -> Dict[str, Optional[MSRunSample]]:
+        """Using self.df, this returns a dict of MSRunSample records keyed on sample header for the supplied
+        peak_annot_file.
+
+        Sample headers are assumed to be unique per peak_annot_file, due to the DataUniqueColumnConstraints.
+
+        If an MSRunSample record does not exist, the value in the dict will be null and an error will be buffered (via
+        called methods (not directly in this method)).
+
+        This method is only intended to be called after a load has been performed.
+
+        Args:
+            peak_annot_file (str): Name of a single peak annotation file found in the dataframe
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                RecordDoesNotExist
+        Returns:
+            msrun_sample_dict (Dict[str, Optional[MSRunSample]]): A dict of MSRunSample records for the supplied
+                peak_annot_file keyed on sample_header
+        """
+        _, target_annot_name = os.path.split(peak_annot_file)
+        msrun_sample_dict: Dict[str, Optional[MSRunSample]] = {}
+
+        # Save the current row index
+        save_row_index = self.row_index
+        # Initialize the row index
+        self.set_row_index(None)
+
+        for _, row in self.df.iterrows():
+            sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
+            sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
+            mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
+            sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+            tmp_annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
+
+            if tmp_annot_name is None:
+                continue
+
+            _, annot_name = os.path.split(tmp_annot_name)
+            if target_annot_name != annot_name:
+                continue
+
+            # Default value
+            msrun_sample_dict[sample_header] = None
+
+            sample = (self.get_sample_by_name(sample_name),)
+            msrun_sequence = self.get_msrun_sequence(name=sequence_name)
+
+            if sample is None or msrun_sequence is None:
+                continue
+
+            mzxml_metadata = self.get_matching_mzxml_metadata(
+                sample_name,
+                sample_header,
+                mzxml_path,
+            )
+
+            if mzxml_metadata is not None and mzxml_metadata["mzaf_record"] is not None:
+                # Concrete record query dict
+                query_dict = {
+                    "msrun_sequence": msrun_sequence,
+                    "sample": sample,
+                    "polarity": mzxml_metadata["polarity"],
+                    "mz_min": mzxml_metadata["mz_min"],
+                    "mz_max": mzxml_metadata["mz_max"],
+                    "ms_raw_file": mzxml_metadata["rawaf_record"],
+                    "ms_data_file": mzxml_metadata["mzaf_record"],
+                }
+            else:
+                query_dict = {
+                    "msrun_sequence": msrun_sequence,
+                    "sample": sample,
+                    "ms_data_file__isnull": True,
+                }
+
+            try:
+                msrun_sample_dict[sample_header] = MSRunSample.objects.get(**query_dict)
+            except MSRunSample.DoesNotExist as dne:
+                self.aggregated_errors_object.buffer_error(
+                    RecordDoesNotExist(
+                        MSRunSample,
+                        query_dict,
+                        file=self.file,
+                        sheet=self.sheet,
+                        rownum=self.rownum,
+                    ),
+                    orig_exception=dne,
+                )
+
+        # Restore the original row index
+        self.set_row_index(save_row_index)
+
+        return msrun_sample_dict
 
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):

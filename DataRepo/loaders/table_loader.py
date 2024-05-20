@@ -27,6 +27,7 @@ from DataRepo.utils.exceptions import (
     RequiredHeadersError,
     RequiredValueError,
     RequiredValueErrors,
+    UnknownHeaderError,
     UnknownHeadersError,
     generate_file_location_string,
 )
@@ -188,6 +189,7 @@ class TableLoader(ABC):
         user_headers=None,
         headers=None,
         defaults=None,
+        extra_headers=None,
     ):
         """Constructor.
 
@@ -206,6 +208,8 @@ class TableLoader(ABC):
             defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
             headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
             defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+            extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                unknown header, supply an empty list.
 
         Raises:
             Nothing
@@ -243,6 +247,9 @@ class TableLoader(ABC):
         # This is for preserving derived class headers and defaults
         self.headers = headers
         self.defaults = defaults
+
+        # For dynamic headers
+        self.extra_headers = extra_headers
 
         # Metadata
         self.initialize_metadata()
@@ -1188,12 +1195,18 @@ class TableLoader(ABC):
             file = self.defaults_file
             sheet = self.defaults_sheet
             reqd_headers = all_headers
+            extra_headers = []
+            any_header_allowed = False
         else:
             df = self.df
             all_headers = self.all_headers
             file = self.file
             sheet = self.sheet
             reqd_headers = self.reqd_headers
+            extra_headers = self.extra_headers if self.extra_headers is not None else []
+            any_header_allowed = (
+                self.extra_headers is not None and len(self.extra_headers) == 0
+            )
 
         if df is None:
             if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
@@ -1219,10 +1232,10 @@ class TableLoader(ABC):
                     RequiredHeadersError(pretty_missing_headers, file=file, sheet=sheet)
                 )
 
-        if all_headers is not None:
+        if all_headers is not None and not any_header_allowed:
             unknown_headers = []
             for file_header in df.columns:
-                if file_header not in all_headers:
+                if file_header not in all_headers and file_header not in extra_headers:
                     unknown_headers.append(file_header)
             if len(unknown_headers) > 0:
                 if not reading_defaults or missing_headers is not None:
@@ -1672,15 +1685,22 @@ class TableLoader(ABC):
         ):
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
-            raise ValueError(
-                f"Invalid data header [{header}] supplied to get_row_val.  Must be one of: {self.all_headers}."
+            raise UnknownHeaderError(
+                header,
+                self.all_headers,
+                file=self.file,
+                sheet=self.sheet,
             )
         elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
-            raise ValueError(
-                f"Invalid data header [{header}] supplied to get_row_val while processing defaults.  Must be one of: "
-                f"{list(self.DefaultsHeaders._asdict().values())}."
+            raise UnknownHeaderError(
+                header,
+                list(self.DefaultsHeaders._asdict().values()),
+                file=(
+                    self.defaults_file if self.defaults_file is not None else self.file
+                ),
+                sheet=self.defaults_sheet,
             )
 
         # If val is None
