@@ -2060,6 +2060,14 @@ class PeakAnnotFileMismatches(Exception):
         self.peak_annotation_filename = peak_annotation_filename
 
 
+class PeakAnnotationParseError(Exception):
+    def __init__(
+        self, message="Unknown problem attempting to parse peak annotation file"
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
 class MismatchedSampleHeaderMZXML(Exception):
     def __init__(self, mismatching_mzxmls):
         message = (
