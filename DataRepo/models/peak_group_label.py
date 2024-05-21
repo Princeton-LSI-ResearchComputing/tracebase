@@ -170,7 +170,7 @@ class PeakGroupLabel(HierCachedModel):
         """
         The enrichment in this peak group's measured compound normalized to the enrichment in the
         tracer compound from the final serum timepoint.
-        This.PeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
+        This.PeakGroupLabel.enrichment_fraction / SerumTracerPeakGroupLabel.enrichment_fraction
         """
         from DataRepo.models.sample import Sample
 

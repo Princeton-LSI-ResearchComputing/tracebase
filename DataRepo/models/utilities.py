@@ -7,7 +7,7 @@ from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Model, Q
 from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -104,14 +104,31 @@ def get_model_fields(model):
 
 # TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def get_unique_constraint_fields(model):
-    """
-    Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
+    """Returns a list of lists of names of fields and Q expressions (if constraint.condition is defined) that represent
+    all of a model's unique constraints.  The purpose is to be able to use the fields to query for unique records that
+    caused a unique constraint violation so that the conflicting values can be extracted and described.
+
+    Agrs:
+        model (Type[Model]): The model class whose unique constraint fields are to be extract extracted
+
+    Exceptions:
+        None
+
+    Returns:
+        uflds (list of str and Q objects): The field names in the unique constraint and a Q object from the
+            UniqueConstraint.condition (if defined)
     """
     uflds = []
     if hasattr(model._meta, "constraints"):
         for constraint in model._meta.constraints:
             if type(constraint).__name__ == "UniqueConstraint":
-                uflds.append(constraint.fields)
+                fields = list(constraint.fields)
+                uflds.append(fields)
+                if (
+                    hasattr(constraint, "condition")
+                    and constraint.condition is not None
+                ):
+                    fields.append(constraint.condition)
     return uflds
 
 
@@ -256,6 +273,25 @@ def exists_in_db(mdl_obj):
     return True
 
 
+def update_rec(rec: Model, rec_dict: dict):
+    """Update the supplied model record using the fields and values in the supplied rec_dict.
+    This could be accomplished using a queryset.update() call, but if it changes a field that was used in the original
+    query, and that query no longer matches, you cannot iterate through the records of the queryset to save the changes
+    you've made, thus the need for this method.
+    Args:
+        rec (Model)
+        rec_dict (dict): field values keyed on field name
+    Exceptions:
+        None
+    Returns:
+        None
+    """
+    for fld, val in rec_dict.items():
+        setattr(rec, fld, val)
+    rec.full_clean()
+    rec.save()
+
+
 # TODO: When SampleTableLoader inherits from TableLoader, remove this method (already copied to loader.pu)
 def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None):
     """
@@ -371,43 +407,16 @@ def handle_load_db_errors(
 
     if isinstance(exception, IntegrityError):
         if "duplicate key value violates unique constraint" in estr:
-            # Create a list of lists of unique fields and unique combos of fields
-            # First, get unique fields and force them into a list of lists (so that we only need to loop once)
-            unique_combos = [
-                [f] for f in get_unique_fields(model, fields=rec_dict.keys())
-            ]
-            # Now add in the unique field combos from the model's unique constraints
-            unique_combos.extend(get_unique_constraint_fields(model))
-
-            # Create a set of the fields in the dict causing the error so that we can only check unique its fields
-            field_set = set(rec_dict.keys())
-
-            # We're going to loop over unique records until we find one that conflicts with the dict
-            for combo_fields in unique_combos:
-                # Only proceed if we have all the values
-                combo_set = set(combo_fields)
-                if not combo_set.issubset(field_set):
-                    continue
-
-                # Retrieve the record with the conflicting value(s) that caused the unique constraint error using the
-                # unique fields
-                q = Q()
-                for uf in combo_fields:
-                    q &= Q(**{f"{uf}__exact": rec_dict[uf]})
-                qs = model.objects.filter(q)
-                if qs.count() == 1:
-                    rec = qs.first()
-                    errs = check_for_inconsistencies(
-                        rec, rec_dict, rownum=rownum, sheet=sheet, file=file
-                    )
-                    if len(errs) > 0:
-                        if conflicts_list is not None:
-                            conflicts_list.extend(errs)
-                            return True
-                        elif aes:
-                            for err in errs:
-                                aes.buffer_error(err)
-                            return True
+            if find_conflicts(
+                model,
+                rec_dict,
+                aes=aes,
+                conflicts_list=conflicts_list,
+                rownum=rownum,
+                sheet=sheet,
+                file=file,
+            ):
+                return True
         elif "violates not-null constraint" in estr:
             regexp = re.compile(r"^null value in column \"(?P<colname>[^\"]+)\"")
             match = re.search(regexp, estr)
@@ -429,8 +438,7 @@ def handle_load_db_errors(
                     missing_list.append(err)
                     return True
                 elif aes:
-                    for err in errs:
-                        aes.buffer_error(err)
+                    aes.buffer_error(err)
                     return True
         elif aes is not None:
             # Repackage any IntegrityError with useful info
@@ -468,5 +476,89 @@ def handle_load_db_errors(
                     # Since we weren't supplied an AggregatedErrors object and this is an exception supported by this
                     # function, raise the exception
                     raise exc
+        elif "Constraint " in estr and " is violated." in estr:
+            # E.g. ValidationError: {'__all__': ['Constraint “unique_msrunsample_placeholder” is violated.']}
+            if find_conflicts(
+                model,
+                rec_dict,
+                aes=aes,
+                conflicts_list=conflicts_list,
+                rownum=rownum,
+                sheet=sheet,
+                file=file,
+            ):
+                return True
+
     # If we get here, we did not identify the error as one we knew what to do with
+    return False
+
+
+def find_conflicts(
+    model, rec_dict, aes=None, conflicts_list=None, rownum=None, sheet=None, file=None
+):
+    """Helper to handle_load_db_errors.  In handle_load_db_errors, there are 2 ways unique constraint violations can
+    occur, both due to conflicts.  One is from an IntegrityError and the other (a code-check) is from a ValidationError
+    arising from qa call to rec.full_clean().  This method finds the existing db record using the unique fields and
+    fields inside various UniqueConstraints, and describes the differences with the attempted load of the data from the
+    dict that caused either exception.
+
+    Args:
+        model (Model): The module whose record creation produced an exception
+        rec_dict (dict): The dict supplied to a get_or_create or create that produced the exception
+        aes (Optional[AggregatedErrors]): Where to buffer errors
+        conflicts_list (Optional[list]): Where to put ConflictingValueError exceptions
+        rownum (Optional[int]): Input file location associated with the error.
+        sheet (Optional[str]): Input file location associated with the error.
+        file (Optional[str]): Input file location associated with the error.
+
+    Exceptions:
+        Raises:
+            None
+        Buffers:
+            ConflictingValueError (as returned by check_for_inconsistencies)
+
+    Returns:
+        boolean: Whether exceptions were buffered or not
+    """
+    # TODO: Update the corresponding TableLoader.handle_load_db_errors method with this update
+    # Create a list of lists of unique fields and unique combos of fields
+    # First, get unique fields and force them into a list of lists (so that we only need to loop once)
+    unique_combos = [[f] for f in get_unique_fields(model, fields=rec_dict.keys())]
+    # Now add in the unique field combos from the model's unique constraints
+    unique_combos.extend(get_unique_constraint_fields(model))
+
+    # Create a set of the fields in the dict causing the error so that we can only check unique its fields
+    field_set = set(rec_dict.keys())
+
+    # We're going to loop over unique records until we find one that conflicts with the dict
+    for combo_fields in unique_combos:
+        # Only proceed if we have all the values
+        combo_set = set([f for f in combo_fields if isinstance(f, str)])
+        if not combo_set.issubset(field_set):
+            continue
+
+        # Retrieve the record with the conflicting value(s) that caused the unique constraint error using the
+        # unique fields
+        q = Q()
+        for uf in combo_fields:
+            if isinstance(uf, Q):
+                q &= uf
+            elif rec_dict[uf] is not None:
+                # We do not need to check None values.  None != None
+                q &= Q(**{f"{uf}__exact": rec_dict[uf]})
+        qs = model.objects.filter(q)
+        if qs.count() == 1:
+            rec = qs.first()
+            errs = check_for_inconsistencies(
+                rec, rec_dict, rownum=rownum, sheet=sheet, file=file
+            )
+            if len(errs) > 0:
+                if conflicts_list is not None:
+                    conflicts_list.extend(errs)
+                    return True
+                elif aes:
+                    for err in errs:
+                        aes.buffer_error(err)
+                    return True
+
     return False

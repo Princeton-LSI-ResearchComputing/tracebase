@@ -10,6 +10,7 @@ from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,
     DuplicateValues,
+    RollbackException,
     SynonymExistsAsMismatchedCompound,
 )
 
@@ -94,14 +95,19 @@ class CompoundsLoader(TableLoader):
 
         Args:
             Superclass Args:
-                df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-                headers (Optional[Tableheaders namedtuple]) [DataHeaders]: Header names by header key.
-                defaults (Optional[Tableheaders namedtuple]) [DataDefaultValues]: Default values by header key.
+            Superclass Args:
+                df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
                 file (Optional[str]) [None]: File name (for error reporting).
+                user_headers (Optional[dict]): Header names by header key.
+                defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
+                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+                defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
             Derived (this) class Args:
                 synonyms_delimiter (Optional[str]) [;]: Synonym string delimiter.
 
@@ -144,7 +150,7 @@ class CompoundsLoader(TableLoader):
 
             try:
                 cmpd_rec = self.get_or_create_compound(row)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 cmpd_rec = None
@@ -161,7 +167,7 @@ class CompoundsLoader(TableLoader):
             for synonym in synonyms:
                 try:
                     self.get_or_create_synonym(synonym, cmpd_rec)
-                except Exception:
+                except RollbackException:
                     # Exception handling was handled in get_or_create_*
                     # Continue processing rows to find more errors
                     pass
@@ -169,13 +175,10 @@ class CompoundsLoader(TableLoader):
     @transaction.atomic
     def get_or_create_compound(self, row):
         """Get or create a compound record.
-
         Args:
             row (pandas dataframe row)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             rec (Optional[Compound])
         """
@@ -222,21 +225,18 @@ class CompoundsLoader(TableLoader):
             else:
                 self.handle_load_db_errors(e, Compound, rec_dict)
             self.errored(Compound.__name__)
-            raise e
+            raise RollbackException()
 
         return rec
 
     @transaction.atomic
     def get_or_create_synonym(self, synonym, cmpd_rec):
         """Get or create a compound synonym record.
-
         Args:
             synonym (string)
             cmpd_rec (Compound)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             Nothing
         """
@@ -258,11 +258,11 @@ class CompoundsLoader(TableLoader):
         except SynonymExistsAsMismatchedCompound as seamc:
             self.aggregated_errors_object.buffer_error(seamc)
             self.errored(CompoundSynonym.__name__)
-            raise seamc
+            raise RollbackException()
         except Exception as e:
             self.handle_load_db_errors(e, CompoundSynonym, rec_dict)
             self.errored(CompoundSynonym.__name__)
-            raise e
+            raise RollbackException()
 
     def parse_synonyms(self, synonyms_string: Optional[str]) -> list:
         """Parse the synonyms column value using the self.synonyms_delimiter.

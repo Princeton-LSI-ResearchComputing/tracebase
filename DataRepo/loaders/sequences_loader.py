@@ -1,26 +1,27 @@
 from collections import namedtuple
-from datetime import timedelta
 from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.table_column import TableColumn
+from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
+from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.utils.exceptions import RequiredColumnValueWhenNovel
+from DataRepo.utils.exceptions import (
+    InfileError,
+    RecordDoesNotExist,
+    RollbackException,
+)
 from DataRepo.utils.file_utils import string_to_datetime
 
 
 class SequencesLoader(TableLoader):
-    # TODO: 1. Implement a sequence accession composed of study code and sequence number
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
-    ID_KEY = "ID"  # See TODO 1 above
+    SEQNAME_KEY = "SEQNAME"
     OPERATOR_KEY = "OPERATOR"
     DATE_KEY = "DATE"
     INSTRUMENT_KEY = "INSTRUMENT"
-    LC_PROTOCOL_KEY = "LC_PROTOCOL"
-    LC_RUNLEN_KEY = "LC_RUNLEN"
-    LC_DESC_KEY = "LC_DESC"
+    LCNAME_KEY = "LCNAME"
     NOTES_KEY = "NOTES"
 
     DataSheetName = "Sequences"
@@ -29,37 +30,32 @@ class SequencesLoader(TableLoader):
     DataTableHeaders = namedtuple(
         "DataTableHeaders",
         [
-            "ID",  # See TODO 1 above
+            "SEQNAME",
             "OPERATOR",
-            "DATE",
+            "LCNAME",
             "INSTRUMENT",
-            "LC_PROTOCOL",
-            "LC_RUNLEN",
-            "LC_DESC",
+            "DATE",
             "NOTES",
         ],
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        ID="Sequence Number",  # See TODO 1 above
+        SEQNAME="Sequence Name",
         OPERATOR="Operator",
-        DATE="Date",
+        LCNAME="LC Protocol Name",
         INSTRUMENT="Instrument",
-        LC_PROTOCOL="LC Protocol",
-        LC_RUNLEN="LC Run Length",
-        LC_DESC="LC Description",
+        DATE="Date",
         NOTES="Notes",
     )
 
     # List of required header keys
     DataRequiredHeaders = [
-        ID_KEY,  # See TODO 1 above
+        SEQNAME_KEY,
         OPERATOR_KEY,
         DATE_KEY,
         INSTRUMENT_KEY,
-        LC_PROTOCOL_KEY,
-        LC_RUNLEN_KEY,
+        LCNAME_KEY,
     ]
 
     # List of header keys for columns that require a value
@@ -68,69 +64,90 @@ class SequencesLoader(TableLoader):
     # No DataDefaultValues needed
 
     DataColumnTypes: Dict[str, type] = {
-        ID_KEY: int,  # See TODO 1 above
+        SEQNAME_KEY: str,
         OPERATOR_KEY: str,
         DATE_KEY: str,
         INSTRUMENT_KEY: str,
-        LC_PROTOCOL_KEY: str,
-        LC_RUNLEN_KEY: int,
-        LC_DESC_KEY: str,
+        LCNAME_KEY: str,
         NOTES_KEY: str,
     }
 
-    # Combinations of columns whose values must be unique in the file  # See TODO 1 above
+    # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [
-        # See TODO 1 above
-        # [STUDY_CODE_KEY, ID_KEY],
-        [ID_KEY],
-        [OPERATOR_KEY, DATE_KEY, INSTRUMENT_KEY, LC_PROTOCOL_KEY, LC_RUNLEN_KEY],
+        [SEQNAME_KEY],
+        [OPERATOR_KEY, DATE_KEY, INSTRUMENT_KEY, LCNAME_KEY],
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
         MSRunSequence.__name__: {
             "researcher": OPERATOR_KEY,
+            "lc_method": LCNAME_KEY,
             "date": DATE_KEY,
             "instrument": INSTRUMENT_KEY,
             "notes": NOTES_KEY,
         },
-        LCMethod.__name__: {
-            "type": LC_PROTOCOL_KEY,
-            "runlength": LC_RUNLEN_KEY,
-            "description": LC_DESC_KEY,
-        },
     }
 
     DataColumnMetadata = DataTableHeaders(
-        ID=TableColumn.init_flat(
-            name="Sequence Number",
-            help_text="Sequential integer starting from 1.",
-            guidance="This column is used to populate Sequence Number choices in the Peak Annotation Details sheet.",
-            type=int,
+        SEQNAME=TableColumn.init_flat(
+            name=DataHeaders.SEQNAME,
+            help_text=(
+                "A unique sequence identifier.\n\nNote that a sequence record is unique to a researcher, protocol, "
+                "instrument model, and date.  If a researcher performs multiple such Mass Spec runs on the same day, "
+                "this sequence record will represent multiple runs."
+            ),
+            # TODO: Replace "Peak Annotation Details" below with a reference to its loader's DataSheetName
+            guidance="This column is used to populate Sequence Name choices in the Peak Annotation Details sheet.",
+            type=str,
+            format=(
+                "Comma-delimited string combining the values from these columns in this order:\n"
+                f"- {DataHeaders.OPERATOR}\n"
+                f"- {DataHeaders.LCNAME}\n"
+                f"- {DataHeaders.INSTRUMENT}\n"
+                f"- {DataHeaders.DATE}"
+            ),
+            # TODO: Create the method that applies the formula to the SEQNAME column on every row
+            # Excel formula that creates f"{operator}, {lc_name}, {instrument}, {date}" using the spreadsheet columns on
+            # the current row.  The header keys will be replaced by the excel column letters:
+            # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), ", ", INDIRECT("C" & ROW()), ", ", INDIRECT("D" & ROW()), ", ",
+            # INDIRECT("E" & ROW()))'
+            formula=(
+                "=CONCATENATE("
+                f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
+                f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
+                f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
+                f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
+                ")"
+            ),
         ),
         OPERATOR=TableColumn.init_flat(
-            name="Operator",
+            name=DataHeaders.OPERATOR,
             help_text="Researcher who operated the Mass Spec instrument.",
         ),
         DATE=TableColumn.init_flat(
+            name=DataHeaders.DATE,
             field=MSRunSequence.date,
             format="Format: YYYY-MM-DD.",
         ),
         INSTRUMENT=TableColumn.init_flat(field=MSRunSequence.instrument),
-        LC_PROTOCOL=TableColumn.init_flat(field=LCMethod.type),
-        LC_RUNLEN=TableColumn.init_flat(
-            field=LCMethod.run_length,
-            format="Units: minutes.",
+        LCNAME=TableColumn.init_flat(
+            name=DataHeaders.LCNAME,
+            field=LCMethod.name,
+            # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
+            dynamic_choices=ColumnReference(
+                loader_class=LCProtocolsLoader,
+                loader_header_key=LCProtocolsLoader.NAME_KEY,
+            ),
         ),
-        LC_DESC=TableColumn.init_flat(field=LCMethod.description),
         NOTES=TableColumn.init_flat(field=MSRunSequence.notes),
     )
 
-    # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
-    Models = [MSRunSequence, LCMethod]
+    # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.
+    Models = [MSRunSequence]
 
     def load_data(self):
-        """Loads the MSRunSequence and LCMethod tables from the dataframe.
+        """Loads the MSRunSequence table from the dataframe.
 
         Args:
             None
@@ -143,7 +160,7 @@ class SequencesLoader(TableLoader):
         """
         for _, row in self.df.iterrows():
             try:
-                lc_rec, _ = self.get_or_create_lc_method(row)
+                lc_rec = self.get_lc_method(self.get_row_val(row, self.headers.LCNAME))
             except Exception:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -155,91 +172,45 @@ class SequencesLoader(TableLoader):
 
             try:
                 self.get_or_create_sequence(row, lc_rec)
-            except Exception:
+            except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
-    @transaction.atomic
-    def get_or_create_lc_method(self, row):
-        """Gets or creates an LCMethod record from the supplied row.
-
-        This method is decorated with transaction.atomic so that any specific record creation that causes an exception
-        will be rolled back and loading can proceed (in order to catch more errors).  That exception is buffered and
-        will eventually cause all loaded data to be rolled back.
-
+    def get_lc_method(self, name):
+        """Gets an LCMethod record from the supplied row.
         Args:
             row (pandas dataframe row)
-
-        Raises:
-            Nothing (explicitly)
-
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                InfileError
         Returns:
             rec (Optional[LCMethod])
-            created (boolean): Only returned for use in tests
         """
-        rec_dict = None
         rec = None
-        created = False
-
+        query_dict = {"name": name}
         try:
-            type = self.get_row_val(row, self.headers.LC_PROTOCOL)
-            raw_run_length = self.get_row_val(row, self.headers.LC_RUNLEN)
-            description = self.get_row_val(row, self.headers.LC_DESC)
-
-            # In case run_length was None, let's prevent an exception at the timedelta
-            if self.is_skip_row():
-                self.errored(LCMethod.__name__)
-                return rec, created
-
-            # run_length is a required value (see DataRequiredValues), and is typed to be an int (see DataColumnTypes)
-            run_length = timedelta(minutes=raw_run_length)
-
-            name = LCMethod.create_name(type=type, run_length=run_length)
-
-            # get_row_val can add to skip_row_indexes when there is a missing required value
-            if self.is_skip_row():
-                self.errored(LCMethod.__name__)
-                return rec, created
-
-            rec_dict = {
-                "type": type,
-                "run_length": run_length,
-                "name": name,
-            }
-
-            # The LC_DESC column is optional WHEN the LC Method *exists*.  Required Otherwise.
-            if description is None:
-                qs = LCMethod.objects.filter(**rec_dict)
-                if qs.count() != 1:
-                    self.add_skip_row_index()
-                    self.aggregated_errors_object.buffer_error(
-                        RequiredColumnValueWhenNovel(
-                            column="description", model_name=LCMethod.__name__
-                        )
-                    )
-                    return rec, created
-                rec = qs.first()
-                created = False
-            else:
-                rec_dict["description"] = description
-                rec, created = LCMethod.objects.get_or_create(**rec_dict)
-
-            if created:
-                rec.full_clean()
-                self.created(LCMethod.__name__)
-            else:
-                self.existed(LCMethod.__name__)
-
+            rec = LCMethod.objects.get(**query_dict)
+        except LCMethod.DoesNotExist:
+            self.aggregated_errors_object.buffer_error(
+                RecordDoesNotExist(
+                    model=LCMethod,
+                    query_dict=query_dict,
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.file,
+                )
+            )
         except Exception as e:
-            # Package errors (like IntegrityError and ValidationError) with relevant details
-            # This also updates the skip row indexes
-            self.handle_load_db_errors(e, LCMethod, rec_dict)
-            self.errored(LCMethod.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
-            raise e
-
-        return rec, created
+            # Package other errors with file-location metadata
+            self.aggregated_errors_object.buffer_error(
+                InfileError(
+                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                )
+            )
+        return rec
 
     @transaction.atomic
     def get_or_create_sequence(self, row, lc_rec):
@@ -252,10 +223,8 @@ class SequencesLoader(TableLoader):
         Args:
             row (pandas dataframe row)
             lc_rec (LCMethod)
-
         Raises:
-            Nothing (explicitly)
-
+            RollbackException
         Returns:
             rec (Optional[MSRunSequence])
             created (boolean): Only returned for use in tests
@@ -265,7 +234,6 @@ class SequencesLoader(TableLoader):
         created = False
 
         try:
-            # See TODO 1 above, and read in study_code and seq_id
             researcher = self.get_row_val(row, self.headers.OPERATOR)
             date_str = self.get_row_val(row, self.headers.DATE)
             date = string_to_datetime(
@@ -304,7 +272,6 @@ class SequencesLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, MSRunSequence, rec_dict)
             self.errored(MSRunSequence.__name__)
-            # Now that the exception has been handled, trigger a roolback of this record load attempt
-            raise e
+            raise RollbackException()
 
         return rec, created

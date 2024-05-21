@@ -22,6 +22,10 @@ from DataRepo.models.study import Study
 from DataRepo.models.tissue import Tissue
 from DataRepo.models.tracer import Tracer
 from DataRepo.models.tracer_label import TracerLabel
+from DataRepo.models.utilities import (
+    check_for_inconsistencies,
+    handle_load_db_errors,
+)
 
 __all__ = [
     "Animal",
@@ -52,4 +56,6 @@ __all__ = [
     "TracerLabel",
     "InfusateTracer",
     "Infusate",
+    "check_for_inconsistencies",
+    "handle_load_db_errors",
 ]

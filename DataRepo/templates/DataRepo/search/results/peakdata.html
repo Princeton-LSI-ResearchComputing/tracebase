@@ -408,7 +408,12 @@
                             <div style="display:none;">None</div>
                             <p title="Animal has no treatment.">None</p>
                         {% else %}
-                            {{ pd.peak_group.msrun_sample.sample.animal.treatment.name }}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pd.peak_group.msrun_sample.sample.animal.treatment.name }}</div>
+
+                            <a href="{% url 'protocol_detail' pd.peak_group.msrun_sample.sample.animal.treatment.id %}">
+                                {{ pd.peak_group.msrun_sample.sample.animal.treatment.name }}
+                            </a>
                         {% endif %}
                     </td>
 

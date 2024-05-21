@@ -146,16 +146,15 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     @cached_function
     def last_serum_tracer_peak_groups(self):
         """
-        Retrieves the last Peak Group for each tracer compound that has this.element
+        Retrieves the last Peak Group for each tracer compound
         """
         from DataRepo.models.peak_group import PeakGroup
 
-        # Get every tracer's compound that contains this element
         if self.tracers.count() == 0:
             warnings.warn(f"Animal [{self}] has no tracers.")
             return PeakGroup.objects.none()
 
-        # Get the last peakgroup for each tracer that has this label
+        # Get the last peakgroup for each tracer
         last_serum_peakgroup_ids = []
         (tc_extra_args, tc_is_null_field) = create_is_null_field(
             "msrun_sample__sample__time_collected"

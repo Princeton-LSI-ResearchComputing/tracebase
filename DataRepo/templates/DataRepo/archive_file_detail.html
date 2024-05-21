@@ -29,7 +29,14 @@
         </tr>
         <tr>
             <td>File Location</td>
-            <td><a href="{{ archivefile.file_location.url }}">{{ archivefile.filename }}<a/></td>
+            <td>
+                {% if archivefile.file_location %}
+                    <a href="{{ archivefile.file_location.url }}">{{ archivefile.filename }}</a>
+                {% else %}
+                    {{ archivefile.filename }}<br>
+                    (no saved file)
+                {% endif %}
+            </td>
         </tr>
     </table>
 </div>

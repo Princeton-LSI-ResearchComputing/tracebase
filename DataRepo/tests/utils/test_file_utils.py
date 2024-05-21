@@ -104,7 +104,11 @@ class FileUtilsTests(TracebaseTestCase):
                 },
             },
             "Sequences": {
-                "Sequence Number": {0: 1, 1: 2, 2: 3},
+                "Sequence Name": {
+                    0: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 6/8/2021",
+                    1: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 10/19/2021",
+                    2: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 7/22/2020",
+                },
                 "Operator": {
                     0: "Xianfeng Zeng",
                     1: "Xianfeng Zeng",
@@ -115,10 +119,12 @@ class FileUtilsTests(TracebaseTestCase):
                     1: "2021-10-19 00:00:00",
                     2: "2020-07-22 00:00:00",
                 },
-                "Instrument": {0: "HILIC", 1: "HILIC", 2: "HILIC"},
-                "LC Protocol": {0: "polar-HILIC", 1: "polar-HILIC", 2: "polar-HILIC"},
-                "LC Run Length": {0: 25, 1: 25, 2: 25},
-                "LC Description": {0: "", 1: "", 2: ""},
+                "Instrument": {0: "QE2", 1: "QE2", 2: "QE2"},
+                "LC Protocol Name": {
+                    0: "polar-HILIC-25-min",
+                    1: "polar-HILIC-25-min",
+                    2: "polar-HILIC-25-min",
+                },
                 "Notes": {0: "", 1: "", 2: ""},
             },
         }

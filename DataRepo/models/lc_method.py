@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.forms import ValidationError
 
 
 class LCMethodManager(models.Manager):
@@ -111,3 +112,14 @@ class LCMethod(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def clean(self, *args, **kwargs):
+        try:
+            super().clean(*args, **kwargs)
+        except ValidationError as ve:
+            raise ve
+
+        if self.name is not None and self.name != self.get_name():
+            raise ValidationError(
+                f"Invalid name: {self.name}.  The name must match the type and run length, e.g.: {self.get_name()}"
+            )

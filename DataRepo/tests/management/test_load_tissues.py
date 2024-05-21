@@ -76,7 +76,7 @@ class TissueLoadingTests(TracebaseTestCase):
         self.assertIn(
             (
                 "Required column values missing on the indicated rows:\n"
-                "\tfile [DataRepo/data/tests/tissues/tissues_with_errors.tsv]\n"
+                "\tDataRepo/data/tests/tissues/tissues_with_errors.tsv\n"
                 "\t\tColumn: [Tissue] on rows: ['6']\n"
                 "\t\tColumn: [Description] on rows: ['7']\n"
             ),
@@ -85,7 +85,7 @@ class TissueLoadingTests(TracebaseTestCase):
         self.assertIn(
             (
                 "Required column values missing on the indicated rows:\n"
-                "\tfile [DataRepo/data/tests/tissues/tissues_with_errors.tsv]\n"
+                "\tDataRepo/data/tests/tissues/tissues_with_errors.tsv\n"
                 "\t\tColumn: [Tissue] on rows: ['6']\n"
                 "\t\tColumn: [Description] on rows: ['7']\n"
             ),

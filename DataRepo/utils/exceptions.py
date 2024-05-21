@@ -17,15 +17,63 @@ if TYPE_CHECKING:
 
 
 class InfileError(Exception):
+    """An exception class to provide file location context to other exceptions (when used as a base class).
+
+    It brings consistency between error types to make all exceptions that reference a position in a table-like file,
+    conform to a single way of formatting file location information (file name, excel sheet name, row number, and column
+    name (or number)).
+
+    Often, the derived class may opt to list multiple columns or row numbers (but reference the same file or sheet), so
+    none of the arguments are required.  If none are provided, the file will be generically referenced (showing that the
+    erroneous data is located in an input file (as opposed to a database, for example)).
+
+    Example usage:
+
+    class MyException(InfileError):
+        def __init__(self, erroneous_value, **kwargs):
+            message = f"This is my error about {erroneous_value}, found here: %s. You chould change it to 'good value'."
+            super().__init__(message, **kwargs)
+
+    def some_load_method(dataframe, file, sheet):
+        for rownum, row in dataframe.iterrows():
+            value = row["my data column"]
+            if value_is_bad(value):
+                raise MyException(value, rownum=rownum, column="my data column", sheet=sheet, file=file)
+            else:
+                load_value(value)
+
+    Args:
+        message (string): An error message containing at least 1 `%s` placeholder for where to put the file location
+            information.  If `%s` isn't in the supplied message, it will be appended.  Optionally, the message may
+            contain up to 4 more occurrences of `%s`.  See the `order` arg for more information.
+        rownum (integer or string): The row number (or name) where the erroneous data was encountered.
+        column (integer or string): The column name (or number) where the erroneous data was encountered.
+        sheet (integer or string): The sheet name (or index) of an excel file where the erroneous data was encountered.
+        file (string): The name of the file where the erroneous data was encountered.
+        order (list of strings) {"rownum", "sheet", "file", "column", "loc"}: By default, the message is assumed to have
+            a single `%s` occurrence where the file location information ("loc"), but if `order` is populated, the
+            number of `%s` occurrences is expected to be the same as the length of order.  However, "loc" must be
+            included.  If it is not, it is appended (and if necessary, a `%s` is appended to the message as well).  The
+            values of the corresponding arguments are inserted into the message at the locations of the `%s` occurrences
+            in the given order.
+
+    Raises:
+        ValueError: If the length of the order list doesn't match the `%s` occurrences in the message.
+
+    Returns:
+        Instance
+    """
+
     def __init__(
         self,
         message,
-        rownum: Optional[int] = None,
+        rownum: Optional[object] = None,
         sheet=None,
         file=None,
         column=None,
         order=None,
     ):
+        location_args = ["rownum", "column", "file", "sheet"]
         self.rownum = rownum
         self.sheet = sheet
         self.file = file
@@ -33,16 +81,22 @@ class InfileError(Exception):
         loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
         )
+        self.loc = loc
+
         if "%s" not in message:
+            # The purpose of this (base) class is to provide file location context of erroneous data to exception
+            # messages in a uniform way.  It inserts that information where `%s` occurs in the supplied message.
+            # Instead of making `%s` (in the simplest case) required, and raise an exception, the `%s` is just appended.
             message += "  Location: %s."
+
         if order is not None:
-            if "loc" not in order and len(order) != 4:
-                if message.count("%s") != len(order) + 1:
-                    raise ValueError(
-                        "You must either provide all location arguments in your order list: [rownum, column, file, "
-                        "sheet] or provide an extra '%s' in your message for the leftover location information."
-                    )
+            if "loc" not in order and len(order) != len(location_args):
                 order.append("loc")
+                if message.count("%s") != len(order):
+                    raise ValueError(
+                        f"You must either provide all location arguments in your order list: {location_args} or "
+                        "provide an extra '%s' in your message for the leftover location information."
+                    )
             # Save the arguments in a dict
             vdict = {
                 "file": file,
@@ -62,14 +116,13 @@ class InfileError(Exception):
             loc = generate_file_location_string(
                 rownum=rownum, sheet=sheet, file=file, column=column
             )
-            insertions = [vdict[k] if k != "loc" else loc for k in order]
-            if "loc" not in order and len(order) != 4:
-                insertions.append(loc)
+            vdict["loc"] = loc
+            self.loc = loc
+            insertions = [vdict[k] for k in order]
             message = message % tuple(insertions)
         else:
             message = message % loc
         super().__init__(message)
-        self.loc = loc
 
 
 class HeaderError(Exception):
@@ -1183,7 +1236,7 @@ class AggregatedErrors(Exception):
 
         Args:
             exception_class (Exception): The class of exceptions to remove
-            modify (boolean): Whether the convert the removed exception to a warning
+            modify (boolean): Whether to convert the removed exception to a warning
         """
         return self.get_exception_type(exception_class, remove=True, modify=modify)
 
@@ -1294,7 +1347,9 @@ class AggregatedErrors(Exception):
             ]
         )
 
-    def buffer_exception(self, exception, is_error=True, is_fatal=True):
+    def buffer_exception(
+        self, exception, is_error=True, is_fatal=True, orig_exception=None
+    ):
         """
         Don't raise this exception. Save it to report later, after more errors have been accumulated and reported as a
         group.  The buffered_exception has a buffered_tb_str and a boolean named is_error added to it.  Returns self so
@@ -1311,6 +1366,11 @@ class AggregatedErrors(Exception):
         buffered_exception = None
         if hasattr(exception, "__traceback__") and exception.__traceback__:
             added_exc_str = "".join(traceback.format_tb(exception.__traceback__))
+            buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
+            buffered_exception = exception
+        elif hasattr(orig_exception, "__traceback__") and orig_exception.__traceback__:
+            setattr(exception, "__traceback__", orig_exception.__traceback__)
+            added_exc_str = "".join(traceback.format_tb(orig_exception.__traceback__))
             buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
             buffered_exception = exception
         else:
@@ -1347,11 +1407,15 @@ class AggregatedErrors(Exception):
 
         return self
 
-    def buffer_error(self, exception, is_fatal=True):
-        return self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
+    def buffer_error(self, exception, is_fatal=True, orig_exception=None):
+        return self.buffer_exception(
+            exception, is_error=True, is_fatal=is_fatal, orig_exception=orig_exception
+        )
 
-    def buffer_warning(self, exception, is_fatal=False):
-        return self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
+    def buffer_warning(self, exception, is_fatal=False, orig_exception=None):
+        return self.buffer_exception(
+            exception, is_error=False, is_fatal=is_fatal, orig_exception=orig_exception
+        )
 
     def print_all_buffered_exceptions(self):
         for exc in self.exceptions:
@@ -1460,23 +1524,30 @@ class ConflictingValueError(InfileError):
         differences,
         rec_dict=None,
         message=None,
+        derived=False,
         **kwargs,
     ):
         """Constructor
 
         Args:
-            rec (Model): Matching existing database record that caused the unique constraint violation.
-            differences (Dict(str)): Dictionary keyed on field name and whose values are dics whose keys are "orig" and
-                "new", and the values are the value of the field in the database and file, respectively.  Example:
+            rec (Optional[Model]): Matching existing database record that caused the unique constraint violation.
+            differences (Optional[Dict(str)]): Dictionary keyed on field name and whose values are dicts whose keys are
+                "orig" and "new", and the values are the value of the field in the database and file, respectively.
+                Example:
                 {
                     "description": {
                         "orig": "the database decription",
                         "new": "the file description",
                 }
-            rownum (int): The row or line number with the data that caused the conflict.
-            sheet (str): The name of the excel sheet where the conflict was encountered.
+            rec_dict (dict obf objects): The dict that was (or would be) supplied to Model.get_or_create()
+            derived (boolean): Whether the database value was a generated value or not.  Certain fields in the database
+                are automatically maintained, and values in the loading file may not actually be loaded, thus
+                differences with generated values should be designated as warnings only.
             message (str): The error message.
-            file (str): The name/path of the file where the conflict was encoutnered.
+            kwargs:
+                rownum (int): The row or line number with the data that caused the conflict.
+                sheet (str): The name of the excel sheet where the conflict was encountered.
+                file (str): The name/path of the file where the conflict was encoutnered.
         """
         if not message:
             mdl = "No record provided"
@@ -1497,6 +1568,11 @@ class ConflictingValueError(InfileError):
                     )
             else:
                 message += "\tDifferences not provided"
+            if derived:
+                message += (
+                    "\nNote, the database field value(s) shown are automatically generated.  The database record may "
+                    "nor may not exist.  The value in your file conflicts with the generated value."
+                )
         super().__init__(message, **kwargs)
         self.rec = rec  # Model record that conflicts
         self.rec_dict = rec_dict  # Dict created from file
@@ -1540,7 +1616,7 @@ class DuplicateValues(InfileError):
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
             dupdeets = []
-            for v, l in dupe_dict.items():
+            for v, lst in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
 
@@ -1548,9 +1624,9 @@ class DuplicateValues(InfileError):
                 # structures (originating from either get_column_dupes or get_one_column_dupes).  A refactor made the
                 # issue worse.  Before, it was called with a message arg, which avoided the issue.  Now it's not called
                 # with a message.  This strategy needs to be consolidated.
-                idxs = l
-                if isinstance(l, dict):
-                    idxs = l["rowidxs"]
+                idxs = lst
+                if isinstance(lst, dict):
+                    idxs = lst["rowidxs"]
                 dupdeets.append(
                     f"{str(v)} (rows*: {', '.join(summarize_int_list(list(map(lambda i: i + 2, idxs))))})"
                 )
@@ -1982,6 +2058,14 @@ class PeakAnnotFileMismatches(Exception):
         super().__init__(message)
         self.incorrect_pgs_files = incorrect_pgs_files
         self.peak_annotation_filename = peak_annotation_filename
+
+
+class PeakAnnotationParseError(Exception):
+    def __init__(
+        self, message="Unknown problem attempting to parse peak annotation file"
+    ):
+        self.message = message
+        super().__init__(self.message)
 
 
 class MismatchedSampleHeaderMZXML(Exception):
@@ -2511,6 +2595,17 @@ class MutuallyExclusiveOptions(CommandError):
     pass
 
 
+class MutuallyExclusiveArgs(InfileError):
+    pass
+
+
+class RequiredOptions(CommandError):
+    def __init__(self, missing, **kwargs):
+        message = f"Missing required options: {missing}."
+        super().__init__(message, **kwargs)
+        self.missing = missing
+
+
 class ConditionallyRequiredOptions(CommandError):
     pass
 
@@ -2526,6 +2621,17 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         self.name = name
 
 
+class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
+    def __init__(self, model, query_dict, message=None, **kwargs):
+        if message is None:
+            message = (
+                f"{model.__name__} record matching {query_dict} from %s does not exist."
+            )
+        super().__init__(message, **kwargs)
+        self.query_dict = query_dict
+        self.model = model
+
+
 class MissingDataAdded(InfileError):
     """Use this for warnings only, for when missing data exceptions were dealt with."""
 
@@ -2535,6 +2641,17 @@ class MissingDataAdded(InfileError):
             message += f"{addition_notes} "
         message += "was added to %s."
         super().__init__(message, **kwargs)
+
+
+class RollbackException(Exception):
+    """This class only exists in order to be raised after specific exception handling has already occurred and an
+    exception needs to be raised in order to trigger a rollback.  Often times, the exception handling is prefereable to
+    co-locate with the code that attempts the database load, and it is done inside a method that is calledf from a loop
+    on an input file so that exceptions can be safely handled and buffered (for later raising) in order to be able to
+    proceed and report as many errors as possible to reduce time-consuming re-loads just to get the next error.
+    """
+
+    pass
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
@@ -2552,7 +2669,7 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     if loc_str != "":
         loc_str += "in "
     if file is not None:
-        loc_str += f"file [{file}]"
+        loc_str += file
     else:
         loc_str += "the load file data"
     return loc_str
@@ -2566,7 +2683,13 @@ def summarize_int_list(intlist):
     sum_list = []
     last_num = None
     waiting_num = None
-    for num in [int(n) for n in sorted([i for i in intlist if i is not None])]:
+    for num in [n for n in sorted([i for i in intlist if i is not None])]:
+        try:
+            num = int(num)
+        except ValueError:
+            # Assume this is a "named" row
+            sum_list.append(num)
+            continue
         if last_num is None:
             waiting_num = num
         else:
