@@ -3,8 +3,8 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Protocol
 from DataRepo.utils.exceptions import RollbackException
 from DataRepo.utils.file_utils import is_excel

@@ -4,8 +4,8 @@ from typing import Optional
 from django.db import transaction
 from django.db.utils import IntegrityError
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,

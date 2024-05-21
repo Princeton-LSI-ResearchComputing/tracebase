@@ -1733,13 +1733,13 @@ class NoTracerLabeledElements(Exception):
     def __init__(self, compound: Optional[str] = None, elements: Optional[list] = None):
         cpdstr = ""
         if compound is not None:
-            cpdstr = f" [{compound}]"
+            cpdstr = f"PeakGroup compound [{compound}] contains no"
+        else:
+            cpdstr = "No"
         tcrstr = ""
         if elements is not None:
             tcrstr = f" {elements}"
-        message = (
-            f"PeakGroup compound{cpdstr} contains no tracer_labeled_elements{tcrstr}."
-        )
+        message = f"{cpdstr} tracer_labeled_elements{tcrstr}."
         super().__init__(message)
 
 
@@ -1959,7 +1959,23 @@ class LCMethodFixturesMissing(Exception):
         self.err = err
 
 
-class IsotopeObservationParsingError(Exception):
+class ParsingError(Exception):
+    pass
+
+
+class InfusateParsingError(ParsingError):
+    pass
+
+
+class TracerParsingError(ParsingError):
+    pass
+
+
+class IsotopeParsingError(ParsingError):
+    pass
+
+
+class ObservedIsotopeParsingError(Exception):
     pass
 
 

@@ -18,10 +18,10 @@ from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import (
     Animal,

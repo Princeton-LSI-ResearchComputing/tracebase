@@ -2,7 +2,7 @@ import base64
 from io import BytesIO
 
 from DataRepo.loaders import ProtocolsLoader, SampleTableLoader, TissuesLoader
-from DataRepo.loaders.table_column import ColumnHeader, TableColumn
+from DataRepo.loaders.base.table_column import ColumnHeader, TableColumn
 from DataRepo.models import Protocol, Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
 from DataRepo.utils.exceptions import (
