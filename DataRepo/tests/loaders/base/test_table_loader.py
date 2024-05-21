@@ -6,8 +6,8 @@ from django.db import IntegrityError
 from django.db.models import AutoField, CharField, Model, UniqueConstraint
 from django.test.utils import isolate_apps
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

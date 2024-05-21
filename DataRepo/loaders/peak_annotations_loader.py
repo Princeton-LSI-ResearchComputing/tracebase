@@ -1,128 +1,43 @@
 from abc import ABC, abstractmethod
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from sqlite3 import ProgrammingError
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
-import regex
 from django.db import transaction
 
+from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
+from DataRepo.loaders.base.table_column import TableColumn
 from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import (
-    ElementLabel,
+    ArchiveFile,
+    DataFormat,
+    DataType,
+    MSRunSample,
     PeakData,
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
+    Sample,
 )
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
-from DataRepo.models.msrun_sample import MSRunSample
-from DataRepo.models.sample import Sample
-from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
     HeaderAsSampleDoesNotExist,
-    IsotopeObservationParsingError,
     NoTracerLabeledElements,
+    ObservedIsotopeParsingError,
     RecordDoesNotExist,
-    RequiredHeadersError,
     RollbackException,
-    UnknownHeaderError,
 )
 from DataRepo.utils.file_utils import string_to_datetime
-
-# regex has the ability to store repeated capture groups' values and put them in a list
-ISOTOPE_LABEL_PATTERN = regex.compile(
-    # Match repeated elements and mass numbers (e.g. "C13N15")
-    r"^(?:(?P<elements>["
-    + "".join(ElementLabel.labeled_elements_list())
-    + r"]{1,2})(?P<mass_numbers>\d+))+"
-    # Match either " PARENT" or repeated counts (e.g. "-labels-2-1")
-    + r"(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
-)
+from DataRepo.utils.infusate_name_parser import parse_isotope_label
 
 
-class IsotopeObservationData(TypedDict):
-    element: str
-    mass_number: int
-    count: int
-    parent: bool
-
-
-class PeakAnnotationsLoader(TableLoader, ABC):
-    @property
-    @abstractmethod
-    def merged_column_rename_dict(self) -> Optional[dict]:
-        """A dict that describes how to rename all columns in the final merged pandas DataFrame.
-        It does not have to have a key for every column - just the ones that need to be renamed.
-        Example:
-            {
-                "formula": "Formula",
-                "medMz": "MedMz",
-                "medRt": "MedRt",
-                "isotopeLabel": "IsotopeLabel",
-                "compound": "Compound",
-            }
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def merge_dict(self) -> dict:
-        """A recursively constructed dict describing how to merge the sheets in df_dict.
-        NOTE: The first sheet must be the one with the corrected abundances.
-        NOTE: Setting right_columns to None or an empty list joins all columns.
-        NOTE: Set right_has_raw_abunds to True if the right sheet
-        Example:
-            {
-                "first_sheet": "Corrected",  # This key ponly occurs once in the outermost dict
-                "next_merge_dict": {
-                    "on": ["Compound", "C_Label"],
-                    "left_columns": None,  # all
-                    "right_sheet": "Original",
-                    "right_columns": ["formula", "medMz", "medRt", "isotopeLabel"],
-                    "right_has_raw_abunds": True,
-                    "how": "left",
-                    "next_merge_dict": None,
-                }
-            }
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def add_columns_dict(self) -> Optional[dict]:
-        """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
-        Example:
-            {
-                "Original": {
-                    "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
-                    "Compound": lambda df: df["compound"],
-                }
-            }
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def merged_drop_columns_list(self) -> Optional[list]:
-        """List of columns to specifically remove after merge.  No error will be raised if the column is already absent.
-        Example:
-            ["compound"]
-        """
-        pass
-
+class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     @property
     @abstractmethod
     def format_code(self) -> str:
         """The DataFormat.code for the peak annotation file"""
         pass
-
-    # Prepend this to sample header for columns containing raw abundances.  See merge_dict: right_has_raw_abunds.
-    raw_abund_prefix = "RAW:"
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     MEDMZ_KEY = "MEDMZ"
@@ -130,18 +45,24 @@ class PeakAnnotationsLoader(TableLoader, ABC):
     ISOTOPELABEL_KEY = "ISOTOPELABEL"
     FORMULA_KEY = "FORMULA"
     COMPOUND_KEY = "COMPOUND"
+    SAMPLEHEADER_KEY = "SAMPLEHEADER"
+    CORRECTED_KEY = "CORRECTED"
+    RAW_KEY = "RAW"
 
-    DataSheetName = "Corrected"  # The official sole sheet name of the converted/merged peak annotation data
+    DataSheetName = "Peak Annotations"  # The official sole sheet name of the converted/merged peak annotation data
 
     # The tuple used to store different kinds of data per column at the class level
     DataTableHeaders = namedtuple(
         "DataTableHeaders",
         [
+            "SAMPLEHEADER",
+            "COMPOUND",
+            "FORMULA",
+            "ISOTOPELABEL",
             "MEDMZ",
             "MEDRT",
-            "ISOTOPELABEL",
-            "FORMULA",
-            "COMPOUND",
+            "RAW",
+            "CORRECTED",
         ],
     )
 
@@ -152,6 +73,9 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         ISOTOPELABEL="IsotopeLabel",
         FORMULA="Formula",
         COMPOUND="Compound",
+        SAMPLEHEADER="mzXML Name",
+        RAW="Raw Abundance",
+        CORRECTED="Corrected Abundance",
     )
 
     # List of required header keys
@@ -161,6 +85,8 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         ISOTOPELABEL_KEY,
         FORMULA_KEY,
         COMPOUND_KEY,
+        SAMPLEHEADER_KEY,
+        CORRECTED_KEY,
     ]
 
     # List of header keys for columns that require a value
@@ -174,11 +100,14 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         ISOTOPELABEL_KEY: str,
         FORMULA_KEY: str,
         COMPOUND_KEY: str,
+        SAMPLEHEADER_KEY: str,
+        RAW_KEY: float,
+        CORRECTED_KEY: float,
     }
 
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [
-        [COMPOUND_KEY, ISOTOPELABEL_KEY],
+        [SAMPLEHEADER_KEY, COMPOUND_KEY, ISOTOPELABEL_KEY],
     ]
 
     # A mapping of database field to column.  Only set when 1 field maps to 1 column.  Omit others.
@@ -194,6 +123,8 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         PeakData.__name__: {
             "med_mz": MEDMZ_KEY,
             "med_rt": MEDRT_KEY,
+            "raw_abundance": RAW_KEY,
+            "corrected_abundance": CORRECTED_KEY,
         },
         PeakDataLabel.__name__: {
             "element": ISOTOPELABEL_KEY,
@@ -205,10 +136,24 @@ class PeakAnnotationsLoader(TableLoader, ABC):
     DataColumnMetadata = DataTableHeaders(
         MEDMZ=TableColumn.init_flat(name=DataHeaders.MEDMZ, field=PeakData.med_mz),
         MEDRT=TableColumn.init_flat(name=DataHeaders.MEDRT, field=PeakData.med_rt),
+        COMPOUND=TableColumn.init_flat(name=DataHeaders.COMPOUND, field=PeakGroup.name),
+        RAW=TableColumn.init_flat(name=DataHeaders.RAW, field=PeakData.raw_abundance),
+        CORRECTED=TableColumn.init_flat(
+            name=DataHeaders.RAW, field=PeakData.corrected_abundance
+        ),
         FORMULA=TableColumn.init_flat(
             name=DataHeaders.FORMULA, field=PeakGroup.formula
         ),
-        COMPOUND=TableColumn.init_flat(name=DataHeaders.COMPOUND, field=PeakGroup.name),
+        SAMPLEHEADER=TableColumn.init_flat(
+            name=DataHeaders.SAMPLEHEADER,
+            type=str,
+            help_text=(
+                "The name of the mzXML file (without the path or extension).  Also known as the 'sample header' (or "
+                "'sample data header')."
+            ),
+            header_required=True,
+            value_required=True,
+        ),
         ISOTOPELABEL=TableColumn.init_flat(
             name=DataHeaders.ISOTOPELABEL,
             type=str,
@@ -226,7 +171,7 @@ class PeakAnnotationsLoader(TableLoader, ABC):
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.
-    Models = [PeakData, PeakDataLabel, PeakGroup, PeakGroupLabel]
+    Models = [ArchiveFile, PeakData, PeakDataLabel, PeakGroup, PeakGroupLabel]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -278,19 +223,19 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         Returns:
             None
         """
-        peak_annotation_details_file = kwargs.pop("peak_annotation_details_file", None)
-        peak_annotation_details_sheet = kwargs.pop(
+        # These custom options are for the member instance of MSRunsLoader's file, sheet, and df arguments.
+        # It will also take some arguments that overlap with this class's members (defaults_file, defaults_df, and
+        # MSRunsLoader's custom options: operator, date, lc protocol name, and instrument).
+        self.peak_annotation_details_file = kwargs.pop(
+            "peak_annotation_details_file", None
+        )
+        self.peak_annotation_details_sheet = kwargs.pop(
             "peak_annotation_details_sheet", None
         )
-        peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
-        operator_default = kwargs.pop("operator", None)
-        date_default = kwargs.pop("date", None)
-        lc_protocol_name_default = kwargs.pop("lc_protocol_name", None)
-        instrument_default = kwargs.pop("instrument", None)
+        self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
 
-        self.sample_headers = []
+        # Require the file argument if df is supplied
         if kwargs.get("df") is not None:
-            # Require the file argument if df is supplied
             if kwargs.get("file") is None:
                 raise AggregatedErrors().buffer_error(
                     ConditionallyRequiredArgs(
@@ -298,382 +243,131 @@ class PeakAnnotationsLoader(TableLoader, ABC):
                     )
                 )
 
-            kwargs["df"] = self.convert_df(kwargs["df"])
-
-            self.sample_headers = self.get_sample_headers(kwargs["df"].columns)
-
-            # If the derived class did not provide sample headers, get them dynamically
-            if "extra_headers" in kwargs.keys() and sorted(
-                self.sample_headers
-            ) != sorted(kwargs["extra_headers"]):
-                raise AggregatedErrors().buffer_error(
-                    NotImplementedError(
-                        (
-                            "The extra_headers argument is not allowed.  The argument is used to define the "
-                            f"automatically extracted sample headers {self.sample_headers}.  If there is a problem "
-                            "with the sample header extraction or extra headers are needed for another reason, a code "
-                            "refactor is necessary."
-                        )
-                    )
-                )
-
-            # Set things up for processing each sample column
-            kwargs["extra_headers"] = self.sample_headers
-            # TODO: Use this to supply column info to get_row_val for checking column not defined in the class
-            self.sample_columns = {}
-            for hdr in self.sample_headers:
-                self.sample_columns[hdr] = TableColumn.init_flat(
-                    name=hdr, type=float, value_required=True
-                )
+        # Error tracking
+        # If the sample that a header maps to is missing, track it so we don't raise that error multiple times
+        self.missing_headers_as_samples = []
 
         # We are going to use defaults as processed by the MSRunsLoader (which uses the SequencesLoader) in  order to be
         # able to obtain the correct MSRunSample record that each PeakGroup belongs to
-        msrunsloader = MSRunsLoader(
-            df=peak_annotation_details_df,
+        self.msrunsloader = MSRunsLoader(
+            file=self.peak_annotation_details_file,
+            data_sheet=self.peak_annotation_details_sheet,
+            df=self.peak_annotation_details_df,
             defaults_df=kwargs.get("defaults_df"),
             defaults_file=kwargs.get("defaults_file"),
-            operator=operator_default,
-            date=date_default,
-            lc_protocol_name=lc_protocol_name_default,
-            instrument=instrument_default,
-            data_sheet=peak_annotation_details_sheet,
-            file=peak_annotation_details_file,
+            operator=kwargs.pop("operator", None),
+            date=kwargs.pop("date", None),
+            lc_protocol_name=kwargs.pop("lc_protocol_name", None),
+            instrument=kwargs.pop("instrument", None),
         )
 
-        # Peak annotation details are optional if the operator, date, lc name, and instrument are provided AND the
-        # sample headers match the database sample names.  (In which case, using the MSRunsLoader instance above was
-        # just to process the default arguments)
-        self.msrun_sample_dict = {}
-        if peak_annotation_details_df is not None:
-            self.msrun_sample_dict = msrunsloader.get_loaded_msrun_sample_dict(
-                peak_annot_file=kwargs["file"]
-            )
+        # Cannot call super().__init__() because ABC.__init__() takes a custom argument
+        ConvertedTableLoader.__init__(self, *args, **kwargs)
 
-        TableLoader.__init__(self, *args, **kwargs)
+        # Initialize the default sequence data (obtained from self.msrunsloader)
+        self.operator_default = None
+        self.date_default = None
+        self.lc_protocol_name_default = None
+        self.instrument_default = None
+        self.msrun_sample_dict = {}
+        self.initialize_sequence_defaults()
+
+    def initialize_sequence_defaults(self):
+        """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
+        Details dataframe was provided.  It also initializes the default values for the sequence, for use in filling in
+        sequence data in the Peak Annotation Details sheet, or later, if a Peak Annotation Details sheet was not
+        provided, to use in the search of MSRunSample to find the sample header (assuming it matches the name of the
+        sample exactly).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # Peak annotation details are optional if the operator, date, lc name, and instrument are provided AND the
+        # sample headers match the database sample names (in which case, using the MSRunsLoader instance just serves
+        # to process the default arguments).
+        self.msrun_sample_dict = {}
+        if self.peak_annotation_details_df is not None:
+            self.msrun_sample_dict = self.msrunsloader.get_loaded_msrun_sample_dict(
+                peak_annot_file=self.file
+            )
 
         # TODO: Figure out a better way to handle buffered exceptions from another class that are only raised from a
         # specific method, so that methods raise them as a group instead of needing to incorporate instance loaders like
         # this for buffered errors
         self.aggregated_errors_object.merge_aggregated_errors_object(
-            msrunsloader.aggregated_errors_object
+            self.msrunsloader.aggregated_errors_object
         )
 
         # Set the MSRunSequence defaults as a fallback in case a peak annotation details file was not provided
-        self.operator_default = msrunsloader.operator_default
-        self.date_default = None
-        if msrunsloader.date_default is not None:
-            self.date_default = string_to_datetime(msrunsloader.date_default)
-        self.lc_protocol_name_default = msrunsloader.lc_protocol_name_default
-        self.instrument_default = msrunsloader.instrument_default
+        self.operator_default = self.msrunsloader.operator_default
+        if self.msrunsloader.date_default is not None:
+            self.date_default = string_to_datetime(self.msrunsloader.date_default)
+        self.lc_protocol_name_default = self.msrunsloader.lc_protocol_name_default
+        self.instrument_default = self.msrunsloader.instrument_default
 
-        # Error tracking
-        self.missing_headers_as_samples = []
-
-    def convert_df(self, df):
-        """Uses the abstract properties defined in a derived class to convert the given data format (e.g. an accucor
-        excel file or an isocorr csv file) into a universal format accepted by this parent class's loading code.
-        Args:
-            df (pandas DataFrame or dict of pandas DataFrames): Basically, anything returned by the read_from_file
-                method in the file_utils library
-        Exceptions:
-            ValueError
-        Returns:
-            outdf (pandas DataFrame): Converted single DataFrame
-        """
-        # If the value for key 'next_merge_dict' is None, it is inferred to mean that no merge is
-        # necessary.  Just set the outdf to that one dataframe indicated by the sole sheet key.
-        single_sheet = (
-            self.merge_dict["first_sheet"]
-            if self.merge_dict["next_merge_dict"] is not None
-            else None
-        )
-
-        if isinstance(df, pd.DataFrame):
-            self.initialize_merge_dict()
-            outdf = df.copy(deep=True)
-            if single_sheet is not None:
-                try:
-                    self.add_df_columns({single_sheet: outdf})
-                except KeyError:
-                    # We will assume they did the merge themselves and that KeyErrors from adding columns come from
-                    # sheets without the corrected sample data, and that adding columns to other sheets is only to
-                    # facilitate the merge, and thus, we can ignore all KeyErrors
-                    # An error will occur below if this is not the case
-                    pass
-            # If we're getting a single dataframe when multiple sheets to merge are required, we will assume the merge
-            # has already been done and that all required columns are present
-        elif isinstance(df, dict):
-            outdf = dict((sheet, adf.copy(deep=True)) for sheet, adf in df.items())
-            self.add_df_columns(outdf)
-            outdf = self.merge_df_sheets(outdf)
-
-        try:
-            if self.merged_column_rename_dict is not None:
-                outdf = outdf.rename(columns=self.merged_column_rename_dict)
-        except Exception as e:
-            if isinstance(df, pd.DataFrame) and single_sheet is None:
-                raise AggregatedErrors().buffer_error(
-                    ValueError(
-                        f"A dataframe dict containing the following sheets/keys: {list(df.keys())} is required."
-                    ),
-                    orig_exception=e,
-                )
-            else:
-                raise AggregatedErrors().buffer_error(e)
-
-        missing = []
-        for hdr in self.DataHeaders._asdict().values():
-            if hdr not in outdf.columns:
-                missing.append(hdr)
-        if len(missing) > 0:
-            raise AggregatedErrors().buffer_error(
-                RequiredHeadersError(self.revert_headers(missing))
-            )
-
-        if self.merged_drop_columns_list is not None:
-            outdf = outdf.drop(self.merged_drop_columns_list, axis=1, errors="ignore")
-
-        return outdf
-
-    def add_df_columns(self, df_dict: dict):
-        """Creates/adds columns to a pandas DataFrame dict based on the methods in self.add_columns_dict that generate
-        columns from existing DataFrame columns.
-        Args:
-            df_dict (dict of pandas DataFrames)
-        Exceptions:
-            None
-        Returns:
-            None
-        """
-        if self.add_columns_dict is not None:
-            for sheet, column_dict in self.add_columns_dict.items():
-                for new_column, method in column_dict.items():
-                    df_dict[sheet][new_column] = method(df_dict[sheet])
-
-    def revert_headers(self, headers):
-        """This method takes a list of headers from the universal PeakAnnotationsLoader headers, converts them back to
-        the original input format's headers (using self.merged_column_rename_dict) and then organizes them into their
-        original sheets in a dict.
-        Args:
-            headers (list): header names
-        Exceptions:
-            None
-        Returns:
-            orig_headers (dict): header name lists keyed on sheet names
-        """
-        rev_rename_dict = {}
-        if self.merged_column_rename_dict is not None:
-            # Assumes self.merged_column_rename_dict values are unique
-            rev_rename_dict = dict(
-                (v, k) for k, v in self.merged_column_rename_dict.items()
-            )
-
-        # Un-rename the merged headers
-        rev_headers = [
-            (
-                rev_rename_dict[h]
-                if h in rev_rename_dict.keys()
-                else h.removeprefix(self.raw_abund_prefix)
-            )
-            for h in headers
-        ]
-
-        # Final output dict (reverted headers keyed on the original sheets)
-        rev_headers_dict = defaultdict(list)
-
-        # The first sheet from the merge dict is the default (because headers not explicitly in the merge dict will be
-        # there)
-        default_sheet = (
-            self.merge_dict["first_sheet"]
-            if isinstance(self.df, dict)
-            else "Unnamed sheet"
-        )
-
-        if self.merge_dict["next_merge_dict"] is not None:
-            for rh in rev_headers:
-                # For each reverted header, we will search the merge dict for it
-                merge_dict = self.merge_dict["next_merge_dict"].copy()
-                right_sheet = default_sheet
-                while merge_dict is not None:
-                    if (
-                        merge_dict["right_all_columns"] is not None
-                        and len(merge_dict["right_all_columns"]) > 0
-                        and rh in merge_dict["right_all_columns"]
-                    ):
-                        rev_headers_dict[merge_dict["right_sheet"]].append(rh)
-                    elif merge_dict["next_merge_dict"] is None:
-                        rev_headers_dict[right_sheet].append(rh)
-                    if merge_dict["next_merge_dict"] is not None:
-                        merge_dict = merge_dict["next_merge_dict"].copy()
-                    else:
-                        merge_dict = merge_dict["next_merge_dict"]
-        else:
-            rev_headers_dict[default_sheet] = rev_headers
-
-        return dict(rev_headers_dict)
-
-    def initialize_merge_dict(self):
-        # Initialize the right_all_columns values.  (This is so the derived class doesn't have to initialize it)
-        if self.merge_dict["next_merge_dict"] is not None:
-            merge_dict = self.merge_dict
-            while merge_dict["next_merge_dict"] is not None:
-                merge_dict = merge_dict["next_merge_dict"]
-                if "right_all_columns" not in merge_dict.keys():
-                    merge_dict["right_all_columns"] = None
-
-    def merge_df_sheets(
-        self, df_dict, _outdf=None, _merge_dict=None, _first_sheet=None
-    ):
-        """Uses self.merge_dict to recursively merge df_dict's sheets into a single merged dataframe.
-        Args:
-            df_dict (dict of pandas DataFrames): A dict of dataframes keyed on sheet names (i.e. the return of
-                read_from_file when called with an excel doc)
-            _outdf (Optional[pandas DataFrame]) [df_dict[self.merge_dict["first_sheet"]]]: Used in recursive calls to
-                build up a dataframe from 2 or more sheets in df_dict.
-            _merge_dict (Optional[dict]) [self.merge_dict]: A recursively constructed dict describing how to merge the
-                sheets in df_dict.  Example:
-                    {
-                        "first_sheet": "Corrected",  # This key ponly occurs once in the outermost dict
-                        "next_merge_dict": {
-                            "on": ["Compound", "C_Label"],
-                            "left_columns": None,  # all
-                            "right_sheet": "Original",
-                            "right_columns": ["formula", "medMz", "medRt", "isotopeLabel"],
-                            "right_has_raw_abunds": True,
-                            "how": "left",
-                            "next_merge_dict": None,
-                        }
-                    }
-            _first_sheet (Optional[str]) [self.merge_dict["first_sheet"]]: The first sheet to use as the left dataframe
-                in the first merge.  Every subsequence recursive merge uses outdf and does not use _first_sheet.
-        Exceptions:
-            Buffers:
-                None
-            Raises:
-                KeyError
-        Returns:
-            _outdf (pandas DataFrame): Dataframe that has been merged from df_dict based on _merge_dict.  Note, if
-                _merge_dict["next_merge_dict"] is None at the outermost level of the dict,
-                df_dict[self.merge_dict["first_sheet"]] is returned (i.e. no merge is performed).
-        """
-        if _merge_dict is None:
-            self.initialize_merge_dict()
-            _merge_dict = self.merge_dict.copy()
-
-        if _outdf is None:
-            if _first_sheet is None:
-                if "first_sheet" not in _merge_dict.keys():
-                    raise KeyError("'first_sheet' not supplied and not in merge_dict.")
-                _first_sheet = _merge_dict["first_sheet"]
-            _outdf = df_dict[_first_sheet]
-
-            # Record the original headers in this sheet (assumes _merge_dict was None, above - should be, since this is
-            # a private argument)
-            self.merge_dict["left_all_columns"] = list(_outdf.columns)
-
-            if _merge_dict["next_merge_dict"] is None:
-                return _outdf
-            _merge_dict = _merge_dict["next_merge_dict"].copy()
-
-        left_df = _outdf
-        if (
-            _merge_dict["left_columns"] is not None
-            and len(_merge_dict["left_columns"]) > 0
-        ):
-            left_df = _outdf[_merge_dict["left_columns"]]
-
-        right_sheet = _merge_dict["right_sheet"]
-        right_df = df_dict[right_sheet]
-        _merge_dict["right_all_columns"] = list(right_df.columns)
-        right_columns = _merge_dict["right_columns"]
-
-        # Make sure that the join columns are included (if specific columns are being extracted)
-        if right_columns is not None and len(right_columns) > 0:
-            for on_col in _merge_dict["on"]:
-                if on_col not in right_columns:
-                    right_columns.append(on_col)
-
-        # If the right sheet has (optional) raw abundances to add
-        if _merge_dict["right_has_raw_abunds"]:
-            # Get the sample headers
-            sample_headers = self.get_sample_headers(list(right_df.columns))
-
-            # Prepend the raw abundance prefix to each of them in a dict of original header to prefixed header
-            rename_sample_headers_dict = dict(
-                (hdr, f"{self.raw_abund_prefix}{hdr}") for hdr in sample_headers
-            )
-
-            # Rename the headers in the dataframe (so that the merged headers will be unique)
-            df_dict[right_sheet].rename(columns=rename_sample_headers_dict)
-
-            # If we are only merging a subset of headers, add the renamed sample headers to the subset
-            if right_columns is not None and len(right_columns) > 0:
-                right_columns.extend(list(rename_sample_headers_dict.values()))
-
-        # If we are only merging a subset of headers
-        if right_columns is not None and len(right_columns) > 0:
-            # Only merge the columns specified in _merge_dict["right_columns"] by dropping all but the given subset:
-            right_df = df_dict[right_sheet][right_columns]
-
-        _outdf = pd.merge(
-            left=left_df,
-            right=right_df,
-            on=_merge_dict["on"],
-            how=_merge_dict["how"],
-        )
-
-        if _merge_dict["next_merge_dict"] is None:
-            return _outdf
-
-        return self.merge_df_sheets(
-            df_dict,
-            _outdf=_outdf,
-            _merge_dict=_merge_dict["next_merge_dict"].copy(),
-        )
-
-    def get_sample_headers(self, all_headers: list):
-        """Takes a list of all headers and returns a list of sample headers.
-        Args:
-            all_headers (List[str]): List of all headers (e.g. df.columns)
-        Exceptions:
-            None
-        Returns:
-            sample_headers (List[str]): All headers from all_headers that are sample headers
-        """
-        sample_headers = []
-        non_sample_headers = self.get_non_sample_headers()
-        for hdr in all_headers:
-            if hdr not in non_sample_headers and not hdr.startswith(
-                self.raw_abund_prefix
-            ):
-                sample_headers.append(hdr)
-        return sample_headers
-
-    def get_non_sample_headers(self):
-        """This includes all self.get_headers(), self.merged_drop_columns_list, and all keys in
-        self.merged_column_rename_dict.
-
-        This takes the "safe" route and includes absolutely everything.
-
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            non_sample_headers (List[str]): All original format and universal format non-sample headers.
-        """
-        universal_default_headers = set(self.DataHeaders._asdict().values())
-        universal_custom_headers = set(self.get_headers()._asdict().values())
-        original_saved_headers = set(self.merged_column_rename_dict.keys())
-        original_dropped_headers = set(self.merged_drop_columns_list)
-        return list(
-            universal_default_headers.union(universal_custom_headers)
-            .union(original_saved_headers)
-            .union(original_dropped_headers)
-        )
+    # TODO: Yet to be done:
+    # FORGOT A CRUCIAL STEP:
+    #     peak_group.compounds.add(compound)
+    # Comment for deletion:
+    #     AmbiguousMSRun,
+    #     AmbiguousMSRuns,
+    #     MissingLCMSSampleDataHeaders,
+    #     MismatchedSampleHeaderMZXML,
+    #         I think this is obsolete, but check
+    #     SampleIndexNotFound,
+    #     UnexpectedLCMSSampleDataHeaders,
+    # DupeCompoundIsotopeCombos,
+    #     This catches instances of duplicate compound/isotopeLabel combos
+    #     This should be implemented using unique constraints (for the file - I think this should be caught in the DB?
+    #       - but check) and the exception class deleted
+    # I think these are now obsolete given the new MSRunSample placeholder unique constraint, but check:
+    #     DuplicatePeakGroup,
+    #     DuplicatePeakGroups,
+    # ADD THESE:
+    #     MissingCompounds,
+    #     MissingSamplesError,
+    #     NoSampleHeaders,
+    #     NoSamplesError,
+    #     PeakAnnotFileMismatches,
+    #     ResearcherNotNew,
+    #     SampleColumnInconsistency,
+    #     TracerLabeledElementNotFound,
+    #     UnexpectedIsotopes,
+    #         When more labeled elements than in the tracers
+    #     UnskippedBlanksError,
+    #     IsotopeStringDupe,
+    #         # If there are multiple isotope measurements that match the same parent tracer labeled element
+    #         # E.g. C13N15C13-label-2-1-1 would match C13 twice
+    #     EmptyColumnsError,
+    #         Add this to TableLoader
+    #         for k, _ in corr_iter.items():
+    #             if k.startswith("Unnamed: "):
+    #                 self.aggregated_errors_object.buffer_error(
+    #                     EmptyColumnsError...
+    # tests
+    #     ConvertedTableLoader
+    #         check_output_dataframe
+    #         condense_columns
+    #         revert_headers
+    #         initialize_merge_dict
+    #         get_required_sheets
+    #     PeakAnnotationsLoader (AccucorLoader/IsocorrLoader)
+    #         initialize_sequence_defaults
+    #         load_data
+    #         get_or_create_annot_file
+    #         get_or_create_peak_group
+    #         get_msrun_sample
+    #         get_or_create_peak_data
+    #         get_or_create_labels
+    #         get_or_create_peak_group_label
+    #         get_or_create_peak_data_label
 
     def load_data(self):
-        """Loads the PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
+        """Loads the ArchiveFile, PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
         Args:
             None
         Raises:
@@ -684,22 +378,46 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         try:
             annot_file_rec, _ = self.get_or_create_annot_file()
         except RollbackException:
-            # We cannot go any further, because an ArchiveFile record is required to make all other records
-            # TODO: Add in skipped stats here
-            return
+            # We will continue the processing below to essentially generate the skip counts.
+            # None of the following method calls will actually attempt to create records.  They will balk at the None-
+            # valued arguments.
+            pass
 
         for _, row in self.df.iterrows():
+            # Get or create a PeakGroup record
             try:
-                self.process_peak_annotation_row(row, annot_file_rec)
-            except Exception as e:
-                # Buffer unexpected errors
-                self.aggregated_errors_object.buffer_error(e)
+                pgrec, _ = self.get_or_create_peak_group(row, annot_file_rec)
+            except RollbackException:
+                pass
+
+            # Get or create a PeakData record
+            try:
+                pdrec, _ = self.get_or_create_peak_data(row, pgrec)
+            except RollbackException:
+                pass
+
+            # Check the elements of the PeakGroup's compound to ensure it shares elements with the ones labeled in the
+            # tracers
+            if pgrec is not None and len(pgrec.peak_labeled_elements) == 0:
+                self.aggregated_errors_object.buffer_error(
+                    NoTracerLabeledElements(pgrec.name, pgrec.tracer_labeled_elements)
+                )
+                # So this shouldn't happen.  If it does, it is user error.  Every peak group compound should have
+                # elements that are labeled in at least 1 of the tracers.  We are technically skipping 0 record
+                # retrievals/creations here, but we will count 1 skip for each record type, for good measure.
+                self.skipped(PeakGroupLabel.__name__)
+                self.skipped(PeakDataLabel.__name__)
+                continue
+
+            # Get or create a PeakGroupLabel and PeakDataLabel records
+            self.get_or_create_labels(row, pdrec, pgrec)
 
     @transaction.atomic
     def get_or_create_annot_file(self):
         """Gets or creates an ArchiveFile record from self.file
+
         Args:
-            mzxml_file (str or Path object)
+            None
         Exceptions:
             Raises:
                 RollbackException
@@ -707,10 +425,8 @@ class PeakAnnotationsLoader(TableLoader, ABC):
                 DataType.DoesNotExist
                 DataFormat.DoesNotExist
         Returns:
-            mzaf_rec (ArchiveFile)
-            mzaf_created (boolean)
-            rawaf_rec (ArchiveFile)
-            rawaf_created (boolean)
+            rec (ArchiveFile)
+            created (boolean)
         """
         # Get or create the ArchiveFile record for the mzXML
         try:
@@ -723,7 +439,9 @@ class PeakAnnotationsLoader(TableLoader, ABC):
                 "data_type": DataType.objects.get(code="ms_peak_annotation"),
                 "data_format": DataFormat.objects.get(code=self.format_code),
             }
+
             rec, created = ArchiveFile.objects.get_or_create(**rec_dict)
+
             if created:
                 rec.full_clean()
                 self.created(ArchiveFile.__name__)
@@ -737,192 +455,55 @@ class PeakAnnotationsLoader(TableLoader, ABC):
             self.handle_load_db_errors(e, ArchiveFile, rec_dict)
             self.errored(ArchiveFile.__name__)
             raise RollbackException()
+
         return rec, created
 
     @transaction.atomic
-    def process_peak_annotation_row(self, row, annot_file_rec):
-        med_mz = self.get_row_val(row, self.headers.MEDMZ)
-        med_rt = self.get_row_val(row, self.headers.MEDRT)
-        isotope_label = self.get_row_val(row, self.headers.ISOTOPELABEL)
+    def get_or_create_peak_group(self, row, peak_annot_file):
+        """Get or create a PeakGroup Record.  Handles exceptions, updates stats, and triggers a rollback.
+
+        Args:
+            row (pandas.Series)
+            peak_annot_file (ArchiveFile): The ArchiveFile record for self.file
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                RollbackException
+        Returns:
+            rec (Optional[PeakGroup])
+            created (boolean)
+        """
+        msrun_sample = self.get_msrun_sample(row)
         formula = self.get_row_val(row, self.headers.FORMULA)
         compound_name = self.get_row_val(row, self.headers.COMPOUND)
 
-        for sample_header in self.sample_headers:
-            # Obtain the MSRunSample record
-            msrun_sample = self.get_msrun_sample(sample_header)
+        if msrun_sample is None or peak_annot_file is None or self.is_skip_row():
+            self.skipped(PeakGroup.__name__)
+            return None, False
 
-            if msrun_sample is None:
-                # TODO: Add skip counts
-                continue
-
-            # Get or create a PeakGroup record
-            try:
-                pgrec, _ = self.get_or_create_peak_group(
-                    msrun_sample, compound_name, formula, annot_file_rec
-                )
-            except RollbackException:
-                # TODO: Add skip counts
-                continue
-
-            if pgrec is None:
-                # TODO: Add skip counts
-                continue
-
-            # Obtain the raw and corrected abundances
-            try:
-                raw_abundance = self.get_row_val(
-                    row, f"{self.raw_abund_prefix}{sample_header}"
-                )
-            except UnknownHeaderError:
-                # Raw abundance is optional (e.g. isocorr files don't have it)
-                raw_abundance = None
-            corrected_abundance = self.get_row_val(row, sample_header)
-
-            # Get or create a PeakData record
-            try:
-                pdrec, _ = self.get_or_create_peak_data(
-                    pgrec, med_mz, med_rt, corrected_abundance, raw_abundance
-                )
-            except RollbackException:
-                # TODO: Add skip counts
-                continue
-
-            # Check the labeled elements from the PeakGroup's compound(s)
-            if len(pgrec.peak_labeled_elements) == 0:
-                self.aggregated_errors_object.buffer_error(
-                    # TODO: Define self.tracer_labeled_elements
-                    NoTracerLabeledElements(pgrec.name, pgrec.tracer_labeled_elements)
-                )
-                # TODO: Add skip counts
-                continue
-
-            possible_observations = self.get_possible_isotope_observations(pgrec)
-
-            # Parse the isotope obsevations
-            try:
-                label_observations = self.parse_isotope_string(
-                    isotope_label, possible_observations
-                )
-            except IsotopeObservationParsingError as iope:
-                self.aggregated_errors_object.buffer_error(iope)
-                # TODO: Add skip counts
-                continue
-
-            # Get or create the PeakGroupLabel and PeakDataLabel records
-            for label_obs in label_observations:
-                try:
-                    self.get_or_create_peak_group_label(pgrec, label_obs["element"])
-                except RollbackException:
-                    self.skipped(PeakDataLabel.__name__)
-                    continue
-
-                try:
-                    self.get_or_create_peak_data_label(
-                        pdrec,
-                        label_obs["element"],
-                        label_obs["count"],
-                        label_obs["mass_number"],
-                    )
-                except RollbackException:
-                    continue
-
-    def get_possible_isotope_observations(
-        self, peak_group: PeakGroup
-    ) -> List[IsotopeObservationData]:
-        """Get the possible isotope observations from a peak group, i.e. all the IsotopeObservationData objects for
-        elements from the peak group's compount that exist as labels in the tracers.
-
-        Args:
-            peak_group (PeakGroup)
-        Exceptions:
-            None
-        Returns:
-            possible_observations (List[IsotopeObservationData])
-        """
-        possible_observations = []
-        tracer_labels = (
-            TracerLabel.objects.filter(
-                tracer__infusates__id=peak_group.msrun_sample.sample.animal.infusate.id
-            )
-            .order_by("element")
-            .distinct("element")
-        )
-        for label in tracer_labels:
-            possible_observations.append(
-                IsotopeObservationData(
-                    element=label.element,
-                    mass_number=label.mass_number,
-                    count=0,
-                    parent=True,
-                )
-            )
-        return possible_observations
-
-    @transaction.atomic
-    def get_or_create_peak_data_label(self, peak_data, element, count, mass_number):
         rec_dict = {
-            "peak_data": peak_data,
-            "element": element,
-            "count": count,
-            "mass_number": mass_number,
+            "msrun_sample": msrun_sample,
+            "name": compound_name,
+            "formula": formula,
+            "peak_annotation_file": peak_annot_file,
         }
+
         try:
-            rec, created = PeakDataLabel.objects.get_or_create(**rec_dict)
+            rec, created = PeakGroup.objects.get_or_create(**rec_dict)
             if created:
                 rec.full_clean()
-                self.created(PeakDataLabel.__name__)
+                self.created(PeakGroup.__name__)
             else:
-                self.existed(PeakDataLabel.__name__)
+                self.existed(PeakGroup.__name__)
         except Exception as e:
-            self.handle_load_db_errors(e, PeakDataLabel, rec_dict)
-            self.errored(PeakDataLabel.__name__)
+            self.handle_load_db_errors(e, PeakGroup, rec_dict)
+            self.errored(PeakGroup.__name__)
             raise RollbackException()
+
         return rec, created
 
-    @transaction.atomic
-    def get_or_create_peak_data(
-        self, peak_group, med_mz, med_rt, corrected_abundance, raw_abundance=None
-    ):
-        rec_dict = {
-            "peak_group": peak_group,
-            "raw_abundance": raw_abundance,
-            "corrected_abundance": corrected_abundance,
-            "med_mz": med_mz,
-            "med_rt": med_rt,
-        }
-        try:
-            rec, created = PeakData.objects.get_or_create(**rec_dict)
-            if created:
-                rec.full_clean()
-                self.created(PeakData.__name__)
-            else:
-                self.existed(PeakData.__name__)
-        except Exception as e:
-            self.handle_load_db_errors(e, PeakData, rec_dict)
-            self.errored(PeakData.__name__)
-            raise RollbackException()
-        return rec, created
-
-    @transaction.atomic
-    def get_or_create_peak_group_label(self, peak_group, element):
-        rec_dict = {
-            "peak_group": peak_group,
-            "element": element,
-        }
-        try:
-            rec, created = PeakGroupLabel.objects.get_or_create(**rec_dict)
-            if created:
-                rec.full_clean()
-                self.created(PeakGroupLabel.__name__)
-            else:
-                self.existed(PeakGroupLabel.__name__)
-        except Exception as e:
-            self.handle_load_db_errors(e, PeakGroupLabel, rec_dict)
-            self.errored(PeakGroupLabel.__name__)
-            raise RollbackException()
-        return rec, created
-
-    def get_msrun_sample(self, sample_header):
+    def get_msrun_sample(self, row):
         """Retrieves the MSRunSample record, either as determined by the self.msrun_sample_dict that was returned by the
         member MSRunsLoader object (via the peak Annotation Details sheet) or by assuming that the sample header matches
         the sample name exactly and using the sequence defaults.
@@ -931,50 +512,44 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         MSRunSample record, it is enough.  If there are multiple, it tries to use the sequence defaults that were either
         provided in the defaults sheet/file or via the command line.  There still could theoretically be multiple
         matches if there are multiple mzXML files all with the same name, but in those cases, the headers must differ to
-        be unique and the database sample name cannot match the header, in which case, you would need a PeakAnnotation
+        be unique and the database sample name cannot match the header, in which case, you would need a Peak Annotation
         Details sheet/file.
 
         Args:
-            sample_header (str)
+            row (pandas.Series)
         Exceptions:
-            None
+            Buffers:
+                HeaderAsSampleDoesNotExist
+                RecordDoesNotExist
+                ConditionallyRequiredArgs
+                ProgrammingError
+            Raises:
+                None
         Returns:
             msrun_sample (Optional[MSRunSample])
         """
+        sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
+
+        # If we already know the sample the header maps to is missing in the database
+        if sample_header in self.missing_headers_as_samples:
+            return None
+
+        # There are 2 ways we can use to obtain the MSRunSample Record
+        # 1. The first way we will try to obtain the MSRunSample record is using the data provided in the Peak
+        #    Annotation Details sheet, if one was provided.  That data was obtained in the initialize_sequence_defaults
+        #    method (called by the constructor).
         if (
             sample_header in self.msrun_sample_dict.keys()
             and self.msrun_sample_dict[sample_header] is not None
         ):
             return self.msrun_sample_dict[sample_header]
 
-        # TODO: Not necessarily here, but I should raise errors about:
-        # AmbiguousMSRun,
-        # AmbiguousMSRuns,
-        # DupeCompoundIsotopeCombos,
-        # DuplicatePeakGroup,
-        # DuplicatePeakGroups,
-        # EmptyColumnsError,
-        # IsotopeStringDupe,
-        # MismatchedSampleHeaderMZXML,
-        # MissingCompounds,
-        # MissingLCMSSampleDataHeaders,
-        # MissingSamplesError,
-        # NoSampleHeaders,
-        # NoSamplesError,
-        # NoTracerLabeledElements,
-        # PeakAnnotFileMismatches,
-        # ResearcherNotNew,
-        # SampleColumnInconsistency,
-        # SampleIndexNotFound,
-        # TracerLabeledElementNotFound,
-        # UnexpectedIsotopes,
-        # UnexpectedLCMSSampleDataHeaders,
-        # UnskippedBlanksError,
+        # 2. The second way (if a Peak Annotation Details sheet was not provided, or doesn't list a value for this
+        #    sample header) is to start searching using the sample header to look for an exact matching sample name.  If
+        #    there is more than 1 match, we can try to whittle it down using what we've been provided in the way of the
+        #    default sequence data.
 
-        # We could query MSRunSample directly, but it's useful to know if the sample itself doesn't exist, so we can
-        # issue only 1 error
-        if sample_header in self.missing_headers_as_samples:
-            return None
+        # First, we will check the Sample table directly, so we can report the most relevant error if it's missing
         samples = Sample.objects.filter(name=sample_header)
         if samples.count() == 0:
             self.aggregated_errors_object.buffer_error(
@@ -991,9 +566,10 @@ class PeakAnnotationsLoader(TableLoader, ABC):
             return None
         sample = samples.get()
 
-        # Try and get the MSRunSample record only by exact sample name match to the sample header
+        # Now try to get the MSRunSample record using the sample
         msrun_samples = MSRunSample.objects.filter(sample__pk=sample.pk)
 
+        # Check if there were too few or exactly 1 results.
         if msrun_samples.count() == 0:
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(MSRunSample, {"sample__name": sample_header})
@@ -1002,14 +578,15 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         elif msrun_samples.count() == 1:
             return msrun_samples.get()
 
-        # We can assume there were multiple results.  Let's see if if can be narrowed to a single record using the
-        # sequence defaults
+        # At this point, there are multiple results.  That means that defaults for the sequence are required in order to
+        # proceed, so check them.
         if (
             self.operator_default is None
             and self.date_default is None
             and self.lc_protocol_name_default is None
             and self.instrument_default is None
         ):
+            # Only buffer this error once
             if not self.aggregated_errors_object.exception_type_exists(
                 ConditionallyRequiredArgs
             ):
@@ -1024,6 +601,10 @@ class PeakAnnotationsLoader(TableLoader, ABC):
                 )
             return None
 
+        # Let's see if the results can be narrowed to a single record using the sequence defaults we've been provided.
+
+        # First, build a query dict with only the sequence defaults we have values for (NOTE: just the researcher or
+        # date, for example, may be enough).
         query_dict = {}
         if self.operator_default is not None:
             query_dict["msrun_sequence__researcher"] = self.operator_default
@@ -1038,6 +619,7 @@ class PeakAnnotationsLoader(TableLoader, ABC):
 
         msrun_samples = msrun_samples.filter(**query_dict)
 
+        # Check if there were too few or too many results.
         if msrun_samples.count() == 0:
             query_dict["sample__name"] = sample_header
             self.aggregated_errors_object.buffer_error(
@@ -1057,126 +639,199 @@ class PeakAnnotationsLoader(TableLoader, ABC):
         return msrun_samples.get()
 
     @transaction.atomic
-    def get_or_create_peak_group(
-        self, msrun_sample, compound_name, formula, peak_annot_file
-    ):
-        rec_dict = {
-            "msrun_sample": msrun_sample,
-            "name": compound_name,
-            "formula": formula,
-            "peak_annotation_file": peak_annot_file,
-        }
-        try:
-            peak_group, created = PeakGroup.objects.get_or_create(**rec_dict)
-            if created:
-                peak_group.full_clean()
-                self.created(PeakGroup.__name__)
-            else:
-                self.existed(PeakGroup.__name__)
-        except Exception as e:
-            self.handle_load_db_errors(e, PeakGroup, rec_dict)
-            self.errored(PeakGroup.__name__)
-            raise RollbackException()
-        return peak_group, created
-
-    def get_tracer_labeled_elements(
-        self, peak_group: PeakGroup
-    ) -> List[IsotopeObservationData]:
-        """Returns a list of IsotopeObservationData objects describing the elements that exist among the tracers as if
-        they were parent observations (i.e. count=0, parent=True).
+    def get_or_create_peak_data(self, row, peak_group: Optional[PeakGroup]):
+        """Get or create a PeakData record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
-            peak_group (PeakGroup): A PeakGroup record that does not necessarily have PeakGroupLabel or PeakData records
-                linked to it.
+            row (pandas.Series)
+            peak_group (Optional[PeakGroup])
         Exceptions:
-            None
-        Returns:
-            tracer_labeled_elements (List[IsotopeObservationData])
-        """
-        tracers_qs = peak_group.tracer_labeled_elements
-
-        tracer_labeled_elements = []
-        for tracer in tracers_qs.all():
-            for label in tracer.labels.all():
-                this_label = IsotopeObservationData(
-                    element=label.element,
-                    mass_number=label.mass_number,
-                    count=0,
-                    parent=True,
-                )
-                if this_label not in tracer_labeled_elements:
-                    tracer_labeled_elements.append(this_label)
-
-        return tracer_labeled_elements
-
-    @classmethod
-    def parse_isotope_string(
-        cls, label, possible_observations: Optional[List[IsotopeObservationData]] = None
-    ) -> List[IsotopeObservationData]:
-        """Parse an El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1.
-
-        The isotope label string only includes elements observed in the peak reported on the row and a row only exists
-        if at least 1 isotope was detected.  However, when an isotope is present, we want to report 0 counts for
-        elements present (as labeled) in the tracers when the compound being recorded on has an element that is labeled
-        in the tracers, so to include these 0 counts, supply possible_observations.
-
-        NOTE: The isotope label string only includes elements whose label count is greater than 0.  If the tracers
-        contain labeled elements that happen to not have been observed in a peak on the row containing the isotope label
-        string, that element will not be parsed from the string. For example, on "PARENT" rows, even though "C12" exists
-        in the string, an empty list is returned.
-
-        Args:
-            label (str): The isotopeLabel string from the DataFrame.
-            possible_observations (Optional[List[IsotopeObservationData]]): A list of isotopes that are potentially
-                present (e.g. present in the tracers).  Causes 0-counts to be added to non-parent observations.
-        Exceptions:
-            Raises:
-                IsotopeObservationParsingError
             Buffers:
                 None
+            Raises:
+                RollbackException
         Returns:
-            isotope_observations (List[IsotopeObservationData])
+            rec (Optional[PeakData])
+            created (boolean)
         """
-        isotope_observations = []
+        med_mz = self.get_row_val(row, self.headers.MEDMZ)
+        med_rt = self.get_row_val(row, self.headers.MEDRT)
+        raw_abundance = self.get_row_val(row, self.headers.RAW)
+        corrected_abundance = self.get_row_val(row, self.headers.CORRECTED)
 
-        match = regex.match(ISOTOPE_LABEL_PATTERN, label)
+        if peak_group is None or self.is_skip_row():
+            self.skipped(PeakData.__name__)
+            return None, False
 
-        if match:
-            elements = match.captures("elements")
-            mass_numbers = match.captures("mass_numbers")
-            counts = match.captures("counts")
-            parent_str = match.group("parent")
-            parent = False
+        rec_dict = {
+            "peak_group": peak_group,
+            "raw_abundance": raw_abundance,
+            "corrected_abundance": corrected_abundance,
+            "med_mz": med_mz,
+            "med_rt": med_rt,
+        }
 
-            if parent_str is not None and parent_str == "PARENT":
-                return []
+        try:
+            rec, created = PeakData.objects.get_or_create(**rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(PeakData.__name__)
             else:
-                if len(elements) != len(mass_numbers) or len(elements) != len(counts):
-                    raise IsotopeObservationParsingError(
-                        f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
-                        f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
-                    )
-                else:
-                    for index in range(len(elements)):
-                        isotope_observations.append(
-                            IsotopeObservationData(
-                                element=elements[index],
-                                mass_number=int(mass_numbers[index]),
-                                count=int(counts[index]),
-                                parent=parent,
-                            )
-                        )
-                    # Record 0-counts for isotopes that were not observed, but could have been
-                    if possible_observations is not None:
-                        for parent_obs in possible_observations:
-                            if parent_obs["element"] not in elements:
-                                isotope_observations.append(parent_obs)
-        else:
-            raise IsotopeObservationParsingError(
-                f"Unable to parse isotope label: [{label}]"
-            )
+                self.existed(PeakData.__name__)
+        except Exception as e:
+            self.handle_load_db_errors(e, PeakData, rec_dict)
+            self.errored(PeakData.__name__)
+            raise RollbackException()
 
-        return isotope_observations
+        return rec, created
+
+    def get_or_create_labels(
+        self, row, pdrec: Optional[PeakData], pgrec: Optional[PeakGroup]
+    ):
+        """Get or create a PeakGrouplabel and PeakDataLabel records.  Handles exceptions, updates stats, and triggers a
+        rollback.
+
+        Args:
+            row (pandas.Series)
+            pdrec (Optional[PeakData])
+            pgrec (Optional[PeakGroup])
+        Exceptions:
+            Buffers:
+                ObservedIsotopeParsingError
+            Raises:
+                None
+        Returns:
+            pglrecs (List[Tuple[Optional[PeakGroupLabel, boolean]]])
+            pdlrecs (List[Tuple[Optional[PeakDataLabel, boolean]]])
+        """
+        # Parse the isotope obsevations.
+        isotope_label = self.get_row_val(row, self.headers.ISOTOPELABEL)
+        pglrecs: List[Tuple[PeakGroup, bool]] = []
+        pdlrecs: List[Tuple[PeakData, bool]] = []
+        possible_isotope_observations = None
+        num_possible_isotope_observations = 1
+        if pgrec is not None:
+            possible_isotope_observations = pgrec.possible_isotope_observations
+            num_possible_isotope_observations = len(possible_isotope_observations)
+
+        try:
+            label_observations = parse_isotope_label(
+                isotope_label, possible_isotope_observations
+            )
+        except ObservedIsotopeParsingError as iope:
+            self.aggregated_errors_object.buffer_error(iope)
+            self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
+            self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
+            return pglrecs, pdlrecs
+
+        # Get or create the PeakGroupLabel and PeakDataLabel records
+        for label_obs in label_observations:
+            try:
+                pglrecs.append(
+                    self.get_or_create_peak_group_label(pgrec, label_obs["element"])
+                )
+            except RollbackException:
+                continue
+
+            try:
+                pdlrecs.append(
+                    self.get_or_create_peak_data_label(
+                        pdrec,
+                        label_obs["element"],
+                        label_obs["count"],
+                        label_obs["mass_number"],
+                    )
+                )
+            except RollbackException:
+                continue
+
+        return pglrecs, pdlrecs
+
+    @transaction.atomic
+    def get_or_create_peak_group_label(
+        self, peak_group: Optional[PeakGroup], element: str
+    ):
+        """Get or create a PeakGroupLabel record.  Handles exceptions, updates stats, and triggers a rollback.
+
+        Args:
+            row (pandas.Series)
+            peak_group (Optional[PeakGroup])
+            element (str)
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                RollbackException
+        Returns:
+            rec (Optional[PeakGroupLabel])
+            created (boolean)
+        """
+        if peak_group is None or self.is_skip_row():
+            self.skipped(PeakGroupLabel.__name__)
+            return None, False
+
+        rec_dict = {
+            "peak_group": peak_group,
+            "element": element,
+        }
+
+        try:
+            rec, created = PeakGroupLabel.objects.get_or_create(**rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(PeakGroupLabel.__name__)
+            else:
+                self.existed(PeakGroupLabel.__name__)
+        except Exception as e:
+            self.handle_load_db_errors(e, PeakGroupLabel, rec_dict)
+            self.errored(PeakGroupLabel.__name__)
+            raise RollbackException()
+
+        return rec, created
+
+    @transaction.atomic
+    def get_or_create_peak_data_label(self, peak_data, element, count, mass_number):
+        """Get or create a PeakDataLabel record.  Handles exceptions, updates stats, and triggers a rollback.
+
+        Args:
+            row (pandas.Series)
+            peak_data (Optional[PeakData])
+            element (str)
+            count (int)
+            mass_number (int)
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                RollbackException
+        Returns:
+            rec (Optional[PeakDataLabel])
+            created (boolean)
+        """
+        if peak_data is None or self.is_skip_row():
+            self.skipped(PeakDataLabel.__name__)
+            return None, False
+
+        rec_dict = {
+            "peak_data": peak_data,
+            "element": element,
+            "count": count,
+            "mass_number": mass_number,
+        }
+
+        try:
+            rec, created = PeakDataLabel.objects.get_or_create(**rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(PeakDataLabel.__name__)
+            else:
+                self.existed(PeakDataLabel.__name__)
+        except Exception as e:
+            self.handle_load_db_errors(e, PeakDataLabel, rec_dict)
+            self.errored(PeakDataLabel.__name__)
+            raise RollbackException()
+
+        return rec, created
 
 
 class IsocorrLoader(PeakAnnotationsLoader):
@@ -1209,6 +864,29 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "ppmDiff",
         "parent",
     ]
+
+    condense_columns_dict = {
+        "absolte": {
+            "header_column": "Sample",
+            "value_column": "Raw Abundance",
+            "uncondensed_columns": [
+                "compoundId",
+                "formula",
+                "label",
+                "metaGroupId",
+                "groupId",
+                "goodPeakCount",
+                "medMz",
+                "medRt",
+                "maxQuality",
+                "isotopeLabel",
+                "compound",
+                "expectedRtDiff",
+                "ppmDiff",
+                "parent",
+            ],
+        },
+    }
 
     # No columns to add
     add_columns_dict = None
@@ -1252,6 +930,41 @@ class AccucorLoader(PeakAnnotationsLoader):
         "C_Label",
     ]
 
+    condense_columns_dict = {
+        "Original": {
+            "header_column": "Sample",
+            "value_column": "Raw Abundance",
+            "uncondensed_columns": [
+                "label",
+                "metaGroupId",
+                "groupId",
+                "goodPeakCount",
+                "medMz",
+                "medRt",
+                "maxQuality",
+                "adductName",
+                "isotopeLabel",
+                "compound",
+                "compoundId",
+                "formula",
+                "expectedRtDiff",
+                "ppmDiff",
+                "parent",
+                "Compound",  # From add_columns_dict
+                "C_Label",  # From add_columns_dict
+            ],
+        },
+        "Corrected": {
+            "header_column": "Sample",
+            "value_column": "Corrected Abundance",
+            "uncondensed_columns": [
+                "Compound",
+                "C_Label",
+                "adductName",
+            ],
+        },
+    }
+
     add_columns_dict = {
         # Sheet: dict
         "Original": {
@@ -1271,11 +984,16 @@ class AccucorLoader(PeakAnnotationsLoader):
     merge_dict = {
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
-            "on": ["Compound", "C_Label"],
+            "on": ["Compound", "C_Label", "mzXML Name"],
             "left_columns": None,  # all
             "right_sheet": "Original",
-            "right_columns": ["formula", "medMz", "medRt", "isotopeLabel"],
-            "right_has_raw_abunds": True,
+            "right_columns": [
+                "formula",
+                "medMz",
+                "medRt",
+                "isotopeLabel",
+                "Raw Abundance",
+            ],
             "how": "left",
             "next_merge_dict": None,
         },

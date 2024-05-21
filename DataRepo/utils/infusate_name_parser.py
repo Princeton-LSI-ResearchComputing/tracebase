@@ -2,7 +2,15 @@ import re
 from itertools import zip_longest
 from typing import List, Optional, TypedDict
 
+import regex
+
 from DataRepo.models.element_label import ElementLabel
+from DataRepo.utils.exceptions import (
+    InfusateParsingError,
+    IsotopeParsingError,
+    ObservedIsotopeParsingError,
+    TracerParsingError,
+)
 
 KNOWN_ISOTOPES = "".join(ElementLabel.labeled_elements_list())
 
@@ -21,6 +29,15 @@ ISOTOPE_ENCODING_PATTERN = re.compile(
     + r"]{1,2})(?P<count>[0-9]+))"
 )
 CONCENTRATIONS_DELIMITER = ";"
+# regex has the ability to store repeated capture groups' values and put them in a list
+ISOTOPE_LABEL_PATTERN = regex.compile(
+    # Match repeated elements and mass numbers (e.g. "C13N15")
+    r"^(?:(?P<elements>["
+    + "".join(ElementLabel.labeled_elements_list())
+    + r"]{1,2})(?P<mass_numbers>\d+))+"
+    # Match either " PARENT" or repeated counts (e.g. "-labels-2-1")
+    + r"(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
+)
 
 
 class IsotopeData(TypedDict):
@@ -28,6 +45,13 @@ class IsotopeData(TypedDict):
     mass_number: int
     count: int
     positions: Optional[List[int]]
+
+
+class ObservedIsotopeData(TypedDict):
+    element: str
+    mass_number: int
+    count: int
+    parent: bool
 
 
 class TracerData(TypedDict):
@@ -200,17 +224,68 @@ def parse_tracer_concentrations(tracer_concs_str: str) -> List[float]:
     return tracer_concs
 
 
-class ParsingError(Exception):
-    pass
+def parse_isotope_label(
+    label, possible_observations: Optional[List[ObservedIsotopeData]] = None
+) -> List[ObservedIsotopeData]:
+    """Parse an El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1.
 
+    The isotope label string only includes elements observed in the peak reported on the row and a row only exists
+    if at least 1 isotope was detected.  However, when an isotope is present, we want to report 0 counts for
+    elements present (as labeled) in the tracers when the compound being recorded on has an element that is labeled
+    in the tracers, so to include these 0 counts, supply possible_observations.
 
-class InfusateParsingError(ParsingError):
-    pass
+    NOTE: The isotope label string only includes elements whose label count is greater than 0.  If the tracers
+    contain labeled elements that happen to not have been observed in a peak on the row containing the isotope label
+    string, that element will not be parsed from the string. For example, on "PARENT" rows, even though "C12" exists
+    in the string, an empty list is returned.
 
+    Args:
+        label (str): The isotopeLabel string from the DataFrame.
+        possible_observations (Optional[List[ObservedIsotopeData]]): A list of isotopes that are potentially present
+            (e.g. present in the tracers).  Causes 0-counts to be added to non-parent observations.
+    Exceptions:
+        Raises:
+            IsotopeObservationParsingError
+        Buffers:
+            None
+    Returns:
+        isotope_observations (List[ObservedIsotopeData])
+    """
+    isotope_observations = []
 
-class TracerParsingError(ParsingError):
-    pass
+    match = regex.match(ISOTOPE_LABEL_PATTERN, label)
 
+    if match:
+        elements = match.captures("elements")
+        mass_numbers = match.captures("mass_numbers")
+        counts = match.captures("counts")
+        parent_str = match.group("parent")
+        parent = False
 
-class IsotopeParsingError(ParsingError):
-    pass
+        if parent_str is not None and parent_str == "PARENT":
+            return []
+        else:
+            if len(elements) != len(mass_numbers) or len(elements) != len(counts):
+                raise ObservedIsotopeParsingError(
+                    f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
+                    f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
+                )
+            else:
+                for index in range(len(elements)):
+                    isotope_observations.append(
+                        ObservedIsotopeData(
+                            element=elements[index],
+                            mass_number=int(mass_numbers[index]),
+                            count=int(counts[index]),
+                            parent=parent,
+                        )
+                    )
+                # Record 0-counts for isotopes that were not observed, but could have been
+                if possible_observations is not None:
+                    for parent_obs in possible_observations:
+                        if parent_obs["element"] not in elements:
+                            isotope_observations.append(parent_obs)
+    else:
+        raise ObservedIsotopeParsingError(f"Unable to parse isotope label: [{label}]")
+
+    return isotope_observations

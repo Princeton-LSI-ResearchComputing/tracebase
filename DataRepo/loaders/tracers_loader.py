@@ -4,9 +4,9 @@ from typing import Dict
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import ProgrammingError, transaction
 
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Compound, MaintainedModel, Tracer, TracerLabel
 from DataRepo.utils.exceptions import (
     CompoundDoesNotExist,

@@ -9,9 +9,9 @@ from django.db import ProgrammingError, transaction
 from django.db.models import Max, Min, Q
 from django.forms import model_to_dict
 
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, Sample
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.hier_cached_model import (

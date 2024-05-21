@@ -261,7 +261,11 @@ class GlobalCacheTests(TracebaseTestCase):
                 "is_last_serum_sample",
             ],
             "Infusate": ["tracer_labeled_elements"],
-            "PeakGroup": ["peak_labeled_elements", "tracer_labeled_elements"],
+            "PeakGroup": [
+                "peak_labeled_elements",
+                "tracer_labeled_elements",
+                "possible_isotope_observations",
+            ],
             "FCirc": [
                 "last_peak_group_in_animal",
                 "last_peak_group_in_sample",
@@ -484,7 +488,11 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_get_my_cached_method_names(self):
         pg = PeakGroup.objects.all().first()
-        expected = ["peak_labeled_elements", "tracer_labeled_elements"]
+        expected = [
+            "peak_labeled_elements",
+            "tracer_labeled_elements",
+            "possible_isotope_observations",
+        ]
         self.assertEqual(
             expected,
             pg.get_my_cached_method_names(),

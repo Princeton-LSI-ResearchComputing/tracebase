@@ -1,8 +1,8 @@
 from collections import namedtuple
 from typing import Dict
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Tissue
 from DataRepo.utils.exceptions import RollbackException
 
