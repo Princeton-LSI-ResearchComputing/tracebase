@@ -3,13 +3,16 @@ from collections import namedtuple
 from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, Tuple
 
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 
 from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     ArchiveFile,
+    Compound,
     DataFormat,
     DataType,
     MSRunSample,
@@ -23,12 +26,14 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
     HeaderAsSampleDoesNotExist,
+    MissingCompound,
     NoTracerLabeledElements,
     ObservedIsotopeParsingError,
     RecordDoesNotExist,
     RollbackException,
+    generate_file_location_string,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import is_excel, string_to_datetime
 from DataRepo.utils.infusate_name_parser import parse_isotope_label
 
 
@@ -136,13 +141,27 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     DataColumnMetadata = DataTableHeaders(
         MEDMZ=TableColumn.init_flat(name=DataHeaders.MEDMZ, field=PeakData.med_mz),
         MEDRT=TableColumn.init_flat(name=DataHeaders.MEDRT, field=PeakData.med_rt),
-        COMPOUND=TableColumn.init_flat(name=DataHeaders.COMPOUND, field=PeakGroup.name),
         RAW=TableColumn.init_flat(name=DataHeaders.RAW, field=PeakData.raw_abundance),
         CORRECTED=TableColumn.init_flat(
             name=DataHeaders.RAW, field=PeakData.corrected_abundance
         ),
         FORMULA=TableColumn.init_flat(
             name=DataHeaders.FORMULA, field=PeakGroup.formula
+        ),
+        COMPOUND=TableColumn.init_flat(
+            name=DataHeaders.COMPOUND,
+            field=PeakGroup.name,
+            guidance=(
+                "One or more names of compounds with the same formula can be specified.  Must match a compound name or "
+                "synonym in the Compounds sheet/file.  If a synonym is specified, the compound's primary name will be "
+                "substituted for the peak group name."
+            ),
+            format=(
+                "Forward-slash (/) delimited compound names, (e.g. 'citrate/isocitrate').  Order does not matter - "
+                "they will be alphanumerically re-ordered upon insert into the database."
+            ),
+            # TODO: Might be able to add dynamic choices here if it can be based on joining compounds with the same
+            # formula
         ),
         SAMPLEHEADER=TableColumn.init_flat(
             name=DataHeaders.SAMPLEHEADER,
@@ -172,6 +191,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.
     Models = [ArchiveFile, PeakData, PeakDataLabel, PeakGroup, PeakGroupLabel]
+
+    CompoundNamesDelimiter = "/"
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -272,6 +293,22 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.msrun_sample_dict = {}
         self.initialize_sequence_defaults()
 
+        # For referencing the compounds sheet in errors about missing compounds
+        if self.peak_annotation_details_file is None:
+            self.compounds_loc = generate_file_location_string(
+                file="the study excel file",
+                sheet=CompoundsLoader.DataSheetName,
+            )
+        elif is_excel(self.peak_annotation_details_file):
+            self.compounds_loc = generate_file_location_string(
+                file=self.peak_annotation_details_file,
+                sheet=CompoundsLoader.DataSheetName,
+            )
+        else:
+            self.compounds_loc = generate_file_location_string(
+                file=self.peak_annotation_details_file,
+            )
+
     def initialize_sequence_defaults(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
         Details dataframe was provided.  It also initializes the default values for the sequence, for use in filling in
@@ -310,8 +347,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.instrument_default = self.msrunsloader.instrument_default
 
     # TODO: Yet to be done:
-    # FORGOT A CRUCIAL STEP:
-    #     peak_group.compounds.add(compound)
     # Comment for deletion:
     #     AmbiguousMSRun,
     #     AmbiguousMSRuns,
@@ -381,14 +416,28 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # We will continue the processing below to essentially generate the skip counts.
             # None of the following method calls will actually attempt to create records.  They will balk at the None-
             # valued arguments.
+            annot_file_rec = None
             pass
 
         for _, row in self.df.iterrows():
+            pgrec = None
+            pdrec = None
+
+            # Get matching compounds
+            pgname, cmpd_recs = self.get_peak_group_name_and_compounds(row)
+
             # Get or create a PeakGroup record
             try:
-                pgrec, _ = self.get_or_create_peak_group(row, annot_file_rec)
+                pgrec, _ = self.get_or_create_peak_group(row, annot_file_rec, pgname)
             except RollbackException:
                 pass
+
+            # Get or create a linking table record between pgrec and each cmpd_rec (compounds with the same formula)
+            for cmpd_rec in cmpd_recs:
+                try:
+                    self.get_or_create_peak_group_compound_link(pgrec, cmpd_rec)
+                except RollbackException:
+                    pass
 
             # Get or create a PeakData record
             try:
@@ -414,7 +463,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     @transaction.atomic
     def get_or_create_annot_file(self):
-        """Gets or creates an ArchiveFile record from self.file
+        """Gets or creates an ArchiveFile record from self.file.
 
         Args:
             None
@@ -458,13 +507,59 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         return rec, created
 
+    def get_peak_group_name_and_compounds(self, row):
+        """Retrieve the peak group name and compound records.
+
+        Args:
+            row (pandas.Series)
+        Exceptions:
+            None
+        Returns:
+            pgname (str)
+            recs (Optional[List[Compound]])
+        """
+        names_str = self.get_row_val(row, self.headers.COMPOUND)
+        names = names_str.split(self.CompoundNamesDelimiter)
+        recs = None
+
+        for name_str in names:
+            name = name_str.strip()
+            try:
+                recs.append(Compound.compound_matching_name_or_synonym(name))
+            except (ValidationError, ObjectDoesNotExist) as cmpderr:
+                orig_col, orig_sheet = self.original_column_lookup(
+                    self.headers.COMPOUND
+                )
+                self.aggregated_errors_object.buffer_error(
+                    # TODO: Consolidate all MissingCompound exceptions into a MissingCompounds exception
+                    MissingCompound(
+                        name=name,
+                        query_obj=Compound.get_name_query_expression(name),
+                        compounds_loc=self.compounds_loc,
+                        file=self.file,
+                        sheet=orig_sheet,
+                        column=orig_col,
+                    ),
+                    orig_exception=cmpderr,
+                )
+
+        pgname = None
+        if recs is not None:
+            # Set the peak group name to the sorted primary compound names, delimited by "/"
+            pgname = self.CompoundNamesDelimiter.join(
+                [r.name for r in sorted(recs, key=lambda r: r.name)]
+            )
+
+        return pgname, recs
+
     @transaction.atomic
-    def get_or_create_peak_group(self, row, peak_annot_file):
+    def get_or_create_peak_group(self, row, peak_annot_file, pgname):
         """Get or create a PeakGroup Record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
             row (pandas.Series)
-            peak_annot_file (ArchiveFile): The ArchiveFile record for self.file
+            peak_annot_file (Optional[ArchiveFile]): The ArchiveFile record for self.file
+            pgname (Optional[str]): A slash-delimited string of sorted primary compound names.
         Exceptions:
             Buffers:
                 None
@@ -476,15 +571,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         msrun_sample = self.get_msrun_sample(row)
         formula = self.get_row_val(row, self.headers.FORMULA)
-        compound_name = self.get_row_val(row, self.headers.COMPOUND)
 
-        if msrun_sample is None or peak_annot_file is None or self.is_skip_row():
+        if (
+            msrun_sample is None
+            or pgname is None
+            or peak_annot_file is None
+            or self.is_skip_row()
+        ):
             self.skipped(PeakGroup.__name__)
             return None, False
 
         rec_dict = {
             "msrun_sample": msrun_sample,
-            "name": compound_name,
+            "name": pgname,
             "formula": formula,
             "peak_annotation_file": peak_annot_file,
         }
@@ -637,6 +736,24 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             return None
 
         return msrun_samples.get()
+
+    @transaction.atomic
+    def get_or_create_peak_group_compound_link(self, pgrec, cmpd_rec):
+        """Get or create a peakgroup_compound record.  Handles exceptions, updates stats, and triggers a rollback.
+
+        Args:
+            row (pandas.Series)
+            peak_group (Optional[PeakGroup])
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                RollbackException
+        Returns:
+            rec (Optional[PeakData])
+            created (boolean)
+        """
+        pgrec.compounds.add(cmpd_rec)
 
     @transaction.atomic
     def get_or_create_peak_data(self, row, peak_group: Optional[PeakGroup]):

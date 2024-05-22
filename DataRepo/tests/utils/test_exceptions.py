@@ -1024,7 +1024,7 @@ class ExceptionTests(TracebaseTestCase):
     def test_RecordDoesNotExist(self):
         rdne = RecordDoesNotExist(
             model=get_model_by_name("Tissue"),
-            query_dict={"name": "invalid"},
+            query_obj={"name": "invalid"},
         )
         self.assertEqual(
             "Tissue record matching {'name': 'invalid'} from the load file data does not exist.",
