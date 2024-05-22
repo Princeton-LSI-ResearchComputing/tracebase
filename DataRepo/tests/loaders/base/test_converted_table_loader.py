@@ -487,9 +487,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         tmpdf = dict(
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ACCUCOR_DF_DICT.items()
         )
-        outdf = self.TestConvertedLoader1().convert_df(  # pylint: disable=not-callable
-            tmpdf
-        )
+        outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
+            df=tmpdf
+        ).convert_df()
         expected = self.get_converted_accucor_df()
 
         # Sort the columns of both dataframes (because the column order doesn't matter)
@@ -500,9 +500,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
     def test_convert_df_accucor_tsv(self):
         """The user provides only a single sheet (Corrected), so we expect to get an exception about missing headers."""
         with self.assertRaises(AggregatedErrors) as ar:
-            self.TestConvertedLoader1().convert_df(  # pylint: disable=not-callable
-                self.ACCUCOR_DF_DICT["Corrected"]
-            )
+            self.TestConvertedLoader1(  # pylint: disable=not-callable
+                df=self.ACCUCOR_DF_DICT["Corrected"]
+            ).convert_df()
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], RequiredHeadersError)
@@ -596,18 +596,18 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ISOCORR_DF_DICT.items()
         )
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2().convert_df(  # pylint: disable=not-callable
-            tmpdf
-        )
+        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=tmpdf
+        ).convert_df()
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
         pd.testing.assert_frame_equal(expected, outdf)
 
     def test_convert_df_isocorr_tsv(self):
         tmpdf = self.ISOCORR_DF_DICT["absolte"].copy(deep=True)
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2().convert_df(  # pylint: disable=not-callable
-            tmpdf
-        )
+        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=tmpdf
+        ).convert_df()
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
         pd.testing.assert_frame_equal(expected, outdf)
 
@@ -621,9 +621,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             "Corrected": pd.DataFrame.from_dict(tmpcorr),
         }
         expected = self.get_converted_accucor_df()
-        outdf = self.TestConvertedLoader1().convert_df(  # pylint: disable=not-callable
-            tmpdf
-        )
+        outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
+            df=tmpdf
+        ).convert_df()
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
         pd.testing.assert_frame_equal(expected, outdf)
 
@@ -637,9 +637,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             "Corrected": pd.DataFrame.from_dict(tmpcorr),
         }
         expected = self.get_converted_accucor_df()
-        outdf = self.TestConvertedLoader1().convert_df(  # pylint: disable=not-callable
-            tmpdict
-        )
+        outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
+            df=tmpdict
+        ).convert_df()
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
         pd.testing.assert_frame_equal(expected, outdf)
 
@@ -650,9 +650,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             "absolte": pd.DataFrame.from_dict(tmpabso),
         }
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2().convert_df(  # pylint: disable=not-callable
-            tmpdf
-        )
+        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=tmpdf
+        ).convert_df()
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
         pd.testing.assert_frame_equal(expected, outdf)
 
@@ -661,9 +661,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         tmpabso["metaGroupId"] = [2, 2, 3, 3]
         tmpdf = pd.DataFrame.from_dict(tmpabso)
         expected = self.get_converted_isocorr_df()
-        outdf = self.TestConvertedLoader2().convert_df(  # pylint: disable=not-callable
-            tmpdf
-        )
+        outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=tmpdf
+        ).convert_df()
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
         pd.testing.assert_frame_equal(expected, outdf)
 

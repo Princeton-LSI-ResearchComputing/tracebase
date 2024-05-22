@@ -1489,6 +1489,27 @@ class AggregatedErrors(Exception):
     def exception_type_exists(self, exc_cls):
         return exc_cls in [type(exc) for exc in self.exceptions]
 
+    def exception_exists(self, cls, attr_name, attr_val):
+        """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
+
+        Args:
+            cls (Exception): The Exception class to look for.
+            attr_name (str): An attribute the buffered exception class has.
+            attr_val (object): The value of the attribute the buffered exception class has.
+        Exceptions:
+            None
+        Returns:
+            bool
+        """
+        for exc in self.exceptions:
+            if (
+                isinstance(exc, cls)
+                and hasattr(attr_name)
+                and getattr(exc, attr_name) == attr_val
+            ):
+                return True
+        return False
+
 
 class ConflictingValueErrors(Exception):
     """Conflicting values for a specific model object from a given file
@@ -1930,6 +1951,28 @@ class MissingCompounds(Exception):
             )
         super().__init__(message)
         self.compounds_dict = compounds_dict
+
+
+class MissingCompound(InfileError):
+    def __init__(
+        self,
+        name,
+        query_obj=None,
+        compounds_loc="the Compounds sheet",
+        message=None,
+        **kwargs,
+    ):
+        query_msg = ""
+        if query_obj is not None:
+            query_msg = f" using query: {query_obj}"
+        message = (
+            f"Compound matching string {name} was not found in the database{query_msg}.  Please add the compound to "
+            f"{compounds_loc}."
+        )
+        super().__init__(message, **kwargs)
+        self.name = name
+        self.query_obj = query_obj
+        self.compounds_loc = compounds_loc
 
 
 class MissingTissue(InfileError):
@@ -2679,13 +2722,24 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
-    def __init__(self, model, query_dict, message=None, **kwargs):
+    def __init__(self, model, query_obj, message=None, **kwargs):
+        """General use DoesNotExist exception constructor for errors retrieving Model records.
+
+        Args:
+            model: (Model)
+            query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
+            message (Optional[str])
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
         if message is None:
             message = (
-                f"{model.__name__} record matching {query_dict} from %s does not exist."
+                f"{model.__name__} record matching {query_obj} from %s does not exist."
             )
         super().__init__(message, **kwargs)
-        self.query_dict = query_dict
+        self.query_obj = query_obj
         self.model = model
 
 

@@ -197,7 +197,7 @@ class SequencesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
                     model=LCMethod,
-                    query_dict=query_dict,
+                    query_obj=query_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.file,

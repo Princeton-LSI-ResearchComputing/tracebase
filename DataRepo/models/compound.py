@@ -100,7 +100,7 @@ class Compound(models.Model):
 
         # find the distinct union of these queries
         matching_compounds = cls.objects.filter(
-            Q(name__iexact=name) | Q(synonyms__name__iexact=name)
+            cls.get_name_query_expression(name)
         ).distinct()
         if matching_compounds.count() > 1:
             raise ValidationError(
@@ -109,7 +109,11 @@ class Compound(models.Model):
             )
         elif matching_compounds.count() == 0:
             raise cls.DoesNotExist(f"Compound [{name}] not found.")
-        return matching_compounds.first()
+        return matching_compounds.get()
+
+    @classmethod
+    def get_name_query_expression(cls, name):
+        return Q(name__iexact=name) | Q(synonyms__name__iexact=name)
 
     class Meta:
         verbose_name = "compound"
