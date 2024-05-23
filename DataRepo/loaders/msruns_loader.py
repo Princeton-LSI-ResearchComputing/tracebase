@@ -20,6 +20,7 @@ from DataRepo.utils.exceptions import (
     MixedPolarityErrors,
     MutuallyExclusiveArgs,
     MzxmlParseError,
+    MzxmlSampleHeaderMismatch,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -428,7 +429,7 @@ class MSRunsLoader(TableLoader):
             # Default value
             msrun_sample_dict[sample_header] = None
 
-            sample = (self.get_sample_by_name(sample_name),)
+            sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
 
             if sample is None or msrun_sequence is None:
@@ -611,6 +612,18 @@ class MSRunsLoader(TableLoader):
 
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
+
+            if mzxml_path is not None and sample_header is not None:
+                mzxml_basename, _ = os.path.splitext(os.path.basename(mzxml_path))
+                if sample_header != mzxml_basename:
+                    self.aggregated_errors_object.buffer_exception(
+                        MzxmlSampleHeaderMismatch(sample_header, mzxml_path),
+                        is_error=False,  # This is always a warning.
+                        # This exception will be fatal/raised in validate mode (but only printed in curator mode).
+                        # I.e. This can be ignored by a curator, but it should be brought to the attention of an
+                        # unprivileged user.
+                        is_fatal=self.validate,
+                    )
 
             if sample is None or msrun_sequence is None or self.is_skip_row():
                 self.skipped(MSRunSample.__name__)
@@ -829,8 +842,6 @@ class MSRunsLoader(TableLoader):
             self.handle_load_db_errors(e, MSRunSample, msrs_rec_dict)
             self.errored(MSRunSample.__name__)
             raise RollbackException()
-
-        return rec, created, updated
 
         return rec, created, updated
 

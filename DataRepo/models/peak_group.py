@@ -161,3 +161,22 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                 )
             )
         return possible_observations
+
+    def clean(self, *args, **kwargs):
+        from DataRepo.models.utilities import exists_in_db
+        from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
+
+        super().clean(*args, **kwargs)
+
+        conflicts = PeakGroup.objects.filter(
+            name=self.name,
+            msrun_sample__sample__pk=self.msrun_sample.sample.pk,
+            msrun_sample__msrun_sequence__pk=self.msrun_sample.msrun_sequence.pk,
+        )
+
+        # If the record already exists (e.g. doing an update), exclude self
+        if exists_in_db(self):
+            conflicts = conflicts.exclude(pk=self.pk)
+
+        if conflicts.count() > 0:
+            raise MultiplePeakGroupRepresentations(self, conflicts)

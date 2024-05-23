@@ -1278,9 +1278,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertFalse(
-            updated
-        )  # Peakgroups are updated, but not the MSRunSequence placeholder record itself
+        # Peakgroups are updated, but not the MSRunSample placeholder record itself
+        self.assertFalse(updated)
 
         # Check that the existing placeholder record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())

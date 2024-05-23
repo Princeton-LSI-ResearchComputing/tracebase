@@ -347,18 +347,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.instrument_default = self.msrunsloader.instrument_default
 
     # TODO: Yet to be done:
-    # Comment for deletion:
-    #     AmbiguousMSRun,
-    #     AmbiguousMSRuns,
-    #     MissingLCMSSampleDataHeaders,
-    #     MismatchedSampleHeaderMZXML,
-    #         I think this is obsolete, but check
-    #     SampleIndexNotFound,
-    #     UnexpectedLCMSSampleDataHeaders,
     # DupeCompoundIsotopeCombos,
     #     This catches instances of duplicate compound/isotopeLabel combos
-    #     This should be implemented using unique constraints (for the file - I think this should be caught in the DB?
-    #       - but check) and the exception class deleted
+    #     It is now handled via the unique constraint on sample/compound/isotope at the file level, but those unique
+    #     constraint errors should be repackaged to remove the sample (because it will always be all samples affected).
+    #     In fact, I should see if I can make sure that all InfileErrors get converted to the cell locations in the
+    #     original file?
     # I think these are now obsolete given the new MSRunSample placeholder unique constraint, but check:
     #     DuplicatePeakGroup,
     #     DuplicatePeakGroups,

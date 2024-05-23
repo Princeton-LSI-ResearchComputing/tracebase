@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import traceback
 import warnings
 from collections import defaultdict
@@ -249,6 +250,13 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
         msg = f"Value required, when the [{model_name}] record does not exist, for columns on the indicated rows"
         super().__init__(required_column_values_when_novel, init_message=msg)
         self.model_name = model_name
+
+
+class MissingColumnGroup(InfileError):
+    def __init__(self, column_type, **kwargs):
+        message = f"No {column_type} columns found in %s.  At least 1 column of this type is required."
+        super().__init__(message, **kwargs)
+        self.column_type = column_type
 
 
 class RequiredHeadersError(InfileError, HeaderError):
@@ -2099,6 +2107,7 @@ class LCMSDefaultsRequired(Exception):
         self.affected_sample_headers_list = affected_sample_headers_list
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class UnexpectedLCMSSampleDataHeaders(Exception):
     def __init__(self, unexpected, peak_annot_file):
         message = (
@@ -2111,6 +2120,7 @@ class UnexpectedLCMSSampleDataHeaders(Exception):
         self.peak_annot_file = peak_annot_file
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class MissingLCMSSampleDataHeaders(Exception):
     def __init__(self, missing, peak_annot_file, missing_defaults):
         using_defaults = len(missing_defaults) == 0
@@ -2162,6 +2172,7 @@ class PeakAnnotFileMismatches(Exception):
         self.peak_annotation_filename = peak_annotation_filename
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class MismatchedSampleHeaderMZXML(Exception):
     def __init__(self, mismatching_mzxmls):
         message = (
@@ -2174,6 +2185,20 @@ class MismatchedSampleHeaderMZXML(Exception):
             message += f"\n\t{tab.join(str(li) for li in details)}"
         super().__init__(message)
         self.mismatching_mzxmls = mismatching_mzxmls
+
+
+class MzxmlSampleHeaderMismatch(InfileError):
+    def __init__(self, header, mzxml_file, **kwargs):
+        mzxml_basename, _ = os.path.splitext(os.path.basename(mzxml_file))
+        message = (
+            f"The sample header does not match the base name of the mzXML file [{mzxml_file}], as listed in %s:\n"
+            f"\tSample header:       [{header}]\n"
+            f"\tmzXML Base Filename: [{mzxml_basename}]"
+        )
+        super().__init__(message, **kwargs)
+        self.header = header
+        self.mzxml_basename = mzxml_basename
+        self.mzxml_file = mzxml_file
 
 
 class DuplicateSampleDataHeaders(Exception):
@@ -2563,6 +2588,8 @@ class MzxmlParseError(Exception):
     pass
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
+# having only a single peak group representation of a compound per sequence/sample
 class AmbiguousMSRun(InfileError):
     def __init__(self, pg_rec, peak_annot1, peak_annot2, **kwargs):
         message = (
@@ -2581,6 +2608,8 @@ class AmbiguousMSRun(InfileError):
         self.peak_annot2 = peak_annot2
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
+# having only a single peak group representation of a compound per sequence/sample
 class AmbiguousMSRuns(Exception):
     def __init__(self, ambig_dict, infile):
         deets = ""
@@ -2609,6 +2638,32 @@ class AmbiguousMSRuns(Exception):
         super().__init__(message)
         self.ambig_dict = ambig_dict
         self.infile = infile
+
+
+class MultiplePeakGroupRepresentations(ValidationError):
+    def __init__(self, new_rec, existing_recs):
+        """MultiplePeakGroupRepresentations constructor.
+
+        Args:
+            new_rec (PeakGroup): An uncommitted record.
+            existing_recs (PeakGroup.QuerySet)
+        """
+        leader = "Existing: "
+        from_files = [r.peak_annotation_file.filename for r in existing_recs.all()]
+        from_str = f"\n\t{leader}".join(from_files)
+        message = (
+            f"Multiple representations of this peak group were encountered:\n"
+            f"\tcompound: {new_rec.name}\n"
+            f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
+            f"\tSample: {new_rec.msrun_sample.sample}\n"
+            "Each peak group originated from:\n"
+            f"\tProposed: {new_rec.peak_annotation_file.filename}\n"
+            f"\t{leader}{from_str}\n"
+            "Only 1 representation of a compound per sequence and sample is allowed.  "
+        )
+        super().__init__(message, code="MultiplePeakGroupRepresentations")
+        self.new_rec = new_rec
+        self.existing_recs = existing_recs
 
 
 class CompoundSynonymExists(Exception):
