@@ -6,7 +6,11 @@ from typing import Optional
 import pandas as pd
 
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.utils.exceptions import AggregatedErrors, RequiredHeadersError
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    MissingColumnGroup,
+    RequiredHeadersError,
+)
 
 
 class ConvertedTableLoader(TableLoader, ABC):
@@ -335,6 +339,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                     raise AggregatedErrors().buffer_error(e)
             # Else, we will assume the user did the conversion themselves
         elif isinstance(in_df, dict):
+            self.check_condense_columns(in_df)
             for sheet in self.condense_columns_dict.keys():
                 try:
                     # Let's allow the user to have attempted conversion on their own and allow them to have dropped
@@ -354,6 +359,44 @@ class ConvertedTableLoader(TableLoader, ABC):
             raise TypeError("df must be either a pandas.DataFrame or a dict.")
 
         return outdf
+
+    def check_condense_columns(self, df_dict):
+        """Checks that there exist columns to condense when self.condense_columns_dict is not None.
+
+        Limitations:
+            Does not check that the number of condense columns in the sheets is the same.
+        Args:
+            df_dict (dict of pandas.DataFrames)
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
+                MissingColumnGroup
+        Returns:
+            None
+        """
+        if self.condense_columns_dict is None:
+            return
+
+        aes = AggregatedErrors()
+
+        for sheet in self.condense_columns_dict.keys():
+            condense_columns_exist = False
+            for hdr in df_dict[sheet].columns:
+                if hdr not in self.condense_columns_dict[sheet]["uncondensed_columns"]:
+                    condense_columns_exist = True
+                    break
+            if not condense_columns_exist:
+                aes.buffer_error(
+                    MissingColumnGroup(
+                        self.condense_columns_dict[sheet]["header_column"],
+                        sheet=sheet,
+                        file=self.file,
+                    )
+                )
+
+        if aes.num_errors > 0:
+            raise aes
 
     def revert_headers(self, headers):
         """This method takes a list of headers from the universal PeakAnnotationsLoader headers, converts them back to
@@ -608,6 +651,8 @@ class ConvertedTableLoader(TableLoader, ABC):
         Returns:
             None
         """
+        # self.file will be saved in the superclass, but we're pre-saving it for errors reported from this class.
+        self.file = kwargs.get("file")
         self.orig_df = kwargs.get("df")
         if kwargs.get("df") is not None:
             kwargs["df"] = self.convert_df()

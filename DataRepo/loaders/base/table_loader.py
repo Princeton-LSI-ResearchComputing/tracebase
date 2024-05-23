@@ -1,6 +1,7 @@
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
+from collections.abc import Iterable
 from typing import Dict, Optional, Type
 
 from django.core.exceptions import ValidationError
@@ -190,6 +191,7 @@ class TableLoader(ABC):
         headers=None,
         defaults=None,
         extra_headers=None,
+        _validate=False,
     ):
         """Constructor.
 
@@ -210,6 +212,10 @@ class TableLoader(ABC):
             defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
             extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
                 unknown header, supply an empty list.
+            _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This is
+                intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                interface and seen by researchers, among other behaviors specific to non-privileged users).
 
         Raises:
             Nothing
@@ -237,6 +243,9 @@ class TableLoader(ABC):
         # Error tracking
         self.skip_row_indexes = []
         self.aggregated_errors_object = AggregatedErrors()
+
+        # Controls error behavior (for privileged vs. unprivileged users)
+        self.validate = _validate
 
         # For error reporting
         self.file = file
@@ -2339,32 +2348,96 @@ class TableLoader(ABC):
                     return True
 
         elif isinstance(exception, ValidationError):
-            if "is not a valid choice" in estr:
-                choice_fields = self.get_enumerated_fields(
-                    model, fields=rec_dict.keys()
-                )
-                for choice_field in choice_fields:
-                    if choice_field in estr and rec_dict[choice_field] is not None:
-                        # Only include error once
-                        if not self.aggregated_errors_object.exception_type_exists(
-                            InfileDatabaseError
-                        ):
-                            self.aggregated_errors_object.buffer_error(exc)
+
+            if hasattr(exception, "error_dict"):
+                # Error lists are kept in separate keys.  For example, some keys are field names.  Others will be in
+                # __all__ (e.g. when they come from the clean method).
+                error_list = []
+                for key, errs_container in exception.error_dict.items():
+                    # These exception classes can be nested n levels deep, so flatten them
+                    errs = flatten(errs_container)
+                    for err in errs:
+                        if key == "__all__":
+                            error_list.append(err)
                         else:
-                            already_buffered = False
-                            ides = self.aggregated_errors_object.get_exception_type(
+                            error_list.append(f"{key}: {err}")
+            else:
+                error_list = flatten(exception.error_list)
+
+            for orig_exception in error_list:
+                orig_estr = str(orig_exception)
+
+                if "is not a valid choice" in orig_estr:
+                    choice_fields = self.get_enumerated_fields(
+                        model, fields=rec_dict.keys()
+                    )
+                    for choice_field in choice_fields:
+                        if (
+                            choice_field in orig_estr
+                            and rec_dict[choice_field] is not None
+                        ):
+                            # Only include error once
+                            if not self.aggregated_errors_object.exception_type_exists(
                                 InfileDatabaseError
-                            )
-                            for existing_exc in ides:
-                                # If the triggering exception (stored in the InfileDatabaseError exception) is the same,
-                                # skip it
-                                if str(existing_exc.exception) == str(exc.exception):
-                                    already_buffered = True
-                            if not already_buffered:
-                                self.aggregated_errors_object.buffer_error(exc)
-                        # Whether we buffered or not, the error was identified and handled (by either buffering or
-                        # ignoring a duplicate)
-                        return True
+                            ):
+                                self.aggregated_errors_object.buffer_error(
+                                    exc,
+                                    orig_exception=orig_exception,
+                                )
+                            else:
+                                if "Value '" in orig_estr:
+                                    regexp = re.compile(
+                                        r"Value (?P<val>'.+?') is not a valid choice"
+                                    )
+                                else:
+                                    regexp = re.compile(
+                                        r"^(?P<val>.+?) is not a valid choice"
+                                    )
+                                match = re.search(regexp, orig_estr)
+                                if not match:
+                                    raise ProgrammingError(
+                                        f"Regex [{regexp}] did not match error [{orig_estr}].  Fix it."
+                                    )
+                                val = match.group("val")
+
+                                already_buffered = False
+                                ides = self.aggregated_errors_object.get_exception_type(
+                                    InfileDatabaseError
+                                )
+                                for existing_exc in ides:
+                                    # If the triggering exception is complaining about the same value as before, skip it
+                                    if val in str(existing_exc.exception):
+                                        already_buffered = True
+                                if not already_buffered:
+                                    self.aggregated_errors_object.buffer_error(
+                                        exc,
+                                        orig_exception=exception,
+                                    )
+                            # Whether we buffered or not, the error was identified and handled (by either buffering or
+                            # ignoring a duplicate)
+                            return True
+
+                elif issubclass(
+                    type(orig_exception), ValidationError
+                ) and not issubclass(type(orig_exception), InfileError):
+                    # ValidationError objects are iterable.  There should be 1, but we'll loop to be on the safe side
+                    # We're only going to support 1 level deep.
+                    for orig_sub_exception in orig_exception:
+                        # ValidationErrors come from the model class's clean method.  If this is a custom exception
+                        # derived from a ValidationError, we can wrap it in an InfileError to provide file context, and
+                        # we can assume that it's worthwhile doing so, because since it is a custom class, we infer it
+                        # to contain sufficient debugging information (aside from the file context, which we are adding
+                        # here).  Django core exceptions do not.
+                        self.aggregated_errors_object.buffer_error(
+                            InfileError(
+                                f"{type(orig_exception).__name__}: {orig_sub_exception}",
+                                file=self.file,
+                                sheet=self.sheet,
+                                rownum=self.rownum,
+                            ),
+                            orig_exception=exception,
+                        )
+                    return True
 
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method
@@ -2373,7 +2446,10 @@ class TableLoader(ABC):
 
         if handle_all:
             if rec_dict is not None and len(rec_dict.keys()) > 0:
-                self.aggregated_errors_object.buffer_error(exc)
+                self.aggregated_errors_object.buffer_error(
+                    exc,
+                    orig_exception=exception,
+                )
             else:
                 self.aggregated_errors_object.buffer_error(exception)
             return True
@@ -2610,3 +2686,21 @@ class TableLoader(ABC):
         ]
 
         return [hn for hn in class_undefaulted_header_names]
+
+
+def flatten(n_deep_iterable):
+    """Flattens a non-string, non-byte iteratle.
+    https://stackoverflow.com/a/2158532/2057516
+
+    Args:
+        n_deep_iterable (Iterable): An iterable potentially containing iterables.
+    Exceptions:
+        None
+    Returns:
+        item (Iterable[str or bytes or non-iterables])
+    """
+    for item in n_deep_iterable:
+        if isinstance(item, Iterable) and not isinstance(item, (str, bytes)):
+            yield from flatten(item)
+        else:
+            yield item
