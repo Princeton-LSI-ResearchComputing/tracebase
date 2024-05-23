@@ -52,27 +52,27 @@ class TissueLoadingTests(TracebaseTestCase):
             ),
         )
 
-        # First error
-        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[0]))
+        dves = aes.get_exception_type(DuplicateValueErrors)
+        self.assertEqual(1, len(dves))
         self.assertIn(
             "Column(s) ['Tissue']",
-            str(aes.exceptions[0]),
-            msg=f"Expected [Column(s) ['Tissue']] in exception, but it is: [{aes.exceptions[0]}]",
+            str(dves[0]),
+            msg=f"Expected [Column(s) ['Tissue']] in exception, but it is: [{dves[0]}]",
         )
         self.assertIn(
             "brown_adipose_tissue (rows*: 2-3)",
-            str(aes.exceptions[0]),
-            msg=f"Expected [brown_adipose_tissue (rows*: 2-3)] in exception, but it is: [{aes.exceptions[0]}]",
+            str(dves[0]),
+            msg=f"Expected [brown_adipose_tissue (rows*: 2-3)] in exception, but it is: [{dves[0]}]",
         )
         self.assertIn(
             "brain (rows*: 4-5)",
-            str(aes.exceptions[0]),
-            msg=f"Expected [brain (rows*: 4-5)] in exception, but it is: [{aes.exceptions[0]}]",
+            str(dves[0]),
+            msg=f"Expected [brain (rows*: 4-5)] in exception, but it is: [{dves[0]}]",
         )
         self.assertTrue(aes.exceptions[1].is_error)
 
-        # Second error
-        self.assertEqual(RequiredColumnValues, type(aes.exceptions[1]))
+        rcvs = aes.get_exception_type(RequiredColumnValues)
+        self.assertEqual(1, len(rcvs))
         self.assertIn(
             (
                 "Required column values missing on the indicated rows:\n"
@@ -80,7 +80,7 @@ class TissueLoadingTests(TracebaseTestCase):
                 "\t\tColumn: [Tissue] on rows: ['6']\n"
                 "\t\tColumn: [Description] on rows: ['7']\n"
             ),
-            str(aes.exceptions[1]),
+            str(rcvs[0]),
         )
         self.assertIn(
             (
@@ -89,7 +89,7 @@ class TissueLoadingTests(TracebaseTestCase):
                 "\t\tColumn: [Tissue] on rows: ['6']\n"
                 "\t\tColumn: [Description] on rows: ['7']\n"
             ),
-            str(aes.exceptions[1]),
+            str(rcvs[0]),
         )
 
         # If errors are found, no records should be loaded

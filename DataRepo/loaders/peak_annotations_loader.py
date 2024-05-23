@@ -348,14 +348,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     # TODO: Yet to be done:
     # DupeCompoundIsotopeCombos,
-    #     This catches instances of duplicate compound/isotopeLabel combos
-    #     It is now handled via the unique constraint on sample/compound/isotope at the file level, but those unique
-    #     constraint errors should be repackaged to remove the sample (because it will always be all samples affected).
-    #     In fact, I should see if I can make sure that all InfileErrors get converted to the cell locations in the
-    #     original file?
-    # I think these are now obsolete given the new MSRunSample placeholder unique constraint, but check:
-    #     DuplicatePeakGroup,
-    #     DuplicatePeakGroups,
+    #     - This catches instances of duplicate compound/isotopeLabel combos
+    #       It is now handled via the unique constraint on sample/compound/isotope at the file level, but those unique
+    #       constraint errors should be repackaged to remove the sample (because it will always be all samples affected)
+    #     - In fact, I should see if I can make sure that all InfileErrors get converted to the cell locations in the
+    #       original file?
     # ADD THESE:
     #     MissingCompounds,
     #     MissingSamplesError,
@@ -623,7 +620,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
 
-        # If we already know the sample the header maps to is missing in the database
+        # If we already know (from a previous row, that) the sample the header maps to is missing in the database
         if sample_header in self.missing_headers_as_samples:
             return None
 
