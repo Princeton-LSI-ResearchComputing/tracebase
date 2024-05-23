@@ -13,10 +13,8 @@ from DataRepo.models.utilities import get_model_fields
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
-    ConflictingValueErrors,
     DryRun,
     DuplicateHeaders,
-    DuplicateValueErrors,
     DuplicateValues,
     ExcelSheetsNotFound,
     InfileDatabaseError,
@@ -24,10 +22,9 @@ from DataRepo.utils.exceptions import (
     InvalidHeaderCrossReferenceError,
     NoLoadData,
     RequiredColumnValue,
-    RequiredColumnValues,
     RequiredHeadersError,
     RequiredValueError,
-    RequiredValueErrors,
+    SummarizableError,
     UnknownHeaderError,
     UnknownHeadersError,
     generate_file_location_string,
@@ -2000,41 +1997,15 @@ class TableLoader(ABC):
                                     )
                                     break
 
-                    # Summarize any ConflictingValueError errors reported
-                    cves = self.aggregated_errors_object.remove_exception_type(
-                        ConflictingValueError
-                    )
-                    if len(cves) > 0:
-                        self.aggregated_errors_object.buffer_error(
-                            ConflictingValueErrors(cves)
-                        )
-
-                    # Summarize any RequiredValueError errors reported
-                    rves = self.aggregated_errors_object.remove_exception_type(
-                        RequiredValueError
-                    )
-                    if len(rves) > 0:
-                        self.aggregated_errors_object.buffer_error(
-                            RequiredValueErrors(rves)
-                        )
-
-                    # Summarize any DuplicateValues errors reported
-                    dvs = self.aggregated_errors_object.remove_exception_type(
-                        DuplicateValues
-                    )
-                    if len(dvs) > 0:
-                        self.aggregated_errors_object.buffer_error(
-                            DuplicateValueErrors(dvs)
-                        )
-
-                    # Summarize any RequiredColumnValue errors reported
-                    rcvs = self.aggregated_errors_object.remove_exception_type(
-                        RequiredColumnValue
-                    )
-                    if len(rcvs) > 0:
-                        self.aggregated_errors_object.buffer_error(
-                            RequiredColumnValues(rcvs)
-                        )
+                    # Summarize multiple types of exceptions that are subclasses of SummarizableError
+                    for exc_cls in self.aggregated_errors_object.get_exception_types():
+                        if issubclass(exc_cls, SummarizableError):
+                            excs = self.aggregated_errors_object.remove_exception_type(
+                                exc_cls
+                            )
+                            self.aggregated_errors_object.buffer_error(
+                                exc_cls.SummarizerExceptionClass(excs)
+                            )
 
                     if (
                         self.aggregated_errors_object.should_raise()
