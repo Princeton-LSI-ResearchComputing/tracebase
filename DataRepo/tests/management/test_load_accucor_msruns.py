@@ -10,6 +10,7 @@ from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader, hash_file
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     ArchiveFile,
+    DataFormat,
     Infusate,
     InfusateTracer,
     MaintainedModel,
@@ -229,6 +230,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_file=None,
+            data_format=DataFormat.objects.get(code="accucor"),
             date="1972-11-24",
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
@@ -296,6 +298,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_file=None,
+            data_format=DataFormat.objects.get(code="accucor"),
             date="2023-01-01",
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
@@ -343,6 +346,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_file=None,
+            data_format=DataFormat.objects.get(code="accucor"),
             date="2023-01-01",
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
@@ -1171,6 +1175,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             None,
             None,
             None,
+            data_format=DataFormat.objects.get(code="accucor"),
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="1972-11-24",
@@ -1286,6 +1291,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             ).dropna(axis=0, how="all"),
             # Peak annot file name
             xlsx,
+            data_format=DataFormat.objects.get(code="accucor"),
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             date="1972-11-24",

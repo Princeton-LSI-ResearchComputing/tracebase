@@ -50,6 +50,8 @@ def assert_coordinator_state_is_initialized():
 
 
 class ViewTests(TracebaseTestCase):
+    fixtures = ["data_formats.yaml"]
+
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
         call_command("loaddata", "lc_methods")
@@ -674,7 +676,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
-        call_command("loaddata", "lc_methods")
+        call_command("loaddata", "lc_methods", "data_types", "data_formats")
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
