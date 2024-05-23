@@ -950,6 +950,59 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
 
 
+@tag("isoautocorr")
+@override_settings(CACHES=settings.TEST_CACHES)
+class IsoAutoCorrDataLoadingTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/data/tests/protocols/loading.yaml",
+            verbosity=2,
+        )
+        call_command(
+            "load_study",
+            "DataRepo/data/tests/tissues/loading.yaml",
+            verbosity=2,
+        )
+        call_command(
+            "load_compounds",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
+        )
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc.xlsx"
+            ),
+        )
+
+        super().setUpTestData()
+
+    def test_isoautocorr_load(self):
+        """Load test-isoautocorr data"""
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-negative-cor.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="Exploris480",
+            date="2024-05-23",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            polarity="negative",
+        )
+        SAMPLES_COUNT = 4
+        PEAKDATA_ROWS = 14
+        MEASURED_COMPOUNDS_COUNT = 2  # L-Serine and Glucose
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+
 class MSRunSampleSequenceTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
 
