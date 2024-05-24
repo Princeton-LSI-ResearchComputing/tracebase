@@ -203,6 +203,12 @@ class MSRunsLoader(TableLoader):
                 defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+                extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                    unknown header, supply an empty list.
+                _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This
+                    is intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                    commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                    interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 mzxml_files (Optional[str]): Paths to mzXML files.
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
