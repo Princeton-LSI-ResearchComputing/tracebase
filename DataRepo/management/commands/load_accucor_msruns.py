@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Optional
 
 from django.core.management import BaseCommand, CommandError
 
@@ -26,19 +27,25 @@ class Command(BaseCommand):
             "--accucor-file",
             type=str,
             help=(
-                "Filepath of either an Accucor xlsx output, an Accucor csv export of the corrected data worksheet, "
-                "or (with --isocorr-format) an Isocorr corrected data csv output.  The excel sheet names must be: "
-                "Accucor: 'Original' and 'Corrected'; Isocorr: 'absolte'."
+                "Filepath of a peak annotation file. The format of Excel (xlsx) files will be automatically detected"
+                "Text (csv) files must use the --data-format argument to specify a format."
             ),
             required=True,
         )
-        # Retain for backward compatibility only (not used)
+        # Retain for backward compatibility
         parser.add_argument(
             "--isocorr-format",
             required=False,
             action="store_true",
             default=False,
             help="Supply this flag if the file supplied to --accucor-file is an Isocorr csv format file.",
+        )
+        parser.add_argument(
+            "--data-format",
+            required=False,
+            type=str,
+            choices=AccuCorDataLoader.DATA_SHEETS.keys(),
+            help="Specify data format (required for csv format files)",
         )
         parser.add_argument(
             "--lcms-file",
@@ -193,18 +200,30 @@ class Command(BaseCommand):
             lcms_metadata_df = read_lcms_metadata_from_file(options["lcms_file"])
 
         fmt = self.determine_data_format(
-            is_isocorr=options["isocorr_format"],
             peak_annot_file=options["accucor_file"],
+            options=options,
         )
         if fmt is None:
+            if is_excel(options["accucor_file"]):
+                msg = (
+                    "Sheets in Excel file did not match a known format:\n"
+                    f"{AccuCorDataLoader.DATA_SHEETS}"
+                )
+            else:
+                msg = (
+                    "Text (csv) files require the use of the --data-format flag to "
+                    f"specifiy a format: {AccuCorDataLoader.DATA_SHEETS.keys()}"
+                )
             raise CommandError(
-                f"Unknown peak annotation file format for file: {options['accucor_file']}"
+                f"Unknown peak annotation file format for file: {options['accucor_file']}\n"
+                f"{msg}"
             )
         print(f"Reading {fmt} file: {options['accucor_file']}")
         print(f"LOADING WITH PREFIX: {options['sample_name_prefix']}")
 
         self.extract_dataframes_from_peakannotation_file(
-            options["isocorr_format"], options["accucor_file"]
+            peak_annot_file=options["accucor_file"],
+            fmt=fmt,
         )
 
         peak_annotation_file = options["accucor_file"]
@@ -252,12 +271,14 @@ class Command(BaseCommand):
 
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 
-    def extract_dataframes_from_peakannotation_file(self, is_isocorr, peak_annot_file):
+    def extract_dataframes_from_peakannotation_file(
+        self, peak_annot_file: str, fmt: DataFormat
+    ) -> None:
         # Validate the format (Accucor vs Isocorr) using the sheet names (returns None if not an excel file)
         sheet_names = None
         if is_excel(peak_annot_file):
             sheet_names = get_sheet_names(peak_annot_file)
-        if is_isocorr:
+        if fmt.code == AccuCorDataLoader.ISOCORR_FORMAT_CODE:
             if sheet_names is not None and "absolte" not in sheet_names:
                 raise WrongExcelSheet("Isocorr", sheet_names[1], "absolte", 2)
 
@@ -265,7 +286,7 @@ class Command(BaseCommand):
                 None  # We don't need the "original" sheet for isocorr format
             )
             corrected_sheet_name = "absolte"
-        else:
+        elif fmt.code == AccuCorDataLoader.ACCUCOR_FORMAT_CODE:
             if sheet_names is not None:
                 if "Original" not in sheet_names:
                     raise WrongExcelSheet("Accucor", sheet_names[0], "Original", 1)
@@ -277,12 +298,26 @@ class Command(BaseCommand):
                 self.original = (
                     None  # There is no original sheet if the file is not an excel file
                 )
-
             corrected_sheet_name = "Corrected"
+        elif fmt.code == AccuCorDataLoader.ISOAUTOCORR_FORMAT_CODE:
+            if sheet_names is not None:
+                if "original" not in sheet_names:
+                    raise WrongExcelSheet("IsoAutoCorr", sheet_names[0], "original", 1)
+                if "cor_pct" not in sheet_names:
+                    raise WrongExcelSheet("IsoAutoCorr", sheet_names[1], "cor_pct", 2)
+                # get the "original" sheet when in isoautocorr format
+                self.original = read_from_file(peak_annot_file, sheet="original")
+            else:
+                self.original = (
+                    None  # There is no original sheet if the file is not an excel file
+                )
+            corrected_sheet_name = "cor_pct"
 
         self.corrected = read_from_file(peak_annot_file, sheet=corrected_sheet_name)
 
-    def determine_data_format(self, is_isocorr, peak_annot_file):
+    def determine_data_format(
+        self, peak_annot_file: str, options: dict
+    ) -> Optional[DataFormat]:
         """Detect format of Excel files, otherwise use arguments to determine format
 
         Args:
@@ -297,10 +332,10 @@ class Command(BaseCommand):
         if is_excel(peak_annot_file):
             # Detect format of Excel files
             fmt = AccuCorDataLoader.detect_data_format(peak_annot_file)
-        elif is_isocorr:
-            # csv and isocorr specified
+        elif options["data_format"]:
+            # csv format with data-format specified
+            fmt = DataFormat.objects.get(code=options["data_format"])
+        elif options["isocorr_format"]:
+            # csv and isocorr_format specified
             fmt = DataFormat.objects.get(code="isocorr")
-        else:
-            # csv format is assumed to be accucor unless --isocorr_format is specified
-            fmt = DataFormat.objects.get(code="accucor")
         return fmt

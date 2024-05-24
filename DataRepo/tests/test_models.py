@@ -382,6 +382,7 @@ class DataLoadingTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
+            data_format="accucor",
             date="2021-10-14",
             researcher="Michael Neinast",
             polarity="positive",
@@ -545,7 +546,6 @@ class DataLoadingTests(TracebaseTestCase):
         )
         # There should be a peak_data for each label count 0-6
         self.assertEqual(peak_group.peak_data.count(), 7)
-
         # The peak_data for labeled_count==2 is missing, thus values should be 0
         peak_data = peak_group.peak_data.filter(labels__count=2).get()
         self.assertEqual(peak_data.raw_abundance, 0)
@@ -748,6 +748,7 @@ class DataLoadingTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_valid_syn.csv",
+            data_format="accucor",
             date="2021-11-19",
             researcher="Michael Neinast",
             polarity="positive",
@@ -777,6 +778,7 @@ class DataLoadingTests(TracebaseTestCase):
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
+                data_format="accucor",
                 date="2021-11-18",
                 researcher="Michael Neinast",
                 polarity="positive",
@@ -855,6 +857,7 @@ class PropertyTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
+            data_format="accucor",
             date="2021-10-14",
             researcher="Michael Neinast",
             polarity="positive",

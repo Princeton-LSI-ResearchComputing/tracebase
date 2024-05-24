@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 from django.conf import settings
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import override_settings, tag
 
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader, hash_file
@@ -620,9 +620,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_missing_flag_error(self):
         """
-        Test to make sure the isocorr option is suggested when not supplied
+        Test to make sure the data-format option is suggested when not supplied
         """
-        with self.assertRaises(AggregatedErrors) as ar:
+        with self.assertRaises(CommandError) as ce:
             call_command(
                 "load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
@@ -634,12 +634,10 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                 new_researcher=True,
                 polarity="positive",
             )
-        aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
         self.assertIn(
-            "--isocorr-format",
-            str(aes.exceptions[0]),
-            msg=f"This error should reference --isocorr-format: [{aes.exceptions[0]}]",
+            "--data-format",
+            repr(ce.exception),
+            msg=f"This error should reference --data-format: [{ce.exception}]",
         )
 
     def get_model_counts(self):
@@ -990,7 +988,7 @@ class IsoAutoCorrDataLoadingTests(TracebaseTestCase):
             instrument="Exploris480",
             date="2024-05-23",
             researcher="Michael Neinast",
-            new_researcher=True,
+            new_researcher=False,
             polarity="negative",
         )
         SAMPLES_COUNT = 4
