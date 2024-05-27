@@ -5,7 +5,7 @@ import traceback
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -15,6 +15,8 @@ from django.core.exceptions import (
 from django.core.management import CommandError
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
+
+from DataRepo.models.researcher import get_researchers
 
 if TYPE_CHECKING:
     from DataRepo.models.archive_file import ArchiveFile
@@ -104,13 +106,13 @@ class InfileError(Exception):
     def __init__(
         self,
         message,
-        rownum: Optional[object] = None,
-        sheet=None,
         file=None,
-        column=None,
+        sheet=None,
+        column: Optional[object] = None,
+        rownum: Optional[object] = None,
         order=None,
     ):
-        location_args = ["rownum", "column", "file", "sheet"]
+        self.location_args = ["rownum", "column", "file", "sheet"]
         self.rownum = rownum
         self.sheet = sheet
         self.file = file
@@ -119,6 +121,74 @@ class InfileError(Exception):
             rownum=rownum, sheet=sheet, file=file, column=column
         )
         self.loc = loc
+        self.message = message
+        self.orig_message = message
+        self.rownum = rownum
+        self.sheet = sheet
+        self.file = file
+        self.column = column
+        self.loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=column
+        )
+        self.set_formatted_message(
+            rownum=rownum,
+            sheet=sheet,
+            file=file,
+            column=column,
+            order=order,
+        )
+        super().__init__(self.message)
+
+    def set_formatted_message(
+        self,
+        rownum: Optional[object] = None,
+        sheet=None,
+        file=None,
+        column=None,
+        order=None,
+    ):
+        """This method allows one to change the string that will be returned when the exception is in string context.
+
+        Sets instance attributes:
+            rownum
+            sheet
+            file
+            column
+            message
+            loc
+
+        The purpose is so that a class independent of the file-processing code/script can raise an exception and be
+        caught by the file loading script, and the debug info (location of the data in the file that caused the error)
+        can be added to the exception.
+
+        Args:
+            rownum (Optional[int or str]): The row number in the file (where the header row is row 1) where the
+                offending data is located.  A row "name" can alternatively be supplied.
+            sheet (Optional[str]): If the file is an excel file, this is the sheet where the offending data is.
+            file (Optional[str]): File name or path where the offending data is located.
+            column (Optional[str]): Column name where the offending data is located.
+            order (Optional(List[str])) {"loc", "file", "sheet", "column", "rownum"} ["loc"]: List of 1-5 strings
+                corresponding the the '%s' placeholders in the message that was supplied to the constructor (i.e.
+                self.orig_message).  The effective default is ["loc"], which is a dynamically built string of all the
+                location information (rownum, column, sheet, and file).  The size of the list must equal the number of
+                placeholders in the message.  Note that if '%s' is not in the message, the generated value for "loc" is
+                appended to the message.
+        Exceptions:
+            Raises:
+                ProgrammingError
+            Buffers:
+                None
+        Returns:
+            None
+        """
+        self.rownum = rownum
+        self.sheet = sheet
+        self.file = file
+        self.column = column
+        self.loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=column
+        )
+        message = self.orig_message
 
         if "%s" not in message:
             # The purpose of this (base) class is to provide file location context of erroneous data to exception
@@ -127,12 +197,17 @@ class InfileError(Exception):
             message += "  Location: %s."
 
         if order is not None:
-            if "loc" not in order and len(order) != len(location_args):
+            missing_loc_arg_placeholders = []
+            for locarg in self.location_args:
+                if getattr(self, locarg) is not None and locarg not in order:
+                    missing_loc_arg_placeholders.append(locarg)
+            if "loc" not in order and len(order) != len(self.location_args):
                 order.append("loc")
                 if message.count("%s") != len(order):
-                    raise ValueError(
-                        f"You must either provide all location arguments in your order list: {location_args} or "
-                        "provide an extra '%s' in your message for the leftover location information."
+                    raise ProgrammingError(
+                        f"You must either provide all location arguments in your order list: {self.location_args} or "
+                        "provide an extra '%s' in your message for the leftover location information "
+                        f"({missing_loc_arg_placeholders})."
                     )
             # Save the arguments in a dict
             vdict = {
@@ -150,16 +225,19 @@ class InfileError(Exception):
                 column = None
             if "rownum" in order:
                 rownum = None
-            loc = generate_file_location_string(
+            self.loc = generate_file_location_string(
                 rownum=rownum, sheet=sheet, file=file, column=column
             )
-            vdict["loc"] = loc
-            self.loc = loc
+            vdict["loc"] = self.loc
             insertions = [vdict[k] for k in order]
             message = message % tuple(insertions)
         else:
-            message = message % loc
-        super().__init__(message)
+            message = message % self.loc
+
+        self.message = message
+
+    def __str__(self):
+        return self.message
 
 
 class HeaderError(Exception):
@@ -293,10 +371,50 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
 
 
 class MissingColumnGroup(InfileError):
-    def __init__(self, column_type, **kwargs):
-        message = f"No {column_type} columns found in %s.  At least 1 column of this type is required."
+    def __init__(self, group_name, **kwargs):
+        message = f"No {group_name} columns found in %s.  At least 1 column of this type is required."
         super().__init__(message, **kwargs)
-        self.column_type = column_type
+        self.column_type = group_name
+
+
+class UnequalColumnGroups(InfileError):
+    def __init__(self, group_name: str, sheet_dict: Dict[str, list], **kwargs):
+        """Constructor
+
+        Args:
+            group_name (str): The type of all the columns in a group of columns
+            sheet_dict (Dict[str, list]): A dict of lists of column names keyed on sheet.
+        """
+        colcounts: Dict[str, dict] = defaultdict(lambda: defaultdict(int))
+        all = []
+        for sheet in sheet_dict.keys():
+            for col in sheet_dict[sheet]:
+                colcounts[col][sheet] += 1
+            if col not in all:
+                all.append(col)
+        missing = defaultdict(list)
+        for col in colcounts.keys():
+            if len(colcounts[col].keys()) < len(all):
+                for sheet in sheet_dict.keys():
+                    if sheet not in colcounts[col].keys():
+                        missing[sheet].append(col)
+
+        nums_str = "\n\t".join(
+            [
+                (
+                    f"{sheet} has {len(lst)} out of {len(all)} total unique {group_name} columns, and is missing: "
+                    f"{missing[sheet]}"
+                )
+                for sheet, lst in sheet_dict.items()
+            ]
+        )
+
+        message = f"{group_name} columns in the sheets {list(sheet_dict.keys())} differ.\n\t{nums_str}\n"
+        super().__init__(message, **kwargs)
+        self.colcounts = colcounts
+        self.missing = missing
+        self.group_name = group_name
+        self.sheet_dict = sheet_dict
 
 
 class RequiredHeadersError(InfileError, HeaderError):
@@ -455,6 +573,7 @@ class UnknownHeaderError(InfileError, HeaderError):
         super().__init__(message, **kwargs)
 
 
+# TODO: Once the sample table loader inherits from TableLoader, make this inherit from SummarizableError
 class UnknownHeadersError(InfileError, HeaderError):
     def __init__(self, unknowns, message=None, **kwargs):
         if not message:
@@ -477,6 +596,61 @@ class ResearcherNotNew(Exception):
         self.new_researchers = new_researchers
         self.new_flag = new_flag
         self.existing_researchers = existing_researchers
+
+
+class NewResearchers(Exception):
+    """Summarization exception of NewResearcher exceptions.
+
+    Example output:
+
+    New researchers encountered.  Please check the existing researchers:
+        George
+        Frank
+    to ensure that the following researchers (parsed from the indicated file locations) are not variants of existing
+    names:
+        Edith (in column [Operator] of sheet [Sequences] in study.xlsx, on rows: '1-10')
+    """
+
+    def __init__(self, new_researcher_exceptions: List[NewResearcher]):
+        existing = "\n\t".join(get_researchers())
+        nre_dict: Dict[str, dict] = defaultdict(lambda: defaultdict(list))
+        for nre in new_researcher_exceptions:
+            file_loc = generate_file_location_string(
+                file=nre.file, sheet=nre.sheet, column=nre.column
+            )
+            if nre.rownum is not None:
+                nre_dict[nre.researcher][file_loc].append(nre.rownum)
+            elif "unreported rows" not in nre_dict[file_loc]:
+                nre_dict[nre.researcher][file_loc].append("unreported rows")
+        message = (
+            f"New researchers encountered.  Please check the existing researchers:\n\t{existing}\nto ensure that the "
+            "following researchers (parsed from the indicated file locations) are not variants of existing names:\n\t"
+        )
+        for nr in sorted(nre_dict.keys()):
+            for locdict in sorted(nre_dict[nr].keys()):
+                message += "\n\t".join(
+                    [
+                        f"{nr} (in {loc}, on rows: " + summarize_int_list(rows)
+                        for loc, rows in locdict.items() + ")"
+                    ]
+                )
+        super().__init__(message)
+        self.new_researcher_exceptions = new_researcher_exceptions
+        self.existing = existing
+
+
+class NewResearcher(InfileError, SummarizableError):
+    SummarizerExceptionClass = NewResearchers
+
+    def __init__(self, researcher: str, message=None, **kwargs):
+        existing = "\n\t".join(get_researchers())
+        message = (
+            f"A new researcher [{researcher}] is being added (parsed from %s).  Please check the existing researchers "
+            f"to ensure this researcher name isn't a variant of an existing name:\n\t{existing}"
+        )
+        super().__init__(message, **kwargs)
+        self.researcher = researcher
+        self.existing = existing
 
 
 class AllMissingSamplesError(Exception):
@@ -642,6 +816,7 @@ class UnitsWrong(Exception):
         self.units_dict = units_dict
 
 
+# TODO: Delete when the accucor loader is deleted
 class EmptyColumnsError(Exception):
     def __init__(self, sheet_name, col_names):
         message = (
@@ -651,6 +826,33 @@ class EmptyColumnsError(Exception):
         super().__init__(message)
         self.sheet_name = sheet_name
         self.col_names = col_names
+
+
+class EmptyColumns(InfileError):
+    def __init__(
+        self,
+        group_name: str,
+        expected: List[str],
+        empty: List[str],
+        all: List[str],
+        addendum=None,
+        **kwargs,
+    ):
+        group = list(set(all) - set(expected))
+        message = (
+            f"1 or more dynamically named [{group_name}] columns are expected, but some columns were parsed from %s "
+            f"that appear to have been unnamed (and may be empty).  {len(expected)} expected constant columns were "
+            f"present.  There are {len(all)} columns total, leaving {len(group)} potential {group_name} columns.  Of "
+            f"those, {len(empty)} were unnamed."
+        )
+        if addendum is not None:
+            message += f"  {addendum}"
+        super().__init__(message, **kwargs)
+        self.group_name = group_name
+        self.expected = expected
+        self.empty = empty
+        self.all = all
+        self.addendum = addendum
 
 
 class SampleColumnInconsistency(Exception):
@@ -1240,7 +1442,7 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if isinstance(exception, exception_class):
+            if self.exception_matches(exception, exception_class):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
@@ -1290,7 +1492,7 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if isinstance(exception, exception_class):
+            if self.exception_matches(exception, exception_class):
                 if is_error is not None:
                     exception.is_error = is_error
                 if is_fatal is not None:
@@ -1543,26 +1745,92 @@ class AggregatedErrors(Exception):
     def exception_type_exists(self, exc_cls):
         return exc_cls in [type(exc) for exc in self.exceptions]
 
+    def exception_matches(self, exception, cls, attr_name=None, attr_val=None):
+        return isinstance(exception, cls) and (
+            attr_name is None
+            or (
+                hasattr(attr_name)
+                and (
+                    (
+                        not type(attr_val).__name__ == "function"
+                        and getattr(exception, attr_name) == attr_val
+                    )
+                    or (
+                        type(attr_val).__name__ == "function"
+                        and attr_val(getattr(exception, attr_name))
+                    )
+                )
+            )
+        )
+
     def exception_exists(self, cls, attr_name, attr_val):
         """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
 
         Args:
             cls (Exception): The Exception class to look for.
             attr_name (str): An attribute the buffered exception class has.
-            attr_val (object): The value of the attribute the buffered exception class has.
+            attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
+                must take a single argument (the value of the attribute) and return a boolean.
         Exceptions:
             None
         Returns:
             bool
         """
         for exc in self.exceptions:
-            if (
-                isinstance(exc, cls)
-                and hasattr(attr_name)
-                and getattr(exc, attr_name) == attr_val
-            ):
+            if self.exception_matches(exc, cls, attr_name, attr_val):
                 return True
         return False
+
+    def remove_matching_exceptions(self, cls, attr_name, attr_val):
+        """
+        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
+        for consolidation.
+
+        Args:
+            cls (Type): The class of exceptions to remove
+            attr_name (str): An attribute the buffered exception class has.
+            attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
+                must take a single argument (the value of the attribute) and return a boolean.
+        Exceptions:
+            None
+        Returns (List[Exception]): A list of exceptions of the supplied type, and containing the supplied attribute with
+            the supplied value (or with a value that yields true from the supplied value function).
+        """
+        matched_exceptions = []
+        unmatched_exceptions = []
+        is_fatal = False
+        is_error = False
+        num_errors = 0
+        num_warnings = 0
+
+        # Look for exceptions to remove and recompute new object values
+        for exception in self.exceptions:
+            if self.exception_matches(exception, cls, attr_name, attr_val):
+                matched_exceptions.append(exception)
+            else:
+                if exception.is_error:
+                    num_errors += 1
+                else:
+                    num_warnings += 1
+                if exception.is_fatal:
+                    is_fatal = True
+                if exception.is_error:
+                    is_error = True
+                unmatched_exceptions.append(exception)
+
+        self.num_errors = num_errors
+        self.num_warnings = num_warnings
+        self.is_fatal = is_fatal
+        self.is_error = is_error
+
+        # Reinitialize this object
+        self.exceptions = unmatched_exceptions
+        if not self.custom_message:
+            super().__init__(self.get_default_message())
+
+        # Return removed exceptions
+        return matched_exceptions
 
 
 class ConflictingValueErrors(Exception):
@@ -1729,9 +1997,6 @@ class DuplicateValueErrors(Exception):
     """
 
     def __init__(self, dupe_val_exceptions: list[DuplicateValues], message=None):
-        """
-        Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
-        """
         if not message:
             dupe_dict: Dict[str, dict] = defaultdict(
                 lambda: defaultdict(lambda: defaultdict(list))
@@ -1797,6 +2062,62 @@ class DuplicateValues(InfileError, SummarizableError):
         self.dupdeets = dupdeets
 
 
+class DuplicateCompoundIsotope(Exception):
+    """
+    Summary of DuplicateValues exceptions specific to the PeakAnnotationsLoader.  It removes the sample column, because
+    all errors always affect all samples, given the pre-conversion pandas DataFrame, which has a column for each sample
+    and compounds and isotopes defined on rows.
+    """
+
+    def __init__(
+        self,
+        dupe_val_exceptions: list[DuplicateValues],
+        colnames: list[str],
+        message=None,
+    ):
+        """Constructor.
+
+        Args:
+            dupe_val_exceptions (List[DuplicateValues])
+            colnames (List[str]): A 2 element list containing the current compound and isotopeLabel column names
+        Exceptions:
+            Raises:
+                ProgrammingError
+            Buffers:
+                None
+        Returns:
+            instance
+        """
+        if not message:
+            dupe_dict: Dict[str, dict] = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(list))
+            )
+            for dve in dupe_val_exceptions:
+                if not set(colnames) <= set(dve.colnames):
+                    raise ProgrammingError(
+                        f"The exceptions in dupe_val_exceptions must contain columns: {colnames}, but encountered: "
+                        f"{dve.colnames}."
+                    )
+                typ = f" ({dve.addendum})" if dve.addendum is not None else ""
+                dupe_dict[dve.loc][str(colnames)][typ].append(dve)
+            message = (
+                "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences "
+                "on the indicated rows:\n"
+            )
+            for loc in dupe_dict.keys():
+                message += f"\t{loc}\n"
+                for colstr in dupe_dict[loc].keys():
+                    for typ in dupe_dict[loc][colstr].keys():
+                        message += f"\t\tColumn(s) {colstr}{typ}"
+                        for dve in dupe_dict[loc][colstr][typ]:
+                            message += "\n\t\t\t"
+                            message += "\n\t\t\t".join(dve.dupdeets)
+                        message += "\n"
+        super().__init__(message)
+        self.dupe_val_exceptions = dupe_val_exceptions
+        self.colnames = colnames
+
+
 class SheetMergeError(Exception):
     def __init__(self, row_idxs, merge_col_name="Animal Name", message=None):
         if not message:
@@ -1826,20 +2147,20 @@ class NoTracerLabeledElements(Exception):
         super().__init__(message)
 
 
-class IsotopeStringDupe(Exception):
+class IsotopeStringDupe(InfileError):
     """
     There are multiple isotope measurements that match the same parent tracer labeled element
     E.g. C13N15C13-label-2-1-1 would match C13 twice
     """
 
-    def __init__(self, measurement_str, parent_str):
+    def __init__(self, label, parent, **kwargs):
         message = (
-            f"Cannot uniquely match tracer labeled element ({parent_str}) in the measured labeled element string: "
-            f"[{measurement_str}]."
+            f"Cannot uniquely match tracer labeled element ({parent}) in the measured labeled element string: "
+            f"[{label}]."
         )
-        super().__init__(message)
-        self.measurement_str = measurement_str
-        self.parent_str = parent_str
+        super().__init__(message, **kwargs)
+        self.label = label
+        self.parent = parent
 
 
 class UnexpectedIsotopes(Exception):
@@ -2080,8 +2401,23 @@ class IsotopeParsingError(ParsingError):
     pass
 
 
-class ObservedIsotopeParsingError(Exception):
+class ObservedIsotopeParsingError(InfileError):
     pass
+
+
+class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
+    def __init__(self, elements, mass_numbers, counts, label, **kwargs):
+        super().__init__(
+            (
+                f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
+                f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
+            ),
+            **kwargs,
+        )
+        self.elements = elements
+        self.mass_numbers = mass_numbers
+        self.counts = counts
+        self.label = label
 
 
 class MultipleMassNumbers(Exception):
@@ -2111,6 +2447,17 @@ class TracerLabeledElementNotFound(Exception):
     pass
 
 
+class UnexpectedLabels(InfileError):
+    def __init__(self, impossible, possible, **kwargs):
+        message = (
+            f"Observed peak label(s) {impossible} were not among the expected labels {possible}.  There may be "
+            "contamination."
+        )
+        super().__init__(message, **kwargs)
+        self.possible = possible
+        self.impossible = impossible
+
+
 class SampleIndexNotFound(Exception):
     def __init__(self, sheet_name, num_cols, non_sample_colnames):
         message = (
@@ -2121,6 +2468,17 @@ class SampleIndexNotFound(Exception):
         super().__init__(message)
         self.sheet_name = sheet_name
         self.num_cols = num_cols
+
+
+# TODO: Once the accucor loader is deleted, delete this class.
+class CorrectedCompoundHeaderMissing(Exception):
+    def __init__(self):
+        message = (
+            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
+            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
+            "on the command line)."
+        )
+        super().__init__(message)
 
 
 class LCMSDefaultsRequired(Exception):
@@ -2253,6 +2611,7 @@ class MzxmlSampleHeaderMismatch(InfileError):
         self.mzxml_file = mzxml_file
 
 
+# TODO: Delete once the accucor and accompanying lcms code is deleted
 class DuplicateSampleDataHeaders(Exception):
     def __init__(self, dupes, lcms_metadata, samples):
         cs = ", "
@@ -2829,7 +3188,7 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
-    def __init__(self, model, query_obj, message=None, **kwargs):
+    def __init__(self, model, query_obj, message=None, suggestion=None, **kwargs):
         """General use DoesNotExist exception constructor for errors retrieving Model records.
 
         Args:
@@ -2845,6 +3204,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
             message = (
                 f"{model.__name__} record matching {query_obj} from %s does not exist."
             )
+        if suggestion is not None:
+            message += f"  {suggestion}"
         super().__init__(message, **kwargs)
         self.query_obj = query_obj
         self.model = model
@@ -2915,7 +3276,8 @@ def summarize_int_list(intlist):
             num = int(num)
         except ValueError:
             # Assume this is a "named" row
-            sum_list.append(num)
+            if num not in sum_list:
+                sum_list.append(num)
             continue
         if last_num is None:
             waiting_num = num

@@ -414,11 +414,9 @@ class MSRunsLoader(TableLoader):
         enable_caching_updates()
         delete_all_caches()
 
-    def get_loaded_msrun_sample_dict(
-        self, peak_annot_file: str
-    ) -> Dict[str, Optional[MSRunSample]]:
-        """Using self.df, this returns a dict of MSRunSample records keyed on sample header for the supplied
-        peak_annot_file.
+    def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
+        """Using self.df, this returns a dict of metadata and MSRunSample records keyed on sample header for the
+        supplied peak_annot_file.
 
         Sample headers are assumed to be unique per peak_annot_file, due to the DataUniqueColumnConstraints.
 
@@ -435,11 +433,11 @@ class MSRunsLoader(TableLoader):
             Buffers:
                 RecordDoesNotExist
         Returns:
-            msrun_sample_dict (Dict[str, Optional[MSRunSample]]): A dict of MSRunSample records for the supplied
-                peak_annot_file keyed on sample_header
+            msrun_sample_dict (dict): A dict of Peak Annotation Details metadata and MSRunSample records for the
+                supplied peak_annot_file keyed on sample_header
         """
         _, target_annot_name = os.path.split(peak_annot_file)
-        msrun_sample_dict: Dict[str, Optional[MSRunSample]] = {}
+        msrun_sample_dict: dict = {}
 
         # Save the current row index
         save_row_index = self.row_index
@@ -461,7 +459,14 @@ class MSRunsLoader(TableLoader):
                 continue
 
             # Default value
-            msrun_sample_dict[sample_header] = None
+            msrun_sample_dict[sample_header] = {
+                MSRunSample.__name__: None,
+                self.headers.SAMPLENAME: sample_name,
+                self.headers.SAMPLEHEADER: sample_header,
+                self.headers.MZXMLNAME: mzxml_path,
+                self.headers.SEQNAME: sequence_name,
+                self.headers.ANNOTNAME: tmp_annot_name,
+            }
 
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
@@ -494,7 +499,9 @@ class MSRunsLoader(TableLoader):
                 }
 
             try:
-                msrun_sample_dict[sample_header] = MSRunSample.objects.get(**query_dict)
+                msrun_sample_dict[sample_header][MSRunSample.__name__] = (
+                    MSRunSample.objects.get(**query_dict)
+                )
             except MSRunSample.DoesNotExist as dne:
                 self.aggregated_errors_object.buffer_error(
                     RecordDoesNotExist(

@@ -1698,6 +1698,10 @@ class TableLoader(ABC):
                 self.all_headers,
                 file=self.file,
                 sheet=self.sheet,
+                message=(
+                    f"Header [{header}] supplied to get_row_val while processing %s is not configured in either the "
+                    "class or the custom header list."
+                ),
             )
         elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
@@ -1709,6 +1713,10 @@ class TableLoader(ABC):
                     self.defaults_file if self.defaults_file is not None else self.file
                 ),
                 sheet=self.defaults_sheet,
+                message=(
+                    f"Header [{header}] supplied to get_row_val while processing %s is not configured in either the "
+                    "class."
+                ),
             )
 
         # If val is None

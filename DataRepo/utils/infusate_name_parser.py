@@ -1,4 +1,5 @@
 import re
+from collections import defaultdict
 from itertools import zip_longest
 from typing import List, Optional, TypedDict
 
@@ -8,8 +9,11 @@ from DataRepo.models.element_label import ElementLabel
 from DataRepo.utils.exceptions import (
     InfusateParsingError,
     IsotopeParsingError,
+    IsotopeStringDupe,
     ObservedIsotopeParsingError,
+    ObservedIsotopeUnbalancedError,
     TracerParsingError,
+    UnexpectedLabels,
 )
 
 KNOWN_ISOTOPES = "".join(ElementLabel.labeled_elements_list())
@@ -266,25 +270,49 @@ def parse_isotope_label(
             return []
         else:
             if len(elements) != len(mass_numbers) or len(elements) != len(counts):
-                raise ObservedIsotopeParsingError(
-                    f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
-                    f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
+                raise ObservedIsotopeUnbalancedError(
+                    elements, mass_numbers, counts, label
                 )
             else:
+                dupe_check = defaultdict(list)
+                a_dupe_index = -1
                 for index in range(len(elements)):
-                    isotope_observations.append(
-                        ObservedIsotopeData(
-                            element=elements[index],
-                            mass_number=int(mass_numbers[index]),
-                            count=int(counts[index]),
-                            parent=parent,
-                        )
+                    obs = ObservedIsotopeData(
+                        element=elements[index],
+                        mass_number=int(mass_numbers[index]),
+                        count=int(counts[index]),
+                        parent=parent,
                     )
-                # Record 0-counts for isotopes that were not observed, but could have been
+                    isotope_observations.append(obs)
+                    dupe_check[elements[index]].append(obs)
+                    if len(dupe_check.keys()) > 1:
+                        a_dupe_index = index
+
+                # Add 0-counts for isotopes that were not observed, but could have been
                 if possible_observations is not None:
                     for parent_obs in possible_observations:
                         if parent_obs["element"] not in elements:
                             isotope_observations.append(parent_obs)
+                    parent_elements = [
+                        parent_obs["element"] for parent_obs in possible_observations
+                    ]
+                    impossible_observations = []
+                    for element in elements:
+                        if element not in parent_elements:
+                            impossible_observations.append(element)
+                    if len(impossible_observations) > 0:
+                        raise UnexpectedLabels(
+                            impossible_observations, possible_observations
+                        )
+
+                if a_dupe_index != -1:
+                    # If there are multiple isotope measurements that match the same parent tracer labeled element
+                    # E.g. C13N15C13-label-2-1-1 would match C13 twice
+                    # We only need to call attention to 1
+                    raise IsotopeStringDupe(
+                        label,
+                        f"{elements[a_dupe_index]}{mass_numbers[a_dupe_index]}",
+                    )
     else:
         raise ObservedIsotopeParsingError(f"Unable to parse isotope label: [{label}]")
 
