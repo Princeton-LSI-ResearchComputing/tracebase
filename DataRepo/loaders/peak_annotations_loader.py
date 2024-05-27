@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, Tuple
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
+from django.db.utils import ProgrammingError
 
 from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_column import TableColumn
@@ -25,12 +25,15 @@ from DataRepo.models import (
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
-    HeaderAsSampleDoesNotExist,
-    MissingCompound,
+    DuplicateCompoundIsotope,
+    DuplicateValues,
+    IsotopeStringDupe,
     NoTracerLabeledElements,
     ObservedIsotopeParsingError,
+    ObservedIsotopeUnbalancedError,
     RecordDoesNotExist,
     RollbackException,
+    UnexpectedLabels,
     generate_file_location_string,
 )
 from DataRepo.utils.file_utils import is_excel, string_to_datetime
@@ -313,6 +316,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 file=self.peak_annotation_details_file,
             )
 
+        # TODO: Replace the sample sheet/column strings in the values below with a sheet/column reference from the
+        # sample loader once the sample loader inherits from TableLoader
+        self.missing_msrs_suggestion = (
+            f"Did you forget to include this {self.headers.SAMPLEHEADER} in the "
+            f"{self.msrunsloader.headers.SAMPLEHEADER} column of the {self.msrunsloader.DataSheetName} sheet/file that "
+            "matches a Sample in the Samples sheet?"
+        )
+        if self.peak_annotation_details_df is None:
+            self.missing_msrs_suggestion = (
+                f"Please supply the peak_annotation_details_df argument to map {self.headers.SAMPLEHEADER} to database "
+                "samples."
+            )
+
     def initialize_sequence_defaults(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
         Details dataframe was provided.  It also initializes the default values for the sequence, for use in filling in
@@ -335,6 +351,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.msrun_sample_dict = self.msrunsloader.get_loaded_msrun_sample_dict(
                 peak_annot_file=self.file
             )
+            # Keep track of what has been retrieved
+            for sh in self.msrun_sample_dict.keys():
+                self.msrun_sample_dict[sh]["seen"] = False
 
         # TODO: Figure out a better way to handle buffered exceptions from another class that are only raised from a
         # specific method, so that methods raise them as a group instead of needing to incorporate instance loaders like
@@ -351,33 +370,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.instrument_default = self.msrunsloader.instrument_default
 
     # TODO: Yet to be done:
-    # DupeCompoundIsotopeCombos,
-    #     - This catches instances of duplicate compound/isotopeLabel combos
-    #       It is now handled via the unique constraint on sample/compound/isotope at the file level, but those unique
-    #       constraint errors should be repackaged to remove the sample (because it will always be all samples affected)
-    #     - In fact, I should see if I can make sure that all InfileErrors get converted to the cell locations in the
-    #       original file?
-    # ADD THESE:
-    #     MissingCompounds,
-    #     MissingSamplesError,
-    #     NoSampleHeaders,
-    #     NoSamplesError,
-    #     PeakAnnotFileMismatches,
-    #     ResearcherNotNew,
-    #     SampleColumnInconsistency,
-    #     TracerLabeledElementNotFound,
-    #     UnexpectedIsotopes,
-    #         When more labeled elements than in the tracers
-    #     UnskippedBlanksError,
-    #     IsotopeStringDupe,
-    #         # If there are multiple isotope measurements that match the same parent tracer labeled element
-    #         # E.g. C13N15C13-label-2-1-1 would match C13 twice
-    #     EmptyColumnsError,
-    #         Add this to TableLoader
-    #         for k, _ in corr_iter.items():
-    #             if k.startswith("Unnamed: "):
-    #                 self.aggregated_errors_object.buffer_error(
-    #                     EmptyColumnsError...
+    # Add warnings to the stats
     # tests
     #     ConvertedTableLoader
     #         check_output_dataframe
@@ -385,6 +378,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     #         revert_headers
     #         initialize_merge_dict
     #         get_required_sheets
+    #         check for more
     #     PeakAnnotationsLoader (AccucorLoader/IsocorrLoader)
     #         initialize_sequence_defaults
     #         load_data
@@ -395,6 +389,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     #         get_or_create_labels
     #         get_or_create_peak_group_label
     #         get_or_create_peak_data_label
+    #         check for more
 
     def load_data(self):
         """Loads the ArchiveFile, PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
@@ -455,6 +450,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             # Get or create a PeakGroupLabel and PeakDataLabel records
             self.get_or_create_labels(row, pdrec, pgrec)
+
+        # This currently only repackages DuplicateValues exceptions, but may do more WRT mapping to original file
+        # locations of errors later.  It could be called at the top of this method, but given the plan, having it here
+        # at the bottom is better.
+        self.handle_file_exceptions()
 
     @transaction.atomic
     def get_or_create_annot_file(self):
@@ -522,18 +522,15 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             try:
                 recs.append(Compound.compound_matching_name_or_synonym(name))
             except (ValidationError, ObjectDoesNotExist) as cmpderr:
-                orig_col, orig_sheet = self.original_column_lookup(
-                    self.headers.COMPOUND
-                )
+                # TODO: This will have to be converted in handle_file_exceptions
                 self.aggregated_errors_object.buffer_error(
-                    # TODO: Consolidate all MissingCompound exceptions into a MissingCompounds exception
-                    MissingCompound(
-                        name=name,
-                        query_obj=Compound.get_name_query_expression(name),
-                        compounds_loc=self.compounds_loc,
+                    RecordDoesNotExist(
+                        Compound,
+                        Compound.get_name_query_expression(name),
                         file=self.file,
-                        sheet=orig_sheet,
-                        column=orig_col,
+                        sheet=self.sheet,
+                        column=self.headers.COMPOUND,
+                        rownum=self.rownum,
                     ),
                     orig_exception=cmpderr,
                 )
@@ -634,9 +631,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         #    method (called by the constructor).
         if (
             sample_header in self.msrun_sample_dict.keys()
-            and self.msrun_sample_dict[sample_header] is not None
+            and self.msrun_sample_dict[sample_header][MSRunSample.__name__] is not None
         ):
-            return self.msrun_sample_dict[sample_header]
+            self.msrun_sample_dict[sample_header]["seen"] = True
+            return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
         # 2. The second way (if a Peak Annotation Details sheet was not provided, or doesn't list a value for this
         #    sample header) is to start searching using the sample header to look for an exact matching sample name.  If
@@ -644,16 +642,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         #    default sequence data.
 
         # First, we will check the Sample table directly, so we can report the most relevant error if it's missing
-        samples = Sample.objects.filter(name=sample_header)
+        query_dict = {"name": sample_header}
+        samples = Sample.objects.filter(**query_dict)
         if samples.count() == 0:
             self.aggregated_errors_object.buffer_error(
-                HeaderAsSampleDoesNotExist(
-                    sample_header,
-                    suggestion=(
-                        f"Please add a row to {MSRunsLoader.DataSheetName} that matches the sample header to a "
-                        "TraceBase sample name."
-                    ),
+                RecordDoesNotExist(
+                    Sample,
+                    query_dict,
+                    suggestion=self.missing_msrs_suggestion,
                     file=self.file,
+                    sheet=self.sheet,
+                    column=self.headers.SAMPLEHEADER,
+                    rownum=self.rownum,
                 )
             )
             self.missing_headers_as_samples.append(sample_header)
@@ -666,11 +666,27 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Check if there were too few or exactly 1 results.
         if msrun_samples.count() == 0:
             self.aggregated_errors_object.buffer_error(
-                RecordDoesNotExist(MSRunSample, {"sample__name": sample_header})
+                RecordDoesNotExist(
+                    MSRunSample,
+                    # This is the effective query. Just wanted to distinguish between a missing sample record and a
+                    # missing MSRunSample record
+                    {"sample__name": sample_header},
+                    suggestion=self.missing_msrs_suggestion,
+                    file=self.file,
+                    sheet=self.sheet,
+                    column=self.headers.SAMPLEHEADER,
+                    rownum=self.rownum,
+                )
             )
+            self.missing_headers_as_samples.append(sample_header)
             return None
         elif msrun_samples.count() == 1:
-            return msrun_samples.get()
+            self.msrun_sample_dict[sample_header] = {}
+            self.msrun_sample_dict[sample_header]["seen"] = True
+            self.msrun_sample_dict[sample_header][
+                MSRunSample.__name__
+            ] = msrun_samples.get()
+            return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
         # At this point, there are multiple results.  That means that defaults for the sequence are required in order to
         # proceed, so check them.
@@ -693,6 +709,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                         "instrument, and/or date."
                     )
                 )
+            self.missing_headers_as_samples.append(sample_header)
             return None
 
         # Let's see if the results can be narrowed to a single record using the sequence defaults we've been provided.
@@ -717,20 +734,31 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         if msrun_samples.count() == 0:
             query_dict["sample__name"] = sample_header
             self.aggregated_errors_object.buffer_error(
-                RecordDoesNotExist(MSRunSample, query_dict)
+                RecordDoesNotExist(
+                    MSRunSample,
+                    query_dict,
+                    suggestion=self.missing_msrs_suggestion,
+                    file=self.file,
+                    sheet=self.sheet,
+                    column=self.headers.SAMPLEHEADER,
+                    rownum=self.rownum,
+                )
             )
+            self.missing_headers_as_samples.append(sample_header)
             return None
         elif msrun_samples.count() > 1:
             try:
                 msrun_samples.get()
-                self.aggregated_errors_object.buffer_error(
-                    ProgrammingError("Well this is unexpected.")
-                )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
             return None
 
-        return msrun_samples.get()
+        self.msrun_sample_dict[sample_header] = {}
+        self.msrun_sample_dict[sample_header]["seen"] = True
+        self.msrun_sample_dict[sample_header][
+            MSRunSample.__name__
+        ] = msrun_samples.get()
+        return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
     @transaction.atomic
     def get_or_create_peak_group_compound_link(self, pgrec, cmpd_rec):
@@ -820,18 +848,42 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         isotope_label = self.get_row_val(row, self.headers.ISOTOPELABEL)
         pglrecs: List[Tuple[PeakGroup, bool]] = []
         pdlrecs: List[Tuple[PeakData, bool]] = []
+
         possible_isotope_observations = None
         num_possible_isotope_observations = 1
         if pgrec is not None:
             possible_isotope_observations = pgrec.possible_isotope_observations
             num_possible_isotope_observations = len(possible_isotope_observations)
 
+        # For the exceptions below (for convenience)
+        infile_err_args = {
+            "file": self.file,
+            "sheet": self.sheet,
+            "rownum": self.rownum,
+            "column": self.headers.ISOTOPELABEL,
+        }
+
         try:
             label_observations = parse_isotope_label(
                 isotope_label, possible_isotope_observations
             )
-        except ObservedIsotopeParsingError as iope:
-            self.aggregated_errors_object.buffer_error(iope)
+        except UnexpectedLabels as olnp:
+            olnp.set_formatted_message(**infile_err_args)
+            # There might be contamination.  Set is_fatal to true in validate mode to alert the researcher via a raised
+            # warning (as opposed to just printing a warning for a curator running the load script on the command line -
+            # who shouldn't have to worry about it)
+            self.aggregated_errors_object.buffer_warning(olnp, is_fatal=self.validate)
+            self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
+            self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
+            return pglrecs, pdlrecs
+        except (
+            IsotopeStringDupe,
+            ObservedIsotopeUnbalancedError,
+            ObservedIsotopeParsingError,
+        ) as ie:
+            # Add file context
+            ie.set_formatted_message(**infile_err_args)
+            self.aggregated_errors_object.buffer_error(ie)
             self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
             self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
             return pglrecs, pdlrecs
@@ -944,6 +996,80 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             raise RollbackException()
 
         return rec, created
+
+    def handle_file_exceptions(self):
+        """Given the file conversion, the exception file-level metadata doesn't relate directly to the structure of the
+        original file.  Errors also have extra associated metadata (e.g. instances of DuplicateValues unnecessarily
+        include multiples by sample name, i.e. every duplicate isotope always affects every sample, thus only 1 error
+        indicating the row and 2 columns: compound and isotopeLabel).
+
+        This method must be called before the end of the load_data method, because the wrapper around load_data
+        summarizes the DuplicateValues exceptions.
+
+        Args:
+            None
+        Exceptions:
+            Buffers:
+                DuplicateCompoundIsotope
+            Raises:
+                None
+        Returns:
+            None
+        """
+        unis_constraint_to_repackage = [
+            self.SAMPLEHEADER_KEY,
+            self.COMPOUND_KEY,
+            self.ISOTOPELABEL_KEY,
+        ]
+        if len(self.DataUniqueColumnConstraints) != 1 or set(
+            self.DataUniqueColumnConstraints[0]
+        ) != set(unis_constraint_to_repackage):
+            # If you find yourself here, it means that the exception "DuplicateCompoundIsotope" must only be raised when
+            # the unique constraint for [self.SAMPLEHEADER_KEY, self.COMPOUND_KEY, self.ISOTOPELABEL_KEY] has been
+            # violated (i.e. only remove and repackage DuplicateValues exceptions that relate to the columns in the
+            # conditional above).
+            raise ProgrammingError(
+                "DataUniqueColumnConstraints has changed, which means that handle_file_exceptions must be updated, as "
+                "it assumes 1 specific file-level unique constraint."
+            )
+
+        # Repackage/Summarize DuplicateValues
+        dves = self.aggregated_errors_object.remove_matching_exceptions(
+            DuplicateValues,
+            "colnames",
+            # This lambda is to determine if the DuplicateValues exception is for the target unique constraint, by
+            # checking that the population of column names saved in the instance is the same
+            lambda cns: set(cns) == set(unis_constraint_to_repackage),
+        )
+        self.aggregated_errors_object.buffer_error(
+            DuplicateCompoundIsotope(dves, [self.COMPOUND_KEY, self.ISOTOPELABEL_KEY])
+        )
+
+        # TODO: Consolidate all RecordDoesNotExist exceptions for the Compound model.
+        # orig_col, orig_sheet = self.original_column_lookup(
+        #     self.headers.COMPOUND
+        # )
+        # self.aggregated_errors_object.buffer_error(
+        #     MissingCompound(
+        #         name=name,
+        #         query_obj=Compound.get_name_query_expression(name),
+        #         compounds_loc=self.compounds_loc,
+        #         file=self.file,
+        #         sheet=orig_sheet,
+        #         column=orig_col,
+        #     ),
+        #     orig_exception=cmpderr,
+        # )
+
+        # TODO: Consolidate RecordDoesNotExist exceptions about Sample records as either a HeaderAsSampleDoesNotExist
+        # exception or MissingSamplesError.  Filter potential blanks as UnskippedBlanksError and when
+        # self.msrun_sample_dict is empty and there are 0 peak groups added, convert the exceptions to a NoSamplesError
+
+        # TODO: Edit the msruns loader to treat DB sample column values containing "blank" as a blank.
+
+        # TODO: Process self.msrun_sample_dict[*]["seen"] == False to mark sample headers in the dict as not existing
+        # in the peak annot file and process the self.missing_headers_as_samples as not existing in the peak annotation
+        # details sheet
 
 
 class IsocorrLoader(PeakAnnotationsLoader):

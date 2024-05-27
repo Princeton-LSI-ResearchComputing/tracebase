@@ -8,8 +8,10 @@ import pandas as pd
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    EmptyColumns,
     MissingColumnGroup,
     RequiredHeadersError,
+    UnequalColumnGroups,
 )
 
 
@@ -153,7 +155,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             Raises:
                 AggregatedErrors
         Returns:
-            outdf (pandas DataFrame): Converted single DataFrame
+            outdf (Optional[pandas DataFrame]): Converted single DataFrame
         """
         indf = deepcopy(self.orig_df)
 
@@ -318,14 +320,13 @@ class ConvertedTableLoader(TableLoader, ABC):
                 and single_sheet in self.condense_columns_dict.keys()
             ):
                 try:
-                    # Let's allow the user to have attempted conversion on their own and allow them to have dropped
-                    # unnecessary columns:
-                    permissive_uncondensed = []
-                    for hdr in self.condense_columns_dict[single_sheet][
-                        "uncondensed_columns"
-                    ]:
-                        if hdr in in_df.columns:
-                            permissive_uncondensed.append(hdr)
+                    # This prevents errors about missing id_vars columns (eg. if the user has done their own conversion)
+                    existing_static_columns = self.get_existing_static_columns(
+                        single_sheet,
+                        {single_sheet: in_df},
+                        False,
+                    )
+
                     outdf = in_df.melt(
                         var_name=self.condense_columns_dict[single_sheet][
                             "header_column"
@@ -333,25 +334,28 @@ class ConvertedTableLoader(TableLoader, ABC):
                         value_name=self.condense_columns_dict[single_sheet][
                             "value_column"
                         ],
-                        id_vars=permissive_uncondensed,
+                        id_vars=existing_static_columns,
                     )
                 except Exception as e:
                     raise AggregatedErrors().buffer_error(e)
             # Else, we will assume the user did the conversion themselves
         elif isinstance(in_df, dict):
-            self.check_condense_columns(in_df)
+            check_sheets_consistent = True
             for sheet in self.condense_columns_dict.keys():
                 try:
-                    # Let's allow the user to have attempted conversion on their own and allow them to have dropped
-                    # unnecessary columns:
-                    permissive_uncondensed = []
-                    for hdr in self.condense_columns_dict[sheet]["uncondensed_columns"]:
-                        if hdr in in_df[sheet].columns:
-                            permissive_uncondensed.append(hdr)
+                    # This prevents errors about missing id_vars columns (eg. if the user has done their own conversion)
+                    existing_static_columns = self.get_existing_static_columns(
+                        sheet,
+                        in_df,
+                        check_sheets_consistent,
+                    )
+                    # Only need to do this once (and buffer only 1 error about it)
+                    check_sheets_consistent = False
+
                     outdf[sheet] = in_df[sheet].melt(
                         var_name=self.condense_columns_dict[sheet]["header_column"],
                         value_name=self.condense_columns_dict[sheet]["value_column"],
-                        id_vars=permissive_uncondensed,
+                        id_vars=existing_static_columns,
                     )
                 except Exception as e:
                     raise AggregatedErrors().buffer_error(e)
@@ -360,43 +364,134 @@ class ConvertedTableLoader(TableLoader, ABC):
 
         return outdf
 
-    def check_condense_columns(self, df_dict):
-        """Checks that there exist columns to condense when self.condense_columns_dict is not None.
+    def get_existing_static_columns(self, sheet, df_dict, check_consistency=True):
+        """Performs error checks and returns the columns existing the the supplied sheet's dataframe that will not be
+        pivoted.
 
-        Limitations:
-            Does not check that the number of condense columns in the sheets is the same.
         Args:
-            df_dict (dict of pandas.DataFrames)
+            sheet (str): Sheet name
+            df_dict (dict of pandas.DataFrames): Dataframes keyed on sheet
+            check_consistency (bool) [True]: Check if multiple sheets containing the same column type have the same
+                number of condense columns.
         Exceptions:
             Raises:
                 AggregatedErrors
             Buffers:
-                MissingColumnGroup
+                MissingColumnGroup (e.g. when there are no supplied sample columns in any of the sheets to be condensed/
+                    melted)
+                UnequalColumnGroups (e.g. when the number of sample columns differs between the original and corrected
+                    sheets)
+                EmptyColumns (Columns picked up by pandas that are actually empty and have no header, to which pandas
+                    assigns a name starting with "Unnamed: ...")
         Returns:
-            None
+            existing_static_columns (List[str]): These are what DataFrame.melt's id_vars arg takes.  It's necessary to
+                whittle it down to the ones that exist in the dataframe to avoid errors (e.g. if the user has done their
+                own conversion, or if the derived class does the conversion)
         """
-        if self.condense_columns_dict is None:
+        if (
+            self.condense_columns_dict is None
+            or sheet not in self.condense_columns_dict.keys()
+        ):
             return
 
-        aes = AggregatedErrors()
+        is_fatal = False
 
-        for sheet in self.condense_columns_dict.keys():
+        # These are columns that won't be "condensed"
+        existing_static_columns = []
+
+        # Exclude missing id_vars columns
+        for hdr in self.condense_columns_dict[sheet]["uncondensed_columns"]:
+            if hdr in df_dict[sheet].columns:
+                existing_static_columns.append(hdr)
+
+        # The condense column list and metadata keyed by header_column and sheet
+        # "header_column" is the "type" of all the columns that will be pivoted, e.g. "sample names"
+        condense_cols = defaultdict(lambda: defaultdict(list))
+        # We're also going to check the "condense" columns for validity.  Sometimes, an excel sheet has empty columns
+        # that pandas thinks are populated columns.  When that happens, it prepends a randomized header with "Unnamed: "
+        erroneous_condense_columns = []
+
+        # Check for missing column groups (e.g. missing sample columns) and build the condense_cols dict to check for a
+        # consistent number of "sample" columns between sheets (that will be condensed)
+        for sheet_key in self.condense_columns_dict.keys():
             condense_columns_exist = False
-            for hdr in df_dict[sheet].columns:
-                if hdr not in self.condense_columns_dict[sheet]["uncondensed_columns"]:
+            for hdr in df_dict[sheet_key].columns:
+                if (
+                    hdr
+                    not in self.condense_columns_dict[sheet_key]["uncondensed_columns"]
+                ):
                     condense_columns_exist = True
-                    break
+                    condense_cols[
+                        self.condense_columns_dict[sheet_key]["header_column"]
+                    ][sheet_key].append(hdr)
             if not condense_columns_exist:
-                aes.buffer_error(
+                is_fatal = True
+                self.aggregated_errors_object.buffer_error(
                     MissingColumnGroup(
-                        self.condense_columns_dict[sheet]["header_column"],
-                        sheet=sheet,
+                        self.condense_columns_dict[sheet_key]["header_column"],
+                        sheet=sheet_key,
                         file=self.file,
                     )
                 )
 
-        if aes.num_errors > 0:
-            raise aes
+        # This checks that (for example) the number of sample columns is the same in each sheet (as defined in the
+        # condense_columns_dict)
+        if check_consistency:
+            for coltype in condense_cols.keys():
+                # If there are multiple sheets with the same type of "sample" cols
+                if len(condense_cols[coltype].keys()) > 1:
+                    num_cols = -1
+
+                    # For each sheet with "sample" columns
+                    for sheet in condense_cols[coltype].keys():
+                        # Initialize the number of "sample" columns with the first one
+                        if num_cols == -1:
+                            num_cols = len(condense_cols[coltype][sheet])
+                        elif num_cols != len(condense_cols[coltype][sheet]):
+                            # If any sheet has a different number as the first, buffer an error
+                            self.aggregated_errors_object.buffer_error(
+                                UnequalColumnGroups(
+                                    coltype, condense_cols[coltype], file=self.file
+                                )
+                            )
+                            break
+
+        # Check for empty columns
+        for hdr in list(df_dict[sheet].columns):
+            if hdr not in self.condense_columns_dict[sheet][
+                "uncondensed_columns"
+            ] and hdr.startswith("Unnamed: "):
+                erroneous_condense_columns.append(hdr)
+        if len(erroneous_condense_columns) > 0:
+            df_dict[sheet].drop(columns=erroneous_condense_columns, inplace=True)
+            group = list(set(df_dict[sheet].columns) - set(existing_static_columns))
+
+            # We will error if this means there are no sample columns.  Otherwise, empty columns will be skipped/ignored
+            # (with a warning)
+            is_error = len(group) == 0
+            if is_error:
+                msg = "There are no columns left to pivot.  Please fix the file to proceed."
+                is_fatal = True
+            else:
+                msg = "These unnamed columns will be skipped."
+            self.aggregated_errors_object.buffer_exception(
+                EmptyColumns(
+                    self.condense_columns_dict[sheet]["header_column"],
+                    existing_static_columns,
+                    erroneous_condense_columns,
+                    list(df_dict[sheet].columns),
+                    sheet=sheet,
+                    file=self.file,
+                    addendum=msg,
+                ),
+                is_error=is_error,
+                is_fatal=self.validate,
+            )
+
+        if is_fatal and self.aggregated_errors_object.should_raise():
+            raise self.aggregated_errors_object
+
+        return existing_static_columns
 
     def revert_headers(self, headers):
         """This method takes a list of headers from the universal PeakAnnotationsLoader headers, converts them back to
@@ -651,10 +746,11 @@ class ConvertedTableLoader(TableLoader, ABC):
         Returns:
             None
         """
-        # self.file will be saved in the superclass, but we're pre-saving it for errors reported from this class.
-        self.file = kwargs.get("file")
+        # Preserve the original df
         self.orig_df = kwargs.get("df")
-        if kwargs.get("df") is not None:
-            kwargs["df"] = self.convert_df()
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
         TableLoader.__init__(self, *args, **kwargs)
+        # Overwrite what the superclass saved with a converted version.  The constructor does noting with the df, and
+        # convert_df() makes a deep copy, so this is OK.
+        if self.orig_df is not None:
+            self.df = self.convert_df()

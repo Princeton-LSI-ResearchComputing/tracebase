@@ -4,7 +4,6 @@ import shutil
 import tempfile
 from collections import defaultdict, namedtuple
 from io import BytesIO
-from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, cast
 
 import pandas as pd
@@ -12,6 +11,7 @@ import xlsxwriter
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
+from django.db.utils import ProgrammingError
 from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 from jsonschema import ValidationError

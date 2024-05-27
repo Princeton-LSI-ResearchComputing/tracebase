@@ -4,7 +4,6 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
-from sqlite3 import ProgrammingError
 from typing import List, TypedDict
 
 import regex
@@ -12,6 +11,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files import File
 from django.db import IntegrityError, transaction
+from django.db.utils import ProgrammingError
 
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
