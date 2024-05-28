@@ -40,6 +40,10 @@ class CompoundTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertEqual(alanine.atom_count("Abc"), None)
 
+    def test_get_name_query_expression(self):
+        # TODO: Implement test
+        pass
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class CompoundSynonymTests(TracebaseTestCase):

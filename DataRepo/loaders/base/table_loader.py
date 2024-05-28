@@ -2687,7 +2687,7 @@ class TableLoader(ABC):
 
 
 def flatten(n_deep_iterable):
-    """Flattens a non-string, non-byte iteratle.
+    """Flattens a non-string, non-byte iterable.
     https://stackoverflow.com/a/2158532/2057516
 
     Args:

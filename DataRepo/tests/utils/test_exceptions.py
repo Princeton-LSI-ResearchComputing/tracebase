@@ -6,34 +6,51 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     CompoundDoesNotExist,
     DateParseError,
+    DuplicateCompoundIsotope,
     DuplicateValueErrors,
     DuplicateValues,
+    EmptyColumns,
     ExcelSheetNotFound,
     ExcelSheetsNotFound,
+    HeaderAsSampleDoesNotExist,
     InfileError,
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
+    IsotopeStringDupe,
+    MissingColumnGroup,
+    MissingCompound,
     MissingDataAdded,
     MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
     MutuallyExclusiveOptions,
+    MzxmlSampleHeaderMismatch,
+    NewResearcher,
+    NewResearchers,
     NoLoadData,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
+    NoTracerLabeledElements,
+    ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
     RecordDoesNotExist,
+    RequiredArgument,
     RequiredColumnValue,
     RequiredColumnValues,
     RequiredColumnValuesWhenNovel,
     RequiredColumnValueWhenNovel,
+    RequiredHeadersError,
     RequiredOptions,
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
+    SheetMergeError,
+    UnequalColumnGroups,
     UnexpectedIsotopes,
+    UnexpectedLabels,
     UnitsWrong,
+    UnknownHeaderError,
     generate_file_location_string,
     summarize_int_list,
 )
@@ -407,6 +424,33 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertFalse(removed[0].is_error)
         self.assertFalse(removed[1].is_fatal)
         self.assertFalse(removed[1].is_error)
+
+    def test_get_exception_types(self):
+        aes = AggregatedErrors(exceptions=[ValueError(), KeyError(), KeyError()])
+        types = aes.get_exception_types()
+        self.assertEqual([ValueError, KeyError], types)
+
+    def test_exception_matches(self):
+        ke = KeyError()
+        ke.is_error = False
+        aes = AggregatedErrors()
+        self.assertTrue(aes.exception_matches(ke, KeyError, "is_error", False))
+        self.assertFalse(aes.exception_matches(ke, KeyError, "is_error", True))
+
+    def test_exception_exists(self):
+        ke = KeyError()
+        ke.is_error = False
+        aes = AggregatedErrors(exceptions=[ke])
+        self.assertTrue(aes.exception_exists(KeyError, "is_error", False))
+        self.assertFalse(aes.exception_exists(KeyError, "is_error", True))
+
+    def test_remove_matching_exceptions(self):
+        ke = KeyError()
+        ke.is_error = False
+        aes = AggregatedErrors(exceptions=[ke])
+        aes.remove_matching_exceptions(KeyError, "is_error", False)
+        self.assertEqual(0, len(aes.exceptions))
+        self.assertEqual(0, aes.num_warnings)
 
 
 class ExceptionTests(TracebaseTestCase):
@@ -930,6 +974,25 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
+    def test_InfileError_set_formatted_message(self):
+        ie = InfileError("Test that location can be added to %s later.")
+        self.assertEqual(
+            "Test that location can be added to the load file data later.", str(ie)
+        )
+        ie.set_formatted_message(
+            rownum="record name",
+            sheet="Test Sheet 1",
+            file="testrowname.xlsx",
+            column="Col5",
+        )
+        self.assertEqual(
+            (
+                "Test that location can be added to column [Col5] on row [record name] of sheet [Test Sheet 1] in "
+                "testrowname.xlsx later."
+            ),
+            str(ie),
+        )
+
     def test_CompoundDoesNotExist(self):
         cdne = CompoundDoesNotExist(
             "compound x",
@@ -1034,3 +1097,126 @@ class ExceptionTests(TracebaseTestCase):
     def test_RequiredOptions(self):
         ro = RequiredOptions(["infile"])
         self.assertEqual("Missing required options: ['infile'].", str(ro))
+
+    def test_MissingColumnGroup(self):
+        mcg = MissingColumnGroup("Sample")
+        self.assertIn("No Sample columns found", str(mcg))
+
+    def test_UnequalColumnGroups(self):
+        exc = UnequalColumnGroups("Sample", {"orig": ["A", "B"], "corr": ["A", "C"]})
+        self.assertIn("sheets ['orig', 'corr'] differ", str(exc))
+        self.assertIn(
+            "orig has 2 out of 2 total unique Sample columns, and is missing: ['C']",
+            str(exc),
+        )
+        self.assertIn(
+            "corr has 2 out of 2 total unique Sample columns, and is missing: ['B']",
+            str(exc),
+        )
+
+    def test_UnknownHeaderError(self):
+        exc = UnknownHeaderError("C", ["A", "B"])
+        self.assertEqual(
+            "Unknown header encountered: [C] in the load file data.  Must be one of ['A', 'B'].",
+            str(exc),
+        )
+
+    def test_NewResearchers(self):
+        nrs = [NewResearcher("George"), NewResearcher("Patty")]
+        exc = NewResearchers(nrs)
+        self.assertIn("New researchers encountered:", str(exc))
+        self.assertIn("George", str(exc))
+        self.assertIn("Patty", str(exc))
+
+    def test_NewResearcher(self):
+        exc = NewResearcher("Thelma")
+        self.assertIn("new researcher [Thelma] is being added", str(exc))
+
+    def test_RequiredArgument(self):
+        exc = RequiredArgument("val", methodname="do_stuff")
+        self.assertEqual(
+            "do_stuff requires a non-None value for argument 'val'.", str(exc)
+        )
+
+    def test_HeaderAsSampleDoesNotExist(self):
+        exc = HeaderAsSampleDoesNotExist(
+            "Bat Wing Sample 1", suggestion="You should add it."
+        )
+        self.assertIn(
+            "Sample header 'Bat Wing Sample 1' does not match an existing Sample record name.",
+            str(exc),
+        )
+        self.assertIn("You should add it.", str(exc))
+
+    def test_EmptyColumns(self):
+        exc = EmptyColumns(
+            "Sample",
+            ["A", "B"],
+            ["Unnamed: jwbc", "Unnamed: wale"],
+            ["A", "B", "sample1", "sample2", "Unnamed: jwbc", "Unnamed: wale"],
+            addendum="They will be skipped.",
+        )
+        self.assertIn("[Sample] columns are expected", str(exc))
+        self.assertIn("2 expected constant columns", str(exc))
+        self.assertIn("6 columns total", str(exc))
+        self.assertIn("4 potential Sample columns", str(exc))
+        self.assertIn("2 were unnamed.", str(exc))
+        self.assertIn("They will be skipped.", str(exc))
+
+    def test_DuplicateCompoundIsotope(self):
+        dvs = [
+            DuplicateValues({"1": [1, 2]}, ["A", "B", "C"]),
+            DuplicateValues({"2": [6, 9]}, ["A", "B", "C"]),
+        ]
+        exc = DuplicateCompoundIsotope(dvs, ["A", "B"])
+        self.assertIn("Column(s) ['A', 'B']", str(exc))
+        self.assertIn("1 (rows*: 3-4)", str(exc))
+        self.assertIn("2 (rows*: 8, 11)", str(exc))
+
+    def test_SheetMergeError(self):
+        exc = SheetMergeError([100, 102])
+        self.assertIn("missing an Animal Name", str(exc))
+        self.assertIn("empty rows: [100, 102]", str(exc))
+
+    def test_IsotopeStringDupe(self):
+        exc = IsotopeStringDupe("C13N15C13-label-2-1-1", "C")
+        self.assertIn(
+            " match tracer labeled element (C) in the measured labeled element string: [C13N15C13-label-2-1-1]",
+            str(exc),
+        )
+
+    def test_MissingCompound(self):
+        exc = MissingCompound("lysine")
+        self.assertIn("string lysine was not found", str(exc))
+        self.assertIn("add the compound to the Compounds sheet", str(exc))
+
+    def test_ObservedIsotopeUnbalancedError(self):
+        exc = ObservedIsotopeUnbalancedError(
+            ["C", "N"], [13, 15], [1, 2, 1], "13C15N-1-2-1"
+        )
+        self.assertIn(
+            "elements (2), mass numbers (2), and counts (3) from isotope label: [13C15N-1-2-1]",
+            str(exc),
+        )
+
+    def test_UnexpectedLabels(self):
+        exc = UnexpectedLabels(["D"], ["C", "N"])
+        self.assertIn(
+            "label(s) ['D'] were not among the expected labels ['C', 'N']", str(exc)
+        )
+
+    def test_MzxmlSampleHeaderMismatch(self):
+        exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
+        self.assertIn("mzXML file [location/sample_neg.mzXML]", str(exc))
+        self.assertIn("Sample header:       [sample]", str(exc))
+        self.assertIn("mzXML Base Filename: [sample_neg]", str(exc))
+
+    # NOTE: MultiplePeakGroupRepresentations is tested in the peak group tests, because it needs records
+
+    def test_RequiredHeadersError(self):
+        exc = RequiredHeadersError(["A"])
+        self.assertIn("header(s) missing: ['A']", str(exc))
+
+    def test_NoTracerLabeledElements(self):
+        exc = NoTracerLabeledElements()
+        self.assertEqual("No tracer_labeled_elements.", str(exc))

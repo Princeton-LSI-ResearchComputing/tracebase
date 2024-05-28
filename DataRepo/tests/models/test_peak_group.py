@@ -123,3 +123,7 @@ class PeakGroupTests(TracebaseTestCase):
 
     def test_max_med_mz(self):
         self.assertEqual(4.0, self.pg.max_med_mz)
+
+    def test_clean_raises_MultiplePeakGroupRepresentations(self):
+        # TODO: Implement test
+        pass

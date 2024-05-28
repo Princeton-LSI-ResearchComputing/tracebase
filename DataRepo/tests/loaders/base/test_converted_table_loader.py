@@ -690,3 +690,27 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = outdf.reindex(sorted(outdf.columns), axis=1)
 
         pd.testing.assert_frame_equal(expected, outdf)
+
+    def test_check_output_dataframe(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_single_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_existing_static_columns(self):
+        # TODO: Implement test
+        pass
+
+    def test_revert_headers(self):
+        # TODO: Implement test
+        pass
+
+    def test_initialize_merge_dict(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_required_sheets(self):
+        # TODO: Implement test
+        pass

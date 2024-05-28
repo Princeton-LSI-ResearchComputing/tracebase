@@ -374,7 +374,7 @@ class MissingColumnGroup(InfileError):
     def __init__(self, group_name, **kwargs):
         message = f"No {group_name} columns found in %s.  At least 1 column of this type is required."
         super().__init__(message, **kwargs)
-        self.column_type = group_name
+        self.group_name = group_name
 
 
 class UnequalColumnGroups(InfileError):
@@ -565,7 +565,7 @@ class DuplicatePeakGroups(Exception):
 
 
 class UnknownHeaderError(InfileError, HeaderError):
-    def __init__(self, unknown, known=None, message=None, **kwargs):
+    def __init__(self, unknown, known: Optional[list] = None, message=None, **kwargs):
         if not message:
             message = f"Unknown header encountered: [{unknown}] in %s."
             if known is not None:
@@ -622,18 +622,17 @@ class NewResearchers(Exception):
                 nre_dict[nre.researcher][file_loc].append(nre.rownum)
             elif "unreported rows" not in nre_dict[file_loc]:
                 nre_dict[nre.researcher][file_loc].append("unreported rows")
-        message = (
-            f"New researchers encountered.  Please check the existing researchers:\n\t{existing}\nto ensure that the "
-            "following researchers (parsed from the indicated file locations) are not variants of existing names:\n\t"
-        )
+        message = "New researchers encountered"
+        if existing == "":
+            message += ":"
+        else:
+            message += (
+                f".  Please check the existing researchers:\n\t{existing}\nto ensure that the following researchers "
+                "(parsed from the indicated file locations) are not variants of existing names:"
+            )
         for nr in sorted(nre_dict.keys()):
-            for locdict in sorted(nre_dict[nr].keys()):
-                message += "\n\t".join(
-                    [
-                        f"{nr} (in {loc}, on rows: " + summarize_int_list(rows)
-                        for loc, rows in locdict.items() + ")"
-                    ]
-                )
+            for loc in sorted(nre_dict[nr].keys()):
+                message += f"\n\t{nr} (in {loc}, on rows: {summarize_int_list(nre_dict[nr][loc])})"
         super().__init__(message)
         self.new_researcher_exceptions = new_researcher_exceptions
         self.existing = existing
@@ -644,10 +643,12 @@ class NewResearcher(InfileError, SummarizableError):
 
     def __init__(self, researcher: str, message=None, **kwargs):
         existing = "\n\t".join(get_researchers())
-        message = (
-            f"A new researcher [{researcher}] is being added (parsed from %s).  Please check the existing researchers "
-            f"to ensure this researcher name isn't a variant of an existing name:\n\t{existing}"
-        )
+        message = f"A new researcher [{researcher}] is being added (parsed from %s)."
+        if existing != "":
+            message += (
+                "  Please check the existing researchers to ensure this researcher name isn't a variant of an existing "
+                f"name:\n\t{existing}"
+            )
         super().__init__(message, **kwargs)
         self.researcher = researcher
         self.existing = existing
@@ -1749,7 +1750,7 @@ class AggregatedErrors(Exception):
         return isinstance(exception, cls) and (
             attr_name is None
             or (
-                hasattr(attr_name)
+                hasattr(exception, attr_name)
                 and (
                     (
                         not type(attr_val).__name__ == "function"
@@ -2410,7 +2411,7 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
         super().__init__(
             (
                 f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
-                f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
+                f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]."
             ),
             **kwargs,
         )

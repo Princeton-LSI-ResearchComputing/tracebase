@@ -380,6 +380,23 @@ class TableLoaderTests(TracebaseTestCase):
             tl.record_counts,
         )
 
+    def test_warned(self):
+        tl = self.TestLoader()
+        tl.warned()
+        self.assertDictEqual(
+            {
+                self.TestModel.__name__: {
+                    "created": 0,
+                    "existed": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "errored": 0,
+                    "warned": 1,
+                }
+            },
+            tl.record_counts,
+        )
+
     def test__get_model_name(self):
         tl = self.TestLoader()
         self.assertEqual(self.TestModel.__name__, tl._get_model_name())
@@ -1562,3 +1579,9 @@ class TableLoaderTests(TracebaseTestCase):
         )
         # Just going to assert a single attribute is properly set
         self.assertEqual("TestModel Choice", tl.get_header_metadata()["Choice"].name)
+
+
+class TableLoaderUtilitiesTests(TracebaseTestCase):
+    def test_flatten(self):
+        # TODO: Implement test
+        pass

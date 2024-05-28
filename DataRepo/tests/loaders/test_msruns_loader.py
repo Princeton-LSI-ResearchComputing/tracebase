@@ -1429,3 +1429,8 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
             os.path.isfile(msrs.ms_data_file.file_location.path),
             msg="Asserts mzXML file was created in the archive.",
         )
+        # No exception = successful test
+
+    def test_get_loaded_msrun_sample_dict(self):
+        # TODO: Implement test
+        pass
