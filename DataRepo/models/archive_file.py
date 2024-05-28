@@ -187,6 +187,7 @@ class ArchiveFileQuerySet(models.QuerySet):
             if created:
                 archivefile_rec.file_location = tmp_file_location
                 archivefile_rec.full_clean()
+                archivefile_rec.save()
             elif archivefile_rec.file_location is None:
                 # Re-do the get_or_create WITH the file_location (since we know a record exists WITHOUT a value for
                 # file_location) in order to generate the expected/usual exception about a unique-constraint violation
