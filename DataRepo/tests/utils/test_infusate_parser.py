@@ -423,3 +423,7 @@ class InfusateValidationTests(InfusateTest):
             self.infusate_data_leucine_named_2
         )
         self.assertIsNone(infusate_found)
+
+    def test_parse_isotope_label(self):
+        # TODO: Implement test
+        pass
