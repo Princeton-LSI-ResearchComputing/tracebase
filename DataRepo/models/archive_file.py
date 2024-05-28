@@ -184,15 +184,16 @@ class ArchiveFileQuerySet(models.QuerySet):
             with path_obj.open(mode=mode) as file_handle:
                 tmp_file_location = File(file_handle, name=path_obj.name)
 
-            if created:
-                archivefile_rec.file_location = tmp_file_location
-                archivefile_rec.full_clean()
-                archivefile_rec.save()
-            elif archivefile_rec.file_location is None:
-                # Re-do the get_or_create WITH the file_location (since we know a record exists WITHOUT a value for
-                # file_location) in order to generate the expected/usual exception about a unique-constraint violation
-                kwargs["file_location"] = tmp_file_location
-                archivefile_rec = super().get_or_create(**kwargs)
+                if created:
+                    archivefile_rec.file_location = tmp_file_location
+                    archivefile_rec.full_clean()
+                    archivefile_rec.save()
+                elif archivefile_rec.file_location is None:
+                    # Re-do the get_or_create WITH the file_location (since we know a record exists WITHOUT a value for
+                    # file_location) in order to generate the expected/usual exception about a unique-constraint
+                    # violation
+                    kwargs["file_location"] = tmp_file_location
+                    archivefile_rec = super().get_or_create(**kwargs)
 
         return archivefile_rec, created
 

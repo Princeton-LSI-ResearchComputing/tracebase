@@ -87,3 +87,5 @@ class ArchiveFileTests(TracebaseTestCase):
         gotten_rec, second_created = ArchiveFile.objects.get_or_create(**rec_dict)
         self.assertFalse(second_created)
         self.assertEqual(created_rec.id, gotten_rec.id)
+
+        # TODO: Figure out how to test that the file_location is an actual stored file
