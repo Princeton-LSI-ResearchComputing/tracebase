@@ -180,6 +180,7 @@ class SequencesLoader(TableLoader):
                 self.aggregated_errors_object.buffer_warning(
                     NewResearcher(operator), is_fatal=self.validate
                 )
+                self.warned(MSRunSequence.__name__)
 
             if self.is_skip_row() or lc_rec is None:
                 self.skipped(MSRunSequence.__name__)

@@ -69,6 +69,7 @@ class LoadTableCommand(ABC, BaseCommand):
         **kwargs,
     ):
         """This init auto-applies a decorator to the derived class's handle method.
+
         Args:
             required_optnames (list of strings): The variable version of this class's options that should be required.
             required_optname_groups (list of lists of strings):  Groups of the variable version of this class's options
@@ -110,6 +111,9 @@ class LoadTableCommand(ABC, BaseCommand):
         self.init_loader()
         super().__init__(*args, **kwargs)
 
+        # The handle_wrapper method uses saved_aes to manage AggregatedErrors exceptions raised by the loader(s)
+        self.saved_aes = None
+
     def init_loader(self, *args, **kwargs):
         # These are used to copy derived class headers and defaults to newly created objects
         saved_headers = None
@@ -144,7 +148,7 @@ class LoadTableCommand(ABC, BaseCommand):
             if len(disallowed_args) > 0:
                 # Immediately raise programming errors
                 raise ValueError(
-                    "The following supplied agrguments are under direct control of the LoadTableCommand superclass: "
+                    "The following supplied arguments are under direct control of the LoadTableCommand superclass: "
                     f"{disallowed_args}.  The superclass uses the command line options to fill in user-supplied "
                     "values.  The only arguments that are allowed are arguments specific to the derived class "
                     f"[{self.loader_class.__name__}] constructor."
@@ -194,12 +198,10 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         # Apply the handler decorator to the handle method in the derived class
         decorated_derived_class_method = self._handler(getattr(self, "handle"))
@@ -218,12 +220,10 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             parser (argparse object)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         parser.add_argument(
             "--infile",
@@ -296,13 +296,13 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Buffered:
                 TypeError
-
+            Raised:
+                AggregatedErrors
         Returns:
-            Nothing
+            None
         """
         here = f"{type(self).__module__}.{type(self).__name__}"
         if not issubclass(self.loader_class, TableLoader):
@@ -326,15 +326,13 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             fn (function)
-
-        Raises:
+        Exceptions:
             AggregatedErrors
-
         Returns:
             handle_wrapper (function)
                 Args:
                     **options (command line options)
-                Raises:
+                Exceptions:
                     TBD by the wrapped method
                 Returns:
                     TBD by the wrapped method
@@ -413,10 +411,8 @@ class LoadTableCommand(ABC, BaseCommand):
             sheet (str): Name of the sheet to load (for error reporting only).
             file (str): Name of the file to load (for error reporting only).
             **kwargs (key/value pairs): Any custom args for the derived loader class, e.g. compound synonyms delimiter
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             The return of loader.load_data()
         """
@@ -425,17 +421,15 @@ class LoadTableCommand(ABC, BaseCommand):
     def report_status(self):
         """Prints load status per model.
 
-        Reports counts of loaded, existed and errored records.  Includes a note about dry run mode, if active.  Respects
-        the verbosity option.
+        Reports counts of loaded, updated, existed, skipped, errored, and warned records.  Includes a note about dry run
+        mode, if active.  Respects the verbosity option.
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         if self.options["verbosity"] == 0:
             return
@@ -448,7 +442,8 @@ class LoadTableCommand(ABC, BaseCommand):
             mdl_name = mdl.__name__
             if mdl_name in load_stats.keys():
                 msg += (
-                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], and errored: [%i].\n"
+                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], errored: [%i], and warned: "
+                    "[%i].\n"
                     % (
                         mdl_name,
                         load_stats[mdl_name]["created"],
@@ -456,6 +451,7 @@ class LoadTableCommand(ABC, BaseCommand):
                         load_stats[mdl_name]["updated"],
                         load_stats[mdl_name]["skipped"],
                         load_stats[mdl_name]["errored"],
+                        load_stats[mdl_name]["warned"],
                     )
                 )
 
@@ -478,10 +474,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults_sheet (str)
         """
@@ -496,10 +490,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             df (pandas DataFrame)
         """
@@ -524,10 +516,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             headers (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
@@ -565,10 +555,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             custom_headers (namedtupe of loader_class.DataTableHeaders): Header names by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             headers (namedtupe of loader_class.DataTableHeaders): Header names by header key
         """
@@ -579,10 +567,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
@@ -605,10 +591,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             custom_defaults (namedtupe of loader_class.DataTableHeaders): Default values by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults (namedtupe of loader_class.DataTableHeaders): Header names by header key
         """
@@ -619,10 +603,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             user_defaults (pandas dataframe)
         """
@@ -659,10 +641,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             infile (str)
         """

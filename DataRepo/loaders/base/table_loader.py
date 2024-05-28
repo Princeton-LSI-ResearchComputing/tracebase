@@ -956,7 +956,7 @@ class TableLoader(ABC):
         method).
 
         Metadata initialized:
-        - record_counts (dict of dicts of ints): Created, existed, updated, and errored counts by model.
+        - record_counts (dict of dicts of ints): Created, existed, updated, errored, and warned counts by model.
         - defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
         - sheet (str): Name of the data sheet in an excel file (changes to None if not excel).
         - defaults_sheet (str): Name of the defaults sheet in an excel file (changes to None if not excel).
@@ -1015,6 +1015,7 @@ class TableLoader(ABC):
             self.record_counts[mdl.__name__]["updated"] = 0
             self.record_counts[mdl.__name__]["skipped"] = 0
             self.record_counts[mdl.__name__]["errored"] = 0
+            self.record_counts[mdl.__name__]["warned"] = 0
 
     @staticmethod
     def isnamedtuple(obj) -> bool:
@@ -1992,9 +1993,11 @@ class TableLoader(ABC):
                         self.aggregated_errors_object.buffer_error(e)
 
                     if self.aggregated_errors_object.exception_type_exists(NoLoadData):
-                        # Check to see if data was actually loaded from the derived class using an alternate means than
-                        # the dataframe (/infile) option, by assuming that if there are any stats (created, skipped,
-                        # existed, or updated), it means that data was successfully processed
+                        # Check to see if data was actually processed from the derived class using an alternate means
+                        # than the dataframe(/infile) option, by assuming that if there are any stats (created, skipped,
+                        # existed, updated, errored, or warned), it means that data was processed.  This can happen for
+                        # example, if the records being loaded are files themselves, where no input file is being
+                        # traversed.
                         for stats_dict in self.record_counts.values():
                             for count in stats_dict.values():
                                 if count > 0:
@@ -2038,7 +2041,7 @@ class TableLoader(ABC):
 
         If model_name is supplied, it returns that model name.  If not supplied, and models is of length 1, it returns
         that one model.  The purpose of this method is so that simple 1-model loaders do not need to supply the model
-        name to the created, existed, updated, and errored methods.
+        name to the created, existed, updated, errored, and warned methods.
 
         Args:
             model_name (str)
@@ -2147,6 +2150,22 @@ class TableLoader(ABC):
             Nothing
         """
         self.record_counts[self._get_model_name(model_name)]["errored"] += num
+
+    def warned(self, model_name: Optional[str] = None, num=1):
+        """Increments a warned record count for a model.
+
+        Note, this is not for all warnings.  It only pertains to data-specific warnings from the input file.
+
+        Args:
+            model_name (Optional[str])
+
+        Raises:
+            Nothing
+
+        Returns:
+            Nothing
+        """
+        self.record_counts[self._get_model_name(model_name)]["warned"] += num
 
     def get_load_stats(self):
         """Returns the model record status counts.
