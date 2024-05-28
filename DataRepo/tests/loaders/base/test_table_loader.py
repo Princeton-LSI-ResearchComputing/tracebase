@@ -294,7 +294,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_get_load_stats(self):
         tl = self.TestLoader()
         ls = tl.get_load_stats()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -302,6 +302,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             ls,
@@ -322,6 +323,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             tl.record_counts,
@@ -330,7 +332,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_existed(self):
         tl = self.TestLoader()
         tl.existed()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -338,6 +340,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             tl.record_counts,
@@ -346,7 +349,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_skipped(self):
         tl = self.TestLoader()
         tl.skipped()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -354,6 +357,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 1,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             tl.record_counts,
@@ -362,7 +366,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_errored(self):
         tl = self.TestLoader()
         tl.errored()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -370,6 +374,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 1,
+                    "warned": 0,
                 }
             },
             tl.record_counts,

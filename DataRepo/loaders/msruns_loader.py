@@ -667,6 +667,7 @@ class MSRunsLoader(TableLoader):
                         # unprivileged user.
                         is_fatal=self.validate,
                     )
+                    self.warned(MSRunSample.__name__)
 
             if sample is None or msrun_sequence is None or self.is_skip_row():
                 self.skipped(MSRunSample.__name__)
@@ -693,6 +694,7 @@ class MSRunsLoader(TableLoader):
                         rownum=self.rownum,
                     )
                 )
+                self.warned(MSRunSample.__name__)
 
             if mzxml_path is not None and mzxml_metadata is None:
                 self.skipped(MSRunSample.__name__)
@@ -1308,6 +1310,7 @@ class MSRunsLoader(TableLoader):
                     rownum=self.rownum,
                 )
             )
+            self.warned(MSRunSample.__name__)
             return None
 
         return matches[0]

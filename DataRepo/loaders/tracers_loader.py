@@ -628,6 +628,7 @@ class TracersLoader(TableLoader):
                         sheet=self.sheet,
                     )
                 )
+                self.warned(TracerLabel.__name__)
 
             # If anything was missing, we're going to just recreate the data from the names
             if fill_in is True:

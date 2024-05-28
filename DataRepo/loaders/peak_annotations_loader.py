@@ -370,7 +370,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.instrument_default = self.msrunsloader.instrument_default
 
     # TODO: Yet to be done:
-    # Add warnings to the stats
     # tests
     #     ConvertedTableLoader
     #         check_output_dataframe
@@ -873,8 +872,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # warning (as opposed to just printing a warning for a curator running the load script on the command line -
             # who shouldn't have to worry about it)
             self.aggregated_errors_object.buffer_warning(olnp, is_fatal=self.validate)
-            self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
-            self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
+            self.warned(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
+            self.warned(PeakDataLabel.__name__, num=num_possible_isotope_observations)
             return pglrecs, pdlrecs
         except (
             IsotopeStringDupe,
@@ -884,8 +883,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # Add file context
             ie.set_formatted_message(**infile_err_args)
             self.aggregated_errors_object.buffer_error(ie)
-            self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
-            self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
+            self.errored(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
+            self.errored(PeakDataLabel.__name__, num=num_possible_isotope_observations)
             return pglrecs, pdlrecs
 
         # Get or create the PeakGroupLabel and PeakDataLabel records

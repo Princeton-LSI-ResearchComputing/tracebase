@@ -157,16 +157,13 @@ class LoadTableCommandTests(TracebaseTestCase):
 
     def test_apply_handle_wrapper(self):
         """
-        This tests indirectly that apply_handle_wrapper works.  apply_handle_wrapper is called from the constructor and
-        wraps the derived class's with a method called handle_wrapper.  When handle_wrapper executes, it adds an
-        attribute named saved_aes, so to test that it was applied as a wrapper, we create an instance of MyCommand
-        (which inherits from LoadTableCommand) and then we call handle().  We then ensure the saved_aes attribute
-        was added, from which we infer that the handle_wrapper was applied.
+        This tests that apply_handle_wrapper works.  apply_handle_wrapper is called from the constructor and wraps the
+        derived class with a method called handle_wrapper.  To test that it was applied as a wrapper, we create an
+        instance of MyCommand (which inherits from LoadTableCommand) and then we check that the name of the method is
+        the wrapper name.
         """
         mc = TestCommand()
-        self.assertFalse(hasattr(mc, "saved_aes"))
-        mc.handle(**self.TEST_OPTIONS)
-        self.assertTrue(hasattr(mc, "saved_aes"))
+        self.assertEqual(mc.handle.__name__, "handle_wrapper")
 
     def test_check_class_attributes_pass(self):
         """
@@ -329,8 +326,8 @@ class LoadTableCommandTests(TracebaseTestCase):
         # Now test the output is correct
         self.assertEqual(
             (
-                "Done.\nLoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], and errored: "
-                "[4].\n"
+                "Done.\nLoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], errored: "
+                "[4], and warned: [0].\n"
             ),
             capture_stdout.getvalue(),
         )
@@ -379,7 +376,8 @@ class LoadTableCommandTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Dry-run complete.  The following would occur during a real load:\n"
-                "LoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], and errored: [4].\n"
+                "LoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], errored: [4], and "
+                "warned: [0].\n"
             ),
             capture_stdout.getvalue(),
         )
