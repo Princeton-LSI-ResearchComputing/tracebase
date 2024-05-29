@@ -1400,9 +1400,11 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # This is the method we're testing
         msrl.load_data()
 
-        MSRunSample.objects.get(
+        msrs = MSRunSample.objects.get(
             sample=smpl,
             msrun_sequence=seq,
             ms_data_file__filename="BAT-xz971.mzXML",
         )
-        # No exception = successful test
+
+        self.assertIsNotNone(msrs.ms_data_file.file_location)
+        # TODO: Figure out how to test that the file_location is an actual stored file
