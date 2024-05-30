@@ -1,14 +1,20 @@
-import time
+from __future__ import annotations
 
-from django.test import TestCase, TransactionTestCase
+import os
+import shutil
+import time
+from typing import Type
+
+from django.test import TestCase, TransactionTestCase, override_settings
 
 from DataRepo.models.utilities import get_all_models
+from TraceBase import settings
 
 LONG_TEST_THRESH_SECS = 20
 LONG_TEST_ALERT_STR = f" [ALERT > {LONG_TEST_THRESH_SECS}]"
 
 
-def test_case_class_factory(base_class):
+def test_case_class_factory(base_class) -> Type[TestCase]:
     """
     Class creation factory where the base class is an argument.  Note, it must receive a TestCase-compatible class.
     """
@@ -95,5 +101,28 @@ def reportRunTime(id, startTime):
 
 
 # Classes created by the factory with different base classes:
-TracebaseTestCase = test_case_class_factory(TestCase)
-TracebaseTransactionTestCase = test_case_class_factory(TransactionTestCase)
+TracebaseTestCase: TestCase = test_case_class_factory(TestCase)
+TracebaseTransactionTestCase: TestCase = test_case_class_factory(TransactionTestCase)
+
+
+@override_settings(
+    CACHES=settings.TEST_CACHES,
+    STORAGES=settings.TEST_FILE_STORAGES,
+    MEDIA_ROOT=settings.TEST_MEDIA_ROOT,
+)
+class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
+    ARCHIVE_DIR = settings.TEST_MEDIA_ROOT
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        shutil.rmtree(cls.ARCHIVE_DIR, ignore_errors=True)
+
+    def setUp(self):
+        super().setUp()
+        shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
+        os.mkdir(self.ARCHIVE_DIR)
+
+    def tearDown(self):
+        shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
+        super().tearDown()

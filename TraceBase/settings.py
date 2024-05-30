@@ -148,8 +148,11 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 # File storage location
 MEDIA_URL = "/archive/"
 MEDIA_ROOT = env.str("ARCHIVE_DIR", default=os.path.join(BASE_DIR, "archive"))
+TEST_MEDIA_ROOT = env.str(
+    "TEST_ARCHIVE_DIR", default=os.path.join(BASE_DIR, "archive_test")
+)
 
-STORAGES = {
+DEFAULT_STORAGES = {
     # Django defaults:
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -157,14 +160,28 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
-    # Testing/production
-    "testing": {
-        "BACKEND": "django.core.files.storage.InMemoryStorage",
-    },
     "production": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
 }
+TEST_STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.InMemoryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+TEST_FILE_STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+STORAGES = DEFAULT_STORAGES
 
 # File storage handling for tests
 # https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
