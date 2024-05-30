@@ -239,6 +239,8 @@ class TableLoader(ABC):
         self.sheet = data_sheet
         self.defaults_file = defaults_file
         self.defaults_sheet = defaults_sheet
+        self.row_index = None
+        self.rownum = None
 
         # This is for preserving derived class headers and defaults
         self.headers = headers
