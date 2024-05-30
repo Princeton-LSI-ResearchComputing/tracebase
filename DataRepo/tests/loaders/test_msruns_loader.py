@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,7 +17,10 @@ from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.models.sample import Sample
 from DataRepo.models.tissue import Tissue
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseArchiveTestCase,
+    TracebaseTestCase,
+)
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
@@ -24,24 +28,30 @@ from DataRepo.utils.exceptions import (
 )
 
 
+def create_animal_and_tissue_records():
+    inf = Infusate()
+    inf.save()
+    anml = Animal.objects.create(
+        name="test_animal",
+        age=timedelta(weeks=int(13)),
+        sex="M",
+        genotype="WT",
+        body_weight=200,
+        diet="normal",
+        feeding_status="fed",
+        infusate=inf,
+    )
+    tsu = Tissue.objects.create(name="Brain")
+    print(f"CREATED ANIMAL AND TISSUE: {anml} {tsu}")
+    return anml, tsu
+
+
 class MSRunsLoaderTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
     @classmethod
     def setUpTestData(cls):
-        inf = Infusate()
-        inf.save()
-        cls.anml = Animal.objects.create(
-            name="test_animal",
-            age=timedelta(weeks=int(13)),
-            sex="M",
-            genotype="WT",
-            body_weight=200,
-            diet="normal",
-            feeding_status="fed",
-            infusate=inf,
-        )
-        cls.tsu = Tissue.objects.create(name="Brain")
+        cls.anml, cls.tsu = create_animal_and_tissue_records()
         smpl = Sample.objects.create(
             name="Sample Name",
             tissue=cls.tsu,
@@ -1359,9 +1369,18 @@ class MSRunsLoaderTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
+
+class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+
     def test_load_data(self):
         """This tests loading JUST the mzxml files with just the files themselves and defaults arguments (/command line
         options).  I.e. no dataframe (/infile)."""
+
+        # For some reason, doing this in a setUpTestData method caused errors on lines below that referenced self.anml
+        # and self.tsu, so I put the call directly in the test.
+        # TODO: Figure out how to put this call in classmethod: setUpTestData
+        anml, tsu = create_animal_and_tissue_records()
 
         seq = MSRunSequence.objects.create(
             researcher="L.C. McMethod",
@@ -1371,8 +1390,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         smpl = Sample.objects.create(
             name="BAT-xz971",
-            tissue=self.tsu,
-            animal=self.anml,
+            tissue=tsu,
+            animal=anml,
             researcher="John Doe",
             date=datetime.now(),
         )
@@ -1407,4 +1426,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         self.assertIsNotNone(msrs.ms_data_file.file_location)
-        # TODO: Figure out how to test that the file_location is an actual stored file
+        self.assertTrue(
+            os.path.isfile(msrs.ms_data_file.file_location.path),
+            msg="Asserts mzXML file was created in the archive.",
+        )
