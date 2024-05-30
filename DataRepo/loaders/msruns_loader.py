@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import xmltodict
-from django.db import transaction
+from django.db import ProgrammingError, transaction
 from django.db.models import Max, Min, Q
+from django.forms import model_to_dict
 
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
@@ -14,11 +15,12 @@ from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.sample import Sample
-from DataRepo.models.utilities import update_rec
+from DataRepo.models.utilities import exists_in_db, update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
     MixedPolarityErrors,
+    MultipleRecordsReturned,
     MutuallyExclusiveArgs,
     MzxmlParseError,
     RecordDoesNotExist,
@@ -306,6 +308,13 @@ class MSRunsLoader(TableLoader):
             self.lc_protocol_name_default = lc_protocol_name_default
             self.instrument_default = instrument_default
 
+        self.msrun_sequence_dict = {}
+        # Save the default MSRunSequence record (if any) in the self.msrun_sequence_dict:
+        self.get_msrun_sequence()
+
+        # This will contain the created ArchiveFile records for mzXML files
+        self.created_mzxml_archive_file_recs = []
+
         # This will contain metadata parsed from the mzXML files (and the created ArchiveFile records to be added to
         # MSRunSample records
         self.mzxml_dict = defaultdict(lambda: defaultdict(list))
@@ -376,6 +385,10 @@ class MSRunsLoader(TableLoader):
                             # Continue processing rows to find more errors
                             pass
 
+        # If there were any exceptions (i.e. a rollback of everything will be triggered)
+        if self.aggregated_errors_object.should_raise():
+            self.clean_up_created_mzxmls_in_archive()
+
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
         """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates self.mzxml_dict.
@@ -406,6 +419,8 @@ class MSRunsLoader(TableLoader):
             mzaf_rec, mzaf_created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
             if mzaf_created:
                 self.created(ArchiveFile.__name__)
+                # Save the path to the file in the archive in case of rollback
+                self.created_mzxml_archive_file_recs.append(mzaf_rec)
             else:
                 self.existed(ArchiveFile.__name__)
         except (DataType.DoesNotExist, DataFormat.DoesNotExist) as dne:
@@ -731,8 +746,6 @@ class MSRunsLoader(TableLoader):
 
         return rec, created, updated
 
-        return rec, created, updated
-
     def get_sample_by_name(self, sample_name, from_mzxml=False):
         """Get a Sample record by name.
         Args:
@@ -750,7 +763,7 @@ class MSRunsLoader(TableLoader):
         rec = None
         try:
             rec = Sample.objects.get(name=sample_name)
-        except Sample.DoesNotExist:
+        except Sample.DoesNotExist as dne:
             if from_mzxml:
                 file = (
                     self.file
@@ -767,7 +780,8 @@ class MSRunsLoader(TableLoader):
                             "does not exist.  Please identify the associated sample and add a row with it, the "
                             f"matching mzXML file name(s), and the {self.headers.SEQNAME} to %s."
                         ),
-                    )
+                    ),
+                    orig_exception=dne,
                 )
             else:
                 self.aggregated_errors_object.buffer_error(
@@ -778,7 +792,8 @@ class MSRunsLoader(TableLoader):
                         sheet=self.sheet,
                         column=self.headers.SAMPLENAME,
                         rownum=self.rownum,
-                    )
+                    ),
+                    orig_exception=dne,
                 )
         return rec
 
@@ -863,8 +878,6 @@ class MSRunsLoader(TableLoader):
 
         return rec, created
 
-        return rec, created
-
     def get_msrun_sequence(self, name: Optional[str] = None) -> Optional[MSRunSequence]:
         """Retrieves an MSRunSequence record using either the value in the supplied SEQNAME column or via defaults for
         the Sequences sheet.
@@ -887,11 +900,24 @@ class MSRunsLoader(TableLoader):
         Returns:
             msrseq (Optional[MSRunSequence])
         """
+        rec = None
+        query_dict = {}
+        missing_defaults = []
+        # The origin of the sequence data used to retrieve the sequence
+        origin = (
+            "the default arguments: [operator, date, instrument, and lc_protocol_name]"
+        )
+        lookup_key = name if name is not None else "default"
+
         try:
-            if name is not None:
+            if lookup_key in self.msrun_sequence_dict.keys():
+                # We have already computed the value for this search before, so just return it from the dict
+                return self.msrun_sequence_dict[lookup_key]
+            elif name is not None:
                 # If we have a name, that means that the value is from the data sheet (not the defaults file/sheet)
                 # Record where any possible errors will come from for the catch below
-                file = self.file
+                origin = "infile"
+                error_source = self.file
                 sheet = self.sheet
                 column = self.DefaultsHeaders.DEFAULT_VALUE
                 rownum = self.rownum
@@ -901,54 +927,68 @@ class MSRunsLoader(TableLoader):
                 date = string_to_datetime(
                     date_str,
                     # The following arguments are for error reporting
-                    file=file,
+                    file=error_source,
                     sheet=sheet,
                     column=column,
                     rownum=rownum,
                 )
+
+                query_dict = {
+                    "researcher": operator,
+                    "date": date,
+                    "lc_method__name": lcprotname,
+                    "instrument": instrument,
+                }
             else:
-                # Error-reporting info
                 if self.df is None:
-                    file = (
-                        self.defaults_file
-                        if self.defaults_file is not None
-                        else "the defaults file"
-                    )
+                    # There is no Peak Annotation Details infile present
+                    if self.defaults_file is not None:
+                        origin = "defaultsfile"
+                        error_source = self.defaults_file
+                    else:
+                        # Overloading the file variable to reference the defaults (to present in errors)
+                        error_source = origin
                     sheet = None
+                    column = None
                 else:
-                    file = self.file
-                    sheet = (
-                        self.defaults_sheet
-                        if self.defaults_file is not None
-                        else "the defaults sheet"
-                    )
-                column = self.DefaultsHeaders.DEFAULT_VALUE
+                    if self.defaults_file is not None:
+                        origin = "defaultsfile"
+                        error_source = self.defaults_file
+                        sheet = None
+                        column = self.DefaultsHeaders.DEFAULT_VALUE
+                    elif self.file is not None:
+                        origin = "defaultsfile"  # Really, the sheet in the --infile, but that doesn't matter
+                        error_source = self.file
+                        sheet = self.defaults_sheet
+                        column = self.DefaultsHeaders.DEFAULT_VALUE
+                    else:
+                        error_source = origin
+                        sheet = None
+                        column = None
+                # We aren't processing rows here.  If there was a file, it was done by the sequences loader, so we never
+                # have a row number.
                 rownum = None
 
-                if (
-                    len(
-                        # If all the defaults are set for the sequences loader
-                        [
-                            v
-                            for v in [
-                                self.operator_default,
-                                self.date_default,
-                                self.lc_protocol_name_default,
-                                self.instrument_default,
-                            ]
-                            if v is not None
-                        ]
-                    )
-                    == 4
-                ):
-                    operator = self.operator_default
-                    lcprotname = self.lc_protocol_name_default
-                    instrument = self.instrument_default
-                    date_str = self.date_default
-                    date = string_to_datetime(
-                        date_str,
+                if self.operator_default is not None:
+                    query_dict["researcher"] = self.operator_default
+                else:
+                    missing_defaults.append(SequencesLoader.DataHeaders.OPERATOR)
+
+                if self.lc_protocol_name_default is not None:
+                    query_dict["lc_method__name"] = self.lc_protocol_name_default
+                else:
+                    missing_defaults.append(SequencesLoader.DataHeaders.LCNAME)
+
+                if self.instrument_default is not None:
+                    query_dict["instrument"] = self.instrument_default
+                else:
+                    missing_defaults.append(SequencesLoader.DataHeaders.INSTRUMENT)
+
+                if self.date_default is not None:
+                    query_dict["date"] = string_to_datetime(
+                        self.date_default,
                         # The following arguments are for error reporting
-                        file=file,
+                        file=error_source,
                         sheet=sheet,
                         column=column,
                         # We didn't save this when reading the defaults sheet, so we're going to name the row by the
@@ -956,82 +996,69 @@ class MSRunsLoader(TableLoader):
                         rownum=SequencesLoader.DataHeaders.DATE,
                     )
                 else:
-                    # We didn't save this when reading the defaults sheet, so we're going to name the rows by the
-                    # sequences loader's corresponding column headers
-                    missing_defaults_header_rows = []
-                    if self.operator_default is None:
-                        missing_defaults_header_rows.append(
-                            SequencesLoader.DataHeaders.OPERATOR
-                        )
-                    if self.lc_protocol_name_default is None:
-                        missing_defaults_header_rows.append(
-                            SequencesLoader.DataHeaders.LCNAME
-                        )
-                    if self.instrument_default is None:
-                        missing_defaults_header_rows.append(
-                            SequencesLoader.DataHeaders.INSTRUMENT
-                        )
-                    if self.date_default is None:
-                        missing_defaults_header_rows.append(
-                            SequencesLoader.DataHeaders.DATE
-                        )
-                    rownum = ", ".join(
-                        [
-                            f"{self.DefaultsSheetName} {rowname}"
-                            for rowname in missing_defaults_header_rows
-                        ]
-                    )
+                    missing_defaults.append(SequencesLoader.DataHeaders.DATE)
 
-                    raise RequiredColumnValues(
+            # Don't perform the query if no query exists (i.e. None will be returned)
+            if len(query_dict.keys()) > 0:
+                rec = MSRunSequence.objects.get(**query_dict)
+
+        except MSRunSequence.DoesNotExist as dne:
+            self.aggregated_errors_object.buffer_error(
+                RecordDoesNotExist(
+                    MSRunSequence,
+                    query_dict,
+                    file=error_source,
+                    sheet=sheet,
+                    column=column,
+                    rownum=rownum,
+                ),
+                orig_exception=dne,
+            )
+        except MSRunSequence.MultipleObjectsReturned as mor:
+            if len(missing_defaults) > 0 and origin != "infile":
+                self.aggregated_errors_object.buffer_error(
+                    RequiredColumnValues(
                         [
                             RequiredColumnValue(
-                                file=file,
+                                file=error_source,
                                 sheet=sheet,
                                 column=column,
                                 rownum=f"{self.DefaultsSheetName} {rowname}",
                             )
-                            for rowname in missing_defaults_header_rows
+                            for rowname in missing_defaults
                         ]
-                    )
-
-            msrseq_query_dict = {
-                "researcher": operator,
-                "date": date,
-                "lc_method__name": lcprotname,
-                "instrument": instrument,
-            }
-
-            msrseq = MSRunSequence.objects.get(**msrseq_query_dict)
-
-        except Exception as e:
-            if isinstance(e, InfileError):
-                self.aggregated_errors_object.buffer_error(e)
-            elif isinstance(e, MSRunSequence.DoesNotExist):
-                seqsource = self.file if self.file is not None else self.defaults_file
-                if seqsource is None:
-                    seqsource = "the default arguments: [operator, date, instrument, and lc_protocol_name]"
-                self.aggregated_errors_object.buffer_error(
-                    RecordDoesNotExist(
-                        MSRunSequence,
-                        msrseq_query_dict,
-                        file=seqsource,
-                        sheet=self.sheet,
-                    )
+                    ),
+                    orig_exception=mor,
                 )
             else:
                 self.aggregated_errors_object.buffer_error(
-                    InfileError(
-                        f"{type(e).__name__}: {e}",
-                        file=file,
+                    MultipleRecordsReturned(
+                        MSRunSequence,
+                        query_dict,
+                        file=error_source,
                         sheet=sheet,
                         column=column,
                         rownum=rownum,
                     ),
-                    orig_exception=e,
+                    orig_exception=mor,
                 )
-            msrseq = None
+        except InfileError as ie:
+            self.aggregated_errors_object.buffer_error(ie)
+        except Exception as e:
+            self.aggregated_errors_object.buffer_error(
+                InfileError(
+                    f"{type(e).__name__}: {e}",
+                    file=error_source,
+                    sheet=sheet,
+                    column=column,
+                    rownum=rownum,
+                ),
+                orig_exception=e,
+            )
+        finally:
+            self.msrun_sequence_dict[lookup_key] = rec
 
-        return msrseq
+        return rec
 
     def get_matching_mzxml_metadata(
         self,
@@ -1428,3 +1455,63 @@ class MSRunsLoader(TableLoader):
             suffix_patterns=suffix_patterns, add_patterns=add_patterns
         )
         return re.sub(pattern, "", mzxml_bamename)
+
+    def clean_up_created_mzxmls_in_archive(self):
+        """Call this method when rollback did/will happen in order to delete mzXML files added to the archive on disk.
+
+        Args:
+            None
+        Exceptions:
+            Buffers:
+                NotImplementedError
+                ProgrammingError
+                OSError
+            Raises:
+                None
+        Returns:
+            None
+        """
+        if not self.aggregated_errors_object.should_raise():
+            self.aggregated_errors_object.buffer_error(
+                NotImplementedError(
+                    "clean_up_created_mzxmls_in_archive is not intended for use when an exception has not been raised."
+                )
+            )
+            return
+
+        deleted = 0
+        failures = 0
+        skipped = 0
+        for rec in self.created_mzxml_archive_file_recs:
+            # If there was no associated file, or the file wasn't actually created, there's nothing to delete, so
+            # continue
+            if not rec.file_location or not os.path.isfile(rec.file_location.path):
+                skipped += 1
+                continue
+
+            # To be extra safe, we will confirm that the record does not exist in the database before deleting
+            if exists_in_db(rec):
+                self.aggregated_errors_object.buffer_error(
+                    ProgrammingError(
+                        f"Cannot delete a file [{rec.file_location.path}] from the os that is associated with "
+                        f"existing {ArchiveFile.__name__} database record: {model_to_dict(rec)}."
+                    )
+                )
+            else:
+                try:
+                    os.remove(rec.file_location.path)
+                    deleted += 1
+                except Exception as e:
+                    self.aggregated_errors_object.buffer_error(
+                        OSError(
+                            f"Unable to delete created mzXML archive file: [{rec.file_location.path}] during "
+                            f"rollback due to {type(e).__name__}: {e}"
+                        ),
+                        orig_exception=e,
+                    )
+                    failures += 1
+
+        print(
+            f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "
+            f"{skipped} expected files did not exist."
+        )

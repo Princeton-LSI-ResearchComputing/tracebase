@@ -5,7 +5,11 @@ import warnings
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, Optional
 
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import (
+    MultipleObjectsReturned,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.core.management import CommandError
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
@@ -2627,6 +2631,15 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
             message = (
                 f"{model.__name__} record matching {query_dict} from %s does not exist."
             )
+        super().__init__(message, **kwargs)
+        self.query_dict = query_dict
+        self.model = model
+
+
+class MultipleRecordsReturned(InfileError, MultipleObjectsReturned):
+    def __init__(self, model, query_dict, message=None, **kwargs):
+        if message is None:
+            message = f"{model.__name__} record matching {query_dict} from %s returned multiple records."
         super().__init__(message, **kwargs)
         self.query_dict = query_dict
         self.model = model
