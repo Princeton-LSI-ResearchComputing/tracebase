@@ -1583,5 +1583,17 @@ class TableLoaderTests(TracebaseTestCase):
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):
     def test_flatten(self):
-        # TODO: Implement test
-        pass
+        """The applied use of this flatten method was/is to flatten ValidationError objects (which are iterable), but it
+        can work on any (non-string/non-byte) iterable."""
+        ve = ValidationError(
+            [
+                ValidationError(ValidationError("one")),
+                ValidationError(
+                    [
+                        ValidationError("two"),
+                        ValidationError("three"),
+                    ]
+                ),
+            ]
+        )
+        self.assertEqual("['one', 'two', 'three']", str(ve))
