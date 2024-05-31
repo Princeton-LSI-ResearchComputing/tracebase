@@ -369,27 +369,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.lc_protocol_name_default = self.msrunsloader.lc_protocol_name_default
         self.instrument_default = self.msrunsloader.instrument_default
 
-    # TODO: Yet to be done:
-    # tests
-    #     ConvertedTableLoader
-    #         check_output_dataframe
-    #         condense_columns
-    #         revert_headers
-    #         initialize_merge_dict
-    #         get_required_sheets
-    #         check for more
-    #     PeakAnnotationsLoader (AccucorLoader/IsocorrLoader)
-    #         initialize_sequence_defaults
-    #         load_data
-    #         get_or_create_annot_file
-    #         get_or_create_peak_group
-    #         get_msrun_sample
-    #         get_or_create_peak_data
-    #         get_or_create_labels
-    #         get_or_create_peak_group_label
-    #         get_or_create_peak_data_label
-    #         check for more
-
     def load_data(self):
         """Loads the ArchiveFile, PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
         Args:
