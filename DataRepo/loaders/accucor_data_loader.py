@@ -1379,8 +1379,6 @@ class AccuCorDataLoader:
             # Some original data is missing, use the provided labeled count
             if labeled_count:
                 count = labeled_count
-            # Note that this inserts the parent record (count 0) as always 12C, since the parent is
-            # always carbon with a mass_number of 12.
             peak_data_label = PeakDataLabel(
                 peak_data=peak_data,
                 element=isotope["element"],
