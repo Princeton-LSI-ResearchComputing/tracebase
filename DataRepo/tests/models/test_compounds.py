@@ -41,8 +41,11 @@ class CompoundTests(TracebaseTestCase):
             self.assertEqual(alanine.atom_count("Abc"), None)
 
     def test_get_name_query_expression(self):
-        # TODO: Implement test
-        pass
+        q_exp = Compound.get_name_query_expression("alanine")
+        self.assertEqual(
+            "(OR: ('name__iexact', 'alanine'), ('synonyms__name__iexact', 'alanine'))",
+            str(q_exp),
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
