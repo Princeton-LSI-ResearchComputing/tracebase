@@ -1,5 +1,6 @@
 import re
 from collections import defaultdict
+from copy import deepcopy
 from itertools import zip_longest
 from typing import List, Optional, TypedDict
 
@@ -253,7 +254,8 @@ def parse_isotope_label(
         Buffers:
             None
     Returns:
-        isotope_observations (List[ObservedIsotopeData])
+        isotope_observations (List[ObservedIsotopeData]): List of isotopes.  Note, PARENT records have no isotopes, so
+            an empty list is returned for parent strings.
     """
     isotope_observations = []
 
@@ -275,7 +277,7 @@ def parse_isotope_label(
                 )
             else:
                 dupe_check = defaultdict(list)
-                a_dupe_index = -1
+                dupe_indexes = []
                 for index in range(len(elements)):
                     obs = ObservedIsotopeData(
                         element=elements[index],
@@ -285,33 +287,39 @@ def parse_isotope_label(
                     )
                     isotope_observations.append(obs)
                     dupe_check[elements[index]].append(obs)
-                    if len(dupe_check.keys()) > 1:
-                        a_dupe_index = index
+                    if len(dupe_check[elements[index]]) > 1:
+                        dupe_indexes.append(index)
 
                 # Add 0-counts for isotopes that were not observed, but could have been
                 if possible_observations is not None:
-                    for parent_obs in possible_observations:
-                        if parent_obs["element"] not in elements:
-                            isotope_observations.append(parent_obs)
+                    for pos_obs in possible_observations:
+                        if pos_obs["element"] not in elements:
+                            zero_obs = deepcopy(pos_obs)
+                            zero_obs["count"] = 0
+                            zero_obs["parent"] = False
+                            isotope_observations.append(zero_obs)
                     parent_elements = [
-                        parent_obs["element"] for parent_obs in possible_observations
+                        pos_obs["element"] for pos_obs in possible_observations
                     ]
-                    impossible_observations = []
+                    unexpected_observations = []
                     for element in elements:
                         if element not in parent_elements:
-                            impossible_observations.append(element)
-                    if len(impossible_observations) > 0:
+                            unexpected_observations.append(element)
+                    if len(unexpected_observations) > 0:
                         raise UnexpectedLabels(
-                            impossible_observations, possible_observations
+                            unexpected_observations, possible_observations
                         )
 
-                if a_dupe_index != -1:
+                if len(dupe_indexes) > 0:
                     # If there are multiple isotope measurements that match the same parent tracer labeled element
                     # E.g. C13N15C13-label-2-1-1 would match C13 twice
                     # We only need to call attention to 1
+                    dupe_elems_str = ", ".join(
+                        [f"{elements[i]}{mass_numbers[i]}" for i in dupe_indexes]
+                    )
                     raise IsotopeStringDupe(
                         label,
-                        f"{elements[a_dupe_index]}{mass_numbers[a_dupe_index]}",
+                        dupe_elems_str,
                     )
     else:
         raise ObservedIsotopeParsingError(f"Unable to parse isotope label: [{label}]")
