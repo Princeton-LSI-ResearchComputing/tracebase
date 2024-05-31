@@ -2445,14 +2445,14 @@ class TracerLabeledElementNotFound(Exception):
 
 
 class UnexpectedLabels(InfileError):
-    def __init__(self, impossible, possible, **kwargs):
+    def __init__(self, unexpected, possible, **kwargs):
         message = (
-            f"Observed peak label(s) {impossible} were not among the expected labels {possible}.  There may be "
+            f"Observed peak label(s) {unexpected} were not among the expected labels {possible}.  There may be "
             "contamination."
         )
         super().__init__(message, **kwargs)
         self.possible = possible
-        self.impossible = impossible
+        self.unexpected = unexpected
 
 
 class SampleIndexNotFound(Exception):
