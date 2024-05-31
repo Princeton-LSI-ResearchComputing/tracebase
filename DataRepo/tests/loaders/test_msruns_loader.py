@@ -1432,5 +1432,59 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         # No exception = successful test
 
     def test_get_loaded_msrun_sample_dict(self):
-        # TODO: Implement test
-        pass
+        # Create a sequence for the load to retrieve
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
+        seq = MSRunSequence.objects.create(
+            researcher="Dick",
+            date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
+            instrument=inst,
+            lc_method=lcm,
+        )
+        # Create sample for the load to retrieve
+        s1 = Sample.objects.create(
+            name="s1",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        # Create MSRunSample record for the load to retrieve
+        msrs1 = MSRunSample.objects.create(
+            msrun_sequence=seq,
+            sample=s1,
+            polarity=None,
+            ms_raw_file=None,
+            ms_data_file=None,
+        )
+
+        # Create a dataframe to use to retrieve the records
+        # Including a sample (s2) from a non-matching file (which should not be retrieved)
+        df = pd.DataFrame.from_dict(
+            {
+                "Sample Name": ["s1", "s2"],
+                "Sample Data Header": ["s1_pos", "s2_pos"],
+                "mzXML File Name": ["s1_pos.mzXML", "s2_pos.mzXML"],
+                "Peak Annotation File Name": ["accucor.xlsx", "accucor2.xlsx"],
+                "Sequence Name": [
+                    f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
+                    f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
+                ],
+            },
+        )
+
+        msrl = MSRunsLoader(df=df)
+        msrsd = msrl.get_loaded_msrun_sample_dict("accucor.xlsx")
+
+        expected = {
+            "s1_pos": {
+                "MSRunSample": msrs1,
+                "Peak Annotation File Name": "accucor.xlsx",
+                "Sample Data Header": "s1_pos",
+                "Sample Name": "s1",
+                "Sequence Name": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                "mzXML File Name": "s1_pos.mzXML",
+            },
+        }
+
+        self.assertDictEqual(expected, msrsd)
