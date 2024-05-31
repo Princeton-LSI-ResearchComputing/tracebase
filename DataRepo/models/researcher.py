@@ -54,7 +54,9 @@ def validate_researchers(input_researchers, known_researchers=None, skip_flag=No
             )
 
 
-def is_new_researcher(researcher: str, known_researchers: Optional[list]) -> bool:
+def could_be_variant_researcher(
+    researcher: str, known_researchers: Optional[list] = None
+) -> bool:
     """Check if a researcher could potentially be a variant of one already existing in the database.
 
     Known can be supplied for efficiency.

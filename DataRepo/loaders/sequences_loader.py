@@ -7,7 +7,10 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.models.researcher import get_researchers, is_new_researcher
+from DataRepo.models.researcher import (
+    could_be_variant_researcher,
+    get_researchers,
+)
 from DataRepo.utils.exceptions import (
     InfileError,
     NewResearcher,
@@ -173,7 +176,7 @@ class SequencesLoader(TableLoader):
             # Check the researcher being added, and buffer a warning if new
             # Doing this before skipping intentionally, so we check all in the file.
             operator = self.get_row_val(row, self.headers.OPERATOR)
-            if operator is not None and is_new_researcher(
+            if operator is not None and could_be_variant_researcher(
                 operator, known_researchers=known_researchers
             ):
                 # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
