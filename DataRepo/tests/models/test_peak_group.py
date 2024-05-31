@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from django.core.exceptions import ValidationError
 from django.core.files import File
 
 from DataRepo.models import (
@@ -18,6 +19,7 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
 
 
 class PeakGroupTests(TracebaseTestCase):
@@ -25,8 +27,7 @@ class PeakGroupTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        inf = Infusate()
-        inf.save()
+        inf = Infusate.objects.create()
         anml = Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
@@ -38,7 +39,7 @@ class PeakGroupTests(TracebaseTestCase):
             infusate=inf,
         )
         tsu = Tissue.objects.create(name="Brain")
-        smpl = Sample.objects.create(
+        cls.smpl = Sample.objects.create(
             name="Sample Name",
             tissue=tsu,
             animal=anml,
@@ -47,54 +48,51 @@ class PeakGroupTests(TracebaseTestCase):
         )
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
 
-        seq = MSRunSequence(
+        cls.seq = MSRunSequence.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
-        seq.full_clean()
-        seq.save()
-        mstype = DataType.objects.get(code="ms_data")
-        rawfmt = DataFormat.objects.get(code="ms_raw")
-        mzxfmt = DataFormat.objects.get(code="mzxml")
+        cls.seq.full_clean()
+        cls.mstype = DataType.objects.get(code="ms_data")
+        cls.rawfmt = DataFormat.objects.get(code="ms_raw")
+        cls.mzxfmt = DataFormat.objects.get(code="mzxml")
         rawrec = ArchiveFile.objects.create(
             filename="test.raw",
             file_location=None,
             checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
-            data_type=mstype,
-            data_format=rawfmt,
+            data_type=cls.mstype,
+            data_format=cls.rawfmt,
         )
         mzxrec = ArchiveFile.objects.create(
             filename="test.mzxml",
             file_location=None,
             checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
-            data_type=mstype,
-            data_format=mzxfmt,
+            data_type=cls.mstype,
+            data_format=cls.mzxfmt,
         )
-        msr = MSRunSample(
-            msrun_sequence=seq,
-            sample=smpl,
+        msr = MSRunSample.objects.create(
+            msrun_sequence=cls.seq,
+            sample=cls.smpl,
             polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
         msr.full_clean()
-        msr.save()
 
+        cls.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        cls.accucor_format = DataFormat.objects.get(code="accucor")
         path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
-            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
-            accucor_format = DataFormat.objects.get(code="accucor")
             accucor_file = ArchiveFile.objects.create(
                 filename="small_obob_maven_6eaas_inf.xlsx",
                 file_location=myfile,
                 checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
-                data_type=ms_peak_annotation,
-                data_format=accucor_format,
+                data_type=cls.ms_peak_annotation,
+                data_format=cls.accucor_format,
             )
-            accucor_file.save()
 
         cls.pg = PeakGroup.objects.create(
             name="gluc",
@@ -125,5 +123,50 @@ class PeakGroupTests(TracebaseTestCase):
         self.assertEqual(4.0, self.pg.max_med_mz)
 
     def test_clean_raises_MultiplePeakGroupRepresentations(self):
-        # TODO: Implement test
-        pass
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c6",
+            data_type=self.mstype,
+            data_format=self.rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c7",
+            data_type=self.mstype,
+            data_format=self.mzxfmt,
+        )
+        msr = MSRunSample.objects.create(
+            msrun_sequence=self.seq,
+            sample=self.smpl,
+            polarity="negative",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msr.full_clean()
+        accucor_file = ArchiveFile.objects.create(
+            filename="small_obob_maven_6eaas_inf2.xlsx",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c8",
+            data_type=self.ms_peak_annotation,
+            data_format=self.accucor_format,
+        )
+        pg = PeakGroup.objects.create(
+            name="gluc",
+            formula="C6H12O6",
+            msrun_sample=msr,
+            peak_annotation_file=accucor_file,
+        )
+
+        # The clean method should raise a MultiplePeakGroupRepresentations exception (derived from ValidationError)
+        with self.assertRaises(ValidationError) as ar:
+            pg.full_clean()
+
+        # Make sure it's a MultiplePeakGroupRepresentations exception
+        self.assertTrue(
+            isinstance(
+                ar.exception.error_dict["__all__"][0],
+                MultiplePeakGroupRepresentations,
+            ),
+        )
