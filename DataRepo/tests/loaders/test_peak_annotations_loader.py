@@ -18,7 +18,11 @@ class PeakAnnotationsLoaderTests(TracebaseTestCase):
         # TODO: Implement test
         pass
 
-    def test_get_msrun_sample(self):
+    def test_get_msrun_sample_no_annot_details_df(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_msrun_sample_with_blank_skip(self):
         # TODO: Implement test
         pass
 
