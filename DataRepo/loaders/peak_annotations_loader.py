@@ -607,12 +607,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # 1. The first way we will try to obtain the MSRunSample record is using the data provided in the Peak
         #    Annotation Details sheet, if one was provided.  That data was obtained in the initialize_sequence_defaults
         #    method (called by the constructor).
-        if (
-            sample_header in self.msrun_sample_dict.keys()
-            and self.msrun_sample_dict[sample_header][MSRunSample.__name__] is not None
-        ):
+        if sample_header in self.msrun_sample_dict.keys():
+
             self.msrun_sample_dict[sample_header]["seen"] = True
-            return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
+
+            if (
+                self.msrun_sample_dict[sample_header][self.msrunsloader.headers.SKIP]
+                is True
+            ):
+                return None
+
+            if self.msrun_sample_dict[sample_header][MSRunSample.__name__] is not None:
+                return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
         # 2. The second way (if a Peak Annotation Details sheet was not provided, or doesn't list a value for this
         #    sample header) is to start searching using the sample header to look for an exact matching sample name.  If
@@ -1042,8 +1048,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # TODO: Consolidate RecordDoesNotExist exceptions about Sample records as either a HeaderAsSampleDoesNotExist
         # exception or MissingSamplesError.  Filter potential blanks as UnskippedBlanksError and when
         # self.msrun_sample_dict is empty and there are 0 peak groups added, convert the exceptions to a NoSamplesError
-
-        # TODO: Edit the msruns loader to treat DB sample column values containing "blank" as a blank.
 
         # TODO: Process self.msrun_sample_dict[*]["seen"] == False to mark sample headers in the dict as not existing
         # in the peak annot file and process the self.missing_headers_as_samples as not existing in the peak annotation

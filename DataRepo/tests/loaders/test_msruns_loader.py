@@ -1483,6 +1483,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Sample Data Header": "s1_pos",
                 "Sample Name": "s1",
                 "Sequence Name": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                "Skip": False,
                 "mzXML File Name": "s1_pos.mzXML",
             },
         }
