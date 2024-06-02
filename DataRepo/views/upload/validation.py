@@ -42,7 +42,7 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
-    NoSamplesError,
+    NoSamples,
 )
 from DataRepo.utils.file_utils import read_from_file, read_headers_from_file
 from DataRepo.utils.lcms_metadata_parser import (
@@ -539,7 +539,7 @@ class DataValidationView(FormView):
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
-                NoSamplesError,
+                NoSamples,
             ]:
 
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
@@ -568,7 +568,7 @@ class DataValidationView(FormView):
                                 f"{len(exc.missing_treatment_errors)} treatment names"
                             )
                             self.extract_all_missing_treatments(exc)
-                        # We're only removing NoSamplesErrors. All their samples are added to the AllMissingSamplesError
+                        # We're only removing NoSamples. All their samples are added to the AllMissingSamplesError
 
                     elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][

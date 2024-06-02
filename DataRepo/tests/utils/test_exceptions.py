@@ -6,7 +6,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     CompoundDoesNotExist,
     DateParseError,
-    DuplicateCompoundIsotope,
+    DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
     EmptyColumns,
@@ -1168,7 +1168,7 @@ class ExceptionTests(TracebaseTestCase):
             DuplicateValues({"1": [1, 2]}, ["A", "B", "C"]),
             DuplicateValues({"2": [6, 9]}, ["A", "B", "C"]),
         ]
-        exc = DuplicateCompoundIsotope(dvs, ["A", "B"])
+        exc = DuplicateCompoundIsotopes(dvs, ["A", "B"])
         self.assertIn("Column(s) ['A', 'B']", str(exc))
         self.assertIn("1 (rows*: 3-4)", str(exc))
         self.assertIn("2 (rows*: 8, 11)", str(exc))
