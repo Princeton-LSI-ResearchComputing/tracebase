@@ -52,7 +52,7 @@ from DataRepo.utils import (
     DupeCompoundIsotopeCombos,
     IsotopeParsingError,
     MissingCompounds,
-    MissingSamplesError,
+    MissingSamples,
     MissingTissue,
     ObservedIsotopeParsingError,
     RequiredSampleValuesError,
@@ -2355,7 +2355,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 ]
             ),
             MissingCompounds({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
-            MissingSamplesError(["a", "b"]),
+            MissingSamples(["a", "b"]),
         ]
         aes = AggregatedErrors(exceptions=exceptions)
         lsc.package_group_exceptions(aes, "accucor.xlsx")
@@ -2569,7 +2569,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[2],
-                MissingSamplesError,
+                MissingSamples,
             ),
         )
 

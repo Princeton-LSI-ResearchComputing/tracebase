@@ -61,13 +61,13 @@ from DataRepo.utils.exceptions import (
     MissingCompounds,
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
-    MissingSamplesError,
+    MissingSamples,
     MixedPolarityErrors,
     MultipleAccucorTracerLabelColumnsError,
     MultipleMassNumbers,
     MzxmlConflictErrors,
     NoSampleHeaders,
-    NoSamplesError,
+    NoSamples,
     NoTracerLabeledElements,
     PeakAnnotationParseError,
     ObservedIsotopeParsingError,
@@ -78,7 +78,7 @@ from DataRepo.utils.exceptions import (
     TracerLabeledElementNotFound,
     UnexpectedIsotopes,
     UnexpectedLCMSSampleDataHeaders,
-    UnskippedBlanksError,
+    UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel
 from DataRepo.utils.lcms_metadata_parser import (
@@ -995,7 +995,7 @@ class AccuCorDataLoader:
                 len(possible_blanks) > 0 and not self.validate
             ):  # Only buffer this exception in load mode
                 self.aggregated_errors_object.buffer_exception(
-                    UnskippedBlanksError(possible_blanks),
+                    UnskippedBlanks(possible_blanks),
                     is_error=not self.validate,  # Error in load mode, warning in validate mode
                     is_fatal=not self.validate,  # Fatal in load mode, will not be raised/reported in validate mode
                     #                              unless there is an accompanying fatal exception.
@@ -1003,13 +1003,11 @@ class AccuCorDataLoader:
                 )
             if len(likely_missing) > 0 and len(sample_dict.keys()) != 0:
                 self.aggregated_errors_object.buffer_error(
-                    MissingSamplesError(likely_missing)
+                    MissingSamples(likely_missing)
                 )
 
             if len(sample_dict.keys()) == 0:
-                self.aggregated_errors_object.buffer_error(
-                    NoSamplesError(likely_missing)
-                )
+                self.aggregated_errors_object.buffer_error(NoSamples(likely_missing))
                 if self.aggregated_errors_object.should_raise():
                     raise self.aggregated_errors_object
 

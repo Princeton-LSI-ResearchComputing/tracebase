@@ -655,10 +655,10 @@ class NewResearcher(InfileError, SummarizableError):
 
 
 class AllMissingSamplesError(Exception):
-    """This is a summary of the MissingSamplesError and NoSamplesError classes."""
+    """This is a summary of the MissingSamples and NoSamples classes."""
 
     def __init__(self, missing_samples_dict, message=None):
-        """An exception for all missing samples errors (MissingSampelsError and NoSamplesError).
+        """An exception for all missing samples errors (MissingSamples and NoSamples).
 
         Args:
             missing_samples_dict (dict): Example:
@@ -712,8 +712,14 @@ class AllMissingSamplesError(Exception):
         self.missing_samples_dict = missing_samples_dict
 
 
-class MissingSamplesError(Exception):
-    def __init__(self, missing_samples, message=None):
+class MissingSamples(Exception):
+    def __init__(
+        self,
+        missing_samples,
+        suggestion=None,
+        message=None,
+        exceptions: Optional[List[RecordDoesNotExist]] = None,
+    ):
         if missing_samples is None:
             missing_samples = []
         if not message:
@@ -724,18 +730,23 @@ class MissingSamplesError(Exception):
                 f"{nltab.join(missing_samples)}\n"
                 "Samples must be loaded prior to loading mass spec data."
             )
+        if suggestion is not None:
+            message += f"  {suggestion}"
         super().__init__(message)
         self.missing_samples = missing_samples
+        self.suggestion = suggestion
+        self.exceptions = exceptions
 
 
 class RequiredArgument(Exception):
-    def __init__(self, argname, methodname=None):
-        if methodname is None:
-            message = f"A non-None value for argument '{argname}' is required."
-        else:
-            message = (
-                f"{methodname} requires a non-None value for argument '{argname}'."
-            )
+    def __init__(self, argname, methodname=None, message=None):
+        if message is None:
+            if methodname is None:
+                message = f"A non-None value for argument '{argname}' is required."
+            else:
+                message = (
+                    f"{methodname} requires a non-None value for argument '{argname}'."
+                )
         super().__init__(message)
         self.argname = argname
         self.methodname = methodname
@@ -754,40 +765,52 @@ class HeaderAsSampleDoesNotExist(InfileError):
         self.suggestion = suggestion
 
 
-class UnskippedBlanksError(MissingSamplesError):
-    def __init__(self, samples):
+class UnskippedBlanks(MissingSamples):
+    def __init__(self, sample_names, **kwargs):
+        if sample_names is None:
+            raise RequiredArgument(
+                "sample_names",
+                type(self).__name__,
+                message="A non-zero sized list is required.",
+            )
         message = (
-            f"{len(samples)} samples that appear to possibly be blanks are missing in the database: "
-            f"[{', '.join(samples)}].  Blank samples should be skipped."
+            f"{len(sample_names)} samples that appear to possibly be blanks are missing in the database: "
+            f"[{', '.join(sample_names)}].  Blank samples should be skipped."
         )
-        super().__init__(samples, message)
+        super().__init__(sample_names, message=message, **kwargs)
 
 
-class NoSamplesError(Exception):
-    def __init__(self, missing_samples):
-        """An error to abbreviate an error about all samples.
-
-        Args:
-            missing_samples (list of strings): Missing samples (with prefixes) that are not likely blanks (e.g. not
-                containing "blank").
-
-        Exceptions:
-            None
-
-        Returns:
-            instance containing:
-                missing_samples (list of strings): See args above
-        """
-        if missing_samples is None:
-            raise ValueError("A non-zero sized list of missing_samples is required.")
-        num_samples = len(missing_samples)
+class NoSamples(MissingSamples):
+    def __init__(self, sample_names, **kwargs):
+        """An error to abbreviate an error about all samples."""
+        if sample_names is None:
+            raise RequiredArgument(
+                "sample_names",
+                type(self).__name__,
+                message="A non-zero sized list is required.",
+            )
+        num_samples = len(sample_names)
         message = (
             f"None of the {num_samples} samples were found in the database/sample table file.  Samples "
-            "in the accucor/isocorr files must be present in the sample table file and loaded into the database "
+            "in the peak annotation files must be present in the sample table file and loaded into the database "
             "before they can be loaded from the mass spec data files."
         )
-        super().__init__(message)
-        self.missing_samples = missing_samples
+        super().__init__(sample_names, message=message, **kwargs)
+
+
+class UnexpectedSamples(MissingSamples):
+    def __init__(self, sample_names, **kwargs):
+        if sample_names is None:
+            raise RequiredArgument(
+                "sample_names",
+                type(self).__name__,
+                message="A non-zero sized list is required.",
+            )
+        message = (
+            "The following sample data headers were not found among the peak annotation file headers: "
+            f"{sample_names}."
+        )
+        super().__init__(sample_names, message=message, **kwargs)
 
 
 class NoSampleHeaders(InfileError):
@@ -1476,7 +1499,7 @@ class AggregatedErrors(Exception):
 
     def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -1522,7 +1545,7 @@ class AggregatedErrors(Exception):
 
     def remove_exception_type(self, exception_class, modify=True):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -1784,7 +1807,7 @@ class AggregatedErrors(Exception):
 
     def remove_matching_exceptions(self, cls, attr_name, attr_val):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -2063,7 +2086,7 @@ class DuplicateValues(InfileError, SummarizableError):
         self.dupdeets = dupdeets
 
 
-class DuplicateCompoundIsotope(Exception):
+class DuplicateCompoundIsotopes(Exception):
     """
     Summary of DuplicateValues exceptions specific to the PeakAnnotationsLoader.  It removes the sample column, because
     all errors always affect all samples, given the pre-conversion pandas DataFrame, which has a column for each sample
