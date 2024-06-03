@@ -114,23 +114,11 @@ class InfileError(Exception):
         order=None,
     ):
         self.location_args = ["rownum", "column", "file", "sheet"]
-        self.rownum = rownum
-        self.sheet = sheet
-        self.file = file
-        self.column = column
-        loc = generate_file_location_string(
-            rownum=rownum, sheet=sheet, file=file, column=column
-        )
-        self.loc = loc
-        self.message = message
-        self.orig_message = message
-        self.rownum = rownum
-        self.sheet = sheet
-        self.file = file
-        self.column = column
         self.loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
         )
+        self.message = message
+        self.orig_message = message
         self.set_formatted_message(
             rownum=rownum,
             sheet=sheet,
@@ -155,6 +143,7 @@ class InfileError(Exception):
             sheet
             file
             column
+            order
             message
             loc
 
@@ -186,6 +175,7 @@ class InfileError(Exception):
         self.sheet = sheet
         self.file = file
         self.column = column
+        self.order = order
         self.loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
         )
@@ -738,7 +728,6 @@ class MissingSamples(Exception):
         self.exceptions = exceptions
 
 
-# TODO: Create a SummarizableError superclass for RecordDoesNotExist that does what this method does, but generically
 class MissingCompounds(InfileError):
     def __init__(
         self,
@@ -747,42 +736,33 @@ class MissingCompounds(InfileError):
         suggestion=None,
         **kwargs,
     ):
+        # Initialize the remaining kwargs
+        super().__init__("", **kwargs)
         if not message:
-            # Get the field names that were searched
-            flds = RecordDoesNotExist.get_common_criteria(exceptions)
-            # Create a dict from all of the exceptions keyed on the search terms for the field(s)
-            vals_dict: Dict[str, list] = defaultdict(list)
-            for exc in exceptions:
-                val_combo = ", ".join([exc.query_obj[fkey] for fkey in flds])
-                rownum = (
-                    exc.rownum if exc.rownum is not None else "no row number supplied"
-                )
-                if (
-                    val_combo not in vals_dict.keys()
-                    or rownum not in vals_dict[val_combo]
-                ):
-                    vals_dict[val_combo].append(exc.rownum)
+            flds_str, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
+                exceptions
+            )
 
-            # Now summarize the values and the rows on which they occurred
+            # Summarize the values and the rows on which they occurred
             nltab = "\n\t"
             cmdps_str = nltab.join(
                 list(
                     map(
-                        lambda key: f"{key} on row(s): {summarize_int_list(vals_dict[key])}",
+                        lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
                         vals_dict.keys(),
                     )
                 )
             )
-            column_str = (
-                f" (from column(s) {self.column})" if self.column is not None else ""
-            )
             message = (
-                f"{len(exceptions)} compounds matching fields {flds}{column_str} in %s, with the following values were "
-                f"not found in the database:{nltab}{cmdps_str}\n"
+                f"{len(exceptions)} compounds {flds_str} in %s, with the following values were not "
+                f"found in the database:{nltab}{cmdps_str}\n"
             )
+
         if suggestion is not None:
             message += suggestion
-        super().__init__(message, **kwargs)
+
+        self.orig_message = message
+        self.set_formatted_message(**kwargs)
 
 
 class RequiredArgument(Exception):
@@ -3253,29 +3233,165 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
         self.suggestion = suggestion
 
     @classmethod
-    def get_common_criteria(cls, instances: List[RecordDoesNotExist]):
-        """Given a list of RecordDoesNotExist instances, all whose query_obj attributes are dicts with the same keys, it
-        returns a list of those keys."""
-        criteria: Dict[str, int] = defaultdict(int)
+    def get_failed_searches_dict(cls, instances: List[RecordDoesNotExist]):
+        """Given a list of RecordDoesNotExist instances, a field description and dict like the following example is
+        returned:
+
+            {"George": [1, 2, 3, 4]}
+
+        Where the first key is the search term, and the value is a list of row numbers from an input file where the term
+        was found.
+
+        Args:
+            instances (List[RecordDoesNotExist]): RecordDoesNotExist exceptions
+        Exceptions:
+            ProgrammingError
+        Returns:
+            fields_stub (str): Search field/column and comparator
+            search_valuecombos_rows_dict (defaultdict(list))
+        """
+        search_valuecombos_rows_dict = defaultdict(list)
+        model = None
+        column = None
+        fields_stub = None
         for inst in instances:
-            if isinstance(inst.query_obj, dict):
-                for term in inst.query_obj.keys():
-                    criteria[term] += 1
+            if model is None:
+                model = inst.model
+            elif inst.model != model:
+                raise ProgrammingError(
+                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
+                    f"model.  {inst.model} != {model}"
+                )
+
+            if column is None:
+                column = inst.column
+
+            if column is not None:  # Optional
+                # If there are multiple columns, the order must be manually made to match the order used in the query in
+                # order for the values to match respectively
+                query_fields_str = (
+                    f"from column(s): {column} [matching {inst.model.__name__} field(s): "
+                    f"{inst._get_query_stub()}]"
+                )
             else:
-                raise NotImplementedError(
-                    "get_common_criteria does not support instances of RecordDoesNotExist with query_obj attributes "
-                    "that are Q expressions."
+                query_fields_str = (
+                    f"matching {inst.model.__name__} field(s): {inst._get_query_stub()}"
                 )
-        num = -1
-        for term in criteria.keys():
-            if num == -1:
-                num = criteria[term]
-            elif num != criteria[term]:
-                raise NotImplementedError(
-                    "get_common_criteria only supports instances of RecordDoesNotExist with dict query_obj attributes "
-                    f"that all have the same keys {criteria}."
+
+            if fields_stub is None:
+                fields_stub = query_fields_str
+            elif fields_stub != query_fields_str:
+                raise ProgrammingError(
+                    "instances must be a list of RecordDoesNotExist exceptions generated from queries using the same "
+                    f"search fields (and comparators).  {fields_stub} != {query_fields_str}"
                 )
-        return list(criteria.keys())
+
+            query_values_str = inst._get_query_values_str()
+            rownum = (
+                inst.rownum if inst.rownum is not None else "no row number supplied"
+            )
+            search_valuecombos_rows_dict[query_values_str].append(rownum)
+
+        return fields_stub, search_valuecombos_rows_dict
+
+    def _get_query_stub(self, _query_obj: Optional[dict | Q] = None) -> str:
+        """This takes an instance and returns a string describing the fields (and comparators) the query operates on.
+        The values(/search terms) are replaced with numeric labels.  If there is only a single field/comparator, it will
+        be retendered as a single string (instead of a string version of a list or Q object).
+
+        The purpose of this method is to be able to generate strings that can be used as keys, so that a series of
+        failed searches using the same fields but different values can be grouped together.
+
+        Both arguments are private.  Do not supply manually.
+
+        Args:
+            _query_obj (Optional[dict|Q]): An object supplied to Model.objects.get/get_or_create/create/...
+        Exceptions:
+            None
+        Returns:
+            new_q (str|Q): The original call returns a string describing the search fields and comparators.  Recursive
+                calls return Q objects.
+        """
+        if _query_obj is None:
+            _query_obj = self.query_obj
+
+        # Not recursive when given a dict
+        if isinstance(_query_obj, dict):
+            return ", ".join(_query_obj.keys())
+
+        # Must be a Q instance
+        search_fields_str = ""
+        if _query_obj.negated:
+            search_fields_str += "NOT "
+        if len(_query_obj.children) > 1:
+            search_fields_str += f"({_query_obj.connector}: "
+        search_fields_str += ", ".join(
+            [
+                (
+                    self._get_query_stub(_query_obj=sub_q)
+                    if isinstance(sub_q, Q)
+                    else str(sub_q[0])
+                )
+                for sub_q in _query_obj.children
+            ]
+        )
+        if len(_query_obj.children) > 1:
+            search_fields_str += ")"
+
+        return search_fields_str
+
+    def _get_query_values_str(
+        self, _query_obj: Optional[dict | Q] = None, _uniq_vals: Optional[list] = None
+    ) -> list | str:
+        """This takes an instance and returns a string of comma-delimited search terms from the query_obj.
+
+        The purpose of this method is to be able to generate strings that can be used as keys, so that a series of
+        failed searches using the same values from multiple rownums can be grouped together.
+
+        NOTE: The values(/search terms) will either be the values from every query field from the query_obj (unique or
+        not) or will only be the unique values if self.column is defined.  A column value can be used in multiple field
+        matches.  This is intended to reduce redundancy.  For example, if searching for a compound and looking in
+        Compound.name or CompoundSynonym.name, the same value from 1 column is used.  We don't need to include it twice.
+
+        Limitations:
+            This is a simple heuristic.  If values are ever manipulated or static terms are added, the only result will
+            be a different number of values compared to the listed column.
+
+        Args:
+            _query_obj (Optional[dict|Q]): An object supplied to Model.objects.get/get_or_create/create/...
+            _label (int): 1 for first call, not 1 otherwise
+        Exceptions:
+            None
+        Returns:
+            _uniq_vals (list|str): The original call returns a string describing the search fields and comparators.
+                Recursive calls return a list.
+        """
+        first_call = False
+        if _query_obj is None:
+            first_call = True
+            _query_obj = self.query_obj
+
+        if isinstance(_query_obj, dict):
+            return ", ".join(_query_obj.values())
+
+        if _uniq_vals is None:
+            _uniq_vals = []
+
+        for sub_q in _query_obj.children:
+            if isinstance(sub_q, Q):
+                _uniq_vals.extend(
+                    self._get_query_values_str(_query_obj=sub_q, _uniq_vals=_uniq_vals)
+                )
+            else:
+                val = str(sub_q[1])
+                # We are only returning unique values if self.column is defined.  See doc string.
+                if self.column is None or val not in _uniq_vals:
+                    _uniq_vals.append(val)
+
+        if first_call:
+            return ", ".join(_uniq_vals)
+
+        return _uniq_vals
 
 
 class MultipleRecordsReturned(InfileError, MultipleObjectsReturned):
