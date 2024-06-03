@@ -392,6 +392,33 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             polarity="positive",
         )
 
+        # Test peak data labels
+        peak_data = PeakData.objects.filter(peak_group__name="Glycerol").filter(
+            peak_group__msrun_sample__sample__name="M1_mix1_T150"
+        )
+
+        peak_data_labels = []
+        for peakdata in peak_data.all():
+            pdl = peakdata.labels.values("element", "mass_number", "count")
+            peak_data_labels.append(list(pdl))
+
+        expected = [
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 3},
+            ],
+        ]
+
+        self.assertEqual(expected, list(peak_data_labels))
+
     def test_accucor_bad_label(self):
         """
         This tests that a bad label in the accucor file (containing an element not in the tracers) generates a single
