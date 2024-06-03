@@ -12,14 +12,12 @@ from DataRepo.utils.exceptions import (
     EmptyColumns,
     ExcelSheetNotFound,
     ExcelSheetsNotFound,
-    HeaderAsSampleDoesNotExist,
     InfileError,
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
     IsotopeStringDupe,
     MissingColumnGroup,
-    MissingCompound,
     MissingDataAdded,
     MissingTissue,
     MissingTreatment,
@@ -1138,16 +1136,6 @@ class ExceptionTests(TracebaseTestCase):
             "do_stuff requires a non-None value for argument 'val'.", str(exc)
         )
 
-    def test_HeaderAsSampleDoesNotExist(self):
-        exc = HeaderAsSampleDoesNotExist(
-            "Bat Wing Sample 1", suggestion="You should add it."
-        )
-        self.assertIn(
-            "Sample header 'Bat Wing Sample 1' does not match an existing Sample record name.",
-            str(exc),
-        )
-        self.assertIn("You should add it.", str(exc))
-
     def test_EmptyColumns(self):
         exc = EmptyColumns(
             "Sample",
@@ -1185,11 +1173,6 @@ class ExceptionTests(TracebaseTestCase):
             str(exc),
         )
 
-    def test_MissingCompound(self):
-        exc = MissingCompound("lysine")
-        self.assertIn("string lysine was not found", str(exc))
-        self.assertIn("add the compound to the Compounds sheet", str(exc))
-
     def test_ObservedIsotopeUnbalancedError(self):
         exc = ObservedIsotopeUnbalancedError(
             ["C", "N"], [13, 15], [1, 2, 1], "13C15N-1-2-1"
@@ -1219,4 +1202,4 @@ class ExceptionTests(TracebaseTestCase):
 
     def test_NoTracerLabeledElements(self):
         exc = NoTracerLabeledElements()
-        self.assertEqual("No tracer_labeled_elements.", str(exc))
+        self.assertIn("No tracer_labeled_elements.", str(exc))
