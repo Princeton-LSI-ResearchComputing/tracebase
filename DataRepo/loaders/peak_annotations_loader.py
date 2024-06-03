@@ -28,6 +28,7 @@ from DataRepo.utils.exceptions import (
     DuplicateCompoundIsotopes,
     DuplicateValues,
     IsotopeStringDupe,
+    MissingCompounds,
     MissingSamples,
     NoSamples,
     NoTracerLabeledElements,
@@ -42,6 +43,8 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.file_utils import is_excel, string_to_datetime
 from DataRepo.utils.infusate_name_parser import parse_isotope_label
+
+PeakGroupCompound = PeakGroup.compounds.through
 
 
 class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
@@ -167,8 +170,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 "Forward-slash (/) delimited compound names, (e.g. 'citrate/isocitrate').  Order does not matter - "
                 "they will be alphanumerically re-ordered upon insert into the database."
             ),
-            # TODO: Might be able to add dynamic choices here if it can be based on joining compounds with the same
-            # formula
+            # TODO: Add dynamic_choices here from the Compounds sheet by joining compounds with the same formula
         ),
         SAMPLEHEADER=TableColumn.init_flat(
             name=DataHeaders.SAMPLEHEADER,
@@ -197,7 +199,14 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.
-    Models = [ArchiveFile, PeakData, PeakDataLabel, PeakGroup, PeakGroupLabel]
+    Models = [
+        ArchiveFile,
+        PeakData,
+        PeakDataLabel,
+        PeakGroup,
+        PeakGroupLabel,
+        PeakGroupCompound,
+    ]
 
     CompoundNamesDelimiter = "/"
 
@@ -255,9 +264,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
-        # These custom options are for the member instance of MSRunsLoader's file, sheet, and df arguments.
-        # It will also take some arguments that overlap with this class's members (defaults_file, defaults_df, and
-        # MSRunsLoader's custom options: operator, date, lc protocol name, and instrument).
+        # Custom options for the MSRunsLoader member instance.
         self.peak_annotation_details_file = kwargs.pop(
             "peak_annotation_details_file", None
         )
@@ -275,12 +282,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     )
                 )
 
-        # Error tracking
-        # If the sample that a header maps to is missing, track it so we don't raise that error multiple times
-        self.missing_headers_as_samples = []
-
-        # We are going to use defaults as processed by the MSRunsLoader (which uses the SequencesLoader) in  order to be
-        # able to obtain the correct MSRunSample record that each PeakGroup belongs to
+        # The MSRunsLoader member instance is used for 2 purposes:
+        # 1. Obtain/process the MSRunSequence defaults (it uses the SequencesLoader).
+        # 2. Obtain the previously loaded MSRunSample records mapped to sample names (when different from the headers).
         self.msrunsloader = MSRunsLoader(
             file=self.peak_annotation_details_file,
             data_sheet=self.peak_annotation_details_sheet,
@@ -293,16 +297,22 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             instrument=kwargs.pop("instrument", None),
         )
 
+        # Convert the supplied df using the derived class.
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
         ConvertedTableLoader.__init__(self, *args, **kwargs)
 
-        # Initialize the default sequence data (obtained from self.msrunsloader)
+        # Initialize the MSRun Sample and Sequence data (obtained from self.msrunsloader)
         self.operator_default = None
         self.date_default = None
         self.lc_protocol_name_default = None
         self.instrument_default = None
         self.msrun_sample_dict = {}
-        self.initialize_sequence_defaults()
+        self.initialize_msrun_data()
+
+        # Error tracking/reporting - the remainder of this init (here, down) is all about error tracking/reporting.
+
+        # If the sample that a header maps to is missing, track it so we don't raise that error multiple times.
+        self.missing_headers_as_samples = []
 
         # For referencing the compounds sheet in errors about missing compounds
         if self.peak_annotation_details_file is None:
@@ -320,20 +330,22 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 file=self.peak_annotation_details_file,
             )
 
+        # Suggestions about failed header lookups depend on the supplied inputs.
         # TODO: Replace the sample sheet/column strings in the values below with a sheet/column reference from the
         # sample loader once the sample loader inherits from TableLoader
-        self.missing_msrs_suggestion = (
-            f"Did you forget to include this {self.headers.SAMPLEHEADER} in the "
-            f"{self.msrunsloader.headers.SAMPLEHEADER} column of the {self.msrunsloader.DataSheetName} sheet/file that "
-            "matches a Sample in the Samples sheet?"
-        )
         if self.peak_annotation_details_df is None:
             self.missing_msrs_suggestion = (
                 f"Please supply the peak_annotation_details_df argument to map "
                 f"{self.msrunsloader.headers.SAMPLEHEADER}s to database {self.msrunsloader.headers.SAMPLENAME}s."
             )
+        else:
+            self.missing_msrs_suggestion = (
+                f"Did you forget to include this {self.headers.SAMPLEHEADER} in the "
+                f"{self.msrunsloader.headers.SAMPLEHEADER} column of the {self.msrunsloader.DataSheetName} sheet/file "
+                "that matches a Sample in the Samples sheet?"
+            )
 
-    def initialize_sequence_defaults(self):
+    def initialize_msrun_data(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
         Details dataframe was provided.  It also initializes the default values for the sequence, for use in filling in
         sequence data in the Peak Annotation Details sheet, or later, if a Peak Annotation Details sheet was not
@@ -396,10 +408,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             pgrec = None
             pdrec = None
 
-            # Get matching compounds
+            # Get compounds
             pgname, cmpd_recs = self.get_peak_group_name_and_compounds(row)
 
-            # Get or create a PeakGroup record
+            # Get or create PeakGroups
             try:
                 pgrec, _ = self.get_or_create_peak_group(row, annot_file_rec, pgname)
             except RollbackException:
@@ -407,29 +419,30 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             # Get or create a linking table record between pgrec and each cmpd_rec (compounds with the same formula)
             for cmpd_rec in cmpd_recs:
+                if self.is_skip_row():
+                    self.skipped(PeakGroupCompound.__name__)
+                    continue
                 try:
                     self.get_or_create_peak_group_compound_link(pgrec, cmpd_rec)
                 except RollbackException:
                     pass
 
-            # Get or create a PeakData record
+            # Adding the compound link can cause an error if there are no elements in the compound that are lebeled
+            # elements in the tracer
+            if self.is_skip_row():
+                # If this happens, it is user error.  Every peak group compound should have elements that are labeled in
+                # at least 1 of the tracers.  We are technically skipping 0 record retrievals/creations here, but we
+                # will count 1 skip for each record type, for good measure.
+                self.skipped(PeakData.__name__)
+                self.skipped(PeakGroupLabel.__name__)
+                self.skipped(PeakDataLabel.__name__)
+                continue
+
+            # Get or create PeakData
             try:
                 pdrec, _ = self.get_or_create_peak_data(row, pgrec)
             except RollbackException:
                 pass
-
-            # Check the elements of the PeakGroup's compound to ensure it shares elements with the ones labeled in the
-            # tracers
-            if pgrec is not None and len(pgrec.peak_labeled_elements) == 0:
-                self.aggregated_errors_object.buffer_error(
-                    NoTracerLabeledElements(pgrec.name, pgrec.tracer_labeled_elements)
-                )
-                # So this shouldn't happen.  If it does, it is user error.  Every peak group compound should have
-                # elements that are labeled in at least 1 of the tracers.  We are technically skipping 0 record
-                # retrievals/creations here, but we will count 1 skip for each record type, for good measure.
-                self.skipped(PeakGroupLabel.__name__)
-                self.skipped(PeakDataLabel.__name__)
-                continue
 
             # Get or create a PeakGroupLabel and PeakDataLabel records
             self.get_or_create_labels(row, pdrec, pgrec)
@@ -494,18 +507,17 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             None
         Returns:
             pgname (str)
-            recs (Optional[List[Compound]])
+            recs (List[Compound])
         """
         names_str = self.get_row_val(row, self.headers.COMPOUND)
         names = names_str.split(self.CompoundNamesDelimiter)
-        recs = None
+        recs = []
 
         for name_str in names:
             name = name_str.strip()
             try:
                 recs.append(Compound.compound_matching_name_or_synonym(name))
             except (ValidationError, ObjectDoesNotExist) as cmpderr:
-                # TODO: This will have to be converted in handle_file_exceptions
                 self.aggregated_errors_object.buffer_error(
                     RecordDoesNotExist(
                         Compound,
@@ -519,7 +531,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 )
 
         pgname = None
-        if recs is not None:
+        if len(recs) > 0:
             # Set the peak group name to the sorted primary compound names, delimited by "/"
             pgname = self.CompoundNamesDelimiter.join(
                 [r.name for r in sorted(recs, key=lambda r: r.name)]
@@ -593,7 +605,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             row (pandas.Series)
         Exceptions:
             Buffers:
-                HeaderAsSampleDoesNotExist
                 RecordDoesNotExist
                 ConditionallyRequiredArgs
                 ProgrammingError
@@ -766,7 +777,50 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             rec (Optional[PeakData])
             created (boolean)
         """
-        pgrec.compounds.add(cmpd_rec)
+        created = False
+        rec = None
+
+        # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
+        pre = pgrec.compounds.all()
+
+        # This is the effective rec_dict
+        rec_dict = {
+            "peakgroup": pgrec,
+            "compound": cmpd_rec,
+        }
+
+        try:
+            pgrec.compounds.add(cmpd_rec)
+        except Exception as e:
+            self.handle_load_db_errors(e, PeakGroupCompound, rec_dict)
+            self.errored(PeakGroupCompound.__name__)
+            raise RollbackException()
+
+        post = pgrec.compounds.all()
+
+        # Determine if a record was created
+        created = post.count() > pre.count()
+
+        # Error check the labeled elements shared between the peak group's compound(s) and the tracers
+        if len(pgrec.peak_labeled_elements) == 0:
+            self.aggregated_errors_object.buffer_error(
+                NoTracerLabeledElements(pgrec.name, pgrec.tracer_labeled_elements)
+            )
+            # Subsequent record creations from this row should be skipped.
+            self.add_skip_row_index()
+            self.errored(PeakGroupCompound.__name__)
+            raise RollbackException()
+
+        # Retrieve the record (created or not)
+        rec = PeakGroupCompound.objects.get(**rec_dict)
+
+        if created:
+            self.created(self.errored(PeakGroupCompound.__name__))
+            # No need to call full clean.
+        else:
+            self.existed(self.errored(PeakGroupCompound.__name__))
+
+        return rec, created
 
     @transaction.atomic
     def get_or_create_peak_data(self, row, peak_group: Optional[PeakGroup]):
@@ -1141,21 +1195,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # summarize RecordDoesNotExist exceptions related to those sample headers.
         self.report_discrepant_headers()
 
-        # TODO: Consolidate all RecordDoesNotExist exceptions for the Compound model.
-        # orig_col, orig_sheet = self.original_column_lookup(
-        #     self.headers.COMPOUND
-        # )
-        # self.aggregated_errors_object.buffer_error(
-        #     MissingCompound(
-        #         name=name,
-        #         query_obj=Compound.get_name_query_expression(name),
-        #         compounds_loc=self.compounds_loc,
-        #         file=self.file,
-        #         sheet=orig_sheet,
-        #         column=orig_col,
-        #     ),
-        #     orig_exception=cmpderr,
-        # )
+        # Summarize missing compounds
+        compound_dnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Compound
+        )
+        MissingCompounds(
+            compound_dnes,
+            suggestion=(
+                "Compounds referenced in the peak annotation files must be loaded into the database before loading.  "
+                "Please take note of the compounds, select a primary name, any synonyms, and find an HMDB ID "
+                f"associated with the compound, and add it to {self.compounds_loc} in your submission."
+            ),
+        )
 
         # TODO: Make sure all other leftover RecordDoesNotExist exceptions are consolidated generically.
         # TODO: Add handling/consolidation of MultipleRecordsReturned

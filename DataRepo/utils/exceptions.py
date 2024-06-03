@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management import CommandError
+from django.db.models import Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
@@ -712,7 +713,7 @@ class MissingSamples(Exception):
     def __init__(
         self,
         missing_samples,
-        suggestion=None,
+        suggestion="Samples must be loaded prior to loading mass spec data.",
         message=None,
         exceptions: Optional[List[RecordDoesNotExist]] = None,
     ):
@@ -724,14 +725,60 @@ class MissingSamples(Exception):
             message = (
                 f"{num_missing} samples are missing in the database/sample-table-file:{nltab}"
                 f"{nltab.join(missing_samples)}\n"
-                "Samples must be loaded prior to loading mass spec data."
             )
         if suggestion is not None:
-            message += f"  {suggestion}"
+            message += suggestion
         super().__init__(message)
         self.missing_samples = missing_samples
         self.suggestion = suggestion
         self.exceptions = exceptions
+
+
+# TODO: Create a SummarizableError superclass for RecordDoesNotExist that does what this method does, but generically
+class MissingCompounds(InfileError):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        message=None,
+        suggestion=None,
+        **kwargs,
+    ):
+        if not message:
+            # Get the field names that were searched
+            flds = RecordDoesNotExist.get_common_criteria(exceptions)
+            # Create a dict from all of the exceptions keyed on the search terms for the field(s)
+            vals_dict: Dict[str, list] = defaultdict(list)
+            for exc in exceptions:
+                val_combo = ", ".join([exc.query_obj[fkey] for fkey in flds])
+                rownum = (
+                    exc.rownum if exc.rownum is not None else "no row number supplied"
+                )
+                if (
+                    val_combo not in vals_dict.keys()
+                    or rownum not in vals_dict[val_combo]
+                ):
+                    vals_dict[val_combo].append(exc.rownum)
+
+            # Now summarize the values and the rows on which they occurred
+            nltab = "\n\t"
+            cmdps_str = nltab.join(
+                list(
+                    map(
+                        lambda key: f"{key} on row(s): {summarize_int_list(vals_dict[key])}",
+                        vals_dict.keys(),
+                    )
+                )
+            )
+            column_str = (
+                f" (from column(s) {self.column})" if self.column is not None else ""
+            )
+            message = (
+                f"{len(exceptions)} compounds matching fields {flds}{column_str} in %s, with the following values were "
+                f"not found in the database:{nltab}{cmdps_str}\n"
+            )
+        if suggestion is not None:
+            message += suggestion
+        super().__init__(message, **kwargs)
 
 
 class RequiredArgument(Exception):
@@ -746,19 +793,6 @@ class RequiredArgument(Exception):
         super().__init__(message)
         self.argname = argname
         self.methodname = methodname
-
-
-class HeaderAsSampleDoesNotExist(InfileError):
-    def __init__(self, sample_header, suggestion=None, message=None, **kwargs):
-        if sample_header is None:
-            raise RequiredArgument("sample_header", type(self).__name__)
-        if not message:
-            message = f"Sample header '{sample_header}' does not match an existing Sample record name."
-        if suggestion is not None:
-            message += f"  {suggestion}"
-        super().__init__(message, **kwargs)
-        self.sample_header = sample_header
-        self.suggestion = suggestion
 
 
 class UnskippedBlanks(MissingSamples):
@@ -2153,8 +2187,10 @@ class SheetMergeError(Exception):
         self.animal_col_name = merge_col_name
 
 
-class NoTracerLabeledElements(Exception):
-    def __init__(self, compound: Optional[str] = None, elements: Optional[list] = None):
+class NoTracerLabeledElements(InfileError):
+    def __init__(
+        self, compound: Optional[str] = None, elements: Optional[list] = None, **kwargs
+    ):
         cpdstr = ""
         if compound is not None:
             cpdstr = f"PeakGroup compound [{compound}] contains no"
@@ -2164,7 +2200,7 @@ class NoTracerLabeledElements(Exception):
         if elements is not None:
             tcrstr = f" {elements}"
         message = f"{cpdstr} tracer_labeled_elements{tcrstr}."
-        super().__init__(message)
+        super().__init__(message, **kwargs)
 
 
 class IsotopeStringDupe(InfileError):
@@ -2323,7 +2359,7 @@ class AllMissingCompounds(Exception):
         self.compounds_dict = compounds_dict
 
 
-class MissingCompounds(Exception):
+class MissingCompoundsError(Exception):
     def __init__(self, compounds_dict, message=None):
         """
         Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
@@ -2350,28 +2386,6 @@ class MissingCompounds(Exception):
             )
         super().__init__(message)
         self.compounds_dict = compounds_dict
-
-
-class MissingCompound(InfileError):
-    def __init__(
-        self,
-        name,
-        query_obj=None,
-        compounds_loc="the Compounds sheet",
-        message=None,
-        **kwargs,
-    ):
-        query_msg = ""
-        if query_obj is not None:
-            query_msg = f" using query: {query_obj}"
-        message = (
-            f"Compound matching string {name} was not found in the database{query_msg}.  Please add the compound to "
-            f"{compounds_loc}."
-        )
-        super().__init__(message, **kwargs)
-        self.name = name
-        self.query_obj = query_obj
-        self.compounds_loc = compounds_loc
 
 
 class MissingTissue(InfileError):
@@ -3200,13 +3214,16 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
-    def __init__(self, model, query_obj, message=None, suggestion=None, **kwargs):
+    def __init__(
+        self, model, query_obj: dict | Q, message=None, suggestion=None, **kwargs
+    ):
         """General use DoesNotExist exception constructor for errors retrieving Model records.
 
         Args:
             model: (Model)
             query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
             message (Optional[str])
+            suggestion (str): An addendum as to how to possibly fix this issue.
         Exceptions:
             None
         Returns:
@@ -3221,6 +3238,32 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
         super().__init__(message, **kwargs)
         self.query_obj = query_obj
         self.model = model
+        self.suggestion = suggestion
+
+    @classmethod
+    def get_common_criteria(cls, instances: List[RecordDoesNotExist]):
+        """Given a list of RecordDoesNotExist instances, all whose query_obj attributes are dicts with the same keys, it
+        returns a list of those keys."""
+        criteria: Dict[str, int] = defaultdict(int)
+        for inst in instances:
+            if isinstance(inst.query_obj, dict):
+                for term in inst.query_obj.keys():
+                    criteria[term] += 1
+            else:
+                raise NotImplementedError(
+                    "get_common_criteria does not support instances of RecordDoesNotExist with query_obj attributes "
+                    "that are Q expressions."
+                )
+        num = -1
+        for term in criteria.keys():
+            if num == -1:
+                num = criteria[term]
+            elif num != criteria[term]:
+                raise NotImplementedError(
+                    "get_common_criteria only supports instances of RecordDoesNotExist with dict query_obj attributes "
+                    f"that all have the same keys {criteria}."
+                )
+        return list(criteria.keys())
 
 
 class MissingDataAdded(InfileError):
