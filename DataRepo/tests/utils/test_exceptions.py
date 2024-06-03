@@ -18,6 +18,7 @@ from DataRepo.utils.exceptions import (
     InvalidHeaderCrossReferenceError,
     IsotopeStringDupe,
     MissingColumnGroup,
+    MissingCompounds,
     MissingDataAdded,
     MissingTissue,
     MissingTreatment,
@@ -1203,3 +1204,30 @@ class ExceptionTests(TracebaseTestCase):
     def test_NoTracerLabeledElements(self):
         exc = NoTracerLabeledElements()
         self.assertIn("No tracer_labeled_elements.", str(exc))
+
+    def test_MissingCompounds(self):
+        from DataRepo.models import Compound
+
+        excs = [
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("lysine"),
+                column="compound",
+                rownum=5,
+            ),
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("vibranium"),
+                column="compound",
+                rownum=19,
+            ),
+        ]
+        mcs = MissingCompounds(excs, file="accucor.xlsx", sheet="Corrected")
+        self.assertIn("2 compounds from column(s): compound ", str(mcs))
+        self.assertIn(
+            "matching Compound field(s): (OR: name__iexact, synonyms__name__iexact)",
+            str(mcs),
+        )
+        self.assertIn("in sheet [Corrected] in accucor.xlsx", str(mcs))
+        self.assertIn("lysine from row(s): ['5']", str(mcs))
+        self.assertIn("vibranium from row(s): ['19']", str(mcs))
