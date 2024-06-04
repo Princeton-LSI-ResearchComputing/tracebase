@@ -171,8 +171,7 @@ class FCirc(MaintainedModel, HierCachedModel):
         prev_smpl_tmclctd_is_none_amng_many = 0
         sib_of_last_smpl_tmclctd_is_none = 0
         tmclctd_is_none_but_only1_smpl = 0  # If 1, status is still good
-        msr_date_is_none_but_only1_msr_for_smpl = 0  # If 1, status is still good
-        msr_date_is_none_and_many_msrs_for_smpl = 0
+        dynamic_data_stale = 0
         overall = 1
 
         if self.last_peak_group_in_sample is None:
@@ -189,21 +188,6 @@ class FCirc(MaintainedModel, HierCachedModel):
             # calculations is the animal's last such peak group
             if self.is_last_serum_peak_group():
                 prev_or_last_str = "last"
-
-                # If self.serum_sample is not the animal's last serum sample
-                if (
-                    self.serum_sample.id
-                    != self.serum_sample.animal.last_serum_sample.id
-                ):
-                    valid = False
-                    level = "warn"
-                    last_trcr_pg_but_prev_srmsmpl = 1
-                    messages.append(
-                        f"Animal {self.serum_sample.animal}'s last serum sample "
-                        f"({self.serum_sample.animal.last_serum_sample}) is not being used for calculations for "
-                        f"tracer {self.tracer}.  Sample {self.serum_sample} is being used instead.  The last serum "
-                        "sample probably does not contain a peak group for this tracer compound."
-                    )
 
                 # Check the sibling serum samples to see if there is adequate info to be confident that this sample is
                 # actually the last serum sample
@@ -234,32 +218,31 @@ class FCirc(MaintainedModel, HierCachedModel):
                         "may not actually be the last one."
                     )
 
-            # TODO: MSRunSequence.date can no longer be null, so these warnings can probably be removed
-            if (
-                # If the date of the MSRunSequence containing the "last" self.tracer peak group is none
-                self.last_peak_group_in_sample.msrun_sample.msrun_sequence.date is None
-                # and there exist other (potentially last) MSRunSamples that might contain a self.tracer peak group
-                and self.serum_sample.msrun_samples.count() > 1
-            ):
-                valid = False
-                level = "warn"
-                msr_date_is_none_and_many_msrs_for_smpl = 1
-                messages.append(
-                    f"The MSRunSequence date is not set for this {prev_or_last_str} serum tracer peak group for sample "
-                    f"{self.serum_sample} and tracer {self.tracer}, so it's possible these FCirc calculations should "
-                    "or should not be for the 'last' peak group for this serum sample."
-                )
-            elif (
-                self.last_peak_group_in_sample.msrun_sample.msrun_sequence.date is None
-                and self.serum_sample.msrun_samples.count() == 1
-            ):
-                # This doesn't trigger/override the valid or level settings, but it does append a message
-                msr_date_is_none_but_only1_msr_for_smpl = 1
-                messages.append(
-                    f"The MSRunSequence date is not set for this {prev_or_last_str} serum tracer peak group for sample "
-                    f"{self.serum_sample} and tracer {self.tracer}, but there's only 1 MSRunSequence for this sample, "
-                    "so it's of no real concern (yet)."
-                )
+                # If self.serum_sample is not the animal's last serum sample
+                if self.serum_sample.animal.last_serum_sample is None:
+                    # This is likely a stale maintained field value, and indicated that maintained fields should be
+                    # rebuilt.  Probably, there has been some manual manipulation of the data.
+                    valid = False
+                    level = "error"
+                    dynamic_data_stale = 1
+                    messages.append(
+                        "ERROR: There appears to be a stale last serum sample value associated with animal "
+                        f"{self.serum_sample.animal}.  All calculations will be suspect until this is fixed.  "
+                        "Maintained fields must be rebuilt."
+                    )
+                elif (
+                    self.serum_sample.id
+                    != self.serum_sample.animal.last_serum_sample.id
+                ):
+                    valid = False
+                    level = "warn"
+                    last_trcr_pg_but_prev_srmsmpl = 1
+                    messages.append(
+                        f"Animal {self.serum_sample.animal}'s last serum sample "
+                        f"({self.serum_sample.animal.last_serum_sample}) is not being used for calculations for "
+                        f"tracer {self.tracer}.  Sample {self.serum_sample} is being used instead.  The last serum "
+                        "sample probably does not contain a peak group for this tracer compound."
+                    )
 
             # Determine the number of serum samples, but don't rely on maintained fields (for robustness)
             num_serum_samples = 0
@@ -310,10 +293,9 @@ class FCirc(MaintainedModel, HierCachedModel):
                     last_trcr_pg_but_prev_srmsmpl,
                     sib_of_last_smpl_tmclctd_is_none,
                     prev_smpl_tmclctd_is_none_amng_many,
-                    msr_date_is_none_and_many_msrs_for_smpl,
+                    dynamic_data_stale,
                     overall,
                     tmclctd_is_none_but_only1_smpl,
-                    msr_date_is_none_but_only1_msr_for_smpl,
                 ]
             ]
         )
@@ -332,10 +314,9 @@ class FCirc(MaintainedModel, HierCachedModel):
                     "last_trcr_pg_but_prev_srmsmpl",
                     "sib_of_last_smpl_tmclctd_is_none",
                     "prev_smpl_tmclctd_is_none_amng_many",
-                    "msr_date_is_none_and_many_msrs_for_smpl",
+                    "dynamic_data_stale",
                     "overall",
                     "tmclctd_is_none_but_only1_smpl",
-                    "msr_date_is_none_but_only1_msr_for_smpl",
                 ]
             )
             code_str += ")"

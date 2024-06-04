@@ -217,7 +217,7 @@ class FCircTests(TracebaseTestCase):
                 "No significant problems found", fcr.serum_validity["message"]
             )
             self.assertEqual("good", fcr.serum_validity["level"])
-            self.assertEqual("000000000", fcr.serum_validity["bitcode"])
+            self.assertEqual("00000000", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_peakgroup(self):
         self.create_newlss_fcirc_recs()
@@ -246,7 +246,7 @@ class FCircTests(TracebaseTestCase):
             #                                          a time collected.
             # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
             #                                                   or there is 1 & it has a date.
-            self.assertEqual("100000100", fcr.serum_validity["bitcode"])
+            self.assertEqual("10000010", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_time_collected(self):
         # When we null the time collected for lss, newlss is still the last serun sample, but the fcirc record for the
@@ -283,7 +283,7 @@ class FCircTests(TracebaseTestCase):
             #                                          a time collected.
             # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
             #                                                   or there is 1 & it has a date.
-            self.assertEqual("011000100", fcr.serum_validity["bitcode"])
+            self.assertEqual("01100010", fcr.serum_validity["bitcode"])
 
         self.lss.time_collected = tcbak
         self.lss.save()
@@ -326,7 +326,7 @@ class FCircTests(TracebaseTestCase):
             #                                          a time collected.
             # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
             #                                                   or there is 1 & it has a date.
-            self.assertEqual("000100100", fcr.serum_validity["bitcode"])
+            self.assertEqual("00010010", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
         self.newlss.save()
@@ -417,7 +417,7 @@ class FCircTests(TracebaseTestCase):
             #                                          a time collected.
             # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
             #                                                   or there is 1 & it has a date.
-            self.assertEqual("000010100", fcr.serum_validity["bitcode"])
+            self.assertEqual("00001010", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
         self.newlss.save()
