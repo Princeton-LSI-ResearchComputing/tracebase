@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import xmltodict
-from django.db import transaction
+from django.db import ProgrammingError, transaction
 from django.db.models import Max, Min, Q
+from django.forms import model_to_dict
 
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
@@ -14,7 +15,7 @@ from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.sample import Sample
-from DataRepo.models.utilities import update_rec
+from DataRepo.models.utilities import exists_in_db, update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
@@ -384,6 +385,10 @@ class MSRunsLoader(TableLoader):
                             # Continue processing rows to find more errors
                             pass
 
+        # If there were any exceptions (i.e. a rollback of everything will be triggered)
+        if self.aggregated_errors_object.should_raise():
+            self.clean_up_created_mzxmls_in_archive()
+
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
         """Get or create ArchiveFile records for an mzXML file and a record for its raw file.  Updates self.mzxml_dict.
@@ -414,6 +419,8 @@ class MSRunsLoader(TableLoader):
             mzaf_rec, mzaf_created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
             if mzaf_created:
                 self.created(ArchiveFile.__name__)
+                # Save the path to the file in the archive in case of rollback
+                self.created_mzxml_archive_file_recs.append(mzaf_rec)
             else:
                 self.existed(ArchiveFile.__name__)
         except (DataType.DoesNotExist, DataFormat.DoesNotExist) as dne:
@@ -1448,3 +1455,63 @@ class MSRunsLoader(TableLoader):
             suffix_patterns=suffix_patterns, add_patterns=add_patterns
         )
         return re.sub(pattern, "", mzxml_bamename)
+
+    def clean_up_created_mzxmls_in_archive(self):
+        """Call this method when rollback did/will happen in order to delete mzXML files added to the archive on disk.
+
+        Args:
+            None
+        Exceptions:
+            Buffers:
+                NotImplementedError
+                ProgrammingError
+                OSError
+            Raises:
+                None
+        Returns:
+            None
+        """
+        if not self.aggregated_errors_object.should_raise():
+            self.aggregated_errors_object.buffer_error(
+                NotImplementedError(
+                    "clean_up_created_mzxmls_in_archive is not intended for use when an exception has not been raised."
+                )
+            )
+            return
+
+        deleted = 0
+        failures = 0
+        skipped = 0
+        for rec in self.created_mzxml_archive_file_recs:
+            # If there was no associated file, or the file wasn't actually created, there's nothing to delete, so
+            # continue
+            if not rec.file_location or not os.path.isfile(rec.file_location.path):
+                skipped += 1
+                continue
+
+            # To be extra safe, we will confirm that the record does not exist in the database before deleting
+            if exists_in_db(rec):
+                self.aggregated_errors_object.buffer_error(
+                    ProgrammingError(
+                        f"Cannot delete a file [{rec.file_location.path}] from the os that is associated with "
+                        f"existing {ArchiveFile.__name__} database record: {model_to_dict(rec)}."
+                    )
+                )
+            else:
+                try:
+                    os.remove(rec.file_location.path)
+                    deleted += 1
+                except Exception as e:
+                    self.aggregated_errors_object.buffer_error(
+                        OSError(
+                            f"Unable to delete created mzXML archive file: [{rec.file_location.path}] during "
+                            f"rollback due to {type(e).__name__}: {e}"
+                        ),
+                        orig_exception=e,
+                    )
+                    failures += 1
+
+        print(
+            f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "
+            f"{skipped} expected files did not exist."
+        )
