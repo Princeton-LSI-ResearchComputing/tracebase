@@ -961,7 +961,6 @@ class IsoAutoCorrDataLoadingTests(TracebaseTestCase):
             date="2024-05-23",
             researcher="Michael Neinast",
             new_researcher=False,
-            polarity="negative",
         )
         cls.SAMPLES_COUNT = 4
         cls.PEAKDATA_ROWS = 14
