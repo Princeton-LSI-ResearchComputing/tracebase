@@ -1959,16 +1959,6 @@ class SampleIndexNotFound(Exception):
         self.num_cols = num_cols
 
 
-class CorrectedCompoundHeaderMissing(Exception):
-    def __init__(self):
-        message = (
-            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
-            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
-            "on the command line)."
-        )
-        super().__init__(message)
-
-
 class LCMSDefaultsRequired(Exception):
     def __init__(
         self,

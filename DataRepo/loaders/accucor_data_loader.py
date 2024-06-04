@@ -47,7 +47,6 @@ from DataRepo.utils.exceptions import (
     AmbiguousMSRuns,
     ConflictingValueError,
     ConflictingValueErrors,
-    CorrectedCompoundHeaderMissing,
     DryRun,
     DupeCompoundIsotopeCombos,
     DuplicatePeakGroup,
@@ -144,10 +143,14 @@ class AccuCorDataLoader:
     """
 
     # The following are used to identify accucor/isocorr files in is_accucor and is_isocorr
-    ACCUCOR_SHEETS = ["Original", "Corrected", "Normalized", "PoolAfterDF"]
     ACCUCOR_FORMAT_CODE = "accucor"
-    ISOCORR_SHEETS = ["enrichment", "absolte", "total ion"]
     ISOCORR_FORMAT_CODE = "isocorr"
+    ISOAUTOCORR_FORMAT_CODE = "isoautocorr"
+    DATA_SHEETS = {
+        ACCUCOR_FORMAT_CODE: ["Original", "Corrected", "Normalized", "PoolAfterDF"],
+        ISOCORR_FORMAT_CODE: ["enrichment", "absolte", "total ion"],
+        ISOAUTOCORR_FORMAT_CODE: ["original", "cor_pct", "cor_abs", "total"],
+    }
 
     def __init__(
         self,
@@ -393,12 +396,12 @@ class AccuCorDataLoader:
             self.compound_header = "compound"
             self.labeled_element_header = "isotopeLabel"
             self.labeled_element = None  # Determined on each row
-        else:  # AccuCor
+        elif self.data_format.code == self.ISOAUTOCORR_FORMAT_CODE:  # IsoAutoCorr
+            self.compound_header = "compound"
+            self.labeled_element_header = "isotopeLabel"
+            self.labeled_element = None  # Determined on each row
+        elif self.data_format.code == self.ACCUCOR_FORMAT_CODE:  # Accucor
             self.compound_header = "Compound"
-            if self.compound_header not in list(self.accucor_corrected_df.columns):
-                # Cannot proceed to try and catch more errors.  The compound column is required.
-                raise CorrectedCompoundHeaderMissing()
-
             # Accucor has the labeled element in a header in the corrected data
             self.labeled_element_header = self.accucor_corrected_df.filter(
                 regex=(ACCUCOR_LABEL_PATTERN)
@@ -907,7 +910,7 @@ class AccuCorDataLoader:
                     if sample not in corrected_only
                 ]
 
-        if not self.data_format.code == self.ISOCORR_FORMAT_CODE:
+        if self.data_format.code == self.ACCUCOR_FORMAT_CODE:
             # Filter for all columns that match the labeled element header pattern
             labeled_df = self.accucor_corrected_df.filter(regex=(ACCUCOR_LABEL_PATTERN))
             if len(labeled_df.columns) != 1:
@@ -945,7 +948,10 @@ class AccuCorDataLoader:
                 )
                 master_dupe_dict["original"] = orig_dupe_dict
 
-        if self.data_format.code == self.ISOCORR_FORMAT_CODE:
+        if self.data_format.code in (
+            self.ISOCORR_FORMAT_CODE,
+            self.ISOAUTOCORR_FORMAT_CODE,
+        ):
             labeled_element_header = "isotopeLabel"
         else:
             labeled_element_header = self.labeled_element_header
@@ -1037,11 +1043,7 @@ class AccuCorDataLoader:
             # If there are no "missing samples", but still no samples...
             raise NoSampleHeaders(
                 file=self.peak_annotation_filename,
-                sheet=(
-                    "absolte"
-                    if self.data_format.code == self.ISOCORR_FORMAT_CODE
-                    else "Corrected"
-                ),
+                sheet=self.DATA_SHEETS[self.data_format.code][1],
             )
 
         self.db_samples_dict = sample_dict
@@ -1070,7 +1072,7 @@ class AccuCorDataLoader:
                 if this_label not in tracer_labeled_elements:
                     tracer_labeled_elements.append(this_label)
 
-        if not self.data_format.code == self.ISOCORR_FORMAT_CODE:
+        if self.data_format.code == self.ACCUCOR_FORMAT_CODE:
             # To allow animal and sample sheets to contain tracers with multiple labels, we will restrict the tracer
             # labeled elements to just those in the Accucor file
             accucor_labeled_elems = [
@@ -1351,6 +1353,42 @@ class AccuCorDataLoader:
             format="ms_raw",
         )
 
+    def create_peakdata_label_records(
+        self,
+        isotopes,
+        data_row,
+        labeled_element_header,
+        peak_data,
+        peak_group_name,
+        sample_data_header,
+        labeled_count=None,
+    ):
+        """Create the PeakDataLabel records"""
+
+        #########
+        for isotope in isotopes:
+            if self.verbosity >= 1:
+                print(
+                    f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
+                    f"{isotope['count']}] parsed from cell value: "
+                    f"[{data_row[labeled_element_header]}] for peak data ID "
+                    f"[{peak_data.id}], peak group [{peak_group_name}], and sample "
+                    f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
+                )
+            count = isotope["count"]
+            # Some original data is missing, use the provided labeled count
+            if labeled_count:
+                count = labeled_count
+            peak_data_label = PeakDataLabel(
+                peak_data=peak_data,
+                element=isotope["element"],
+                count=count,
+                mass_number=isotope["mass_number"],
+            )
+
+            peak_data_label.full_clean()
+            peak_data_label.save()
+
     def insert_peak_group(
         self,
         peak_group_attrs: PeakGroupAttrs,
@@ -1432,11 +1470,7 @@ class AccuCorDataLoader:
                         peak_annot2=peak_annotation_file.filename,
                         column=col,
                         rownum=rownum,
-                        sheet=(
-                            "absolte"
-                            if self.data_format.code == self.ISOCORR_FORMAT_CODE
-                            else "Corrected"
-                        ),
+                        sheet=self.DATA_SHEETS[self.data_format.code][1],
                     )
                 raise ConflictingValueError(
                     rec=existing_peak_group,
@@ -1444,11 +1478,7 @@ class AccuCorDataLoader:
                     file=peak_annotation_file.filename,
                     rownum=rownum,
                     column=col,
-                    sheet=(
-                        "absolte"
-                        if self.data_format.code == self.ISOCORR_FORMAT_CODE
-                        else "Corrected"
-                    ),
+                    sheet=self.DATA_SHEETS[self.data_format.code][1],
                 )
 
             else:
@@ -1598,11 +1628,7 @@ class AccuCorDataLoader:
                     msrunsample_dict,
                     aes=self.aggregated_errors_object,
                     conflicts_list=self.conflicting_msrun_samples,
-                    sheet=(
-                        "absolte"
-                        if self.data_format.code == self.ISOCORR_FORMAT_CODE
-                        else "Corrected"
-                    ),
+                    sheet=self.DATA_SHEETS[self.data_format.code][1],
                     file=peak_annotation_file.filename,
                 ):
                     self.aggregated_errors_object.buffer_error(e)
@@ -1623,7 +1649,7 @@ class AccuCorDataLoader:
 
                     # If this is a compound that has isotope duplicates, skip it
                     # It will already have been identified as a DupeCompoundIsotopeCombos error, so this load will
-                    # ultimately fail, but we con tinue so that we can find more errors
+                    # ultimately fail, but we continue so that we can find more errors
                     if (
                         peak_group_name
                         in self.dupe_isotope_compounds["corrected"].keys()
@@ -1672,12 +1698,15 @@ class AccuCorDataLoader:
                 # we should have a cached PeakGroup and its labeled element now
                 peak_group = inserted_peak_group_dict[peak_group_name]
 
-                if self.accucor_original_df is not None:
+                # AccuCor formatted file with original data
+                if (self.data_format.code == self.ACCUCOR_FORMAT_CODE) and (
+                    self.accucor_original_df is not None
+                ):
                     peak_group_original_data = self.accucor_original_df.loc[
                         self.accucor_original_df["compound"] == peak_group_name
                     ]
-                    # If we have an accucor_original_df, it's assumed the type is accucor and there's only 1 labeled
-                    # element, hence the use of `peak_group.labels.first()`
+
+                    # AccuCor only supports a single labeled element so we will use `peak_group.labels.first()`
                     peak_group_label_rec = peak_group.labels.first()
 
                     # Original data skips undetected counts, but corrected data does not, so as we march through the
@@ -1690,9 +1719,6 @@ class AccuCorDataLoader:
                             raw_abundance = 0
                             med_mz = 0
                             med_rt = 0
-                            # We can safely assume a single tracer labeled element (because otherwise, there would have
-                            # been a TracerLabeledElementNotFound error), so...
-                            mass_number = self.tracer_labeled_elements[0]["mass_number"]
 
                             # Try to get original data. If it's not there, set empty values
                             try:
@@ -1721,7 +1747,6 @@ class AccuCorDataLoader:
                                             else None
                                         )
                                         orig_row_idx = orig_row_idx + 1
-                                        mass_number = isotope["mass_number"]
                             except IndexError:
                                 # We can ignore missing entries in the original sheet and use the defaults set above the
                                 # try block
@@ -1734,18 +1759,27 @@ class AccuCorDataLoader:
                                 )
 
                             # Lookup corrected abundance by compound and label
-                            corrected_abundance = self.accucor_corrected_df.loc[
-                                (
-                                    self.accucor_corrected_df[self.compound_header]
-                                    == peak_group_name
-                                )
-                                & (
-                                    self.accucor_corrected_df[
-                                        self.labeled_element_header
-                                    ]
-                                    == labeled_count
-                                )
-                            ][sample_data_header]
+                            corrected_abundance = None
+                            if self.data_format.code in (self.ACCUCOR_FORMAT_CODE):
+                                corrected_abundance = self.accucor_corrected_df.loc[
+                                    (
+                                        self.accucor_corrected_df[self.compound_header]
+                                        == peak_group_name
+                                    )
+                                    & (
+                                        self.accucor_corrected_df[
+                                            self.labeled_element_header
+                                        ]
+                                        == labeled_count
+                                    )
+                                ][sample_data_header]
+                            elif self.data_format.code in (
+                                self.ISOCORR_FORMAT_CODE,
+                                self.ISOAUTOCORR_FORMAT_CODE,
+                            ):
+                                corrected_abundance = self.accucor_corrected_df.loc[
+                                    orig_row_idx
+                                ][sample_data_header]
 
                             peak_data = PeakData(
                                 peak_group=peak_group,
@@ -1761,29 +1795,21 @@ class AccuCorDataLoader:
                             """
                             Create the PeakDataLabel records
                             """
-
-                            if self.verbosity >= 1:
-                                print(
-                                    f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
-                                    f"{isotope['count']}] parsed from cell value: [{orig_row['isotopeLabel']}] for "
-                                    f"peak data ID [{peak_data.id}], peak group [{peak_group_name}], and sample "
-                                    f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
-                                )
-
-                            peak_data_label = PeakDataLabel(
+                            self.create_peakdata_label_records(
+                                isotopes=[isotope],
+                                data_row=orig_row,
+                                labeled_element_header="isotopeLabel",
                                 peak_data=peak_data,
-                                element=peak_group_label_rec.element,
-                                count=labeled_count,
-                                mass_number=mass_number,
+                                peak_group_name=peak_group_name,
+                                sample_data_header=sample_data_header,
+                                labeled_count=labeled_count,
                             )
-
-                            peak_data_label.full_clean()
-                            peak_data_label.save()
 
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
-
+                # AccuCor data with no original data OR
+                # IsoCorr or IsoAutoCorr data (same rows in original and corrected data)
                 else:
                     peak_group_corrected_df = self.accucor_corrected_df[
                         self.accucor_corrected_df[self.compound_header]
@@ -1825,27 +1851,14 @@ class AccuCorDataLoader:
                                 corr_row, peak_group.compounds.all()
                             )
 
-                            for isotope in corr_isotopes:
-                                if self.verbosity >= 1:
-                                    print(
-                                        f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
-                                        f"{isotope['count']}] parsed from cell value: "
-                                        f"[{corr_row[self.labeled_element_header]}] for peak data ID "
-                                        f"[{peak_data.id}], peak group [{peak_group_name}], and sample "
-                                        f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
-                                    )
-
-                                # Note that this inserts the parent record (count 0) as always 12C, since the parent is
-                                # always carbon with a mass_number of 12.
-                                peak_data_label = PeakDataLabel(
-                                    peak_data=peak_data,
-                                    element=isotope["element"],
-                                    count=isotope["count"],
-                                    mass_number=isotope["mass_number"],
-                                )
-
-                                peak_data_label.full_clean()
-                                peak_data_label.save()
+                            self.create_peakdata_label_records(
+                                isotopes=corr_isotopes,
+                                data_row=corr_row,
+                                labeled_element_header=self.labeled_element_header,
+                                peak_data=peak_data,
+                                peak_group_name=peak_group_name,
+                                sample_data_header=sample_data_header,
+                            )
 
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
@@ -1939,7 +1952,10 @@ class AccuCorDataLoader:
         Given a row of corrected data, it retrieves the labeled element, count, and mass_number using a method
         corresponding to the file format.
         """
-        if self.data_format.code == self.ISOCORR_FORMAT_CODE:
+        if self.data_format.code in (
+            self.ISOCORR_FORMAT_CODE,
+            self.ISOAUTOCORR_FORMAT_CODE,
+        ):
             # Establish the set of labeled elements we're working from, either all labeled elements among the tracers
             # in the infusate (when there are no observed compounds) or those in common with the measured compound
             if observed_compound_recs is None:
@@ -2123,18 +2139,21 @@ class AccuCorDataLoader:
         data_format = None
         if is_excel(file):
             sheets = get_sheet_names(file)
-            if sheets == cls.ACCUCOR_SHEETS:
+            if sheets == cls.DATA_SHEETS[cls.ACCUCOR_FORMAT_CODE]:
                 data_format = DataFormat.objects.get(code=cls.ACCUCOR_FORMAT_CODE)
-            elif sheets == cls.ISOCORR_SHEETS:
+            elif sheets == cls.DATA_SHEETS[cls.ISOCORR_FORMAT_CODE]:
                 data_format = DataFormat.objects.get(code=cls.ISOCORR_FORMAT_CODE)
+            elif sheets == cls.DATA_SHEETS[cls.ISOAUTOCORR_FORMAT_CODE]:
+                data_format = DataFormat.objects.get(code=cls.ISOAUTOCORR_FORMAT_CODE)
             else:
                 raise PeakAnnotationParseError(
                     message=f'Unable to determine data format of peak annoataion file "{file}".\n'
                     "The list of sheets did not match known data formats.\n"
                     f"Found sheets: {sheets}\n"
                     "Known formats:\n"
-                    f"accucor: {cls.ACCUCOR_SHEETS}\n"
-                    f"isocorr: {cls.ISOCORR_SHEETS}\n"
+                    f"accucor: {cls.DATA_SHEETS[cls.ACCUCOR_FORMAT_CODE]}\n"
+                    f"isocorr: {cls.DATA_SHEETS[cls.ISOCORR_FORMAT_CODE]}\n"
+                    f"isoautocorr: {cls.DATA_SHEETS[cls.ISOAUTOCORR_FORMAT_CODE]}\n"
                 )
         return data_format
 
@@ -2149,7 +2168,7 @@ class AccuCorDataLoader:
             except PeakAnnotationParseError:
                 pass
         elif sheets is not None:
-            is_accucor = sheets == cls.ACCUCOR_SHEETS
+            is_accucor = sheets == cls.DATA_SHEETS[cls.ACCUCOR_FORMAT_CODE]
         else:
             raise ProgrammingError("1 of either file or sheets is required.")
         return is_accucor
@@ -2165,7 +2184,7 @@ class AccuCorDataLoader:
             except PeakAnnotationParseError:
                 pass
         elif sheets is not None:
-            is_isocorr = sheets == cls.ISOCORR_SHEETS
+            is_isocorr = sheets == cls.DATA_SHEETS[cls.ISOCORR_FORMAT_CODE]
         else:
             raise ProgrammingError("1 of either file or sheets is required.")
         return is_isocorr
