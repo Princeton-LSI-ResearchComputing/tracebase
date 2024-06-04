@@ -14,6 +14,11 @@ from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
+from DataRepo.models.hier_cached_model import (
+    delete_all_caches,
+    disable_caching_updates,
+    enable_caching_updates,
+)
 from DataRepo.models.sample import Sample
 from DataRepo.models.utilities import exists_in_db, update_rec
 from DataRepo.utils.exceptions import (
@@ -328,6 +333,11 @@ class MSRunsLoader(TableLoader):
         Returns:
             None
         """
+        # Both PeakGroup and MSRunSample models are assicated with cache updates.  Not only does it slow the running
+        # time, but it currently produces a lot of console output, so disable caching updates for the duration of this
+        # load, then clear the cache.
+        disable_caching_updates()
+
         # 1. Traverse the supplied mzXML files
         #    - create ArchiveFile records.
         #    - Extract data from the mzxML files
@@ -388,6 +398,9 @@ class MSRunsLoader(TableLoader):
         # If there were any exceptions (i.e. a rollback of everything will be triggered)
         if self.aggregated_errors_object.should_raise():
             self.clean_up_created_mzxmls_in_archive()
+
+        enable_caching_updates()
+        delete_all_caches()
 
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
