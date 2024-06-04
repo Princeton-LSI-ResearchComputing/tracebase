@@ -2,7 +2,7 @@ from collections import namedtuple
 
 import pandas as pd
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, ProgrammingError
 from django.db.models import AutoField, CharField, Model, UniqueConstraint
 from django.test.utils import isolate_apps
 
@@ -446,7 +446,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tl = self.TestLoader(pddata)
+        tl = self.TestLoader(df=pddata)
         n = None
         c = None
         for _, row in tl.df.iterrows():
@@ -524,7 +524,7 @@ class TableLoaderTests(TracebaseTestCase):
             tucl = self.TestUCLoader()
             tucl.check_unique_constraints(pddata)
         else:
-            tucl = self.TestUCLoader(pddata)
+            tucl = self.TestUCLoader(df=pddata)
             tucl.check_unique_constraints()
         self.assertEqual(2, len(tucl.aggregated_errors_object.exceptions))
         self.assertEqual(
@@ -828,7 +828,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tnal = TestNestedAesLoader(pddata)
+        tnal = TestNestedAesLoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tnal.load_data()
@@ -856,7 +856,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmcl = TestMultiCVELoader(pddata)
+        tmcl = TestMultiCVELoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmcl.load_data()
@@ -904,7 +904,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmrl = TestMultiRVELoader(pddata)
+        tmrl = TestMultiRVELoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmrl.load_data()
@@ -939,7 +939,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmdl = TestMultiDVELoader(pddata)
+        tmdl = TestMultiDVELoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmdl.load_data()
@@ -976,7 +976,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmrl = TestMultiRCVLoader(pddata)
+        tmrl = TestMultiRCVLoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmrl.load_data()
@@ -1007,7 +1007,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tdl = TestDeferedLoader(pddata, defer_rollback=True)
+        tdl = TestDeferedLoader(df=pddata, defer_rollback=True)
 
         # There should be no record found initially
         self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
@@ -1038,7 +1038,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tdl = TestDryRunLoader(pddata, dry_run=True)
+        tdl = TestDryRunLoader(df=pddata, dry_run=True)
 
         # There should be no record found initially
         self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
@@ -1063,7 +1063,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tsl = TestStatsLoader(pddata)
+        tsl = TestStatsLoader(df=pddata)
 
         retval = tsl.load_data()
 
@@ -1579,6 +1579,16 @@ class TableLoaderTests(TracebaseTestCase):
         )
         # Just going to assert a single attribute is properly set
         self.assertEqual("TestModel Choice", tl.get_header_metadata()["Choice"].name)
+
+    def test_constructor_no_positional_args(self):
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.TestLoader("bad")
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], ProgrammingError))
+        self.assertIn(
+            "expects 0 positional arguments, but got: 1", str(aes.exceptions[0])
+        )
 
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):

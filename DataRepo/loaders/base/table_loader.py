@@ -176,6 +176,7 @@ class TableLoader(ABC):
 
     def __init__(
         self,
+        *args,
         df=None,
         dry_run=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
@@ -220,6 +221,13 @@ class TableLoader(ABC):
         Returns:
             Nothing
         """
+        if len(args) > 0:
+            raise AggregatedErrors().buffer_error(
+                ProgrammingError(
+                    f"The TableLoader constructor expects 0 positional arguments, but got: {len(args)}."
+                ),
+            )
+
         # Check class attribute validity
         self.check_class_attributes()
 
