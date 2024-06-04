@@ -52,7 +52,7 @@ from DataRepo.utils import (
     DupeCompoundIsotopeCombos,
     IsotopeParsingError,
     MissingCompoundsError,
-    MissingSamples,
+    MissingSamplesError,
     MissingTissue,
     ObservedIsotopeParsingError,
     RequiredSampleValuesError,
@@ -1070,7 +1070,7 @@ class PropertyTests(TracebaseTestCase):
                 "element C (from the tracers in the infusate [methionine-(15N1)[200]])."
             ),
         ):
-            pg.labels.first().enrichment_fraction
+            pg.labels.first().enrichment_fraction  # pylint: disable=no-member
 
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
@@ -2366,7 +2366,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 ]
             ),
             MissingCompoundsError({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
-            MissingSamples(["a", "b"]),
+            MissingSamplesError(["a", "b"]),
         ]
         aes = AggregatedErrors(exceptions=exceptions)
         lsc.package_group_exceptions(aes, "accucor.xlsx")
@@ -2580,7 +2580,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[2],
-                MissingSamples,
+                MissingSamplesError,
             ),
         )
 

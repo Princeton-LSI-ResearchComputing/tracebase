@@ -960,7 +960,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             msg=f"{afkey} should be a key in the exceptions dict.  Its keys are: {exceptions.keys()}",
         )
         self.assertEqual(0, num_errors[afkey])
-        self.assertEqual("NoSamples", exceptions[afkey][0]["type"])
+        self.assertEqual("NoSamplesError", exceptions[afkey][0]["type"])
         self.assertEqual(1, num_warnings[afkey])
 
         # All samples in sample table combined error

@@ -88,7 +88,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         ISOTOPELABEL="IsotopeLabel",
         FORMULA="Formula",
         COMPOUND="Compound",
-        SAMPLEHEADER="mzXML Name",
+        SAMPLEHEADER="Sample Header",
         RAW="Raw Abundance",
         CORRECTED="Corrected Abundance",
     )
@@ -1077,46 +1077,44 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # Buffer an error about missing samples (that are not blanks)
         if len(likely_missing_dnes) > 0:
-            sample_headers = [sdne.query_dict["name"] for sdne in likely_missing_dnes]
+            # See if *any* samples were found (i.e. the MSRunSample record existed)
+            num_found_samples = len(
+                [
+                    fs
+                    for fs in self.msrun_sample_dict.keys()
+                    # A Sample can be inferred to be found if the MSRunSample rec is not None in the msrun_sample_dict
+                    # Sample searches do not occur for these cases
+                    if (
+                        self.msrun_sample_dict[fs]["seen"] is True
+                        and self.msrun_sample_dict[fs][MSRunSample.__name__] is not None
+                    )
+                ]
+            )
 
-            # See if *any* samples were found (including Sample searches that weren't performed bec. the MSRunSample
-            # record existed)
-            found_samples = [
-                fs
-                for fs in self.msrun_sample_dict.keys()
-                if (
-                    self.msrun_sample_dict[fs]["seen"] is True
-                    and self.msrun_sample_dict[fs][MSRunSample.__name__] is not None
-                )
-            ]
-
-            if len(found_samples) == 0:
+            if num_found_samples == 0:
                 self.aggregated_errors_object.buffer_error(
                     NoSamples(
-                        sample_headers,
+                        likely_missing_dnes,
                         suggestion=self.missing_msrs_suggestion,
-                        exceptions=likely_missing_dnes,
                     )
                 )
             else:
                 self.aggregated_errors_object.buffer_error(
                     MissingSamples(
-                        sample_headers,
+                        likely_missing_dnes,
                         suggestion=self.missing_msrs_suggestion,
-                        exceptions=likely_missing_dnes,
                     )
                 )
 
         if len(possible_blank_dnes) > 0:
             self.aggregated_errors_object.buffer_warning(
                 UnskippedBlanks(
-                    [sdne.query_dict["name"] for sdne in possible_blank_dnes],
+                    possible_blank_dnes,
                     suggestion=(
                         f"Use the {self.msrunsloader.DataSheetName} sheet/file to add these "
                         f"{self.headers.SAMPLEHEADER}s to the {self.msrunsloader.headers.SAMPLEHEADER} column and set "
                         f"its {self.msrunsloader.headers.SKIP} column to 'true'."
                     ),
-                    exceptions=possible_blank_dnes,
                 )
             )
 
@@ -1208,7 +1206,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             ),
         )
 
-        # TODO: Make sure all other leftover RecordDoesNotExist exceptions are consolidated generically.
         # TODO: Add handling/consolidation of MultipleRecordsReturned
 
 
@@ -1222,26 +1219,10 @@ class IsocorrLoader(PeakAnnotationsLoader):
 
     format_code = "isocorr"
 
-    merged_column_rename_dict = {
-        "formula": "Formula",
-        "medMz": "MedMz",
-        "medRt": "MedRt",
-        "isotopeLabel": "IsotopeLabel",
-        "compound": "Compound",
-    }
+    # These attributes are defined in the order in which they are applied
 
-    merged_drop_columns_list = [
-        "compound",
-        "label",
-        "metaGroupId",
-        "groupId",
-        "goodPeakCount",
-        "maxQuality",
-        "compoundId",
-        "expectedRtDiff",
-        "ppmDiff",
-        "parent",
-    ]
+    # No columns to add
+    add_columns_dict = None
 
     condense_columns_dict = {
         "absolte": {
@@ -1266,14 +1247,32 @@ class IsocorrLoader(PeakAnnotationsLoader):
         },
     }
 
-    # No columns to add
-    add_columns_dict = None
-
     # No merge necessary, just use the absolte sheet
     merge_dict = {
         "first_sheet": "absolte",
         "next_merge_dict": None,
     }
+
+    merged_column_rename_dict = {
+        "formula": "Formula",
+        "medMz": "MedMz",
+        "medRt": "MedRt",
+        "isotopeLabel": "IsotopeLabel",
+        "compound": "Compound",
+    }
+
+    merged_drop_columns_list = [
+        "compound",
+        "label",
+        "metaGroupId",
+        "groupId",
+        "goodPeakCount",
+        "maxQuality",
+        "compoundId",
+        "expectedRtDiff",
+        "ppmDiff",
+        "parent",
+    ]
 
 
 class AccucorLoader(PeakAnnotationsLoader):
@@ -1286,27 +1285,23 @@ class AccucorLoader(PeakAnnotationsLoader):
 
     format_code = "accucor"
 
-    merged_column_rename_dict = {
-        "formula": "Formula",
-        "medMz": "MedMz",
-        "medRt": "MedRt",
-        "isotopeLabel": "IsotopeLabel",
-    }
+    # These attributes are defined in the order in which they are applied
 
-    merged_drop_columns_list = [
-        "compound",
-        "adductName",
-        "label",
-        "metaGroupId",
-        "groupId",
-        "goodPeakCount",
-        "maxQuality",
-        "compoundId",
-        "expectedRtDiff",
-        "ppmDiff",
-        "parent",
-        "C_Label",
-    ]
+    add_columns_dict = {
+        # Sheet: dict
+        "Original": {
+            # New column name: method that takes a dataframe to create the new column
+            "C_Label": (
+                lambda df: df["isotopeLabel"]
+                .str.split("-")
+                .str.get(-1)
+                .replace({"C12 PARENT": "0"})
+                .astype(int)
+            ),
+            # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
+            "Compound": lambda df: df["compound"],
+        }
+    }
 
     condense_columns_dict = {
         "Original": {
@@ -1343,26 +1338,12 @@ class AccucorLoader(PeakAnnotationsLoader):
         },
     }
 
-    add_columns_dict = {
-        # Sheet: dict
-        "Original": {
-            # New column name: method that takes a dataframe to create the new column
-            "C_Label": (
-                lambda df: df["isotopeLabel"]
-                .str.split("-")
-                .str.get(-1)
-                .replace({"C12 PARENT": "0"})
-                .astype(int)
-            ),
-            # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
-            "Compound": lambda df: df["compound"],
-        }
-    }
-
+    # Merge happens after column add and condense, but before column rename, so it refers to added and condensed (final)
+    # column names and original (un-renamed) column names.
     merge_dict = {
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
-            "on": ["Compound", "C_Label", "mzXML Name"],
+            "on": ["Compound", "C_Label", "Sample Header"],
             "left_columns": None,  # all
             "right_sheet": "Original",
             "right_columns": [
@@ -1377,5 +1358,108 @@ class AccucorLoader(PeakAnnotationsLoader):
         },
     }
 
+    merged_column_rename_dict = {
+        "formula": "Formula",
+        "medMz": "MedMz",
+        "medRt": "MedRt",
+        "isotopeLabel": "IsotopeLabel",
+    }
 
-# TODO: Add isoautocorr
+    merged_drop_columns_list = [
+        "compound",
+        "adductName",
+        "label",
+        "metaGroupId",
+        "groupId",
+        "goodPeakCount",
+        "maxQuality",
+        "compoundId",
+        "expectedRtDiff",
+        "ppmDiff",
+        "parent",
+        "C_Label",
+    ]
+
+
+class IsoautocorrLoader(PeakAnnotationsLoader):
+    """Derived class of PeakAnnotationsLoader that just defines how to convert an accucor excel file to the format
+    accepted by the parent class's load_data method.
+
+    PeakAnnotationsLoader is an abstract base class.  It has a method called convert_df() that uses the data described
+    here to automatically convert self.df to the format it accepts.
+    """
+
+    format_code = "isoautocorr"
+
+    uncondensed_columns = [
+        "label",
+        "metaGroupId",
+        "groupId",
+        "goodPeakCount",
+        "medMz",
+        "medRt",
+        "maxQuality",
+        "adductName",
+        "isotopeLabel",
+        "compound",
+        "compoundId",
+        "formula",
+        "expectedRtDiff",
+        "ppmDiff",
+        "parent",
+    ]
+
+    # These attributes are defined in the order in which they are applied
+
+    add_columns_dict = None
+
+    condense_columns_dict = {
+        "original": {
+            "header_column": "Sample",
+            "value_column": "Raw Abundance",
+            "uncondensed_columns": uncondensed_columns,
+        },
+        "cor_pct": {
+            "header_column": "Sample",
+            "value_column": "Corrected Abundance",
+            "uncondensed_columns": uncondensed_columns,
+        },
+    }
+
+    # Merge happens after column add and condense, but before column rename, so it refers to added and condensed (final)
+    # column names and original (un-renamed) column names.
+    merge_dict = {
+        "first_sheet": "cor_pct",  # This key only occurs once in the outermost dict
+        "next_merge_dict": {
+            "on": [
+                *uncondensed_columns,  # All these are common between sheets.  Including them here prevents duplication.
+                "Sample Header",  # From condense
+            ],
+            "left_columns": None,  # all
+            "right_sheet": "original",
+            "right_columns": [],  # There are no additional columns we want - only the condensed raw abundances
+            "how": "left",
+            "next_merge_dict": None,
+        },
+    }
+
+    merged_column_rename_dict = {
+        "formula": "Formula",
+        "medMz": "MedMz",
+        "medRt": "MedRt",
+        "isotopeLabel": "IsotopeLabel",
+        "compound": "Compound",
+    }
+
+    merged_drop_columns_list = [
+        "label",
+        "metaGroupId",
+        "groupId",
+        "goodPeakCount",
+        "maxQuality",
+        "adductName",
+        "compoundId",
+        "expectedRtDiff",
+        "ppmDiff",
+        "parent",
+    ]

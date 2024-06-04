@@ -42,7 +42,7 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
-    NoSamples,
+    NoSamplesError,
 )
 from DataRepo.utils.file_utils import read_from_file, read_headers_from_file
 from DataRepo.utils.lcms_metadata_parser import (
@@ -539,7 +539,7 @@ class DataValidationView(FormView):
                 AllMissingSamplesError,
                 AllMissingTissues,
                 AllMissingTreatments,
-                NoSamples,
+                NoSamplesError,
             ]:
 
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
@@ -1533,7 +1533,9 @@ class DataValidationView(FormView):
                 "Cannot call create_study_file_writer when dfs_dict is not valid/created."
             )
 
-        xlsxwriter = pd.ExcelWriter(stream_obj, engine="xlsxwriter")
+        xlsxwriter = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
+            stream_obj, engine="xlsxwriter"
+        )
 
         for order_spec in self.get_study_sheet_column_display_order():
             sheet = order_spec[0]

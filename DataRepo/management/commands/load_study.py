@@ -22,9 +22,9 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     DryRun,
     MissingCompoundsError,
-    MissingSamples,
+    MissingSamplesError,
     MultiLoadStatus,
-    NoSamples,
+    NoSamplesError,
 )
 from DataRepo.utils.lcms_metadata_parser import check_peak_annotation_files
 
@@ -406,7 +406,7 @@ class Command(BaseCommand):
             # Consolidate related cross-file exceptions, like missing samples
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
             missing_sample_exceptions = exception.modify_exception_type(
-                MissingSamples, is_fatal=False, is_error=False
+                MissingSamplesError, is_fatal=False, is_error=False
             )
             for missing_sample_exception in missing_sample_exceptions:
                 # Look through the sample names saved in the exception and add them to the master list
@@ -422,7 +422,7 @@ class Command(BaseCommand):
                         )
 
             no_samples_exceptions = exception.modify_exception_type(
-                NoSamples, is_fatal=False, is_error=False
+                NoSamplesError, is_fatal=False, is_error=False
             )
             for no_samples_exception in no_samples_exceptions:
                 self.missing_samples["files_missing_all"][filename].extend(

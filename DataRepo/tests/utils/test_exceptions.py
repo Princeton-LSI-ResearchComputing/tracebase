@@ -21,6 +21,7 @@ from DataRepo.utils.exceptions import (
     MissingCompounds,
     MissingDataAdded,
     MissingRecords,
+    MissingSamples,
     MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
@@ -31,6 +32,7 @@ from DataRepo.utils.exceptions import (
     NoLoadData,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
+    NoSamples,
     NoTracerLabeledElements,
     ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
@@ -49,8 +51,10 @@ from DataRepo.utils.exceptions import (
     UnequalColumnGroups,
     UnexpectedIsotopes,
     UnexpectedLabels,
+    UnexpectedSamples,
     UnitsWrong,
     UnknownHeaderError,
+    UnskippedBlanks,
     generate_file_location_string,
     summarize_int_list,
 )
@@ -1271,3 +1275,72 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn(
             "in column [MSRun Name] of sheet [Corrected] in accucor.xlsx", str(mcs)
         )
+
+    def get_sample_dnes(self):
+        from DataRepo.models import Sample
+
+        return [
+            RecordDoesNotExist(
+                Sample,
+                {"name": "sample1"},
+                column="Sample",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=5,
+            ),
+            RecordDoesNotExist(
+                Sample,
+                {"name": "sample2"},
+                column="Sample",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=19,
+            ),
+        ]
+
+    def test_MissingSamples(self):
+        mss = MissingSamples(self.get_sample_dnes())
+        self.assertIn("2 Sample records", str(mss))
+        self.assertIn("sample1 from row(s): ['5']", str(mss))
+        self.assertIn("sample2 from row(s): ['19']", str(mss))
+        self.assertIn("using search field(s): name", str(mss))
+        self.assertIn("column [Sample] of sheet [Corrected] in accucor.xlsx", str(mss))
+
+    def test_UnskippedBlanks(self):
+        usbs = UnskippedBlanks(self.get_sample_dnes())
+        self.assertIn("2 samples that appear to possibly be blanks", str(usbs))
+
+    def test_NoSamples(self):
+        nss = NoSamples(self.get_sample_dnes())
+        self.assertIn("None of the 2 samples", str(nss))
+
+    def test_UnexpectedSamples(self):
+        sample_names = ["sample1", "sample2"]
+        uess = UnexpectedSamples(
+            sample_names,
+            file="accucor.xlsx",
+            sheet="Corrected",
+        )
+        self.assertIn("from the Peak Annotation Details sheet", str(uess))
+        self.assertIn("sheet [Corrected] in accucor.xlsx", str(uess))
+        self.assertIn("['sample1', 'sample2']", str(uess))
+
+    def test_RecordDoesNotExist_get_failed_searches_dict(self):
+        kwargs, stub, dct = RecordDoesNotExist.get_failed_searches_dict(
+            self.get_sample_dnes()
+        )
+        self.assertDictEqual(
+            {"column": "Sample", "file": "accucor.xlsx", "sheet": "Corrected"}, kwargs
+        )
+        self.assertEqual("name", stub)
+        self.assertDictEqual({"sample1": [5], "sample2": [19]}, dct)
+
+    def test_RecordDoesNotExist_get_query_stub(self):
+        sdnes = self.get_sample_dnes()
+        stub = sdnes[0]._get_query_stub()
+        self.assertEqual("name", stub)
+
+    def test_RecordDoesNotExist_get_query_values_str(self):
+        sdnes = self.get_sample_dnes()
+        valstr = sdnes[0]._get_query_values_str()
+        self.assertEqual("sample1", valstr)

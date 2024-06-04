@@ -28,9 +28,9 @@ from DataRepo.utils import (
     AmbiguousMSRuns,
     ConflictingValueError,
     DryRun,
-    NoSamples,
+    NoSamplesError,
     TracerLabeledElementNotFound,
-    UnskippedBlanks,
+    UnskippedBlanksError,
     read_from_file,
 )
 from DataRepo.utils.exceptions import (
@@ -90,7 +90,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], UnskippedBlanks))
+        self.assertTrue(isinstance(aes.exceptions[0], UnskippedBlanksError))
 
     def test_accucor_load_blank_skip(self):
         call_command(
@@ -158,7 +158,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
             ),
         )
-        self.assertTrue(isinstance(aes.exceptions[0], NoSamples))
+        self.assertTrue(isinstance(aes.exceptions[0], NoSamplesError))
 
     def assure_coordinator_state_is_initialized(
         self, msg="MaintainedModelCoordinators are in the default state."
