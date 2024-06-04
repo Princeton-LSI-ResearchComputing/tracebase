@@ -735,9 +735,11 @@ class MissingCompounds(InfileError):
         # Initialize the remaining kwargs
         super().__init__("", **kwargs)
         if not message:
-            flds_str, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
+            loc_args, _, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
                 exceptions
             )
+
+            loc_str = generate_file_location_string(**loc_args)
 
             # Summarize the values and the rows on which they occurred
             nltab = "\n\t"
@@ -750,8 +752,8 @@ class MissingCompounds(InfileError):
                 )
             )
             message = (
-                f"{len(exceptions)} compounds {flds_str} in %s, with the following values were not "
-                f"found in the database:{nltab}{cmdps_str}\n"
+                f"{len(exceptions)} compounds matching the following values in {loc_str} in %s were not found in the "
+                f"database:{nltab}{cmdps_str}\n"
             )
 
         if suggestion is not None:
@@ -3193,7 +3195,63 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         self.name = name
 
 
-class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
+class MissingRecords(InfileError):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        message=None,
+        suggestion=None,
+        **kwargs,
+    ):
+        # Initialize the remaining kwargs
+        msg = "" if message is None else message
+        super().__init__(msg, **kwargs)
+
+        if not message:
+            message = ""
+            exceptions_by_query_type: Dict[str, dict] = defaultdict(
+                lambda: defaultdict(list)
+            )
+            for inst in exceptions:
+                q_str = inst._get_query_stub()
+                exceptions_by_query_type[inst.model.__name__][q_str].append(inst)
+
+            for mdl_name in exceptions_by_query_type.keys():
+                for categorized_exceptions in exceptions_by_query_type[
+                    mdl_name
+                ].values():
+                    loc_args, flds_str, vals_dict = (
+                        RecordDoesNotExist.get_failed_searches_dict(
+                            categorized_exceptions
+                        )
+                    )
+
+                    loc_str = generate_file_location_string(**loc_args)
+
+                    # Summarize the values and the rows on which they occurred
+                    nltab = "\n\t"
+                    search_terms_str = nltab.join(
+                        list(
+                            map(
+                                lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
+                                vals_dict.keys(),
+                            )
+                        )
+                    )
+                    message += (
+                        f"{len(categorized_exceptions)} {mdl_name} records were not found (using search field(s): "
+                        f"{flds_str}) with values found in {loc_str}:{nltab}{search_terms_str}\n"
+                    )
+
+        if suggestion is not None:
+            message += suggestion
+
+        self.message = message
+
+
+class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
+    SummarizerExceptionClass = MissingRecords
+
     def __init__(
         self, model, query_obj: dict | Q, message=None, suggestion=None, **kwargs
     ):
@@ -3235,13 +3293,15 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
         Exceptions:
             ProgrammingError
         Returns:
+            loc_args (dict): file, sheet, and column values
             fields_stub (str): Search field/column and comparator
             search_valuecombos_rows_dict (defaultdict(list))
         """
         search_valuecombos_rows_dict = defaultdict(list)
         model = None
-        column = None
-        fields_stub = None
+        columns_str = None
+        fields_str = None
+        loc_args = {"column": None, "file": None, "sheet": None}
         for inst in instances:
             if model is None:
                 model = inst.model
@@ -3251,27 +3311,27 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
                     f"model.  {inst.model} != {model}"
                 )
 
-            if column is None:
-                column = inst.column
-
-            if column is not None:  # Optional
-                # If there are multiple columns, the order must be manually made to match the order used in the query in
-                # order for the values to match respectively
-                query_fields_str = (
-                    f"from column(s): {column} [matching {inst.model.__name__} field(s): "
-                    f"{inst._get_query_stub()}]"
-                )
-            else:
-                query_fields_str = (
-                    f"matching {inst.model.__name__} field(s): {inst._get_query_stub()}"
+            if columns_str is None:
+                columns_str = inst.column
+                loc_args = {
+                    "column": inst.column,
+                    "file": inst.file,
+                    "sheet": inst.sheet,
+                }
+            elif inst.column != columns_str:
+                raise ProgrammingError(
+                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
+                    f"columns of the input file.  {inst.column} != {columns_str}"
                 )
 
-            if fields_stub is None:
-                fields_stub = query_fields_str
-            elif fields_stub != query_fields_str:
+            query_fields_str = inst._get_query_stub()
+
+            if fields_str is None:
+                fields_str = query_fields_str
+            elif fields_str != query_fields_str:
                 raise ProgrammingError(
                     "instances must be a list of RecordDoesNotExist exceptions generated from queries using the same "
-                    f"search fields (and comparators).  {fields_stub} != {query_fields_str}"
+                    f"search fields (and comparators).  {fields_str} != {query_fields_str}"
                 )
 
             query_values_str = inst._get_query_values_str()
@@ -3280,7 +3340,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
             )
             search_valuecombos_rows_dict[query_values_str].append(rownum)
 
-        return fields_stub, search_valuecombos_rows_dict
+        return loc_args, fields_str, search_valuecombos_rows_dict
 
     def _get_query_stub(self, _query_obj: Optional[dict | Q] = None) -> str:
         """This takes an instance and returns a string describing the fields (and comparators) the query operates on.

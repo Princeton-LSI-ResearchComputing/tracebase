@@ -20,6 +20,7 @@ from DataRepo.utils.exceptions import (
     MissingColumnGroup,
     MissingCompounds,
     MissingDataAdded,
+    MissingRecords,
     MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
@@ -1213,21 +1214,60 @@ class ExceptionTests(TracebaseTestCase):
                 Compound,
                 Compound.get_name_query_expression("lysine"),
                 column="compound",
+                file="accucor.xlsx",
+                sheet="Corrected",
                 rownum=5,
             ),
             RecordDoesNotExist(
                 Compound,
                 Compound.get_name_query_expression("vibranium"),
                 column="compound",
+                file="accucor.xlsx",
+                sheet="Corrected",
                 rownum=19,
             ),
         ]
-        mcs = MissingCompounds(excs, file="accucor.xlsx", sheet="Corrected")
-        self.assertIn("2 compounds from column(s): compound ", str(mcs))
+        mcs = MissingCompounds(excs)
+        self.assertIn("2 compounds", str(mcs))
         self.assertIn(
-            "matching Compound field(s): (OR: name__iexact, synonyms__name__iexact)",
-            str(mcs),
+            "in column [compound] of sheet [Corrected] in accucor.xlsx", str(mcs)
         )
-        self.assertIn("in sheet [Corrected] in accucor.xlsx", str(mcs))
         self.assertIn("lysine from row(s): ['5']", str(mcs))
         self.assertIn("vibranium from row(s): ['19']", str(mcs))
+
+    def test_MissingRecords(self):
+        from DataRepo.models import Compound, MSRunSample
+
+        excs = [
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("lysine"),
+                column="compound",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=5,
+            ),
+            RecordDoesNotExist(
+                MSRunSample,
+                {"name": "wish this existed"},
+                column="MSRun Name",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=19,
+            ),
+        ]
+        mcs = MissingRecords(excs)
+        self.assertIn("1 Compound records", str(mcs))
+        self.assertIn(
+            "using search field(s): (OR: name__iexact, synonyms__name__iexact)",
+            str(mcs),
+        )
+        self.assertIn("lysine from row(s): ['5']", str(mcs))
+        self.assertIn("1 MSRunSample records", str(mcs))
+        self.assertIn("wish this existed from row(s): ['19']", str(mcs))
+        self.assertIn(
+            "in column [compound] of sheet [Corrected] in accucor.xlsx", str(mcs)
+        )
+        self.assertIn(
+            "in column [MSRun Name] of sheet [Corrected] in accucor.xlsx", str(mcs)
+        )
