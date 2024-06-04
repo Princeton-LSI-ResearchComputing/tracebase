@@ -204,17 +204,15 @@ class ConvertedTableLoader(TableLoader, ABC):
             outdf = outdf.drop(self.merged_drop_columns_list, axis=1, errors="ignore")
 
         # Check the results for validity
-        self.check_output_dataframe(outdf, indf)
+        self.check_output_dataframe(outdf)
 
         return outdf
 
-    def check_output_dataframe(self, outdf, indf):
+    def check_output_dataframe(self, outdf):
         """Checks to make sure the supplied output dataframe has all the required headers.
 
         Args:
             outdf (pandas.DataFrame): This should be a fully converted dataframe.
-            indf (pandas.DataFrame or dict of pandas.DataFrames): Used to obtain a dict of original headers keyed by
-                sheet.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -365,7 +363,7 @@ class ConvertedTableLoader(TableLoader, ABC):
         return outdf
 
     def get_existing_static_columns(self, sheet, df_dict, check_consistency=True):
-        """Performs error checks and returns the columns existing the the supplied sheet's dataframe that will not be
+        """Performs error checks and returns the columns existing in the supplied sheet's dataframe that will not be
         pivoted.
 
         Args:

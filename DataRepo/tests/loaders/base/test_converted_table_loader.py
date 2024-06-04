@@ -18,6 +18,24 @@ class TestConvertedLoaderTests(TracebaseTestCase):
     TestConvertedLoader1 = None
     TestConvertedLoader2 = None
 
+    accucor_merge_dict = {
+        "first_sheet": "Corrected",
+        "next_merge_dict": {
+            "on": ["Compound", "C_Label", "mzXML Name"],
+            "left_columns": None,
+            "right_sheet": "Original",
+            "right_columns": [
+                "formula",
+                "medMz",
+                "medRt",
+                "isotopeLabel",
+                "Raw Abundance",
+            ],
+            "how": "left",
+            "next_merge_dict": None,
+        },
+    }
+
     @classmethod
     def generate_test_model(cls):
         # Model used for testing
@@ -142,23 +160,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 }
             }
 
-            merge_dict = {
-                "first_sheet": "Corrected",
-                "next_merge_dict": {
-                    "on": ["Compound", "C_Label", "mzXML Name"],
-                    "left_columns": None,
-                    "right_sheet": "Original",
-                    "right_columns": [
-                        "formula",
-                        "medMz",
-                        "medRt",
-                        "isotopeLabel",
-                        "Raw Abundance",
-                    ],
-                    "how": "left",
-                    "next_merge_dict": None,
-                },
-            }
+            merge_dict = cls.accucor_merge_dict
 
         return TestConvertedLoader1
 
@@ -691,26 +693,90 @@ class TestConvertedLoaderTests(TracebaseTestCase):
 
         pd.testing.assert_frame_equal(expected, outdf)
 
-    def test_check_output_dataframe(self):
-        # TODO: Implement test
-        pass
+    def test_check_output_dataframe_success(self):
+        il = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=self.ISOCORR_DF_DICT, file="test.xlsx"
+        )
+        il.check_output_dataframe(il.df)
+        # The fact that check_output_dataframe doesn't raise an exception = successful test
+
+    def test_check_output_dataframe_failure(self):
+        # Create a df where the df is just totally wrong.  It will be missing final required headers.  Basically, it's
+        # just unconverted.
+        bad_isocorr_df = self.ISOCORR_DF_DICT["absolte"].copy(deep=True)
+        il = self.TestConvertedLoader2()  # pylint: disable=not-callable
+        il.orig_df = bad_isocorr_df
+        with self.assertRaises(AggregatedErrors) as ar:
+            il.check_output_dataframe(bad_isocorr_df)
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], RequiredHeadersError))
+        self.assertIn(
+            # This is actually misleading.  The method infers that the original headers were missing in the "converted"
+            # dataframe, thus it seems like it's saying (for example) that "medMz" is missing (when it's not), because
+            # to do the test, we skipped conversion and passed it a bogus original dataframe as if it was converted.
+            # So, this result is the expected result given the manipulation.
+            # It also names the sheet as "Unnamed sheet" for the same reason.  The class is compatible with either a
+            # dict of dataframes or a dataframe.  When it's given a dataframe (as in this case), it doesn't know the
+            # name of the sheet, which is gets from the keys of the dict of dataframes that we did not provide.
+            (
+                "{'Unnamed sheet': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'compound', 'mzXML Name', 'Corrected "
+                "Abundance']}"
+            ),
+            str(aes.exceptions[0]),
+        )
 
     def test_get_single_sheet(self):
-        # TODO: Implement test
-        pass
+        il = self.TestConvertedLoader2()  # pylint: disable=not-callable
+        sheet = il.get_single_sheet()
+        self.assertEqual("absolte", sheet)
 
-    def test_get_existing_static_columns(self):
-        # TODO: Implement test
-        pass
+    def test_get_existing_static_columns_success(self):
+        """This tests that the class is tolerant of missing unrequired columns (which the melt code is sensitive to, so
+        this method is used to pass it only the columns that are present instead of the full complement defined in the
+        class (e.g. "adductName"))"""
+        # Remove the unnecessary "adductName" column
+        modified_ac_df_dict = {
+            "Original": self.ACCUCOR_DF_DICT["Original"]
+            .copy(deep=True)
+            .drop(["adductName"], axis=1, errors="ignore"),
+            "Corrected": self.ACCUCOR_DF_DICT["Corrected"].copy(deep=True),
+        }
+        al = self.TestConvertedLoader1(  # pylint: disable=not-callable
+            df=modified_ac_df_dict,
+        )
+        current = al.get_existing_static_columns("Original", al.orig_df)
+        expected = [
+            "medMz",
+            "medRt",
+            "isotopeLabel",
+            "compound",
+            "formula",
+            "metaGroupId",
+        ]
+        self.assertEqual(expected, current)
+        self.assertNotIn("adductName", current)
 
     def test_revert_headers(self):
-        # TODO: Implement test
-        pass
+        il = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=self.ISOCORR_DF_DICT
+        )
+        current = il.revert_headers(["MedMz"])
+        expected = {"absolte": ["medMz"]}
+        self.assertEqual(expected, current)
 
     def test_initialize_merge_dict(self):
-        # TODO: Implement test
-        pass
+        al = self.TestConvertedLoader1()  # pylint: disable=not-callable
+        # Reset the already converted merge_dict:
+        al.merge_dict = self.accucor_merge_dict
+        al.initialize_merge_dict()
+        self.assertIn("left_all_columns", al.merge_dict.keys())
+        self.assertIsNone(al.merge_dict["left_all_columns"])
+        self.assertIn("right_all_columns", al.merge_dict["next_merge_dict"].keys())
+        self.assertIsNone(al.merge_dict["next_merge_dict"]["right_all_columns"])
 
     def test_get_required_sheets(self):
-        # TODO: Implement test
-        pass
+        al = self.TestConvertedLoader1()  # pylint: disable=not-callable
+        sheets = al.get_required_sheets()
+        expected = ["Corrected", "Original"]
+        self.assertEqual(expected, sheets)
