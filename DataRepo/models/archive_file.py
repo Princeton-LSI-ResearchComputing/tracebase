@@ -312,7 +312,6 @@ def post_archive_file_delete_commit(**kwargs):
     Returns:
         None
     """
-    print("BUFFERING POST-COMMIT DELETE")
     transaction.on_commit(lambda: delete_archive_file(kwargs["instance"]))
 
 
@@ -335,7 +334,4 @@ def delete_archive_file(deleted_rec: ArchiveFile) -> None:
                 f"Calling delete_archive_file on existing database record: {model_to_dict(deleted_rec)} is not allowed."
             )
         else:
-            print(f"DELETING FILE: {deleted_rec.file_location.path}")
             os.remove(deleted_rec.file_location.path)
-    else:
-        print(f"{deleted_rec.file_location.path} WAS NOT A FILE")

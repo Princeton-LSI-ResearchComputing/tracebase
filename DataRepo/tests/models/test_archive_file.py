@@ -131,10 +131,8 @@ class ArchiveFileArchiveTests(TracebaseArchiveTestCase):
 
     def test_post_delete_commit_failure(self):
         """Tests that archive files are cleaned up after rollback."""
-        try:
+        with self.assertRaises(ValueError):
             self.delete_during_transaction_failure()
-        except ValueError:
-            pass
         self.assertIsNotNone(self.rec)
         self.assertIsNotNone(self.rec.file_location)
         self.assertIn(self.ARCHIVE_DIR, str(self.rec.file_location.path))
