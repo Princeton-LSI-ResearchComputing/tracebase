@@ -5,8 +5,13 @@ import os
 from pathlib import Path
 
 from django.core.files import File
-from django.db import models, transaction
+from django.db import ProgrammingError, models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from django.forms import model_to_dict
 from django.utils.text import get_valid_filename
+
+from DataRepo.models.utilities import exists_in_db
 
 
 class DataTypeManager(models.Manager):
@@ -286,3 +291,47 @@ class ArchiveFile(models.Model):
                 hash_obj.update(chunk)
 
         return hash_obj.hexdigest()
+
+
+@receiver(post_delete, sender=ArchiveFile)
+def post_archive_file_delete_commit(**kwargs):
+    """Schedule a call to delete_archive_file upon deletion commit (when we are guaranteed that the transaction won't be
+    rolled back).
+
+    The purpose is to delete the file associated with an ArchiveFile record when it is being deleted.
+
+    NOTE: There are scenarios however where files in the archive can be orphaned and not cleaned up.  For example, if
+    rec.file_location is changed (i.e. delete is not called).
+
+    References:
+        https://stackoverflow.com/a/52703242/2057516
+    Args:
+        kwargs (dict)
+    Exceptions:
+        None
+    Returns:
+        None
+    """
+    transaction.on_commit(lambda: delete_archive_file(kwargs["instance"]))
+
+
+def delete_archive_file(deleted_rec: ArchiveFile) -> None:
+    """Given a deleted record instance (or a record being deleted during a safe transaction commit), delete the file on
+    disk associated with the record.
+
+    References:
+        https://stackoverflow.com/a/16041527/2057516
+    Args:
+        deleted_rec (ArchiveFile)
+    Exceptions:
+        None
+    RTeturns:
+        None
+    """
+    if deleted_rec.file_location and os.path.isfile(deleted_rec.file_location.path):
+        if exists_in_db(deleted_rec):
+            raise ProgrammingError(
+                f"Calling delete_archive_file on existing database record: {model_to_dict(deleted_rec)} is not allowed."
+            )
+        else:
+            os.remove(deleted_rec.file_location.path)
