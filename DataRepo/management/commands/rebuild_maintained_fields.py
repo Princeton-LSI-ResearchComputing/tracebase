@@ -1,5 +1,12 @@
 from django.core.management import BaseCommand
 
+from DataRepo.models.hier_cached_model import (
+    delete_all_caches,
+    disable_caching_retrievals,
+    disable_caching_updates,
+    enable_caching_retrievals,
+    enable_caching_updates,
+)
 from DataRepo.models.maintained_model import MaintainedModel
 
 
@@ -26,8 +33,15 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        MaintainedModel.rebuild_maintained_fields(
-            "DataRepo.models",  # optional - should work without this, but supplying anyway
-            label_filters=options["labels"],
-            filter_in=not options["exclude"],
-        )
+        try:
+            disable_caching_retrievals()
+            disable_caching_updates()
+            MaintainedModel.rebuild_maintained_fields(
+                "DataRepo.models",  # optional - should work without this, but supplying anyway
+                label_filters=options["labels"],
+                filter_in=not options["exclude"],
+            )
+            delete_all_caches()
+        finally:
+            enable_caching_updates()
+            enable_caching_retrievals()
