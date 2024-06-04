@@ -8,11 +8,9 @@ class TraceBaseTestSuiteRunner(DiscoverRunner):
     def setup_test_environment(self, *args, **kwargs):
         """Switch to in-memory storage."""
         super().setup_test_environment(*args, **kwargs)
-        settings._original_file_storage = settings.STORAGES["default"]
-        settings.STORAGES["default"] = settings.STORAGES["testing"]
+        settings.STORAGES = settings.TEST_STORAGES
 
     def teardown_test_environment(self, *args, **kwargs):
         """Switch back to the original file storage."""
         super().teardown_test_environment(*args, **kwargs)
-        settings.STORAGES["default"] = settings._original_file_storage
-        del settings._original_file_storage
+        settings.STORAGES = settings.DEFAULT_STORAGES
