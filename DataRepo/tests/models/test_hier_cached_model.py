@@ -33,7 +33,6 @@ def load_data():
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=False,
-        polarity="positive",
     )
 
 
@@ -63,7 +62,6 @@ def load_minimum_data():
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=True,
-        polarity="positive",
     )
 
 

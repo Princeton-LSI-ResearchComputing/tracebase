@@ -14,7 +14,6 @@ accucor_data:
       isocorr_format: true
   lc_protocol: "polar-HILIC-25-min"
   instrument: "unknown"
-  polarity: "positive"
   date: "2021-12-07"
   researcher: "Asael Roichman"
   new_researcher: false

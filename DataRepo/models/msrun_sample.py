@@ -31,14 +31,9 @@ class MSRunSample(HierCachedModel, MaintainedModel):
         ("positive", "positive"),
         ("negative", "negative"),
     ]
-    # The default polarity is used in loading, tests, and the validation interface as placeholders.  During loading,
-    # the precedence is: polarity parsed from mzXML file > value recorded in the LCMS Metadata file for the given sample
-    # > value provided on the command line > This default value.  An exception will be raised if the mzXML file value
-    # and the LCMS Metadata values differ.
-    POLARITY_DEFAULT = POLARITY_CHOICES[0][0]
     UNKNOWN_POLARITY = POLARITY_CHOICES[0][0]
     # These polarity values are used to convert the polarity representation parsed from an mzXML file (which records
-    # polarity using the symbols "=" and "-")
+    # polarity using the symbols "+" and "-")
     POSITIVE_POLARITY = POLARITY_CHOICES[1][0]
     NEGATIVE_POLARITY = POLARITY_CHOICES[2][0]
 
@@ -188,32 +183,23 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                     f"Invalid ms_data_file ({self.ms_data_file.filename}) data format: "
                     f"[{self.ms_data_file.data_format.code}], must be one of [{self.VALID_DATA_FILES['FORMATS']}]."
                 )
-
-        # TODO: Create a migration that removes polarity, mz_min, & mz_max from the MSRunSample placeholder records
-
-        # PR REVIEW NOTE: This should be handled in a separate issue, as this causes over 300 tests to fail (though a
-        # lot of them are because class setup fails).  This is necessary to keep from associating peak groups with the
-        # wrong polarity and/or scan range that are forced to be wrong due to the new null == null unique constraint.
-
-        # TODO: Create an issue to uncomment this code.  A bunch of tests will have to be fixed.  This should probably
-        # be addressed during the peak annotation loader refactor.
-        # else:
-        #     # Since there can only be 1 placeholder record (when we don't have an ms_data_file), and peak groups could
-        #     # have been created from scans of different polarities and scan ranges, we do not allow polarity, mz_min,
-        #     # or mz_max to be set when there is no ms_data_file.
-        #     disallowed = []
-        #     if self.polarity is not None and self.polarity != self.UNKNOWN_POLARITY:
-        #         disallowed.append(f"polarity ({self.polarity})")
-        #     if self.mz_min is not None:
-        #         disallowed.append(f"mz_min ({self.mz_min})")
-        #     if self.mz_max is not None:
-        #         disallowed.append(f"mz_max ({self.mz_max})")
-        #     if len(disallowed) > 0:
-        #         raise ValidationError(
-        #             f"This/these value(s) {disallowed} cannot be defined when ms_data_file is not defined.  Multiple "
-        #             "PeakGroup records, originating from different mzXML files with different polarities and scan "
-        #             "ranges, could link to this placeholder record."
-        #         )
+        else:
+            # Since there can only be 1 placeholder record (when we don't have an ms_data_file), and peak groups could
+            # have been created from scans of different polarities and scan ranges, we do not allow polarity, mz_min,
+            # or mz_max to be set when there is no ms_data_file.
+            disallowed = []
+            if self.polarity is not None and self.polarity != self.UNKNOWN_POLARITY:
+                disallowed.append(f"polarity ({self.polarity})")
+            if self.mz_min is not None:
+                disallowed.append(f"mz_min ({self.mz_min})")
+            if self.mz_max is not None:
+                disallowed.append(f"mz_max ({self.mz_max})")
+            if len(disallowed) > 0:
+                raise ValidationError(
+                    f"This/these value(s) {disallowed} cannot be defined when ms_data_file is not defined.  Multiple "
+                    "PeakGroup records, originating from different mzXML files with different polarities and scan "
+                    "ranges, could link to this placeholder record."
+                )
 
         if (
             self.mz_min is not None

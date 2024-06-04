@@ -62,7 +62,6 @@ class FCircTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
-            polarity="positive",
         )
 
         cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
@@ -136,7 +135,7 @@ class FCircTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.newlss,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -367,7 +366,7 @@ class FCircTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.newlss,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )

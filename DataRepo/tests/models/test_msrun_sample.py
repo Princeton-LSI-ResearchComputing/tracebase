@@ -106,7 +106,7 @@ class MSRunSampleTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=self.seq,
             sample=self.smpl,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )

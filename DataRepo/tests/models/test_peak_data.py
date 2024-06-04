@@ -77,7 +77,7 @@ class PeakDataData(TracebaseTestCase):
         msr = MSRunSample(
             msrun_sequence=seq,
             sample=smpl,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )

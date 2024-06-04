@@ -45,7 +45,6 @@ class StudiesExporterTests(StudiesExporterTestBase):
             researcher="Michael Neinast",
             new_researcher=True,
             instrument="unknown",
-            polarity="positive",
         )
 
     def test_all_studies_all_types(self):

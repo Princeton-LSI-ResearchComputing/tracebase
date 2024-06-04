@@ -176,7 +176,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -355,7 +355,6 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            polarity="positive",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -369,7 +368,6 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            polarity="positive",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -385,7 +383,6 @@ class DataLoadingTests(TracebaseTestCase):
             data_format="accucor",
             date="2021-10-14",
             researcher="Michael Neinast",
-            polarity="positive",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -606,7 +603,6 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-30",
             researcher="Michael Neinast",
             new_researcher=False,
-            polarity="positive",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -624,7 +620,6 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
-                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -647,7 +642,6 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-30",
             researcher="Luke Skywalker",
             new_researcher=True,
-            polarity="positive",
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
@@ -671,7 +665,6 @@ class DataLoadingTests(TracebaseTestCase):
                 date="2021-04-30",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -751,7 +744,6 @@ class DataLoadingTests(TracebaseTestCase):
             data_format="accucor",
             date="2021-11-19",
             researcher="Michael Neinast",
-            polarity="positive",
         )
 
         self.assertTrue(
@@ -781,7 +773,6 @@ class DataLoadingTests(TracebaseTestCase):
                 data_format="accucor",
                 date="2021-11-18",
                 researcher="Michael Neinast",
-                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -837,7 +828,6 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            polarity="positive",
         )
 
         call_command(
@@ -847,7 +837,6 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            polarity="positive",
         )
         cls.SERUM_COMPOUNDS_COUNT = 13
 
@@ -860,7 +849,6 @@ class PropertyTests(TracebaseTestCase):
             data_format="accucor",
             date="2021-10-14",
             researcher="Michael Neinast",
-            polarity="positive",
         )
 
         # defining a primary animal object for repeated tests
@@ -1037,7 +1025,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1202,7 +1190,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=second_serum_sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1322,7 +1310,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=second_serum_sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1489,7 +1477,7 @@ class PropertyTests(TracebaseTestCase):
         msrs = MSRunSample(
             msrun_sequence=seq,
             sample=peak_group.msrun_sample.sample,
-            polarity="positive",
+            polarity=MSRunSample.POSITIVE_POLARITY,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
@@ -1683,7 +1671,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            polarity="positive",
         )
 
         super().setUpTestData()
@@ -1775,7 +1762,6 @@ class TracerRateTests(TracebaseTestCase):
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
-            polarity="positive",
         )
 
         # defining a primary animal object for repeated tests
@@ -2730,7 +2716,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
-                polarity="positive",
             )
         aes = ar.exception
         aes.print_summary()

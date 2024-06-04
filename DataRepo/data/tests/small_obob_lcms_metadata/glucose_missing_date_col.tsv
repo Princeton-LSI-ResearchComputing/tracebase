@@ -1,3 +1,3 @@
-tracebase sample name	sample data header	mzxml filename	peak annotation filename	instrument	polarity	mz min	mz max	operator	lc method	lc run length	lc description
-BAT-xz971	BAT-xz971		small_obob_maven_6eaas_inf_glucose.xlsx	unknown	positive			Michael Neinast	polar-HILIC	25	
-Br-xz971	Br-xz971		small_obob_maven_6eaas_inf_glucose.xlsx	unknown	positive			Michael Neinast	new-lc-method	30	new lc method description
+tracebase sample name	sample data header	mzxml filename	peak annotation filename	instrument	operator	lc method	lc run length	lc description
+BAT-xz971	BAT-xz971		small_obob_maven_6eaas_inf_glucose.xlsx	unknown	Michael Neinast	polar-HILIC	25	
+Br-xz971	Br-xz971		small_obob_maven_6eaas_inf_glucose.xlsx	unknown	Michael Neinast	new-lc-method	30	new lc method description

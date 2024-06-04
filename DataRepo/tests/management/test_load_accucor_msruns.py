@@ -37,7 +37,6 @@ from DataRepo.utils import (
 from DataRepo.utils.exceptions import (
     ConflictingValueErrors,
     DuplicatePeakGroup,
-    MzxmlConflictErrors,
 )
 
 
@@ -74,7 +73,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            polarity="positive",
         )
 
     def test_accucor_load_blank_fail(self):
@@ -87,7 +85,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -103,7 +100,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            polarity="positive",
         )
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
@@ -125,7 +121,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            polarity="positive",
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
@@ -147,7 +142,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                polarity="positive",
             )
         aes = ar.exception
         nl = "\n"
@@ -205,7 +199,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
                 dry_run=True,
-                polarity="positive",
             )
 
         post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
@@ -272,7 +265,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
-                polarity="positive",
             )
 
         aes = ar.exception
@@ -305,7 +297,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             instrument="",
             peak_annotation_filename="peak_annotation_filename.tsv",
             mzxml_files=[],
-            polarity="",
         )
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
@@ -353,7 +344,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             instrument="",
             peak_annotation_filename="peak_annotation_filename.tsv",
             mzxml_files=[],
-            polarity="positive",
         )
         # Get the first PeakGroup, collect the attributes and change the formula
         peak_group = PeakGroup.objects.first()
@@ -389,7 +379,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="anonymous",
             new_researcher=False,
-            polarity="positive",
         )
 
         # Test peak data labels
@@ -439,7 +428,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="anonymous",
                 new_researcher=False,
-                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -463,7 +451,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=False,
-            polarity="positive",
         )
         SAMPLES_COUNT = 2
         PEAKDATA_ROWS = 11
@@ -494,41 +481,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
-                polarity="positive",
             )
         # Check second file failed (duplicate compound)
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
-
-    @tag("multi-msrun")
-    def test_msrun_sample_null_equals_null_unique_constraint(self):
-        """
-        Tests that an AmbiguousMSRuns exception cannot be circumvented by adding a scan range.
-        """
-        self.load_glucose_data()
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=False,
-                polarity="positive",
-                mz_min=0,
-                mz_max=500,
-            )
-
-        aes = ar.exception
-
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
-        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
-        self.assertIn("[mz_min] values differ", str(aes.exceptions[0]))
-        self.assertIn("[mz_max] values differ", str(aes.exceptions[0]))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -623,7 +580,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             isocorr_format=True,
-            polarity="positive",
         )
         post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
@@ -659,7 +615,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                polarity="positive",
             )
         self.assertIn(
             "--data-format",
@@ -785,7 +740,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -813,7 +767,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -893,7 +846,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -914,7 +866,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -958,7 +909,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            polarity="positive",
         )
         pg = (
             PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc")
@@ -1099,7 +1049,6 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            # polarity="positive",  # Use parsed mzxml as default
             mzxml_files=[
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
@@ -1181,116 +1130,8 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
     # NOTE: Test for Issue #712, Requirement 7.3 (A default polarity should be removed from the study submission form)
     # is unnecessary
 
-    @MaintainedModel.no_autoupdates()
-    def test_mzxml_polarity_trumps_cmdln_default(self):
-        """
-        Issue #712
-        Requirement: 7.3. Polarity value precedence: mzXML file value > LCMS metadata file value > command line value >
-        static "unknown" value
-        This test tests that LCMS metadata file value > command line value
-        NOTE: A test for "mzXML file value > LCMS metadata file value" is unnecessary due to requirement 7.6 (see
-        test_mzxml_lcms_polarity_conflict_raises_error)
-        """
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=False,
-            polarity=MSRunSample.POSITIVE_POLARITY,  # The mzxml files have "negative"
-            mzxml_files=[
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
-            ],
-        )
-        MSRunSample.objects.get(
-            sample__name="BAT-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
-        )
-        MSRunSample.objects.get(
-            sample__name="Br-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_lcms_polarity_trumps_cmdln_default(self):
-        """
-        Issue #712
-        Requirement: 7.3. Polarity value precedence: mzXML file value > LCMS metadata file value > command line value >
-        static "unknown" value
-        This test tests that LCMS metadata file value > command line value
-        NOTE: A test for "mzXML file value > LCMS metadata file value" is unnecessary due to requirement 7.6 (see
-        test_mzxml_lcms_polarity_conflict_raises_error)
-        """
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=False,
-            polarity=MSRunSample.POSITIVE_POLARITY,  # LCMS metadata file has "negative"
-            lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/lactate_neg.tsv",
-        )
-        MSRunSample.objects.get(
-            sample__name="BAT-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
-        )
-        MSRunSample.objects.get(
-            sample__name="Br-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_polarity_not_required(self):
-        """
-        Issue #712
-        Requirement: 7.4. A command line default polarity value is no longer required
-        """
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=False,
-        )
-        MSRunSample.objects.get(
-            sample__name="BAT-xz971", polarity=MSRunSample.POLARITY_DEFAULT
-        )
-        MSRunSample.objects.get(
-            sample__name="Br-xz971", polarity=MSRunSample.POLARITY_DEFAULT
-        )
-
     # NOTE: Test for Issue #712, Requirement 7.5 (A default polarity should be removed from the study submission form)
     # is unnecessary
-
-    @MaintainedModel.no_autoupdates()
-    def test_mzxml_lcms_polarity_conflict_raises_error(self):
-        """
-        Issue #712
-        Requirement: 7.6. Raise exception if LCMS metadata polarity value differs from what's parsed from the mzXML file
-        (if it was supplied)
-        """
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=False,
-                polarity="unknown",
-                mzxml_files=[
-                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
-                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
-                ],
-                lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/lactate.tsv",
-            )
-        aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(MzxmlConflictErrors, type(aes.exceptions[0]))
 
     def create_AccuCorDataLoader_object(self):
         return AccuCorDataLoader(

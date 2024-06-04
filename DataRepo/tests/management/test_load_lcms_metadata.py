@@ -93,7 +93,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             researcher="",
             lc_protocol_name="",
             instrument="",
-            polarity="",
             mzxml_files=None,
         )
         adl2.prepare_metadata()
@@ -265,7 +264,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_filename="accucor.xlsx",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             validate=True,
-            polarity="positive",
         )
         adl2.prepare_metadata()
         adl2.missing_mzxmls.append("sample3.mzxml")
@@ -336,7 +334,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC",
             instrument="unknown",
             mzxml_files=[],
-            polarity="positive",
         )
         adl1.prepare_metadata()
         missing1 = adl1.get_missing_required_lcms_defaults()
@@ -389,7 +386,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC",
             instrument="unknown",
             mzxml_files=[],
-            polarity="positive",
         )
         adl1.prepare_metadata()
         self.assertTrue(
@@ -571,7 +567,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
     def test_read_from_file_xlsx(self):
         df = read_from_file("DataRepo/data/tests/small_obob_lcms_metadata/glucose.xlsx")
         self.assertIsNotNone(df)
-        expected_shape = (15, 13)
+        expected_shape = (15, 10)
         self.assertEqual(
             expected_shape,
             df.shape,
@@ -583,7 +579,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
         )
         self.assertIsNotNone(df)
-        expected_shape = (15, 13)
+        expected_shape = (15, 10)
         self.assertEqual(
             expected_shape,
             df.shape,
@@ -602,9 +598,6 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             "DATE",  # Changed case
             "lc method",
             "lc description",
-            "polarity",
-            "mz min",
-            "mz max",
         ]
         self.assertTrue(lcms_headers_are_valid(case_unordered_lcms_headers))
         self.assertFalse(
@@ -897,7 +890,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file=lcms_file,
-            polarity="positive",
         )
 
     def test_UnexpectedLCMSSampleDataHeaders_no_annot_files(

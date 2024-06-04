@@ -142,6 +142,13 @@ class AccuCorDataLoader:
     Load the LCMethod, MsRunSequence, MSRunSample, PeakGroup, and PeakData tables
     """
 
+    # TODO: Non-null values for polarity, mz_min, and mz_max were ripped out of this code somewhat quickly.  The
+    # intention was to leave values that are parsed from the mzXML files.  This code is due for a refactor to integrate
+    # it with the plan in issue #753.  An MSRunsLoader now exists which handles these values.  The only intention here
+    # is to eliminate it so that it is no longer added the placeholder MSRunSample records (i.e. those records without a
+    # defined ms_data_file value) in order to avoid exceptions from the new code in MSRunSample.clean() that now
+    # prevents them from having values in placeholder records.
+
     # The following are used to identify accucor/isocorr files in is_accucor and is_isocorr
     ACCUCOR_FORMAT_CODE = "accucor"
     ISOCORR_FORMAT_CODE = "isocorr"
@@ -161,9 +168,6 @@ class AccuCorDataLoader:
         peak_annotation_filename=None,
         lcms_metadata_df=None,
         instrument=None,
-        polarity=None,
-        mz_min=None,
-        mz_max=None,
         date=None,
         lc_protocol_name=None,
         mzxml_files=None,
@@ -192,9 +196,6 @@ class AccuCorDataLoader:
         self.date = date
         self.researcher = researcher
         self.instrument = instrument
-        self.polarity = polarity
-        self.mz_min = mz_min
-        self.mz_max = mz_max
 
         # Modes
         self.allow_new_researchers = allow_new_researchers
@@ -260,7 +261,7 @@ class AccuCorDataLoader:
             "date": None,
             "researcher": None,
             "instrument": None,
-            "polarity": MSRunSample.POLARITY_DEFAULT,
+            "polarity": None,  # TODO: Will be eliminated in a refactor. There should be no default 4 this or mz_min/max
             "mz_min": None,
             "mz_max": None,
             "peak_annot_file": self.peak_annotation_filename,
@@ -274,12 +275,6 @@ class AccuCorDataLoader:
             lcms_defaults["researcher"] = self.researcher.strip()
         if self.instrument is not None and self.instrument.strip() != "":
             lcms_defaults["instrument"] = self.instrument.strip()
-        if self.polarity is not None and self.polarity.strip() != "":
-            lcms_defaults["polarity"] = self.polarity.strip()
-        if self.mz_min is not None:
-            lcms_defaults["mz_min"] = self.mz_min
-        if self.mz_max is not None:
-            lcms_defaults["mz_max"] = self.mz_max
 
         # Check LCMS metadata (after having initialized the lcms defaults)
         if self.lcms_metadata_df is None and None in reqd_lcms_defaults.values():
@@ -525,8 +520,8 @@ class AccuCorDataLoader:
         missing_header_defaults = defaultdict(dict)
         placeholders_needed = False
         for sample_header in self.corrected_sample_headers:
-            # Determine the polarity using the LCMS metadata file's value, the parsed mzXML file value, the command line
-            # default value, and the global default value.
+            # TODO: This will be eliminated in a refactor.  Polarity, mz_min, and mz_max should only ever be populated
+            # as derived from the mzXML.  Minimal edits were made to this code to quickly accomplish that here.
             # Precedence: mzXML > LCMS file > Command line default > global default.
             polarity = self.lcms_defaults["polarity"]
             mz_min = self.lcms_defaults["mz_min"]
@@ -553,8 +548,6 @@ class AccuCorDataLoader:
                         and parsed_polarity is not None
                         # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
                         and self.lcms_metadata[sample_header]["polarity"] is not None
-                        and self.lcms_metadata[sample_header]["polarity"]
-                        != MSRunSample.POLARITY_DEFAULT
                         and parsed_polarity
                         != self.lcms_metadata[sample_header]["polarity"]
                     ):
@@ -664,14 +657,10 @@ class AccuCorDataLoader:
                 # Fill in default values for any key whose value is missing
                 for key in self.lcms_defaults.keys():
                     if self.lcms_metadata[sample_header][key] is None:
-                        # Special case for polarity, mz_min, and mz_max (because they could have been parsed from the
-                        # mzxml file)
-                        if polarity is not None and key == "polarity":
+                        # No default needed for polarity, mz_min, or mz_max
+                        if key == "polarity":
                             self.lcms_metadata[sample_header][key] = polarity
                             continue
-                        # No default needed for mz_min or mz_max unless there are multiple MSRuns for the same sample
-                        # and polarity, which will be handled later
-                        # TODO: Fill in placeholders for mz_min and mz_max if the above scenario is encountered.
                         if key == "mz_min":
                             self.lcms_metadata[sample_header][key] = mz_min
                             continue
@@ -740,15 +729,6 @@ class AccuCorDataLoader:
             self.lcms_defaults["researcher"] = Researcher.RESEARCHER_DEFAULT
         if self.lcms_defaults["instrument"] is None:
             self.lcms_defaults["instrument"] = MSRunSequence.INSTRUMENT_DEFAULT
-        if self.lcms_defaults["polarity"] is None:
-            self.lcms_defaults["polarity"] = MSRunSample.POLARITY_DEFAULT
-        # NOTE: The below placeholders will only work for 1 additional scan, but in the context of this script, which
-        # only loads a single peak annotation file, that should be fine.  Chances are very low that these values will
-        # conflict with real data.
-        if self.lcms_defaults["mz_min"] is None:
-            self.lcms_defaults["mz_min"] = 0
-        if self.lcms_defaults["mz_max"] is None:
-            self.lcms_defaults["mz_max"] = 1000
         # No need to fill in "peak_annot_file".  Without this file, nothing will load
 
     def sample_header_to_default_mzxml(self, sample_header):
@@ -833,13 +813,7 @@ class AccuCorDataLoader:
 
     def get_missing_required_lcms_defaults(self):
         optionals = ["polarity", "mz_min", "mz_max"]
-        # polarity, mz_min, and mz_max will default to the values parsed from the mzXML file.  In the case of polarity,
-        # if the mzXML file is not supplied, the supplied --polarity default will be used, and if that default is not
-        # supplied, it will default to MSRunSample.POLARITY_DEFAULT.  For mz_min and mz_max, if the mzXML file is not
-        # supplied, there will be no default value (i.e. it will be None).  If there are multiple scans of the same
-        # sample at the same polarity, a unique constraint violation error will be raised complaining that the peak
-        # annotation file linked to the peak group will conflict with the prior loaded record (this will be because the
-        # linked MSRunSample record is wrong).
+        # TODO: A pending refactor will eliminate the above defaults as defaults.
         return [
             key
             for key in self.lcms_defaults.keys()
