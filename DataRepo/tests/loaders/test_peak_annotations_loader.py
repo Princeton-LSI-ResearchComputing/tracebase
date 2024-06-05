@@ -4,8 +4,21 @@ from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
     IsocorrLoader,
+    PeakAnnotationsLoader,
 )
+from DataRepo.models.compound import Compound
+from DataRepo.models.sample import Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import (
+    DuplicateCompoundIsotopes,
+    DuplicateValues,
+    MissingCompounds,
+    MissingSamples,
+    NoSamples,
+    RecordDoesNotExist,
+    UnexpectedSamples,
+    UnskippedBlanks,
+)
 
 
 class PeakAnnotationsLoaderTests(TracebaseTestCase):
@@ -54,16 +67,163 @@ class PeakAnnotationsLoaderTests(TracebaseTestCase):
         pass
 
     def test_handle_file_exceptions(self):
-        # TODO: Implement test
-        pass
+        al = AccucorLoader()
+        # Buffer a duplicate values exception to assert it is summarized as a DuplicateCompoundIsotopes exception
+        al.aggregated_errors_object.buffer_error(
+            DuplicateValues(
+                {
+                    "s1, Lysine, C13-label-2": [13],
+                },
+                [
+                    al.SAMPLEHEADER_KEY,
+                    al.COMPOUND_KEY,
+                    al.ISOTOPELABEL_KEY,
+                ],
+            )
+        )
+        # Buffer a RecordDoesNotExist exception for the Compound model to assert that it is summarized in a
+        # MissingCompounds exception
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("Lysine"),
+                rownum=3,
+                column="compound",
+                file="accucor.xlsx",
+            )
+        )
+        # Set up a RecordDoesNotExist exception for the Sample model to assert it is summarized as a NoSamples exception
+        al.msrun_sample_dict["s1"] = {}
+        al.msrun_sample_dict["s1"]["seen"] = True
+        al.msrun_sample_dict["s1"]["MSRunSample"] = None
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s1"},
+                rownum=3,
+                column="Sample Header",
+                file="accucor.xlsx",
+            )
+        )
 
-    def test_report_discrepant_headers(self):
-        # TODO: Implement test
-        pass
+        al.handle_file_exceptions()
+
+        self.assertEqual(3, len(al.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(DuplicateCompoundIsotopes)
+        )
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(MissingCompounds)
+        )
+        self.assertTrue(al.aggregated_errors_object.exception_type_exists(NoSamples))
+
+    def test_report_discrepant_headers_some(self):
+        al = AccucorLoader()
+        # s1 = "loaded"
+        # s2 = missing
+        # s3 = unexpected
+        # blank - blank
+        for sample_header in ["s1", "s2", "s3", "blank"]:
+            al.msrun_sample_dict[sample_header] = {}
+            # This sample was encountered during processing
+            al.msrun_sample_dict[sample_header]["seen"] = True
+            # No MSRunSample record was created for it
+            al.msrun_sample_dict[sample_header]["MSRunSample"] = None
+        # Change this sample to have not been encountered (i.e. it was in the peak annotation details, but not in the
+        # accucor file)
+        al.msrun_sample_dict["s3"]["seen"] = False
+        # Change s1 to having has an MSRunSample record created for it
+        al.msrun_sample_dict["s1"][
+            "MSRunSample"
+        ] = "not None"  # simulate "found"/"loaded"
+
+        # Buffer errors aboud having search for, but not found Sample records
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s2"},
+                rownum=3,
+                column="Sample Header",
+                file="accucor.xlsx",
+            )
+        )
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "blank"},
+                rownum=4,
+                column="Sample Header",
+                file="accucor.xlsx",
+            )
+        )
+
+        al.report_discrepant_headers()
+
+        self.assertEqual(3, len(al.aggregated_errors_object.exceptions))
+        self.assertFalse(
+            al.aggregated_errors_object.exception_type_exists(RecordDoesNotExist)
+        )
+
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(MissingSamples)
+        )
+        self.assertEqual(
+            ["s2"],
+            al.aggregated_errors_object.get_exception_type(MissingSamples)[
+                0
+            ].missing_samples,
+        )
+
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(UnskippedBlanks)
+        )
+        self.assertEqual(
+            ["blank"],
+            al.aggregated_errors_object.get_exception_type(UnskippedBlanks)[
+                0
+            ].missing_samples,
+        )
+
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(UnexpectedSamples)
+        )
+        self.assertEqual(
+            ["s3"],
+            al.aggregated_errors_object.get_exception_type(UnexpectedSamples)[
+                0
+            ].missing_samples,
+        )
+
+    def test_report_discrepant_headers_all(self):
+        al = AccucorLoader()
+        al.msrun_sample_dict["s1"] = {}
+        al.msrun_sample_dict["s1"]["seen"] = True
+        al.msrun_sample_dict["s1"]["MSRunSample"] = None
+
+        # Buffer errors aboud having search for, but not found Sample records
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s1"},
+                rownum=3,
+                column="Sample Header",
+                file="accucor.xlsx",
+            )
+        )
+
+        al.report_discrepant_headers()
+
+        self.assertTrue(al.aggregated_errors_object.exception_type_exists(NoSamples))
+        self.assertEqual(
+            ["s1"],
+            al.aggregated_errors_object.get_exception_type(NoSamples)[
+                0
+            ].missing_samples,
+        )
 
     def test_is_a_blank(self):
-        # TODO: Implement test
-        pass
+        self.assertTrue(PeakAnnotationsLoader.is_a_blank("a Blank sample"))
+        self.assertFalse(PeakAnnotationsLoader.is_a_blank("sample1"))
 
 
 class DerivedPeakAnnotationsLoaderTestCase(TracebaseTestCase):

@@ -982,12 +982,7 @@ class MissingSamples(MissingRecords):
     ):
         super().__init__(exceptions, **kwargs)
         # Add a custom attribute listing the missing sample headers
-        missing_samples = []
-        for exc in exceptions:
-            for sample_header in exc.query_obj["name"]:
-                if sample_header not in missing_samples:
-                    missing_samples.append(sample_header)
-        self.missing_samples = missing_samples
+        self.missing_samples = self.get_sample_names(exceptions)
 
     @classmethod
     def get_sample_names(cls, exceptions):
