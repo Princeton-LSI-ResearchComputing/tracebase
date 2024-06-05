@@ -692,10 +692,27 @@ class ConvertedTableLoader(TableLoader, ABC):
             # Only merge the columns specified in _merge_dict["right_columns"] by dropping all but the given subset:
             right_df = in_df[right_sheet][right_columns]
 
+        # The user may have edited the file to remove unwanted/unnecessary columns, so in order to avoid errors from
+        # pandas.merge, let's not join on columns that are absent in one sheet or the other
+        on_columns = []
+        for on_col in _merge_dict["on"]:
+            if on_col in list(right_df.columns) or on_col in list(left_df.columns):
+                on_columns.append(on_col)
+
+        if len(on_columns) == 0:
+            if len(_merge_dict["on"]) == 0:
+                raise ValueError(
+                    "merge_dict is malformed.  No common columns were specified for the merge."
+                )
+            raise ValueError(
+                "merge_dict is malformed.  None of the common column s to merge on were present in the input "
+                "dataframe."
+            )
+
         _outdf = pd.merge(
             left=left_df,
             right=right_df,
-            on=_merge_dict["on"],
+            on=on_columns,
             how=_merge_dict["how"],
         )
 

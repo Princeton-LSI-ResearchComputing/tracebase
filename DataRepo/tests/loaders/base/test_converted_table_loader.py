@@ -254,10 +254,6 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         expected_orig_dict["Compound"] = self.ORIG_DICT["compound"]
         expected_orig_dict["C_Label"] = [0, 1, 0, 1]
         expected_orig_df = pd.DataFrame.from_dict(expected_orig_dict)
-        # Sort the columns (because the column order doesn't matter)
-        expected_orig_df = expected_orig_df.reindex(
-            sorted(expected_orig_df.columns), axis=1
-        )
         return {
             "Original": expected_orig_df,
             "Corrected": self.ACCUCOR_DF_DICT["Corrected"],
@@ -272,13 +268,12 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         )
         expected_df_dict = self.get_accucor_df_with_added_columns()
 
-        # Sort the columns (because the column order doesn't matter)
-        tmpdf["Original"] = tmpdf["Original"].reindex(
-            sorted(tmpdf["Original"].columns), axis=1
+        pd.testing.assert_frame_equal(
+            expected_df_dict["Original"], tmpdf["Original"], check_like=True
         )
-
-        pd.testing.assert_frame_equal(expected_df_dict["Original"], tmpdf["Original"])
-        pd.testing.assert_frame_equal(expected_df_dict["Corrected"], tmpdf["Corrected"])
+        pd.testing.assert_frame_equal(
+            expected_df_dict["Corrected"], tmpdf["Corrected"], check_like=True
+        )
         self.assertEqual(len(self.ACCUCOR_DF_DICT.keys()), len(tmpdf.keys()))
 
     def test_add_df_columns_isocorr(self):
@@ -288,7 +283,9 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         self.TestConvertedLoader2().add_df_columns(  # pylint: disable=not-callable
             tmpdf
         )
-        pd.testing.assert_frame_equal(self.ISOCORR_DF_DICT["absolte"], tmpdf["absolte"])
+        pd.testing.assert_frame_equal(
+            self.ISOCORR_DF_DICT["absolte"], tmpdf["absolte"], check_like=True
+        )
         self.assertEqual(len(self.ISOCORR_DF_DICT.keys()), len(tmpdf.keys()))
 
     def test_merge_df_sheets_accucor(self):
@@ -306,7 +303,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
 
         # We're going to massage the fully converted dict to back it up to partially converted (instead of declare a
         # whole new structure).  So we're converting the output to a dict...
-        expected_dict = self.get_converted_accucor_df().to_dict()
+        expected_dict = self.get_converted_accucor_df().to_dict().copy()
         # This is before the extra columns have been removed, so add C_Label and adductName
         expected_dict["C_Label"] = {
             0: 0,
@@ -348,11 +345,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             }
         )
 
-        # Sort the columns of both dataframes (because the column order doesn't matter)
-        expected = expected.reindex(sorted(expected.columns), axis=1)
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_merge_df_sheets_isocorr(self):
         tmpdf = dict(
@@ -364,10 +357,12 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             )
         )
         # We should get back the dataframe of the absolte sheet, unchanged
-        pd.testing.assert_frame_equal(self.ISOCORR_DF_DICT["absolte"], outdf)
+        pd.testing.assert_frame_equal(
+            self.ISOCORR_DF_DICT["absolte"], outdf, check_like=True
+        )
 
     def get_converted_accucor_df(self):
-        df = pd.DataFrame.from_dict(
+        return pd.DataFrame.from_dict(
             {
                 "MedMz": [
                     104.035217,
@@ -483,7 +478,6 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 ],
             },
         )
-        return df.reindex(sorted(df.columns), axis=1)
 
     def test_convert_df_accucor_excel(self):
         tmpdf = dict(
@@ -494,10 +488,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         ).convert_df()
         expected = self.get_converted_accucor_df()
 
-        # Sort the columns of both dataframes (because the column order doesn't matter)
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_convert_df_accucor_tsv(self):
         """The user provides only a single sheet (Corrected), so we expect to get an exception about missing headers."""
@@ -517,7 +508,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         )
 
     def get_converted_isocorr_df(self):
-        df = pd.DataFrame.from_dict(
+        return pd.DataFrame.from_dict(
             {
                 "Formula": [
                     "C4H6O4",
@@ -591,7 +582,6 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 ],
             },
         )
-        return df.reindex(sorted(df.columns), axis=1)
 
     def test_convert_df_isocorr_excel(self):
         tmpdf = dict(
@@ -601,8 +591,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_convert_df_isocorr_tsv(self):
         tmpdf = self.ISOCORR_DF_DICT["absolte"].copy(deep=True)
@@ -610,8 +599,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_extra_columns_excluded_accucor_excel(self):
         tmporig = self.ORIG_DICT.copy()
@@ -626,8 +614,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_extra_columns_excluded_accucor_tsv(self):
         tmporig = self.ORIG_DICT.copy()
@@ -642,8 +629,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
             df=tmpdict
         ).convert_df()
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_extra_columns_excluded_isocorr_excel(self):
         tmpabso = self.ABSO_DICT.copy()
@@ -655,8 +641,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_extra_columns_excluded_isocorr_tsv(self):
         tmpabso = self.ABSO_DICT.copy()
@@ -666,8 +651,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         outdf = self.TestConvertedLoader2(  # pylint: disable=not-callable
             df=tmpdf
         ).convert_df()
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_constructor_conversion_merge_sheets(self):
         al = self.TestConvertedLoader1(  # pylint: disable=not-callable
@@ -675,11 +659,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         )
         outdf = al.df
         expected = self.get_converted_accucor_df()
-
-        # Sort the columns of both dataframes (because the column order doesn't matter)
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_constructor_conversion_single_sheet(self):
         il = self.TestConvertedLoader2(  # pylint: disable=not-callable
@@ -687,11 +667,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         )
         outdf = il.df
         expected = self.get_converted_isocorr_df()
-
-        # Sort the columns of both dataframes (because the column order doesn't matter)
-        outdf = outdf.reindex(sorted(outdf.columns), axis=1)
-
-        pd.testing.assert_frame_equal(expected, outdf)
+        pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_check_output_dataframe_success(self):
         il = self.TestConvertedLoader2(  # pylint: disable=not-callable
