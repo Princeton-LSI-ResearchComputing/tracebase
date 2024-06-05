@@ -1070,7 +1070,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         possible_blank_dnes = []
         likely_missing_dnes = []
         for sdne in sample_dnes:
-            if self.is_a_blank(sdne.query_dict["name"]):
+            if self.is_a_blank(sdne.query_obj["name"]):
                 possible_blank_dnes.append(sdne)
             else:
                 likely_missing_dnes.append(sdne)
@@ -1080,13 +1080,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # See if *any* samples were found (i.e. the MSRunSample record existed)
             num_found_samples = len(
                 [
-                    fs
-                    for fs in self.msrun_sample_dict.keys()
+                    sh
+                    for sh in self.msrun_sample_dict.keys()
                     # A Sample can be inferred to be found if the MSRunSample rec is not None in the msrun_sample_dict
                     # Sample searches do not occur for these cases
                     if (
-                        self.msrun_sample_dict[fs]["seen"] is True
-                        and self.msrun_sample_dict[fs][MSRunSample.__name__] is not None
+                        self.msrun_sample_dict[sh]["seen"] is True
+                        and self.msrun_sample_dict[sh][MSRunSample.__name__] is not None
                     )
                 ]
             )
@@ -1126,12 +1126,14 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if self.msrun_sample_dict[uss]["seen"] is False
         ]
         if len(unexpected_samples) > 0:
-            UnexpectedSamples(
-                unexpected_samples,
-                suggestion=(
-                    f"Make sure that the {self.headers.SAMPLEHEADER}s whose {self.headers.ANNOTNAME} is '{self.file}' "
-                    f"in the {self.msrunsloader.DataSheetName} sheet/file is correct."
-                ),
+            self.aggregated_errors_object.buffer_warning(
+                UnexpectedSamples(
+                    unexpected_samples,
+                    suggestion=(
+                        f"Make sure that the {self.headers.SAMPLEHEADER}s whose peak annotation file is '{self.file}' "
+                        f"in the {self.msrunsloader.DataSheetName} sheet/file is correct."
+                    ),
+                )
             )
 
     @classmethod
@@ -1139,10 +1141,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return "blank" in sample_name.lower()
 
     def handle_file_exceptions(self):
-        """Given the file conversion, the exception file-level metadata doesn't relate directly to the structure of the
-        original file.  Errors also have extra associated metadata (e.g. instances of DuplicateValues unnecessarily
-        include multiples by sample name, i.e. every duplicate isotope always affects every sample, thus only 1 error
-        indicating the row and 2 columns: compound and isotopeLabel).
+        """Repackage and summarize repeated exceptions.
+
+        Because of the file conversion, the file metadata in the exceptions doesn't relate directly to the structure
+        of the original file.  Errors also have extra associated metadata (e.g. instances of DuplicateValues
+        unnecessarily include multiples by sample name, i.e. every duplicate isotope always affects every sample, thus
+        only 1 error indicating the row and 2 columns: compound and isotopeLabel).
 
         This method must be called before the end of the load_data method, because the wrapper around load_data
         summarizes the DuplicateValues exceptions.
@@ -1157,14 +1161,15 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
-        unis_constraint_to_repackage = [
+        # This code relies on the following DataUniqueColumnConstraints, so we need to raise if it changes
+        unique_constraint = [
             self.SAMPLEHEADER_KEY,
             self.COMPOUND_KEY,
             self.ISOTOPELABEL_KEY,
         ]
         if len(self.DataUniqueColumnConstraints) != 1 or set(
             self.DataUniqueColumnConstraints[0]
-        ) != set(unis_constraint_to_repackage):
+        ) != set(unique_constraint):
             # If you find yourself here, it means that the exception "DuplicateCompoundIsotope" must only be raised when
             # the unique constraint for [self.SAMPLEHEADER_KEY, self.COMPOUND_KEY, self.ISOTOPELABEL_KEY] has been
             # violated (i.e. only remove and repackage DuplicateValues exceptions that relate to the columns in the
@@ -1180,7 +1185,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             "colnames",
             # This lambda is to determine if the DuplicateValues exception is for the target unique constraint, by
             # checking that the population of column names saved in the instance is the same
-            lambda cns: set(cns) == set(unis_constraint_to_repackage),
+            lambda colnames: set(colnames) == set(unique_constraint),
         )
         if len(dves) > 0:
             self.aggregated_errors_object.buffer_error(
@@ -1197,12 +1202,14 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         compound_dnes = self.aggregated_errors_object.remove_matching_exceptions(
             RecordDoesNotExist, "model", Compound
         )
-        MissingCompounds(
-            compound_dnes,
-            suggestion=(
-                "Compounds referenced in the peak annotation files must be loaded into the database before loading.  "
-                "Please take note of the compounds, select a primary name, any synonyms, and find an HMDB ID "
-                f"associated with the compound, and add it to {self.compounds_loc} in your submission."
+        self.aggregated_errors_object.buffer_error(
+            MissingCompounds(
+                compound_dnes,
+                suggestion=(
+                    "Compounds referenced in the peak annotation files must be loaded into the database before "
+                    "loading.  Please take note of the compounds, select a primary name, any synonyms, and find an "
+                    f"HMDB ID associated with the compound, and add it to {self.compounds_loc} in your submission."
+                ),
             ),
         )
 
