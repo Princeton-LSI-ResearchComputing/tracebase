@@ -278,7 +278,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if kwargs.get("file") is None:
                 raise AggregatedErrors().buffer_error(
                     ConditionallyRequiredArgs(
-                        "The [file] argument is required is the [df] argument is supplied."
+                        "The [file] argument is required if the [df] argument is supplied."
                     )
                 )
 
@@ -1226,8 +1226,8 @@ class IsocorrLoader(PeakAnnotationsLoader):
 
     condense_columns_dict = {
         "absolte": {
-            "header_column": "Sample",
-            "value_column": "Raw Abundance",
+            "header_column": "Sample Header",
+            "value_column": "Corrected Abundance",
             "uncondensed_columns": [
                 "compoundId",
                 "formula",
@@ -1305,7 +1305,7 @@ class AccucorLoader(PeakAnnotationsLoader):
 
     condense_columns_dict = {
         "Original": {
-            "header_column": "Sample",
+            "header_column": "Sample Header",
             "value_column": "Raw Abundance",
             "uncondensed_columns": [
                 "label",
@@ -1328,7 +1328,7 @@ class AccucorLoader(PeakAnnotationsLoader):
             ],
         },
         "Corrected": {
-            "header_column": "Sample",
+            "header_column": "Sample Header",
             "value_column": "Corrected Abundance",
             "uncondensed_columns": [
                 "Compound",
@@ -1415,12 +1415,12 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
 
     condense_columns_dict = {
         "original": {
-            "header_column": "Sample",
+            "header_column": "Sample Header",
             "value_column": "Raw Abundance",
             "uncondensed_columns": uncondensed_columns,
         },
         "cor_pct": {
-            "header_column": "Sample",
+            "header_column": "Sample Header",
             "value_column": "Corrected Abundance",
             "uncondensed_columns": uncondensed_columns,
         },
