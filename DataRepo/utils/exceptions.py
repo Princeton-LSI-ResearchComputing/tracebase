@@ -13,6 +13,7 @@ from django.db.models import Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
+from DataRepo.models.animal import Animal
 from DataRepo.models.researcher import get_researchers
 
 if TYPE_CHECKING:
@@ -749,7 +750,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         search_valuecombos_rows_dict = defaultdict(list)
         model = None
         fields_str = None
-        loc_args = None
+        loc_args: Dict[str, str] = {}
         for inst in instances:
             if model is None:
                 model = inst.model
@@ -764,7 +765,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                 "file": inst.file,
                 "sheet": inst.sheet,
             }
-            if loc_args is None:
+            if len(loc_args.keys()) == 0:
                 loc_args = cur_loc_args
             elif cur_loc_args != loc_args:
                 raise ProgrammingError(
@@ -868,7 +869,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
             _query_obj = self.query_obj
 
         if isinstance(_query_obj, dict):
-            return ", ".join(_query_obj.values())
+            return ", ".join([str(val) for val in _query_obj.values()])
 
         if _uniq_vals is None:
             _uniq_vals = []
@@ -2490,16 +2491,21 @@ class NoTracerLabeledElements(InfileError):
     def __init__(
         self, compound: Optional[str] = None, elements: Optional[list] = None, **kwargs
     ):
-        cpdstr = ""
-        if compound is not None:
-            cpdstr = f"PeakGroup compound [{compound}] contains no"
-        else:
-            cpdstr = "No"
         tcrstr = ""
-        if elements is not None:
+        if elements is not None and len(elements) > 0:
             tcrstr = f" {elements}"
-        message = f"{cpdstr} tracer_labeled_elements{tcrstr}."
+        if compound is not None:
+            message = f"PeakGroup compound [{compound}] from %s contains no tracer_labeled_elements{tcrstr}."
+        else:
+            message = f"No tracer_labeled_elements{tcrstr}."
         super().__init__(message, **kwargs)
+
+
+class NoTracers(InfileError):
+    def __init__(self, animal: Animal, **kwargs):
+        message = f"The Animal [{animal}] associated with %s, has no tracers."
+        super().__init__(message, **kwargs)
+        self.animal = animal
 
 
 class IsotopeStringDupe(InfileError):
