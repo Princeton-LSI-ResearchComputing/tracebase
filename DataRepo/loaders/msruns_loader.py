@@ -14,6 +14,16 @@ from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, Sample
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
+from DataRepo.models import (
+    ArchiveFile,
+    DataFormat,
+    DataType,
+    MaintainedModel,
+    MSRunSample,
+    MSRunSequence,
+    PeakGroup,
+    Sample,
+)
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_updates,
@@ -21,7 +31,6 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.sample import Sample
 from DataRepo.models.utilities import exists_in_db, update_rec
-from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
@@ -366,7 +375,11 @@ class MSRunsLoader(TableLoader):
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
         self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(bool))
 
-    # TODO: Add a defer autoupdates decorator and supply it methods to disable caching
+    # There are maintained fields in the models involved, so deferring autoupdates will make this faster
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_data(self):
         """Loads the MSRunSample table from the dataframe.
         Args:

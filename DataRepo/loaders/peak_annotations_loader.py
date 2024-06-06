@@ -15,12 +15,18 @@ from DataRepo.models import (
     Compound,
     DataFormat,
     DataType,
+    MaintainedModel,
     MSRunSample,
     PeakData,
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
     Sample,
+)
+from DataRepo.models.hier_cached_model import (
+    delete_all_caches,
+    disable_caching_updates,
+    enable_caching_updates,
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -388,7 +394,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.lc_protocol_name_default = self.msrunsloader.lc_protocol_name_default
         self.instrument_default = self.msrunsloader.instrument_default
 
-    # TODO: Add a defer autoupdates decorator and supply it methods to disable caching
+    # There are maintained fields in the models involved, so deferring autoupdates will make this faster
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_data(self):
         """Loads the ArchiveFile, PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
 
@@ -399,6 +409,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
+        # There are cached fields in the models involved, so disabling cache updates will make this faster.
+        disable_caching_updates()
+
         try:
             annot_file_rec, _ = self.get_or_create_annot_file()
         except RollbackException:
@@ -441,6 +454,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # locations of errors later.  It could be called at the top of this method, but given the plan, having it here
         # at the bottom is better.
         self.handle_file_exceptions()
+
+        enable_caching_updates()
+        delete_all_caches()
 
     @transaction.atomic
     def get_or_create_annot_file(self):
