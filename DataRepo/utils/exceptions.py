@@ -3515,7 +3515,7 @@ class ConditionallyRequiredOptions(CommandError):
     pass
 
 
-class ConditionallyRequiredArgs(CommandError):
+class ConditionallyRequiredArgs(InfileError):
     pass
 
 

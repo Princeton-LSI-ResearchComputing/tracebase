@@ -26,6 +26,8 @@ from DataRepo.models import (
 from DataRepo.models.animal import Animal
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
     DuplicateValues,
     MissingCompounds,
@@ -235,12 +237,12 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
         cls.tsu = Tissue.objects.create(name="Brain")
         # Create a sequence for the load to retrieve
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        seq = MSRunSequence.objects.create(
+        cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        cls.seq = MSRunSequence.objects.create(
             researcher="Dick",
             date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
             instrument=cls.INSTRUMENT,
-            lc_method=lcm,
+            lc_method=cls.lcm,
         )
         # Create sample for the load to retrieve
         Sample.objects.create(
@@ -265,14 +267,14 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             date=datetime.now(),
         )
         MSRunSample.objects.create(
-            msrun_sequence=seq,
+            msrun_sequence=cls.seq,
             sample=ts1,
             polarity=None,  # Placeholder
             ms_raw_file=None,  # Placeholder
             ms_data_file=None,  # Placeholder
         )
         MSRunSample.objects.create(
-            msrun_sequence=seq,
+            msrun_sequence=cls.seq,
             sample=bra,
             polarity=None,  # Placeholder
             ms_raw_file=None,  # Placeholder
@@ -381,18 +383,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         iso = Compound.objects.create(
             name="isocitrate", formula="C6H8O7", hmdb_id="HMDB0000193"
         )
-        row = pd.Series(
-            {
-                AccucorLoader.DataHeaders.MEDMZ: 1,
-                AccucorLoader.DataHeaders.MEDRT: 2,
-                AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1",
-                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
-                AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate",
-                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
-                AccucorLoader.DataHeaders.RAW: 10,
-                AccucorLoader.DataHeaders.CORRECTED: 1,
-            }
-        )
+        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate"})
         al = AccucorLoader()
         pgname, recs = al.get_peak_group_name_and_compounds(row)
         self.assertEqual("citrate/isocitrate", pgname)
@@ -401,18 +392,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     def test_get_peak_group_name_and_compounds_synonym(self):
         """Tests that peak groups are always named using the compound's primary name"""
         CompoundSynonym.objects.create(name="ser", compound=self.SERINE)
-        row = pd.Series(
-            {
-                AccucorLoader.DataHeaders.MEDMZ: 1,
-                AccucorLoader.DataHeaders.MEDRT: 2,
-                AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1",
-                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
-                AccucorLoader.DataHeaders.COMPOUND: "ser",
-                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
-                AccucorLoader.DataHeaders.RAW: 10,
-                AccucorLoader.DataHeaders.CORRECTED: 1,
-            }
-        )
+        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser"})
         al = AccucorLoader()
         pgname, recs = al.get_peak_group_name_and_compounds(row)
         self.assertEqual("Serine", pgname)
@@ -421,14 +401,8 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     def test_get_or_create_peak_group(self):
         row = pd.Series(
             {
-                AccucorLoader.DataHeaders.MEDMZ: 1,
-                AccucorLoader.DataHeaders.MEDRT: 2,
-                AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-2",
                 AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
-                AccucorLoader.DataHeaders.COMPOUND: "Serine",
                 AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
-                AccucorLoader.DataHeaders.RAW: 10,
-                AccucorLoader.DataHeaders.CORRECTED: 1,
             }
         )
         rec_dict = {
@@ -445,12 +419,123 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertFalse(created2)
 
     def test_get_msrun_sample_no_annot_details_df(self):
-        # TODO: Implement test
-        pass
+        al = AccucorLoader()
 
-    def test_get_msrun_sample_with_blank_skip(self):
-        # TODO: Implement test
-        pass
+        # Sample does not exist
+        msrs1 = al.get_msrun_sample("does not exist")
+        self.assertIsNone(msrs1)
+        self.assertTrue(
+            al.aggregated_errors_object.exception_exists(
+                RecordDoesNotExist, "model", Sample
+            )
+        )
+
+        # MSRunSample does not exist
+        ts = Sample.objects.create(
+            name="test_sample",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        al.missing_headers_as_samples = []
+        al.msrun_sample_dict = {}
+        msrs2 = al.get_msrun_sample("test_sample")
+        self.assertIsNone(msrs2)
+        self.assertTrue(
+            al.aggregated_errors_object.exception_exists(
+                RecordDoesNotExist, "model", MSRunSample
+            )
+        )
+
+        # Sample is enough
+        al.aggregated_errors_object = AggregatedErrors()
+        tmsrs = MSRunSample.objects.create(
+            msrun_sequence=self.seq,
+            sample=ts,
+            polarity=None,  # Placeholder
+            ms_raw_file=None,  # Placeholder
+            ms_data_file=None,  # Placeholder
+        )
+        al.missing_headers_as_samples = []
+        al.msrun_sample_dict = {}
+        msrs3 = al.get_msrun_sample("test_sample")
+        self.assertEqual(tmsrs, msrs3)
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+        # Sequence defaults are needed
+        tseq = MSRunSequence.objects.create(
+            researcher="Richard",
+            date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
+            instrument=self.INSTRUMENT,
+            lc_method=self.lcm,
+        )
+        tmsrs2 = MSRunSample.objects.create(
+            msrun_sequence=tseq,
+            sample=ts,
+            polarity=None,  # Placeholder
+            ms_raw_file=None,  # Placeholder
+            ms_data_file=None,  # Placeholder
+        )
+        al.missing_headers_as_samples = []
+        al.msrun_sample_dict = {}
+        msrs4 = al.get_msrun_sample("test_sample")
+        self.assertIsNone(msrs4)
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(ConditionallyRequiredArgs)
+        )
+
+        # LC, instrument, and date not enough
+        al.lc_protocol_name_default = self.lcm.name
+        al.instrument_default = self.INSTRUMENT
+        al.date_default = datetime.strptime("1991-5-7", "%Y-%m-%d")
+        al.missing_headers_as_samples = []
+        al.msrun_sample_dict = {}
+        msrs5 = al.get_msrun_sample("test_sample")
+        self.assertIsNone(msrs5)
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(ConditionallyRequiredArgs)
+        )
+
+        # Operator is enough
+        al.aggregated_errors_object = AggregatedErrors()
+        al.lc_protocol_name_default = None
+        al.instrument_default = None
+        al.date_default = None
+        al.operator_default = "Richard"
+        al.missing_headers_as_samples = []
+        al.msrun_sample_dict = {}
+        msrs6 = al.get_msrun_sample("test_sample")
+        self.assertEqual(tmsrs2, msrs6)
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+    def test_get_msrun_sample_with_annot_details_df(self):
+        """This simulated that the peak_annotation_details_df was supplied by setting obj.msrun_sample_dict"""
+        al = AccucorLoader()
+
+        # Test missing
+        al.missing_headers_as_samples = ["072920_XXX1_1_TS1"]
+        msrs1 = al.get_msrun_sample("072920_XXX1_1_TS1")
+        self.assertIsNone(msrs1)
+
+        # Test seen (using a bogus "MSRunSample" - but it doesn't matter for the purposes of this test)
+        al.msrun_sample_dict["072920_XXX1_2_bra"] = {
+            "seen": False,
+            MSRunSample.__name__: "not none",
+        }
+        msrs2 = al.get_msrun_sample("072920_XXX1_2_bra")
+        self.assertEqual("not none", msrs2)
+        self.assertTrue(al.msrun_sample_dict["072920_XXX1_2_bra"]["seen"])
+
+        # Test skip
+        al.msrun_sample_dict["blank_1_404020"] = {
+            "seen": False,
+            MSRunSample.__name__: None,
+            "Skip": True,
+        }
+        msrs3 = al.get_msrun_sample("blank_1_404020")
+        self.assertIsNone(msrs3)
+        self.assertTrue(al.msrun_sample_dict["blank_1_404020"]["seen"])
 
     def test_get_or_create_peak_data(self):
         # TODO: Implement test
