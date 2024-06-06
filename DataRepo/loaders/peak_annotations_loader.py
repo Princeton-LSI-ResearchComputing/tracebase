@@ -27,6 +27,7 @@ from DataRepo.utils.exceptions import (
     ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
     DuplicateValues,
+    InfileError,
     IsotopeStringDupe,
     MissingCompounds,
     MissingSamples,
@@ -545,8 +546,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             rec (Optional[PeakGroup])
             created (boolean)
         """
-        msrun_sample = self.get_msrun_sample(row)
+        sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
         formula = self.get_row_val(row, self.headers.FORMULA)
+
+        msrun_sample = self.get_msrun_sample(sample_header)
 
         if (
             msrun_sample is None
@@ -591,7 +594,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         return rec, created
 
-    def get_msrun_sample(self, row):
+    def get_msrun_sample(self, sample_header):
         """Retrieves the MSRunSample record, either as determined by the self.msrun_sample_dict that was returned by the
         member MSRunsLoader object (via the peak Annotation Details sheet) or by assuming that the sample header matches
         the sample name exactly and using the sequence defaults.
@@ -604,7 +607,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Details sheet/file.
 
         Args:
-            row (pandas.Series)
+            sample_header (str)
         Exceptions:
             Buffers:
                 RecordDoesNotExist
@@ -615,8 +618,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             msrun_sample (Optional[MSRunSample])
         """
-        sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
-
         # If we already know (from a previous row, that) the sample the header maps to is missing in the database
         if sample_header in self.missing_headers_as_samples:
             return None
@@ -669,10 +670,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             )
             self.missing_headers_as_samples.append(sample_header)
             return None
+
         sample = samples.get()
 
         # Now try to get the MSRunSample record using the sample
-        msrun_samples = MSRunSample.objects.filter(sample__pk=sample.pk)
+        msrun_samples = MSRunSample.objects.filter(sample=sample)
 
         # Check if there were too few or exactly 1 results.
         if msrun_samples.count() == 0:
@@ -699,29 +701,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # At this point, there are multiple results.  That means that defaults for the sequence are required in order to
         # proceed, so check them.
-        if (
-            self.operator_default is None
-            and self.date_default is None
-            and self.lc_protocol_name_default is None
-            and self.instrument_default is None
-        ):
-            # Only buffer this error once
-            if not self.aggregated_errors_object.exception_type_exists(
-                ConditionallyRequiredArgs
-            ):
-                self.aggregated_errors_object.buffer_error(
-                    ConditionallyRequiredArgs(
-                        "The following arguments supplied to the constructor were insufficient.  Either "
-                        "peak_annotation_details_df wasn't supplied or did not have enough information for every "
-                        "sample column, in which case, enough of the following default arguments are required to match "
-                        "each sample header with the already loaded MSRunSample records: [operator, lc_protocol_name, "
-                        "instrument, and/or date."
-                    )
-                )
-            self.missing_headers_as_samples.append(sample_header)
-            return None
-
-        # Let's see if the results can be narrowed to a single record using the sequence defaults we've been provided.
 
         # First, build a query dict with only the sequence defaults we have values for (NOTE: just the researcher or
         # date, for example, may be enough).
@@ -737,6 +716,25 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         if self.date_default is not None:
             query_dict["msrun_sequence__date"] = self.date_default
 
+        # Create this exception object (without buffering) to use in 2 possible buffering locations
+        not_enough_defaults_exc = ConditionallyRequiredArgs(
+            "The arguments supplied to the constructor were insufficient to identify the sequence 1 or more of the "
+            "samples belong to.  Either peak_annotation_details_df can be supplied with a sequence name for every "
+            "MSRunSample record or the following defaults can be supplied via file_defaults of explicit arguments: "
+            f"[operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} defaults supplied were "
+            f"used to create the following query: {query_dict}."
+        )
+
+        if len(query_dict.keys()) == 0:
+            # Only buffer this error once
+            if not self.aggregated_errors_object.exception_type_exists(
+                ConditionallyRequiredArgs
+            ):
+                self.aggregated_errors_object.buffer_error(not_enough_defaults_exc)
+            self.missing_headers_as_samples.append(sample_header)
+            return None
+
+        # Let's see if the results can be narrowed to a single record using the sequence defaults we've been provided.
         msrun_samples = msrun_samples.filter(**query_dict)
 
         # Check if there were too few or too many results.
@@ -756,10 +754,26 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.missing_headers_as_samples.append(sample_header)
             return None
         elif msrun_samples.count() > 1:
-            try:
-                msrun_samples.get()
-            except Exception as e:
-                self.aggregated_errors_object.buffer_error(e)
+            if len(query_dict.keys()) < 4:
+                if not self.aggregated_errors_object.exception_type_exists(
+                    ConditionallyRequiredArgs
+                ):
+                    self.aggregated_errors_object.buffer_error(not_enough_defaults_exc)
+            else:
+                # TODO: After rebase on main, convert this into a MultipleRecordsReturned exception
+                try:
+                    msrun_samples.get()
+                except Exception as e:
+                    self.aggregated_errors_object.buffer_error(
+                        InfileError(
+                            str(e),
+                            file=self.file,
+                            sheet=self.sheet,
+                            rownum=self.rownum,
+                        ),
+                        orig_exception=e,
+                    )
+
             return None
 
         self.msrun_sample_dict[sample_header][
