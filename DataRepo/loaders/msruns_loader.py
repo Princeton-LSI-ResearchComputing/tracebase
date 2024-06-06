@@ -11,8 +11,21 @@ from django.db.models import Max, Min, Q
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, Sample
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
+from DataRepo.models import (
+    ArchiveFile,
+    DataFormat,
+    DataType,
+    MaintainedModel,
+    MSRunSample,
+    MSRunSequence,
+    PeakGroup,
+    Sample,
+)
+from DataRepo.models.hier_cached_model import (
+    delete_all_caches,
+    disable_caching_updates,
+    enable_caching_updates,
+)
 from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -350,7 +363,11 @@ class MSRunsLoader(TableLoader):
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
         self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(bool))
 
-    # TODO: Add a defer autoupdates decorator and supply it methods to disable caching
+    # There are maintained fields in the models involved, so deferring autoupdates will make this faster
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_data(self):
         """Loads the MSRunSample table from the dataframe.
         Args:
@@ -360,6 +377,9 @@ class MSRunsLoader(TableLoader):
         Returns:
             None
         """
+        # There are cached fields in the models involved, so disabling cache updates will make this faster.
+        disable_caching_updates()
+
         # 1. Traverse the supplied mzXML files
         #    - create ArchiveFile records.
         #    - Extract data from the mzxML files
@@ -427,6 +447,9 @@ class MSRunsLoader(TableLoader):
                             # Exception handling was handled
                             # Continue processing rows to find more errors
                             pass
+
+        enable_caching_updates()
+        delete_all_caches()
 
     def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
         """Using self.df, this returns a dict of metadata and MSRunSample records keyed on sample header for the
