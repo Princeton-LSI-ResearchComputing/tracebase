@@ -1372,7 +1372,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
-    def test_load_data(self):
+    def test_load_data_no_infile(self):
         """This tests loading JUST the mzxml files with just the files themselves and defaults arguments (/command line
         options).  I.e. no dataframe (/infile)."""
 
@@ -1431,7 +1431,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         )
         # No exception = successful test
 
-    def test_get_loaded_msrun_sample_dict(self):
+    def setup_load(self):
         # Create a sequence for the load to retrieve
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
         inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
@@ -1449,6 +1449,34 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
             researcher="John Doe",
             date=datetime.now(),
         )
+        return inst, seq, s1
+
+    def test_load_data_infile(self):
+        inst, seq, s1 = self.setup_load()
+
+        # Create a dataframe to use to retrieve the records
+        # Including a sample (s2) from a non-matching file (which should not be retrieved)
+        df = pd.DataFrame.from_dict(
+            {
+                "Sample Name": ["s1"],
+                "Sample Data Header": ["s1_pos"],
+                "mzXML File Name": [None],
+                "Peak Annotation File Name": ["accucor.xlsx"],
+                "Sequence Name": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
+            },
+        )
+        msrl = MSRunsLoader(df=df)
+        msrl.load_data()
+        # No exception = successful test
+        MSRunSample.objects.get(
+            msrun_sequence=seq,
+            sample=s1,
+            ms_data_file__isnull=True,
+        )
+
+    def test_get_loaded_msrun_sample_dict(self):
+        inst, seq, s1 = self.setup_load()
+
         # Create MSRunSample record for the load to retrieve
         msrs1 = MSRunSample.objects.create(
             msrun_sequence=seq,

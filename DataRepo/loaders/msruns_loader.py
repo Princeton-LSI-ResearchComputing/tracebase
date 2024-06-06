@@ -366,6 +366,7 @@ class MSRunsLoader(TableLoader):
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
         self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(bool))
 
+    # TODO: Add a defer autoupdates decorator and supply it methods to disable caching
     def load_data(self):
         """Loads the MSRunSample table from the dataframe.
         Args:

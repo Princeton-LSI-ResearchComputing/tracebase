@@ -32,6 +32,7 @@ from DataRepo.utils.exceptions import (
     MissingSamples,
     NoSamples,
     NoTracerLabeledElements,
+    NoTracers,
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
     RecordDoesNotExist,
@@ -274,11 +275,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
 
         # Require the file argument if df is supplied
-        if kwargs.get("df") is not None:
+        if kwargs.get("df") is not None or self.peak_annotation_details_df is not None:
             if kwargs.get("file") is None:
                 raise AggregatedErrors().buffer_error(
                     ConditionallyRequiredArgs(
-                        "The [file] argument is required if the [df] argument is supplied."
+                        "The [file] argument is required if either the [df] or [peak_annotation_details_df] argument "
+                        "is supplied."
                     )
                 )
 
@@ -385,6 +387,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.lc_protocol_name_default = self.msrunsloader.lc_protocol_name_default
         self.instrument_default = self.msrunsloader.instrument_default
 
+    # TODO: Add a defer autoupdates decorator and supply it methods to disable caching
     def load_data(self):
         """Loads the ArchiveFile, PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
 
@@ -427,7 +430,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 except RollbackException:
                     pass
 
-            # Adding the compound link can cause an error if there are no elements in the compound that are lebeled
+            # Adding the compound link can cause an error if there are no elements in the compound that are labeled
             # elements in the tracer
             if self.is_skip_row():
                 # If this happens, it is user error.  Every peak group compound should have elements that are labeled in
@@ -587,6 +590,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.errored(PeakGroup.__name__)
             raise RollbackException()
 
+        if len(rec.tracer_labeled_elements) == 0:
+            self.add_skip_row_index()
+            if not self.aggregated_errors_object.exception_exists(
+                NoTracers, "animal", msrun_sample.sample.animal
+            ):
+                self.aggregated_errors_object.buffer_error(
+                    NoTracers(
+                        msrun_sample.sample.animal,
+                        file=self.file,
+                        sheet=self.sheet,
+                    )
+                )
+
         return rec, created
 
     def get_msrun_sample(self, row):
@@ -628,7 +644,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.msrun_sample_dict[sample_header]["seen"] = True
 
             if (
-                self.msrun_sample_dict[sample_header][self.msrunsloader.headers.SKIP]
+                self.msrunsloader.headers.SKIP
+                in self.msrun_sample_dict[sample_header].keys()
+                and self.msrun_sample_dict[sample_header][
+                    self.msrunsloader.headers.SKIP
+                ]
                 is True
             ):
                 return None
@@ -780,6 +800,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         created = False
         rec = None
 
+        if pgrec is None:
+            # Subsequent record creations from this row should be skipped.
+            self.add_skip_row_index()
+            self.skipped(PeakGroupCompound.__name__)
+            return rec, created
+
         # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
         pre = pgrec.compounds.all()
 
@@ -804,7 +830,14 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Error check the labeled elements shared between the peak group's compound(s) and the tracers
         if len(pgrec.peak_labeled_elements) == 0:
             self.aggregated_errors_object.buffer_error(
-                NoTracerLabeledElements(pgrec.name, pgrec.tracer_labeled_elements)
+                NoTracerLabeledElements(
+                    pgrec.name,
+                    pgrec.tracer_labeled_elements,
+                    file=self.file,
+                    sheet=self.sheet,
+                    column=self.headers.COMPOUND,
+                    rownum=self.rownum,
+                )
             )
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
@@ -815,10 +848,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         rec = PeakGroupCompound.objects.get(**rec_dict)
 
         if created:
-            self.created(self.errored(PeakGroupCompound.__name__))
+            self.created(PeakGroupCompound.__name__)
             # No need to call full clean.
         else:
-            self.existed(self.errored(PeakGroupCompound.__name__))
+            self.existed(PeakGroupCompound.__name__)
 
         return rec, created
 
@@ -1202,18 +1235,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         compound_dnes = self.aggregated_errors_object.remove_matching_exceptions(
             RecordDoesNotExist, "model", Compound
         )
-        self.aggregated_errors_object.buffer_error(
-            MissingCompounds(
-                compound_dnes,
-                suggestion=(
-                    "Compounds referenced in the peak annotation files must be loaded into the database before "
-                    "loading.  Please take note of the compounds, select a primary name, any synonyms, and find an "
-                    f"HMDB ID associated with the compound, and add it to {self.compounds_loc} in your submission."
+        if len(compound_dnes) > 0:
+            self.aggregated_errors_object.buffer_error(
+                MissingCompounds(
+                    compound_dnes,
+                    suggestion=(
+                        "Compounds referenced in the peak annotation files must be loaded into the database before "
+                        "loading.  Please take note of the compounds, select a primary name, any synonyms, and find an "
+                        f"HMDB ID associated with the compound, and add it to {self.compounds_loc} in your submission."
+                    ),
                 ),
-            ),
-        )
+            )
 
-        # TODO: Add handling/consolidation of MultipleRecordsReturned
+        # TODO: Add handling/consolidation of MultipleRecordsReturned (either here or in TableLoader)
 
 
 class IsocorrLoader(PeakAnnotationsLoader):
