@@ -786,8 +786,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """Get or create a peakgroup_compound record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
-            row (pandas.Series)
-            peak_group (Optional[PeakGroup])
+            pgrec (Optional[PeakGroup])
+            cmpd_rec (Compound)
         Exceptions:
             Buffers:
                 None
@@ -807,7 +807,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             return rec, created
 
         # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
-        pre = pgrec.compounds.all()
+        count_before = pgrec.compounds.count()
 
         # This is the effective rec_dict
         rec_dict = {
@@ -822,10 +822,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.errored(PeakGroupCompound.__name__)
             raise RollbackException()
 
-        post = pgrec.compounds.all()
+        count_after = pgrec.compounds.count()
 
         # Determine if a record was created
-        created = post.count() > pre.count()
+        created = count_after > count_before
 
         # Error check the labeled elements shared between the peak group's compound(s) and the tracers
         if len(pgrec.peak_labeled_elements) == 0:
@@ -923,8 +923,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         # Parse the isotope obsevations.
         isotope_label = self.get_row_val(row, self.headers.ISOTOPELABEL)
-        pglrecs: List[Tuple[PeakGroup, bool]] = []
-        pdlrecs: List[Tuple[PeakData, bool]] = []
+        pglrec_tuples: List[Tuple[PeakGroup, bool]] = []
+        pdlrec_tuples: List[Tuple[PeakData, bool]] = []
 
         # Even if this is a skip row, we can still process the isotope label string to find issues...
         possible_isotope_observations = None
@@ -952,7 +952,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.aggregated_errors_object.buffer_warning(olnp, is_fatal=self.validate)
             self.warned(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
             self.warned(PeakDataLabel.__name__, num=num_possible_isotope_observations)
-            return pglrecs, pdlrecs
+            return pglrec_tuples, pdlrec_tuples
         except (
             IsotopeStringDupe,
             ObservedIsotopeUnbalancedError,
@@ -963,13 +963,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.aggregated_errors_object.buffer_error(ie)
             self.errored(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
             self.errored(PeakDataLabel.__name__, num=num_possible_isotope_observations)
-            return pglrecs, pdlrecs
+            return pglrec_tuples, pdlrec_tuples
 
         # Now we can skip, if necessary
         if self.is_skip_row():
             self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
             self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
-            return pglrecs, pdlrecs
+            return pglrec_tuples, pdlrec_tuples
 
         # Get or create the PeakGroupLabel and PeakDataLabel records
         for label_obs in label_observations:
@@ -978,7 +978,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     pgrec, label_obs["element"]
                 )
                 if pglrec is not None:
-                    pglrecs.append(pglrec)
+                    pglrec_tuples.append(pglrec)
             except RollbackException:
                 self.skipped(PeakDataLabel.__name__)
                 continue
@@ -991,11 +991,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     label_obs["mass_number"],
                 )
                 if pdlrec is not None:
-                    pdlrecs.append(pdlrec)
+                    pdlrec_tuples.append(pdlrec)
             except RollbackException:
                 continue
 
-        return pglrecs, pdlrecs
+        return pglrec_tuples, pdlrec_tuples
 
     @transaction.atomic
     def get_or_create_peak_group_label(

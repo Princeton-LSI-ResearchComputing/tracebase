@@ -90,7 +90,7 @@ def set_cache(rec, cache_func_name, value):
                 cache.set(rep_cachekey, rep_result, timeout=None, version=1)
     except Exception as e:
         # Allow tracebase to still work, just without caching
-        print(e)
+        print(f"{type(e).__name__}: {e}")
         if throw_cache_errors:
             raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
         return False
