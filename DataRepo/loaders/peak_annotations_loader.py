@@ -422,24 +422,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             # Get or create a linking table record between pgrec and each cmpd_rec (compounds with the same formula)
             for cmpd_rec in cmpd_recs:
-                if self.is_skip_row():
-                    self.skipped(PeakGroupCompound.__name__)
-                    continue
                 try:
                     self.get_or_create_peak_group_compound_link(pgrec, cmpd_rec)
                 except RollbackException:
                     pass
-
-            # Adding the compound link can cause an error if there are no elements in the compound that are labeled
-            # elements in the tracer
-            if self.is_skip_row():
-                # If this happens, it is user error.  Every peak group compound should have elements that are labeled in
-                # at least 1 of the tracers.  We are technically skipping 0 record retrievals/creations here, but we
-                # will count 1 skip for each record type, for good measure.
-                self.skipped(PeakData.__name__)
-                self.skipped(PeakGroupLabel.__name__)
-                self.skipped(PeakDataLabel.__name__)
-                continue
 
             # Get or create PeakData
             try:
@@ -540,7 +526,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 [r.name for r in sorted(recs, key=lambda r: r.name)]
             )
 
-        return pgname, recs
+        return pgname, sorted(recs, key=lambda rec: rec.name)
 
     @transaction.atomic
     def get_or_create_peak_group(self, row, peak_annot_file, pgname):
@@ -800,7 +786,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         created = False
         rec = None
 
-        if pgrec is None:
+        if pgrec is None or self.is_skip_row():
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
             self.skipped(PeakGroupCompound.__name__)
@@ -926,6 +912,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         pglrecs: List[Tuple[PeakGroup, bool]] = []
         pdlrecs: List[Tuple[PeakData, bool]] = []
 
+        # Even if this is a skip row, we can still process the isotope label string to find issues...
         possible_isotope_observations = None
         num_possible_isotope_observations = 1
         if pgrec is not None:
@@ -939,7 +926,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             "rownum": self.rownum,
             "column": self.headers.ISOTOPELABEL,
         }
-
         try:
             label_observations = parse_isotope_label(
                 isotope_label, possible_isotope_observations
@@ -965,24 +951,33 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.errored(PeakDataLabel.__name__, num=num_possible_isotope_observations)
             return pglrecs, pdlrecs
 
+        # Now we can skip, if necessary
+        if self.is_skip_row():
+            self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
+            self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
+            return pglrecs, pdlrecs
+
         # Get or create the PeakGroupLabel and PeakDataLabel records
         for label_obs in label_observations:
             try:
-                pglrecs.append(
-                    self.get_or_create_peak_group_label(pgrec, label_obs["element"])
+                pglrec = self.get_or_create_peak_group_label(
+                    pgrec, label_obs["element"]
                 )
+                if pglrec is not None:
+                    pglrecs.append(pglrec)
             except RollbackException:
+                self.skipped(PeakDataLabel.__name__)
                 continue
 
             try:
-                pdlrecs.append(
-                    self.get_or_create_peak_data_label(
-                        pdrec,
-                        label_obs["element"],
-                        label_obs["count"],
-                        label_obs["mass_number"],
-                    )
+                pdlrec = self.get_or_create_peak_data_label(
+                    pdrec,
+                    label_obs["element"],
+                    label_obs["count"],
+                    label_obs["mass_number"],
                 )
+                if pdlrec is not None:
+                    pdlrecs.append(pdlrec)
             except RollbackException:
                 continue
 

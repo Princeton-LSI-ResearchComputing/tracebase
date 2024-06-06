@@ -6,16 +6,20 @@ import pandas as pd
 from django.core.files import File
 
 from DataRepo.loaders.msruns_loader import MSRunsLoader
+from DataRepo.models import (
+    ArchiveFile,
+    DataFormat,
+    DataType,
+    Infusate,
+    LCMethod,
+    MSRunSample,
+    MSRunSequence,
+    PeakData,
+    PeakGroup,
+    Sample,
+    Tissue,
+)
 from DataRepo.models.animal import Animal
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
-from DataRepo.models.infusate import Infusate
-from DataRepo.models.lc_method import LCMethod
-from DataRepo.models.msrun_sample import MSRunSample
-from DataRepo.models.msrun_sequence import MSRunSequence
-from DataRepo.models.peak_data import PeakData
-from DataRepo.models.peak_group import PeakGroup
-from DataRepo.models.sample import Sample
-from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
