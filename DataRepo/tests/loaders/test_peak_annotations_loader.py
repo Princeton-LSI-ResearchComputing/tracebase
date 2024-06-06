@@ -266,7 +266,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             researcher="John Doe",
             date=datetime.now(),
         )
-        MSRunSample.objects.create(
+        cls.msrs_ts1 = MSRunSample.objects.create(
             msrun_sequence=cls.seq,
             sample=ts1,
             polarity=None,  # Placeholder
@@ -398,7 +398,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertEqual("Serine", pgname)
         self.assertEqual([self.SERINE], recs)
 
-    def test_get_or_create_peak_group(self):
+    def test_get_or_create_peak_group_rec(self):
         row = pd.Series(
             {
                 AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
@@ -537,25 +537,94 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertIsNone(msrs3)
         self.assertTrue(al.msrun_sample_dict["blank_1_404020"]["seen"])
 
-    def test_get_or_create_peak_data(self):
-        # TODO: Implement test
-        pass
+    def create_peak_group(self):
+        rec_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        return PeakGroup.objects.create(
+            name="serine",
+            formula="C3H7NO3",
+            msrun_sample=self.msrs_ts1,
+            peak_annotation_file=paf,
+        )
+
+    def test_get_or_create_peak_data_rec(self):
+        al = AccucorLoader()
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.MEDMZ: 5,
+                AccucorLoader.DataHeaders.MEDRT: 3,
+                AccucorLoader.DataHeaders.RAW: 9,
+                AccucorLoader.DataHeaders.CORRECTED: 5,
+            }
+        )
+        pgrec = self.create_peak_group()
+        rec, created = al.get_or_create_peak_data(row, pgrec)
+        self.assertTrue(created)
+        self.assertEqual(1, PeakData.objects.count())
+        self.assertEqual(rec.med_mz, 5)
+        self.assertEqual(rec.med_rt, 3)
+        self.assertEqual(rec.raw_abundance, 9)
+        self.assertEqual(rec.corrected_abundance, 5)
+        self.assertEqual(rec.peak_group, pgrec)
+
+    def create_peak_data(self, pgrec):
+        return PeakData.objects.create(
+            peak_group=pgrec,
+            raw_abundance=2,
+            corrected_abundance=3,
+            med_mz=4,
+            med_rt=5,
+        )
 
     def test_get_or_create_labels(self):
-        # TODO: Implement test
-        pass
+        pgrec = self.create_peak_group()
+        pdrec = self.create_peak_data(pgrec)
+        row = pd.Series({AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-2"})
+        al = AccucorLoader()
+        pglrecs, pdlrecs = al.get_or_create_labels(row, pdrec, pgrec)
+        self.assertEqual(1, len(pglrecs))
+        self.assertEqual(1, len(pdlrecs))
+        self.assertTrue(pglrecs[0][1])
+        self.assertTrue(pdlrecs[0][1])
+        self.assertEqual(pglrecs[0][0].peak_group, pgrec)
+        self.assertEqual(pglrecs[0][0].element, "C")
+        self.assertEqual(pdlrecs[0][0].peak_data, pdrec)
+        self.assertEqual(pdlrecs[0][0].element, "C")
+        self.assertEqual(pdlrecs[0][0].count, 2)
+        self.assertEqual(pdlrecs[0][0].mass_number, 13)
 
     def test_get_or_create_peak_group_label(self):
-        # TODO: Implement test
-        pass
+        pgrec = self.create_peak_group()
+        al = AccucorLoader()
+        rec, created = al.get_or_create_peak_group_label(pgrec, "C")
+        self.assertTrue(created)
+        self.assertEqual(rec.peak_group, pgrec)
+        self.assertEqual(rec.element, "C")
 
     def test_get_or_create_peak_data_label(self):
-        # TODO: Implement test
-        pass
+        pgrec = self.create_peak_group()
+        pdrec = self.create_peak_data(pgrec)
+        al = AccucorLoader()
+        rec, created = al.get_or_create_peak_data_label(pdrec, "C", 2, 13)
+        self.assertTrue(created)
+        self.assertEqual(rec.peak_data, pdrec)
+        self.assertEqual(rec.element, "C")
+        self.assertEqual(rec.count, 2)
+        self.assertEqual(rec.mass_number, 13)
 
     def test_get_or_create_peak_group_compound_link(self):
-        # TODO: Implement test
-        pass
+        pgrec = self.create_peak_group()
+        al = AccucorLoader()
+        self.assertEqual(0, pgrec.compounds.count())
+        rec, created = al.get_or_create_peak_group_compound_link(pgrec, self.SERINE)
+        self.assertEqual(1, pgrec.compounds.count())
+        self.assertTrue(created)
+        self.assertEqual(rec.peakgroup, pgrec)
+        self.assertEqual(rec.compound, self.SERINE)
 
     def test_handle_file_exceptions(self):
         al = AccucorLoader()
