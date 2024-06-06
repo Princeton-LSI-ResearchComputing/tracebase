@@ -8,19 +8,22 @@ from DataRepo.loaders.peak_annotations_loader import (
     IsocorrLoader,
     PeakAnnotationsLoader,
 )
+from DataRepo.models import (
+    ArchiveFile,
+    Compound,
+    CompoundSynonym,
+    Infusate,
+    LCMethod,
+    MSRunSample,
+    MSRunSequence,
+    PeakData,
+    PeakDataLabel,
+    PeakGroup,
+    PeakGroupLabel,
+    Sample,
+    Tissue,
+)
 from DataRepo.models.animal import Animal
-from DataRepo.models.archive_file import ArchiveFile
-from DataRepo.models.compound import Compound
-from DataRepo.models.infusate import Infusate
-from DataRepo.models.lc_method import LCMethod
-from DataRepo.models.msrun_sample import MSRunSample
-from DataRepo.models.msrun_sequence import MSRunSequence
-from DataRepo.models.peak_data import PeakData
-from DataRepo.models.peak_data_label import PeakDataLabel
-from DataRepo.models.peak_group import PeakGroup
-from DataRepo.models.peak_group_label import PeakGroupLabel
-from DataRepo.models.sample import Sample
-from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     DuplicateCompoundIsotopes,
@@ -209,10 +212,10 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.SERINE = Compound.objects.create(
-            name="Serine", formula="C3H7NO3", hmdb_id="HMDB0000000"
+            name="Serine", formula="C3H7NO3", hmdb_id="HMDB0000187"
         )
         cls.GLYSINE = Compound.objects.create(
-            name="Glycine", formula="C2H5NO2", hmdb_id="HMDB0000001"
+            name="Glycine", formula="C2H5NO2", hmdb_id="HMDB0000123"
         )
         Compound.objects.create(
             name="Glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
@@ -364,12 +367,82 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertEqual(4, PeakDataLabel.objects.count())
 
     def test_get_or_create_annot_file(self):
-        # TODO: Implement test
-        pass
+        al = AccucorLoader(file="DataRepo/data/tests/data_submission/accucor1.xlsx")
+        al.get_or_create_annot_file()
+        ArchiveFile.objects.get(filename="accucor1.xlsx")
+        # No exception = successful test
+
+    def test_get_peak_group_name_and_compounds_delimited(self):
+        """Tests that not only are multiple compounds parsed for the peak group name, but that the result is
+        alphabetically ordered (for consistent search results)."""
+        cit = Compound.objects.create(
+            name="citrate", formula="C6H8O7", hmdb_id="HMDB0000094"
+        )
+        iso = Compound.objects.create(
+            name="isocitrate", formula="C6H8O7", hmdb_id="HMDB0000193"
+        )
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.MEDMZ: 1,
+                AccucorLoader.DataHeaders.MEDRT: 2,
+                AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1",
+                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
+                AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+                AccucorLoader.DataHeaders.RAW: 10,
+                AccucorLoader.DataHeaders.CORRECTED: 1,
+            }
+        )
+        al = AccucorLoader()
+        pgname, recs = al.get_peak_group_name_and_compounds(row)
+        self.assertEqual("citrate/isocitrate", pgname)
+        self.assertEqual([cit, iso], recs)
+
+    def test_get_peak_group_name_and_compounds_synonym(self):
+        """Tests that peak groups are always named using the compound's primary name"""
+        CompoundSynonym.objects.create(name="ser", compound=self.SERINE)
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.MEDMZ: 1,
+                AccucorLoader.DataHeaders.MEDRT: 2,
+                AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1",
+                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
+                AccucorLoader.DataHeaders.COMPOUND: "ser",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+                AccucorLoader.DataHeaders.RAW: 10,
+                AccucorLoader.DataHeaders.CORRECTED: 1,
+            }
+        )
+        al = AccucorLoader()
+        pgname, recs = al.get_peak_group_name_and_compounds(row)
+        self.assertEqual("Serine", pgname)
+        self.assertEqual([self.SERINE], recs)
 
     def test_get_or_create_peak_group(self):
-        # TODO: Implement test
-        pass
+        row = pd.Series(
+            {
+                AccucorLoader.DataHeaders.MEDMZ: 1,
+                AccucorLoader.DataHeaders.MEDRT: 2,
+                AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-2",
+                AccucorLoader.DataHeaders.FORMULA: "C3H7NO3",
+                AccucorLoader.DataHeaders.COMPOUND: "Serine",
+                AccucorLoader.DataHeaders.SAMPLEHEADER: "072920_XXX1_1_TS1",
+                AccucorLoader.DataHeaders.RAW: 10,
+                AccucorLoader.DataHeaders.CORRECTED: 1,
+            }
+        )
+        rec_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        al = AccucorLoader()
+        _, created1 = al.get_or_create_peak_group(row, paf, "serine")
+        self.assertTrue(created1)
+        self.assertEqual(1, PeakGroup.objects.count())
+        _, created2 = al.get_or_create_peak_group(row, paf, "serine")
+        self.assertFalse(created2)
 
     def test_get_msrun_sample_no_annot_details_df(self):
         # TODO: Implement test
