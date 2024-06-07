@@ -15,8 +15,21 @@ from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.loaders.peak_annotations_loader import (
+    AccucorLoader,
+    IsoautocorrLoader,
+    IsocorrLoader,
+    PeakAnnotationsLoader,
+    UnicorrLoader,
+)
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 
 __all__ = [
+    "AccucorLoader",
+    "IsoautocorrLoader",
+    "IsocorrLoader",
+    "MSRunsLoader",
+    "PeakAnnotationsLoader",
     "AccuCorDataLoader",
     "IsotopeObservationData",
     "lcms_headers_are_valid",
@@ -30,4 +43,5 @@ __all__ = [
     "TableLoader",
     "TissuesLoader",
     "TracersLoader",
+    "UnicorrLoader",
 ]

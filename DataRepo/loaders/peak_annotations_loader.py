@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
+import pandas as pd
 from typing import Dict, List, Optional, Tuple
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -1274,6 +1275,64 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # TODO: Add handling/consolidation of MultipleRecordsReturned (either here or in TableLoader)
 
+    @classmethod
+    def determine_matching_formats(cls, df) -> List[str]:
+        """Given a dataframe or (ideally) a dict of dataframes, return a list of the format_codes of the matching
+        formats.
+        
+        Args:
+            df (dict|pd.DataFrame)
+        Exceptions:
+            None
+        Returns:
+            matching_format_codes (List[str]): Format codes of the matching DataFormats.
+        """
+        matching_format_codes = []
+        for subcls in PeakAnnotationsLoader.__subclasses__():
+            if subcls == UnicorrLoader:
+                # This is the identity type, which is handled below
+                continue
+            expected_headers = set(subcls.get_flattened_original_headers())
+            if isinstance(df, dict):
+                expected_sheets = set(subcls.get_required_sheets())
+                supplied_sheets = set(list(df.keys()))
+                if expected_sheets <= supplied_sheets:
+                    match = True
+                    for sheet in expected_sheets:
+                        supplied_headers = set(list(df[sheet].columns))
+                        if supplied_headers > expected_headers:
+                            match = False
+                            break
+                    if match:
+                        matching_format_codes.append(subcls.format_code)
+            else:  # pd.DataFrame
+                # All we can do here (currently) is check that the headers in the dataframe are a subset of the
+                # flattened original headers (from all the sheets).  It would be possible to do the determination by
+                # specific sheet header contents if the class attributes were populated differently, but that can be
+                # done via a refactor.
+                supplied_headers = set(list(df.columns))
+                if supplied_headers <= expected_headers:
+                    matching_format_codes.append(subcls.format_code)
+
+        # Handle the converted format too:
+        expected_headers = set(PeakAnnotationsLoader.DataHeaders._asdict().values())
+        if isinstance(df, dict):
+            if PeakAnnotationsLoader.DataSheetName in df.keys():
+                supplied_headers = set(list(df[PeakAnnotationsLoader.DataSheetName].columns))
+                if supplied_headers <= expected_headers:
+                    matching_format_codes.append(UnicorrLoader.format_code)
+        else:
+            supplied_headers = set(list(df.columns))
+            if supplied_headers <= expected_headers:
+                matching_format_codes.append(UnicorrLoader.format_code)
+
+        return matching_format_codes
+
+    @classmethod
+    def get_supported_formats(cls) -> List[str]:
+        """Get a list of format codes for all supported formats."""
+        return [subcls.format_code for subcls in PeakAnnotationsLoader.__subclasses__()]
+
 
 class IsocorrLoader(PeakAnnotationsLoader):
     """Derived class of PeakAnnotationsLoader that just defines how to convert an isocorr excel file to the format
@@ -1529,3 +1588,23 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
         "ppmDiff",
         "parent",
     ]
+
+
+class UnicorrLoader(PeakAnnotationsLoader):
+    """Derived class of PeakAnnotationsLoader that defines the universal format.
+
+    This concrete class does no conversion, so all of the attributes are None.
+    """
+
+    format_code = "unicorr"
+
+    add_columns_dict = None
+    condense_columns_dict = None
+    # This is the only one we need to define, in case multiple sheets are provided.  E.g. if the user adds a defaults
+    # sheet.
+    merge_dict = {
+        "first_sheet": PeakAnnotationsLoader.DataSheetName,
+        "next_merge_dict": None,
+    }
+    merged_column_rename_dict = None
+    merged_drop_columns_list = None
