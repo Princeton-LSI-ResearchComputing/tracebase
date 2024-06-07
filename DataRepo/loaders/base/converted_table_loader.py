@@ -597,8 +597,9 @@ class ConvertedTableLoader(TableLoader, ABC):
             merge_dict = merge_dict["next_merge_dict"]
             merge_dict["right_all_columns"] = None
 
-    def get_required_sheets(self):
-        """Traverses self.merge_dict and self.add_columns_dict to return a list of sheets required for conversion.
+    @classmethod
+    def get_required_sheets(cls):
+        """Traverses cls.merge_dict and cls.add_columns_dict to return a list of sheets required for conversion.
 
         Args:
             None
@@ -607,13 +608,57 @@ class ConvertedTableLoader(TableLoader, ABC):
         Returns:
             sheets (List[str])
         """
-        sheets = [self.merge_dict["first_sheet"]]
-        if self.merge_dict["next_merge_dict"] is not None:
-            merge_dict = self.merge_dict
+        sheets = [cls.merge_dict["first_sheet"]]
+        if cls.merge_dict["next_merge_dict"] is not None:
+            merge_dict = cls.merge_dict
             while merge_dict["next_merge_dict"] is not None:
                 merge_dict = merge_dict["next_merge_dict"]
                 sheets.append(merge_dict["right_sheet"])
         return sheets
+
+    @classmethod
+    def get_flattened_original_headers(cls):
+        """This retrieves all of the potential original format headers expected by the derived class, after the merge of
+        all required sheets.
+        
+        The purpose is to be able to supply a method that can determine the original format when supplied a single
+        dataframe (i.e. not a dataframe dict).
+        
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            orig_headers (List[str]): List of potential original format headers expected by the derived class
+        """
+        orig_headers = []
+        # Initially populate using the rename dict keys
+        if cls.merged_column_rename_dict is not None:
+            orig_headers.extend(cls.merged_column_rename_dict.keys())
+
+        # Add in any missing using the drop columns list
+        if cls.merged_drop_columns_list is not None:
+            for header in cls.merged_drop_columns_list:
+                if header not in orig_headers:
+                    orig_headers.append(header)
+
+        # There could still be headers that didn't need renamed and are not to be dropped.  Those will be in the
+        # condense dict's uncondensed_columns dict, but that also includes added columns that are not original, so add
+        # any from the uncondensed list as long as they are not in the added columns (which are both by sheet)
+        if cls.condense_columns_dict is not None:
+            for sheet in cls.condense_columns_dict.keys():
+                for header in cls.condense_columns_dict[sheet]["uncondensed_columns"]:
+                    if (
+                        header not in orig_headers
+                        and (
+                            cls.add_columns_dict is None
+                            or sheet not in cls.add_columns_dict.keys()
+                            or header not in cls.add_columns_dict[sheet].keys()
+                        )
+                    ):
+                        orig_headers.append(header)
+
+        return orig_headers
 
     def merge_df_sheets(self, in_df, _outdf=None, _merge_dict=None, _first_sheet=None):
         """Uses self.merge_dict to recursively merge in_df's sheets into a single merged dataframe (if in_df is a dict).
@@ -764,6 +809,7 @@ class ConvertedTableLoader(TableLoader, ABC):
         # Preserve the original df
         self.orig_df = kwargs.get("df")
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
+        print(f"CALLING TABLE LOADER FROM CONVERTED INIT WITH DRY RUN: {kwargs.get('dry_run')}")
         TableLoader.__init__(self, *args, **kwargs)
         # Overwrite what the superclass saved with a converted version.  The constructor does noting with the df, and
         # convert_df() makes a deep copy, so this is OK.

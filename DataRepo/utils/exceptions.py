@@ -2239,20 +2239,24 @@ class ConflictingValueErrors(Exception):
                         message += "\n"
                     else:
                         message += f"(on rows: {rowstr})\n"
+                    db_msgs = []
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
                         recstr = "Database record not provided"
                         if cve.rec is not None:
                             recstr = str(model_to_dict(cve.rec))
-                        message += f"\t\tDatabase record: {recstr}\n"
+                        db_msg = f"\t\tDatabase record: {recstr}\n"
                         if cve.differences is None or len(cve.differences.keys()) == 0:
-                            message += "\t\t\tdifference data unavailable\n"
+                            db_msg += "\t\t\tdifference data unavailable\n"
                         else:
                             for fld in cve.differences.keys():
-                                message += (
+                                db_msg += (
                                     f"\t\t\t[{fld}] values differ:\n"
                                     f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
                                     f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
                                 )
+                        if db_msg not in db_msgs:
+                            db_msgs.append(db_msg)
+                    message += "".join(db_msgs)
         super().__init__(message)
         self.conflicting_value_errors = conflicting_value_errors
 

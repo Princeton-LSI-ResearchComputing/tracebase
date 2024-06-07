@@ -59,7 +59,7 @@ class Command(LoadTableCommand):
             help=(
                 "Default liquid chromatography protocol name, used to assign each MSRun Sample to a sequence "
                 f"(only used if --infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} "
-                f"has no ).  Mutually exclusive with a default {SequencesLoader.DataHeaders.LCNAME} defined in "
+                f"has no value).  Mutually exclusive with a default {SequencesLoader.DataHeaders.LCNAME} defined in "
                 "either --defaults-file or --defaults-sheet."
             ),
             required=False,
