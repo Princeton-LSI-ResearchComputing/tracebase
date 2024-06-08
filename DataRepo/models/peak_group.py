@@ -151,15 +151,20 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             .order_by("element")
             .distinct("element")
         )
-        for label in tracer_labels:
-            possible_observations.append(
-                ObservedIsotopeData(
-                    element=label.element,
-                    mass_number=label.mass_number,
-                    count=0,
-                    parent=True,
-                )
-            )
+        for compound_rec in self.compounds.all():
+            for tracer_label in tracer_labels:
+                if (
+                    compound_rec.atom_count(tracer_label.element) > 0
+                    and tracer_label not in possible_observations
+                ):
+                    possible_observations.append(
+                        ObservedIsotopeData(
+                            element=tracer_label.element,
+                            mass_number=tracer_label.mass_number,
+                            count=0,
+                            parent=True,
+                        )
+                    )
         return possible_observations
 
     def clean(self, *args, **kwargs):

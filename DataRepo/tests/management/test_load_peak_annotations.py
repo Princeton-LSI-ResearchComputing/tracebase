@@ -297,6 +297,30 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
         The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
         error
         """
+        # Load a sequence and all the MSRunSamples
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        MSRunSequence.objects.create(
+            researcher="anonymous",
+            date=datetime.strptime("2022-08-18", "%Y-%m-%d"),
+            instrument="unknown",
+            lc_method=lcm,
+        )
+        MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    "Sample Name": [
+                        "M1_mix1_T150", "M2_mix1_T150", "M3_glycerol_T150", "M4_glycerol_T150",
+                    ],
+                    "Sample Data Header": [
+                        "M1_mix1_T150", "M2_mix1_T150", "M3_glycerol_T150", "M4_glycerol_T150",
+                    ],
+                    "mzXML File Name": [None for _ in range(4)],
+                    "Peak Annotation File Name": ["accucor.xlsx" for _ in range(4)],
+                    "Sequence Name": ["anonymous, polar-HILIC-25-min, unknown, 2022-08-18" for _ in range(4)],
+                },
+            ),
+        ).load_data()
+
         call_command(
             "load_peak_annotations",
             infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",

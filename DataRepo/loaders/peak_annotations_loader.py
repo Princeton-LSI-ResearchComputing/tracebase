@@ -51,7 +51,7 @@ from DataRepo.utils.exceptions import (
     generate_file_location_string,
 )
 from DataRepo.utils.file_utils import is_excel, string_to_datetime
-from DataRepo.utils.infusate_name_parser import parse_isotope_label
+from DataRepo.utils.infusate_name_parser import ObservedIsotopeData, parse_isotope_label
 
 PeakGroupCompound = PeakGroup.compounds.through
 
@@ -442,14 +442,46 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 except RollbackException:
                     pass
 
-            # Get or create PeakData
-            try:
-                pdrec, _ = self.get_or_create_peak_data(row, pgrec)
-            except RollbackException:
-                pass
+            label_observations = self.get_label_observations(row, pgrec)
 
-            # Get or create a PeakGroupLabel and PeakDataLabel records
-            self.get_or_create_labels(row, pdrec, pgrec)
+            if label_observations is None or len(label_observations) == 0:
+                # We can't know whether to get or create a PeakData record because there's no unique constraint.  You
+                # need the labels to distinguish between 2 different records with the same mz, rt, raw, and corrected
+                # count values.
+                self.skipped(PeakData.__name__)
+                self.skipped(PeakDataLabel.__name__)
+                self.skipped(PeakGroup.__name__)
+                continue
+
+            for label_obs in label_observations:
+                # Get or create PeakGroupLabel
+                try:
+                    self.get_or_create_peak_group_label(pgrec, label_obs["element"])
+                except RollbackException:
+                    continue
+
+                # Get or create PeakData (need the label due to no unique constraint)
+                try:
+                    pdrec, _ = self.get_or_create_peak_data(
+                        row,
+                        pgrec,
+                        label_obs["element"],
+                        label_obs["count"],
+                        label_obs["mass_number"],
+                    )
+                except RollbackException:
+                    pass
+
+                try:
+                    print(f"INSERTING INTO PDL.  PDREC {pdrec.pk} OBS: {label_obs} FOR ROW: {row}")
+                    self.get_or_create_peak_data_label(
+                        pdrec,
+                        label_obs["element"],
+                        label_obs["count"],
+                        label_obs["mass_number"],
+                    )
+                except RollbackException:
+                    continue
 
         # This currently only repackages DuplicateValues exceptions, but may do more WRT mapping to original file
         # locations of errors later.  It could be called at the top of this method, but given the plan, having it here
@@ -873,7 +905,14 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return rec, created
 
     @transaction.atomic
-    def get_or_create_peak_data(self, row, peak_group: Optional[PeakGroup]):
+    def get_or_create_peak_data(
+        self,
+        row,
+        peak_group: Optional[PeakGroup],
+        element: Optional[str],
+        count: Optional[str],
+        mass_number: Optional[str],
+    ):
         """Get or create a PeakData record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
@@ -893,7 +932,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         raw_abundance = self.get_row_val(row, self.headers.RAW)
         corrected_abundance = self.get_row_val(row, self.headers.CORRECTED)
 
-        if peak_group is None or self.is_skip_row():
+        if peak_group is None or element is None or count is None or mass_number is None or self.is_skip_row():
             self.skipped(PeakData.__name__)
             return None, False
 
@@ -905,43 +944,74 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             "med_rt": med_rt,
         }
 
-        try:
-            rec, created = PeakData.objects.get_or_create(**rec_dict)
-            if created:
-                rec.full_clean()
-                self.created(PeakData.__name__)
-            else:
-                self.existed(PeakData.__name__)
-        except Exception as e:
-            self.handle_load_db_errors(e, PeakData, rec_dict)
-            self.errored(PeakData.__name__)
-            raise RollbackException()
+        # A prior processing of this file could have created this record, or a previous row of the file could have
+        # created a PeakData record with identical values (e.g. med_mz=0, med_rt=0, raw_abundance=0, and
+        # corrected_abundance=0).  The only way to tell them apart is by their associated labels (PeakDataLabel
+        # records).
+        query_dict = {
+            **rec_dict,
+            "labels__element": element,
+            "labels__count": count,
+            "labels__mass_number": mass_number,
+        }
+        rec = PeakData.objects.filter(**query_dict).first()
+
+        if rec is None:
+            try:
+                # Let's see if there are any orphaned records that didn't get label records attached...
+                tmprecs = PeakData.objects.filter(**rec_dict)
+                orphans = []
+                for tmprec in tmprecs.all():
+                    if tmprec.labels.count() == 0:
+                        orphans.append(tmprec)
+                if len(orphans) == 0:
+                    rec = PeakData.objects.create(**rec_dict)
+                    created = True
+                    rec.full_clean()
+                    self.created(PeakData.__name__)
+                elif len(orphans) == 1:
+                    rec = orphans[0]
+                    created = False
+                    self.existed(PeakData.__name__)
+                else:
+                    rec, created = PeakData.objects.get_or_create(**rec_dict)
+                    if created:
+                        rec.full_clean()
+                        self.created(PeakData.__name__)
+                    else:
+                        self.existed(PeakData.__name__)
+            except Exception as e:
+                self.handle_load_db_errors(e, PeakData, rec_dict)
+                self.errored(PeakData.__name__)
+                raise RollbackException()
+        else:
+            print()
+            created = False
+            self.existed(PeakData.__name__)
 
         return rec, created
 
-    def get_or_create_labels(
-        self, row, pdrec: Optional[PeakData], pgrec: Optional[PeakGroup]
-    ):
-        """Get or create a PeakGrouplabel and PeakDataLabel records.  Handles exceptions, updates stats, and triggers a
-        rollback.
+    def get_label_observations(self, row, pgrec: Optional[PeakGroup]):
+        """Parse the isotopeLabel and add in labels from the tracers (whose elements are present in the observed
+        compound) to record 0 counts.
 
         Args:
-            row (pandas.Series)
-            pdrec (Optional[PeakData])
-            pgrec (Optional[PeakGroup])
+            row (pd.Series)
+            pgrec (Optional[PeakGroup)
         Exceptions:
             Buffers:
+                UnexpectedLabels
+                IsotopeStringDupe
+                ObservedIsotopeUnbalancedError
                 ObservedIsotopeParsingError
             Raises:
                 None
         Returns:
-            pglrecs (List[Tuple[Optional[PeakGroupLabel, boolean]]])
-            pdlrecs (List[Tuple[Optional[PeakDataLabel, boolean]]])
+            label_observations (Optional[List[ObservedIsotopeData]])
         """
         # Parse the isotope obsevations.
         isotope_label = self.get_row_val(row, self.headers.ISOTOPELABEL)
-        pglrec_tuples: List[Tuple[PeakGroup, bool]] = []
-        pdlrec_tuples: List[Tuple[PeakData, bool]] = []
+        label_observations = None
 
         # Even if this is a skip row, we can still process the isotope label string to find issues...
         possible_isotope_observations = None
@@ -958,6 +1028,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             "column": self.headers.ISOTOPELABEL,
         }
         try:
+            print(f"PARING ISOTOPELABEL: {isotope_label} WITH POSSIBLE OBS: {possible_isotope_observations} DERIVED FROM PREAK GROUP {pgrec} FROM ROW {row.name}: {row}")
             label_observations = parse_isotope_label(
                 isotope_label, possible_isotope_observations
             )
@@ -969,7 +1040,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.aggregated_errors_object.buffer_warning(olnp, is_fatal=self.validate)
             self.warned(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
             self.warned(PeakDataLabel.__name__, num=num_possible_isotope_observations)
-            return pglrec_tuples, pdlrec_tuples
         except (
             IsotopeStringDupe,
             ObservedIsotopeUnbalancedError,
@@ -980,39 +1050,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.aggregated_errors_object.buffer_error(ie)
             self.errored(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
             self.errored(PeakDataLabel.__name__, num=num_possible_isotope_observations)
-            return pglrec_tuples, pdlrec_tuples
 
-        # Now we can skip, if necessary
-        if self.is_skip_row():
-            self.skipped(PeakGroupLabel.__name__, num=num_possible_isotope_observations)
-            self.skipped(PeakDataLabel.__name__, num=num_possible_isotope_observations)
-            return pglrec_tuples, pdlrec_tuples
-
-        # Get or create the PeakGroupLabel and PeakDataLabel records
-        for label_obs in label_observations:
-            try:
-                pglrec = self.get_or_create_peak_group_label(
-                    pgrec, label_obs["element"]
-                )
-                if pglrec is not None:
-                    pglrec_tuples.append(pglrec)
-            except RollbackException:
-                self.skipped(PeakDataLabel.__name__)
-                continue
-
-            try:
-                pdlrec = self.get_or_create_peak_data_label(
-                    pdrec,
-                    label_obs["element"],
-                    label_obs["count"],
-                    label_obs["mass_number"],
-                )
-                if pdlrec is not None:
-                    pdlrec_tuples.append(pdlrec)
-            except RollbackException:
-                continue
-
-        return pglrec_tuples, pdlrec_tuples
+        return label_observations
 
     @transaction.atomic
     def get_or_create_peak_group_label(
@@ -1033,7 +1072,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             rec (Optional[PeakGroupLabel])
             created (boolean)
         """
-        if peak_group is None or self.is_skip_row():
+        if peak_group is None or element is None or self.is_skip_row():
             self.skipped(PeakGroupLabel.__name__)
             return None, False
 
@@ -1075,7 +1114,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             rec (Optional[PeakDataLabel])
             created (boolean)
         """
-        if peak_data is None or self.is_skip_row():
+        if peak_data is None or element is None or count is None or mass_number is None or self.is_skip_row():
             self.skipped(PeakDataLabel.__name__)
             return None, False
 
@@ -1279,7 +1318,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     def determine_matching_formats(cls, df) -> List[str]:
         """Given a dataframe or (ideally) a dict of dataframes, return a list of the format_codes of the matching
         formats.
-        
+
         Args:
             df (dict|pd.DataFrame)
         Exceptions:
@@ -1344,6 +1383,51 @@ class IsocorrLoader(PeakAnnotationsLoader):
 
     format_code = "isocorr"
 
+    OrigDataTableHeaders = namedtuple(
+        "DataTableHeaders",
+        [
+            "COMPOUNDID",
+            "FORMULA",
+            "LABEL",
+            "METAGROUPID",
+            "GROUPID",
+            "GOODPEAKCOUNT",
+            "MEDMZ",
+            "MEDRT",
+            "MAXQUALITY",
+            "ISOTOPELABEL",
+            "COMPOUND",
+            "EXPECTEDRTDIFF",
+            "PPMDIFF",
+            "PARENT",
+        ],
+    )
+
+    OrigDataHeaders = OrigDataTableHeaders(
+        COMPOUNDID="compoundId",
+        FORMULA="formula",
+        LABEL="label",
+        METAGROUPID="metaGroupId",
+        GROUPID="groupId",
+        GOODPEAKCOUNT="goodPeakCount",
+        MEDMZ="medMz",
+        MEDRT="medRt",
+        MAXQUALITY="maxQuality",
+        ISOTOPELABEL="isotopeLabel",
+        COMPOUND="compound",
+        EXPECTEDRTDIFF="expectedRtDiff",
+        PPMDIFF="ppmDiff",
+        PARENT="parent",
+    )
+
+    OrigDataColumnTypes: Dict[str, type] = {
+        "formula": str,
+        "medMz": float,
+        "medRt": float,
+        "isotopeLabel": str,
+        "compound": str,
+    }
+
     # These attributes are defined in the order in which they are applied
 
     # No columns to add
@@ -1378,6 +1462,10 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "next_merge_dict": None,
     }
 
+    nan_defaults_dict = None
+    sort_columns = None
+    nan_filldown_columns = None
+
     merged_column_rename_dict = {
         "formula": "Formula",
         "medMz": "MedMz",
@@ -1409,6 +1497,58 @@ class AccucorLoader(PeakAnnotationsLoader):
     """
 
     format_code = "accucor"
+
+    OrigDataTableHeaders = namedtuple(
+        "DataTableHeaders",
+        [
+            "COMPOUNDID",
+            "FORMULA",
+            "LABEL",
+            "METAGROUPID",
+            "GROUPID",
+            "GOODPEAKCOUNT",
+            "MEDMZ",
+            "MEDRT",
+            "MAXQUALITY",
+            "ISOTOPELABEL",
+            "ORIGCOMPOUND",
+            "CORRCOMPOUND",
+            "EXPECTEDRTDIFF",
+            "PPMDIFF",
+            "PARENT",
+            "CLABEL",
+        ],
+    )
+
+    OrigDataHeaders = OrigDataTableHeaders(
+        COMPOUNDID="compoundId",
+        FORMULA="formula",
+        LABEL="label",
+        METAGROUPID="metaGroupId",
+        GROUPID="groupId",
+        GOODPEAKCOUNT="goodPeakCount",
+        MEDMZ="medMz",
+        MEDRT="medRt",
+        MAXQUALITY="maxQuality",
+        ISOTOPELABEL="isotopeLabel",
+        ORIGCOMPOUND="compound",
+        CORRCOMPOUND="Compound",
+        EXPECTEDRTDIFF="expectedRtDiff",
+        PPMDIFF="ppmDiff",
+        PARENT="parent",
+        CLABEL="C_Label",
+    )
+
+    # This is the union of all sheets' column types
+    OrigDataColumnTypes: Dict[str, type] = {
+        "FORMULA": str,
+        "MEDMZ": float,
+        "MEDRT": float,
+        "ISOTOPELABEL": str,
+        "ORIGCOMPOUND": str,
+        "CORRCOMPOUND": str,
+        "CLABEL": int,
+    }
 
     # These attributes are defined in the order in which they are applied
 
@@ -1458,7 +1598,6 @@ class AccucorLoader(PeakAnnotationsLoader):
             "uncondensed_columns": [
                 "Compound",
                 "C_Label",
-                "adductName",
             ],
         },
     }
@@ -1482,6 +1621,17 @@ class AccucorLoader(PeakAnnotationsLoader):
             "next_merge_dict": None,
         },
     }
+
+    nan_defaults_dict = {
+        "Raw Abundance": 0,
+        "medMz": 0,
+        "medRt": 0,
+        "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
+    }
+
+    sort_columns = ["Sample Header", "Compound", "C_Label"]
+
+    nan_filldown_columns = ["formula"]
 
     merged_column_rename_dict = {
         "formula": "Formula",
@@ -1515,6 +1665,52 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
     """
 
     format_code = "isoautocorr"
+
+    OrigDataTableHeaders = namedtuple(
+        "DataTableHeaders",
+        [
+            "COMPOUNDID",
+            "FORMULA",
+            "LABEL",
+            "METAGROUPID",
+            "GROUPID",
+            "GOODPEAKCOUNT",
+            "MEDMZ",
+            "MEDRT",
+            "MAXQUALITY",
+            "ISOTOPELABEL",
+            "COMPOUND",
+            "EXPECTEDRTDIFF",
+            "PPMDIFF",
+            "PARENT",
+        ],
+    )
+
+    OrigDataHeaders = OrigDataTableHeaders(
+        COMPOUNDID="compoundId",
+        FORMULA="formula",
+        LABEL="label",
+        METAGROUPID="metaGroupId",
+        GROUPID="groupId",
+        GOODPEAKCOUNT="goodPeakCount",
+        MEDMZ="medMz",
+        MEDRT="medRt",
+        MAXQUALITY="maxQuality",
+        ISOTOPELABEL="isotopeLabel",
+        COMPOUND="compound",
+        EXPECTEDRTDIFF="expectedRtDiff",
+        PPMDIFF="ppmDiff",
+        PARENT="parent",
+    )
+
+    # This is the union of all sheets' column types
+    OrigDataColumnTypes: Dict[str, type] = {
+        "FORMULA": str,
+        "MEDMZ": float,
+        "MEDRT": float,
+        "ISOTOPELABEL": str,
+        "COMPOUND": str,
+    }
 
     uncondensed_columns = [
         "label",
@@ -1568,6 +1764,10 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
         },
     }
 
+    nan_defaults_dict = None
+    sort_columns = None
+    nan_filldown_columns = None
+
     merged_column_rename_dict = {
         "formula": "Formula",
         "medMz": "MedMz",
@@ -1598,6 +1798,10 @@ class UnicorrLoader(PeakAnnotationsLoader):
 
     format_code = "unicorr"
 
+    OrigDataTableHeaders = PeakAnnotationsLoader.DataTableHeaders
+    OrigDataHeaders = PeakAnnotationsLoader.DataHeaders
+    OrigDataColumnTypes = PeakAnnotationsLoader.DataColumnTypes
+
     add_columns_dict = None
     condense_columns_dict = None
     # This is the only one we need to define, in case multiple sheets are provided.  E.g. if the user adds a defaults
@@ -1606,5 +1810,8 @@ class UnicorrLoader(PeakAnnotationsLoader):
         "first_sheet": PeakAnnotationsLoader.DataSheetName,
         "next_merge_dict": None,
     }
+    nan_defaults_dict = None
+    sort_columns = None
+    nan_filldown_columns = None
     merged_column_rename_dict = None
     merged_drop_columns_list = None
