@@ -67,17 +67,18 @@ class PeakDataLabel(models.Model, ElementLabel):
         )
         # Ensure isotope elements exist in compound formula
         if atom_count == 0:
+            compounds = [str(cpd) for cpd in self.peak_data.peak_group.compounds.all()]
             raise ValidationError(
-                f"Labeled element {self.element} does not exist in {self.tracer.compound} formula "
-                f"({self.tracer.compound.formula})"
+                f"Labeled element {self.element} does not exist in compound(s): {compounds} with formula "
+                f"({self.peak_data.peak_group.formula})."
             )
 
         # Ensure isotope count does not exceed count of that element in formula
         if self.count > atom_count:
+            compounds = [str(cpd) for cpd in self.peak_data.peak_group.compounds.all()]
             raise ValidationError(
-                f"Count of labeled element {self.element} exceeds the number of "
-                f"{self.element} atoms in compound(s): [{', '.join(self.peak_data.peak_group.compounds)}] with "
-                f"formula ({self.peak_data.peak_group.formula})."
+                f"Count of labeled element {self.element} exceeds the number of {self.element} atoms in compound(s): "
+                f"{compounds} with formula ({self.peak_data.peak_group.formula})."
             )
 
         # Ensure that the mass number is at least the number of nuetrons (which is the same as the number of protons)

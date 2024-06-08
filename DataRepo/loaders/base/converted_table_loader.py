@@ -52,17 +52,42 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @property
     @abstractmethod
-    def merged_column_rename_dict(self) -> Optional[dict]:
-        """A dict that describes how to rename all columns in the final merged pandas DataFrame.
-        It does not have to have a key for every column - just the ones that need to be renamed.
+    def OrigDataTableHeaders(self):
+        # namedtuple spec
+        pass
+
+    @property
+    @abstractmethod
+    def OrigDataHeaders(self):
+        # namedtuple of strings - should include headers from ALL sheets that will be merged
+        pass
+
+    @property
+    @abstractmethod
+    def OrigDataColumnTypes(self) -> Optional[dict]:
+        """A dict that sets the types of each original column (to be provided to read_from_file as its dtypes option).
 
         Example:
             {
-                "formula": "Formula",
-                "medMz": "MedMz",
-                "medRt": "MedRt",
-                "isotopeLabel": "IsotopeLabel",
-                "compound": "Compound",
+                "FORMULA": str,
+                "MEDMZ": float,
+                "MEDRT": float,
+                "ISOTOPELABEL": str,
+                "COMPOUND": str,
+            }
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def add_columns_dict(self) -> Optional[dict]:
+        """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
+        Example:
+            {
+                "Original": {
+                    "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
+                    "Compound": lambda df: df["compound"],
+                }
             }
         """
         pass
@@ -120,14 +145,50 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @property
     @abstractmethod
-    def add_columns_dict(self) -> Optional[dict]:
-        """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
+    def nan_defaults_dict(self) -> Optional[dict]:
+        """If the left-merge results in columns with NaN values filled in, use this dict to specify default values to
+        fill in in their place.
         Example:
             {
-                "Original": {
-                    "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
-                    "Compound": lambda df: df["compound"],
-                }
+                "Raw Abundance": 0,
+                "medMz": 0,
+                "medRt": 0,
+            }
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def sort_columns(self) -> Optional[list]:
+        """Sort the merged dataframe based on these columns.  Define this if nan_filldown_columns is defined.
+        Example:
+            ["Sample Header", "Compound", "C_Label"]
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def nan_filldown_columns(self) -> Optional[list]:
+        """If the left-merge results in columns with NaN values filled in, use this list to fill them using values
+        defined on previous rows.  Be sure to define sort_columns.
+        Example:
+            ["formula"]
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def merged_column_rename_dict(self) -> Optional[dict]:
+        """A dict that describes how to rename all columns in the final merged pandas DataFrame.
+        It does not have to have a key for every column - just the ones that need to be renamed.
+
+        Example:
+            {
+                "formula": "Formula",
+                "medMz": "MedMz",
+                "medRt": "MedRt",
+                "isotopeLabel": "IsotopeLabel",
+                "compound": "Compound",
             }
         """
         pass
@@ -176,12 +237,22 @@ class ConvertedTableLoader(TableLoader, ABC):
 
         # Add columns
         self.add_df_columns(outdf)
+        print(f"CONVERTED ORIG DF ADDED: {outdf['Original'].to_string()}")
+        print(f"CONVERTED CORR DF ADDED: {outdf['Corrected'].to_string()}")
 
         # Condense multiple columns into 2 columns (a header name column and a value column)
         outdf = self.condense_columns(outdf)
+        print(f"CONVERTED ORIG DF CONDENSED: {outdf['Original'].to_string()}")
+        print(f"CONVERTED CORR DF CONDENSED: {outdf['Corrected'].to_string()}")
 
         # Merge sheets
         outdf = self.merge_df_sheets(outdf)
+        print(f"CONVERTED DF MERGED: {outdf.to_string()}")
+
+        # Fill in NaN values resulting from the left merge
+        outdf = self.update_nans_with_defaults(outdf)
+        outdf = self.sort_df(outdf)
+        outdf = self.fill_down_nan_columns(outdf)
 
         # Rename columns
         try:
@@ -198,10 +269,12 @@ class ConvertedTableLoader(TableLoader, ABC):
                 )
             else:
                 raise AggregatedErrors().buffer_error(e)
+        print(f"CONVERTED DF RENAMED: {outdf.to_string()}")
 
         # Drop unwanted columns
         if self.merged_drop_columns_list is not None:
             outdf = outdf.drop(self.merged_drop_columns_list, axis=1, errors="ignore")
+        print(f"CONVERTED DF DROPPED: {outdf.to_string()}")
 
         # Check the results for validity
         self.check_output_dataframe(outdf)
@@ -620,10 +693,10 @@ class ConvertedTableLoader(TableLoader, ABC):
     def get_flattened_original_headers(cls):
         """This retrieves all of the potential original format headers expected by the derived class, after the merge of
         all required sheets.
-        
+
         The purpose is to be able to supply a method that can determine the original format when supplied a single
         dataframe (i.e. not a dataframe dict).
-        
+
         Args:
             None
         Exceptions:
@@ -754,6 +827,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                 "dataframe."
             )
 
+        print(f"MERGING LEFT DF:\n{left_df.to_string()}\nWITH RIGHT DF:\n{right_df.to_string()}\nUSING ON: {on_columns} HOW: {_merge_dict['how']}")
         _outdf = pd.merge(
             left=left_df,
             right=right_df,
@@ -761,6 +835,16 @@ class ConvertedTableLoader(TableLoader, ABC):
             how=_merge_dict["how"],
         )
 
+        # Since we did a left join, rows missing in the right dataframe will end up with NaNs.  If their type is
+        # numeric, fill them with zeros.
+        num_type_fill_dict = {}
+        for col, typ in self.get_column_types().items():
+            if col in _outdf.columns and typ in [int, float]:
+                num_type_fill_dict[col] = 0
+        if len(num_type_fill_dict.keys()) > 0:
+            _outdf.fillna(num_type_fill_dict, inplace=True)
+
+        print(f"RESULTING DF: {_outdf.to_string()}")
         if _merge_dict["next_merge_dict"] is None:
             return _outdf
 
@@ -769,6 +853,83 @@ class ConvertedTableLoader(TableLoader, ABC):
             _outdf=_outdf,
             _merge_dict=_merge_dict["next_merge_dict"].copy(),
         )
+
+    def get_column_types(self):
+        """Override of TableLoader.get_column_types, to add the original header types to the converted header types.
+        Returns a dict of column types by header name (not header key).
+
+        Limitations:
+            1. Does not support custom headers.
+            2. Headers with the same name in multiple sheets can only have 1 type
+        Args:
+            None
+        Raises:
+            Nothing
+        Returns:
+            dtypes (dict): Types by header name (instead of by header key)
+        """
+        # Get the converted header types
+        dtypes = super().get_column_types()
+        if dtypes is None:
+            dtypes = {}
+
+        headers = self.OrigDataHeaders
+
+        for key in self.OrigDataColumnTypes.keys():
+            hdr = getattr(headers, key)
+            dtypes[hdr] = self.OrigDataColumnTypes[key]
+
+        return dtypes
+
+    def update_nans_with_defaults(self, indf):
+        """Uses self.nan_defaults_dict to fill in NaN values with default values.  The keys of the dict are column names
+        to change and the values are either static values of functions that take a dataframe as input.
+
+        Example:
+            Using:
+                self.nan_defaults_dict = {"isotopeLabel": lambda df: "C13-label-" + df["C_Label"]}
+            You get:
+                C_Label isotopeLabel    ->  C_Label isotopeLabel
+                2       NaN             ->  2       C13-label-2
+
+        Args:
+            indf (pd.DataFrame)
+        Exceptions:
+            None
+        Returns:
+            outdf (pd.DataFrame)
+        """
+        outdf = indf.copy(deep=True)
+        if self.nan_defaults_dict is not None and len(self.nan_defaults_dict.keys()) > 0:
+            for col, val_or_method in self.nan_defaults_dict.items():
+                if type(val_or_method).__name__ == "function":
+                    outdf[col].fillna(val_or_method(outdf), inplace=True)
+                else:
+                    outdf[col].fillna(val_or_method, inplace=True)
+        return outdf
+
+    def sort_df(self, indf):
+        """Sorts a dataframe by self.sort_columns."""
+        outdf = indf.copy(deep=True)
+        if self.sort_columns is not None and len(self.sort_columns) > 0:
+            outdf.sort_values(by=self.sort_columns, inplace=True)
+        return outdf
+
+    def fill_down_nan_columns(self, indf):
+        """'Fill down' values from previous rows in place of NaN values.
+
+        Args:
+            indf (pd.DataFrame)
+        Exceptions:
+            None
+        Returns:
+            outdf (pd.DataFrame)
+        """
+        outdf = indf.copy(deep=True)
+        if self.nan_filldown_columns is not None and len(self.nan_filldown_columns) > 0:
+            for col in self.nan_filldown_columns:
+                outdf[col].ffill(inplace=True)
+        return outdf
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -809,9 +970,9 @@ class ConvertedTableLoader(TableLoader, ABC):
         # Preserve the original df
         self.orig_df = kwargs.get("df")
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
-        print(f"CALLING TABLE LOADER FROM CONVERTED INIT WITH DRY RUN: {kwargs.get('dry_run')}")
         TableLoader.__init__(self, *args, **kwargs)
         # Overwrite what the superclass saved with a converted version.  The constructor does noting with the df, and
         # convert_df() makes a deep copy, so this is OK.
         if self.orig_df is not None:
             self.df = self.convert_df()
+            print(f"CONVERTED DF: {self.df.to_string()}")

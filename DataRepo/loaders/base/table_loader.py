@@ -1074,10 +1074,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
         Raises:
             Nothing
-
         Returns:
             dtypes (dict): Types by header name (instead of by header key)
         """
@@ -2191,7 +2189,7 @@ class TableLoader(ABC):
         """
         return self.record_counts
 
-    def check_for_inconsistencies(self, rec, rec_dict):
+    def check_for_inconsistencies(self, rec, rec_dict, orig_exception=None):
         """Generate ConflictingValueError exceptions based on differences between a supplied record and dict.
 
         This function compares the supplied database model record with the dict that was used to (get or) create a
@@ -2202,7 +2200,7 @@ class TableLoader(ABC):
                 rec, created = Model.objects.get_or_create(**rec_dict)
             except IntegrityError as ie:
                 rec = Model.objects.get(name="unique value")
-                self.check_for_inconsistencies(rec, rec_dict)
+                self.check_for_inconsistencies(rec, rec_dict, orig_exception=ie)
 
         It can also be called pre-emptively by querying for only a record's unique field and supply the record and a
         dict for record creation.  E.g.:
@@ -2218,13 +2216,12 @@ class TableLoader(ABC):
         Args:
             rec (Model object)
             rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
-
+            orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
         Exceptions:
             Raises:
                 Nothing
             Buffers:
                 ConflictingValueError
-
         Returns:
             found_errors (boolean)
         """
@@ -2239,6 +2236,7 @@ class TableLoader(ABC):
                 }
         if len(differences.keys()) > 0:
             found_errors = True
+            print(f"ORIGINAL EXCEPTION: {type(orig_exception).__name__}: {orig_exception}")
             self.aggregated_errors_object.buffer_error(
                 ConflictingValueError(
                     rec,
@@ -2247,7 +2245,8 @@ class TableLoader(ABC):
                     rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.file,
-                )
+                ),
+                orig_exception=orig_exception,
             )
         return found_errors
 
@@ -2323,7 +2322,7 @@ class TableLoader(ABC):
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
                         rec = qs.first()
-                        errs_found = self.check_for_inconsistencies(rec, rec_dict)
+                        errs_found = self.check_for_inconsistencies(rec, rec_dict, orig_exception=exception)
                         if errs_found:
                             return True
 

@@ -2238,12 +2238,12 @@ class ConflictingValueErrors(Exception):
                     if rowstr == "":
                         message += "\n"
                     else:
-                        message += f"(on rows: {rowstr})\n"
+                        message += f" (on row(s): {rowstr})\n"
                     db_msgs = []
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
                         recstr = "Database record not provided"
                         if cve.rec is not None:
-                            recstr = str(model_to_dict(cve.rec))
+                            recstr = str(model_to_dict(cve.rec, exclude=["id"]))
                         db_msg = f"\t\tDatabase record: {recstr}\n"
                         if cve.differences is None or len(cve.differences.keys()) == 0:
                             db_msg += "\t\t\tdifference data unavailable\n"
