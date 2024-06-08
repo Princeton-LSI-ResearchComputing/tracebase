@@ -2469,11 +2469,9 @@ class AmbiguousMSRun(InfileError):
             f"When processing the peak data located in %s for sample [{pg_rec.msrun_sample.sample}] and compound(s) "
             f"{pg_rec.name}, a duplicate peak group was found that was linked to MSRunSample: "
             f"{model_to_dict(pg_rec.msrun_sample)}, but the peak annotation file it was loaded from [{peak_annot1}] "
-            f"was not the same as the current load file: [{peak_annot2}].  Either this is true duplicate peak data and "
-            "should be removed from this file or this data is a different scan (polarity and/or scan range), in which "
-            "case, both files should be loaded with a distinct polarity, mz_min, and mz_max.  If the mzXML file is "
-            "unavailable, mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr "
-            "data."
+            f"was not the same as the current load file: [{peak_annot2}].  PeakGroups(/Compounds) are only allowed to "
+            "have a single representation per Sample and MSRunSequence combo.  Please choose which PeakGroup "
+            "representation you want to keep and delete the other from the corresponding peak annotation file."
         )
         super().__init__(message, **kwargs)
         self.pg_rec = pg_rec
@@ -2490,21 +2488,16 @@ class AmbiguousMSRuns(Exception):
                 deets += (
                     f"\t\tSample [{amsre.pg_rec.msrun_sample.sample}] "
                     f"PeakGroup [{amsre.pg_rec.name}] "
-                    f"MSRun Polarity [{amsre.pg_rec.msrun_sample.polarity}] "
-                    f"MSRun MZ Min [{amsre.pg_rec.msrun_sample.mz_min}] "
-                    f"MSRun MZ Max [{amsre.pg_rec.msrun_sample.mz_max}]\n"
+                    f"MSRun Polarity [{amsre.pg_rec.msrun_sample.polarity}]\n"
                 )
         message = (
             f"When processing the peak data located in {infile}, duplicate peak groups were found that link to "
             "existing MSRunSample records, but the peak annotation file the original peak groups were loaded from were "
-            "not the same as the current load file.  Either they are true duplicate peak groups and should be removed "
-            "from this file or this data represents a different scan (polarity and/or scan range), in which case, both "
-            "files should be loaded with a distinct polarity or mz_min and mz_max.  If the mzXML file is unavailable, "
-            "mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr data.  The "
-            "conflicting MSRunSample records below were encountered associated with the following table data:\n"
+            "not the same as the current load file.  PeakGroups(/Compounds) are only allowed to have a single "
+            "representation per Sample and MSRunSequence combo.  Please choose which PeakGroup representation you want "
+            "to keep and delete the other from the corresponding peak annotation file.  The conflicting MSRunSample "
+            "records below were encountered associated with the following table data:\n"
             f"{deets}"
-            "Use --polarity, --mz-min, and --mz-max to set different MSRun characteristics for an entire peak "
-            "annotations file or set per sample (header) values in the --lcms-file."
         )
         super().__init__(message)
         self.ambig_dict = ambig_dict

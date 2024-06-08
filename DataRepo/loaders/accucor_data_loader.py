@@ -63,7 +63,6 @@ from DataRepo.utils.exceptions import (
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
     MissingSamplesError,
-    MixedPolarityErrors,
     MultipleAccucorTracerLabelColumnsError,
     MultipleMassNumbers,
     MzxmlConflictErrors,
@@ -235,7 +234,6 @@ class AccuCorDataLoader:
         self.conflicting_peak_groups = []
         self.missing_mzxmls = []
         self.mismatching_mzxmls = []
-        self.mixed_polarities = {}
         self.conflicting_mzxml_values = defaultdict(dict)
         self.conflicting_archive_files = []
         self.ambiguous_msruns = defaultdict(dict)
@@ -1882,11 +1880,6 @@ class AccuCorDataLoader:
         if len(self.conflicting_mzxml_values.keys()) > 0:
             self.aggregated_errors_object.buffer_exception(
                 MzxmlConflictErrors(self.conflicting_mzxml_values),
-            )
-
-        if len(self.mixed_polarities.keys()) > 0:
-            self.aggregated_errors_object.buffer_exception(
-                MixedPolarityErrors(self.mixed_polarities),
             )
 
         if self.aggregated_errors_object.should_raise():
