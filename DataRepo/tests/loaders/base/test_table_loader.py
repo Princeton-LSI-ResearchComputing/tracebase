@@ -871,8 +871,6 @@ class TableLoaderTests(TracebaseTestCase):
                 "\t\tFile record:     No file data provided\n"
                 "\t\tDatabase record: Database record not provided\n"
                 "\t\t\tdifference data unavailable\n"
-                "\t\tDatabase record: Database record not provided\n"
-                "\t\t\tdifference data unavailable\n"
             ),
             str(aes.exceptions[0]),
         )

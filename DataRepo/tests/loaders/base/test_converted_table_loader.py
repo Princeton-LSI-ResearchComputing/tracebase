@@ -162,6 +162,53 @@ class TestConvertedLoaderTests(TracebaseTestCase):
 
             merge_dict = cls.accucor_merge_dict
 
+            OrigDataTableHeaders = namedtuple(
+                "OrigDataTableHeaders",
+                [
+                    "FORMULA",
+                    "METAGROUPID",
+                    "MEDMZ",
+                    "MEDRT",
+                    "ISOTOPELABEL",
+                    "ORIGCOMPOUND",
+                    "CORRCOMPOUND",
+                    "CLABEL",
+                ],
+            )
+
+            OrigDataHeaders = OrigDataTableHeaders(
+                FORMULA="formula",
+                METAGROUPID="metaGroupId",
+                MEDMZ="medMz",
+                MEDRT="medRt",
+                ISOTOPELABEL="isotopeLabel",
+                ORIGCOMPOUND="compound",
+                CORRCOMPOUND="Compound",
+                CLABEL="C_Label",
+            )
+
+            # This is the union of all sheets' column types
+            OrigDataColumnTypes = {
+                "FORMULA": str,
+                "MEDMZ": float,
+                "MEDRT": float,
+                "ISOTOPELABEL": str,
+                "ORIGCOMPOUND": str,
+                "CORRCOMPOUND": str,
+                "CLABEL": int,
+            }
+
+            nan_defaults_dict = {
+                "Raw Abundance": 0,
+                "medMz": 0,
+                "medRt": 0,
+                "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
+            }
+
+            sort_columns = ["mzXML Name", "Compound", "C_Label"]
+
+            nan_filldown_columns = ["formula"]
+
         return TestConvertedLoader1
 
     @classmethod
@@ -202,6 +249,41 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 "first_sheet": "absolte",
                 "next_merge_dict": None,
             }
+
+            OrigDataTableHeaders = namedtuple(
+                "OrigDataTableHeaders",
+                [
+                    "FORMULA",
+                    "MEDMZ",
+                    "MEDRT",
+                    "ISOTOPELABEL",
+                    "COMPOUND",
+                    "METAGROUPID",
+                    "ADDUCTNAME",
+                ],
+            )
+
+            OrigDataHeaders = OrigDataTableHeaders(
+                FORMULA="formula",
+                MEDMZ="medMz",
+                MEDRT="medRt",
+                ISOTOPELABEL="isotopeLabel",
+                COMPOUND="compound",
+                METAGROUPID="metaGroupId",
+                ADDUCTNAME="adductName",
+            )
+
+            OrigDataColumnTypes = {
+                "formula": str,
+                "medMz": float,
+                "medRt": float,
+                "isotopeLabel": str,
+                "compound": str,
+            }
+
+            nan_defaults_dict = None
+            sort_columns = None
+            nan_filldown_columns = None
 
         return TestConvertedLoader2
 

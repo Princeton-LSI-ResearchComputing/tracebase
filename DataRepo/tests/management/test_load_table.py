@@ -12,6 +12,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredOptions,
+    DryRun,
+    NotATableLoader,
     OptionsNotAvailable,
     RequiredOptions,
 )
@@ -191,7 +193,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             TestTypeCommand()
         aes = ar.exception
         self.assertEqual((1, 0), (aes.num_errors, aes.num_warnings))
-        self.assertEqual(TypeError, type(aes.exceptions[0]))
+        self.assertEqual(NotATableLoader, type(aes.exceptions[0]))
         self.assertIn("loader_class", str(aes.exceptions[0]))
 
     def test_load_data(self):
@@ -362,6 +364,8 @@ class LoadTableCommandTests(TracebaseTestCase):
             tc.loader.existed(None, 2)
             tc.loader.skipped(None, 3)
             tc.loader.errored(None, 4)
+
+            tc.dry_run_exception = DryRun()
 
             # Report the stats result to the console
             tc.report_status()

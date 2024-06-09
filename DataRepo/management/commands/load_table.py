@@ -2,8 +2,7 @@ import argparse
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
-from django.core.management import CommandError
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandError
 
 from DataRepo.loaders import TableLoader
 from DataRepo.utils import (
@@ -16,7 +15,7 @@ from DataRepo.utils import (
     is_excel,
     read_from_file,
 )
-from DataRepo.utils.exceptions import ConditionallyRequiredOptions
+from DataRepo.utils.exceptions import ConditionallyRequiredOptions, NotATableLoader
 
 
 class LoadTableCommand(ABC, BaseCommand):
@@ -101,14 +100,20 @@ class LoadTableCommand(ABC, BaseCommand):
             [] if required_optname_groups is None else required_optname_groups
         )
 
+        self.check_class_attributes()
+
         # This gives each derived command class the opportunity to change the defaults of the stock options
         if opt_defaults is None:
             opt_defaults = {}
         self.opt_defaults = {
             "infile": opt_defaults.get("infile", None),
-            "data_sheet": opt_defaults.get("data_sheet", self.loader_class.DataSheetName),
+            "data_sheet": opt_defaults.get(
+                "data_sheet", self.loader_class.DataSheetName
+            ),
             "defaults_file": opt_defaults.get("defaults_file", None),
-            "defaults_sheet": opt_defaults.get("defaults_sheet", self.loader_class.DefaultsSheetName),
+            "defaults_sheet": opt_defaults.get(
+                "defaults_sheet", self.loader_class.DefaultsSheetName
+            ),
             "headers": opt_defaults.get("headers", None),
             "dry_run": opt_defaults.get("dry_run", False),
         }
@@ -119,7 +124,6 @@ class LoadTableCommand(ABC, BaseCommand):
 
         # Apply the handler decorator to the handle method in the derived class
         self.apply_handle_wrapper()
-        self.check_class_attributes()
         # options are set in the override of handle(), but we need to know if options are available in the get_* methods
         self.options = None
         # We will set initial values here.  The derived class must call set if they have custom default values for any
@@ -328,17 +332,9 @@ class LoadTableCommand(ABC, BaseCommand):
         Returns:
             None
         """
-        here = f"{type(self).__module__}.{type(self).__name__}"
         if not issubclass(self.loader_class, TableLoader):
             # Immediately raise programming related errors
-            aes = AggregatedErrors()
-            aes.buffer_error(
-                TypeError(
-                    f"Invalid attribute [{here}.loader_class] TableLoader required, {type(self.loader_class)} set"
-                )
-            )
-            if aes.should_raise():
-                raise aes
+            raise AggregatedErrors().buffer_error(NotATableLoader(self))
 
     @staticmethod
     def _handler(fn):

@@ -94,7 +94,7 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @property
     @abstractmethod
-    def condense_columns_dict(self) -> dict:
+    def condense_columns_dict(self) -> Optional[dict]:
         """A dict keyed on sheet name, containing a list of all of the columns to keep as-is, and the names of 2 new
         columns (one that will contain the headers of the remaining columns and one to contain the values).  The
         original columns not in the keep-list (there should be more than 1) will end up being removed and the resulting
@@ -235,19 +235,28 @@ class ConvertedTableLoader(TableLoader, ABC):
         else:
             raise TypeError("df must be either a pandas.DataFrame or a dict.")
 
-        # Add columns
-        self.add_df_columns(outdf)
+        try:
+            # Add columns
+            self.add_df_columns(outdf)
 
-        # Condense multiple columns into 2 columns (a header name column and a value column)
-        outdf = self.condense_columns(outdf)
+            # Condense multiple columns into 2 columns (a header name column and a value column)
+            outdf = self.condense_columns(outdf)
 
-        # Merge sheets
-        outdf = self.merge_df_sheets(outdf)
+            # Merge sheets
+            outdf = self.merge_df_sheets(outdf)
 
-        # Fill in NaN values resulting from the left merge
-        outdf = self.update_nans_with_defaults(outdf)
-        outdf = self.sort_df(outdf)
-        outdf = self.fill_down_nan_columns(outdf)
+            # Fill in NaN values resulting from the left merge
+            outdf = self.update_nans_with_defaults(outdf)
+            outdf = self.sort_df(outdf)
+            outdf = self.fill_down_nan_columns(outdf)
+        except AggregatedErrors:
+            raise
+        except KeyError as ke:
+            if isinstance(indf, pd.DataFrame):
+                self.check_output_dataframe(outdf)
+            raise self.aggregated_errors_object.buffer_error(ke)
+        except Exception as e:
+            raise self.aggregated_errors_object.buffer_error(e)
 
         # Rename columns
         try:
@@ -255,7 +264,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                 outdf = outdf.rename(columns=self.merged_column_rename_dict)
         except Exception as e:
             if isinstance(indf, pd.DataFrame) and single_sheet is None:
-                raise AggregatedErrors().buffer_error(
+                raise self.aggregated_errors_object.buffer_error(
                     ValueError(
                         f"A dataframe dict containing the following sheets/keys: {self.get_required_sheets()} is "
                         "required."
@@ -263,7 +272,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                     orig_exception=e,
                 )
             else:
-                raise AggregatedErrors().buffer_error(e)
+                raise self.aggregated_errors_object.buffer_error(e)
 
         # Drop unwanted columns
         if self.merged_drop_columns_list is not None:
@@ -682,50 +691,6 @@ class ConvertedTableLoader(TableLoader, ABC):
                 sheets.append(merge_dict["right_sheet"])
         return sheets
 
-    @classmethod
-    def get_flattened_original_headers(cls):
-        """This retrieves all of the potential original format headers expected by the derived class, after the merge of
-        all required sheets.
-
-        The purpose is to be able to supply a method that can determine the original format when supplied a single
-        dataframe (i.e. not a dataframe dict).
-
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            orig_headers (List[str]): List of potential original format headers expected by the derived class
-        """
-        orig_headers = []
-        # Initially populate using the rename dict keys
-        if cls.merged_column_rename_dict is not None:
-            orig_headers.extend(cls.merged_column_rename_dict.keys())
-
-        # Add in any missing using the drop columns list
-        if cls.merged_drop_columns_list is not None:
-            for header in cls.merged_drop_columns_list:
-                if header not in orig_headers:
-                    orig_headers.append(header)
-
-        # There could still be headers that didn't need renamed and are not to be dropped.  Those will be in the
-        # condense dict's uncondensed_columns dict, but that also includes added columns that are not original, so add
-        # any from the uncondensed list as long as they are not in the added columns (which are both by sheet)
-        if cls.condense_columns_dict is not None:
-            for sheet in cls.condense_columns_dict.keys():
-                for header in cls.condense_columns_dict[sheet]["uncondensed_columns"]:
-                    if (
-                        header not in orig_headers
-                        and (
-                            cls.add_columns_dict is None
-                            or sheet not in cls.add_columns_dict.keys()
-                            or header not in cls.add_columns_dict[sheet].keys()
-                        )
-                    ):
-                        orig_headers.append(header)
-
-        return orig_headers
-
     def merge_df_sheets(self, in_df, _outdf=None, _merge_dict=None, _first_sheet=None):
         """Uses self.merge_dict to recursively merge in_df's sheets into a single merged dataframe (if in_df is a dict).
 
@@ -891,7 +856,10 @@ class ConvertedTableLoader(TableLoader, ABC):
             outdf (pd.DataFrame)
         """
         outdf = indf.copy(deep=True)
-        if self.nan_defaults_dict is not None and len(self.nan_defaults_dict.keys()) > 0:
+        if (
+            self.nan_defaults_dict is not None
+            and len(self.nan_defaults_dict.keys()) > 0
+        ):
             for col, val_or_method in self.nan_defaults_dict.items():
                 if type(val_or_method).__name__ == "function":
                     outdf[col].fillna(val_or_method(outdf), inplace=True)
@@ -965,4 +933,9 @@ class ConvertedTableLoader(TableLoader, ABC):
         # Overwrite what the superclass saved with a converted version.  The constructor does noting with the df, and
         # convert_df() makes a deep copy, so this is OK.
         if self.orig_df is not None:
-            self.df = self.convert_df()
+            try:
+                self.df = self.convert_df()
+            except AggregatedErrors:
+                raise
+            except Exception as e:
+                raise self.aggregated_errors_object.buffer_error(e)
