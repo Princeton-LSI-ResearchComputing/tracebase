@@ -2321,7 +2321,9 @@ class TableLoader(ABC):
                     # If there was a record found using a unique field (combo)
                     if qs.count() == 1:
                         rec = qs.first()
-                        errs_found = self.check_for_inconsistencies(rec, rec_dict, orig_exception=exception)
+                        errs_found = self.check_for_inconsistencies(
+                            rec, rec_dict, orig_exception=exception
+                        )
                         if errs_found:
                             return True
 

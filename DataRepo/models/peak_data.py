@@ -113,19 +113,16 @@ class PeakData(models.Model):
             # Build a Q expression for matching PeakDataLabel records
             labels_q = Q()
             for label in label_obs:
-                labels_q |= (
-                    Q(
-                        peak_data=potential_rec,
-                        element=label["element"],
-                        count=label["count"],
-                        mass_number=label["mass_number"],
-                    )
+                labels_q |= Q(
+                    peak_data=potential_rec,
+                    element=label["element"],
+                    count=label["count"],
+                    mass_number=label["mass_number"],
                 )
             matching_labels = potential_rec.labels.filter(labels_q)
-            if (
-                potential_rec.labels.count() == len(label_obs)
-                and set(potential_rec.labels.all()) == set(matching_labels.all())
-            ):
+            if potential_rec.labels.count() == len(label_obs) and set(
+                potential_rec.labels.all()
+            ) == set(matching_labels.all()):
                 matching_recs.append(potential_rec)
 
         if len(matching_recs) == 1:

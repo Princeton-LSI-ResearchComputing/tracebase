@@ -37,7 +37,7 @@ from DataRepo.utils.exceptions import (
     UnexpectedSamples,
     UnskippedBlanks,
 )
-from DataRepo.utils.infusate_name_parser import parse_infusate_name
+from DataRepo.utils.infusate_name_parser import ObservedIsotopeData, parse_infusate_name
 
 PeakGroupCompound = PeakGroup.compounds.through
 
@@ -562,7 +562,8 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             }
         )
         pgrec = self.create_peak_group()
-        rec, created = al.get_or_create_peak_data(row, pgrec)
+        label_obs = [ObservedIsotopeData(element="C", mass_number=13, count=2)]
+        rec, created = al.get_or_create_peak_data(row, pgrec, label_obs)
         self.assertTrue(created)
         self.assertEqual(1, PeakData.objects.count())
         self.assertEqual(rec.med_mz, 5)

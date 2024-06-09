@@ -50,7 +50,10 @@ from DataRepo.utils.exceptions import (
     generate_file_location_string,
 )
 from DataRepo.utils.file_utils import is_excel, string_to_datetime
-from DataRepo.utils.infusate_name_parser import ObservedIsotopeData, parse_isotope_label
+from DataRepo.utils.infusate_name_parser import (
+    ObservedIsotopeData,
+    parse_isotope_label,
+)
 
 PeakGroupCompound = PeakGroup.compounds.through
 
@@ -822,7 +825,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
     @transaction.atomic
-    def get_or_create_peak_group_compound_link(self, pgrec: Optional[PeakGroup], cmpd_rec: Compound):
+    def get_or_create_peak_group_compound_link(
+        self, pgrec: Optional[PeakGroup], cmpd_rec: Compound
+    ):
         """Get or create a peakgroup_compound record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
@@ -1058,7 +1063,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             rec (Optional[PeakDataLabel])
             created (boolean)
         """
-        if peak_data is None or element is None or count is None or mass_number is None or self.is_skip_row():
+        if (
+            peak_data is None
+            or element is None
+            or count is None
+            or mass_number is None
+            or self.is_skip_row()
+        ):
             self.skipped(PeakDataLabel.__name__)
             return None, False
 
@@ -1270,12 +1281,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             matching_format_codes (List[str]): Format codes of the matching DataFormats.
         """
-        matching_format_codes = []
+        matching_format_codes: List[str] = []
         for subcls in PeakAnnotationsLoader.__subclasses__():
             if subcls == UnicorrLoader:
                 # This is the identity type, which is handled below
                 continue
-            expected_headers = set(subcls.get_flattened_original_headers())
+            expected_headers = set(subcls.OrigDataHeaders._asdict().values())
             if isinstance(df, dict):
                 expected_sheets = set(subcls.get_required_sheets())
                 supplied_sheets = set(list(df.keys()))
@@ -1287,7 +1298,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                             match = False
                             break
                     if match:
-                        matching_format_codes.append(subcls.format_code)
+                        matching_format_codes.append(str(subcls.format_code))
             else:  # pd.DataFrame
                 # All we can do here (currently) is check that the headers in the dataframe are a subset of the
                 # flattened original headers (from all the sheets).  It would be possible to do the determination by
@@ -1295,26 +1306,30 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 # done via a refactor.
                 supplied_headers = set(list(df.columns))
                 if supplied_headers <= expected_headers:
-                    matching_format_codes.append(subcls.format_code)
+                    matching_format_codes.append(str(subcls.format_code))
 
         # Handle the converted format too:
         expected_headers = set(PeakAnnotationsLoader.DataHeaders._asdict().values())
         if isinstance(df, dict):
             if PeakAnnotationsLoader.DataSheetName in df.keys():
-                supplied_headers = set(list(df[PeakAnnotationsLoader.DataSheetName].columns))
+                supplied_headers = set(
+                    list(df[PeakAnnotationsLoader.DataSheetName].columns)
+                )
                 if supplied_headers <= expected_headers:
-                    matching_format_codes.append(UnicorrLoader.format_code)
+                    matching_format_codes.append(str(UnicorrLoader.format_code))
         else:
             supplied_headers = set(list(df.columns))
             if supplied_headers <= expected_headers:
-                matching_format_codes.append(UnicorrLoader.format_code)
+                matching_format_codes.append(str(UnicorrLoader.format_code))
 
         return matching_format_codes
 
     @classmethod
     def get_supported_formats(cls) -> List[str]:
         """Get a list of format codes for all supported formats."""
-        return [subcls.format_code for subcls in PeakAnnotationsLoader.__subclasses__()]
+        return [
+            str(subcls.format_code) for subcls in PeakAnnotationsLoader.__subclasses__()
+        ]
 
 
 class IsocorrLoader(PeakAnnotationsLoader):
@@ -1328,7 +1343,7 @@ class IsocorrLoader(PeakAnnotationsLoader):
     format_code = "isocorr"
 
     OrigDataTableHeaders = namedtuple(
-        "DataTableHeaders",
+        "OrigDataTableHeaders",
         [
             "COMPOUNDID",
             "FORMULA",
@@ -1443,7 +1458,7 @@ class AccucorLoader(PeakAnnotationsLoader):
     format_code = "accucor"
 
     OrigDataTableHeaders = namedtuple(
-        "DataTableHeaders",
+        "OrigDataTableHeaders",
         [
             "COMPOUNDID",
             "FORMULA",
@@ -1611,7 +1626,7 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
     format_code = "isoautocorr"
 
     OrigDataTableHeaders = namedtuple(
-        "DataTableHeaders",
+        "OrigDataTableHeaders",
         [
             "COMPOUNDID",
             "FORMULA",

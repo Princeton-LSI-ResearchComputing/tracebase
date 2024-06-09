@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-import pandas as pd
 
+import pandas as pd
 from django.core.management import call_command
 
 from DataRepo.loaders import MSRunsLoader
@@ -8,15 +8,15 @@ from DataRepo.models import (
     Animal,
     Infusate,
     InfusateTracer,
-    Tracer,
-    TracerLabel,
+    LCMethod,
     MaintainedModel,
+    MSRunSequence,
     PeakData,
     PeakGroup,
     Sample,
     Tissue,
-    LCMethod,
-    MSRunSequence,
+    Tracer,
+    TracerLabel,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
@@ -28,6 +28,7 @@ from DataRepo.utils.exceptions import (
 
 # TODO: Swap out all of the calls to load_animals_and_samples and load_samples once those loaders are refactored to
 # inherit from TableLoader.
+
 
 class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
@@ -86,16 +87,46 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             df=pd.DataFrame.from_dict(
                 {
                     "Sample Name": [
-                        "BAT-xz971", "Br-xz971", "Dia-xz971", "gas-xz971", "gWAT-xz971", "H-xz971", "Kid-xz971",
-                        "Liv-xz971", "Lu-xz971", "Pc-xz971", "Q-xz971", "SI-xz971", "Sol-xz971", "Sp-xz971",
+                        "BAT-xz971",
+                        "Br-xz971",
+                        "Dia-xz971",
+                        "gas-xz971",
+                        "gWAT-xz971",
+                        "H-xz971",
+                        "Kid-xz971",
+                        "Liv-xz971",
+                        "Lu-xz971",
+                        "Pc-xz971",
+                        "Q-xz971",
+                        "SI-xz971",
+                        "Sol-xz971",
+                        "Sp-xz971",
                     ],
                     "Sample Data Header": [
-                        "BAT-xz971", "Br-xz971", "Dia-xz971", "gas-xz971", "gWAT-xz971", "H-xz971", "Kid-xz971",
-                        "Liv-xz971", "Lu-xz971", "Pc-xz971", "Q-xz971", "SI-xz971", "Sol-xz971", "Sp-xz971",
+                        "BAT-xz971",
+                        "Br-xz971",
+                        "Dia-xz971",
+                        "gas-xz971",
+                        "gWAT-xz971",
+                        "H-xz971",
+                        "Kid-xz971",
+                        "Liv-xz971",
+                        "Lu-xz971",
+                        "Pc-xz971",
+                        "Q-xz971",
+                        "SI-xz971",
+                        "Sol-xz971",
+                        "Sp-xz971",
                     ],
                     "mzXML File Name": [None for _ in range(14)],
-                    "Peak Annotation File Name": ["small_obob_maven_6eaas_inf_blank_sample.xlsx" for _ in range(14)],
-                    "Sequence Name": ["Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29" for _ in range(14)],
+                    "Peak Annotation File Name": [
+                        "small_obob_maven_6eaas_inf_blank_sample.xlsx"
+                        for _ in range(14)
+                    ],
+                    "Sequence Name": [
+                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
+                        for _ in range(14)
+                    ],
                 },
             ),
         ).load_data()
@@ -157,7 +188,12 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             df=pd.DataFrame.from_dict(
                 {
                     "Sample Name": ["BAT-xz971", "Br-xz971", "BAT-xz971", "Br-xz971"],
-                    "Sample Data Header": ["BAT-xz971", "Br-xz971", "BAT-xz971", "Br-xz971"],
+                    "Sample Data Header": [
+                        "BAT-xz971",
+                        "Br-xz971",
+                        "BAT-xz971",
+                        "Br-xz971",
+                    ],
                     "mzXML File Name": [None, None, None, None],
                     "Peak Annotation File Name": [
                         "small_obob_maven_6eaas_inf_glucose.xlsx",
@@ -165,7 +201,10 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                         "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                         "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                     ],
-                    "Sequence Name": ["Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29" for _ in range(4)],
+                    "Sequence Name": [
+                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
+                        for _ in range(4)
+                    ],
                 },
             ),
         ).load_data()
@@ -309,14 +348,23 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
             df=pd.DataFrame.from_dict(
                 {
                     "Sample Name": [
-                        "M1_mix1_T150", "M2_mix1_T150", "M3_glycerol_T150", "M4_glycerol_T150",
+                        "M1_mix1_T150",
+                        "M2_mix1_T150",
+                        "M3_glycerol_T150",
+                        "M4_glycerol_T150",
                     ],
                     "Sample Data Header": [
-                        "M1_mix1_T150", "M2_mix1_T150", "M3_glycerol_T150", "M4_glycerol_T150",
+                        "M1_mix1_T150",
+                        "M2_mix1_T150",
+                        "M3_glycerol_T150",
+                        "M4_glycerol_T150",
                     ],
                     "mzXML File Name": [None for _ in range(4)],
                     "Peak Annotation File Name": ["accucor.xlsx" for _ in range(4)],
-                    "Sequence Name": ["anonymous, polar-HILIC-25-min, unknown, 2022-08-18" for _ in range(4)],
+                    "Sequence Name": [
+                        "anonymous, polar-HILIC-25-min, unknown, 2022-08-18"
+                        for _ in range(4)
+                    ],
                 },
             ),
         ).load_data()

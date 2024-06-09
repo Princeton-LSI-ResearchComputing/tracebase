@@ -150,17 +150,27 @@ class Command(LoadTableCommand):
         peak_annotation_details_sheet = None
         peak_annotation_details_df = None
         if options.get("infile") is not None:
-            peak_annotation_details_file = options.pop("peak_annotation_details_file", None)
-            peak_annotation_details_sheet = options.pop("peak_annotation_details_sheet", None)
+            peak_annotation_details_file = options.pop(
+                "peak_annotation_details_file", None
+            )
+            peak_annotation_details_sheet = options.pop(
+                "peak_annotation_details_sheet", None
+            )
             if peak_annotation_details_file is not None:
-                peak_annotation_details_df = read_from_file(peak_annotation_details_file, peak_annotation_details_sheet)
+                peak_annotation_details_df = read_from_file(
+                    peak_annotation_details_file, peak_annotation_details_sheet
+                )
         elif options.pop("peak_annotation_details_file", None) is None:
-            raise ConditionallyRequiredOptions("--infile is required if --peak-annotation-details-file is supplied.")
+            raise ConditionallyRequiredOptions(
+                "--infile is required if --peak-annotation-details-file is supplied."
+            )
 
         if options.get("format") is not None:
             matching_formats = [options.get("format")]
         else:
-            matching_formats = PeakAnnotationsLoader.determine_matching_formats(self.get_dataframe())
+            matching_formats = PeakAnnotationsLoader.determine_matching_formats(
+                self.get_dataframe()
+            )
 
         if len(matching_formats) == 1:
             if matching_formats[0] == AccucorLoader.format_code:

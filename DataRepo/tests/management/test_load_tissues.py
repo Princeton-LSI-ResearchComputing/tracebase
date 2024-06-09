@@ -5,6 +5,7 @@ from DataRepo.models import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    DryRun,
     DuplicateValueErrors,
     RequiredColumnValues,
 )
@@ -24,13 +25,14 @@ class TissueLoadingTests(TracebaseTestCase):
 
     def test_load_tissue_command_dry_run(self):
         """Test dry run of the load_tissue management command"""
-        call_command(
-            "load_tissues",
-            infile="DataRepo/data/tests/tissues/tissues.tsv",
-            dry_run=True,
-        )
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_tissues",
+                infile="DataRepo/data/tests/tissues/tissues.tsv",
+                dry_run=True,
+            )
         # Dry run should not load any records
-        self.assertEqual(Tissue.objects.count(), 0)
+        self.assertEqual(0, Tissue.objects.count())
 
     def test_load_tissue_command_with_errors(self):
         """Test the load_tissue management command with file containing errors"""

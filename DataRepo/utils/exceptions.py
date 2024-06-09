@@ -3515,6 +3515,14 @@ class NoLoadData(Exception):
     pass
 
 
+class NotATableLoader(TypeError):
+    def __init__(self, command_inst):
+        here = f"{type(command_inst).__module__}.{type(command_inst).__name__}"
+        message = f"Invalid attribute [{here}.loader_class] TableLoader required, {type(command_inst).__name__} set"
+        super().__init__(message)
+        self.command_inst = command_inst
+
+
 class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
     def __init__(self, name, **kwargs):
         message = f"Compound [{name}] from %s does not exist as either a primary compound name or synonym."

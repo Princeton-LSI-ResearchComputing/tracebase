@@ -201,6 +201,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             created (boolean)
         """
         from DataRepo.utils.exceptions import NoTracerLabeledElements
+
         PeakGroupCompound = PeakGroup.compounds.through
 
         # Error check the labeled elements shared between the peak group's compound(s) and the tracers before creating

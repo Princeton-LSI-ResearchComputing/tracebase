@@ -138,6 +138,7 @@ class PeakDataTests(PeakDataData):
         # TODO: Implement test
         pass
 
+
 class PeakDataLabelTests(PeakDataData):
     def setUp(self):
         super().setUp()

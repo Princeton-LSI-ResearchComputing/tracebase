@@ -156,13 +156,14 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_load_protocols_xlxs_validation(self):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
-        call_command(
-            "load_protocols",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
-            dry_run=True,
-        )
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_protocols",
+                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+                dry_run=True,
+            )
         # none in default
-        self.assertEqual(Protocol.objects.count(), 0)
+        self.assertEqual(0, Protocol.objects.count())
 
     def test_load_protocols_tsv_with_workarounds(self):
         """Test loading the protocols from a TSV containing duplicates and mungeable data"""
