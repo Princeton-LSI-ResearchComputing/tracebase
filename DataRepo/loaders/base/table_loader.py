@@ -2236,7 +2236,6 @@ class TableLoader(ABC):
                 }
         if len(differences.keys()) > 0:
             found_errors = True
-            print(f"ORIGINAL EXCEPTION: {type(orig_exception).__name__}: {orig_exception}")
             self.aggregated_errors_object.buffer_error(
                 ConflictingValueError(
                     rec,
