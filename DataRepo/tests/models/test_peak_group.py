@@ -170,3 +170,7 @@ class PeakGroupTests(TracebaseTestCase):
                 MultiplePeakGroupRepresentations,
             ),
         )
+
+    def test_get_or_create_compound_link(self):
+        # TODO: Implement test
+        pass

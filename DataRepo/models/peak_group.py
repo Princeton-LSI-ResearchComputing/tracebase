@@ -185,3 +185,45 @@ class PeakGroup(HierCachedModel, MaintainedModel):
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentations(self, conflicts)
+
+    def get_or_create_compound_link(self, cmpd_rec):
+        """Get or create a peakgroup_compound record (so that it can be used in record creation stats).
+
+        Args:
+            cmpd_rec (Compound)
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                NoTracerLabeledElements
+        Returns:
+            rec (Optional[PeakGroupCompound])
+            created (boolean)
+        """
+        from DataRepo.utils.exceptions import NoTracerLabeledElements
+        PeakGroupCompound = PeakGroup.compounds.through
+
+        # Error check the labeled elements shared between the peak group's compound(s) and the tracers before creating
+        # the record
+        if len(self.peak_labeled_elements) == 0:
+            raise NoTracerLabeledElements(
+                self.name,
+                self.tracer_labeled_elements,
+            )
+
+        # This is the effective rec_dict
+        rec_dict = {
+            "peakgroup": self,
+            "compound": cmpd_rec,
+        }
+
+        # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
+        count_before = self.compounds.count()
+        self.compounds.add(cmpd_rec)
+        count_after = self.compounds.count()
+        created = count_after > count_before
+
+        # Retrieve the record (created or not - .add() doesn't return a record)
+        rec = PeakGroupCompound.objects.get(**rec_dict)
+
+        return rec, created

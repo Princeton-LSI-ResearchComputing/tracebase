@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
-import pandas as pd
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
@@ -444,11 +443,16 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             label_observations = self.get_label_observations(row, pgrec)
 
-            if label_observations is None or len(label_observations) == 0:
+            # Get or create PeakData (need the label due to no unique constraint)
+            try:
                 # We can't know whether to get or create a PeakData record because there's no unique constraint.  You
                 # need the labels to distinguish between 2 different records with the same mz, rt, raw, and corrected
                 # count values.
-                self.skipped(PeakData.__name__)
+                pdrec, _ = self.get_or_create_peak_data(row, pgrec, label_observations)
+            except RollbackException:
+                pass
+
+            if label_observations is None or len(label_observations) == 0:
                 self.skipped(PeakDataLabel.__name__)
                 self.skipped(PeakGroup.__name__)
                 continue
@@ -460,20 +464,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 except RollbackException:
                     continue
 
-                # Get or create PeakData (need the label due to no unique constraint)
                 try:
-                    pdrec, _ = self.get_or_create_peak_data(
-                        row,
-                        pgrec,
-                        label_obs["element"],
-                        label_obs["count"],
-                        label_obs["mass_number"],
-                    )
-                except RollbackException:
-                    pass
-
-                try:
-                    print(f"INSERTING INTO PDL.  PDREC {pdrec.pk} OBS: {label_obs} FOR ROW: {row}")
                     self.get_or_create_peak_data_label(
                         pdrec,
                         label_obs["element"],
@@ -831,7 +822,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
     @transaction.atomic
-    def get_or_create_peak_group_compound_link(self, pgrec, cmpd_rec):
+    def get_or_create_peak_group_compound_link(self, pgrec: Optional[PeakGroup], cmpd_rec: Compound):
         """Get or create a peakgroup_compound record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
@@ -855,46 +846,30 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.skipped(PeakGroupCompound.__name__)
             return rec, created
 
-        # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
-        count_before = pgrec.compounds.count()
-
-        # This is the effective rec_dict
-        rec_dict = {
-            "peakgroup": pgrec,
-            "compound": cmpd_rec,
-        }
-
         try:
-            pgrec.compounds.add(cmpd_rec)
-        except Exception as e:
-            self.handle_load_db_errors(e, PeakGroupCompound, rec_dict)
-            self.errored(PeakGroupCompound.__name__)
-            raise RollbackException()
-
-        count_after = pgrec.compounds.count()
-
-        # Determine if a record was created
-        created = count_after > count_before
-
-        # Error check the labeled elements shared between the peak group's compound(s) and the tracers
-        if len(pgrec.peak_labeled_elements) == 0:
-            self.aggregated_errors_object.buffer_error(
-                NoTracerLabeledElements(
-                    pgrec.name,
-                    pgrec.tracer_labeled_elements,
-                    file=self.file,
-                    sheet=self.sheet,
-                    column=self.headers.COMPOUND,
-                    rownum=self.rownum,
-                )
+            rec, created = pgrec.get_or_create_compound_link(cmpd_rec)
+        except NoTracerLabeledElements as ntle:
+            # Add infile context to the exception
+            ntle.set_formatted_message(
+                file=self.file,
+                sheet=self.sheet,
+                column=self.headers.COMPOUND,
+                rownum=self.rownum,
             )
+            self.aggregated_errors_object.buffer_error(ntle)
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
             self.errored(PeakGroupCompound.__name__)
             raise RollbackException()
-
-        # Retrieve the record (created or not)
-        rec = PeakGroupCompound.objects.get(**rec_dict)
+        except Exception as e:
+            # This is the effective rec_dict
+            rec_dict = {
+                "peakgroup": pgrec,
+                "compound": cmpd_rec,
+            }
+            self.handle_load_db_errors(e, PeakGroupCompound, rec_dict)
+            self.errored(PeakGroupCompound.__name__)
+            raise RollbackException()
 
         if created:
             self.created(PeakGroupCompound.__name__)
@@ -909,9 +884,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self,
         row,
         peak_group: Optional[PeakGroup],
-        element: Optional[str],
-        count: Optional[str],
-        mass_number: Optional[str],
+        label_obs: Optional[List[ObservedIsotopeData]],
     ):
         """Get or create a PeakData record.  Handles exceptions, updates stats, and triggers a rollback.
 
@@ -932,7 +905,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         raw_abundance = self.get_row_val(row, self.headers.RAW)
         corrected_abundance = self.get_row_val(row, self.headers.CORRECTED)
 
-        if peak_group is None or element is None or count is None or mass_number is None or self.is_skip_row():
+        if peak_group is None or label_obs is None or self.is_skip_row():
             self.skipped(PeakData.__name__)
             return None, False
 
@@ -948,46 +921,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # created a PeakData record with identical values (e.g. med_mz=0, med_rt=0, raw_abundance=0, and
         # corrected_abundance=0).  The only way to tell them apart is by their associated labels (PeakDataLabel
         # records).
-        query_dict = {
-            **rec_dict,
-            "labels__element": element,
-            "labels__count": count,
-            "labels__mass_number": mass_number,
-        }
-        rec = PeakData.objects.filter(**query_dict).first()
 
-        if rec is None:
-            try:
-                # Let's see if there are any orphaned records that didn't get label records attached...
-                tmprecs = PeakData.objects.filter(**rec_dict)
-                orphans = []
-                for tmprec in tmprecs.all():
-                    if tmprec.labels.count() == 0:
-                        orphans.append(tmprec)
-                if len(orphans) == 0:
-                    rec = PeakData.objects.create(**rec_dict)
-                    created = True
-                    rec.full_clean()
-                    self.created(PeakData.__name__)
-                elif len(orphans) == 1:
-                    rec = orphans[0]
-                    created = False
-                    self.existed(PeakData.__name__)
-                else:
-                    rec, created = PeakData.objects.get_or_create(**rec_dict)
-                    if created:
-                        rec.full_clean()
-                        self.created(PeakData.__name__)
-                    else:
-                        self.existed(PeakData.__name__)
-            except Exception as e:
-                self.handle_load_db_errors(e, PeakData, rec_dict)
-                self.errored(PeakData.__name__)
-                raise RollbackException()
-        else:
-            print()
-            created = False
-            self.existed(PeakData.__name__)
+        try:
+            rec, created = PeakData.get_or_create(label_obs, **rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(PeakData.__name__)
+            else:
+                self.existed(PeakData.__name__)
+        except Exception as e:
+            self.handle_load_db_errors(e, PeakData, rec_dict)
+            self.errored(PeakData.__name__)
+            raise RollbackException()
 
         return rec, created
 
@@ -1028,7 +973,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             "column": self.headers.ISOTOPELABEL,
         }
         try:
-            print(f"PARING ISOTOPELABEL: {isotope_label} WITH POSSIBLE OBS: {possible_isotope_observations} DERIVED FROM PREAK GROUP {pgrec} FROM ROW {row.name}: {row}")
             label_observations = parse_isotope_label(
                 isotope_label, possible_isotope_observations
             )

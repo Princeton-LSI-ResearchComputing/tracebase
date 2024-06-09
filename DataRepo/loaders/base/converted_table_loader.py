@@ -237,17 +237,12 @@ class ConvertedTableLoader(TableLoader, ABC):
 
         # Add columns
         self.add_df_columns(outdf)
-        print(f"CONVERTED ORIG DF ADDED: {outdf['Original'].to_string()}")
-        print(f"CONVERTED CORR DF ADDED: {outdf['Corrected'].to_string()}")
 
         # Condense multiple columns into 2 columns (a header name column and a value column)
         outdf = self.condense_columns(outdf)
-        print(f"CONVERTED ORIG DF CONDENSED: {outdf['Original'].to_string()}")
-        print(f"CONVERTED CORR DF CONDENSED: {outdf['Corrected'].to_string()}")
 
         # Merge sheets
         outdf = self.merge_df_sheets(outdf)
-        print(f"CONVERTED DF MERGED: {outdf.to_string()}")
 
         # Fill in NaN values resulting from the left merge
         outdf = self.update_nans_with_defaults(outdf)
@@ -269,12 +264,10 @@ class ConvertedTableLoader(TableLoader, ABC):
                 )
             else:
                 raise AggregatedErrors().buffer_error(e)
-        print(f"CONVERTED DF RENAMED: {outdf.to_string()}")
 
         # Drop unwanted columns
         if self.merged_drop_columns_list is not None:
             outdf = outdf.drop(self.merged_drop_columns_list, axis=1, errors="ignore")
-        print(f"CONVERTED DF DROPPED: {outdf.to_string()}")
 
         # Check the results for validity
         self.check_output_dataframe(outdf)
@@ -827,7 +820,6 @@ class ConvertedTableLoader(TableLoader, ABC):
                 "dataframe."
             )
 
-        print(f"MERGING LEFT DF:\n{left_df.to_string()}\nWITH RIGHT DF:\n{right_df.to_string()}\nUSING ON: {on_columns} HOW: {_merge_dict['how']}")
         _outdf = pd.merge(
             left=left_df,
             right=right_df,
@@ -844,7 +836,6 @@ class ConvertedTableLoader(TableLoader, ABC):
         if len(num_type_fill_dict.keys()) > 0:
             _outdf.fillna(num_type_fill_dict, inplace=True)
 
-        print(f"RESULTING DF: {_outdf.to_string()}")
         if _merge_dict["next_merge_dict"] is None:
             return _outdf
 
@@ -975,4 +966,3 @@ class ConvertedTableLoader(TableLoader, ABC):
         # convert_df() makes a deep copy, so this is OK.
         if self.orig_df is not None:
             self.df = self.convert_df()
-            print(f"CONVERTED DF: {self.df.to_string()}")
