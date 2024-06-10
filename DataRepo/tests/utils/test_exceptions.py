@@ -1110,11 +1110,11 @@ class ExceptionTests(TracebaseTestCase):
         exc = UnequalColumnGroups("Sample", {"orig": ["A", "B"], "corr": ["A", "C"]})
         self.assertIn("sheets ['orig', 'corr'] differ", str(exc))
         self.assertIn(
-            "orig has 2 out of 2 total unique Sample columns, and is missing: ['C']",
+            "'orig' sheet has 2 out of 3 total unique Sample columns, and is missing:\n\tC",
             str(exc),
         )
         self.assertIn(
-            "corr has 2 out of 2 total unique Sample columns, and is missing: ['B']",
+            "'corr' sheet has 2 out of 3 total unique Sample columns, and is missing:\n\tB",
             str(exc),
         )
 

@@ -169,7 +169,8 @@ class Command(LoadTableCommand):
             matching_formats = [options.get("format")]
         else:
             matching_formats = PeakAnnotationsLoader.determine_matching_formats(
-                self.get_dataframe()
+                # Do not enforce column types when we don't know what columns exist yet
+                self.get_dataframe(typing=False)
             )
 
         if len(matching_formats) == 1:
@@ -185,8 +186,8 @@ class Command(LoadTableCommand):
                 raise CommandError(f"Unrecognized format code: {matching_formats}.")
         elif len(matching_formats) == 0:
             raise CommandError(
-                "No matching formats.  "
-                f"Supported formats: {PeakAnnotationsLoader.get_supported_formats()}."
+                "No matching formats.  Please supply one of the supported formats "
+                f"{PeakAnnotationsLoader.get_supported_formats()} using --format."
             )
         else:
             raise CommandError(

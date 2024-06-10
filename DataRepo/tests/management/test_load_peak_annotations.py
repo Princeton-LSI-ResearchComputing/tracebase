@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 
 from DataRepo.loaders import MSRunsLoader
 from DataRepo.models import (
@@ -409,6 +409,34 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             skip_researcher_check=True,
         )
 
+        # Load a sequence and all the MSRunSamples
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        MSRunSequence.objects.create(
+            researcher="Michael Neinast",
+            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
+            instrument="unknown",
+            lc_method=lcm,
+        )
+        MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    "Sample Name": ["t0_a146", "t90_a146", "t120_a146"],
+                    "Sample Data Header": ["t0_a146", "t90_a146", "t120_a146"],
+                    "mzXML File Name": [None for _ in range(3)],
+                    "Peak Annotation File Name": [
+                        "small_cor.csv",
+                        "small_cor.csv",
+                        "small_cor.csv",
+                    ],
+                    # TODO: Just realized that we either should not allow commas in names of change the seq name delim
+                    "Sequence Name": [
+                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
+                        for _ in range(3)
+                    ],
+                },
+            ),
+        ).load_data()
+
         super().setUpTestData()
 
     @MaintainedModel.no_autoupdates()
@@ -424,6 +452,39 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_infusatetracers = 3
         num_tracers = 6
         num_tracerlabels = 12
+
+        # Load a sequence and all the MSRunSamples
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        MSRunSequence.objects.create(
+            researcher="Xianfeng Zeng",
+            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
+            instrument="unknown",
+            lc_method=lcm,
+        )
+        MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    "Sample Name": ["xz971_bat", "xz971_br", "xz1079_bat", "xz1079_br"],
+                    "Sample Data Header": [
+                        "xz971_bat",
+                        "xz971_br",
+                        "xz1079_bat",
+                        "xz1079_br",
+                    ],
+                    "mzXML File Name": [None for _ in range(4)],
+                    "Peak Annotation File Name": [
+                        "6eaafasted1_cor.xlsx",
+                        "6eaafasted1_cor.xlsx",
+                        "bcaafasted_cor.xlsx",
+                        "bcaafasted_cor.xlsx",
+                    ],
+                    "Sequence Name": [
+                        "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
+                        for _ in range(4)
+                    ],
+                },
+            ),
+        ).load_data()
 
         return (
             num_samples,
@@ -449,6 +510,50 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_tracers = 2
         num_tracerlabels = 3
 
+        # Load a sequence and all the MSRunSamples
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        MSRunSequence.objects.create(
+            researcher="Xianfeng Zeng",
+            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
+            instrument="unknown",
+            lc_method=lcm,
+        )
+        MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    "Sample Name": [
+                        "xzl5_t",
+                        "xzl5_panc",
+                        "xzl4_t",
+                        "xzl4_sp",
+                        "xzl1_brain",
+                        "xzl1_brownFat",
+                    ],
+                    "Sample Data Header": [
+                        "xzl5_t",
+                        "xzl5_panc",
+                        "xzl4_t",
+                        "xzl4_sp",
+                        "xzl1_brain",
+                        "xzl1_brownFat",
+                    ],
+                    "mzXML File Name": [None for _ in range(6)],
+                    "Peak Annotation File Name": [
+                        "alafasted_cor.xlsx",
+                        "alafasted_cor.xlsx",
+                        "alafasted_cor.xlsx",
+                        "alafasted_cor.xlsx",
+                        "glnfasted_cor.xlsx",
+                        "glnfasted_cor.xlsx",
+                    ],
+                    "Sequence Name": [
+                        "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
+                        for _ in range(6)
+                    ],
+                },
+            ),
+        ).load_data()
+
         return (
             num_samples,
             num_infusates,
@@ -467,7 +572,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             instrument="unknown",
             date="2021-04-29",
             operator="Michael Neinast",
-            isocorr_format=True,
+            format="isocorr",
         )
         post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
@@ -491,7 +596,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_missing_flag_error(self):
         """
-        Test to make sure the isocorr option is suggested when not supplied
+        Test to make sure the --format option is suggested when necessary and not supplied
         """
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -504,10 +609,11 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], CommandError)
         self.assertIn(
-            "--isocorr-format",
+            "--format",
             str(aes.exceptions[0]),
-            msg=f"This error should reference --isocorr-format: [{aes.exceptions[0]}]",
+            msg=f"This error should reference --format: [{aes.exceptions[0]}]",
         )
 
     def get_model_counts(self):
@@ -626,16 +732,18 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             instrument="unknown",
             date="2021-04-29",
             operator="Xianfeng Zeng",
-            isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 2
-        PEAKDATA_ROWS = 21
+        # There is no Nitrogen in the tracers, so 7 rows with N in the isotopeLabel do not load with a warning, leaving
+        # 14 rows to load.  This was a bug in the accucor_data_loader that the peak annotations loader reveals.
+        # PEAKDATA_ROWS = 21
+        PEAKDATA_ROWS_WITHOUT_NITROGEN = 14
         PARENT_REC_COUNT = 3
         self.assert_group_data_sample_counts(
             SAMPLES_COUNT,
-            PEAKDATA_ROWS,
+            PEAKDATA_ROWS_WITHOUT_NITROGEN,
             PARENT_REC_COUNT,
             pre_load_group_count,
             post_load_group_count,
@@ -652,7 +760,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             instrument="unknown",
             date="2021-04-29",
             operator="Xianfeng Zeng",
-            isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -730,7 +837,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             instrument="unknown",
             date="2021-04-29",
             operator="Xianfeng Zeng",
-            isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -749,7 +855,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             instrument="unknown",
             date="2021-04-29",
             operator="Xianfeng Zeng",
-            isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -781,7 +886,8 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def test_labeled_elements_common_with_compound(self):
         """
-        Test to ensure count 0 entries are not created when measured compound doesn't have that element
+        Test to ensure label count 0 entries are not created when measured compound doesn't have that element (succinate
+        doesn't have Nitrogen, but Nitrogren was labeled in the tracer).
         """
         self.load_multilabel_data()
         call_command(
@@ -791,30 +897,24 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             instrument="unknown",
             date="2021-04-29",
             operator="Xianfeng Zeng",
-            isocorr_format=True,
         )
         pg = (
             PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc")
-            .filter(name__exact="serine")
-            .filter(
+            .filter(name__exact="succinate")
+            .get(
                 peak_annotation_file__filename="alafasted_cor.xlsx",
             )
-            .order_by("id", "peak_data__labels__element")
-            .distinct("id", "peak_data__labels__element")
         )
-
-        self.assertEqual(pg.count(), 2)
-        self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
-        self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
+        self.assertEqual(1, pg.labels.count())
 
 
 class LoadIsoautocorrCommandTests(TracebaseTestCase):
     # fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-    # TODO: Add tests after rebase that brings in Lance's isoautocorr test files
+    # TODO: Implement tests after rebase that brings in Lance's isoautocorr test files
     pass
 
 
 class LoadUnicorrCommandTests(TracebaseTestCase):
     # fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-    # TODO: Add tests that supply files in the converted format
+    # TODO: Implement tests that supply files in the converted format
     pass

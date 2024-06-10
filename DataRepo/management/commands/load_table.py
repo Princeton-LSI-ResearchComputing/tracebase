@@ -15,7 +15,10 @@ from DataRepo.utils import (
     is_excel,
     read_from_file,
 )
-from DataRepo.utils.exceptions import ConditionallyRequiredOptions, NotATableLoader
+from DataRepo.utils.exceptions import (
+    ConditionallyRequiredOptions,
+    NotATableLoader,
+)
 
 
 class LoadTableCommand(ABC, BaseCommand):
@@ -126,6 +129,7 @@ class LoadTableCommand(ABC, BaseCommand):
         self.apply_handle_wrapper()
         # options are set in the override of handle(), but we need to know if options are available in the get_* methods
         self.options = None
+        self.dry_run_exception = None
         # We will set initial values here.  The derived class must call set if they have custom default values for any
         # of these, but note that what users supply on the command line will trump anything they supply.  The values
         # they supply are only custom defaults.  Note, these are just the defaults and are provided so that the derived
@@ -517,13 +521,14 @@ class LoadTableCommand(ABC, BaseCommand):
             raise OptionsNotAvailable()
         return self.options["defaults_sheet"] if is_excel(self.get_infile()) else None
 
-    def get_dataframe(self):
+    def get_dataframe(self, typing=True):
         """Parses data from the infile (and sheet) using the headers and the column types.
 
         The column types are optionally defined in self.loader.
 
         Args:
-            None
+            typing (bool): Doesn't pass dtype to read_from_file even if its available.  Useful when trying to determine
+                file type.
         Exceptions:
             None
         Returns:
@@ -536,7 +541,7 @@ class LoadTableCommand(ABC, BaseCommand):
         dtypes = None
         # This method is used in some calls to determine the loader class, in which case, there is no instantiated
         # loader and it doesn't need the dtypes - it just needs the sheet and column names.
-        if hasattr(self, "loader"):
+        if typing and hasattr(self, "loader"):
             dtypes = self.loader.get_column_types()
         if file is None:
             # The derived class can decide to handle the load completely without an input file (e.g. using all defaults

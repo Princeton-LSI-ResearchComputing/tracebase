@@ -378,23 +378,28 @@ class UnequalColumnGroups(InfileError):
         for sheet in sheet_dict.keys():
             for col in sheet_dict[sheet]:
                 colcounts[col][sheet] += 1
-            if col not in all:
-                all.append(col)
+                if col not in all:
+                    all.append(col)
         missing = defaultdict(list)
         for col in colcounts.keys():
-            if len(colcounts[col].keys()) < len(all):
+            if len(colcounts[col].keys()) < len(sheet_dict.keys()):
                 for sheet in sheet_dict.keys():
                     if sheet not in colcounts[col].keys():
                         missing[sheet].append(col)
 
-        nums_str = "\n\t".join(
-            [
-                (
-                    f"{sheet} has {len(lst)} out of {len(all)} total unique {group_name} columns, and is missing: "
-                    f"{missing[sheet]}"
-                )
-                for sheet, lst in sheet_dict.items()
-            ]
+        nlt = "\n\t"
+        nums_str = (
+            "\n\t".join(
+                [
+                    (
+                        f"The '{sheet}' sheet has {len(lst)} out of {len(all)} total unique {group_name} columns, and "
+                        f"is missing:\n\t{nlt.join(missing[sheet])}\n"
+                    )
+                    for sheet, lst in sheet_dict.items()
+                    if len(missing[sheet]) > 0
+                ]
+            )
+            + f"All sheets compared: {list(sheet_dict.keys())} from %s."
         )
 
         message = f"{group_name} columns in the sheets {list(sheet_dict.keys())} differ.\n\t{nums_str}\n"
