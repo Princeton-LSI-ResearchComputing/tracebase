@@ -3778,7 +3778,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
             _query_obj = self.query_obj
 
         if isinstance(_query_obj, dict):
-            return ", ".join(_query_obj.values())
+            return ", ".join([str(qov) for qov in _query_obj.values()])
 
         if _uniq_vals is None:
             _uniq_vals = []

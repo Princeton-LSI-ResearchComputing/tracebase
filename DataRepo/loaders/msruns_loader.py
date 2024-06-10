@@ -12,8 +12,6 @@ from django.forms import model_to_dict
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup, Sample
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models import (
     ArchiveFile,
     DataFormat,
@@ -24,6 +22,7 @@ from DataRepo.models import (
     PeakGroup,
     Sample,
 )
+from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_updates,

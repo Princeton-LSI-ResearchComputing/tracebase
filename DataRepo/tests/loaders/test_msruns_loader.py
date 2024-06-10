@@ -34,7 +34,6 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseArchiveTestCase,
     TracebaseTestCase,
 )
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
@@ -56,7 +55,6 @@ def create_animal_and_tissue_records():
         infusate=inf,
     )
     tsu = Tissue.objects.create(name="Brain")
-    print(f"CREATED ANIMAL AND TISSUE: {anml} {tsu}")
     return anml, tsu
 
 
@@ -1446,6 +1444,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         # No exception = successful test
 
     def setup_load(self):
+        anml, tsu = create_animal_and_tissue_records()
         # Create a sequence for the load to retrieve
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
         inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
@@ -1458,8 +1457,8 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         # Create sample for the load to retrieve
         s1 = Sample.objects.create(
             name="s1",
-            tissue=self.tsu,
-            animal=self.anml,
+            tissue=tsu,
+            animal=anml,
             researcher="John Doe",
             date=datetime.now(),
         )

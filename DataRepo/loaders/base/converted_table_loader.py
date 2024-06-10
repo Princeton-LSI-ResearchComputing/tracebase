@@ -849,7 +849,6 @@ class ConvertedTableLoader(TableLoader, ABC):
         """
         # Get the converted header types
         dtypes = super().get_column_types()
-        print(f"DTYPES FROM SUPER OF {type(self).__name__}: {dtypes}")
         if dtypes is None:
             dtypes = {}
 
@@ -857,9 +856,7 @@ class ConvertedTableLoader(TableLoader, ABC):
 
         for key in self.OrigDataColumnTypes.keys():
             hdr = getattr(headers, key)
-            print(f"ADDING {key}/{hdr} TYPE: {self.OrigDataColumnTypes[key]}")
             dtypes[hdr] = self.OrigDataColumnTypes[key]
-        print(f"DTYPES AFTER ADDING ORIGINALS: {dtypes}")
 
         return dtypes
 
