@@ -887,6 +887,8 @@ class ConvertedTableLoader(TableLoader, ABC):
             and len(self.nan_defaults_dict.keys()) > 0
         ):
             for col, val_or_method in self.nan_defaults_dict.items():
+                if col not in outdf.columns:
+                    continue
                 if type(val_or_method).__name__ == "function":
                     outdf[col].fillna(val_or_method(outdf), inplace=True)
                 else:
@@ -913,7 +915,8 @@ class ConvertedTableLoader(TableLoader, ABC):
         outdf = indf.copy(deep=True)
         if self.nan_filldown_columns is not None and len(self.nan_filldown_columns) > 0:
             for col in self.nan_filldown_columns:
-                outdf[col].ffill(inplace=True)
+                if col in outdf.columns:
+                    outdf[col].ffill(inplace=True)
         return outdf
 
     def __init__(self, *args, **kwargs):
