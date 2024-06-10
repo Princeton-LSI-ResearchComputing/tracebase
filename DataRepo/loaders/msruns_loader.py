@@ -22,13 +22,11 @@ from DataRepo.models import (
     PeakGroup,
     Sample,
 )
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.sample import Sample
 from DataRepo.models.utilities import exists_in_db, update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
