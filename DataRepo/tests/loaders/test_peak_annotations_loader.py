@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
+from django.db import ProgrammingError
 
 from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
@@ -37,7 +38,10 @@ from DataRepo.utils.exceptions import (
     UnexpectedSamples,
     UnskippedBlanks,
 )
-from DataRepo.utils.infusate_name_parser import ObservedIsotopeData, parse_infusate_name
+from DataRepo.utils.infusate_name_parser import (
+    ObservedIsotopeData,
+    parse_infusate_name,
+)
 
 PeakGroupCompound = PeakGroup.compounds.through
 
@@ -582,23 +586,30 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
 
     def test_get_label_observations(self):
-        # TODO: Implement test - I removed the method the code below corresponded to
-        # pgrec = self.create_peak_group()
-        # pdrec = self.create_peak_data(pgrec)
-        # row = pd.Series({AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-2"})
-        # al = AccucorLoader()
-        # pglrecs, pdlrecs = al.get_or_create_labels(row, pdrec, pgrec)
-        # self.assertEqual(1, len(pglrecs))
-        # self.assertEqual(1, len(pdlrecs))
-        # self.assertTrue(pglrecs[0][1])
-        # self.assertTrue(pdlrecs[0][1])
-        # self.assertEqual(pglrecs[0][0].peak_group, pgrec)
-        # self.assertEqual(pglrecs[0][0].element, "C")
-        # self.assertEqual(pdlrecs[0][0].peak_data, pdrec)
-        # self.assertEqual(pdlrecs[0][0].element, "C")
-        # self.assertEqual(pdlrecs[0][0].count, 2)
-        # self.assertEqual(pdlrecs[0][0].mass_number, 13)
-        pass
+        al = AccucorLoader()
+        row = pd.Series({AccucorLoader.DataHeaders.ISOTOPELABEL: "C13-label-1"})
+        pgrec = self.create_peak_group()
+
+        # This will work, but it will buffer an error because the peak group has no linked compounds
+        label_obs = al.get_label_observations(row, pgrec)
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], ProgrammingError
+        )
+        self.assertEqual(
+            [{"count": 1, "element": "C", "mass_number": 13, "parent": False}],
+            label_obs,
+        )
+
+        # Now create a compound link
+        pgrec.get_or_create_compound_link(self.SERINE)
+        al = AccucorLoader()
+        label_obs = al.get_label_observations(row, pgrec)
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            [{"count": 1, "element": "C", "mass_number": 13, "parent": False}],
+            label_obs,
+        )
 
     def test_get_or_create_peak_group_label(self):
         pgrec = self.create_peak_group()

@@ -864,5 +864,21 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         self.assertEqual(set(expected), set(sheets))
 
     def test_get_required_headers(self):
-        # TODO: Implement test
-        pass
+        al = self.TestConvertedLoader1
+        rh = al.get_required_headers("Corrected")
+        self.assertEqual(set(["Compound", "C_Label"]), set(rh))
+        rh = al.get_required_headers(None)
+        self.assertEqual(
+            set(
+                [
+                    "formula",
+                    "medMz",
+                    "medRt",
+                    "isotopeLabel",
+                    "compound",
+                    "Compound",
+                    "C_Label",
+                ]
+            ),
+            set(rh),
+        )
