@@ -1244,6 +1244,9 @@ class DryRun(Exception):
     Exception thrown during dry-run to ensure atomic transaction is not committed
     """
 
+    # TODO: Figure out a way to suppress the trace (and optionally the exception string) when this is raised.
+    # Could possibly use sys.excepthook:
+    # stackoverflow.com/questions/20714644/python-sys-excepthook-and-logging-uncaught-exceptions-across-multiple-modules
     def __init__(self, message=None):
         if message is None:
             message = "Dry Run Complete."
@@ -1682,6 +1685,9 @@ class AggregatedErrors(Exception):
         exc_type_str    - a string ("Warning" or "Error") that can be used in custom reporting.
     """
 
+    # TODO: Figure out how to suppress exception prints during buffer_exception so that you don't see them during tests
+    # TODO: Prune the simulated stack trace more and add output that makes it clear it's a simulated trace
+    # TODO: Don't reset the current exception number when remove_* is used, because it's confusing to see repeated nums
     def __init__(
         self, message=None, exceptions=None, errors=None, warnings=None, quiet=False
     ):
