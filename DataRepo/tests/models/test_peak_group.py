@@ -18,8 +18,10 @@ from DataRepo.models import (
     Sample,
     Tissue,
 )
+from DataRepo.models.compound import Compound
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
+from DataRepo.utils.infusate_name_parser import parse_infusate_name
 
 
 class PeakGroupTests(TracebaseTestCase):
@@ -27,7 +29,11 @@ class PeakGroupTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        inf = Infusate.objects.create()
+        Compound.objects.create(
+            name="Leucine", formula="C6H13NO2", hmdb_id="HMDB0000687"
+        )
+        trcr = parse_infusate_name("Leucine-[1,2-13C2]", [1.0])
+        inf, _ = Infusate.objects.get_or_create_infusate(trcr)
         anml = Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
@@ -172,5 +178,14 @@ class PeakGroupTests(TracebaseTestCase):
         )
 
     def test_get_or_create_compound_link(self):
-        # TODO: Implement test
-        pass
+        cmpd = Compound.objects.create(
+            name="glucose",
+            formula="C6H12O6",
+            hmdb_id="HMDB0000122",
+        )
+        rec, cre = self.pg.get_or_create_compound_link(cmpd)
+        self.assertTrue(cre)
+        self.assertIsNotNone(rec)
+        rec, cre = self.pg.get_or_create_compound_link(cmpd)
+        self.assertFalse(cre)
+        self.assertIsNotNone(rec)

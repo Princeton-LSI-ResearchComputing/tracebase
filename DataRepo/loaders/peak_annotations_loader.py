@@ -967,8 +967,16 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         possible_isotope_observations = None
         num_possible_isotope_observations = 1
         if pgrec is not None:
-            possible_isotope_observations = pgrec.possible_isotope_observations
-            num_possible_isotope_observations = len(possible_isotope_observations)
+            if pgrec.compounds.count() == 0:
+                self.aggregated_errors_object.buffer_error(
+                    ProgrammingError(
+                        "PeakGroup record has no linked compounds.  A peak group must have associated compounds in "
+                        "order to confirm label observations."
+                    )
+                )
+            else:
+                possible_isotope_observations = pgrec.possible_isotope_observations
+                num_possible_isotope_observations = len(possible_isotope_observations)
 
         # For the exceptions below (for convenience)
         infile_err_args = {
