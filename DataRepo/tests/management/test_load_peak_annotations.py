@@ -374,7 +374,7 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
-            date="2021-04-29",
+            date="2022-08-18",
             operator="anonymous",
         )
 

@@ -1123,11 +1123,12 @@ class MSRunsLoader(TableLoader):
         )
         lookup_key = name if name is not None else "default"
 
+        if lookup_key in self.msrun_sequence_dict.keys():
+            # We have already computed the value for this search before, so just return it from the dict
+            return self.msrun_sequence_dict[lookup_key]
+
         try:
-            if lookup_key in self.msrun_sequence_dict.keys():
-                # We have already computed the value for this search before, so just return it from the dict
-                return self.msrun_sequence_dict[lookup_key]
-            elif name is not None:
+            if name is not None:
                 # If we have a name, that means that the value is from the data sheet (not the defaults file/sheet)
                 # Record where any possible errors will come from for the catch below
                 origin = "infile"
