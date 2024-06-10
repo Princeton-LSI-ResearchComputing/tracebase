@@ -1435,13 +1435,11 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "next_merge_dict": None,
     }
 
-    nan_defaults_dict = None
-    # nan_defaults_dict = {
-    #     "Raw Abundance": 0,
-    #     "Corrected Abundance": 0,
-    #     "medMz": 0,
-    #     "medRt": 0,
-    # }
+    nan_defaults_dict = {
+        "Corrected Abundance": 0,
+        "medMz": 0,
+        "medRt": 0,
+    }
 
     sort_columns = None
     nan_filldown_columns = None
@@ -1619,7 +1617,7 @@ class AccucorLoader(PeakAnnotationsLoader):
 
     nan_defaults_dict = {
         "Raw Abundance": 0,
-        # "Corrected Abundance": 0,
+        "Corrected Abundance": 0,
         "medMz": 0,
         "medRt": 0,
         "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
@@ -1771,13 +1769,12 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
         },
     }
 
-    nan_defaults_dict = None
-    # nan_defaults_dict = {
-    #     "Raw Abundance": 0,
-    #     "Corrected Abundance": 0,
-    #     "medMz": 0,
-    #     "medRt": 0,
-    # }
+    nan_defaults_dict = {
+        "Raw Abundance": 0,
+        "Corrected Abundance": 0,
+        "medMz": 0,
+        "medRt": 0,
+    }
 
     sort_columns = None
     nan_filldown_columns = None
