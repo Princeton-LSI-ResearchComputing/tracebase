@@ -187,6 +187,20 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 CLABEL="C_Label",
             )
 
+            OrigDataRequiredHeaders = {
+                "Original": [
+                    "FORMULA",
+                    "MEDMZ",
+                    "MEDRT",
+                    "ISOTOPELABEL",
+                    "ORIGCOMPOUND",
+                ],
+                "Corrected": [
+                    "CORRCOMPOUND",
+                    "CLABEL",
+                ],
+            }
+
             # This is the union of all sheets' column types
             OrigDataColumnTypes = {
                 "FORMULA": str,
@@ -272,6 +286,16 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 METAGROUPID="metaGroupId",
                 ADDUCTNAME="adductName",
             )
+
+            OrigDataRequiredHeaders = {
+                "absolte": [
+                    "FORMULA",
+                    "MEDMZ",
+                    "MEDRT",
+                    "ISOTOPELABEL",
+                    "COMPOUND",
+                ],
+            }
 
             OrigDataColumnTypes = {
                 "formula": str,
@@ -837,4 +861,8 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         al = self.TestConvertedLoader1()  # pylint: disable=not-callable
         sheets = al.get_required_sheets()
         expected = ["Corrected", "Original"]
-        self.assertEqual(expected, sheets)
+        self.assertEqual(set(expected), set(sheets))
+
+    def test_get_required_headers(self):
+        # TODO: Implement test
+        pass

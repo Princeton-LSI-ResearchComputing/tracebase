@@ -80,6 +80,12 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @property
     @abstractmethod
+    def OrigDataRequiredHeaders(self):
+        # Dict of lists of header key strings keyed on sheet name.
+        pass
+
+    @property
+    @abstractmethod
     def add_columns_dict(self) -> Optional[dict]:
         """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
         Example:
@@ -674,7 +680,7 @@ class ConvertedTableLoader(TableLoader, ABC):
 
     @classmethod
     def get_required_sheets(cls):
-        """Traverses cls.merge_dict and cls.add_columns_dict to return a list of sheets required for conversion.
+        """Returns a list of required original sheets.
 
         Args:
             None
@@ -683,13 +689,30 @@ class ConvertedTableLoader(TableLoader, ABC):
         Returns:
             sheets (List[str])
         """
-        sheets = [cls.merge_dict["first_sheet"]]
-        if cls.merge_dict["next_merge_dict"] is not None:
-            merge_dict = cls.merge_dict
-            while merge_dict["next_merge_dict"] is not None:
-                merge_dict = merge_dict["next_merge_dict"]
-                sheets.append(merge_dict["right_sheet"])
-        return sheets
+        return list(cls.OrigDataRequiredHeaders.keys())
+
+    @classmethod
+    def get_required_headers(cls, sheet):
+        """Returns a list of required original headers in the supplied required sheet.  Returns headers from all
+        required sheets if the supplied sheet is None.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            sheets (List[str])
+        """
+        if sheet is None:
+            all_hdr_keys = []
+            for lst in cls.OrigDataRequiredHeaders.values():
+                for hdr_key in lst:
+                    if hdr_key not in all_hdr_keys:
+                        all_hdr_keys.append(hdr_key)
+        else:
+            all_hdr_keys = cls.OrigDataRequiredHeaders[sheet]
+
+        return [getattr(cls.OrigDataHeaders, hdr_key) for hdr_key in all_hdr_keys]
 
     def merge_df_sheets(self, in_df, _outdf=None, _merge_dict=None, _first_sheet=None):
         """Uses self.merge_dict to recursively merge in_df's sheets into a single merged dataframe (if in_df is a dict).
@@ -826,6 +849,7 @@ class ConvertedTableLoader(TableLoader, ABC):
         """
         # Get the converted header types
         dtypes = super().get_column_types()
+        print(f"DTYPES FROM SUPER OF {type(self).__name__}: {dtypes}")
         if dtypes is None:
             dtypes = {}
 
@@ -833,7 +857,9 @@ class ConvertedTableLoader(TableLoader, ABC):
 
         for key in self.OrigDataColumnTypes.keys():
             hdr = getattr(headers, key)
+            print(f"ADDING {key}/{hdr} TYPE: {self.OrigDataColumnTypes[key]}")
             dtypes[hdr] = self.OrigDataColumnTypes[key]
+        print(f"DTYPES AFTER ADDING ORIGINALS: {dtypes}")
 
         return dtypes
 

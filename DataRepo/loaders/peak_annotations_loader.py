@@ -1286,15 +1286,15 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if subcls == UnicorrLoader:
                 # This is the identity type, which is handled below
                 continue
-            expected_headers = set(subcls.OrigDataHeaders._asdict().values())
             if isinstance(df, dict):
                 expected_sheets = set(subcls.get_required_sheets())
                 supplied_sheets = set(list(df.keys()))
                 if expected_sheets <= supplied_sheets:
                     match = True
                     for sheet in expected_sheets:
+                        expected_headers = set(subcls.get_required_headers(sheet))
                         supplied_headers = set(list(df[sheet].columns))
-                        if supplied_headers > expected_headers:
+                        if expected_headers > supplied_headers:
                             match = False
                             break
                     if match:
@@ -1305,7 +1305,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 # specific sheet header contents if the class attributes were populated differently, but that can be
                 # done via a refactor.
                 supplied_headers = set(list(df.columns))
-                if supplied_headers <= expected_headers:
+                expected_headers = set(subcls.get_required_headers(None))
+                if expected_headers <= supplied_headers:
                     matching_format_codes.append(str(subcls.format_code))
 
         # Handle the converted format too:
@@ -1354,6 +1355,7 @@ class IsocorrLoader(PeakAnnotationsLoader):
             "MEDMZ",
             "MEDRT",
             "MAXQUALITY",
+            "ADDUCTNAME",
             "ISOTOPELABEL",
             "COMPOUND",
             "EXPECTEDRTDIFF",
@@ -1372,6 +1374,7 @@ class IsocorrLoader(PeakAnnotationsLoader):
         MEDMZ="medMz",
         MEDRT="medRt",
         MAXQUALITY="maxQuality",
+        ADDUCTNAME="adductName",
         ISOTOPELABEL="isotopeLabel",
         COMPOUND="compound",
         EXPECTEDRTDIFF="expectedRtDiff",
@@ -1379,12 +1382,22 @@ class IsocorrLoader(PeakAnnotationsLoader):
         PARENT="parent",
     )
 
+    OrigDataRequiredHeaders = {
+        "absolte": [
+            "FORMULA",
+            "MEDMZ",
+            "MEDRT",
+            "ISOTOPELABEL",
+            "COMPOUND",
+        ],
+    }
+
     OrigDataColumnTypes: Dict[str, type] = {
-        "formula": str,
-        "medMz": float,
-        "medRt": float,
-        "isotopeLabel": str,
-        "compound": str,
+        "FORMULA": str,
+        "MEDMZ": float,
+        "MEDRT": float,
+        "ISOTOPELABEL": str,
+        "COMPOUND": str,
     }
 
     # These attributes are defined in the order in which they are applied
@@ -1406,6 +1419,7 @@ class IsocorrLoader(PeakAnnotationsLoader):
                 "medMz",
                 "medRt",
                 "maxQuality",
+                "adductName",
                 "isotopeLabel",
                 "compound",
                 "expectedRtDiff",
@@ -1422,6 +1436,13 @@ class IsocorrLoader(PeakAnnotationsLoader):
     }
 
     nan_defaults_dict = None
+    # nan_defaults_dict = {
+    #     "Raw Abundance": 0,
+    #     "Corrected Abundance": 0,
+    #     "medMz": 0,
+    #     "medRt": 0,
+    # }
+
     sort_columns = None
     nan_filldown_columns = None
 
@@ -1440,6 +1461,7 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "groupId",
         "goodPeakCount",
         "maxQuality",
+        "adductName",
         "compoundId",
         "expectedRtDiff",
         "ppmDiff",
@@ -1497,6 +1519,20 @@ class AccucorLoader(PeakAnnotationsLoader):
         PARENT="parent",
         CLABEL="C_Label",
     )
+
+    OrigDataRequiredHeaders = {
+        "Original": [
+            "FORMULA",
+            "MEDMZ",
+            "MEDRT",
+            "ISOTOPELABEL",
+            "ORIGCOMPOUND",
+        ],
+        "Corrected": [
+            "CORRCOMPOUND",
+            "CLABEL",
+        ],
+    }
 
     # This is the union of all sheets' column types
     OrigDataColumnTypes: Dict[str, type] = {
@@ -1583,6 +1619,7 @@ class AccucorLoader(PeakAnnotationsLoader):
 
     nan_defaults_dict = {
         "Raw Abundance": 0,
+        # "Corrected Abundance": 0,
         "medMz": 0,
         "medRt": 0,
         "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
@@ -1662,6 +1699,17 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
         PARENT="parent",
     )
 
+    OrigDataRequiredHeaders = {
+        # Raw abundances are optional, so no original
+        "cor_pct": [
+            "FORMULA",
+            "MEDMZ",
+            "MEDRT",
+            "ISOTOPELABEL",
+            "COMPOUND",
+        ],
+    }
+
     # This is the union of all sheets' column types
     OrigDataColumnTypes: Dict[str, type] = {
         "FORMULA": str,
@@ -1724,6 +1772,13 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
     }
 
     nan_defaults_dict = None
+    # nan_defaults_dict = {
+    #     "Raw Abundance": 0,
+    #     "Corrected Abundance": 0,
+    #     "medMz": 0,
+    #     "medRt": 0,
+    # }
+
     sort_columns = None
     nan_filldown_columns = None
 
@@ -1760,6 +1815,10 @@ class UnicorrLoader(PeakAnnotationsLoader):
     OrigDataTableHeaders = PeakAnnotationsLoader.DataTableHeaders
     OrigDataHeaders = PeakAnnotationsLoader.DataHeaders
     OrigDataColumnTypes = PeakAnnotationsLoader.DataColumnTypes
+    OrigDataRequiredHeaders = {
+        # This works because PeakAnnotationsLoader.DataRequiredHeaders happens to be a 1 dimensional list
+        PeakAnnotationsLoader.DataSheetName: PeakAnnotationsLoader.DataRequiredHeaders,
+    }
 
     add_columns_dict = None
     condense_columns_dict = None
