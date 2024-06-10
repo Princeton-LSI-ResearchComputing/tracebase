@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from collections import namedtuple
-from typing import Dict, List, Optional
+from collections import defaultdict, namedtuple
+from typing import Dict, List, Optional, TypedDict
+import pandas as pd
+import regex
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
@@ -17,11 +19,13 @@ from DataRepo.models import (
     DataType,
     MaintainedModel,
     MSRunSample,
+    ElementLabel,
     PeakData,
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
     Sample,
+    TracerLabel,
 )
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
@@ -57,6 +61,84 @@ from DataRepo.utils.infusate_name_parser import (
 
 PeakGroupCompound = PeakGroup.compounds.through
 
+
+# regex has the ability to store repeated capture groups' values and put them in a list
+ISOTOPE_LABEL_PATTERN = regex.compile(
+    # Match repeated elements and mass numbers (e.g. "C13N15")
+    r"^(?:(?P<elements>["
+    + "".join(ElementLabel.labeled_elements_list())
+    + r"]{1,2})(?P<mass_numbers>\d+))+"
+    # Match either " PARENT" or repeated counts (e.g. "-labels-2-1")
+    + r"(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
+)
+
+
+class IsotopeObservationData(TypedDict):
+    element: str
+    mass_number: int
+    count: int
+    parent: bool
+
+
+class PeakAnnotationsLoader(TableLoader, ABC):
+    @property
+    @abstractmethod
+    def merged_column_rename_dict(self) -> Optional[dict]:
+        """A dict that describes how to rename all columns in the final merged pandas DataFrame.
+        It does not have to have a key for every column - just the ones that need to be renamed.
+        Example:
+            {
+                "formula": "Formula",
+                "medMz": "MedMz",
+                "medRt": "MedRt",
+                "isotopeLabel": "IsotopeLabel",
+                "compound": "Compound",
+            }
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def merge_dict(self) -> dict:
+        """A recursively constructed dict describing how to merge the sheets in df_dict.
+        NOTE: The first sheet must be the one with the corrected abundances.
+        NOTE: Setting right_columns to None or an empty list joins all columns.
+        NOTE: Set right_has_raw_abunds to True if the right sheet
+        Example:
+            {
+                "first_sheet": "Corrected",  # This key ponly occurs once in the outermost dict
+                "next_merge_dict": {
+                    "on": ["Compound", "C_Label"],
+                    "left_columns": None,  # all
+                    "right_sheet": "Original",
+                    "right_columns": ["formula", "medMz", "medRt", "isotopeLabel"],
+                    "right_has_raw_abunds": True,
+                    "how": "left",
+                    "next_merge_dict": None,
+                }
+            }
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def add_columns_dict(self) -> Optional[dict]:
+        """2D dict of methods that take a pandas DataFrame, keyed on sheet name and new column name.
+        Example:
+            {
+                "Original": {
+                    "C_Label": lambda df: df["isotopeLabel"].str.split("-").str.get(-1).replace({"C12 PARENT": "0"}),
+                    "Compound": lambda df: df["compound"],
+                }
+            }
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def format_code(self) -> str:
+        """The DataFormat.code for the peak annotation file"""
+        pass
 
 class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     @property
@@ -239,7 +321,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     MUST HANDLE THE ROLLBACK.
                 data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
                 defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                *file (Optional[str]) [None]: File name (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
                 defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
@@ -404,7 +486,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     )
     def load_data(self):
         """Loads the ArchiveFile, PeakGroup, PeakGroupLabel, PeakData, and PeakDataLabel tables from the dataframe.
-
         Args:
             None
         Raises:
@@ -637,7 +718,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         return rec, created
 
-    def get_msrun_sample(self, sample_header):
+    def get_msrun_sample(self, row):
         """Retrieves the MSRunSample record, either as determined by the self.msrun_sample_dict that was returned by the
         member MSRunsLoader object (via the peak Annotation Details sheet) or by assuming that the sample header matches
         the sample name exactly and using the sequence defaults.
@@ -650,7 +731,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Details sheet/file.
 
         Args:
-            sample_header (str)
+            row (pandas.Series)
         Exceptions:
             Buffers:
                 RecordDoesNotExist
@@ -744,7 +825,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # At this point, there are multiple results.  That means that defaults for the sequence are required in order to
         # proceed, so check them.
-
         # First, build a query dict with only the sequence defaults we have values for (NOTE: just the researcher or
         # date, for example, may be enough).
         query_dict = {}
