@@ -1003,6 +1003,45 @@ class MissingSamples(MissingRecords):
         return missing_samples
 
 
+class MissingCompounds(InfileError):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        message=None,
+        suggestion=None,
+        **kwargs,
+    ):
+        # Initialize the remaining kwargs
+        super().__init__("", **kwargs)
+        if not message:
+            loc_args, _, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
+                exceptions
+            )
+
+            loc_str = generate_file_location_string(**loc_args)
+
+            # Summarize the values and the rows on which they occurred
+            nltab = "\n\t"
+            cmdps_str = nltab.join(
+                list(
+                    map(
+                        lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
+                        vals_dict.keys(),
+                    )
+                )
+            )
+            message = (
+                f"{len(exceptions)} compounds matching the following values in {loc_str} in %s were not found in the "
+                f"database:{nltab}{cmdps_str}\n"
+            )
+
+        if suggestion is not None:
+            message += suggestion
+
+        self.orig_message = message
+        self.set_formatted_message(**kwargs)
+
+
 class RequiredArgument(Exception):
     def __init__(self, argname, methodname=None, message=None):
         if message is None:
@@ -1650,6 +1689,9 @@ class AggregatedErrors(Exception):
         exc_type_str    - a string ("Warning" or "Error") that can be used in custom reporting.
     """
 
+    # TODO: Figure out how to suppress exception prints during buffer_exception so that you don't see them during tests
+    # TODO: Prune the simulated stack trace more and add output that makes it clear it's a simulated trace
+    # TODO: Don't reset the current exception number when remove_* is used, because it's confusing to see repeated nums
     def __init__(
         self, message=None, exceptions=None, errors=None, warnings=None, quiet=False
     ):
@@ -1802,7 +1844,7 @@ class AggregatedErrors(Exception):
 
     def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -1848,7 +1890,7 @@ class AggregatedErrors(Exception):
 
     def remove_exception_type(self, exception_class, modify=True):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -2641,7 +2683,7 @@ class AllMissingCompounds(Exception):
         self.compounds_dict = compounds_dict
 
 
-class MissingCompounds(Exception):
+class MissingCompoundsError(Exception):
     def __init__(self, compounds_dict, message=None):
         """
         Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
@@ -2784,6 +2826,17 @@ class SampleIndexNotFound(Exception):
         super().__init__(message)
         self.sheet_name = sheet_name
         self.num_cols = num_cols
+
+
+# TODO: Once the accucor loader is deleted, delete this class.
+class CorrectedCompoundHeaderMissing(Exception):
+    def __init__(self):
+        message = (
+            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
+            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
+            "on the command line)."
+        )
+        super().__init__(message)
 
 
 class LCMSDefaultsRequired(Exception):
@@ -2935,20 +2988,6 @@ class DuplicateSampleDataHeaders(Exception):
         self.samples = samples
 
 
-class NonUniqueSampleDataHeader(Exception):
-    def __init__(self, header, dupes):
-        dupes_str = ""
-        for file in dupes.keys():
-            dupes_str += f"\n\tOccurs {dupes[file]} times in {file}"
-        message = (
-            f"Sample data header '{header}' is not unique across all supplied peak annotation files:"
-            f"{dupes_str}"
-        )
-        super().__init__(message)
-        self.dupes = dupes
-        self.header = header
-
-
 class NonUniqueSampleDataHeaders(Exception):
     def __init__(self, nusdh_list: list[NonUniqueSampleDataHeader]):
         """Takes a dupes dict for duplicate sample data headers across 1 or more peak annotation files.
@@ -2971,6 +3010,22 @@ class NonUniqueSampleDataHeaders(Exception):
         )
         super().__init__(message)
         self.nusdh_list = nusdh_list
+
+
+class NonUniqueSampleDataHeader(SummarizableError):
+    SummarizerExceptionClass = NonUniqueSampleDataHeaders
+
+    def __init__(self, header, dupes):
+        dupes_str = ""
+        for file in dupes.keys():
+            dupes_str += f"\n\tOccurs {dupes[file]} times in {file}"
+        message = (
+            f"Sample data header '{header}' is not unique across all supplied peak annotation files:"
+            f"{dupes_str}"
+        )
+        super().__init__(message)
+        self.dupes = dupes
+        self.header = header
 
 
 class InvalidHeaders(InfileError, ValidationError):

@@ -50,11 +50,10 @@ def assert_coordinator_state_is_initialized():
 
 
 class ViewTests(TracebaseTestCase):
-    fixtures = ["data_formats.yaml"]
+    fixtures = ["lc_methods.yaml", "data_formats.yaml"]
 
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
-        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 

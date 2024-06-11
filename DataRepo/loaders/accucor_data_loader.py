@@ -58,7 +58,7 @@ from DataRepo.utils.exceptions import (
     LCMSDefaultsRequired,
     MassNumberNotFound,
     MismatchedSampleHeaderMZXML,
-    MissingCompounds,
+    MissingCompoundsError,
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
     MissingSamplesError,
@@ -1144,7 +1144,7 @@ class AccuCorDataLoader:
 
         if len(self.missing_compounds.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
-                MissingCompounds(self.missing_compounds)
+                MissingCompoundsError(self.missing_compounds)
             )
 
     def record_missing_compound(self, compound_input, formula, index):

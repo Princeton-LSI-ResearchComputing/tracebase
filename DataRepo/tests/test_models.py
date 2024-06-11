@@ -51,7 +51,7 @@ from DataRepo.utils import (
     DryRun,
     DupeCompoundIsotopeCombos,
     IsotopeParsingError,
-    MissingCompounds,
+    MissingCompoundsError,
     MissingSamplesError,
     MissingTissue,
     ObservedIsotopeParsingError,
@@ -764,7 +764,7 @@ class DataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(
-            isinstance(aes.exceptions[0], MissingCompounds),
+            isinstance(aes.exceptions[0], MissingCompoundsError),
             msg=f"Exception [{type(aes.exceptions[0]).__name__}: {aes.exceptions[0]}] is MissingCompounds?",
         )
         exp_str = "1 compounds were not found in the database:\n\ttable sugar"
@@ -2354,7 +2354,7 @@ class StudyLoadingTests(TracebaseTestCase):
                     MissingTissue(tissue_name="spleen", column="Tissue", rownum=2),
                 ]
             ),
-            MissingCompounds({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
+            MissingCompoundsError({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
             MissingSamplesError(["a", "b"]),
         ]
         aes = AggregatedErrors(exceptions=exceptions)
@@ -2561,7 +2561,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[1],
-                MissingCompounds,
+                MissingCompoundsError,
             ),
         )
         self.assertTrue(
