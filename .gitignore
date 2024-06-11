@@ -141,3 +141,4 @@ DataRepo/management/commands/list_tests.py
 node_modules
 package-lock.json
 package.json
+*.patch
