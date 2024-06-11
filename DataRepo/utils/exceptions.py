@@ -944,8 +944,6 @@ class MissingSamples(MissingRecords):
         return missing_samples
 
 
-
-
 class RequiredArgument(Exception):
     def __init__(self, argname, methodname=None, message=None):
         if message is None:
