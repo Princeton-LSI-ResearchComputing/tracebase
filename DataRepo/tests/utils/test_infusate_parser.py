@@ -3,15 +3,23 @@ from django.test import tag
 
 from DataRepo.models import Compound, CompoundSynonym, Infusate, Tracer
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import (
+    IsotopeStringDupe,
+    ObservedIsotopeParsingError,
+    ObservedIsotopeUnbalancedError,
+    UnexpectedLabels,
+)
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
     InfusateTracer,
     IsotopeData,
     IsotopeParsingError,
+    ObservedIsotopeData,
     TracerData,
     TracerParsingError,
     parse_infusate_name,
+    parse_isotope_label,
     parse_isotope_string,
     parse_tracer_concentrations,
     parse_tracer_string,
@@ -423,3 +431,108 @@ class InfusateValidationTests(InfusateTest):
             self.infusate_data_leucine_named_2
         )
         self.assertIsNone(infusate_found)
+
+    def test_parse_isotope_label_success(self):
+        label = "C13N15-label-3-1"
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label)
+        self.assertEqual(expected, obs)
+
+        possible_obs = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=5,
+                parent=True,
+            ),
+        ]
+        label = "C12 PARENT"
+        expected = []
+        obs = parse_isotope_label(label, possible_obs)
+        self.assertEqual(expected, obs)
+
+        label = "C13-label-3"
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label, possible_obs)
+        self.assertEqual(expected, obs)
+
+    def test_parse_isotope_label_adds_possible_zero_counts(self):
+        label = "C13-label-3"
+        possible_obs = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=5,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+        ]
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=0,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label, possible_obs)
+        self.assertEqual(expected, obs)
+
+    def test_parse_isotope_label_ObservedIsotopeUnbalancedError(self):
+        label = "C13N15-label-3-1-5"
+        with self.assertRaises(ObservedIsotopeUnbalancedError):
+            parse_isotope_label(label)
+
+    def test_parse_isotope_label_UnexpectedLabels(self):
+        label = "C13N15-label-3-1"
+        possible_obs = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=5,
+                parent=True,
+            ),
+        ]
+        with self.assertRaises(UnexpectedLabels):
+            parse_isotope_label(label, possible_obs)
+
+    def test_parse_isotope_label_IsotopeStringDupe(self):
+        label = "C13N15C13-label-3-1-5"
+        with self.assertRaises(IsotopeStringDupe):
+            parse_isotope_label(label)
+
+    def test_parse_isotope_label_ObservedIsotopeParsingError(self):
+        label = "nonsense"
+        with self.assertRaises(ObservedIsotopeParsingError):
+            parse_isotope_label(label)

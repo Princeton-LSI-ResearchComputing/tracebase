@@ -50,11 +50,11 @@ from DataRepo.utils import (
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
-    IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingCompounds,
     MissingSamplesError,
     MissingTissue,
+    ObservedIsotopeParsingError,
     RequiredSampleValuesError,
     SheetMergeError,
     get_column_dupes,
@@ -2647,7 +2647,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_isotope_label_bad(self):
         tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(IsotopeObservationParsingError):
+        with self.assertRaises(ObservedIsotopeParsingError):
             AccuCorDataLoader.parse_isotope_string(
                 "label-5",
                 tracer_labeled_elements,
@@ -2655,7 +2655,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_isotope_label_empty(self):
         tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(IsotopeObservationParsingError):
+        with self.assertRaises(ObservedIsotopeParsingError):
             AccuCorDataLoader.parse_isotope_string(
                 "",
                 tracer_labeled_elements,

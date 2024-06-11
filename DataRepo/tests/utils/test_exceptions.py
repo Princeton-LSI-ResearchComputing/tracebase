@@ -16,6 +16,7 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
+    IsotopeStringDupe,
     MissingColumnGroup,
     MissingDataAdded,
     MissingRecords,
@@ -31,6 +32,8 @@ from DataRepo.utils.exceptions import (
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
     NoSamples,
+    NoTracerLabeledElements,
+    ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
     RecordDoesNotExist,
     RequiredArgument,
@@ -46,6 +49,7 @@ from DataRepo.utils.exceptions import (
     SheetMergeError,
     UnequalColumnGroups,
     UnexpectedIsotopes,
+    UnexpectedLabels,
     UnexpectedSamples,
     UnitsWrong,
     UnknownHeaderError,
@@ -1167,6 +1171,28 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("missing an Animal Name", str(exc))
         self.assertIn("empty rows: [100, 102]", str(exc))
 
+    def test_IsotopeStringDupe(self):
+        exc = IsotopeStringDupe("C13N15C13-label-2-1-1", "C")
+        self.assertIn(
+            " match tracer labeled element (C) in the measured labeled element string: [C13N15C13-label-2-1-1]",
+            str(exc),
+        )
+
+    def test_ObservedIsotopeUnbalancedError(self):
+        exc = ObservedIsotopeUnbalancedError(
+            ["C", "N"], [13, 15], [1, 2, 1], "13C15N-1-2-1"
+        )
+        self.assertIn(
+            "elements (2), mass numbers (2), and counts (3) from isotope label: [13C15N-1-2-1]",
+            str(exc),
+        )
+
+    def test_UnexpectedLabels(self):
+        exc = UnexpectedLabels(["D"], ["C", "N"])
+        self.assertIn(
+            "label(s) ['D'] were not among the expected labels ['C', 'N']", str(exc)
+        )
+
     def test_MzxmlSampleHeaderMismatch(self):
         exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
         self.assertIn("mzXML file [location/sample_neg.mzXML]", str(exc))
@@ -1176,6 +1202,10 @@ class ExceptionTests(TracebaseTestCase):
     def test_RequiredHeadersError(self):
         exc = RequiredHeadersError(["A"])
         self.assertIn("header(s) missing: ['A']", str(exc))
+
+    def test_NoTracerLabeledElements(self):
+        exc = NoTracerLabeledElements()
+        self.assertIn("No tracer_labeled_elements.", str(exc))
 
     def test_MissingRecords(self):
         from DataRepo.models import Compound, MSRunSample

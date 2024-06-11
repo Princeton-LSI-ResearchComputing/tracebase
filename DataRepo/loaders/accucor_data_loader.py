@@ -53,7 +53,6 @@ from DataRepo.utils.exceptions import (
     DuplicatePeakGroups,
     EmptyColumnsError,
     InvalidLCMSHeaders,
-    IsotopeObservationParsingError,
     IsotopeStringDupe,
     LCMethodFixturesMissing,
     LCMSDefaultsRequired,
@@ -70,6 +69,7 @@ from DataRepo.utils.exceptions import (
     NoSampleHeaders,
     NoSamplesError,
     NoTracerLabeledElements,
+    ObservedIsotopeParsingError,
     PeakAnnotationParseError,
     PeakAnnotFileMismatches,
     ResearcherNotNew,
@@ -2036,7 +2036,7 @@ class AccuCorDataLoader:
                     isotope_observations = tracer_labeled_elements
             else:
                 if len(elements) != len(mass_numbers) or len(elements) != len(counts):
-                    raise IsotopeObservationParsingError(
+                    raise ObservedIsotopeParsingError(
                         f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
                         f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
                     )
@@ -2051,7 +2051,7 @@ class AccuCorDataLoader:
                             )
                         )
         else:
-            raise IsotopeObservationParsingError(
+            raise ObservedIsotopeParsingError(
                 f"Unable to parse isotope label: [{label}]"
             )
 

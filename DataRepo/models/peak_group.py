@@ -121,3 +121,43 @@ class PeakGroup(HierCachedModel, MaintainedModel):
 
     def __str__(self):
         return str(self.name)
+
+    @property
+    @cached_function
+    def possible_isotope_observations(self):
+        """Get the possible isotope observations from a peak group, i.e. all the ObservedIsotopeData objects for
+        elements from the peak group's compound that exist as labels in the tracers.
+
+        Args:
+            peak_group (PeakGroup)
+        Exceptions:
+            None
+        Returns:
+            possible_observations (List[ObservedIsotopeData])
+        """
+        from DataRepo.models.tracer_label import TracerLabel
+        from DataRepo.utils.infusate_name_parser import ObservedIsotopeData
+
+        possible_observations = []
+        tracer_labels = (
+            TracerLabel.objects.filter(
+                tracer__infusates__id=self.msrun_sample.sample.animal.infusate.id
+            )
+            .order_by("element")
+            .distinct("element")
+        )
+        for compound_rec in self.compounds.all():
+            for tracer_label in tracer_labels:
+                if (
+                    compound_rec.atom_count(tracer_label.element) > 0
+                    and tracer_label not in possible_observations
+                ):
+                    possible_observations.append(
+                        ObservedIsotopeData(
+                            element=tracer_label.element,
+                            mass_number=tracer_label.mass_number,
+                            count=0,
+                            parent=True,
+                        )
+                    )
+        return possible_observations

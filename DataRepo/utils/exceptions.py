@@ -17,6 +17,7 @@ from django.db.models import Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
+from DataRepo.models.animal import Animal
 from DataRepo.models.researcher import get_researchers
 
 if TYPE_CHECKING:
@@ -2457,26 +2458,41 @@ class SheetMergeError(Exception):
         self.animal_col_name = merge_col_name
 
 
-class NoTracerLabeledElements(Exception):
-    def __init__(self):
-        message = "tracer_labeled_elements required to process PARENT entries."
-        super().__init__(message)
+class NoTracerLabeledElements(InfileError):
+    def __init__(
+        self, compound: Optional[str] = None, elements: Optional[list] = None, **kwargs
+    ):
+        tcrstr = ""
+        if elements is not None and len(elements) > 0:
+            tcrstr = f" {elements}"
+        if compound is not None:
+            message = f"PeakGroup compound [{compound}] from %s contains no tracer_labeled_elements{tcrstr}."
+        else:
+            message = f"No tracer_labeled_elements{tcrstr}."
+        super().__init__(message, **kwargs)
 
 
-class IsotopeStringDupe(Exception):
+class NoTracers(InfileError):
+    def __init__(self, animal: Animal, **kwargs):
+        message = f"The Animal [{animal}] associated with %s, has no tracers."
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class IsotopeStringDupe(InfileError):
     """
     There are multiple isotope measurements that match the same parent tracer labeled element
     E.g. C13N15C13-label-2-1-1 would match C13 twice
     """
 
-    def __init__(self, measurement_str, parent_str):
+    def __init__(self, label, parent, **kwargs):
         message = (
-            f"Cannot uniquely match tracer labeled element ({parent_str}) in the measured labeled element string: "
-            f"[{measurement_str}]."
+            f"Cannot uniquely match tracer labeled element ({parent}) in the measured labeled element string: "
+            f"[{label}]."
         )
-        super().__init__(message)
-        self.measurement_str = measurement_str
-        self.parent_str = parent_str
+        super().__init__(message, **kwargs)
+        self.label = label
+        self.parent = parent
 
 
 class UnexpectedIsotopes(Exception):
@@ -2679,8 +2695,39 @@ class LCMethodFixturesMissing(Exception):
         self.err = err
 
 
-class IsotopeObservationParsingError(Exception):
+class ParsingError(Exception):
     pass
+
+
+class InfusateParsingError(ParsingError):
+    pass
+
+
+class TracerParsingError(ParsingError):
+    pass
+
+
+class IsotopeParsingError(ParsingError):
+    pass
+
+
+class ObservedIsotopeParsingError(InfileError):
+    pass
+
+
+class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
+    def __init__(self, elements, mass_numbers, counts, label, **kwargs):
+        super().__init__(
+            (
+                f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
+                f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]."
+            ),
+            **kwargs,
+        )
+        self.elements = elements
+        self.mass_numbers = mass_numbers
+        self.counts = counts
+        self.label = label
 
 
 class MultipleMassNumbers(Exception):
@@ -2708,6 +2755,17 @@ class MassNumberNotFound(Exception):
 
 class TracerLabeledElementNotFound(Exception):
     pass
+
+
+class UnexpectedLabels(InfileError):
+    def __init__(self, unexpected, possible, **kwargs):
+        message = (
+            f"Observed peak label(s) {unexpected} were not among the expected labels {possible}.  There may be "
+            "contamination."
+        )
+        super().__init__(message, **kwargs)
+        self.possible = possible
+        self.unexpected = unexpected
 
 
 class SampleIndexNotFound(Exception):
