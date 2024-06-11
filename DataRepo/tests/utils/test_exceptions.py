@@ -15,13 +15,19 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
     MissingDataAdded,
+    MissingRecords,
+    MissingSamples,
     MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
     MutuallyExclusiveOptions,
+    MzxmlSampleHeaderMismatch,
+    NewResearcher,
+    NewResearchers,
     NoLoadData,
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
+    NoSamples,
     OptionsNotAvailable,
     RecordDoesNotExist,
     RequiredColumnValue,
@@ -414,6 +420,28 @@ class AggregatedErrorsTests(TracebaseTestCase):
         aes = AggregatedErrors(exceptions=[ValueError(), KeyError(), KeyError()])
         types = aes.get_exception_types()
         self.assertEqual([ValueError, KeyError], types)
+
+    def test_exception_matches(self):
+        ke = KeyError()
+        ke.is_error = False
+        aes = AggregatedErrors()
+        self.assertTrue(aes.exception_matches(ke, KeyError, "is_error", False))
+        self.assertFalse(aes.exception_matches(ke, KeyError, "is_error", True))
+
+    def test_exception_exists(self):
+        ke = KeyError()
+        ke.is_error = False
+        aes = AggregatedErrors(exceptions=[ke])
+        self.assertTrue(aes.exception_exists(KeyError, "is_error", False))
+        self.assertFalse(aes.exception_exists(KeyError, "is_error", True))
+
+    def test_remove_matching_exceptions(self):
+        ke = KeyError()
+        ke.is_error = False
+        aes = AggregatedErrors(exceptions=[ke])
+        aes.remove_matching_exceptions(KeyError, "is_error", False)
+        self.assertEqual(0, len(aes.exceptions))
+        self.assertEqual(0, aes.num_warnings)
 
 
 class ExceptionTests(TracebaseTestCase):
@@ -937,6 +965,25 @@ class ExceptionTests(TracebaseTestCase):
             str(ie),
         )
 
+    def test_InfileError_set_formatted_message(self):
+        ie = InfileError("Test that location can be added to %s later.")
+        self.assertEqual(
+            "Test that location can be added to the load file data later.", str(ie)
+        )
+        ie.set_formatted_message(
+            rownum="record name",
+            sheet="Test Sheet 1",
+            file="testrowname.xlsx",
+            column="Col5",
+        )
+        self.assertEqual(
+            (
+                "Test that location can be added to column [Col5] on row [record name] of sheet [Test Sheet 1] in "
+                "testrowname.xlsx later."
+            ),
+            str(ie),
+        )
+
     def test_CompoundDoesNotExist(self):
         cdne = CompoundDoesNotExist(
             "compound x",
@@ -1031,7 +1078,7 @@ class ExceptionTests(TracebaseTestCase):
     def test_RecordDoesNotExist(self):
         rdne = RecordDoesNotExist(
             model=get_model_by_name("Tissue"),
-            query_dict={"name": "invalid"},
+            query_obj={"name": "invalid"},
         )
         self.assertEqual(
             "Tissue record matching {'name': 'invalid'} from the load file data does not exist.",
@@ -1049,6 +1096,139 @@ class ExceptionTests(TracebaseTestCase):
             str(exc),
         )
 
+    def test_NewResearchers(self):
+        nrs = [NewResearcher("George"), NewResearcher("Patty")]
+        exc = NewResearchers(nrs)
+        self.assertIn("New researchers encountered:", str(exc))
+        self.assertIn("George", str(exc))
+        self.assertIn("Patty", str(exc))
+
+    def test_NewResearcher(self):
+        exc = NewResearcher("Thelma")
+        self.assertIn("new researcher [Thelma] is being added", str(exc))
+
+    def test_DuplicateCompoundIsotope(self):
+        dvs = [
+            DuplicateValues({"1": [1, 2]}, ["A", "B", "C"]),
+            DuplicateValues({"2": [6, 9]}, ["A", "B", "C"]),
+        ]
+        exc = DuplicateCompoundIsotopes(dvs, ["A", "B"])
+        self.assertIn("Column(s) ['A', 'B']", str(exc))
+        self.assertIn("1 (rows*: 3-4)", str(exc))
+        self.assertIn("2 (rows*: 8, 11)", str(exc))
+
+    def test_MzxmlSampleHeaderMismatch(self):
+        exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
+        self.assertIn("mzXML file [location/sample_neg.mzXML]", str(exc))
+        self.assertIn("Sample header:       [sample]", str(exc))
+        self.assertIn("mzXML Base Filename: [sample_neg]", str(exc))
+
     def test_RequiredHeadersError(self):
         exc = RequiredHeadersError(["A"])
         self.assertIn("header(s) missing: ['A']", str(exc))
+
+    def test_MissingRecords(self):
+        from DataRepo.models import Compound, MSRunSample
+
+        excs = [
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("lysine"),
+                column="compound",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=5,
+            ),
+            RecordDoesNotExist(
+                MSRunSample,
+                {"name": "wish this existed"},
+                column="MSRun Name",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=19,
+            ),
+        ]
+        mcs = MissingRecords(excs)
+        self.assertIn("1 Compound records", str(mcs))
+        self.assertIn(
+            "using search field(s): (OR: name__iexact, synonyms__name__iexact)",
+            str(mcs),
+        )
+        self.assertIn("lysine from row(s): ['5']", str(mcs))
+        self.assertIn("1 MSRunSample records", str(mcs))
+        self.assertIn("wish this existed from row(s): ['19']", str(mcs))
+        self.assertIn(
+            "in column [compound] of sheet [Corrected] in accucor.xlsx", str(mcs)
+        )
+        self.assertIn(
+            "in column [MSRun Name] of sheet [Corrected] in accucor.xlsx", str(mcs)
+        )
+
+    def get_sample_dnes(self):
+        from DataRepo.models import Sample
+
+        return [
+            RecordDoesNotExist(
+                Sample,
+                {"name": "sample1"},
+                column="Sample",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=5,
+            ),
+            RecordDoesNotExist(
+                Sample,
+                {"name": "sample2"},
+                column="Sample",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=19,
+            ),
+        ]
+
+    def test_MissingSamples(self):
+        mss = MissingSamples(self.get_sample_dnes())
+        self.assertIn("2 Sample records", str(mss))
+        self.assertIn("sample1 from row(s): ['5']", str(mss))
+        self.assertIn("sample2 from row(s): ['19']", str(mss))
+        self.assertIn("using search field(s): name", str(mss))
+        self.assertIn("column [Sample] of sheet [Corrected] in accucor.xlsx", str(mss))
+
+    def test_UnskippedBlanks(self):
+        usbs = UnskippedBlanks(self.get_sample_dnes())
+        self.assertIn("2 samples that appear to possibly be blanks", str(usbs))
+
+    def test_NoSamples(self):
+        nss = NoSamples(self.get_sample_dnes())
+        self.assertIn("None of the 2 samples", str(nss))
+
+    def test_UnexpectedSamples(self):
+        sample_names = ["sample1", "sample2"]
+        uess = UnexpectedSamples(
+            sample_names,
+            file="accucor.xlsx",
+            sheet="Corrected",
+        )
+        self.assertIn("from the Peak Annotation Details sheet", str(uess))
+        self.assertIn("sheet [Corrected] in accucor.xlsx", str(uess))
+        self.assertIn("['sample1', 'sample2']", str(uess))
+
+    def test_RecordDoesNotExist_get_failed_searches_dict(self):
+        kwargs, stub, dct = RecordDoesNotExist.get_failed_searches_dict(
+            self.get_sample_dnes()
+        )
+        self.assertDictEqual(
+            {"column": "Sample", "file": "accucor.xlsx", "sheet": "Corrected"}, kwargs
+        )
+        self.assertEqual("name", stub)
+        self.assertDictEqual({"sample1": [5], "sample2": [19]}, dct)
+
+    def test_RecordDoesNotExist_get_query_stub(self):
+        sdnes = self.get_sample_dnes()
+        stub = sdnes[0]._get_query_stub()
+        self.assertEqual("name", stub)
+
+    def test_RecordDoesNotExist_get_query_values_str(self):
+        sdnes = self.get_sample_dnes()
+        valstr = sdnes[0]._get_query_values_str()
+        self.assertEqual("sample1", valstr)

@@ -5,6 +5,7 @@ from DataRepo.loaders.accucor_data_loader import (
 )
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import (
     LCMSDBSampleMissing,

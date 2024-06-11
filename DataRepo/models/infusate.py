@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
+from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import get_model_by_name
 
@@ -81,7 +82,7 @@ class InfusateQuerySet(models.QuerySet):
         return matching_infusate
 
 
-class Infusate(MaintainedModel):
+class Infusate(MaintainedModel, HierCachedModel):
     objects = InfusateQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)
@@ -260,6 +261,8 @@ class Infusate(MaintainedModel):
         if len(problems) > 0:
             raise ValidationError("\n".join(problems))
 
+    @property
+    @cached_function
     def tracer_labeled_elements(self):
         """
         This method returns a unique list of the labeled elements that exist among the tracers.
