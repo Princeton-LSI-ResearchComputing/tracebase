@@ -1052,4 +1052,3 @@ class ExceptionTests(TracebaseTestCase):
     def test_RequiredHeadersError(self):
         exc = RequiredHeadersError(["A"])
         self.assertIn("header(s) missing: ['A']", str(exc))
-

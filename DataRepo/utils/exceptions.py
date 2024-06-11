@@ -4,7 +4,7 @@ import traceback
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -159,8 +159,6 @@ class InfileError(Exception):
         else:
             message = message % loc
         super().__init__(message)
-
-
 
 
 class HeaderError(Exception):
