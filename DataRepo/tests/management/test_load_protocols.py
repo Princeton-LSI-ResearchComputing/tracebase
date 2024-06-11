@@ -185,11 +185,13 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
         self.assertEqual((2, 0), (aes.num_errors, aes.num_warnings))
 
-        self.assertEqual(DuplicateValueErrors, type(aes.exceptions[0]))
-        self.assertIn("treatment 1 (rows*: 2-3)", str(aes.exceptions[0]))
+        dves = aes.get_exception_type(DuplicateValueErrors)
+        self.assertEqual(1, len(dves))
+        self.assertIn("treatment 1 (rows*: 2-3)", str(dves[0]))
 
-        self.assertEqual(RequiredColumnValues, type(aes.exceptions[1]))
-        self.assertIn("Column: [Name] on rows: ['4']", str(aes.exceptions[1]))
+        rcvs = aes.get_exception_type(RequiredColumnValues)
+        self.assertEqual(1, len(rcvs))
+        self.assertIn("Column: [Name] on rows: ['4']", str(rcvs[0]))
         # The defaults namedtuple (containing a default category) should avoid this error.
         self.assertNotIn(
             "Column: [Category] on rows: ['5']",
