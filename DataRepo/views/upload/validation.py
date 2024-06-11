@@ -4,7 +4,6 @@ import shutil
 import tempfile
 from collections import defaultdict, namedtuple
 from io import BytesIO
-from sqlite3 import ProgrammingError
 from typing import Dict, List, Optional, cast
 
 import pandas as pd
@@ -12,16 +11,17 @@ import xlsxwriter
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
+from django.db.utils import ProgrammingError
 from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import SampleTableLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import (
     Animal,

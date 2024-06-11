@@ -15,6 +15,7 @@ from DataRepo.utils import (
     SynonymExistsAsMismatchedCompound,
     UnknownHeadersError,
 )
+from DataRepo.utils.exceptions import DryRun
 
 
 @tag("compounds")
@@ -97,7 +98,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         compounds_df = pd.read_csv(
             primary_compound_file, sep="\t", keep_default_na=False
         )
-        cls.LOADER_INSTANCE = CompoundsLoader(compounds_df)
+        cls.LOADER_INSTANCE = CompoundsLoader(df=compounds_df)
 
         super().setUpTestData()
 
@@ -152,7 +153,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             ],
         }
         # create dataframe from dictionary
-        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl = CompoundsLoader(df=pd.DataFrame.from_dict(datadict))
         cl.load_data()
         self.assertEqual(
             1,
@@ -207,7 +208,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             }
         )
         # create dataframe from dictionary
-        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl = CompoundsLoader(df=pd.DataFrame.from_dict(datadict))
         with self.assertRaises(AggregatedErrors) as ar:
             cl.load_data()
         aes = ar.exception
@@ -281,7 +282,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             }
         )
         # create dataframe from dictionary
-        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl = CompoundsLoader(df=pd.DataFrame.from_dict(datadict))
         with self.assertRaises(AggregatedErrors) as ar:
             cl.load_data()
         aes = ar.exception
@@ -301,9 +302,9 @@ class CompoundsLoaderTests(TracebaseTestCase):
 
     def test_compound_exists_skipped(self):
         df = self.get_dataframe()
-        cl = CompoundsLoader(df)
+        cl = CompoundsLoader(df=df)
         cl.load_data()
-        cl2 = CompoundsLoader(df)
+        cl2 = CompoundsLoader(df=df)
         cl2.load_data()
         self.assertEqual(0, cl2.record_counts["Compound"]["created"])
         self.assertEqual(0, cl2.record_counts["Compound"]["errored"])
@@ -329,7 +330,7 @@ class CompoundsLoaderTests(TracebaseTestCase):
                 CompoundsLoader.SYNONYMS_KEY: ["placeholder synonym"],
             }
         )
-        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl = CompoundsLoader(df=pd.DataFrame.from_dict(datadict))
         cl.load_data()
 
         # The fact these 2 gets don't raise an exception is a test that the load worked
@@ -350,7 +351,7 @@ class CompoundsLoaderTests(TracebaseTestCase):
                 CompoundsLoader.SYNONYMS_KEY: ["A;B", "A"],
             }
         )
-        cl = CompoundsLoader(pd.DataFrame.from_dict(datadict))
+        cl = CompoundsLoader(df=pd.DataFrame.from_dict(datadict))
         cl.check_for_cross_column_name_duplicates()
         self.assertEqual(
             (2, 0),
@@ -397,4 +398,11 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
         super().setUpTestData()
 
     def test_compounds_loaded(self):
-        self.assertEqual(self.ALL_COMPOUNDS_COUNT, Compound.objects.all().count())
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_compounds",
+                infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+                dry_run=True,
+                verbosity=0,
+            )
+        self.assertEqual(0, Compound.objects.all().count())

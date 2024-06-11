@@ -74,7 +74,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test the ProtocolsLoader with dataframe missing category"""
         # The DataDefaultValues namedtuple in ProtocolsLoader sets a category default of Protocol.ANIMAL_TREATMENT, so
         # in order to make the error occur, we must set that default to None
-        protocol_loader = ProtocolsLoader(self.working_df)
+        protocol_loader = ProtocolsLoader(df=self.working_df)
         protocol_loader.set_defaults(
             custom_defaults={
                 ProtocolsLoader.CAT_KEY: None,
@@ -108,7 +108,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
     def test_protocols_loader_with_bad_category_error(self):
         """Test the ProtocolsLoader with an improper category"""
         protocol_loader = ProtocolsLoader(
-            self.working_df,
+            df=self.working_df,
         )
         protocol_loader.set_defaults(
             custom_defaults={
@@ -152,13 +152,14 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_load_protocols_xlxs_validation(self):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
-        call_command(
-            "load_protocols",
-            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
-            dry_run=True,
-        )
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_protocols",
+                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+                dry_run=True,
+            )
         # none in default
-        self.assertEqual(Protocol.objects.count(), 0)
+        self.assertEqual(0, Protocol.objects.count())
 
     def test_load_protocols_tsv_with_workarounds(self):
         """Test loading the protocols from a TSV containing duplicates and mungeable data"""

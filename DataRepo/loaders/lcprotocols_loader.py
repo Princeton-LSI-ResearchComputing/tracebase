@@ -4,8 +4,8 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import LCMethod
 from DataRepo.utils.exceptions import ConflictingValueError, RollbackException
 
@@ -156,7 +156,7 @@ class LCProtocolsLoader(TableLoader):
 
             computed_name = LCMethod.create_name(type=type, run_length=run_length)
 
-            # We're not going to use the name from the file.  The name column is onlky used for the creation of drop-
+            # We're not going to use the name from the file.  The name column is only used for the creation of drop-
             # down lists for columns in other sheets, which is why it is a readonly column, but if the user does
             # unexpectedly change the value in the column, we should warn them that the result will not be what they
             # expect.
@@ -175,6 +175,7 @@ class LCProtocolsLoader(TableLoader):
                         file=self.file,
                     )
                 )
+                self.warned(LCMethod.__name__)
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if self.is_skip_row():

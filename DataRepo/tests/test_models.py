@@ -286,19 +286,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("protocol")
-class ProtocolTests(TracebaseTestCase):
-    def test_create_protocol_by_invalid_category(self):
-        test_protocol_name = "Protocol 2"
-        with self.assertRaises(ValidationError):
-            Protocol.retrieve_or_create_protocol(
-                test_protocol_name,
-                "Invalid Category",
-                "Description",
-            )
-
-
-@override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

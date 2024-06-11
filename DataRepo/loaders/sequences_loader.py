@@ -3,9 +3,9 @@ from typing import Dict
 
 from django.db import transaction
 
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.utils.exceptions import (
     InfileError,
