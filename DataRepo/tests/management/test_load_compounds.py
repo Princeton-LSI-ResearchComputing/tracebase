@@ -384,19 +384,6 @@ class CompoundsLoaderTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
 class CompoundValidationLoadingTests(TracebaseTestCase):
-    @classmethod
-    def setUpTestData(cls):
-        call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
-            dry_run=True,
-            verbosity=0,
-        )
-        # validate only; nothing gets loaded
-        cls.ALL_COMPOUNDS_COUNT = 0
-
-        super().setUpTestData()
-
     def test_compounds_loaded(self):
         with self.assertRaises(DryRun):
             call_command(
