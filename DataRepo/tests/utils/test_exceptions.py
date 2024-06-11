@@ -6,6 +6,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     CompoundDoesNotExist,
     DateParseError,
+    DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
     ExcelSheetNotFound,
@@ -30,6 +31,7 @@ from DataRepo.utils.exceptions import (
     NoSamples,
     OptionsNotAvailable,
     RecordDoesNotExist,
+    RequiredArgument,
     RequiredColumnValue,
     RequiredColumnValues,
     RequiredColumnValuesWhenNovel,
@@ -1108,6 +1110,12 @@ class ExceptionTests(TracebaseTestCase):
     def test_NewResearcher(self):
         exc = NewResearcher("Thelma")
         self.assertIn("new researcher [Thelma] is being added", str(exc))
+
+    def test_RequiredArgument(self):
+        exc = RequiredArgument("val", methodname="do_stuff")
+        self.assertEqual(
+            "do_stuff requires a non-None value for argument 'val'.", str(exc)
+        )
 
     def test_DuplicateCompoundIsotope(self):
         dvs = [

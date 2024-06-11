@@ -946,6 +946,18 @@ class MissingSamples(MissingRecords):
 
 
 
+class RequiredArgument(Exception):
+    def __init__(self, argname, methodname=None, message=None):
+        if message is None:
+            if methodname is None:
+                message = f"A non-None value for argument '{argname}' is required."
+            else:
+                message = (
+                    f"{methodname} requires a non-None value for argument '{argname}'."
+                )
+        super().__init__(message)
+        self.argname = argname
+        self.methodname = methodname
 
 
 # TODO: Remove this class when the accucor loader is deleted
@@ -1003,7 +1015,6 @@ class NoSamplesError(MissingSamplesError):
             "before they can be loaded from the mass spec data files."
         )
         super().__init__(sample_names, message=message, **kwargs)
-        self.missing_samples = missing_samples
 
 
 class NoSamples(MissingSamples):
