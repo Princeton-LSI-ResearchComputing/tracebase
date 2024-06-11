@@ -1199,6 +1199,8 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("Sample header:       [sample]", str(exc))
         self.assertIn("mzXML Base Filename: [sample_neg]", str(exc))
 
+    # NOTE: MultiplePeakGroupRepresentations is tested in the peak group tests, because it needs records
+
     def test_RequiredHeadersError(self):
         exc = RequiredHeadersError(["A"])
         self.assertIn("header(s) missing: ['A']", str(exc))
