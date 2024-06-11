@@ -17,6 +17,7 @@ from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 
 __all__ = [
+    "MSRunsLoader",
     "AccuCorDataLoader",
     "IsotopeObservationData",
     "lcms_headers_are_valid",
