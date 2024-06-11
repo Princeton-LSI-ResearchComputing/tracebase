@@ -361,6 +361,58 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
         self.model_name = model_name
 
 
+class MissingColumnGroup(InfileError):
+    def __init__(self, group_name, **kwargs):
+        message = f"No {group_name} columns found in %s.  At least 1 column of this type is required."
+        super().__init__(message, **kwargs)
+        self.group_name = group_name
+
+
+class UnequalColumnGroups(InfileError):
+    def __init__(self, group_name: str, sheet_dict: Dict[str, list], **kwargs):
+        """Constructor
+
+        Args:
+            group_name (str): The type of all the columns in a group of columns
+            sheet_dict (Dict[str, list]): A dict of lists of column names keyed on sheet.
+        """
+        colcounts: Dict[str, dict] = defaultdict(lambda: defaultdict(int))
+        all = []
+        for sheet in sheet_dict.keys():
+            for col in sheet_dict[sheet]:
+                colcounts[col][sheet] += 1
+                if col not in all:
+                    all.append(col)
+        missing = defaultdict(list)
+        for col in colcounts.keys():
+            if len(colcounts[col].keys()) < len(sheet_dict.keys()):
+                for sheet in sheet_dict.keys():
+                    if sheet not in colcounts[col].keys():
+                        missing[sheet].append(col)
+
+        nlt = "\n\t"
+        nums_str = (
+            "\n\t".join(
+                [
+                    (
+                        f"The '{sheet}' sheet has {len(lst)} out of {len(all)} total unique {group_name} columns, and "
+                        f"is missing:\n\t{nlt.join(missing[sheet])}\n"
+                    )
+                    for sheet, lst in sheet_dict.items()
+                    if len(missing[sheet]) > 0
+                ]
+            )
+            + f"All sheets compared: {list(sheet_dict.keys())} from %s."
+        )
+
+        message = f"{group_name} columns in the sheets {list(sheet_dict.keys())} differ.\n\t{nums_str}\n"
+        super().__init__(message, **kwargs)
+        self.colcounts = colcounts
+        self.missing = missing
+        self.group_name = group_name
+        self.sheet_dict = sheet_dict
+
+
 class RequiredHeadersError(InfileError, HeaderError):
     def __init__(self, missing, message=None, **kwargs):
         if not message:
@@ -1081,6 +1133,7 @@ class UnitsWrong(Exception):
         self.units_dict = units_dict
 
 
+# TODO: Delete when the accucor loader is deleted
 class EmptyColumnsError(Exception):
     def __init__(self, sheet_name, col_names):
         message = (
@@ -1090,6 +1143,33 @@ class EmptyColumnsError(Exception):
         super().__init__(message)
         self.sheet_name = sheet_name
         self.col_names = col_names
+
+
+class EmptyColumns(InfileError):
+    def __init__(
+        self,
+        group_name: str,
+        expected: List[str],
+        empty: List[str],
+        all: List[str],
+        addendum=None,
+        **kwargs,
+    ):
+        group = list(set(all) - set(expected))
+        message = (
+            f"1 or more dynamically named [{group_name}] columns are expected, but some columns were parsed from %s "
+            f"that appear to have been unnamed (and may be empty).  {len(expected)} expected constant columns were "
+            f"present.  There are {len(all)} columns total, leaving {len(group)} potential {group_name} columns.  Of "
+            f"those, {len(empty)} were unnamed."
+        )
+        if addendum is not None:
+            message += f"  {addendum}"
+        super().__init__(message, **kwargs)
+        self.group_name = group_name
+        self.expected = expected
+        self.empty = empty
+        self.all = all
+        self.addendum = addendum
 
 
 class SampleColumnInconsistency(Exception):
@@ -2670,6 +2750,7 @@ class LCMSDefaultsRequired(Exception):
         self.affected_sample_headers_list = affected_sample_headers_list
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class UnexpectedLCMSSampleDataHeaders(Exception):
     def __init__(self, unexpected, peak_annot_file):
         message = (
@@ -2682,6 +2763,7 @@ class UnexpectedLCMSSampleDataHeaders(Exception):
         self.peak_annot_file = peak_annot_file
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class MissingLCMSSampleDataHeaders(Exception):
     def __init__(self, missing, peak_annot_file, missing_defaults):
         using_defaults = len(missing_defaults) == 0
@@ -2741,6 +2823,7 @@ class PeakAnnotationParseError(Exception):
         super().__init__(self.message)
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class MismatchedSampleHeaderMZXML(Exception):
     def __init__(self, mismatching_mzxmls):
         message = (
