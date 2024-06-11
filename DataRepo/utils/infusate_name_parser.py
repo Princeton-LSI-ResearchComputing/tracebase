@@ -1,8 +1,21 @@
 import re
+from collections import defaultdict
+from copy import deepcopy
 from itertools import zip_longest
 from typing import List, Optional, TypedDict
 
+import regex
+
 from DataRepo.models.element_label import ElementLabel
+from DataRepo.utils.exceptions import (
+    InfusateParsingError,
+    IsotopeParsingError,
+    IsotopeStringDupe,
+    ObservedIsotopeParsingError,
+    ObservedIsotopeUnbalancedError,
+    TracerParsingError,
+    UnexpectedLabels,
+)
 
 KNOWN_ISOTOPES = "".join(ElementLabel.labeled_elements_list())
 
@@ -21,6 +34,15 @@ ISOTOPE_ENCODING_PATTERN = re.compile(
     + r"]{1,2})(?P<count>[0-9]+))"
 )
 CONCENTRATIONS_DELIMITER = ";"
+# regex has the ability to store repeated capture groups' values and put them in a list
+ISOTOPE_LABEL_PATTERN = regex.compile(
+    # Match repeated elements and mass numbers (e.g. "C13N15")
+    r"^(?:(?P<elements>["
+    + "".join(ElementLabel.labeled_elements_list())
+    + r"]{1,2})(?P<mass_numbers>\d+))+"
+    # Match either " PARENT" or repeated counts (e.g. "-labels-2-1")
+    + r"(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
+)
 
 
 class IsotopeData(TypedDict):
@@ -28,6 +50,13 @@ class IsotopeData(TypedDict):
     mass_number: int
     count: int
     positions: Optional[List[int]]
+
+
+class ObservedIsotopeData(TypedDict):
+    element: str
+    mass_number: int
+    count: int
+    parent: bool
 
 
 class TracerData(TypedDict):
@@ -200,17 +229,99 @@ def parse_tracer_concentrations(tracer_concs_str: str) -> List[float]:
     return tracer_concs
 
 
-class ParsingError(Exception):
-    pass
+def parse_isotope_label(
+    label, possible_observations: Optional[List[ObservedIsotopeData]] = None
+) -> List[ObservedIsotopeData]:
+    """Parse an El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1.
 
+    The isotope label string only includes elements observed in the peak reported on the row and a row only exists
+    if at least 1 isotope was detected.  However, when an isotope is present, we want to report 0 counts for
+    elements present (as labeled) in the tracers when the compound being recorded on has an element that is labeled
+    in the tracers, so to include these 0 counts, supply possible_observations.
 
-class InfusateParsingError(ParsingError):
-    pass
+    NOTE: The isotope label string only includes elements whose label count is greater than 0.  If the tracers
+    contain labeled elements that happen to not have been observed in a peak on the row containing the isotope label
+    string, that element will not be parsed from the string. For example, on "PARENT" rows, even though "C12" exists
+    in the string, an empty list is returned.
 
+    Args:
+        label (str): The isotopeLabel string from the DataFrame.
+        possible_observations (Optional[List[ObservedIsotopeData]]): A list of isotopes that are potentially present
+            (e.g. present in the tracers).  Causes 0-counts to be added to non-parent observations.
+    Exceptions:
+        Raises:
+            IsotopeObservationParsingError
+        Buffers:
+            None
+    Returns:
+        isotope_observations (List[ObservedIsotopeData]): List of isotopes.  Note, PARENT records have no isotopes, so
+            an empty list is returned for parent strings.
+    """
+    isotope_observations = []
 
-class TracerParsingError(ParsingError):
-    pass
+    match = regex.match(ISOTOPE_LABEL_PATTERN, label)
 
+    if match:
+        elements = match.captures("elements")
+        mass_numbers = match.captures("mass_numbers")
+        counts = match.captures("counts")
+        parent_str = match.group("parent")
+        parent = False
 
-class IsotopeParsingError(ParsingError):
-    pass
+        if parent_str is not None and parent_str == "PARENT":
+            return []
+        else:
+            if len(elements) != len(mass_numbers) or len(elements) != len(counts):
+                raise ObservedIsotopeUnbalancedError(
+                    elements, mass_numbers, counts, label
+                )
+            else:
+                dupe_check = defaultdict(list)
+                dupe_indexes = []
+                for index in range(len(elements)):
+                    obs = ObservedIsotopeData(
+                        element=elements[index],
+                        mass_number=int(mass_numbers[index]),
+                        count=int(counts[index]),
+                        parent=parent,
+                    )
+                    isotope_observations.append(obs)
+                    dupe_check[elements[index]].append(obs)
+                    if len(dupe_check[elements[index]]) > 1:
+                        dupe_indexes.append(index)
+
+                # Add 0-counts for isotopes that were not observed, but could have been
+                if possible_observations is not None:
+                    for pos_obs in possible_observations:
+                        if pos_obs["element"] not in elements:
+                            zero_obs = deepcopy(pos_obs)
+                            zero_obs["count"] = 0
+                            zero_obs["parent"] = False
+                            isotope_observations.append(zero_obs)
+                    parent_elements = [
+                        pos_obs["element"] for pos_obs in possible_observations
+                    ]
+                    unexpected_observations = []
+                    for element in elements:
+                        if element not in parent_elements:
+                            unexpected_observations.append(element)
+                    if len(unexpected_observations) > 0:
+                        raise UnexpectedLabels(
+                            unexpected_observations, possible_observations
+                        )
+
+                if len(dupe_indexes) > 0:
+                    # If there are multiple isotope measurements that match the same parent tracer labeled element
+                    # E.g. C13N15C13-label-2-1-1 would match C13 twice
+                    # We only need to call attention to 1
+                    dupe_elems_str = ", ".join(
+                        [f"{elements[i]}{mass_numbers[i]}" for i in dupe_indexes]
+                    )
+                    raise IsotopeStringDupe(
+                        label,
+                        dupe_elems_str,
+                    )
+    else:
+        raise ObservedIsotopeParsingError(f"Unable to parse isotope label: [{label}]")
+
+    return isotope_observations
