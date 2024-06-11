@@ -1061,7 +1061,7 @@ class PropertyTests(TracebaseTestCase):
                 "element C (from the tracers in the infusate [methionine-(15N1)[200]])."
             ),
         ):
-            pg.labels.first().enrichment_fraction
+            pg.labels.first().enrichment_fraction  # pylint: disable=no-member
 
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (

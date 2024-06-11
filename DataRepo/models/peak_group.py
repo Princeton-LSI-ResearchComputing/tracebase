@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.db import models
 from django.db.models import Max, Min, Sum
 from django.utils.functional import cached_property
@@ -19,11 +21,14 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
+        null=False,
+        blank=False,
         help_text='The compound or isomer group name (e.g. "citrate/isocitrate", "glucose").',
     )
     formula = models.CharField(
         max_length=256,
         null=False,
+        blank=False,
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
     msrun_sample = models.ForeignKey(
@@ -161,3 +166,65 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                         )
                     )
         return possible_observations
+
+    def clean(self, *args, **kwargs):
+        from DataRepo.models.utilities import exists_in_db
+        from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
+
+        super().clean(*args, **kwargs)
+
+        conflicts = PeakGroup.objects.filter(
+            name=self.name,
+            msrun_sample__sample__pk=self.msrun_sample.sample.pk,
+            msrun_sample__msrun_sequence__pk=self.msrun_sample.msrun_sequence.pk,
+        )
+
+        # If the record already exists (e.g. doing an update), exclude self
+        if exists_in_db(self):
+            conflicts = conflicts.exclude(pk=self.pk)
+
+        if conflicts.count() > 0:
+            raise MultiplePeakGroupRepresentations(self, conflicts)
+
+    def get_or_create_compound_link(self, cmpd_rec):
+        """Get or create a peakgroup_compound record (so that it can be used in record creation stats).
+
+        Args:
+            cmpd_rec (Compound)
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                NoTracerLabeledElements
+        Returns:
+            rec (Optional[PeakGroupCompound])
+            created (boolean)
+        """
+        from DataRepo.utils.exceptions import NoTracerLabeledElements
+
+        PeakGroupCompound = PeakGroup.compounds.through
+
+        # Error check the labeled elements shared between the peak group's compound(s) and the tracers before creating
+        # the record
+        if len(self.peak_labeled_elements) == 0:
+            raise NoTracerLabeledElements(
+                self.name,
+                self.tracer_labeled_elements,
+            )
+
+        # This is the effective rec_dict
+        rec_dict = {
+            "peakgroup": self,
+            "compound": cmpd_rec,
+        }
+
+        # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
+        count_before = self.compounds.count()
+        self.compounds.add(cmpd_rec)
+        count_after = self.compounds.count()
+        created = count_after > count_before
+
+        # Retrieve the record (created or not - .add() doesn't return a record)
+        rec = PeakGroupCompound.objects.get(**rec_dict)
+
+        return rec, created

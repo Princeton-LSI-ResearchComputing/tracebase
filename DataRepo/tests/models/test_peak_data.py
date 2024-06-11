@@ -20,6 +20,7 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.infusate_name_parser import ObservedIsotopeData
 
 
 class PeakDataData(TracebaseTestCase):
@@ -98,7 +99,7 @@ class PeakDataData(TracebaseTestCase):
             )
             accucor_file.save()
 
-        pg = PeakGroup.objects.create(
+        self.pg = PeakGroup.objects.create(
             name="gluc",
             formula="C6H12O6",
             msrun_sample=msr,
@@ -107,7 +108,7 @@ class PeakDataData(TracebaseTestCase):
         PeakData.objects.create(
             raw_abundance=1000.0,
             corrected_abundance=1000.0,
-            peak_group=pg,
+            peak_group=self.pg,
             med_mz=1.0,
             med_rt=1.0,
         )
@@ -133,6 +134,28 @@ class PeakDataTests(PeakDataData):
             mass_number=17,
         )
         self.assertEqual(pd.labels.count(), 2)
+
+    def test_peak_data_get_or_create(self):
+        label_obs = [
+            ObservedIsotopeData(
+                element="C",
+                count=1,
+                mass_number=13,
+            )
+        ]
+        rec_dict = {
+            "raw_abundance": 900.0,
+            "corrected_abundance": 900.0,
+            "peak_group": self.pg,
+            "med_mz": 1.2,
+            "med_rt": 1.2,
+        }
+        rec, cre = PeakData.get_or_create(label_obs, **rec_dict)
+        self.assertTrue(cre)
+        self.assertIsNotNone(rec)
+        rec, cre = PeakData.get_or_create(label_obs, **rec_dict)
+        self.assertFalse(cre)
+        self.assertIsNotNone(rec)
 
 
 class PeakDataLabelTests(PeakDataData):

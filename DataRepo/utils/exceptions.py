@@ -486,6 +486,9 @@ class RequiredSampleValuesError(Exception):
         self.animal_hdr = animal_hdr
 
 
+# TODO: Remove this class when the accucor loader is deleted.  A combination of factors, such as performing a
+# get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
+# compound name for the peakgroup name makes this obsolete/unnecessary.
 class DuplicatePeakGroup(Exception):
     """Duplicate data for the same sample sequenced on the same day
 
@@ -525,6 +528,9 @@ class DuplicatePeakGroup(Exception):
         self.existing_peak_annotation_file = existing_peak_annotation_file
 
 
+# TODO: Remove this class when the accucor loader is deleted.  A combination of factors, such as performing a
+# get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
+# compound name for the peakgroup name makes this obsolete/unnecessary.
 class DuplicatePeakGroups(Exception):
     """Duplicate peak groups from a given peak annotation file
 
@@ -3298,6 +3304,8 @@ class MzxmlParseError(Exception):
     pass
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
+# having only a single peak group representation of a compound per sequence/sample
 class AmbiguousMSRun(InfileError):
     def __init__(self, pg_rec, peak_annot1, peak_annot2, **kwargs):
         message = (
@@ -3316,6 +3324,8 @@ class AmbiguousMSRun(InfileError):
         self.peak_annot2 = peak_annot2
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
+# having only a single peak group representation of a compound per sequence/sample
 class AmbiguousMSRuns(Exception):
     def __init__(self, ambig_dict, infile):
         deets = ""
@@ -3344,6 +3354,32 @@ class AmbiguousMSRuns(Exception):
         super().__init__(message)
         self.ambig_dict = ambig_dict
         self.infile = infile
+
+
+class MultiplePeakGroupRepresentations(ValidationError):
+    def __init__(self, new_rec, existing_recs):
+        """MultiplePeakGroupRepresentations constructor.
+
+        Args:
+            new_rec (PeakGroup): An uncommitted record.
+            existing_recs (PeakGroup.QuerySet)
+        """
+        leader = "Existing: "
+        from_files = [r.peak_annotation_file.filename for r in existing_recs.all()]
+        from_str = f"\n\t{leader}".join(from_files)
+        message = (
+            f"Multiple representations of this peak group were encountered:\n"
+            f"\tcompound: {new_rec.name}\n"
+            f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
+            f"\tSample: {new_rec.msrun_sample.sample}\n"
+            "Each peak group originated from:\n"
+            f"\tProposed: {new_rec.peak_annotation_file.filename}\n"
+            f"\t{leader}{from_str}\n"
+            "Only 1 representation of a compound per sequence and sample is allowed.  "
+        )
+        super().__init__(message, code="MultiplePeakGroupRepresentations")
+        self.new_rec = new_rec
+        self.existing_recs = existing_recs
 
 
 class CompoundSynonymExists(Exception):
