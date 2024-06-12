@@ -41,6 +41,8 @@ def create_infusate_records():
     InfusateTracer.objects.create(infusate=io2, tracer=glu_t, concentration=3.0)
     InfusateTracer.objects.create(infusate=io2, tracer=c16_t, concentration=4.0)
 
+    # ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
+    # C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]
     return io, io2
 
 
@@ -49,6 +51,8 @@ class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
         MaintainedModel._reset_coordinators()
+        # INFUSATE1: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
+        # INFUSATE2: C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
     @classmethod
@@ -131,6 +135,43 @@ class InfusateTests(TracebaseTestCase):
         # The deletion also affects the names of both infusates that had that tracer
         self.assertEqual("ti {C16:0-[5,6-13C2,17O2][2];glucose-[4-17O1][1]}", i1.name)
         self.assertEqual("C16:0-[5,6-13C2,17O2][4];glucose-[4-17O1][3]", i2.name)
+
+    def test_name_and_concentrations(self):
+        # self.INFUSATE1.name: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
+        # name_and_concentrations returns a name without the concentrations, and a list of same-ordered concentrations
+        name, concs = self.INFUSATE1.name_and_concentrations()
+        self.assertEqual("ti {C16:0-[5,6-13C2,17O2];glucose-[2,3-13C2,4-17O1]}", name)
+        self.assertAlmostEqual([2.0, 1.0], concs)
+
+    def test_infusate_name_equal(self):
+        # self.INFUSATE1.name: ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}
+        # name_and_concentrations returns a name without the concentrations, and a list of same-ordered concentrations
+        self.INFUSATE1.name_and_concentrations()
+        # Should be equal even though the order is reversed
+        self.assertTrue(
+            self.INFUSATE1.infusate_name_equal(
+                "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}", [1.0, 2.0]
+            )
+        )
+        # Should not be equal if only the tracer names are reversed (not the concentrations)
+        self.assertFalse(
+            self.INFUSATE1.infusate_name_equal(
+                "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}", [2.0, 1.0]
+            )
+        )
+        # Should not be equal if the number of concentrations does not match
+        self.assertFalse(
+            self.INFUSATE1.infusate_name_equal(
+                "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}", [1.0]
+            )
+        )
+        # Should be equal even though the order is reversed and the float concentrations are very slightly off
+        self.assertTrue(
+            self.INFUSATE1.infusate_name_equal(
+                "ti {glucose-[2,3-13C2,4-17O1];C16:0-[5,6-13C2,17O2]}",
+                [1.00000000001, 2.0],
+            )
+        )
 
 
 @tag("load_study")

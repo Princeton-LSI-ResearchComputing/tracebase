@@ -16,9 +16,9 @@ TRACER_ENCODING_PATTERN = re.compile(
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
-    r"(?P<all>(?:(?P<positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<element>["
+    r"(?P<all>(?:(?P<positions>[0-9][0-9,]*)-)?(?P<mass_number>[0-9]+)(?P<element>["
     + KNOWN_ISOTOPES
-    + r"]{1,2})(?P<count>[0-9]+))"
+    + r"]{1,2})(?P<count>[0-9]+))($|,)"
 )
 CONCENTRATIONS_DELIMITER = ";"
 
@@ -36,7 +36,7 @@ class TracerData(TypedDict):
     isotopes: List[IsotopeData]
 
 
-class InfusateTracer(TypedDict):
+class InfusateTracerData(TypedDict):
     tracer: TracerData
     concentration: Optional[float]
 
@@ -44,7 +44,7 @@ class InfusateTracer(TypedDict):
 class InfusateData(TypedDict):
     unparsed_string: str
     infusate_name: Optional[str]
-    tracers: List[InfusateTracer]
+    tracers: List[InfusateTracerData]
 
 
 def parse_infusate_name(
@@ -98,7 +98,7 @@ def parse_infusate_name(
             f"\tConcentration values: {concentrations}"
         )
     for tracer_string, concentration in zip_longest(tracer_strings, concentrations):
-        infusate_tracer: InfusateTracer = {
+        infusate_tracer: InfusateTracerData = {
             "tracer": parse_tracer_string(tracer_string),
             "concentration": concentration,
         }

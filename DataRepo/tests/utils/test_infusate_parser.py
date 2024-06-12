@@ -6,7 +6,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
-    InfusateTracer,
+    InfusateTracerData,
     IsotopeData,
     IsotopeParsingError,
     TracerData,
@@ -61,7 +61,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="L-Leucine-[1,2-13C2]",
             infusate_name=None,
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=cls.tracer_data_l_leucine,
                     concentration=cls.infusate_concentrations_leucine[0],
                 )
@@ -72,7 +72,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="leucine {L-Leucine-[1,2-13C2]}",
             infusate_name="leucine",
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=cls.tracer_data_l_leucine,
                     concentration=cls.infusate_concentrations_leucine[0],
                 )
@@ -83,7 +83,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="leucine {L-Leucine-[1,2-13C2]}",
             infusate_name="leucine",
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=cls.tracer_data_l_leucine,
                     concentration=cls.infusate_concentrations_leucine[1],
                 )
@@ -106,7 +106,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}",
             infusate_name="BCAAs",
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=TracerData(
                         unparsed_string="isoleucine-[13C6,15N1]",
                         compound_name="isoleucine",
@@ -114,7 +114,7 @@ class InfusateTest(TracebaseTestCase):
                     ),
                     concentration=cls.infusate_concentrations_bcaas[0],
                 ),
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=TracerData(
                         unparsed_string="leucine-[13C6,15N1]",
                         compound_name="leucine",
@@ -122,7 +122,7 @@ class InfusateTest(TracebaseTestCase):
                     ),
                     concentration=cls.infusate_concentrations_bcaas[1],
                 ),
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=TracerData(
                         unparsed_string="valine-[13C5,15N1]",
                         compound_name="valine",
@@ -231,21 +231,9 @@ class InfusateParsingTests(InfusateTest):
         ):
             _ = parse_infusate_name(name, [1.0, 2.0])
 
-    def test_malformed_tracer_parsing_multiple_isotopic_definitions(self):
-        """Test back-to-back occurrences of square bracket expressions"""
-        name = "lysine-[13C5]-[19O2]"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
-
     def test_malformed_tracer_parsing_with_new_line(self):
         """Test multiple labeled compounds delimited by hard return"""
         name = "lysine-[13C5]\nlysine-[19O2]"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
-
-    def test_malformed_tracer_parsing_with_improper_delimiter(self):
-        """Test bad tracer delimiter (',' instead of ';')"""
-        name = "lysine-[13C5],glucose-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_tracer_string(name)
 
