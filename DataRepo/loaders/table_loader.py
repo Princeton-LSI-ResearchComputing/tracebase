@@ -146,6 +146,9 @@ class TableLoader(ABC):
         pass
 
     # DataDefaultValues is populated automatically (with Nones)
+    # TODO: It would be nice if the default values could be a function that takes the entire row so that a default value
+    #       could be imputed.  The unique column constraints of the infusates loader had to be modified due to the
+    #       inability to fill in column values parsed from the infusate name
     DataDefaultValues: Optional[tuple] = None  # namedtuple
 
     # DataColumnTypes is optional unless read_from_file needs a dtype argument
@@ -593,9 +596,12 @@ class TableLoader(ABC):
                 )
                 pretty_headers += ")"
 
-                if markers:
-                    # The sub-group is the opposite of "anded"
-                    pretty_headers += "^" if _anded else "*"
+                # The sub-group is the opposite of "anded"
+                if _anded:
+                    pretty_headers += "^"
+                elif markers:
+                    # Asterisks are only added if markers is True (up-carets are always added)
+                    pretty_headers += "*"
             else:
                 pretty_headers += hdr_item
 
@@ -603,7 +609,7 @@ class TableLoader(ABC):
                 if _first_dim and (_anded or len(reqd_headers) == 1) and markers:
                     pretty_headers += "*"
 
-        if _first_dim and not _anded and len(reqd_headers) != 1 and markers:
+        if _first_dim and not _anded and len(reqd_headers) != 1:
             pretty_headers = f"({pretty_headers})^"
 
         return pretty_headers
@@ -1307,9 +1313,12 @@ class TableLoader(ABC):
                 if not _anded:
                     return None, _anded
             elif isinstance(missing_header_item, list) and sublist_anded == _anded:
-                # If the sublist and outer list are both "anded" or both "ored", merge them
-                missing.extend(missing_header_item)
-            else:
+                # If the sublist and outer list are both "anded" or both "ored", merge them, excluding ones that are
+                # already present (e.g. if the same one was in 2 lists)
+                for item in missing_header_item:
+                    if item not in missing:
+                        missing.append(item)
+            elif missing_header_item not in missing:
                 missing.append(missing_header_item)
 
         if len(missing) == 0:
@@ -2367,6 +2376,17 @@ class TableLoader(ABC):
                         # Whether we buffered or not, the error was identified and handled (by either buffering or
                         # ignoring a duplicate)
                         return True
+            else:
+                # ValidationError contains multiple errors.  Buffer each one to make them easier to read.
+                for err in exception.messages:
+                    # Instead of using InfileDatabaseError (which includes the redundant text of the originating
+                    # multiple ValidationErrors, use InfileError instead (assuming that the error is custom)
+                    self.aggregated_errors_object.buffer_error(
+                        InfileError(
+                            err, rownum=self.rownum, sheet=self.sheet, file=self.file
+                        )
+                    )
+                return True
 
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method

@@ -25,9 +25,9 @@ class TracersLoader(TableLoader):
     ID_KEY = "ID"
     COMPOUND_KEY = "COMPOUND"
     ELEMENT_KEY = "ELEMENT"
-    MASS_NUMBER_KEY = "MASSNUMBER"
-    LABEL_COUNT_KEY = "LABELCOUNT"
-    LABEL_POSITIONS_KEY = "LABELPOSITIONS"
+    MASSNUMBER_KEY = "MASSNUMBER"
+    LABELCOUNT_KEY = "LABELCOUNT"
+    LABELPOSITIONS_KEY = "LABELPOSITIONS"
     NAME_KEY = "NAME"
 
     POSITIONS_DELIMITER = TracerLabel.POSITIONS_DELIMITER
@@ -35,13 +35,14 @@ class TracersLoader(TableLoader):
     DataSheetName = "Tracers"
 
     # The tuple used to store different kinds of data per column at the class level
+    # NOTE: The order of these headers is required for the excel formula that generates the NAME column value
     DataTableHeaders = namedtuple(
         "DataTableHeaders",
         [
             "ID",
             "COMPOUND",
-            "ELEMENT",
             "MASSNUMBER",
+            "ELEMENT",
             "LABELCOUNT",
             "LABELPOSITIONS",
             "NAME",
@@ -50,7 +51,7 @@ class TracersLoader(TableLoader):
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        ID="Tracer Number",
+        ID="Tracer Row Group",
         COMPOUND="Compound Name",
         ELEMENT="Element",
         MASSNUMBER="Mass Number",
@@ -67,8 +68,8 @@ class TracersLoader(TableLoader):
                 ID_KEY,
                 COMPOUND_KEY,
                 ELEMENT_KEY,
-                MASS_NUMBER_KEY,
-                LABEL_COUNT_KEY,
+                MASSNUMBER_KEY,
+                LABELCOUNT_KEY,
             ],
             NAME_KEY,
         ],
@@ -82,9 +83,9 @@ class TracersLoader(TableLoader):
         ID_KEY: int,
         COMPOUND_KEY: str,
         ELEMENT_KEY: str,
-        MASS_NUMBER_KEY: int,
-        LABEL_COUNT_KEY: int,
-        LABEL_POSITIONS_KEY: str,
+        MASSNUMBER_KEY: int,
+        LABELCOUNT_KEY: int,
+        LABELPOSITIONS_KEY: str,
         NAME_KEY: str,
     }
 
@@ -96,17 +97,17 @@ class TracersLoader(TableLoader):
             ID_KEY,
             COMPOUND_KEY,
             ELEMENT_KEY,
-            MASS_NUMBER_KEY,
-            LABEL_COUNT_KEY,
-            LABEL_POSITIONS_KEY,
+            MASSNUMBER_KEY,
+            LABELCOUNT_KEY,
+            LABELPOSITIONS_KEY,
         ],
         [
             NAME_KEY,
             COMPOUND_KEY,
             ELEMENT_KEY,
-            MASS_NUMBER_KEY,
-            LABEL_COUNT_KEY,
-            LABEL_POSITIONS_KEY,
+            MASSNUMBER_KEY,
+            LABELCOUNT_KEY,
+            LABELPOSITIONS_KEY,
         ],
     ]
 
@@ -129,9 +130,9 @@ class TracersLoader(TableLoader):
         },
         TracerLabel.__name__: {
             "element": ELEMENT_KEY,
-            "mass_number": MASS_NUMBER_KEY,
-            "count": LABEL_COUNT_KEY,
-            "positions": LABEL_POSITIONS_KEY,
+            "mass_number": MASSNUMBER_KEY,
+            "count": LABELCOUNT_KEY,
+            "positions": LABELPOSITIONS_KEY,
         },
     }
 
@@ -139,16 +140,20 @@ class TracersLoader(TableLoader):
         ID=TableColumn.init_flat(
             name=DataHeaders.ID,
             help_text=(
-                "Arbitrary number that identifies every row containing a label that belongs to a single tracer.  This "
-                f"is not loaded into the database.  The {DataHeaders.NAME} column is populated using an excel formula "
-                f"based on all rows containing the same {DataHeaders.ID}."
+                "Arbitrary number that identifies every row containing a label that belongs to a tracer.  Each row "
+                "defines 1 label and this value links them together."
+            ),
+            guidance=(
+                "The values in this column are not loaded into the database.  It is only used to populate the "
+                f"{DataHeaders.NAME} column using an excel formula.  All rows having the same {DataHeaders.ID} are "
+                f"used to build the {DataHeaders.NAME} column values."
             ),
             type=int,
         ),
         COMPOUND=TableColumn.init_flat(
             name=DataHeaders.COMPOUND,
             field=Tracer.compound,
-            help_text="Primary compound name.",
+            help_text="Primary name of the compound for which this is a tracer.",
             guidance=(
                 f"The dropdown menus in this column are populated by the {CompoundsLoader.DataHeaders.NAME} column in "
                 f"the {CompoundsLoader.DataSheetName} sheet."
@@ -186,6 +191,8 @@ class TracersLoader(TableLoader):
             field=Tracer.name,
             # TODO: Replace "Infusates" and "Tracer Name" below with a reference to its loader's DataSheetName and the
             # corresponding column, respectively
+            # Cannot reference the InfusatesLoader here (to include the name of its sheet and its tracer name column)
+            # due to circular import
             guidance=(
                 "This column is automatically filled in using an excel formula and its values are used to populate "
                 "Tracer Name choices in the Infusates sheet."
@@ -194,15 +201,31 @@ class TracersLoader(TableLoader):
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
             # current row.  The header keys will be replaced by the excel column letters.
-            # TODO: Copy out the formula from the example excel sheet I created on my laptop
-            # formula=(
-            #     "=CONCATENATE("
-            #     f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
-            #     ")"
-            # ),
+            # Example:
+            # =CONCATENATE(
+            #   B2,
+            #   "-[",
+            #   TEXTJOIN(",",TRUE,
+            #     BYROW(
+            #       FILTER(C:E,A:A=A2,""),
+            #       LAMBDA(row, CONCAT(row))
+            #     )
+            #   ),
+            #   "]"
+            # )
+            formula=(
+                "=CONCATENATE("
+                f"{{{COMPOUND_KEY}}},"
+                '"-[",'
+                'TEXTJOIN(",",TRUE,'
+                "BYROW("
+                f"FILTER({{{MASSNUMBER_KEY}}}:{{{LABELCOUNT_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                "LAMBDA(row, CONCAT(row))"
+                ")),"
+                '"]"'
+                ")"
+            ),
         ),
     )
 

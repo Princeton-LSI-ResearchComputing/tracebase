@@ -41,7 +41,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
 
     DUDERINO_INFUSATE_DATAFRAME = pd.DataFrame.from_dict(
         {
-            "Infusate Number": [1],
+            "Infusate Row Group": [1],
             "Infusate Name": ["duderino{lysine-[13C6]}"],
             "Tracer Group Name": ["duderino"],
             "Tracer Name": ["lysine-[13C6]"],
@@ -82,9 +82,14 @@ class InfusatesLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(tl.infusates_dict.keys()))
         self.assertEqual(0, len(tl.infusate_name_to_number.keys()))
         self.assertEqual(0, len(tl.valid_infusates.keys()))
-        self.assertEqual(0, len(tl.inconsistent_group_names.keys()))
+        self.assertEqual(0, len(tl.inconsistent_group_names["mult_names"].keys()))
+        # This (mult_nums) is effectively tested in test_load_infusates
+        self.assertEqual(0, len(tl.inconsistent_group_names["mult_nums"].keys()))
         self.assertEqual(0, len(tl.inconsistent_names.keys()))
         self.assertEqual(0, len(tl.inconsistent_numbers.keys()))
+        # These are effectively tested in test_load_infusates
+        self.assertEqual(0, len(tl.inconsistent_tracer_groups["mult_names"]))
+        self.assertEqual(0, len(tl.inconsistent_tracer_groups["dupes"]))
 
     def test_infusate_loader_load_data(self):
         # Establish that the infusate does not exist at first
@@ -271,7 +276,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
             "hectorPinfusate{lysine-[13C6]}": {3: 4},  # Note: see comment below
         }
 
-        self.assertEqual(0, len(tl.inconsistent_group_names))
+        self.assertEqual(0, len(tl.inconsistent_group_names["mult_names"]))
         self.assertEqual(0, len(tl.inconsistent_names))
         self.assertEqual(0, len(tl.inconsistent_numbers))
 
@@ -280,7 +285,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
         tl.check_data_is_consistent(1, "duderino", "duderino{lysine-[13C6]}")
         tl.rownum += 1
         tl.check_data_is_consistent(1, "rinodude", "duderino{lysine-[13C6]}")
-        self.assertEqual(1, len(tl.inconsistent_group_names))
+        self.assertEqual(1, len(tl.inconsistent_group_names["mult_names"]))
 
         # Check multiple infusate names per number
         tl.rownum += 1
@@ -309,8 +314,8 @@ class InfusatesLoaderTests(TracebaseTestCase):
         tl.init_load()
 
         # 2 different compound names associated with 1 infusate number
-        tl.inconsistent_group_names[1]["duderino"] = [2]
-        tl.inconsistent_group_names[1]["rinodude"] = [3]
+        tl.inconsistent_group_names["mult_names"][1]["duderino"] = [2]
+        tl.inconsistent_group_names["mult_names"][1]["rinodude"] = [3]
 
         # 2 different infusate names associated with 1 infusate number
         tl.inconsistent_names[2]["myinfusate{lysine-[13C6]}"] = [4]
@@ -328,14 +333,14 @@ class InfusatesLoaderTests(TracebaseTestCase):
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[2]))
 
         self.assertIn(
-            "Infusate Number and Tracer Group Name",
+            "Infusate Row Group and Tracer Group Name",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "'Infusate Number' 1 ", str(tl.aggregated_errors_object.exceptions[0])
+            "'Infusate Row Group' 1 ", str(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertIn(
-            "one 'Tracer Group Name' is allowed per 'Infusate Number'",
+            "one 'Tracer Group Name' is allowed per 'Infusate Row Group'",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -346,14 +351,14 @@ class InfusatesLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Infusate Name and Infusate Number",
+            "Infusate Name and Infusate Row Group",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
-            "'Infusate Number' 2 ", str(tl.aggregated_errors_object.exceptions[1])
+            "'Infusate Row Group' 2 ", str(tl.aggregated_errors_object.exceptions[1])
         )
         self.assertIn(
-            "one 'Infusate Name' is allowed per 'Infusate Number'",
+            "one 'Infusate Name' is allowed per 'Infusate Row Group'",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
@@ -366,7 +371,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Infusate Number and Infusate Name",
+            "Infusate Row Group and Infusate Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
@@ -374,7 +379,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
-            "one 'Infusate Number' is allowed per 'Infusate Name'",
+            "one 'Infusate Row Group' is allowed per 'Infusate Name'",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(

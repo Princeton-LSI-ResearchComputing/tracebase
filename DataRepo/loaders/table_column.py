@@ -26,6 +26,11 @@ class ColumnReference:
     ):
         """ColumnReference constructor.
 
+        - Either loader_class or (sheet and header) are required.
+        - loader_class and sheet are mutually exclusive.
+        - loader_header_key and header are mutually exclusive.
+        - loader_header_key or header is required.
+
         Args:
             header (string): The name of the header being referenced.  Must match the ColumnHeader.name of that header.
                 Mutually exclusive/required with loader_header_key.
@@ -68,16 +73,16 @@ class ColumnReference:
         else:
             if sheet is not None:
                 raise MutuallyExclusiveOptions(
-                    "loader and sheet are mutually exclusive."
+                    "loader_class and sheet are mutually exclusive."
                 )
             self.sheet = loader_class.DataSheetName
             if loader_header_key is not None and header is not None:
                 raise MutuallyExclusiveOptions(
-                    "loader_header_key and header are mutually exclusive when loader is defined."
+                    "loader_header_key and header are mutually exclusive when loader_class is defined."
                 )
             elif loader_header_key is None and header is None:
                 raise ConditionallyRequiredOptions(
-                    "Either loader_header_key or header is required when loader is defined."
+                    "loader_header_key or header is required when loader_class is defined."
                 )
 
             if loader_header_key is not None:

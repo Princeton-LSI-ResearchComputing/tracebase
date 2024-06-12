@@ -25,7 +25,7 @@ class TracersLoaderTests(TracebaseTestCase):
 
     LYSINE_TRACER_DATAFRAME = pd.DataFrame.from_dict(
         {
-            "Tracer Number": [1],
+            "Tracer Row Group": [1],
             "Compound Name": ["lysine"],
             "Element": ["C"],
             "Mass Number": [13],
@@ -323,14 +323,14 @@ class TracersLoaderTests(TracebaseTestCase):
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[2]))
 
         self.assertIn(
-            "Tracer Number and Compound Name",
+            "Tracer Row Group and Compound Name",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "Tracer Number 1 ", str(tl.aggregated_errors_object.exceptions[0])
+            "Tracer Row Group 1 ", str(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertIn(
-            "one Compound Name is allowed per Tracer Number",
+            "one Compound Name is allowed per Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -341,14 +341,14 @@ class TracersLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Tracer Name and Tracer Number",
+            "Tracer Name and Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
-            "Tracer Number 2 ", str(tl.aggregated_errors_object.exceptions[1])
+            "Tracer Row Group 2 ", str(tl.aggregated_errors_object.exceptions[1])
         )
         self.assertIn(
-            "one Tracer Name is allowed per Tracer Number",
+            "one Tracer Name is allowed per Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
@@ -361,7 +361,7 @@ class TracersLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Tracer Number and Tracer Name",
+            "Tracer Row Group and Tracer Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
@@ -369,7 +369,7 @@ class TracersLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
-            "one Tracer Number is allowed per Tracer Name",
+            "one Tracer Row Group is allowed per Tracer Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(

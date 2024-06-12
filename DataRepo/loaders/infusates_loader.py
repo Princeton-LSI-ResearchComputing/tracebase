@@ -16,6 +16,7 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
+    InfusateParsingError,
     InfusateTracerData,
     parse_infusate_name,
     parse_tracer_string,
@@ -48,7 +49,7 @@ class InfusatesLoader(TableLoader):
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        ID="Infusate Number",
+        ID="Infusate Row Group",
         TRACERGROUP="Tracer Group Name",
         TRACERNAME="Tracer Name",
         TRACERCONC="Tracer Concentration",
@@ -75,7 +76,22 @@ class InfusatesLoader(TableLoader):
     ]
 
     # List of header keys for columns that require a value
-    DataRequiredValues = DataRequiredHeaders
+    DataRequiredValues = [
+        [
+            # Either individual column data...
+            [
+                ID_KEY,
+                TRACER_NAME_KEY,
+                CONC_KEY,
+            ],
+            # Or the ID, infusate name, and concentration (with concs in the same row order and their order in the name)
+            [
+                ID_KEY,
+                NAME_KEY,
+                CONC_KEY,
+            ],
+        ],
+    ]
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {
@@ -92,15 +108,9 @@ class InfusatesLoader(TableLoader):
     DataUniqueColumnConstraints = [
         [
             ID_KEY,
-            GROUP_NAME_KEY,
             TRACER_NAME_KEY,
             CONC_KEY,
-        ],
-        [
             NAME_KEY,
-            GROUP_NAME_KEY,
-            TRACER_NAME_KEY,
-            CONC_KEY,
         ],
     ]
 
@@ -122,12 +132,19 @@ class InfusatesLoader(TableLoader):
             name=DataHeaders.ID,
             help_text=(
                 "Arbitrary number that identifies every row containing a tracer that belongs to a single infusate.  "
-                f"This is not loaded into the database.  The {DataHeaders.NAME} column is populated using an excel "
-                f"formula based on all rows containing the same {DataHeaders.ID}."
+                f"Each row defines 1 tracer (at a particular {DataHeaders.TRACERCONC}) and this value links them "
+                "together."
+            ),
+            guidance=(
+                "The values in this column are not loaded into the database.  It is only used to populate the "
+                f"{DataHeaders.NAME} column using an excel formula.  All rows having the same {DataHeaders.ID} are "
+                f"used to build the {DataHeaders.NAME} column values."
             ),
             type=int,
         ),
         TRACERGROUP=TableColumn.init_flat(
+            # TODO: Make the name (and the DataHeaders) automatically populated using a title-case version of a model
+            # field's verbose_name.  Also make the type default map as well.
             name=DataHeaders.TRACERGROUP,
             field=Infusate.tracer_group_name,
             type=str,
@@ -135,13 +152,15 @@ class InfusatesLoader(TableLoader):
         TRACERNAME=TableColumn.init_flat(
             name=DataHeaders.TRACERNAME,
             field=InfusateTracer.tracer,
-            help_text=f"Tracer included in an infusate at a specific {DataHeaders.TRACERCONC}.",
+            # TODO: Add help text to the field in the Tracer model
+            help_text=f"Name of a tracer in this infusate at a specific {DataHeaders.TRACERCONC}.",
             guidance=(
-                f"The dropdown menus in this column are populated by the {TracersLoader.DataHeaders.NAME} column in "
-                f"the {TracersLoader.DataSheetName} sheet."
+                f"Select a {DataHeaders.TRACERNAME} from the dropdowns in this column.  Those dropdowns are populated "
+                f"by the {TracersLoader.DataHeaders.NAME} column in the {TracersLoader.DataSheetName} sheet.  "
+                f"All of the {DataHeaders.TRACERNAME}s in an infusate with multiple {DataHeaders.TRACERNAME}s are "
+                f"defined on separate rows and associated via the values in the {DataHeaders.ID} column."
             ),
             type=str,
-            # TODO: Implement the method which creates the dropdowns in the excel spreadsheet
             dynamic_choices=ColumnReference(
                 loader_class=TracersLoader,
                 loader_header_key=TracersLoader.NAME_KEY,
@@ -155,25 +174,41 @@ class InfusatesLoader(TableLoader):
         NAME=TableColumn.init_flat(
             name=DataHeaders.NAME,
             field=Infusate.name,
-            # TODO: Replace "Animals" and "Infusate" below with a reference to its loader's DataSheetName and the
-            # corresponding column, respectively.  (In this case, the AnimalsLoader does not yet exist.)
+            type=str,
+            # TODO: Replace "Infusate" and "Animals" below with a reference to its loader's column and DataSheetName
             guidance=(
                 "This column is automatically filled in using an excel formula and its values are used to populate "
                 "Infusate choices in the Animals sheet."
             ),
-            type=str,
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
             # current row.  The header keys will be replaced by the excel column letters.
-            # TODO: Copy out the formula from the example excel sheet I created on my laptop
-            # formula=(
-            #     "=CONCATENATE("
-            #     f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
-            #     f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
-            #     ")"
-            # ),
+            # Example:
+            # =CONCATENATE(
+            #   IF(ISBLANK(B2),"",CONCATENATE(B2," ")),
+            #   IF(ROWS(FILTER(A:A,A:A=A2,""))>1,"{",""),
+            #   TEXTJOIN(";",TRUE,
+            #     SORT(
+            #       MAP(
+            #         FILTER(C:C,A:A=A2,""),
+            #         FILTER(D:D,A:A=A2,""),
+            #         LAMBDA(a,b,CONCATENATE(a,"[",b,"]"))
+            #       )
+            #     )
+            #   ),
+            #   IF(ROWS(FILTER(A:A,A:A=A2,""))>1,"}","")
+            # )
+            formula=(
+                "=CONCATENATE("
+                f'IF(ISBLANK(INDIRECT("{{{GROUP_NAME_KEY}}}" & ROW())),"",CONCATENATE(INDIRECT("{{{GROUP_NAME_KEY}}}" '
+                f'& ROW())," ")),'
+                f'IF(ROWS(FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),'
+                f'""))>1,"{{",""),TEXTJOIN(";",TRUE,SORT(MAP(FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},'
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),FILTER({{{CONC_KEY}}}:{{{CONC_KEY}}},'
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),LAMBDA(a,b,CONCATENATE(a,"[",b,"]")))'
+                f")),IF(ROWS(FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}="
+                f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"}}",""))'
+            ),
         ),
     )
 
@@ -221,7 +256,18 @@ class InfusatesLoader(TableLoader):
         self.infusate_name_to_number = defaultdict(lambda: defaultdict(list))
         self.valid_infusates = {}
 
-        self.inconsistent_group_names = defaultdict(lambda: defaultdict(list))
+        self.inconsistent_tracer_groups = {
+            # Tracer groups with multiple differing tracer group names
+            "mult_names": defaultdict(lambda: defaultdict(list)),
+            # Tracer groups with the same concentrations (duplicates, regardless of group name)
+            "dupes": defaultdict(lambda: defaultdict(list)),
+        }
+        self.inconsistent_group_names = {
+            # Infusate numbers with multiple differing tracer group names
+            "mult_names": defaultdict(lambda: defaultdict(list)),
+            # Tracer group names with multiple infusate numbers (containing a different assortment of tracers)
+            "mult_nums": defaultdict(lambda: defaultdict(list)),
+        }
         self.inconsistent_names = defaultdict(lambda: defaultdict(list))
         self.inconsistent_numbers = defaultdict(lambda: defaultdict(list))
 
@@ -243,6 +289,7 @@ class InfusatesLoader(TableLoader):
 
         # Check the self.infusates_dict to fill in missing values parsed from the name
         self.check_extract_name_data()
+        self.check_tracer_group_names()
         self.buffer_consistency_issues()
 
         # Now that all the infusate data has been collated and validated, load it
@@ -364,6 +411,7 @@ class InfusatesLoader(TableLoader):
                 self.errored(InfusateTracer.__name__, num=num_tracers)
                 continue
 
+            validation_handled = False
             try:
                 # We want to roll back everything related to the current infusate record in here if there was an
                 # exception.  We do that by catching outside the atomic block, below.  Note that this method has an
@@ -404,6 +452,19 @@ class InfusatesLoader(TableLoader):
                             infusate_tracer_dict, infusate_rec
                         )
 
+                    if infusate_created:
+                        try:
+                            # Clean after the InfusateTracer records have been added, so that the assortment of tracers
+                            # can be validated
+                            infusate_rec.full_clean()
+                        except Exception as e:
+                            # Package errors (like IntegrityError and ValidationError) with relevant details
+                            # This also updates the skip row indexes
+                            self.handle_load_db_errors(e, Infusate, infusate_dict)
+                            validation_handled = True
+                            # Now that the exception has been handled, trigger a rollback of this record load attempt
+                            raise e
+
                     # Only mark as created after this final check (which raises an exception)
                     self.check_infusate_name_consistent(infusate_rec, infusate_dict)
 
@@ -413,7 +474,10 @@ class InfusatesLoader(TableLoader):
                     self.created(Infusate.__name__)
                     self.created(InfusateTracer.__name__, num=num_tracers)
             except Exception as e:
-                if not self.aggregated_errors_object.exception_type_exists(type(e)):
+                if (
+                    not validation_handled
+                    and not self.aggregated_errors_object.exception_type_exists(type(e))
+                ):
                     self.aggregated_errors_object.buffer_error(e)
                 # All exceptions are buffered in their respective functions, so just update the stats
                 self.errored(Infusate.__name__)
@@ -519,9 +583,30 @@ class InfusatesLoader(TableLoader):
             ]
 
             tracer_group_name = table_infusate["tracer_group_name"]
-            parsed_infusate = parse_infusate_name(
-                table_infusate_name, table_concentrations
-            )
+
+            try:
+                parsed_infusate = parse_infusate_name(
+                    table_infusate_name, table_concentrations
+                )
+            except InfusateParsingError as ipe:
+                rownums = [t["rownum"] for t in table_infusate["tracers"]]
+                self.aggregated_errors_object.buffer_error(
+                    InfileError(
+                        (
+                            f"'{type(ipe).__name__}' encountered while parsing {self.headers.NAME}: "
+                            f"[{table_infusate_name}] on row {table_infusate['rownum']}, associated with "
+                            f"{self.headers.TRACERCONC}(s): {table_concentrations} on row(s) {rownums} via "
+                            f"{self.headers.ID} {infusate_number} in %s: {ipe}"
+                        ),
+                        file=self.file,
+                        sheet=self.sheet,
+                    )
+                )
+                self.add_skip_row_index(
+                    index_list=[t["row_index"] for t in table_infusate["tracers"]]
+                )
+                continue
+
             parsed_tracer_group_name = parsed_infusate["infusate_name"]
 
             if tracer_group_name is None:
@@ -541,37 +626,40 @@ class InfusatesLoader(TableLoader):
                 )
 
             fill_in_tracer_data = len(table_infusate["tracers"]) == 0
-            for table_tracer in table_infusate["tracers"]:
-                match = False
 
-                table_tracer_name = table_tracer["tracer_name"]
-                if table_tracer_name is None:
-                    fill_in_tracer_data = True
+            # If we're not already filling in data
+            if fill_in_tracer_data is False:
+                # If any Tracer name is missing
+                all_match = True
+                for table_tracer in table_infusate["tracers"]:
+                    table_tracer_name = table_tracer["tracer_name"]
+                    if table_tracer_name is None:
+                        fill_in_tracer_data = True
 
-                table_tracer_conc = table_tracer["tracer_concentration"]
-                if table_tracer_conc is None:
-                    fill_in_tracer_data = True
+                    table_tracer_conc = table_tracer["tracer_concentration"]
 
-                for parsed_infusate_tracer in parsed_infusate["tracers"]:
+                    # Make sure that the concentrations associated with the tracers in the names have a match
                     match = False
+                    for parsed_infusate_tracer in parsed_infusate["tracers"]:
+                        parsed_tracer_name = parsed_infusate_tracer["tracer"][
+                            "unparsed_string"
+                        ]
+                        parsed_concentration = parsed_infusate_tracer["concentration"]
 
-                    parsed_tracer_name = parsed_infusate_tracer["tracer"][
-                        "unparsed_string"
-                    ]
-                    if parsed_tracer_name == table_tracer_name:
-                        match = True
-                    elif parsed_tracer_name != table_tracer_name:
-                        match = False
+                        if math.isclose(parsed_concentration, table_tracer_conc) and (
+                            parsed_tracer_name == table_tracer_name
+                            or table_tracer_name is None
+                        ):
+                            match = True
+                            break
+
+                    if match is False:
+                        all_match = False
                         break
 
-                    parsed_concentration = parsed_infusate_tracer["concentration"]
-                    if parsed_concentration == table_tracer_conc:
-                        match = True
-                    elif parsed_concentration != table_tracer_conc:
-                        match = False
-                        break
-
-                if match is False:
+                # If at least 1 tracer did not match, report the first non-match at the point where the loop above was
+                # broken
+                if all_match is False:
                     cols = ", ".join(
                         [
                             f"{self.headers.TRACERNAME}: {table_tracer['tracer_name']}",
@@ -621,6 +709,72 @@ class InfusatesLoader(TableLoader):
                             "row_index": table_infusate["row_index"],
                         }
                     )
+
+            # After filling in tracer names
+
+    def check_tracer_group_names(self):
+        """Check the assortment of tracers for issues.
+
+        - Identify any tracer groups with different tracer group names ("mult_names")
+        - Identify any tracer groups (with concentrations) that are duplicate occurrences ("dupes")
+        - Identify any tracer group names associated with different tracer groups
+
+        Updates self.inconsistent_tracer_groups
+
+        Agrs:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            None
+        """
+        # NOTE: This method assumes that the isotopes are consistently ordered in the tracer names
+
+        tracer_group_dict = defaultdict(lambda: defaultdict(list))
+        tracer_group_conc_dict = defaultdict(list)
+        group_name_dict = defaultdict(lambda: defaultdict(list))
+        for infusate_number in self.infusates_dict.keys():
+            # Tracer group name to use as dict key (str-caste to handle Nones)
+            tgn = str(self.infusates_dict[infusate_number]["tracer_group_name"])
+            # Tracer group string to use as dict key
+            tracer_group_key = ";".join(
+                sorted(
+                    [
+                        str(t["tracer_name"])
+                        for t in self.infusates_dict[infusate_number]["tracers"]
+                    ]
+                )
+            )
+            # Tracer group string including concentrations to use as dict key
+            tracer_group_conc_key = ";".join(
+                sorted(
+                    [
+                        f"{t['tracer_name']}[{t['tracer_concentration']}]"
+                        for t in self.infusates_dict[infusate_number]["tracers"]
+                    ]
+                )
+            )
+
+            # Identify groups of tracers with different tracer group names
+            tracer_group_dict[tracer_group_key][tgn].append(infusate_number)
+            if len(tracer_group_dict[tracer_group_key].keys()) > 1:
+                self.inconsistent_tracer_groups["mult_names"][tracer_group_key] = (
+                    tracer_group_dict[tracer_group_key]
+                )
+
+            # Identify duplicate occurrences of groups of tracers with the same concentrations
+            tracer_group_conc_dict[tracer_group_conc_key].append(infusate_number)
+            if len(tracer_group_conc_dict[tracer_group_conc_key]) > 1:
+                self.inconsistent_tracer_groups["dupes"][tracer_group_conc_key] = (
+                    tracer_group_conc_dict[tracer_group_conc_key]
+                )
+
+            # Identify tracer group names associated with different groups of tracers
+            group_name_dict[tgn][tracer_group_key].append(infusate_number)
+            if len(group_name_dict[tgn].keys()) > 1:
+                self.inconsistent_group_names["mult_nums"][tgn] = group_name_dict[tgn]
 
     def get_or_create_just_infusate(self, infusate_dict):
         """Get or create an Infusate record.
@@ -686,7 +840,10 @@ class InfusatesLoader(TableLoader):
 
         except Exception as e:
             exc = InfileError(
-                str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                f"{type(e).__name__}: {e}",
+                rownum=self.rownum,
+                sheet=self.sheet,
+                file=self.file,
             )
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
@@ -817,13 +974,16 @@ class InfusatesLoader(TableLoader):
             self.infusates_dict[infusate_number]["tracer_group_name"]
             != tracer_group_name
         ):
-            if infusate_number not in self.inconsistent_group_names.keys():
-                self.inconsistent_group_names[infusate_number][
+            if (
+                infusate_number
+                not in self.inconsistent_group_names["mult_names"].keys()
+            ):
+                self.inconsistent_group_names["mult_names"][infusate_number][
                     self.infusates_dict[infusate_number]["tracer_group_name"]
                 ] = [self.infusates_dict[infusate_number]["rownum"]]
-            self.inconsistent_group_names[infusate_number][tracer_group_name].append(
-                self.rownum
-            )
+            self.inconsistent_group_names["mult_names"][infusate_number][
+                tracer_group_name
+            ].append(self.rownum)
 
         # Make sure that each infusate number is always associated with the same infusate name
         if self.infusates_dict[infusate_number]["infusate_name"] != infusate_name:
@@ -846,8 +1006,10 @@ class InfusatesLoader(TableLoader):
         """Buffers consistency errors.
 
         - When an infusate number is associated with multiple tracer group names
+        - When a tracer group name is associated with multiple tracer nums
         - When an infusate number is associated with multiple infusate names
         - When an infusate name is associated with multiple infusate numbers
+        - When a group of tracers is associated with multiple tracer group names
 
         Args:
             None
@@ -861,7 +1023,7 @@ class InfusatesLoader(TableLoader):
         Returns:
             None
         """
-        for infusate_number in self.inconsistent_group_names.keys():
+        for infusate_number in self.inconsistent_group_names["mult_names"].keys():
             msg = (
                 f"%s:\n\t'{self.headers.ID}' {infusate_number} is associated with multiple "
                 f"'{self.headers.TRACERGROUP}'s on the indicated rows.  Only one '{self.headers.TRACERGROUP}' is "
@@ -869,8 +1031,10 @@ class InfusatesLoader(TableLoader):
             )
             msg += "\n\t\t".join(
                 [
-                    f"{g} (on rows: {self.inconsistent_group_names[infusate_number][g]})"
-                    for g in self.inconsistent_group_names[infusate_number].keys()
+                    f"{g} (on rows: {self.inconsistent_group_names['mult_names'][infusate_number][g]})"
+                    for g in self.inconsistent_group_names["mult_names"][
+                        infusate_number
+                    ].keys()
                 ]
             )
             self.aggregated_errors_object.buffer_error(
@@ -881,10 +1045,53 @@ class InfusatesLoader(TableLoader):
                     sheet=self.sheet,
                 )
             )
-            for gk in self.inconsistent_group_names[infusate_number].keys():
+            for gk in self.inconsistent_group_names["mult_names"][
+                infusate_number
+            ].keys():
                 self.add_skip_row_index(
-                    index_list=self.inconsistent_group_names[infusate_number][gk]
+                    index_list=self.inconsistent_group_names["mult_names"][
+                        infusate_number
+                    ][gk]
                 )
+
+        for tracer_group_name in self.inconsistent_group_names["mult_nums"].keys():
+            msg = (
+                f"%s:\n\t{self.headers.TRACERGROUP}: '{tracer_group_name}' was assigned to infusates containing the "
+                f"following different assortments of tracers, for the indicated '{self.headers.ID}'s:\n\t\t"
+            )
+            msg += "\n\t\t".join(
+                [
+                    (
+                        f"{tgk} (on rows with '{self.headers.ID}'s: "
+                        f"{self.inconsistent_group_names['mult_nums'][tracer_group_name][tgk]})"
+                    )
+                    for tgk in self.inconsistent_group_names["mult_nums"][
+                        tracer_group_name
+                    ].keys()
+                ]
+            )
+            msg += (
+                f"\n\tSuggested resolution: Use a different group name for each '{self.headers.ID}' containing "
+                "different tracers."
+            )
+            self.aggregated_errors_object.buffer_error(
+                InfileError(
+                    msg,
+                    file=self.file,
+                    sheet=self.sheet,
+                )
+            )
+            for tgk in self.inconsistent_group_names["mult_nums"][
+                tracer_group_name
+            ].keys():
+                for infusate_number in self.inconsistent_group_names["mult_nums"][
+                    tracer_group_name
+                ][tgk]:
+                    row_indexes = [
+                        t["row_index"]
+                        for t in self.infusates_dict[infusate_number]["tracers"]
+                    ]
+                    self.add_skip_row_index(index_list=row_indexes)
 
         for infusate_number in self.inconsistent_names.keys():
             msg = (
@@ -933,6 +1140,64 @@ class InfusatesLoader(TableLoader):
                 self.add_skip_row_index(
                     index_list=self.inconsistent_numbers[infusate_name][nk]
                 )
+
+        for tracer_group_key in self.inconsistent_tracer_groups["mult_names"].keys():
+            msg = (
+                f"%s:\n\tThe following differing '{self.headers.TRACERGROUP}'s are for infusates containing the same "
+                f"assortment of tracers [{tracer_group_key}], with the indicated '{self.headers.ID}'s:\n\t"
+            )
+            msg += "\n\t".join(
+                [
+                    (
+                        f"{tgn} (on rows with '{self.headers.ID}'s: "
+                        f"{self.inconsistent_tracer_groups['mult_names'][tracer_group_key][tgn]})"
+                    )
+                    for tgn in self.inconsistent_tracer_groups["mult_names"][
+                        tracer_group_key
+                    ].keys()
+                ]
+            )
+            msg += f"\nPlease use the same group name for each '{self.headers.ID}' containing the same tracers."
+            self.aggregated_errors_object.buffer_error(
+                InfileError(
+                    msg,
+                    file=self.file,
+                    sheet=self.sheet,
+                )
+            )
+            for tgn in self.inconsistent_tracer_groups["mult_names"][
+                tracer_group_key
+            ].keys():
+                for infusate_number in self.inconsistent_tracer_groups["mult_names"][
+                    tracer_group_key
+                ][tgn]:
+                    row_indexes = [
+                        t["row_index"]
+                        for t in self.infusates_dict[infusate_number]["tracers"]
+                    ]
+                    self.add_skip_row_index(index_list=row_indexes)
+
+        for tracer_group_key in self.inconsistent_tracer_groups["dupes"].keys():
+            msg = (
+                "%s:\n\tThe following tracer group (with concentrations) represent duplicate infusates, indicated by "
+                f"their list of '{self.headers.ID}'s:\n\t"
+            )
+            msg += "\n\t".join(
+                [
+                    (
+                        f"{tracer_group_key} (on rows with '{self.headers.ID}'s: "
+                        f"{self.inconsistent_tracer_groups['dupes'][tracer_group_key]})"
+                    )
+                ]
+            )
+            msg += "\nPlease remove the duplicates."
+            self.aggregated_errors_object.buffer_error(
+                InfileError(
+                    msg,
+                    file=self.file,
+                    sheet=self.sheet,
+                )
+            )
 
     def check_infusate_name_consistent(self, rec, infusate_dict):
         """Checks for consistency between a dynamically generated infusate name and the one supplied in the file.
@@ -1000,7 +1265,7 @@ class InfusatesLoader(TableLoader):
         bad_concentrations = []
         err_msgs = []
 
-        for it_rec in rec.tracers.through.objects.all():
+        for it_rec in rec.tracer_links.all():
             db_conc = it_rec.concentration
             db_tracer_name = it_rec.tracer.name
 
@@ -1016,13 +1281,12 @@ class InfusatesLoader(TableLoader):
 
         if len(bad_tracer_names) > 0:
             err_msgs.append(
-                f"Unable to find the created '{self.headers.TRACERNAME}'(s): [{bad_tracer_names}] among the tracer "
+                f"Unable to find the created '{self.headers.TRACERNAME}'(s): {bad_tracer_names} among the tracer "
                 f"names: {tnames} obtained from rows: {trownums}."
             )
-
         if len(bad_concentrations) > 0:
             err_msgs.append(
-                f"Unable to match the created '{self.headers.TRACERCONC}'(s): [{bad_concentrations}] to the "
+                f"Unable to match the created '{self.headers.TRACERCONC}'(s): {bad_concentrations} to the "
                 f"tracer concentrations: {tconcs} obtained from rows: {trownums}."
             )
 

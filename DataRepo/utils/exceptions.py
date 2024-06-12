@@ -91,7 +91,9 @@ class InfileError(Exception):
             # The purpose of this (base) class is to provide file location context of erroneous data to exception
             # messages in a uniform way.  It inserts that information where `%s` occurs in the supplied message.
             # Instead of making `%s` (in the simplest case) required, and raise an exception, the `%s` is just appended.
-            message += "  Location: %s."
+            if not message.endswith("\n"):
+                message += "  "
+            message += "Location: %s."
 
         if order is not None:
             if "loc" not in order and len(order) != len(location_args):
@@ -2453,7 +2455,7 @@ class InfileDatabaseError(InfileError):
         message = f"{type(exception).__name__} in %s"
         if rec_dict is not None:
             message += f", creating record:\n\t{nltab.join(deets)}"
-        message += f"\n\t{type(exception).__name__}: {str(exception)}"
+        message += f"\n\t{type(exception).__name__}: {exception}"
         super().__init__(message, **kwargs)
         self.exception = exception
         self.rec_dict = rec_dict
@@ -2655,6 +2657,56 @@ class RollbackException(Exception):
     """
 
     pass
+
+
+class TracerGroupsInconsistent(ValidationError):
+    def __init__(self, new_infusate, dupe_infusates, group_name_mismatches):
+        message = (
+            f"Validation error(s) adding new infusate: [{new_infusate}] with group name: "
+            f"[{new_infusate.tracer_group_name}]:\n\t"
+        )
+
+        if len(dupe_infusates) == 1:
+            message += (
+                f"Infusate exists with the same tracers at the same concentrations already: "
+                f"[{dupe_infusates[0]}]\n"
+                "\tSuggested resolution: Use the existing infusate instead of creating a duplicate.\n"
+            )
+        elif len(dupe_infusates) > 1:
+            message += "Multiple infusates exist with the same tracers at the same concentrations already:\n\t\t"
+            message += "\n\t\t".join(dupe_infusates)
+            message += "\n\tSuggested resolution: Duplicate records should be consolidated and re-used.\n"
+
+        if len(group_name_mismatches) > 0:
+            first_tgn = group_name_mismatches[0].tracer_group_name
+            num_diff = len(
+                [
+                    inf
+                    for inf in group_name_mismatches
+                    if inf.tracer_group_name != first_tgn
+                ]
+            )
+            if num_diff == 0:
+                message += (
+                    f"Infusate(s) (like [{group_name_mismatches[0]}]) exist with a different tracer group name: "
+                    f"[{group_name_mismatches[0].tracer_group_name}]\n"
+                    "\tSuggested resolution: Either edit your tracer group name to match the existing record, or if "
+                    "you want to change the tracer group name for this assortment of tracers, edit the existing "
+                    f"{len(group_name_mismatches)} records' tracer group name to match the new name (or lack there-of)."
+                    "\n"
+                )
+            else:
+                message += "Infusates exist with inconsistent tracer group names:\n"
+                message += "\n\t".join(group_name_mismatches)
+                message += (
+                    "\n\tSuggested resolution: Existing infusate records with inconsistent tracer group names should "
+                    "be edited to match and the tracer group name should be re-used.\n"
+                )
+                message += "\n\t\t".join(group_name_mismatches)
+        super().__init__(message)
+        self.new_infusate = new_infusate
+        self.dupe_infusates = dupe_infusates
+        self.group_name_mismatches = group_name_mismatches
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
