@@ -10,6 +10,7 @@ from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Animal, Infusate, MaintainedModel, Protocol, Study
+from DataRepo.models.animal_label import AnimalLabel
 from DataRepo.utils.exceptions import RollbackException
 
 AnimalStudy = Animal.studies.through
@@ -172,7 +173,7 @@ class AnimalsLoader(TableLoader):
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
-    Models = [Animal, AnimalStudy]
+    Models = [Animal, AnimalLabel, AnimalStudy]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -214,8 +215,12 @@ class AnimalsLoader(TableLoader):
         """
         for _, row in self.df.iterrows():
             animal = None
+
+            # Get the existing infusate and treatment
             infusate = self.get_infusate(row)
             treatment = self.get_treatment(row)
+
+            # Get or create the animal record
             try:
                 animal, _ = self.get_or_create_animal(row, infusate, treatment)
             except RollbackException:
@@ -223,6 +228,16 @@ class AnimalsLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
+            # Get or create the AnimalLabel records
+            for element in self.get_labeled_elements(infusate):
+                try:
+                    self.get_or_create_animal_label(animal, element)
+                except RollbackException:
+                    # Exception handling was handled in get_or_create_*
+                    # Continue processing rows to find more errors
+                    pass
+
+            # Link the animal to the study(/ies)
             for study in self.get_studies(row):
                 try:
                     self.get_or_create_animal_study_link(animal, study)
@@ -450,5 +465,60 @@ class AnimalsLoader(TableLoader):
             # No need to call full clean.
         else:
             self.existed(AnimalStudy.__name__)
+
+        return rec, created
+
+    def get_labeled_elements(self, infusate: Optional[Infusate]):
+        """Retrieve all the labeled elements from the supplied infusate.
+
+        Args:
+            infusate Optional[Infusate]
+        Exceptions:
+            None
+        Returns:
+            elements (List[str])
+        """
+        return [] if infusate is None else infusate.tracer_labeled_elements()
+
+    def get_or_create_animal_label(
+        self, animal: Optional[Animal], element: Optional[str]
+    ):
+        """Get or create an AnimalLabel record.
+
+        Args:
+            animal (Optional[Animal])
+            element (Optional[str])
+        Exceptions:
+            None
+        Returns:
+            rec (Optional[AnimalLabel])
+            created (bool)
+        """
+        rec = None
+        created = False
+
+        if animal is None or element is None or self.is_skip_row():
+            self.skipped(AnimalLabel.__name__)
+            return rec, created
+
+        rec_dict = {
+            "animal": animal,
+            "element": element,
+        }
+
+        try:
+            rec, created = AnimalLabel.objects.get_or_create(**rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(AnimalLabel.__name__)
+            else:
+                self.existed(AnimalLabel.__name__)
+        except Exception as e:
+            # Package errors (like IntegrityError and ValidationError) with relevant details
+            # This also updates the skip row indexes
+            self.handle_load_db_errors(e, AnimalLabel, rec_dict)
+            self.errored(AnimalLabel.__name__)
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
+            raise RollbackException()
 
         return rec, created
