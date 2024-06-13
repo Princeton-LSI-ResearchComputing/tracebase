@@ -447,7 +447,10 @@ class TableLoader(ABC):
                 if hk in new_dh_dict.keys():
                     # If None was sent in as a value, fall back to the default so that errors about this header (e.g.
                     # default values of required headers) reference *something*.
-                    if custom_headers[hk] is not None:
+                    if (
+                        custom_headers[hk] is not None
+                        and custom_headers[hk].strip() != ""
+                    ):
                         new_dh_dict[hk] = custom_headers[hk]
                 else:
                     extras.append(hk)
@@ -469,7 +472,11 @@ class TableLoader(ABC):
             # To support incomplete headers dicts
             for hk in self.user_headers.keys():
                 if hk in new_uh_dict.keys():
-                    new_uh_dict[hk] = self.user_headers[hk]
+                    if (
+                        self.user_headers[hk] is not None
+                        and self.user_headers[hk].strip() != ""
+                    ):
+                        new_uh_dict[hk] = self.user_headers[hk]
                 else:
                     extras.append(hk)
 

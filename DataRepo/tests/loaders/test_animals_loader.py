@@ -97,7 +97,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 AnimalsLoader.DataHeaders.DIET: ["n/a"],
                 AnimalsLoader.DataHeaders.FEEDINGSTATUS: ["fasted"],
                 AnimalsLoader.DataHeaders.TREATMENT: ["trt"],
-                AnimalsLoader.DataHeaders.STUDIES: ["stud1; stud2"],
+                AnimalsLoader.DataHeaders.STUDY: ["stud1; stud2"],
                 AnimalsLoader.DataHeaders.INFUSATE: ["Leucine-[1,2-13C2][1]"],
                 AnimalsLoader.DataHeaders.INFUSIONRATE: [6.0],
             }
@@ -115,7 +115,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 # AnimalsLoader.DataHeaders.GENOTYPE: ["WT"],  # expect required error
                 AnimalsLoader.DataHeaders.WEIGHT: [5.0],  # type error
                 # AnimalsLoader.DataHeaders.INFUSATE: ["Leucine-[1,2-13C2][1]"],  # expect required error
-                # AnimalsLoader.DataHeaders.STUDIES: ["stud1"],  # expect required error
+                # AnimalsLoader.DataHeaders.STUDY: ["stud1"],  # expect required error
             }
         )
         al = AnimalsLoader(df=df)
@@ -139,7 +139,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 AnimalsLoader.DataHeaders.INFUSATE: [
                     "Leucine-[1,2-13C2][1]"
                 ],  # no error (needed for animal errors)
-                AnimalsLoader.DataHeaders.STUDIES: [
+                AnimalsLoader.DataHeaders.STUDY: [
                     "stud1"
                 ],  # DoesNotExist, and AnimalStudy skipped due to no animal
                 # Invalid values
@@ -192,12 +192,44 @@ class AnimalsLoaderTests(TracebaseTestCase):
             al.record_counts,
         )
 
-    def test_animals_loader_get_infusate(self):
+    def test_animals_loader_get_infusate_int(self):
         al = AnimalsLoader()
         row = pd.Series({AnimalsLoader.DataHeaders.INFUSATE: "Leucine-[1,2-13C2][1]"})
         rec = al.get_infusate(row)
         self.assertIsNotNone(rec)
         self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+    def test_animals_loader_get_infusate_sig_dig_float(self):
+        """Infusate names in the input file contain concentrations (which is new), and the names constructed by the
+        database use significant digits (eee Infusate.CONCENTRATION_SIGNIFICANT_FIGURES (3)).  The actual data does not.
+        We should be able to retrieve the infusate when the name either has significant digits, or the user entered the
+        actual concentration value."""
+        # Create the study
+        Study.objects.create(name="stud1")
+        # Create the infusate
+        infusatedata = parse_infusate_name("Leucine-[13C6]", [148.88])
+        inf, _ = Infusate.objects.get_or_create_infusate(infusatedata)
+        df = pd.DataFrame.from_dict(
+            {
+                AnimalsLoader.DataHeaders.NAME: ["anml2"],
+                AnimalsLoader.DataHeaders.GENOTYPE: ["WT"],
+                AnimalsLoader.DataHeaders.STUDY: ["stud1"],
+                AnimalsLoader.DataHeaders.INFUSATE: ["Leucine-[13C6][148.88]"],
+            }
+        )
+        al = AnimalsLoader(df=df)
+        al.load_data()
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+        # Now get the infusate using the Infusate.CONCENTRATION_SIGNIFICANT_FIGURES (3), i.e. 149
+        row = pd.Series({AnimalsLoader.DataHeaders.INFUSATE: "Leucine-[13C6][149]"})
+        rec = al.get_infusate(row)
+        self.assertEqual(inf, rec)
+
+        # Now get the infusate using the number supplied by the user, i.e. 148.88
+        row = pd.Series({AnimalsLoader.DataHeaders.INFUSATE: "Leucine-[13C6][148.88]"})
+        rec2 = al.get_infusate(row)
+        self.assertEqual(inf, rec2)
 
     def test_animals_loader_get_treatment(self):
         al = AnimalsLoader()
@@ -210,7 +242,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
     def test_animals_loader_get_studies(self):
         s1 = Study.objects.create(name="stud1")
         s2 = Study.objects.create(name="stud2")
-        row = pd.Series({AnimalsLoader.DataHeaders.STUDIES: "stud1; stud2"})
+        row = pd.Series({AnimalsLoader.DataHeaders.STUDY: "stud1; stud2"})
         al = AnimalsLoader()
         recs = al.get_studies(row)
         self.assertEqual([s1, s2], recs)

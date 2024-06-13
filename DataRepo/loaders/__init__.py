@@ -3,6 +3,7 @@ from DataRepo.loaders.accucor_data_loader import (
     IsotopeObservationData,
     lcms_headers_are_valid,
 )
+from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sample_table_loader import (
@@ -17,6 +18,7 @@ from DataRepo.loaders.tracers_loader import TracersLoader
 
 __all__ = [
     "AccuCorDataLoader",
+    "AnimalsLoader",
     "IsotopeObservationData",
     "lcms_headers_are_valid",
     "CompoundsLoader",
