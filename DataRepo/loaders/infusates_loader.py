@@ -2,18 +2,13 @@ import math
 from collections import defaultdict, namedtuple
 from typing import Dict
 
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
-from DataRepo.utils.exceptions import (
-    InfileError,
-    RecordDoesNotExist,
-    summarize_int_list,
-)
+from DataRepo.utils.exceptions import InfileError, summarize_int_list
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
@@ -900,25 +895,20 @@ class InfusatesLoader(TableLoader):
         """
         rec = None
         rec_dict = None
+        query_dict = None
         created = False
 
         try:
             tracer_name = tracer_dict["tracer_name"]
-            try:
-                tracer_rec = Tracer.objects.get(name=tracer_name)
-            except ObjectDoesNotExist:
-                self.aggregated_errors_object.buffer_error(
-                    RecordDoesNotExist(
-                        Tracer,
-                        {"name": tracer_name},
-                        rownum=tracer_dict["rownum"],
-                        column=self.headers.TRACERNAME,
-                        file=self.file,
-                        sheet=self.sheet,
-                    )
-                )
-                return rec, created
+            query_dict = {"name": tracer_name}
+            tracer_rec = Tracer.objects.get(name=tracer_name)
+        except Exception as e:
+            # Package errors (like IntegrityError and ValidationError) with relevant details
+            # This also updates the skip row indexes
+            self.handle_load_db_errors(e, Tracer, query_dict)
+            return rec, created
 
+        try:
             tracer_concentration = tracer_dict["tracer_concentration"]
 
             rec_dict = {
