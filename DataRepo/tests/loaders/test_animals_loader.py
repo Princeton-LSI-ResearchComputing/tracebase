@@ -174,6 +174,13 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "errored": 1,
                     "updated": 0,
                 },
+                "AnimalLabel": {
+                    "created": 0,
+                    "existed": 0,
+                    "skipped": 1,
+                    "errored": 0,
+                    "updated": 0,
+                },
                 "Animal_studies": {
                     "created": 0,
                     "existed": 0,
@@ -220,3 +227,35 @@ class AnimalsLoaderTests(TracebaseTestCase):
         rec2, cre2 = al.get_or_create_animal_study_link(anml, stdy)
         self.assertFalse(cre2)
         self.assertEqual(rec, rec2)
+
+    def test_get_labeled_elements(self):
+        al = AnimalsLoader()
+
+        # None is OK
+        elems = al.get_labeled_elements(None)
+        self.assertEqual([], elems)
+
+        # 1 label
+        elems = al.get_labeled_elements(self.infusate)
+        self.assertEqual(["C"], elems)
+
+        # Multiple labels from different tracers
+        Compound.objects.create(
+            name="Isoleucine", formula="C6H13NO2", hmdb_id="HMDB0000172"
+        )
+        infusate_string = "test {isoleucine-[13C6,15N1];leucine-[13C6,15N1]}"
+        infdata = parse_infusate_name(infusate_string, [1, 2])
+        inf, _ = Infusate.objects.get_or_create_infusate(infdata)
+        elems = al.get_labeled_elements(inf)
+        self.assertEqual(set(["C", "N"]), set(elems))
+
+    def test_get_or_create_animal_label(self):
+        al = AnimalsLoader()
+        anml = Animal.objects.create(name="a1", genotype="WT", infusate=self.infusate)
+        rec, cre = al.get_or_create_animal_label(anml, "C")
+        self.assertTrue(cre)
+        self.assertIsNotNone(rec)
+
+        rec2, cre2 = al.get_or_create_animal_label(anml, "C")
+        self.assertFalse(cre2)
+        self.assertIsNotNone(rec2)
