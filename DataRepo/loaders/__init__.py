@@ -5,6 +5,7 @@ from DataRepo.loaders.accucor_data_loader import (
 )
 from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_loader import TableLoader
+from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotations_loader import (
@@ -31,6 +32,7 @@ __all__ = [
     "MSRunsLoader",
     "PeakAnnotationsLoader",
     "AccuCorDataLoader",
+    "AnimalsLoader",
     "IsotopeObservationData",
     "lcms_headers_are_valid",
     "CompoundsLoader",

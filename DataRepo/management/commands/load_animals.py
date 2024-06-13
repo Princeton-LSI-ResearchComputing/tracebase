@@ -17,7 +17,7 @@ class Command(LoadTableCommand):
             "--study-delimiter",
             type=str,
             help=(
-                f"Character delimiting multiple Studies in the {AnimalsLoader.DataHeaders.STUDIES} column (default "
+                f"Character delimiting multiple Studies in the {AnimalsLoader.DataHeaders.STUDY} column (default "
                 "'%(default)s')"
             ),
             default=self.loader_class.StudyDelimiter,

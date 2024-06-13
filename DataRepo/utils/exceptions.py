@@ -3070,7 +3070,7 @@ class InvalidLCMSHeaders(InvalidHeaders):
 
 class DuplicateHeaders(ValidationError):
     def __init__(self, dupes, all):
-        message = f"Duplicate column headers: {dupes.keys()}.  All: {all}"
+        message = f"Duplicate column headers: {list(dupes.keys())}.  All: {all}"
         for k in dupes.keys():
             message += f"\n\t{k} occurs {dupes[k]} times"
         super().__init__(message)
