@@ -3,7 +3,11 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from typing import Dict, Optional, Type
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    MultipleObjectsReturned,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
@@ -23,6 +27,7 @@ from DataRepo.utils.exceptions import (
     InfileError,
     InvalidHeaderCrossReferenceError,
     NoLoadData,
+    RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
     RequiredHeadersError,
@@ -1472,6 +1477,8 @@ class TableLoader(ABC):
         Returns:
             None
         """
+        # TODO: Add a check of the types and of enums here (in addition to read_from_file).  See:
+        # DataRepo.tests.loaders.test_animals_loader.AnimalsLoaderTests.test_animals_loader_load_data_invalid
         if reading_defaults:
             df = self.defaults_df
             file = self.defaults_file
@@ -1937,7 +1944,7 @@ class TableLoader(ABC):
                 apply_wrapper (function)
             """
 
-            def load_wrapper(self, *args, **kwargs):
+            def load_wrapper(self: TableLoader, *args, **kwargs):
                 """Wraps the load_data() method in the derived class.
 
                 Checks the file data and handles atomic transactions, running modes, exceptions, and load stats.
@@ -2247,6 +2254,39 @@ class TableLoader(ABC):
             )
         return found_errors
 
+    def buffer_infile_exception(
+        self, exception, is_error=True, is_fatal=True, column=None
+    ):
+        """Convenience method to keep the loading code succinct.  Buffers an exception (default: as fatal error) as an
+        InfileError.  Use this to provide file context to any non-database related exception.  The file name, sheet, and
+        rownum are automatically applied.
+
+        Args:
+            exception (Exception)
+            is_error (bool) [True]
+            is_fatal (bool) [True]
+            column (str|int) [None]: Name of the column or columns that is the source of the erroneous data.
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                InfileError
+        Returns:
+            None
+        """
+        self.aggregated_errors_object.buffer_exception(
+            InfileError(
+                str(exception),
+                file=self.file,
+                sheet=self.sheet,
+                column=column,
+                rownum=self.rownum,
+            ),
+            is_error=is_error,
+            is_fatal=is_fatal,
+            orig_exception=exception,
+        )
+
     def handle_load_db_errors(
         self,
         exception,
@@ -2391,6 +2431,36 @@ class TableLoader(ABC):
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method
             self.aggregated_errors_object.buffer_error(exception)
+            return True
+
+        elif isinstance(exception, ObjectDoesNotExist):
+            self.aggregated_errors_object.buffer_error(
+                RecordDoesNotExist(
+                    model,
+                    rec_dict,
+                    file=self.file,
+                    sheet=self.sheet,
+                    column=self.headers.INFUSATE,
+                    rownum=self.rownum,
+                ),
+                orig_exception=exception,
+            )
+            # No skip for queries. The (foreign key) field may not be required.  Proceed (to find more errors).
+            return True
+
+        elif isinstance(exception, MultipleObjectsReturned):
+            self.aggregated_errors_object.buffer_error(
+                RecordDoesNotExist(
+                    model,
+                    rec_dict,
+                    file=self.file,
+                    sheet=self.sheet,
+                    column=self.headers.INFUSATE,
+                    rownum=self.rownum,
+                ),
+                orig_exception=exception,
+            )
+            # No skip for queries. The (foreign key) field may not be required.  Proceed (to find more errors).
             return True
 
         if handle_all:
