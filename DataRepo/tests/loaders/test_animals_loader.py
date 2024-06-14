@@ -144,12 +144,12 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 ],  # DoesNotExist, and AnimalStudy skipped due to no animal
                 # Invalid values
                 AnimalsLoader.DataHeaders.NAME: ["anml1"],  # no error
-                AnimalsLoader.DataHeaders.WEIGHT: ["5g"],  # type error
-                AnimalsLoader.DataHeaders.AGE: ["2w"],  # type error
-                # Types are not yet checked in TableLoader, so the remaining 3 errors are occluded by the DB error for
-                # body_weight
+                AnimalsLoader.DataHeaders.WEIGHT: ["5g"],  # type error (from db)
+                AnimalsLoader.DataHeaders.AGE: ["2w"],  # type error (from code)
+                # Types are not yet checked in TableLoader, so some of these errors (the ones coming from the database)
+                # are occluded by the DB error for body_weight
                 # TODO: Add type and enum checks in check_dataframe_values.
-                AnimalsLoader.DataHeaders.SEX: ["XY"],  # no error (yet)
+                AnimalsLoader.DataHeaders.SEX: ["XY"],  # type error (from code)
                 AnimalsLoader.DataHeaders.INFUSIONRATE: ["6.0mM"],  # no error (yet)
             }
         )
@@ -157,13 +157,17 @@ class AnimalsLoaderTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             al.load_data()
         aes = ar.exception
-        self.assertEqual(3, len(aes.exceptions))
+        self.assertEqual(4, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], InfileError)
         self.assertIn("timedelta", str(aes.exceptions[0]))
-        self.assertIsInstance(aes.exceptions[1], InfileDatabaseError)
-        self.assertIn("Field 'body_weight' expected a number", str(aes.exceptions[1]))
-        self.assertIsInstance(aes.exceptions[2], RecordDoesNotExist)
-        self.assertIn("Study", str(aes.exceptions[2]))
+        self.assertIsInstance(aes.exceptions[1], InfileError)
+        self.assertIn(
+            "must be one of [('F', 'female'), ('M', 'male')]", str(aes.exceptions[1])
+        )
+        self.assertIsInstance(aes.exceptions[2], InfileDatabaseError)
+        self.assertIn("Field 'body_weight' expected a number", str(aes.exceptions[2]))
+        self.assertIsInstance(aes.exceptions[3], RecordDoesNotExist)
+        self.assertIn("Study", str(aes.exceptions[3]))
         self.assertEqual(0, Animal.objects.count())
         self.assertDictEqual(
             {

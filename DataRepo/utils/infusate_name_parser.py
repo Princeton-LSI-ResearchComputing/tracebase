@@ -50,6 +50,28 @@ class InfusateData(TypedDict):
     tracers: List[InfusateTracerData]
 
 
+def parse_group_and_tracer_names(
+    infusate_string: str,
+) -> Tuple[Optional[str], List[str]]:
+    tracer_group_name = None
+    tracer_names = []
+    match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
+
+    if match:
+        short_name = match.group("infusate_name")
+        if short_name is not None and short_name.strip() != "":
+            tracer_group_name = short_name.strip()
+        tracer_names = split_encoded_tracers_string(
+            match.group("tracers_string").strip()
+        )
+    else:
+        raise InfusateParsingError(
+            f"Unable to parse infusate string: [{infusate_string}]"
+        )
+
+    return tracer_group_name, tracer_names
+
+
 def parse_infusate_name(
     infusate_string: str, concentrations: List[int]
 ) -> InfusateData:
@@ -79,19 +101,9 @@ def parse_infusate_name(
         "tracers": list(),
     }
 
-    match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
-
-    if match:
-        short_name = match.group("infusate_name")
-        if short_name is not None and short_name.strip() != "":
-            parsed_data["infusate_name"] = short_name.strip()
-        tracer_strings = split_encoded_tracers_string(
-            match.group("tracers_string").strip()
-        )
-    else:
-        raise InfusateParsingError(
-            f"Unable to parse infusate string: [{infusate_string}]"
-        )
+    parsed_data["infusate_name"], tracer_strings = parse_group_and_tracer_names(
+        infusate_string
+    )
 
     # If concentrations were supplied, there must be one per tracer
     if len(tracer_strings) != len(concentrations):
@@ -110,9 +122,20 @@ def parse_infusate_name(
     return parsed_data
 
 
+# TODO: The infusate name (and tracer name, for that matter) employs a significant digits mechanism to make
+# concentrations appear nice (instead of, due to floating point precision issues, like "100.0000000000001").  Since the
+# names are now used to associate infusates in the infusates sheet with animals using the name, that name has to be
+# loaded prior to running the animals loader, and it can differ from what the user entered (e.g. 148.88 ends up putting
+# 149 in the name) can potentially cause lookups to fail.  This has been worked around by using a fallback mechanism
+# that uses the exact number to query the actual data.  That mechanism could be reliable (I haven't looked in detail at
+# the `get_infusate method before writing this TODO), but what would be better is having the means to use the entered
+# data in the column to format a name to be used in lookups in the exact same way names are constructed by the model.
+# We might also consider increasing the number of significant digits, so that every number manually entered is included
+# (aside from trailing zeros), because we could potentially end up in a situation where an entered number (148.5 vs
+# 148.9) would end up retrieving the wrong infusate, or end up creating an integrity error.
 def parse_infusate_name_with_concs(infusate_string: str) -> InfusateData:
-    """Takes a complex infusate, coded as a string, and parses it into its optional tracer group name, lists of
-    tracer(s) with concentration(s), and compounds.
+    """Takes a complex infusate, coded as a string, and parses it into its optional tracer group name and lists of
+    tracers with concentrations and compounds.
 
     Args:
         infusate_string (string): A string representation of an infusate
@@ -131,19 +154,9 @@ def parse_infusate_name_with_concs(infusate_string: str) -> InfusateData:
         "tracers": list(),
     }
 
-    match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
-
-    if match:
-        short_name = match.group("infusate_name")
-        if short_name is not None and short_name.strip() != "":
-            parsed_data["infusate_name"] = short_name.strip()
-        tracer_strings = split_encoded_tracers_string(
-            match.group("tracers_string").strip()
-        )
-    else:
-        raise InfusateParsingError(
-            f"Unable to parse infusate string: [{infusate_string}]"
-        )
+    parsed_data["infusate_name"], tracer_strings = parse_group_and_tracer_names(
+        infusate_string
+    )
 
     for tracer_string in tracer_strings:
         tracer_data, concentration = parse_tracer_with_conc_string(tracer_string)

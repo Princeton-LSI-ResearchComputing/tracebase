@@ -2472,7 +2472,10 @@ class TableLoader(ABC):
 
         if handle_all:
             if rec_dict is not None and len(rec_dict.keys()) > 0:
-                self.aggregated_errors_object.buffer_error(exc)
+                self.aggregated_errors_object.buffer_error(
+                    exc,
+                    orig_exception=exception,
+                )
             else:
                 self.aggregated_errors_object.buffer_error(exception)
             return True
