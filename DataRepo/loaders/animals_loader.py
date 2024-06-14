@@ -11,6 +11,7 @@ from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import Animal, Infusate, MaintainedModel, Protocol, Study
 from DataRepo.models.animal_label import AnimalLabel
+from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils.exceptions import RollbackException
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
@@ -247,6 +248,7 @@ class AnimalsLoader(TableLoader):
                     # Continue processing rows to find more errors
                     pass
 
+    @transaction.atomic
     def get_or_create_animal(
         self, row, infusate: Infusate, treatment: Optional[Protocol] = None
     ):
@@ -305,7 +307,12 @@ class AnimalsLoader(TableLoader):
                 errored = True
                 # Press on to find more errors...
         if sex is not None:
-            rec_dict["sex"] = sex
+            try:
+                rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.SEX)
+                errored = True
+                # Press on to find more errors...
         if diet is not None:
             rec_dict["diet"] = diet
         if feeding_status is not None:
@@ -353,6 +360,7 @@ class AnimalsLoader(TableLoader):
         name = self.get_row_val(row, self.headers.INFUSATE)
 
         if name is None:
+            # There should have been a RequiredColumnHeader/Value error already, if we get here, so just return None
             return rec
 
         query_dict = {"name": name}
@@ -369,12 +377,13 @@ class AnimalsLoader(TableLoader):
                 # opposed to the formatted name in the database).
                 infusate_data = parse_infusate_name_with_concs(name)
                 rec = Infusate.objects.get_infusate(infusate_data)
-            except Exception:
-                # We will just report the first exception, not the backup attempt.
-
+                if rec is None:
+                    self.handle_load_db_errors(e, Infusate, query_dict)
+                    self.add_skip_row_index()
+            except Exception as e2:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
                 # This also updates the skip row indexes
-                self.handle_load_db_errors(e, Infusate, query_dict)
+                self.handle_load_db_errors(e2, Infusate, query_dict)
                 self.add_skip_row_index()
                 # TODO: After merge, make sure all the loaders use handle_load_db_errors for RecordDoesNotExist errors
 
@@ -422,6 +431,7 @@ class AnimalsLoader(TableLoader):
         names_str = self.get_row_val(row, self.headers.STUDY)
 
         if names_str is None:
+            recs.append(None)
             return recs
 
         for name in names_str.split(self.StudyDelimiter):
@@ -489,10 +499,11 @@ class AnimalsLoader(TableLoader):
         Exceptions:
             None
         Returns:
-            elements (List[str])
+            elements (List[Optional[str]])
         """
-        return [] if infusate is None else infusate.tracer_labeled_elements()
+        return [None] if infusate is None else infusate.tracer_labeled_elements()
 
+    @transaction.atomic
     def get_or_create_animal_label(
         self, animal: Optional[Animal], element: Optional[str]
     ):

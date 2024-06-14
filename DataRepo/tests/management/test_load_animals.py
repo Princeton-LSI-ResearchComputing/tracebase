@@ -7,9 +7,15 @@ from DataRepo.models.animal import Animal
 from DataRepo.models.compound import Compound
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.infusate import Infusate
+from DataRepo.models.maintained_model import MaintainedModel
+from DataRepo.models.protocol import Protocol
 from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.infusate_name_parser import parse_infusate_name
+from DataRepo.utils.exceptions import AggregatedErrors, InfileDatabaseError
+from DataRepo.utils.infusate_name_parser import (
+    parse_infusate_name,
+    parse_infusate_name_with_concs,
+)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -81,3 +87,170 @@ class LoadAnimalsSmallObob2Tests(TracebaseTestCase):
         with self.assertRaises(RestrictedError):
             # test a restricted deletion
             treatment.delete()
+
+
+@override_settings(CACHES=settings.TEST_CACHES)
+class LoadAnimalsSmallObobTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        Study.objects.create(name="Small OBOB")
+        Study.objects.create(name="test_labeled_elements")
+
+        # TODO: This will need to change once the submission process refactor is done
+        call_command(
+            "load_study",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+        )
+        super().setUpTestData()
+
+    @MaintainedModel.no_autoupdates()
+    def test_animals_load_xlsx(self):
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+
+        call_command(
+            "load_animals",
+            infile="DataRepo/data/tests/small_obob/study.xlsx",
+            dry_run=False,
+        )
+        self.assertEqual(1, Animal.objects.all().count())
+
+    @MaintainedModel.no_autoupdates()
+    def test_animals_labeled_element_parsing_invalid(self):
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals",
+                infile="DataRepo/data/tests/small_obob/study_labeled_elements_invalid.xlsx",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], InfileDatabaseError)
+        self.assertIn("IsotopeParsingError", str(aes.exceptions[0]))
+
+
+# TODO: Move MaintainedModel-specific tests to its own test file that doesn't use tracebase models
+@override_settings(CACHES=settings.TEST_CACHES)
+class LoadAnimalsAutoupdateTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        if 1 != len(all_coordinators):
+            raise ValueError(
+                f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
+            )
+        if all_coordinators[0].auto_update_mode != "always":
+            raise ValueError(
+                "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+            )
+        if 0 != all_coordinators[0].buffer_size():
+            raise ValueError(
+                f"Before setting up test data, there are {all_coordinators[0].buffer_size()} items in the buffer."
+            )
+
+        call_command(
+            "load_compounds",
+            infile="DataRepo/data/tests/small_multitracer/compounds.tsv",
+        )
+        bcaa = "BCAAs (VLI) {valine-[13C5,15N1][20]; leucine-[13C6,15N1][24]; isoleucine-[13C6,15N1][12]}"
+        Infusate.objects.get_or_create_infusate(parse_infusate_name_with_concs(bcaa))
+        eaa6 = (
+            "6EAAs (MFWKHT) {methionine-[13C5][14]; phenylalanine-[13C9][18]; tryptophan-[13C11][5]; "
+            "lysine-[13C6][23]; histidine-[13C6][10]; threonine-[13C4][15]}"
+        )
+        Infusate.objects.get_or_create_infusate(parse_infusate_name_with_concs(eaa6))
+        Protocol.objects.create(name="no treatment", category=Protocol.ANIMAL_TREATMENT)
+        Protocol.objects.create(name="obob_fasted", category=Protocol.ANIMAL_TREATMENT)
+        Study.objects.create(name="ob/ob Fasted")
+        Study.objects.create(name="obob_fasted")
+        Study.objects.create(name="Small OBOB")
+
+        if 0 != all_coordinators[0].buffer_size():
+            raise ValueError(
+                f"load_study left {all_coordinators[0].buffer_size()} items in the buffer."
+            )
+
+        super().setUpTestData()
+
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        MaintainedModel._reset_coordinators()
+        super().setUp()
+
+    def tearDown(self):
+        self.assert_coordinator_state_is_initialized()
+        super().tearDown()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "always"
+        self.assertEqual(
+            "always",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode should be 'always'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
+
+    # TODO: Un-comment once #992 is merged and this is rebased, as 992 re-introduces the raise of DryRun in load_table
+    # def test_animal_load_in_dry_run(self):
+    #     # Load some data to ensure that none of it changes during the actual test
+    #     call_command(
+    #         "load_animals",
+    #         infile=(
+    #             "DataRepo/data/tests/small_multitracer/"
+    #             # "animal_sample_table.xlsx"
+    #             "study.xlsx"
+    #         ),
+    #     )
+
+    #     pre_load_counts = self.get_record_counts()
+    #     pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+    #         "DataRepo.models"
+    #     )
+    #     self.assertGreater(
+    #         len(pre_load_maintained_values.keys()),
+    #         0,
+    #         msg="Ensure there is data in the database before the test",
+    #     )
+    #     self.assert_coordinator_state_is_initialized()
+
+    #     with self.assertRaises(DryRun):
+    #         call_command(
+    #             "load_animals",
+    #             infile="DataRepo/data/tests/small_obob/study.xlsx",
+    #             dry_run=True,
+    #         )
+
+    #     post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+    #         "DataRepo.models"
+    #     )
+    #     post_load_counts = self.get_record_counts()
+
+    #     self.assertEqual(
+    #         pre_load_counts,
+    #         post_load_counts,
+    #         msg="DryRun mode doesn't change any table's record count.",
+    #     )
+    #     self.assertEqual(
+    #         pre_load_maintained_values,
+    #         post_load_maintained_values,
+    #         msg="DryRun mode doesn't autoupdate.",
+    #     )
