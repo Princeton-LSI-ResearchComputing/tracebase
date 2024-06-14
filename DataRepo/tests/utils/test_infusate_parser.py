@@ -12,9 +12,11 @@ from DataRepo.utils.infusate_name_parser import (
     TracerData,
     TracerParsingError,
     parse_infusate_name,
+    parse_infusate_name_with_concs,
     parse_isotope_string,
     parse_tracer_concentrations,
     parse_tracer_string,
+    parse_tracer_with_conc_string,
 )
 
 
@@ -275,6 +277,21 @@ class InfusateParsingTests(InfusateTest):
         self.assertAlmostEqual(
             [10.0, 20.0, 30.0], parse_tracer_concentrations("10; 20;30")
         )
+
+    def test_parse_infusate_name_with_concs(self):
+        inf_data = parse_infusate_name_with_concs("lactate-[13C3][148.88]")
+        self.assertEqual("lactate-[13C3][148.88]", inf_data["unparsed_string"])
+        self.assertIsNone(inf_data["infusate_name"])
+        self.assertEqual(1, len(inf_data["tracers"]))
+        self.assertIsNotNone(inf_data["tracers"][0])
+
+    def test_parse_tracer_with_conc_string(self):
+        tcr_data, conc = parse_tracer_with_conc_string("lactate-[13C3][148.88]")
+        self.assertEqual("lactate-[13C3][148.88]", tcr_data["unparsed_string"])
+        self.assertEqual("lactate", tcr_data["compound_name"])
+        self.assertEqual(1, len(tcr_data["isotopes"]))
+        self.assertIsNotNone(tcr_data["isotopes"][0])
+        self.assertEqual(148.88, conc)
 
 
 class InfusateValidationTests(InfusateTest):

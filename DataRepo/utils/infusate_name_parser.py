@@ -1,6 +1,6 @@
 import re
 from itertools import zip_longest
-from typing import List, Optional, TypedDict
+from typing import List, Optional, Tuple, TypedDict
 
 from DataRepo.models.element_label import ElementLabel
 
@@ -13,6 +13,9 @@ INFUSATE_ENCODING_PATTERN = re.compile(
 TRACERS_ENCODING_JOIN = ";"
 TRACER_ENCODING_PATTERN = re.compile(
     r"^(?P<compound_name>.*?)-\[(?P<isotopes>[^\[\]]+)\]$"
+)
+TRACER_WITH_CONC_ENCODING_PATTERN = re.compile(
+    r"^(?P<compound_name>.*?)-\[(?P<isotopes>[^\[\]]+)\]\[(?P<concentration>[^\[\]]+)\]$"
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
@@ -47,6 +50,28 @@ class InfusateData(TypedDict):
     tracers: List[InfusateTracerData]
 
 
+def parse_group_and_tracer_names(
+    infusate_string: str,
+) -> Tuple[Optional[str], List[str]]:
+    tracer_group_name = None
+    tracer_names = []
+    match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
+
+    if match:
+        short_name = match.group("infusate_name")
+        if short_name is not None and short_name.strip() != "":
+            tracer_group_name = short_name.strip()
+        tracer_names = split_encoded_tracers_string(
+            match.group("tracers_string").strip()
+        )
+    else:
+        raise InfusateParsingError(
+            f"Unable to parse infusate string: [{infusate_string}]"
+        )
+
+    return tracer_group_name, tracer_names
+
+
 def parse_infusate_name(
     infusate_string: str, concentrations: List[int]
 ) -> InfusateData:
@@ -76,19 +101,9 @@ def parse_infusate_name(
         "tracers": list(),
     }
 
-    match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
-
-    if match:
-        short_name = match.group("infusate_name")
-        if short_name is not None and short_name.strip() != "":
-            parsed_data["infusate_name"] = short_name.strip()
-        tracer_strings = split_encoded_tracers_string(
-            match.group("tracers_string").strip()
-        )
-    else:
-        raise InfusateParsingError(
-            f"Unable to parse infusate string: [{infusate_string}]"
-        )
+    parsed_data["infusate_name"], tracer_strings = parse_group_and_tracer_names(
+        infusate_string
+    )
 
     # If concentrations were supplied, there must be one per tracer
     if len(tracer_strings) != len(concentrations):
@@ -100,6 +115,53 @@ def parse_infusate_name(
     for tracer_string, concentration in zip_longest(tracer_strings, concentrations):
         infusate_tracer: InfusateTracerData = {
             "tracer": parse_tracer_string(tracer_string),
+            "concentration": concentration,
+        }
+        parsed_data["tracers"].append(infusate_tracer)
+
+    return parsed_data
+
+
+# TODO: The infusate name (and tracer name, for that matter) employs a significant digits mechanism to make
+# concentrations appear nice (instead of, due to floating point precision issues, like "100.0000000000001").  Since the
+# names are now used to associate infusates in the infusates sheet with animals using the name, that name has to be
+# loaded prior to running the animals loader, and it can differ from what the user entered (e.g. 148.88 ends up putting
+# 149 in the name) can potentially cause lookups to fail.  This has been worked around by using a fallback mechanism
+# that uses the exact number to query the actual data.  That mechanism could be reliable (I haven't looked in detail at
+# the `get_infusate method before writing this TODO), but what would be better is having the means to use the entered
+# data in the column to format a name to be used in lookups in the exact same way names are constructed by the model.
+# We might also consider increasing the number of significant digits, so that every number manually entered is included
+# (aside from trailing zeros), because we could potentially end up in a situation where an entered number (148.5 vs
+# 148.9) would end up retrieving the wrong infusate, or end up creating an integrity error.
+def parse_infusate_name_with_concs(infusate_string: str) -> InfusateData:
+    """Takes a complex infusate, coded as a string, and parses it into its optional tracer group name and lists of
+    tracers with concentrations and compounds.
+
+    Args:
+        infusate_string (string): A string representation of an infusate
+    Exceptions:
+        InfusateParsingError: If unable to properly parse the infusate_string and list of concentrations.
+    Returns:
+        parsed_data (InfusateData): An InfusateData object built using the parsed values.
+    """
+
+    # defaults
+    # assume the string lacks the optional name, and it is all tracer encodings
+    infusate_string = infusate_string.strip()
+    parsed_data: InfusateData = {
+        "unparsed_string": infusate_string,
+        "infusate_name": None,
+        "tracers": list(),
+    }
+
+    parsed_data["infusate_name"], tracer_strings = parse_group_and_tracer_names(
+        infusate_string
+    )
+
+    for tracer_string in tracer_strings:
+        tracer_data, concentration = parse_tracer_with_conc_string(tracer_string)
+        infusate_tracer: InfusateTracerData = {
+            "tracer": tracer_data,
             "concentration": concentration,
         }
         parsed_data["tracers"].append(infusate_tracer)
@@ -135,6 +197,45 @@ def parse_tracer_string(tracer: str) -> TracerData:
         )
 
     return tracer_data
+
+
+def parse_tracer_with_conc_string(tracer_string: str) -> Tuple[TracerData, float]:
+    """Takes a complex tracer, coded as a string, containing a concentration, and parses it into its isotope string and
+    concentration.
+
+    Args:
+        tracer_string (string): A string representation of an infusate
+    Exceptions:
+        InfusateParsingError: If unable to properly parse the infusate_string and list of concentrations.
+    Returns:
+        tracer_data (TracerData)
+        concentration (float)
+    """
+    tracer_data: TracerData = {
+        "unparsed_string": tracer_string,
+        "compound_name": "",
+        "isotopes": list(),
+    }
+    concentration = 0.0
+    match = re.search(TRACER_WITH_CONC_ENCODING_PATTERN, tracer_string)
+    if match:
+        tracer_data["compound_name"] = match.group("compound_name").strip()
+        tracer_data["isotopes"] = parse_isotope_string(match.group("isotopes").strip())
+        concentration = float(match.group("concentration").strip())
+    else:
+        raise TracerParsingError(f'Encoded tracer "{tracer_string}" cannot be parsed.')
+
+    # Compound names are very permissive, but we should at least make sure a malformed isotope specification didn't
+    # bleed into the compound pattern (like you would get if the wrong delimiter was used
+    # - see test_malformed_tracer_parsing_with_improper_delimiter)
+    imatch = re.search(ISOTOPE_ENCODING_PATTERN, tracer_data["compound_name"])
+    if imatch:
+        raise TracerParsingError(
+            f'Encoded tracer "{tracer_string}" cannot be parsed.  A compound name cannot contain an isotope encoding '
+            "string."
+        )
+
+    return tracer_data, concentration
 
 
 def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:

@@ -1,0 +1,12 @@
+---
+STUDY: "Experiment Name"
+NAME: "Animal ID"
+WEIGHT: "Animal Body Weight"
+AGE:
+SEX:
+GENOTYPE: "Animal Genotype"
+FEEDINGSTATUS: "Animal State"
+DIET:
+TREATMENT: "Animal Treatment"
+INFUSATE: "Infusate"
+INFUSIONRATE: "Infusion Rate"
