@@ -244,10 +244,27 @@ class AnimalsLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
 
     def test_animals_loader_get_studies(self):
+        al = AnimalsLoader()
+
+        row = pd.Series({AnimalsLoader.DataHeaders.STUDY: None})
+        recs = al.get_studies(row)
+        # None is OK - Results in an included None, just so the skipped count gets incremented once.
+        self.assertEqual([None], recs)
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+        row = pd.Series({AnimalsLoader.DataHeaders.STUDY: "stud1; stud2"})
+        recs = al.get_studies(row)
+        # Results include None for each not-found record, just so the skipped count gets incremented.
+        self.assertEqual([None, None], recs)
+        self.assertEqual(2, len(al.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            2, len(al.aggregated_errors_object.get_exception_type(RecordDoesNotExist))
+        )
+        # Reset the exceptions
+        al.aggregated_errors_object = AggregatedErrors()
+
         s1 = Study.objects.create(name="stud1")
         s2 = Study.objects.create(name="stud2")
-        row = pd.Series({AnimalsLoader.DataHeaders.STUDY: "stud1; stud2"})
-        al = AnimalsLoader()
         recs = al.get_studies(row)
         self.assertEqual([s1, s2], recs)
         self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
@@ -267,9 +284,9 @@ class AnimalsLoaderTests(TracebaseTestCase):
     def test_get_labeled_elements(self):
         al = AnimalsLoader()
 
-        # None is OK
+        # None is OK - Results in an included None, just so the skipped count gets incremented.
         elems = al.get_labeled_elements(None)
-        self.assertEqual([], elems)
+        self.assertEqual([None], elems)
 
         # 1 label
         elems = al.get_labeled_elements(self.infusate)
