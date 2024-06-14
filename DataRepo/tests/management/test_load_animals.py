@@ -37,7 +37,7 @@ class LoadAnimalsSmallObob2Tests(TracebaseTestCase):
         )
         call_command(
             "load_animals",
-            infile="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
+            infile="DataRepo/data/tests/small_obob2/animals_table.tsv",
             headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
         )
         call_command(
