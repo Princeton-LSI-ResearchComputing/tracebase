@@ -431,6 +431,7 @@ class AnimalsLoader(TableLoader):
         names_str = self.get_row_val(row, self.headers.STUDY)
 
         if names_str is None:
+            # Appending None so that the skipped count will get incremented once.
             recs.append(None)
             return recs
 
@@ -501,6 +502,7 @@ class AnimalsLoader(TableLoader):
         Returns:
             elements (List[Optional[str]])
         """
+        # Including None when empty so that the skipped count will get incremented once.
         return [None] if infusate is None else infusate.tracer_labeled_elements()
 
     @transaction.atomic
