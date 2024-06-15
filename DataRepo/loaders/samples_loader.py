@@ -224,6 +224,10 @@ class SamplesLoader(TableLoader):
             if date_str is not None:
                 date = string_to_datetime(date_str)
         except DateParseError as dpe:
+            # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
+            # we can catch more errors
+            date = datetime.now()
+            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
             # TODO: Once rebased on pending PRs, just call set_formatted_message instead of all this:
             self.aggregated_errors_object.buffer_exception(
                 DateParseError(
@@ -237,9 +241,12 @@ class SamplesLoader(TableLoader):
                 ),
                 orig_exception=dpe.ve_exc,
             )
+        except ValueError as ve:
+            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             date = datetime.now()
+            self.aggregated_errors_object.buffer_exception(ve)
 
         time_collected_str = self.get_row_val(row, self.headers.DAYS_INFUSED)
         try:
@@ -247,10 +254,11 @@ class SamplesLoader(TableLoader):
             if time_collected_str is not None:
                 time_collected = timedelta(days=time_collected_str)
         except Exception as e:
-            self.buffer_infile_exception(e, column=self.headers.DAYS_INFUSED)
+            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             time_collected = timedelta(days=0)
+            self.buffer_infile_exception(e, column=self.headers.DAYS_INFUSED)
 
         if animal is None or tissue is None or self.is_skip_row():
             # An animal or tissue being None would have already buffered a required value error
@@ -308,7 +316,9 @@ class SamplesLoader(TableLoader):
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
-            self.handle_load_db_errors(e, Animal, query_dict)
+            self.handle_load_db_errors(
+                e, Animal, query_dict, columns=self.headers.ANIMAL
+            )
             self.add_skip_row_index()
 
         return rec
@@ -337,7 +347,9 @@ class SamplesLoader(TableLoader):
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
-            self.handle_load_db_errors(e, Tissue, query_dict)
+            self.handle_load_db_errors(
+                e, Tissue, query_dict, columns=self.headers.TISSUE
+            )
             self.add_skip_row_index()
 
         return rec

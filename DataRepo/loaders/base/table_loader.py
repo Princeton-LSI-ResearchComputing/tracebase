@@ -2332,6 +2332,7 @@ class TableLoader(ABC):
         exception,
         model,
         rec_dict,
+        columns=None,
         handle_all=True,
     ):
         """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
@@ -2348,8 +2349,8 @@ class TableLoader(ABC):
             exception (Exception): Exception, e.g. obtained from `except` block
             model (Model): Model being loaded when the exception occurred
             rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
-            sheet (str): Name of the Excel sheet that was being loaded when the exception occurred.
-            file (str): Name (path optional) of the file that was being loaded when the exception occurred.
+            columns (object): Column or columns that were being processed when the exception occurred.
+            handle_all (bool) [True]: Whether to handle exceptions unrelated to specifically supported db exceptions.
 
         Exceptions:
             Raises:
@@ -2366,7 +2367,12 @@ class TableLoader(ABC):
         # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
         estr = str(exception)
         exc = InfileDatabaseError(
-            exception, rec_dict, rownum=self.rownum, sheet=self.sheet, file=self.file
+            exception,
+            rec_dict,
+            rownum=self.rownum,
+            sheet=self.sheet,
+            file=self.file,
+            column=columns,
         )
 
         if isinstance(exception, IntegrityError):
@@ -2418,6 +2424,8 @@ class TableLoader(ABC):
                         and colname in self.FieldToHeader[model.__name__].keys()
                     ):
                         colname = self.FieldToHeader[model.__name__][fldname]
+                    elif columns is not None:
+                        colname += f" ({columns})"
                     self.aggregated_errors_object.buffer_error(
                         RequiredValueError(
                             column=colname,
@@ -2535,7 +2543,7 @@ class TableLoader(ABC):
                     rec_dict,
                     file=self.file,
                     sheet=self.sheet,
-                    column=self.headers.INFUSATE,
+                    column=columns,
                     rownum=self.rownum,
                 ),
                 orig_exception=exception,
@@ -2550,7 +2558,7 @@ class TableLoader(ABC):
                     rec_dict,
                     file=self.file,
                     sheet=self.sheet,
-                    column=self.headers.INFUSATE,
+                    column=columns,
                     rownum=self.rownum,
                 ),
                 orig_exception=exception,
