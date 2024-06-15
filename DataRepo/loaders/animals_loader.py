@@ -9,8 +9,14 @@ from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.table_loader import TableLoader
-from DataRepo.models import Animal, Infusate, MaintainedModel, Protocol, Study
-from DataRepo.models.animal_label import AnimalLabel
+from DataRepo.models import (
+    Animal,
+    AnimalLabel,
+    Infusate,
+    MaintainedModel,
+    Protocol,
+    Study,
+)
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils.exceptions import RollbackException
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -196,7 +202,7 @@ class AnimalsLoader(TableLoader):
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
             Derived (this) class Args:
                 study_delimiter (Optional[str]) [;]: Study name string delimiter.
-        Raises:
+        Exceptions:
             None
         Returns:
             None
@@ -259,7 +265,10 @@ class AnimalsLoader(TableLoader):
             infusate (Infusate)
             treatment (Optional[Protocol])
         Exceptions:
-            None
+            Raises:
+                RollbackException
+            Buffers:
+                None
         Returns:
             rec (Animal)
             created (boolean)
@@ -349,10 +358,7 @@ class AnimalsLoader(TableLoader):
         Args:
             row (pd.Series)
         Exceptions:
-            Raises:
-                None
-            Buffers:
-                None
+            None
         Returns:
             rec (Optional[Infusate])
         """
@@ -403,6 +409,7 @@ class AnimalsLoader(TableLoader):
         name = self.get_row_val(row, self.headers.TREATMENT)
 
         if name is None:
+            # The treatment column is optional
             return rec
 
         query_dict = {"name": name}
@@ -460,7 +467,10 @@ class AnimalsLoader(TableLoader):
             animal (Optional[Animal])
             study (Optional[Study])
         Exceptions:
-            None
+            Raises:
+                RollbackException
+            Buffers:
+                None
         Returns:
             rec (Optional[AnimalStudy])
             created (boolean)
@@ -515,7 +525,10 @@ class AnimalsLoader(TableLoader):
             animal (Optional[Animal])
             element (Optional[str])
         Exceptions:
-            None
+            Raises:
+                RollbackException
+            Buffers:
+                None
         Returns:
             rec (Optional[AnimalLabel])
             created (bool)

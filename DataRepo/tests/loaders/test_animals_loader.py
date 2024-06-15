@@ -3,11 +3,7 @@ from datetime import timedelta
 import pandas as pd
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
-from DataRepo.models.animal import Animal
-from DataRepo.models.compound import Compound
-from DataRepo.models.infusate import Infusate
-from DataRepo.models.protocol import Protocol
-from DataRepo.models.study import Study
+from DataRepo.models import Animal, Compound, Infusate, Protocol, Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
