@@ -5,13 +5,15 @@ from collections import namedtuple
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredOptions,
+    DryRun,
+    NotATableLoader,
     OptionsNotAvailable,
     RequiredOptions,
 )
@@ -157,16 +159,13 @@ class LoadTableCommandTests(TracebaseTestCase):
 
     def test_apply_handle_wrapper(self):
         """
-        This tests indirectly that apply_handle_wrapper works.  apply_handle_wrapper is called from the constructor and
-        wraps the derived class's with a method called handle_wrapper.  When handle_wrapper executes, it adds an
-        attribute named saved_aes, so to test that it was applied as a wrapper, we create an instance of MyCommand
-        (which inherits from LoadTableCommand) and then we call handle().  We then ensure the saved_aes attribute
-        was added, from which we infer that the handle_wrapper was applied.
+        This tests that apply_handle_wrapper works.  apply_handle_wrapper is called from the constructor and wraps the
+        derived class with a method called handle_wrapper.  To test that it was applied as a wrapper, we create an
+        instance of MyCommand (which inherits from LoadTableCommand) and then we check that the name of the method is
+        the wrapper name.
         """
         mc = TestCommand()
-        self.assertFalse(hasattr(mc, "saved_aes"))
-        mc.handle(**self.TEST_OPTIONS)
-        self.assertTrue(hasattr(mc, "saved_aes"))
+        self.assertEqual(mc.handle.__name__, "handle_wrapper")
 
     def test_check_class_attributes_pass(self):
         """
@@ -194,7 +193,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             TestTypeCommand()
         aes = ar.exception
         self.assertEqual((1, 0), (aes.num_errors, aes.num_warnings))
-        self.assertEqual(TypeError, type(aes.exceptions[0]))
+        self.assertEqual(NotATableLoader, type(aes.exceptions[0]))
         self.assertIn("loader_class", str(aes.exceptions[0]))
 
     def test_load_data(self):
@@ -329,8 +328,8 @@ class LoadTableCommandTests(TracebaseTestCase):
         # Now test the output is correct
         self.assertEqual(
             (
-                "Done.\nLoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], and errored: "
-                "[4].\n"
+                "Done.\nLoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], errored: "
+                "[4], and warned: [0].\n"
             ),
             capture_stdout.getvalue(),
         )
@@ -366,6 +365,8 @@ class LoadTableCommandTests(TracebaseTestCase):
             tc.loader.skipped(None, 3)
             tc.loader.errored(None, 4)
 
+            tc.dry_run_exception = DryRun()
+
             # Report the stats result to the console
             tc.report_status()
         except Exception as e:
@@ -379,7 +380,8 @@ class LoadTableCommandTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Dry-run complete.  The following would occur during a real load:\n"
-                "LoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], and errored: [4].\n"
+                "LoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], errored: [4], and "
+                "warned: [0].\n"
             ),
             capture_stdout.getvalue(),
         )

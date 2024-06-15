@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import traceback
 import warnings
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, Optional
 
@@ -18,6 +19,37 @@ if TYPE_CHECKING:
     from DataRepo.models.archive_file import ArchiveFile
     from DataRepo.models.msrun_sample import MSRunSample
     from DataRepo.models.sample import Sample
+
+
+class SummarizableError(Exception, ABC):
+    @property
+    @abstractmethod
+    def SummarizerExceptionClass(self):
+        """An exception class that takes a list of Exceptions of derived exception classes of this class as the sole
+        required positional argument to its constructor.  All keyword arguments are ignored (if they exist).
+
+        Usage example:
+            # Create a summarizer Exception class - code it however you want
+            class MyExceptionSummarier(Exception):
+                def __init__(self, exceptions: List[MyException])
+                    ...
+
+            # Create your exception class that inherits from SummarizableError - code it however you want, just define
+            # SummarizerExceptionClass
+            class MyException(SummarizableError):
+                SummarizerExceptionClass = MyExceptionSummarier
+                ...
+
+            # Later, when you're handling multiple buffered exceptions (i.e. you have an AggregatedErrors object: aes),
+            # you can check if it's summarizable, and replace them with the summarized version
+            if issubclass(myexception, SummarizableError):
+                aes.buffer_error(
+                    myexception.SummarizerExceptionClass(
+                        aes.remove_exception_type(type(myexception))
+                    )
+                )
+        """
+        pass
 
 
 class InfileError(Exception):
@@ -133,29 +165,6 @@ class HeaderError(Exception):
     pass
 
 
-class RequiredValueError(InfileError):
-    def __init__(
-        self,
-        column,
-        rownum,
-        model_name,
-        field_name,
-        rec_dict=None,
-        message=None,
-        **kwargs,
-    ):
-        if not message:
-            message = "Value required on %s."
-            if rec_dict is not None:
-                message += f"  Record extracted from row: {str(rec_dict)}."
-        super().__init__(message, **kwargs)
-        self.column = column
-        self.rownum = rownum
-        self.model_name = model_name
-        self.field_name = field_name
-        self.rec_dict = rec_dict
-
-
 class RequiredValueErrors(Exception):
     """Summary of all missing required value errors
 
@@ -199,16 +208,29 @@ class RequiredValueErrors(Exception):
         self.required_value_errors = required_value_errors
 
 
-class RequiredColumnValue(InfileError):
+class RequiredValueError(InfileError, SummarizableError):
+    SummarizerExceptionClass = RequiredValueErrors
+
     def __init__(
         self,
         column,
+        rownum,
+        model_name,
+        field_name,
+        rec_dict=None,
         message=None,
         **kwargs,
     ):
         if not message:
-            message = "Value required for column(s) [%s] in %s."
-        super().__init__(message, column=column, order=["column", "loc"], **kwargs)
+            message = "Value required on %s."
+            if rec_dict is not None:
+                message += f"  Record extracted from row: {str(rec_dict)}."
+        super().__init__(message, **kwargs)
+        self.column = column
+        self.rownum = rownum
+        self.model_name = model_name
+        self.field_name = field_name
+        self.rec_dict = rec_dict
 
 
 class RequiredColumnValues(Exception):
@@ -236,6 +258,20 @@ class RequiredColumnValues(Exception):
         self.required_column_values = required_column_values
 
 
+class RequiredColumnValue(InfileError, SummarizableError):
+    SummarizerExceptionClass = RequiredColumnValues
+
+    def __init__(
+        self,
+        column,
+        message=None,
+        **kwargs,
+    ):
+        if not message:
+            message = "Value required for column(s) [%s] in %s."
+        super().__init__(message, column=column, order=["column", "loc"], **kwargs)
+
+
 class RequiredColumnValueWhenNovel(RequiredColumnValue):
     def __init__(self, column, model_name, **kwargs):
         message = kwargs.pop("message", None)
@@ -258,7 +294,7 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
 class RequiredHeadersError(InfileError, HeaderError):
     def __init__(self, missing, message=None, **kwargs):
         if not message:
-            message = f"Required header(s) missing: [{missing}] in %s."
+            message = f"Required header(s) missing: {missing} in %s."
         super().__init__(message, **kwargs)
         self.missing = missing
 
@@ -396,6 +432,16 @@ class DuplicatePeakGroups(Exception):
         self.duplicate_peak_groups = duplicate_peak_groups
 
 
+class UnknownHeaderError(InfileError, HeaderError):
+    def __init__(self, unknown, known: Optional[list] = None, message=None, **kwargs):
+        if not message:
+            message = f"Unknown header encountered: [{unknown}] in %s."
+            if known is not None:
+                message += f"  Must be one of {known}."
+        super().__init__(message, **kwargs)
+
+
+# TODO: Once the sample table loader inherits from TableLoader, make this inherit from SummarizableError
 class UnknownHeadersError(InfileError, HeaderError):
     def __init__(self, unknowns, message=None, **kwargs):
         if not message:
@@ -598,6 +644,9 @@ class DryRun(Exception):
     Exception thrown during dry-run to ensure atomic transaction is not committed
     """
 
+    # TODO: Figure out a way to suppress the trace (and optionally the exception string) when this is raised.
+    # Could possibly use sys.excepthook:
+    # stackoverflow.com/questions/20714644/python-sys-excepthook-and-logging-uncaught-exceptions-across-multiple-modules
     def __init__(self, message=None):
         if message is None:
             message = "Dry Run Complete."
@@ -1451,6 +1500,10 @@ class AggregatedErrors(Exception):
     def get_num_warnings(self):
         return self.num_warnings
 
+    def get_exception_types(self):
+        exc_dict = dict((type(exc).__name__, type(exc)) for exc in self.exceptions)
+        return list(exc_dict.values())
+
     def exception_type_exists(self, exc_cls):
         return exc_cls in [type(exc) for exc in self.exceptions]
 
@@ -1502,26 +1555,32 @@ class ConflictingValueErrors(Exception):
                     if rowstr == "":
                         message += "\n"
                     else:
-                        message += f"(on rows: {rowstr})\n"
+                        message += f" (on row(s): {rowstr})\n"
+                    db_msgs = []
                     for cve in conflict_data[cve_loc][mdl][file_rec_str]:
                         recstr = "Database record not provided"
                         if cve.rec is not None:
-                            recstr = str(model_to_dict(cve.rec))
-                        message += f"\t\tDatabase record: {recstr}\n"
+                            recstr = str(model_to_dict(cve.rec, exclude=["id"]))
+                        db_msg = f"\t\tDatabase record: {recstr}\n"
                         if cve.differences is None or len(cve.differences.keys()) == 0:
-                            message += "\t\t\tdifference data unavailable\n"
+                            db_msg += "\t\t\tdifference data unavailable\n"
                         else:
                             for fld in cve.differences.keys():
-                                message += (
+                                db_msg += (
                                     f"\t\t\t[{fld}] values differ:\n"
                                     f"\t\t\t- database: [{str(cve.differences[fld]['orig'])}]\n"
                                     f"\t\t\t- file:     [{str(cve.differences[fld]['new'])}]\n"
                                 )
+                        if db_msg not in db_msgs:
+                            db_msgs.append(db_msg)
+                    message += "".join(db_msgs)
         super().__init__(message)
         self.conflicting_value_errors = conflicting_value_errors
 
 
-class ConflictingValueError(InfileError):
+class ConflictingValueError(InfileError, SummarizableError):
+    SummarizerExceptionClass = ConflictingValueErrors
+
     def __init__(
         self,
         rec,
@@ -1611,7 +1670,39 @@ class DupeCompoundIsotopeCombos(Exception):
         self.dupe_dict = dupe_dict
 
 
-class DuplicateValues(InfileError):
+class DuplicateValueErrors(Exception):
+    """
+    Summary of DuplicateValues exceptions
+    """
+
+    def __init__(self, dupe_val_exceptions: list[DuplicateValues], message=None):
+        if not message:
+            dupe_dict: Dict[str, dict] = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(list))
+            )
+            for dve in dupe_val_exceptions:
+                typ = f" ({dve.addendum})" if dve.addendum is not None else ""
+                dupe_dict[dve.loc][str(dve.colnames)][typ].append(dve)
+            message = (
+                "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences "
+                "on the indicated rows:\n"
+            )
+            for loc in dupe_dict.keys():
+                message += f"\t{loc}\n"
+                for colstr in dupe_dict[loc].keys():
+                    for typ in dupe_dict[loc][colstr].keys():
+                        message += f"\t\tColumn(s) {colstr}{typ}"
+                        for dve in dupe_dict[loc][colstr][typ]:
+                            message += "\n\t\t\t"
+                            message += "\n\t\t\t".join(dve.dupdeets)
+                        message += "\n"
+        super().__init__(message)
+        self.dupe_val_exceptions = dupe_val_exceptions
+
+
+class DuplicateValues(InfileError, SummarizableError):
+    SummarizerExceptionClass = DuplicateValueErrors
+
     def __init__(self, dupe_dict, colnames, message=None, addendum=None, **kwargs):
         """
         Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
@@ -1650,22 +1741,44 @@ class DuplicateValues(InfileError):
         self.dupdeets = dupdeets
 
 
-class DuplicateValueErrors(Exception):
+class DuplicateCompoundIsotopes(Exception):
     """
-    Summary of DuplicateValues exceptions
+    Summary of DuplicateValues exceptions specific to the PeakAnnotationsLoader.  It removes the sample column, because
+    all errors always affect all samples, given the pre-conversion pandas DataFrame, which has a column for each sample
+    and compounds and isotopes defined on rows.
     """
 
-    def __init__(self, dupe_val_exceptions: list[DuplicateValues], message=None):
-        """
-        Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
+    def __init__(
+        self,
+        dupe_val_exceptions: list[DuplicateValues],
+        colnames: list[str],
+        message=None,
+    ):
+        """Constructor.
+
+        Args:
+            dupe_val_exceptions (List[DuplicateValues])
+            colnames (List[str]): A 2 element list containing the current compound and isotopeLabel column names
+        Exceptions:
+            Raises:
+                ProgrammingError
+            Buffers:
+                None
+        Returns:
+            instance
         """
         if not message:
             dupe_dict: Dict[str, dict] = defaultdict(
                 lambda: defaultdict(lambda: defaultdict(list))
             )
             for dve in dupe_val_exceptions:
+                if not set(colnames) <= set(dve.colnames):
+                    raise ProgrammingError(
+                        f"The exceptions in dupe_val_exceptions must contain columns: {colnames}, but encountered: "
+                        f"{dve.colnames}."
+                    )
                 typ = f" ({dve.addendum})" if dve.addendum is not None else ""
-                dupe_dict[dve.loc][str(dve.colnames)][typ].append(dve)
+                dupe_dict[dve.loc][str(colnames)][typ].append(dve)
             message = (
                 "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences "
                 "on the indicated rows:\n"
@@ -1681,6 +1794,7 @@ class DuplicateValueErrors(Exception):
                         message += "\n"
         super().__init__(message)
         self.dupe_val_exceptions = dupe_val_exceptions
+        self.colnames = colnames
 
 
 class SheetMergeError(Exception):
@@ -2604,8 +2718,20 @@ class ConditionallyRequiredOptions(CommandError):
     pass
 
 
+class ConditionallyRequiredArgs(InfileError):
+    pass
+
+
 class NoLoadData(Exception):
     pass
+
+
+class NotATableLoader(TypeError):
+    def __init__(self, command_inst):
+        here = f"{type(command_inst).__module__}.{type(command_inst).__name__}"
+        message = f"Invalid attribute [{here}.loader_class] TableLoader required, {type(command_inst).__name__} set"
+        super().__init__(message)
+        self.command_inst = command_inst
 
 
 class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
@@ -2691,7 +2817,8 @@ def summarize_int_list(intlist):
             num = int(num)
         except ValueError:
             # Assume this is a "named" row
-            sum_list.append(num)
+            if num not in sum_list:
+                sum_list.append(num)
             continue
         if last_num is None:
             waiting_num = num

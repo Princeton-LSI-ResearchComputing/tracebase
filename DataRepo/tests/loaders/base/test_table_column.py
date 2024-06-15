@@ -3,14 +3,14 @@ from collections import namedtuple
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
-from DataRepo.loaders.table_column import (
+from DataRepo.loaders.base.table_column import (
     ColumnHeader,
     ColumnReference,
     ColumnValue,
     TableColumn,
     make_title,
 )
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     ConditionallyRequiredOptions,

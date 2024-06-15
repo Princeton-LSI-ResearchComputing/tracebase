@@ -2,12 +2,12 @@ from collections import namedtuple
 
 import pandas as pd
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, ProgrammingError
 from django.db.models import AutoField, CharField, Model, UniqueConstraint
 from django.test.utils import isolate_apps
 
-from DataRepo.loaders.table_column import TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -294,7 +294,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_get_load_stats(self):
         tl = self.TestLoader()
         ls = tl.get_load_stats()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -302,6 +302,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             ls,
@@ -322,6 +323,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             tl.record_counts,
@@ -330,7 +332,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_existed(self):
         tl = self.TestLoader()
         tl.existed()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -338,6 +340,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             tl.record_counts,
@@ -346,7 +349,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_skipped(self):
         tl = self.TestLoader()
         tl.skipped()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -354,6 +357,7 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 1,
                     "errored": 0,
+                    "warned": 0,
                 }
             },
             tl.record_counts,
@@ -362,7 +366,7 @@ class TableLoaderTests(TracebaseTestCase):
     def test_errored(self):
         tl = self.TestLoader()
         tl.errored()
-        self.assertEqual(
+        self.assertDictEqual(
             {
                 self.TestModel.__name__: {
                     "created": 0,
@@ -370,6 +374,24 @@ class TableLoaderTests(TracebaseTestCase):
                     "updated": 0,
                     "skipped": 0,
                     "errored": 1,
+                    "warned": 0,
+                }
+            },
+            tl.record_counts,
+        )
+
+    def test_warned(self):
+        tl = self.TestLoader()
+        tl.warned()
+        self.assertDictEqual(
+            {
+                self.TestModel.__name__: {
+                    "created": 0,
+                    "existed": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "errored": 0,
+                    "warned": 1,
                 }
             },
             tl.record_counts,
@@ -424,7 +446,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tl = self.TestLoader(pddata)
+        tl = self.TestLoader(df=pddata)
         n = None
         c = None
         for _, row in tl.df.iterrows():
@@ -502,7 +524,7 @@ class TableLoaderTests(TracebaseTestCase):
             tucl = self.TestUCLoader()
             tucl.check_unique_constraints(pddata)
         else:
-            tucl = self.TestUCLoader(pddata)
+            tucl = self.TestUCLoader(df=pddata)
             tucl.check_unique_constraints()
         self.assertEqual(2, len(tucl.aggregated_errors_object.exceptions))
         self.assertEqual(
@@ -806,7 +828,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tnal = TestNestedAesLoader(pddata)
+        tnal = TestNestedAesLoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tnal.load_data()
@@ -834,7 +856,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmcl = TestMultiCVELoader(pddata)
+        tmcl = TestMultiCVELoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmcl.load_data()
@@ -847,8 +869,6 @@ class TableLoaderTests(TracebaseTestCase):
                 "Conflicting values encountered during loading:\n\tDuring the processing of the load file data...\n"
                 "\tCreation of the following No record provided record(s) encountered conflicts:\n"
                 "\t\tFile record:     No file data provided\n"
-                "\t\tDatabase record: Database record not provided\n"
-                "\t\t\tdifference data unavailable\n"
                 "\t\tDatabase record: Database record not provided\n"
                 "\t\t\tdifference data unavailable\n"
             ),
@@ -882,7 +902,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmrl = TestMultiRVELoader(pddata)
+        tmrl = TestMultiRVELoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmrl.load_data()
@@ -917,7 +937,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmdl = TestMultiDVELoader(pddata)
+        tmdl = TestMultiDVELoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmdl.load_data()
@@ -954,7 +974,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tmrl = TestMultiRCVLoader(pddata)
+        tmrl = TestMultiRCVLoader(df=pddata)
 
         with self.assertRaises(AggregatedErrors) as ar:
             tmrl.load_data()
@@ -985,7 +1005,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tdl = TestDeferedLoader(pddata, defer_rollback=True)
+        tdl = TestDeferedLoader(df=pddata, defer_rollback=True)
 
         # There should be no record found initially
         self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
@@ -1016,7 +1036,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tdl = TestDryRunLoader(pddata, dry_run=True)
+        tdl = TestDryRunLoader(df=pddata, dry_run=True)
 
         # There should be no record found initially
         self.assertEqual(0, self.TestModel.objects.filter(name="A", choice=1).count())
@@ -1041,7 +1061,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "Choice": ["1", "2", "2"],
             },
         )
-        tsl = TestStatsLoader(pddata)
+        tsl = TestStatsLoader(df=pddata)
 
         retval = tsl.load_data()
 
@@ -1557,3 +1577,31 @@ class TableLoaderTests(TracebaseTestCase):
         )
         # Just going to assert a single attribute is properly set
         self.assertEqual("TestModel Choice", tl.get_header_metadata()["Choice"].name)
+
+    def test_constructor_no_positional_args(self):
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.TestLoader("bad")
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], ProgrammingError))
+        self.assertIn(
+            "expects 0 positional arguments, but got: 1", str(aes.exceptions[0])
+        )
+
+
+class TableLoaderUtilitiesTests(TracebaseTestCase):
+    def test_flatten(self):
+        """The applied use of this flatten method was/is to flatten ValidationError objects (which are iterable), but it
+        can work on any (non-string/non-byte) iterable."""
+        ve = ValidationError(
+            [
+                ValidationError(ValidationError("one")),
+                ValidationError(
+                    [
+                        ValidationError("two"),
+                        ValidationError("three"),
+                    ]
+                ),
+            ]
+        )
+        self.assertEqual("['one', 'two', 'three']", str(ve))

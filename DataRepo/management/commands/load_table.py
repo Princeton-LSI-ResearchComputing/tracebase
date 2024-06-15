@@ -1,8 +1,8 @@
 import argparse
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandError
 
 from DataRepo.loaders import TableLoader
 from DataRepo.utils import (
@@ -15,7 +15,10 @@ from DataRepo.utils import (
     is_excel,
     read_from_file,
 )
-from DataRepo.utils.exceptions import ConditionallyRequiredOptions
+from DataRepo.utils.exceptions import (
+    ConditionallyRequiredOptions,
+    NotATableLoader,
+)
 
 
 class LoadTableCommand(ABC, BaseCommand):
@@ -66,9 +69,12 @@ class LoadTableCommand(ABC, BaseCommand):
         *args,
         required_optnames: Optional[List[str]] = None,
         required_optname_groups: Optional[List[List[str]]] = None,
+        opt_defaults: Optional[Dict[str, object]] = None,
+        custom_loader_init: bool = False,
         **kwargs,
     ):
         """This init auto-applies a decorator to the derived class's handle method.
+
         Args:
             required_optnames (list of strings): The variable version of this class's options that should be required.
             required_optname_groups (list of lists of strings):  Groups of the variable version of this class's options
@@ -92,14 +98,38 @@ class LoadTableCommand(ABC, BaseCommand):
             if required_optnames is None
             else required_optnames
         )
+
         self.required_optname_groups = (
             [] if required_optname_groups is None else required_optname_groups
         )
+
+        self.check_class_attributes()
+
+        # This gives each derived command class the opportunity to change the defaults of the stock options
+        if opt_defaults is None:
+            opt_defaults = {}
+        self.opt_defaults = {
+            "infile": opt_defaults.get("infile", None),
+            "data_sheet": opt_defaults.get(
+                "data_sheet", self.loader_class.DataSheetName
+            ),
+            "defaults_file": opt_defaults.get("defaults_file", None),
+            "defaults_sheet": opt_defaults.get(
+                "defaults_sheet", self.loader_class.DefaultsSheetName
+            ),
+            "headers": opt_defaults.get("headers", None),
+            "dry_run": opt_defaults.get("dry_run", False),
+        }
+
+        # Use this for classes that you plan to initialize inside the handle() method, e.g. to determine the loader
+        # class on the fly, like when using abstract classes.
+        self.custom_loader_init = custom_loader_init
+
         # Apply the handler decorator to the handle method in the derived class
         self.apply_handle_wrapper()
-        self.check_class_attributes()
         # options are set in the override of handle(), but we need to know if options are available in the get_* methods
         self.options = None
+        self.dry_run_exception = None
         # We will set initial values here.  The derived class must call set if they have custom default values for any
         # of these, but note that what users supply on the command line will trump anything they supply.  The values
         # they supply are only custom defaults.  Note, these are just the defaults and are provided so that the derived
@@ -109,6 +139,9 @@ class LoadTableCommand(ABC, BaseCommand):
         # user-supplied values are updated.
         self.init_loader()
         super().__init__(*args, **kwargs)
+
+        # The handle_wrapper method uses saved_aes to manage AggregatedErrors exceptions raised by the loader(s)
+        self.saved_aes = None
 
     def init_loader(self, *args, **kwargs):
         # These are used to copy derived class headers and defaults to newly created objects
@@ -144,7 +177,7 @@ class LoadTableCommand(ABC, BaseCommand):
             if len(disallowed_args) > 0:
                 # Immediately raise programming errors
                 raise ValueError(
-                    "The following supplied agrguments are under direct control of the LoadTableCommand superclass: "
+                    "The following supplied arguments are under direct control of the LoadTableCommand superclass: "
                     f"{disallowed_args}.  The superclass uses the command line options to fill in user-supplied "
                     "values.  The only arguments that are allowed are arguments specific to the derived class "
                     f"[{self.loader_class.__name__}] constructor."
@@ -194,12 +227,10 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         # Apply the handler decorator to the handle method in the derived class
         decorated_derived_class_method = self._handler(getattr(self, "handle"))
@@ -218,12 +249,10 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             parser (argparse object)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         parser.add_argument(
             "--infile",
@@ -232,6 +261,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 f"Path to either a tab-delimited or excel file (with a sheet named '{self.loader_class.DataSheetName}' "
                 "- See --data-sheet).  See --headers for column composition."
             ),
+            default=self.opt_defaults.get("infile"),
             required="infile" in self.required_optnames,
         )
 
@@ -241,7 +271,7 @@ class LoadTableCommand(ABC, BaseCommand):
             help=(
                 "Name of excel sheet/tab.  Only used if --infile is an excel spreadsheet.  Default: [%(default)s]."
             ),
-            default=self.loader_class.DataSheetName,
+            default=self.opt_defaults.get("data_sheet"),
             required="data_sheet" in self.required_optnames,
         )
 
@@ -253,6 +283,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 "--defaults-sheet instead.  Required headers: "
                 f"{self.loader_class.DefaultsHeaders._asdict().values()}."
             ),
+            default=self.opt_defaults.get("defaults_file"),
             required="defaults_file" in self.required_optnames,
         )
 
@@ -264,7 +295,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 "--data-sheet).  Only used if --infile is an excel file.  Default: [%(default)s].  See --defaults-file "
                 "for column composition."
             ),
-            default=self.loader_class.DefaultsSheetName,
+            default=self.opt_defaults.get("defaults_sheet"),
             required="defaults_sheet" in self.required_optnames,
         )
 
@@ -272,13 +303,14 @@ class LoadTableCommand(ABC, BaseCommand):
             "--headers",
             type=str,
             help=f"YAML file defining headers to be used.  Default headers: {self.loader.get_pretty_headers()}.",
+            default=self.opt_defaults.get("headers"),
             required="headers" in self.required_optnames,
         )
 
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            default=False,
+            default=self.opt_defaults.get("dry_run"),
             help="If supplied, nothing will be saved to the database.",
         )
 
@@ -296,25 +328,17 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Buffered:
                 TypeError
-
+            Raised:
+                AggregatedErrors
         Returns:
-            Nothing
+            None
         """
-        here = f"{type(self).__module__}.{type(self).__name__}"
         if not issubclass(self.loader_class, TableLoader):
             # Immediately raise programming related errors
-            aes = AggregatedErrors()
-            aes.buffer_error(
-                TypeError(
-                    f"Invalid attribute [{here}.loader_class] TableLoader required, {type(self.loader_class)} set"
-                )
-            )
-            if aes.should_raise():
-                raise aes
+            raise AggregatedErrors().buffer_error(NotATableLoader(self))
 
     @staticmethod
     def _handler(fn):
@@ -326,15 +350,13 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             fn (function)
-
-        Raises:
+        Exceptions:
             AggregatedErrors
-
         Returns:
             handle_wrapper (function)
                 Args:
                     **options (command line options)
-                Raises:
+                Exceptions:
                     TBD by the wrapped method
                 Returns:
                     TBD by the wrapped method
@@ -344,6 +366,7 @@ class LoadTableCommand(ABC, BaseCommand):
             self.saved_aes = None
             retval = None
             self.options = options
+            self.dry_run_exception = None
 
             missing_reqd = []
             for optname in options.keys():
@@ -376,12 +399,14 @@ class LoadTableCommand(ABC, BaseCommand):
 
             # So that derived classes don't need to call init_loader unless their derived loader class takes custom
             # arguments
-            self.init_loader()
+            if not self.custom_loader_init:
+                self.init_loader()
 
             try:
                 retval = fn(self, *args, **options)
 
-            except DryRun:
+            except DryRun as dr:
+                self.dry_run_exception = dr
                 pass
             except AggregatedErrors as aes:
                 self.saved_aes = aes
@@ -396,6 +421,9 @@ class LoadTableCommand(ABC, BaseCommand):
             if self.saved_aes is not None and self.saved_aes.should_raise():
                 self.saved_aes.print_summary()
                 raise self.saved_aes
+
+            if self.dry_run_exception is not None:
+                raise self.dry_run_exception
 
             return retval
 
@@ -413,10 +441,8 @@ class LoadTableCommand(ABC, BaseCommand):
             sheet (str): Name of the sheet to load (for error reporting only).
             file (str): Name of the file to load (for error reporting only).
             **kwargs (key/value pairs): Any custom args for the derived loader class, e.g. compound synonyms delimiter
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             The return of loader.load_data()
         """
@@ -425,17 +451,15 @@ class LoadTableCommand(ABC, BaseCommand):
     def report_status(self):
         """Prints load status per model.
 
-        Reports counts of loaded, existed and errored records.  Includes a note about dry run mode, if active.  Respects
-        the verbosity option.
+        Reports counts of loaded, updated, existed, skipped, errored, and warned records.  Includes a note about dry run
+        mode, if active.  Respects the verbosity option.
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         if self.options["verbosity"] == 0:
             return
@@ -448,7 +472,8 @@ class LoadTableCommand(ABC, BaseCommand):
             mdl_name = mdl.__name__
             if mdl_name in load_stats.keys():
                 msg += (
-                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], and errored: [%i].\n"
+                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], errored: [%i], and warned: "
+                    "[%i].\n"
                     % (
                         mdl_name,
                         load_stats[mdl_name]["created"],
@@ -456,11 +481,20 @@ class LoadTableCommand(ABC, BaseCommand):
                         load_stats[mdl_name]["updated"],
                         load_stats[mdl_name]["skipped"],
                         load_stats[mdl_name]["errored"],
+                        load_stats[mdl_name]["warned"],
                     )
                 )
 
         if self.saved_aes is not None and self.saved_aes.get_num_errors() > 0:
             status = self.style.ERROR(msg)
+        elif self.options["dry_run"]:
+            # Errors are raised before dry run, but if there were no errors and dry run was called for, print the dry-
+            # run message or raise if DryRun was not raised
+            if self.dry_run_exception is not None:
+                # The MIGRATE_HEADING IS BOLD BLUE
+                status = self.style.MIGRATE_HEADING(msg)
+            else:
+                raise CommandError("DryRun exception not raised in --dry-run mode!")
         elif self.saved_aes is not None and self.saved_aes.get_num_warnings() > 0:
             status = self.style.WARNING(msg)
         else:
@@ -478,10 +512,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults_sheet (str)
         """
@@ -489,17 +521,16 @@ class LoadTableCommand(ABC, BaseCommand):
             raise OptionsNotAvailable()
         return self.options["defaults_sheet"] if is_excel(self.get_infile()) else None
 
-    def get_dataframe(self):
+    def get_dataframe(self, typing=True):
         """Parses data from the infile (and sheet) using the headers and the column types.
 
         The column types are optionally defined in self.loader.
 
         Args:
+            typing (bool): Doesn't pass dtype to read_from_file even if its available.  Useful when trying to determine
+                file type.
+        Exceptions:
             None
-
-        Raises:
-            Nothing
-
         Returns:
             df (pandas DataFrame)
         """
@@ -507,7 +538,11 @@ class LoadTableCommand(ABC, BaseCommand):
             raise OptionsNotAvailable()
         file = self.get_infile()
         sheet = self.options["data_sheet"]
-        dtypes = self.loader.get_column_types()
+        dtypes = None
+        # This method is used in some calls to determine the loader class, in which case, there is no instantiated
+        # loader and it doesn't need the dtypes - it just needs the sheet and column names.
+        if typing and hasattr(self, "loader"):
+            dtypes = self.loader.get_column_types()
         if file is None:
             # The derived class can decide to handle the load completely without an input file (e.g. using all defaults
             # and/or custom options
@@ -524,10 +559,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             headers (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
@@ -565,10 +598,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             custom_headers (namedtupe of loader_class.DataTableHeaders): Header names by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             headers (namedtupe of loader_class.DataTableHeaders): Header names by header key
         """
@@ -579,10 +610,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
@@ -605,10 +634,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             custom_defaults (namedtupe of loader_class.DataTableHeaders): Default values by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults (namedtupe of loader_class.DataTableHeaders): Header names by header key
         """
@@ -619,10 +646,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             user_defaults (pandas dataframe)
         """
@@ -659,10 +684,8 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             infile (str)
         """

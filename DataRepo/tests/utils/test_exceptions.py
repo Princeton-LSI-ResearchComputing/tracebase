@@ -28,12 +28,14 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValues,
     RequiredColumnValuesWhenNovel,
     RequiredColumnValueWhenNovel,
+    RequiredHeadersError,
     RequiredOptions,
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
     UnexpectedIsotopes,
     UnitsWrong,
+    UnknownHeaderError,
     generate_file_location_string,
     summarize_int_list,
 )
@@ -407,6 +409,11 @@ class AggregatedErrorsTests(TracebaseTestCase):
         self.assertFalse(removed[0].is_error)
         self.assertFalse(removed[1].is_fatal)
         self.assertFalse(removed[1].is_error)
+
+    def test_get_exception_types(self):
+        aes = AggregatedErrors(exceptions=[ValueError(), KeyError(), KeyError()])
+        types = aes.get_exception_types()
+        self.assertEqual([ValueError, KeyError], types)
 
 
 class ExceptionTests(TracebaseTestCase):
@@ -1034,3 +1041,14 @@ class ExceptionTests(TracebaseTestCase):
     def test_RequiredOptions(self):
         ro = RequiredOptions(["infile"])
         self.assertEqual("Missing required options: ['infile'].", str(ro))
+
+    def test_UnknownHeaderError(self):
+        exc = UnknownHeaderError("C", ["A", "B"])
+        self.assertEqual(
+            "Unknown header encountered: [C] in the load file data.  Must be one of ['A', 'B'].",
+            str(exc),
+        )
+
+    def test_RequiredHeadersError(self):
+        exc = RequiredHeadersError(["A"])
+        self.assertIn("header(s) missing: ['A']", str(exc))
