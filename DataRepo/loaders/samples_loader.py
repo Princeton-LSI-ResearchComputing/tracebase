@@ -10,7 +10,11 @@ from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
 from DataRepo.models.researcher import get_researchers
-from DataRepo.utils.exceptions import DateParseError, RollbackException
+from DataRepo.utils.exceptions import (
+    DateParseError,
+    InfileError,
+    RollbackException,
+)
 from DataRepo.utils.file_utils import string_to_datetime
 
 
@@ -64,7 +68,7 @@ class SamplesLoader(TableLoader):
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {
         SAMPLE_KEY: str,
-        DATE_KEY: str,
+        # DATE_KEY: str,  # Pandas can automatically detect dates (though this also accepts a str)
         HANDLER_KEY: str,
         TISSUE_KEY: str,
         DAYS_INFUSED_KEY: float,
@@ -101,7 +105,7 @@ class SamplesLoader(TableLoader):
         DAYS_INFUSED=TableColumn.init_flat(
             name=DataHeaders.DAYS_INFUSED,
             field=Sample.time_collected,
-            format="Units: days.",
+            format="Units: minutes.",
         ),
         TISSUE=TableColumn.init_flat(
             name=DataHeaders.TISSUE,
@@ -242,22 +246,32 @@ class SamplesLoader(TableLoader):
                 orig_exception=dpe.ve_exc,
             )
         except ValueError as ve:
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
+            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback and use
+            # buffer_infile_exception
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             date = datetime.now()
-            self.aggregated_errors_object.buffer_exception(ve)
+            self.aggregated_errors_object.buffer_exception(
+                InfileError(
+                    str(ve),
+                    file=self.file,
+                    sheet=self.sheet,
+                    rownum=self.rownum,
+                    column=self.headers.DATE,
+                ),
+                orig_exception=ve,
+            )
 
         time_collected_str = self.get_row_val(row, self.headers.DAYS_INFUSED)
         try:
             # A None value will cause a skip (at the is_skip_row check) below, since the field is required
             if time_collected_str is not None:
-                time_collected = timedelta(days=time_collected_str)
+                time_collected = timedelta(minutes=time_collected_str)
         except Exception as e:
             # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
-            time_collected = timedelta(days=0)
+            time_collected = timedelta(minutes=0)
             self.buffer_infile_exception(e, column=self.headers.DAYS_INFUSED)
 
         if animal is None or tissue is None or self.is_skip_row():

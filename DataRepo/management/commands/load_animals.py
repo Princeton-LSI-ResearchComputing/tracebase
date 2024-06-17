@@ -3,9 +3,9 @@ from DataRepo.management.commands.load_table import LoadTableCommand
 
 
 class Command(LoadTableCommand):
-    """Command to load the Animal and Animal_studies models from a table-like file."""
+    """Command to load the Animal, AnimalLabel, and Animal_studies models from a table-like file."""
 
-    help = "Loads data from an animals table-like file into the database"
+    help = "Loads animals from a table-like file into the database"
     loader_class = AnimalsLoader
 
     def add_arguments(self, parser):
@@ -38,13 +38,13 @@ class Command(LoadTableCommand):
                 - Unique file constraints
 
         Args:
-            options (dict of strings): String values provided on the command line by option name.
+            options (dict): Values provided on the command line.
         Exceptions:
             None
         Returns:
             None
         """
-        # The CompoundsLoader class constructor has 1 custom argument
+        # The AnimalsLoader class constructor has 1 custom argument
         # The TableLoader superclass arguments are controlled by the LoadTableCommand superclass
         self.init_loader(study_delimiter=options["study_delimiter"])
         self.load_data()
