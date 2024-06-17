@@ -184,6 +184,9 @@ class TableLoader(ABC):
     # DEFAULT_VALUE is not required (allow user to selete the value) - but note that all the headers are required
     DefaultsRequiredValues = ["SHEET_NAME", "COLUMN_NAME"]
 
+    # For handling empty "cells".  Any value to be converted to None, when evaluated as a string.
+    none_vals = ["", "nan"]
+
     def __init__(
         self,
         df=None,
@@ -1539,6 +1542,7 @@ class TableLoader(ABC):
                     legend=False,
                     markers=False,
                 )
+                # TODO: Figure out a way to just skip entirely empty rows and not report required missing column values
                 self.aggregated_errors_object.buffer_error(
                     RequiredColumnValue(
                         pretty_missing_reqd_vals,
@@ -1682,14 +1686,13 @@ class TableLoader(ABC):
             # By setting the current row index in get_row_val, the derived class never needs to explicitly do it
             self.set_row_index(row.name)
 
-        none_vals = ["", "nan"]
         val = None
 
         if header in row:
             val = row[header]
             if isinstance(val, str) and strip is True:
                 val = val.strip()
-            if val in none_vals:
+            if str(val) in self.none_vals:
                 val = None
         elif (
             not reading_defaults
@@ -2443,7 +2446,8 @@ class TableLoader(ABC):
                             sheet=self.sheet,
                             file=self.file,
                             column=columns,
-                        )
+                        ),
+                        orig_exception=exception,
                     )
                 return True
 
@@ -2518,7 +2522,9 @@ class TableLoader(ABC):
 
         for rowidx, row in enumerate(dict_list):
             # Ignore rows where the animal name is empty
-            if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
+            if (ignore_row_idxs is not None and rowidx in ignore_row_idxs) or str(
+                row[col_key]
+            ) in cls.none_vals:
                 continue
             try:
                 vals_dict[row[col_key]].append(rowidx)

@@ -11,7 +11,11 @@ from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors, InfileDatabaseError
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    InfileDatabaseError,
+    RequiredColumnValues,
+)
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_infusate_name_with_concs,
@@ -114,7 +118,6 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
         call_command(
             "load_animals",
             infile="DataRepo/data/tests/small_obob/study.xlsx",
-            dry_run=False,
         )
         self.assertEqual(1, Animal.objects.all().count())
 
@@ -254,3 +257,30 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
     #         post_load_maintained_values,
     #         msg="DryRun mode doesn't autoupdate.",
     #     )
+
+    @MaintainedModel.no_autoupdates()
+    def test_animals_loader_check_required_values(self):
+        """
+        Check that missing required vals are raised as errors
+        """
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals",
+                infile="DataRepo/data/tests/small_obob/study_missing_rqd_vals.xlsx",
+            )
+        aes = ar.exception
+        # TODO: After rebase for neighboring PRs, change 5 to 2, bec. the missing record errors will be summarized as 1
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], RequiredColumnValues))
+        self.assertEqual(
+            1,
+            len(aes.exceptions[0].required_column_values),
+            msg="1 row with missing required values",
+        )
+        self.assertIn(
+            "[Genotype, Infusate, Study] on rows: ['3']",
+            str(aes.exceptions[0]),
+        )
