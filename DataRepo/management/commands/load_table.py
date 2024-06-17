@@ -422,9 +422,6 @@ class LoadTableCommand(ABC, BaseCommand):
                 self.saved_aes.print_summary()
                 raise self.saved_aes
 
-            if self.dry_run_exception is not None:
-                raise self.dry_run_exception
-
             return retval
 
         return handle_wrapper

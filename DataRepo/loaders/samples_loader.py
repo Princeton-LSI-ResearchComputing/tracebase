@@ -5,14 +5,17 @@ from typing import Dict
 from django.db import transaction
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
-from DataRepo.models.researcher import get_researchers
+from DataRepo.models.researcher import (
+    could_be_variant_researcher,
+    get_researchers,
+)
 from DataRepo.utils.exceptions import (
     DateParseError,
-    InfileError,
+    NewResearcher,
     RollbackException,
 )
 from DataRepo.utils.file_utils import string_to_datetime
@@ -212,15 +215,21 @@ class SamplesLoader(TableLoader):
         name = self.get_row_val(row, self.headers.SAMPLE)
 
         researcher = self.get_row_val(row, self.headers.HANDLER)
-        # TODO: Uncomment after the rebase that brings in the Researcher.could_be_variant_researcher method
-        # if researcher is not None and could_be_variant_researcher(
-        #     researcher, known_researchers=self.known_researchers
-        # ):
-        #     # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
-        #     self.aggregated_errors_object.buffer_warning(
-        #         NewResearcher(researcher), is_fatal=self.validate
-        #     )
-        #     self.warned(Sample.__name__)
+        if researcher is not None and could_be_variant_researcher(
+            researcher, known_researchers=self.known_researchers
+        ):
+            # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
+            self.aggregated_errors_object.buffer_warning(
+                NewResearcher(
+                    researcher,
+                    file=self.file,
+                    sheet=self.sheet,
+                    rownum=self.rownum,
+                    column=self.headers.HANDLER,
+                ),
+                is_fatal=self.validate,
+            )
+            self.warned(Sample.__name__)
 
         date_str = self.get_row_val(row, self.headers.DATE)
         try:
@@ -231,35 +240,31 @@ class SamplesLoader(TableLoader):
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             date = datetime.now()
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
-            # TODO: Once rebased on pending PRs, just call set_formatted_message instead of all this:
-            self.aggregated_errors_object.buffer_exception(
-                DateParseError(
-                    date_str,
-                    dpe.ve_exc,
-                    dpe.format,
-                    file=self.file,
-                    sheet=self.sheet,
-                    rownum=self.rownum,
-                    column=self.headers.DATE,
+            dpe.set_formatted_message(
+                file=self.file,
+                sheet=self.sheet,
+                rownum=self.rownum,
+                column=self.headers.DATE,
+                suggestion=(
+                    f"Setting a placeholder value of {date}, for now.  Note, this could cause a "
+                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DATE} conflicts."
                 ),
+            )
+            self.aggregated_errors_object.buffer_exception(
+                dpe,
                 orig_exception=dpe.ve_exc,
             )
         except ValueError as ve:
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback and use
-            # buffer_infile_exception
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             date = datetime.now()
-            self.aggregated_errors_object.buffer_exception(
-                InfileError(
-                    str(ve),
-                    file=self.file,
-                    sheet=self.sheet,
-                    rownum=self.rownum,
-                    column=self.headers.DATE,
+            self.buffer_infile_exception(
+                ve,
+                column=self.headers.DATE,
+                suggestion=(
+                    f"Setting a placeholder value of {date}, for now.  Note, this could cause a "
+                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DATE} conflicts."
                 ),
-                orig_exception=ve,
             )
 
         time_collected_str = self.get_row_val(row, self.headers.DAYS_INFUSED)
@@ -268,11 +273,17 @@ class SamplesLoader(TableLoader):
             if time_collected_str is not None:
                 time_collected = timedelta(minutes=time_collected_str)
         except Exception as e:
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             time_collected = timedelta(minutes=0)
-            self.buffer_infile_exception(e, column=self.headers.DAYS_INFUSED)
+            self.buffer_infile_exception(
+                e,
+                column=self.headers.DAYS_INFUSED,
+                suggestion=(
+                    f"Setting a placeholder value of {time_collected}, for now.  Note, this could cause a "
+                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DAYS_INFUSED} conflicts."
+                ),
+            )
 
         if animal is None or tissue is None or self.is_skip_row():
             # An animal or tissue being None would have already buffered a required value error

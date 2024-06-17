@@ -22,12 +22,22 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueErrors,
-    DryRun,
     DuplicateFileHeaders,
 )
 
 # TODO: Swap out all of the calls to load_animals_and_samples and load_samples once those loaders are refactored to
 # inherit from TableLoader.
+
+
+def create_test_sequence(researcher, date):
+    # Load a sequence and all the MSRunSamples
+    lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+    MSRunSequence.objects.create(
+        researcher=researcher,
+        date=datetime.strptime(date, "%Y-%m-%d"),
+        instrument="unknown",
+        lc_method=lcm,
+    )
 
 
 class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
@@ -75,14 +85,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Check the state of the coordinators
         self.assure_coordinator_state_is_initialized()
 
-        # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Michael Neinast",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Michael Neinast", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -139,16 +142,15 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             msg="Ensure there is data in the database before the test",
         )
 
-        with self.assertRaises(DryRun):
-            call_command(
-                "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                operator="Michael Neinast",
-                dry_run=True,
-            )
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            operator="Michael Neinast",
+            dry_run=True,
+        )
 
         post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
         post_load_counts = self.get_record_counts()
@@ -176,14 +178,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         differs, it's a ConflictingValueErrors.  The formula for glucose was changed in the conflicting file.
         """
 
-        # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Michael Neinast",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Michael Neinast", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -337,13 +332,7 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
         error
         """
         # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="anonymous",
-            date=datetime.strptime("2022-08-18", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("anonymous", "2022-08-18")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -409,14 +398,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             skip_researcher_check=True,
         )
 
-        # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Michael Neinast",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Michael Neinast", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -454,13 +436,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_tracerlabels = 12
 
         # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Xianfeng Zeng",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Xianfeng Zeng", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -511,13 +487,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_tracerlabels = 3
 
         # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Xianfeng Zeng",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Xianfeng Zeng", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {

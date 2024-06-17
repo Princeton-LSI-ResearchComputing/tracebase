@@ -113,6 +113,7 @@ class InfileError(Exception):
         column: Optional[object] = None,
         rownum: Optional[object] = None,
         order=None,
+        suggestion=None,
     ):
         self.location_args = ["rownum", "column", "file", "sheet"]
         self.loc = generate_file_location_string(
@@ -126,6 +127,7 @@ class InfileError(Exception):
             file=file,
             column=column,
             order=order,
+            suggestion=suggestion,
         )
         super().__init__(self.message)
 
@@ -136,6 +138,7 @@ class InfileError(Exception):
         file=None,
         column=None,
         order=None,
+        suggestion=None,
     ):
         """This method allows one to change the string that will be returned when the exception is in string context.
 
@@ -227,6 +230,12 @@ class InfileError(Exception):
             message = message % tuple(insertions)
         else:
             message = message % self.loc
+
+        if suggestion is not None:
+            if message.endswith("\n"):
+                message += suggestion
+            else:
+                message += f"\n{suggestion}"
 
         self.message = message
 

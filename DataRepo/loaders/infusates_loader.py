@@ -4,8 +4,8 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
 from DataRepo.utils.exceptions import InfileError, summarize_int_list

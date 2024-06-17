@@ -11,6 +11,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     ConflictingValueError,
     InfileError,
+    NewResearcher,
     RecordDoesNotExist,
     RollbackException,
 )
@@ -50,8 +51,7 @@ class SamplesLoaderTests(TracebaseTestCase):
                 "existed": 0,
                 "skipped": 0,
                 "errored": 0,
-                # TODO: Uncomment after rebase of neighboring PRs
-                # "warned": 0,
+                "warned": 0,
                 "updated": 0,
             }
         }
@@ -104,51 +104,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         counts[Sample.__name__]["existed"] = 1
         self.assertDictEqual(counts, sl.record_counts)
 
-    # TODO: Uncomment after rebase of neighboring PRs
-    # def test_get_or_create_sample_researcher_warning(self):
-    #     sl = SamplesLoader(_validate=True)
-    #     # Need an existing researcher to make a name variant warning possible
-    #     Sample.objects.create(
-    #         name="s1",
-    #         researcher="Ralph",
-    #         date=string_to_datetime("2024-6-15"),
-    #         time_collected=timedelta(days=90),
-    #         animal=self.anml1,
-    #         tissue=self.tiss1,
-    #     )
-    #     row = pd.Series(
-    #         {
-    #             SamplesLoader.DataHeaders.SAMPLE: "s2",
-    #             SamplesLoader.DataHeaders.HANDLER: "Ralpholemule",
-    #             SamplesLoader.DataHeaders.DATE: "2024-6-15",
-    #             SamplesLoader.DataHeaders.DAYS_INFUSED: 80,
-    #             SamplesLoader.DataHeaders.ANIMAL: self.anml1nm,
-    #             SamplesLoader.DataHeaders.TISSUE: self.tiss1nm,
-    #         }
-    #     )
-    #     rec, cre = sl.get_or_create_sample(row, self.anml1, self.tiss1)
-    #     self.assertTrue(cre)
-    #     self.assertIsInstance(rec, Sample)
-    #     self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
-    #     self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
-    #     self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
-    #     self.assertDictEqual(
-    #         {
-    #             Sample.__name__: {
-    #                 "created": 1,
-    #                 "existed": 0,
-    #                 "skipped": 0,
-    #                 "errored": 0,
-    #                 "warned": 1,
-    #                 "updated": 0,
-    #             }
-    #         },
-    #         sl.record_counts,
-    #     )
-
-    def test_get_or_create_sample_date_time_and_unique_error(self):
-        sl = SamplesLoader()
-        # Need an existing researcher to make a name variant warning possible
+    def create_test_sample(self):
         Sample.objects.create(
             name="s1",
             researcher="Ralph",
@@ -157,6 +113,45 @@ class SamplesLoaderTests(TracebaseTestCase):
             animal=self.anml1,
             tissue=self.tiss1,
         )
+
+    def test_get_or_create_sample_researcher_warning(self):
+        # Need an existing researcher to make a name variant warning possible
+        self.create_test_sample()
+        sl = SamplesLoader(_validate=True)
+        row = pd.Series(
+            {
+                SamplesLoader.DataHeaders.SAMPLE: "s2",
+                SamplesLoader.DataHeaders.HANDLER: "Ralpholemule",
+                SamplesLoader.DataHeaders.DATE: "2024-6-15",
+                SamplesLoader.DataHeaders.DAYS_INFUSED: 80,
+                SamplesLoader.DataHeaders.ANIMAL: self.anml1nm,
+                SamplesLoader.DataHeaders.TISSUE: self.tiss1nm,
+            }
+        )
+        rec, cre = sl.get_or_create_sample(row, self.anml1, self.tiss1)
+        self.assertTrue(cre)
+        self.assertIsInstance(rec, Sample)
+        self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
+        self.assertDictEqual(
+            {
+                Sample.__name__: {
+                    "created": 1,
+                    "existed": 0,
+                    "skipped": 0,
+                    "errored": 0,
+                    "warned": 1,
+                    "updated": 0,
+                }
+            },
+            sl.record_counts,
+        )
+
+    def test_get_or_create_sample_date_time_and_unique_error(self):
+        # Need an existing researcher to make a name variant warning possible
+        self.create_test_sample()
+        sl = SamplesLoader()
         row = pd.Series(
             {
                 SamplesLoader.DataHeaders.SAMPLE: "s1",  # ConflictingValueError (due to researcher or fallbacks)
@@ -169,32 +164,37 @@ class SamplesLoaderTests(TracebaseTestCase):
         with self.assertRaises(RollbackException):
             sl.get_or_create_sample(row, self.anml1, self.tiss1)
 
-        # TODO: After rebase of neighboring PRs, there will also be a NewResearcher warning, so increment exceptions
-        self.assertEqual(3, len(sl.aggregated_errors_object.exceptions))
+        self.assertEqual(4, len(sl.aggregated_errors_object.exceptions))
 
-        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], InfileError)
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
         self.assertIn(
-            "Unknown string format: invalid  Location: column [Date Collected]",
+            "A new researcher [Jim] is being added",
+            str(sl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "Ralph",
             str(sl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[1], InfileError)
         self.assertIn(
-            "unsupported type for timedelta",
+            "Unknown string format: invalid  Location: column [Date Collected]",
             str(sl.aggregated_errors_object.exceptions[1]),
         )
-        self.assertIsInstance(
-            sl.aggregated_errors_object.exceptions[2], ConflictingValueError
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[2], InfileError)
+        self.assertIn(
+            "unsupported type for timedelta",
+            str(sl.aggregated_errors_object.exceptions[2]),
         )
-        self.assertIn("researcher", str(sl.aggregated_errors_object.exceptions[2]))
+        self.assertIsInstance(
+            sl.aggregated_errors_object.exceptions[3], ConflictingValueError
+        )
+        self.assertIn("researcher", str(sl.aggregated_errors_object.exceptions[3]))
 
-        # TODO: Uncomment after rebase of neighboring PRs
-        # self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
-        # self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
+        self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
 
         counts = deepcopy(self.rec_counts)
         counts[Sample.__name__]["errored"] = 1  # One record (3 errors)
-        # TODO: Uncomment after rebase of neighboring PRs
-        # counts[Sample.__name__]["warned"] = 1
+        counts[Sample.__name__]["warned"] = 1
         self.assertDictEqual(counts, sl.record_counts)
 
     def assert_skipped(self, sl, rec, cre):

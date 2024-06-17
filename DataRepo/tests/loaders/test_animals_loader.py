@@ -9,6 +9,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileDatabaseError,
     InfileError,
+    MissingRecords,
     RecordDoesNotExist,
     RequiredHeadersError,
 )
@@ -121,7 +122,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(RequiredHeadersError, type(aes.exceptions[0]))
         self.assertIn(
-            "missing: [Animal Name, Genotype, Infusate, Study]",
+            "missing: Animal Name, Genotype, Infusate, Study",
             str(aes.exceptions[0]),
         )
         self.assertEqual(0, Animal.objects.count())
@@ -162,7 +163,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
         )
         self.assertIsInstance(aes.exceptions[2], InfileDatabaseError)
         self.assertIn("Field 'body_weight' expected a number", str(aes.exceptions[2]))
-        self.assertIsInstance(aes.exceptions[3], RecordDoesNotExist)
+        self.assertIsInstance(aes.exceptions[3], MissingRecords)
         self.assertIn("Study", str(aes.exceptions[3]))
         self.assertEqual(0, Animal.objects.count())
         self.assertDictEqual(
@@ -173,6 +174,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "skipped": 0,
                     "errored": 1,
                     "updated": 0,
+                    "warned": 0,
                 },
                 "AnimalLabel": {
                     "created": 0,
@@ -180,6 +182,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "skipped": 1,
                     "errored": 0,
                     "updated": 0,
+                    "warned": 0,
                 },
                 "Animal_studies": {
                     "created": 0,
@@ -187,6 +190,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "skipped": 1,
                     "errored": 0,
                     "updated": 0,
+                    "warned": 0,
                 },
             },
             al.record_counts,

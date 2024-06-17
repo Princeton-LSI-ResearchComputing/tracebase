@@ -212,51 +212,48 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
-    # TODO: Un-comment once #992 is merged and this is rebased, as 992 re-introduces the raise of DryRun in load_table
-    # def test_animal_load_in_dry_run(self):
-    #     # Load some data to ensure that none of it changes during the actual test
-    #     call_command(
-    #         "load_animals",
-    #         infile=(
-    #             "DataRepo/data/tests/small_multitracer/"
-    #             # "animal_sample_table.xlsx"
-    #             "study.xlsx"
-    #         ),
-    #     )
+    def test_animal_load_in_dry_run(self):
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+        # Load some data to ensure that none of it changes during the actual test
+        call_command(
+            "load_animals",
+            infile="DataRepo/data/tests/small_multitracer/study.xlsx",
+        )
 
-    #     pre_load_counts = self.get_record_counts()
-    #     pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
-    #         "DataRepo.models"
-    #     )
-    #     self.assertGreater(
-    #         len(pre_load_maintained_values.keys()),
-    #         0,
-    #         msg="Ensure there is data in the database before the test",
-    #     )
-    #     self.assert_coordinator_state_is_initialized()
+        pre_load_counts = self.get_record_counts()
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
+        self.assertGreater(
+            len(pre_load_maintained_values.keys()),
+            0,
+            msg="Ensure there is data in the database before the test",
+        )
+        self.assert_coordinator_state_is_initialized()
 
-    #     with self.assertRaises(DryRun):
-    #         call_command(
-    #             "load_animals",
-    #             infile="DataRepo/data/tests/small_obob/study.xlsx",
-    #             dry_run=True,
-    #         )
+        call_command(
+            "load_animals",
+            infile="DataRepo/data/tests/small_obob/study.xlsx",
+            dry_run=True,
+        )
 
-    #     post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
-    #         "DataRepo.models"
-    #     )
-    #     post_load_counts = self.get_record_counts()
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
+        post_load_counts = self.get_record_counts()
 
-    #     self.assertEqual(
-    #         pre_load_counts,
-    #         post_load_counts,
-    #         msg="DryRun mode doesn't change any table's record count.",
-    #     )
-    #     self.assertEqual(
-    #         pre_load_maintained_values,
-    #         post_load_maintained_values,
-    #         msg="DryRun mode doesn't autoupdate.",
-    #     )
+        self.assertEqual(
+            pre_load_counts,
+            post_load_counts,
+            msg="DryRun mode doesn't change any table's record count.",
+        )
+        self.assertEqual(
+            pre_load_maintained_values,
+            post_load_maintained_values,
+            msg="DryRun mode doesn't autoupdate.",
+        )
 
     @MaintainedModel.no_autoupdates()
     def test_animals_loader_check_required_values(self):
@@ -272,7 +269,6 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
                 infile="DataRepo/data/tests/small_obob/study_missing_rqd_vals.xlsx",
             )
         aes = ar.exception
-        # TODO: After rebase for neighboring PRs, change 5 to 2, bec. the missing record errors will be summarized as 1
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], RequiredColumnValues))
         self.assertEqual(
