@@ -76,7 +76,7 @@ class SamplesLoaderTests(TracebaseTestCase):
             name="s1",
             researcher="Ralph",
             date=string_to_datetime("2024-6-15"),
-            time_collected=timedelta(days=90),
+            time_collected=timedelta(minutes=90),
             animal=self.anml1,
             tissue=self.tiss1,
         )  # No exception = successful test
@@ -172,9 +172,9 @@ class SamplesLoaderTests(TracebaseTestCase):
         # TODO: After rebase of neighboring PRs, there will also be a NewResearcher warning, so increment exceptions
         self.assertEqual(3, len(sl.aggregated_errors_object.exceptions))
 
-        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], ValueError)
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], InfileError)
         self.assertIn(
-            "'invalid' does not match format '%Y-%m-%d'",
+            "Unknown string format: invalid  Location: column [Date Collected]",
             str(sl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[1], InfileError)

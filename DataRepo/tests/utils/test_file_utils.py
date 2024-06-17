@@ -2,7 +2,6 @@ import pandas as pd
 from django.core.files.uploadedfile import TemporaryUploadedFile
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import DateParseError
 from DataRepo.utils.file_utils import (
     _get_file_type,
     _read_from_xlsx,
@@ -72,8 +71,8 @@ class FileUtilsTests(TracebaseTestCase):
         )
 
     def test_string_to_datetime(self):
-        with self.assertRaises(DateParseError):
-            string_to_datetime("2022-1-22 00:10:00")
+        date = string_to_datetime("2022-1-22 00:10:00")
+        self.assertEqual("2022-01-22", str(date))
 
     def test_read_from_xlsx_multiple_sheets_with_dtypes(self):
         study_xlsx = "DataRepo/data/tests/submission_v3/study.xlsx"
