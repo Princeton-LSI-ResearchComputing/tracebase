@@ -949,10 +949,7 @@ class TableLoader(ABC):
                     f"{type(cls.DefaultsHeaders)} set"
                 )
 
-            if cls.Models is None or len(cls.Models) == 0:
-                # Raise programming-related errors immediately
-                typeerrs.append("Models is required to have at least 1 Model class")
-            else:
+            if cls.Models is not None and len(cls.Models) > 0:
                 mdlerrs = []
                 for mdl in cls.Models:
                     if not issubclass(mdl, Model):

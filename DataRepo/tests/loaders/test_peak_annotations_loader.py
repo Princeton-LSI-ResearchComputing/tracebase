@@ -745,7 +745,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             ["s2"],
             al.aggregated_errors_object.get_exception_type(MissingSamples)[
                 0
-            ].missing_samples,
+            ].search_terms,
         )
 
         self.assertTrue(
@@ -755,7 +755,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             ["blank"],
             al.aggregated_errors_object.get_exception_type(UnskippedBlanks)[
                 0
-            ].missing_samples,
+            ].search_terms,
         )
 
         self.assertTrue(
@@ -790,9 +790,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertTrue(al.aggregated_errors_object.exception_type_exists(NoSamples))
         self.assertEqual(
             ["s1"],
-            al.aggregated_errors_object.get_exception_type(NoSamples)[
-                0
-            ].missing_samples,
+            al.aggregated_errors_object.get_exception_type(NoSamples)[0].search_terms,
         )
 
     def test_is_a_blank(self):

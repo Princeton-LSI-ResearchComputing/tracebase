@@ -674,41 +674,54 @@ class MissingRecords(InfileError):
         msg = "" if message is None else message
         super().__init__(msg, **kwargs)
 
-        if not message:
-            message = ""
-            exceptions_by_query_type: Dict[str, dict] = defaultdict(
-                lambda: defaultdict(list)
+        tmp_message = ""
+        exceptions_by_model_and_fields: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        exceptions_by_model_and_query: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        exceptions_by_model_query_and_loc: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for inst in exceptions:
+            q_str = inst._get_query_stub()
+            exceptions_by_model_and_fields[inst.model.__name__][q_str].append(inst)
+            search_terms = inst._get_query_values_str()
+            exceptions_by_model_and_query[inst.model.__name__][search_terms].append(
+                inst
             )
-            for inst in exceptions:
-                q_str = inst._get_query_stub()
-                exceptions_by_query_type[inst.model.__name__][q_str].append(inst)
+            exceptions_by_model_query_and_loc[inst.model.__name__][search_terms][
+                inst.loc
+            ].append(inst)
 
-            for mdl_name in exceptions_by_query_type.keys():
-                for categorized_exceptions in exceptions_by_query_type[
-                    mdl_name
-                ].values():
-                    loc_args, flds_str, vals_dict = (
-                        RecordDoesNotExist.get_failed_searches_dict(
-                            categorized_exceptions
+        for mdl_name in exceptions_by_model_and_fields.keys():
+            for categorized_exceptions in exceptions_by_model_and_fields[
+                mdl_name
+            ].values():
+                loc_args, flds_str, vals_dict = (
+                    RecordDoesNotExist.get_failed_searches_dict(categorized_exceptions)
+                )
+
+                loc_str = generate_file_location_string(**loc_args)
+
+                # Summarize the values and the rows on which they occurred
+                nltab = "\n\t"
+                search_terms_str = nltab.join(
+                    list(
+                        map(
+                            lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
+                            vals_dict.keys(),
                         )
                     )
+                )
+                tmp_message += (
+                    f"{len(categorized_exceptions)} {mdl_name} records were not found (using search field(s): "
+                    f"{flds_str}) with values found in {loc_str}:{nltab}{search_terms_str}\n"
+                )
 
-                    loc_str = generate_file_location_string(**loc_args)
-
-                    # Summarize the values and the rows on which they occurred
-                    nltab = "\n\t"
-                    search_terms_str = nltab.join(
-                        list(
-                            map(
-                                lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
-                                vals_dict.keys(),
-                            )
-                        )
-                    )
-                    message += (
-                        f"{len(categorized_exceptions)} {mdl_name} records were not found (using search field(s): "
-                        f"{flds_str}) with values found in {loc_str}:{nltab}{search_terms_str}\n"
-                    )
+        if not message:
+            message = tmp_message
 
         if suggestion is not None:
             if message.endswith("\n"):
@@ -717,6 +730,147 @@ class MissingRecords(InfileError):
                 message += f"  {suggestion}"
 
         self.message = message
+        self.exceptions_by_model_and_query = exceptions_by_model_and_query
+        self.exceptions_by_model_query_and_loc = exceptions_by_model_query_and_loc
+
+
+class MissingModelRecords(MissingRecords, ABC):
+    @property
+    @abstractmethod
+    def ModelName(self):
+        pass
+
+    @property
+    @abstractmethod
+    def RecordName(self):
+        pass
+
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        **kwargs,
+    ):
+        file = None
+        sheet = None
+        column = None
+        for exc in exceptions:
+            if exc.model.__name__ != self.ModelName:
+                raise ProgrammingError(
+                    f"The supplied exceptions must all be for model {self.ModelName}, but found "
+                    f"{exc.model.__name__}."
+                )
+            if (
+                (file is not None and exc.file is not None and file != exc.file)
+                or (sheet is not None and exc.sheet is not None and sheet != exc.sheet)
+                or (
+                    column is not None
+                    and exc.column is not None
+                    and column != exc.column
+                )
+            ):
+                raise ProgrammingError(
+                    "The supplied exceptions must all be from the same file, sheet, and column."
+                )
+            file = exc.file
+            sheet = exc.sheet
+            column = exc.column
+
+        kwargs["file"] = file
+        kwargs["sheet"] = sheet
+        kwargs["column"] = column
+
+        # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
+        super().__init__(exceptions, **kwargs)
+        message = kwargs.pop("message", None)
+        if message is None:
+            nltab = "\n\t"
+            summary = nltab.join(
+                [
+                    f"{terms} from row(s): ["
+                    + ", ".join(summarize_int_list([exc.rownum for exc in excs]))
+                    + "]"
+                    for terms, excs in self.exceptions_by_model_and_query[
+                        self.ModelName
+                    ].items()
+                ]
+            )
+            message = (
+                f"{len(exceptions)} {self.ModelName}s matching the following values in %s were not found in the "
+                f"database:{nltab}{summary}\n"
+            )
+
+        self.orig_message = message
+        self.search_terms = list(
+            self.exceptions_by_model_and_query[self.ModelName].keys()
+        )
+        self.exceptions_by_query = self.exceptions_by_model_and_query[self.ModelName]
+        self.set_formatted_message(**kwargs)
+
+
+class MissingModelRecordsByFile(MissingRecords, ABC):
+    @property
+    @abstractmethod
+    def ModelName(self):
+        pass
+
+    @property
+    @abstractmethod
+    def RecordName(self):
+        pass
+
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        succinct=False,
+        **kwargs,
+    ):
+        for exc in exceptions:
+            if exc.model.__name__ != self.ModelName:
+                raise ProgrammingError(
+                    f"The supplied exceptions must all be for model {self.ModelName}, but found "
+                    f"{exc.model.__name__}."
+                )
+
+        # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
+        super().__init__(exceptions, **kwargs)
+        message = kwargs.pop("message", None)
+        if message is None:
+            nltt = "\n\t\t"
+            summary = ""
+            for terms, loc_dict in self.exceptions_by_model_query_and_loc[
+                self.ModelName
+            ].items():
+                summary += "\n\t"
+                if succinct:
+                    summary += "\n\t".join(loc_dict.keys())
+                else:
+                    summary += f"{terms}\n\t\t"
+                    summary += nltt.join(
+                        [
+                            f"{loc}, row(s): ["
+                            + ", ".join(
+                                summarize_int_list([exc.rownum for exc in excs])
+                            )
+                            + "]"
+                            for loc, excs in loc_dict.items()
+                        ]
+                    )
+            if succinct:
+                message = f"{len(exceptions)} {self.ModelName}s missing in the database:{summary}\nwhile processing %s."
+            else:
+                message = (
+                    f"{len(exceptions)} {self.ModelName}s matching the following values were not found in the "
+                    f"database:{summary}\nwhile processing %s."
+                )
+
+        self.orig_message = message
+        self.search_terms = list(
+            self.exceptions_by_model_and_query[self.ModelName].keys()
+        )
+        self.exceptions_by_query_and_loc = self.exceptions_by_model_query_and_loc[
+            self.ModelName
+        ]
+        self.set_formatted_message(**kwargs)
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
@@ -995,62 +1149,24 @@ class MissingSamplesError(Exception):
         self.exceptions = exceptions
 
 
-class MissingSamples(MissingRecords):
-    def __init__(
-        self,
-        exceptions: List[RecordDoesNotExist],
-        **kwargs,
-    ):
-        super().__init__(exceptions, **kwargs)
-        # Add a custom attribute listing the missing sample headers
-        self.missing_samples = self.get_sample_names(exceptions)
-
-    @classmethod
-    def get_sample_names(cls, exceptions):
-        missing_samples = []
-        for exc in exceptions:
-            if exc.query_obj["name"] not in missing_samples:
-                missing_samples.append(exc.query_obj["name"])
-        return missing_samples
+class MissingSamples(MissingModelRecords):
+    ModelName = "Sample"
+    RecordName = ModelName
 
 
-class MissingCompounds(InfileError):
-    def __init__(
-        self,
-        exceptions: List[RecordDoesNotExist],
-        message=None,
-        suggestion=None,
-        **kwargs,
-    ):
-        # Initialize the remaining kwargs
-        super().__init__("", **kwargs)
-        if not message:
-            loc_args, _, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
-                exceptions
-            )
+class AllMissingSamples(MissingModelRecordsByFile):
+    ModelName = "Sample"
+    RecordName = ModelName
 
-            loc_str = generate_file_location_string(**loc_args)
 
-            # Summarize the values and the rows on which they occurred
-            nltab = "\n\t"
-            cmdps_str = nltab.join(
-                list(
-                    map(
-                        lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
-                        vals_dict.keys(),
-                    )
-                )
-            )
-            message = (
-                f"{len(exceptions)} compounds matching the following values in {loc_str} in %s were not found in the "
-                f"database:{nltab}{cmdps_str}\n"
-            )
+class MissingCompounds(MissingModelRecords):
+    ModelName = "Compound"
+    RecordName = ModelName
 
-        if suggestion is not None:
-            message += suggestion
 
-        self.orig_message = message
-        self.set_formatted_message(**kwargs)
+class AllMissingCompounds(MissingModelRecordsByFile):
+    ModelName = "Compound"
+    RecordName = ModelName
 
 
 class RequiredArgument(Exception):
@@ -1089,12 +1205,12 @@ class UnskippedBlanks(MissingSamples):
         exceptions: List[RecordDoesNotExist],
         **kwargs,
     ):
-        sample_names = self.get_sample_names(exceptions)
+        super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
         if message is None:
             message = (
-                f"{len(sample_names)} samples that appear to possibly be blanks are missing in the database: "
-                f"[{', '.join(sample_names)}]."
+                f"{len(exceptions)} samples that appear to possibly be blanks are missing in the database: "
+                f"[{', '.join(self.search_terms)}]."
             )
         suggestion = kwargs.pop("suggestion", None)
         if suggestion is None:
@@ -1102,7 +1218,8 @@ class UnskippedBlanks(MissingSamples):
                 "Be sure to set the skip column in the PeakAnnotation Details sheet to 'true' for blank "
                 "samples."
             )
-        super().__init__(exceptions, message=message, suggestion=suggestion, **kwargs)
+        self.orig_message = message
+        self.set_formatted_message(suggestion=suggestion, **kwargs)
 
 
 # TODO: Remove this class when the accucor loader is deleted
@@ -1853,7 +1970,14 @@ class AggregatedErrors(Exception):
         # Return removed exceptions
         return matched_exceptions
 
-    def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
+    def modify_exception_type(
+        self,
+        exception_class,
+        is_fatal=None,
+        is_error=None,
+        attr_name=None,
+        attr_val=None,
+    ):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
@@ -1872,7 +1996,9 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if self.exception_matches(exception, exception_class):
+            if self.exception_matches(
+                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+            ):
                 if is_error is not None:
                     exception.is_error = is_error
                 if is_fatal is not None:
@@ -2566,7 +2692,7 @@ class UnexpectedIsotopes(Exception):
         self.compounds = compounds
 
 
-class AllMissingTissues(Exception):
+class AllMissingTissuesErrors(Exception):
     """
     Takes a list of MissingTissue exceptions and a list of existing tissue names.
     """
@@ -2608,7 +2734,7 @@ class AllMissingTissues(Exception):
 
 
 # TODO: Create an AllInfileErrors class using AllMissingTreatments and AllMissingTissues as a template
-class AllMissingTreatments(Exception):
+class AllMissingTreatmentsErrors(Exception):
     """
     Takes a list of MissingTreatment exceptions and a list of existing treatment names.
     """
@@ -2652,7 +2778,7 @@ class AllMissingTreatments(Exception):
         self.missing_treatment_errors = missing_treatment_errors
 
 
-class AllMissingCompounds(Exception):
+class AllMissingCompoundsErrors(Exception):
     """
     This is the same as the MissingCompounds class, but it takes a 3D dict that is used to report every file (and rows
     in that file) where each missing compound exists.
@@ -2723,6 +2849,7 @@ class MissingCompoundsError(Exception):
         self.compounds_dict = compounds_dict
 
 
+# TODO: Delete when sample_table_loader is removed
 class MissingTissue(InfileError):
     def __init__(self, tissue_name, message=None, **kwargs):
         if not message:
@@ -2731,6 +2858,17 @@ class MissingTissue(InfileError):
         self.tissue_name = tissue_name
 
 
+class MissingTissues(MissingModelRecords):
+    ModelName = "Tissue"
+    RecordName = ModelName
+
+
+class AllMissingTissues(MissingModelRecordsByFile):
+    ModelName = "Tissue"
+    RecordName = ModelName
+
+
+# TODO: Delete when sample_table_loader is removed
 class MissingTreatment(InfileError):
     def __init__(self, treatment_name, message=None, **kwargs):
         if not message:
@@ -2739,6 +2877,16 @@ class MissingTreatment(InfileError):
             )
         super().__init__(message, **kwargs)
         self.treatment_name = treatment_name
+
+
+class MissingTreatments(MissingModelRecords):
+    ModelName = "Protocol"
+    RecordName = "Treatment"
+
+
+class AllMissingTreatments(MissingModelRecordsByFile):
+    ModelName = "Protocol"
+    RecordName = "Treatment"
 
 
 class LCMethodFixturesMissing(Exception):

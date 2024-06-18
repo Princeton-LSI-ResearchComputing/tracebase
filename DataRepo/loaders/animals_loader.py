@@ -18,7 +18,11 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.models.utilities import value_from_choices_label
-from DataRepo.utils.exceptions import RollbackException
+from DataRepo.utils.exceptions import (
+    MissingTreatments,
+    RecordDoesNotExist,
+    RollbackException,
+)
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 AnimalStudy = Animal.studies.through
@@ -253,6 +257,8 @@ class AnimalsLoader(TableLoader):
                     # Exception handling was handled in get_or_create_*
                     # Continue processing rows to find more errors
                     pass
+
+        self.repackage_exceptions()
 
     @transaction.atomic
     def get_or_create_animal(
@@ -561,3 +567,35 @@ class AnimalsLoader(TableLoader):
             raise RollbackException()
 
         return rec, created
+
+    def repackage_exceptions(self):
+        """Summarize missing treatments.
+
+        Args:
+            None
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                MissingTreatments
+        Returns:
+            None
+        """
+        # Summarize missing tissues
+        dnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Protocol
+        )
+        if len(dnes) > 0:
+            cross_sheet_col_ref = (
+                self.DataColumnMetadata.TREATMENT.value.dynamic_choices
+            )
+            self.aggregated_errors_object.buffer_error(
+                MissingTreatments(
+                    dnes,
+                    suggestion=(
+                        f"{self.headers.TREATMENT}s in {self.sheet} must be loaded into the database "
+                        f"prior to animal loading.  Please be sure to add each missing {self.headers.TREATMENT} to "
+                        f"{cross_sheet_col_ref.header} in {cross_sheet_col_ref.sheet} in your submission."
+                    ),
+                ),
+            )

@@ -15,7 +15,9 @@ from DataRepo.models.researcher import (
 )
 from DataRepo.utils.exceptions import (
     DateParseError,
+    MissingTissues,
     NewResearcher,
+    RecordDoesNotExist,
     RollbackException,
 )
 from DataRepo.utils.file_utils import string_to_datetime
@@ -191,6 +193,8 @@ class SamplesLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+
+        self.repackage_exceptions()
 
     @transaction.atomic
     def get_or_create_sample(self, row, animal: Animal, tissue: Tissue):
@@ -378,3 +382,33 @@ class SamplesLoader(TableLoader):
             self.add_skip_row_index()
 
         return rec
+
+    def repackage_exceptions(self):
+        """Summarize missing tissues.
+
+        Args:
+            None
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                MissingTissues
+        Returns:
+            None
+        """
+        # Summarize missing tissues
+        dnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Tissue
+        )
+        if len(dnes) > 0:
+            cross_sheet_col_ref = self.DataColumnMetadata.TISSUE.value.dynamic_choices
+            self.aggregated_errors_object.buffer_error(
+                MissingTissues(
+                    dnes,
+                    suggestion=(
+                        f"{self.headers.TISSUE}s in {self.sheet} must be loaded into the database prior to sample "
+                        f"loading.  Please be sure to add each missing {self.headers.TISSUE} to "
+                        f"{cross_sheet_col_ref.header} in {cross_sheet_col_ref.sheet} in your submission."
+                    ),
+                ),
+            )
