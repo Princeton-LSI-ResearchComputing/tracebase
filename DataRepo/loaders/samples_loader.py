@@ -9,6 +9,7 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
+from DataRepo.models.fcirc import FCirc
 from DataRepo.models.researcher import (
     could_be_variant_researcher,
     get_researchers,
@@ -17,6 +18,7 @@ from DataRepo.utils.exceptions import (
     DateParseError,
     MissingTissues,
     NewResearcher,
+    NoTracers,
     RecordDoesNotExist,
     RollbackException,
 )
@@ -141,7 +143,7 @@ class SamplesLoader(TableLoader):
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
-    Models = [Sample]
+    Models = [FCirc, Sample]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -185,14 +187,42 @@ class SamplesLoader(TableLoader):
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
+            sample = None
 
             # Get or create the animal record
             try:
-                self.get_or_create_sample(row, animal, tissue)
+                sample, _ = self.get_or_create_sample(row, animal, tissue)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+
+            if sample is not None and sample._is_serum_sample():
+                count = 0
+                for tracer in sample.animal.infusate.tracers.all():
+                    for label in tracer.labels.all():
+                        count += 1
+                        try:
+                            self.get_or_create_fcirc(sample, tracer, label.element)
+                        except RollbackException:
+                            # Exception handling was handled in get_or_create_*
+                            # Continue processing rows to find more errors
+                            pass
+                if (
+                    count == 0
+                    and not self.aggregated_errors_object.exception_type_exists(
+                        NoTracers
+                    )
+                ):
+                    self.aggregated_errors_object.buffer_warning(
+                        NoTracers(
+                            message=(
+                                "Unable to add FCirc records for serun samples because there are either no tracers or "
+                                "no tracer label records associated with the source animal (e.g. animal "
+                                f"'{sample.animal}')."
+                            )
+                        )
+                    )
 
         self.repackage_exceptions()
 
@@ -382,6 +412,47 @@ class SamplesLoader(TableLoader):
             self.add_skip_row_index()
 
         return rec
+
+    @transaction.atomic
+    def get_or_create_fcirc(self, sample, tracer, element):
+        """Get or create an FCirc record.
+
+        Args:
+            sample (Sample)
+            tracer (Tracer)
+            element (str)
+        Exceptions:
+            Raises:
+                RollbackException
+            Buffers:
+                None
+        Returns:
+            rec (Sample)
+            created (boolean)
+        """
+        rec = None
+        created = False
+
+        rec_dict = {
+            "serum_sample": sample,
+            "tracer": tracer,
+            "element": element,
+        }
+
+        try:
+            rec, created = FCirc.objects.get_or_create(**rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(FCirc.__name__)
+            else:
+                self.existed(FCirc.__name__)
+        except Exception as e:
+            self.handle_load_db_errors(e, FCirc, rec_dict)
+            self.errored(FCirc.__name__)
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
+            raise RollbackException
+
+        return rec, created
 
     def repackage_exceptions(self):
         """Summarize missing tissues.

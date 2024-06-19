@@ -2659,8 +2659,10 @@ class NoTracerLabeledElements(InfileError):
 
 
 class NoTracers(InfileError):
-    def __init__(self, animal: Animal, **kwargs):
-        message = f"The Animal [{animal}] associated with %s, has no tracers."
+    def __init__(self, animal: Optional[Animal] = None, message=None, **kwargs):
+        if message is None:
+            animal_str = f" [{animal}]"
+            message = f"The Animal{animal_str} associated with %s, has no tracers."
         super().__init__(message, **kwargs)
         self.animal = animal
 
