@@ -65,9 +65,14 @@ def test_case_class_factory(base_class) -> Type[TestCase]:
             This method in the superclass is intended to provide run time information for the setUpTestData method.
             """
             super().setUpTestData()
-            reportRunTime(
-                f"{cls.__module__}.{cls.__name__}.setUpTestData", cls.setupStartTime
-            )
+            try:
+                reportRunTime(
+                    f"{cls.__module__}.{cls.__name__}.setUpTestData", cls.setupStartTime
+                )
+            except AttributeError:
+                # This is an attribute error about cls not having an attribute named "setupStartTime"
+                # If this method is called from outside the class (for code-re-use), we don't need to track its time
+                pass
 
         @classmethod
         def get_record_counts(cls):

@@ -324,13 +324,6 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
                 "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
             ),
         )
-        super().setUpTestData()
-
-    def test_multiple_accucor_labels(self):
-        """
-        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
-        error
-        """
         # Load a sequence and all the MSRunSamples
         create_test_sequence("anonymous", "2022-08-18")
         MSRunsLoader(
@@ -357,7 +350,13 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
                 },
             ),
         ).load_data()
+        super().setUpTestData()
 
+    def test_multiple_accucor_labels(self):
+        """
+        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
+        error
+        """
         call_command(
             "load_peak_annotations",
             infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
@@ -410,7 +409,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
                         "small_cor.csv",
                         "small_cor.csv",
                     ],
-                    # TODO: Just realized that we either should not allow commas in names of change the seq name delim
+                    # TODO: Just realized that we either should not allow commas in names or change the seq name delim
                     "Sequence Name": [
                         "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(3)

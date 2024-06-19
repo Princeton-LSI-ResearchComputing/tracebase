@@ -1,3 +1,6 @@
+from typing import Type
+
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
@@ -8,7 +11,7 @@ class Command(LoadTableCommand):
     """Command to load the MSRunSample model from mzXML files and/or a table-like file."""
 
     help = "Loads data from mzXML files and/or a MSRunSample table into the database"
-    loader_class = MSRunsLoader
+    loader_class: Type[TableLoader] = MSRunsLoader
 
     def __init__(self, *args, **kwargs):
         # Don't require any options (i.e. don't require the --infile option)

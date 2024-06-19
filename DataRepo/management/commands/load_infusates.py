@@ -1,3 +1,6 @@
+from typing import Type
+
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
@@ -6,7 +9,7 @@ class Command(LoadTableCommand):
     """Command to load the Infusate and InfusateTracer models from a table-like file."""
 
     help = "Loads data from an infusate table into the database"
-    loader_class = InfusatesLoader
+    loader_class: Type[TableLoader] = InfusatesLoader
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass

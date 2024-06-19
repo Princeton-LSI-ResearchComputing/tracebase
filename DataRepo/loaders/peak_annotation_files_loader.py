@@ -17,7 +17,7 @@ from DataRepo.loaders.peak_annotations_loader import (
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.utils.exceptions import RollbackException
-from DataRepo.utils.file_utils import get_sheet_names, read_from_file
+from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 
 
 class PeakAnnotationFilesLoader(TableLoader):
@@ -339,7 +339,9 @@ class PeakAnnotationFilesLoader(TableLoader):
             peak_annotation_details_file = self.peak_annotation_details_file
             peak_annotation_details_sheet = self.peak_annotation_details_sheet
             peak_annotation_details_df = self.peak_annotation_details_df
-        elif MSRunsLoader.DataSheetName in get_sheet_names(self.file):
+        elif is_excel(self.file) and MSRunsLoader.DataSheetName in get_sheet_names(
+            self.file
+        ):
             peak_annotation_details_file = self.file
             peak_annotation_details_sheet = MSRunsLoader.DataSheetName
             peak_annotation_details_df = read_from_file(
