@@ -730,6 +730,7 @@ class MissingRecords(InfileError):
                 message += f"  {suggestion}"
 
         self.message = message
+        self.exceptions = exceptions
         self.exceptions_by_model_and_query = exceptions_by_model_and_query
         self.exceptions_by_model_query_and_loc = exceptions_by_model_query_and_loc
 

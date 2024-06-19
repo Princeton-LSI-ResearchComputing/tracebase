@@ -8,12 +8,17 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
-from DataRepo.utils.exceptions import InfileError, summarize_int_list
+from DataRepo.utils.exceptions import (
+    InfileError,
+    TracerParsingError,
+    summarize_int_list,
+)
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
     InfusateTracerData,
     parse_infusate_name,
+    parse_infusate_name_with_concs,
     parse_tracer_string,
 )
 
@@ -583,6 +588,8 @@ class InfusatesLoader(TableLoader):
                 parsed_infusate = parse_infusate_name(
                     table_infusate_name, table_concentrations
                 )
+            except TracerParsingError:
+                parsed_infusate = parse_infusate_name_with_concs(table_infusate_name)
             except InfusateParsingError as ipe:
                 rownums = [t["rownum"] for t in table_infusate["tracers"]]
                 self.aggregated_errors_object.buffer_error(

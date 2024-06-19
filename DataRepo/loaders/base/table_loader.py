@@ -1243,7 +1243,10 @@ class TableLoader(ABC):
             )
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1472,7 +1475,10 @@ class TableLoader(ABC):
             df = self.df
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1526,7 +1532,10 @@ class TableLoader(ABC):
             reqd_values = self.reqd_values
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1538,7 +1547,10 @@ class TableLoader(ABC):
 
         # Is there data to check?
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )

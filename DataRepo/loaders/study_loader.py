@@ -8,6 +8,7 @@ from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
+from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
@@ -43,7 +44,7 @@ class StudyLoader(TableLoader):
     INFUSATES_SHEET = "INFUSATES"
     TRACERS_SHEET = "TRACERS"
     COMPOUNDS_SHEET = "COMPOUNDS"
-    PROTOCOLS_SHEET = "PROTOCOLS"
+    LCPROTOCOLS_SHEET = "LCPROTOCOL"
     SEQUENCES_SHEET = "SEQUENCES"
     HEADERS_SHEET = "HEADERS"
     FILES_SHEET = "FILES"
@@ -53,14 +54,14 @@ class StudyLoader(TableLoader):
         "DataTableHeaders",
         [
             "STUDY",
-            "ANIMALS",
-            "SAMPLES",
-            "TREATMENTS",
-            "TISSUES",
-            "INFUSATES",
-            "TRACERS",
             "COMPOUNDS",
-            "PROTOCOLS",
+            "TRACERS",
+            "INFUSATES",
+            "TREATMENTS",
+            "ANIMALS",
+            "TISSUES",
+            "SAMPLES",
+            "LCPROTOCOLS",
             "SEQUENCES",
             "HEADERS",
             "FILES",
@@ -77,7 +78,7 @@ class StudyLoader(TableLoader):
         INFUSATES=InfusatesLoader.DataSheetName,
         TRACERS=TracersLoader.DataSheetName,
         COMPOUNDS=CompoundsLoader.DataSheetName,
-        PROTOCOLS=ProtocolsLoader.DataSheetName,
+        LCPROTOCOLS=LCProtocolsLoader.DataSheetName,
         SEQUENCES=SequencesLoader.DataSheetName,
         HEADERS=MSRunsLoader.DataSheetName,
         FILES=PeakAnnotationFilesLoader.DataSheetName,
@@ -106,7 +107,7 @@ class StudyLoader(TableLoader):
         INFUSATES=None,
         TRACERS=None,
         COMPOUNDS=None,
-        PROTOCOLS=None,
+        LCPROTOCOLS=None,
         SEQUENCES=None,
         HEADERS=None,
         FILES=None,
@@ -124,7 +125,7 @@ class StudyLoader(TableLoader):
         INFUSATES=InfusatesLoader,
         TRACERS=TracersLoader,
         COMPOUNDS=CompoundsLoader,
-        PROTOCOLS=ProtocolsLoader,
+        LCPROTOCOLS=LCProtocolsLoader,
         SEQUENCES=SequencesLoader,
         HEADERS=MSRunsLoader,
         FILES=PeakAnnotationFilesLoader,
@@ -163,12 +164,11 @@ class StudyLoader(TableLoader):
         Returns:
             None
         """
-        if kwargs.get("file") is None:
-            raise AggregatedErrors().buffer_error(
-                ValueError("The [file] argument is required.")
-            )
         if kwargs.get("df") is not None or kwargs.get("defaults_df") is not None:
-            ValueError("The following arguments are prohibited: [df, defaults_df].")
+            ValueError(
+                f"The following superclass constructor arguments are prohibited by {type(self).__name__}: [df, "
+                "defaults_df]."
+            )
 
         super().__init__(*args, **kwargs)
 
@@ -189,6 +189,13 @@ class StudyLoader(TableLoader):
         Returns:
             None
         """
+        if self.file is None:
+            raise AggregatedErrors().buffer_error(
+                ValueError(
+                    f"The [file] argument to {type(self).__name__}() is required."
+                )
+            )
+
         file_sheets = get_sheet_names(self.file)
         sheet_names = self.get_sheet_names_tuple()
         loaders = self.Loaders
@@ -218,13 +225,15 @@ class StudyLoader(TableLoader):
 
             if sheet in file_sheets:
                 try:
+                    # Build the keyword arguments to read_from_file
+                    rffkwargs = {"sheet": sheet}
+                    dtypes = self.get_loader_class_dtypes(loader_class)
+                    if dtypes is not None and len(dtypes.keys()) > 0:
+                        rffkwargs["dtype"] = dtypes
+
                     # Create a loader instance (e.g. CompoundsLoader())
                     loader = loader_class(
-                        df=read_from_file(
-                            self.file,
-                            dtype=self.get_class_dtypes(loader_class),
-                            sheet=sheet,
-                        ),
+                        df=read_from_file(self.file, **rffkwargs),
                         data_sheet=sheet,
                         **common_args,
                     )
@@ -251,20 +260,53 @@ class StudyLoader(TableLoader):
 
         # dry_run and defer_rollback are handled by the load_data wrapper
 
-    def get_class_dtypes(self, loader, headers=None):
+    def get_loader_class_dtypes(self, loader_class, headers=None):
+        """Retrieve a dtypes dict from the loader_class.
+
+        Args:
+            loader_class (Type[TableLoader]): Any class that inherits from TableLoader.
+            headers (namedtuple): Custom headers, e.g. from a yaml file.
+        Exceptions:
+            None:
+        Returns:
+            dtypes (dict): Types keyed on header names (not keys)
+        """
         # TODO: Make this support custom headers
+        if (
+            not hasattr(loader_class, "DataColumnTypes")
+            or loader_class.DataColumnTypes is None
+            or len(loader_class.DataColumnTypes.keys()) == 0
+        ):
+            return None
+
         if headers is None:
-            headers = loader.DataHeaders
+            # TODO Git rid of (/refactor) the ProtocolsLoader to not use this "DataHeadersExcel" class attribute
+            if hasattr(loader_class, "DataHeadersExcel"):
+                headers = loader_class.DataHeadersExcel
+            else:
+                headers = loader_class.DataHeaders
         dtypes = {}
-        for key, val in loader.DataColumnTypes.items():
-            hdr = getattr(loader.DataHeaders, key)
+
+        for key, val in loader_class.DataColumnTypes.items():
+            hdr = getattr(headers, key)
             dtypes[hdr] = val
         return dtypes
 
     def get_sheet_names_tuple(self):
-        if self.user_headers is not None:
-            return self.user_headers
-        return self.DataHeaders
+        """Retrieve a tuple containing all of the loaders' sheet names.
+
+        This will use any user-supplied sheet names.
+
+        Args:
+            None
+        Exceptions:
+            None:
+        Returns:
+            dtypes (dict): Types keyed on header names (not keys)
+        """
+        # Sheet names are stored as TableLoader "headers".  This is an overload of the TableLoader header functionality.
+        # This class does not take or use a dataframe with headers.  It only takes a file and calls other loaders.
+        return self.get_headers()
 
     def package_group_exceptions(self, exception, sheet):
         """Repackages an exception for consolidated reporting.
