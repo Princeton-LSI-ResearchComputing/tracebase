@@ -116,7 +116,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     ]
 
     # List of header keys for columns that require a value
-    DataRequiredValues = DataRequiredHeaders
+    DataRequiredValues = [
+        ISOTOPELABEL_KEY,
+        FORMULA_KEY,
+        COMPOUND_KEY,
+        SAMPLEHEADER_KEY,
+        CORRECTED_KEY,
+    ]
 
     # No DataDefaultValues needed
 
@@ -407,7 +413,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         Args:
             None
-        Raises:
+        Exceptions:
             None
         Returns:
             None

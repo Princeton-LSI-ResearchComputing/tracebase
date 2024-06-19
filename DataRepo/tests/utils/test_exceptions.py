@@ -1236,8 +1236,8 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn(
             "in column [compound] of sheet [Corrected] in accucor.xlsx", str(mcs)
         )
-        self.assertIn("lysine from row(s): [5]", str(mcs))
-        self.assertIn("vibranium from row(s): [19]", str(mcs))
+        self.assertIn("'lysine' from row(s): [5]", str(mcs))
+        self.assertIn("'vibranium' from row(s): [19]", str(mcs))
 
     def test_MissingRecords(self):
         from DataRepo.models import Compound, MSRunSample
@@ -1301,8 +1301,8 @@ class ExceptionTests(TracebaseTestCase):
     def test_MissingSamples(self):
         mss = MissingSamples(self.get_sample_dnes())
         self.assertIn("2 Samples", str(mss))
-        self.assertIn("sample1 from row(s): [5]", str(mss))
-        self.assertIn("sample2 from row(s): [19]", str(mss))
+        self.assertIn("'sample1' from row(s): [5]", str(mss))
+        self.assertIn("'sample2' from row(s): [19]", str(mss))
         self.assertIn("column [Sample] of sheet [Corrected] in accucor.xlsx", str(mss))
 
     def test_UnskippedBlanks(self):

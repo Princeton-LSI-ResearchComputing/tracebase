@@ -180,6 +180,8 @@ class AnimalsLoader(TableLoader):
             dynamic_choices=ColumnReference(
                 loader_class=ProtocolsLoader,
                 loader_header_key=ProtocolsLoader.NAME_KEY,
+                # TODO: This ColumnReference ends up calling the Animal Treatment header "Protocol Name".  Figure out
+                # how to fix that.  See test: test_animals_loader_repackage_exceptions
             ),
         ),
     )
@@ -589,13 +591,17 @@ class AnimalsLoader(TableLoader):
             cross_sheet_col_ref = (
                 self.DataColumnMetadata.TREATMENT.value.dynamic_choices
             )
+            sheet = self.sheet
+            if sheet is None:
+                sheet = self.DataSheetName
             self.aggregated_errors_object.buffer_error(
                 MissingTreatments(
                     dnes,
                     suggestion=(
-                        f"{self.headers.TREATMENT}s in {self.sheet} must be loaded into the database "
-                        f"prior to animal loading.  Please be sure to add each missing {self.headers.TREATMENT} to "
-                        f"{cross_sheet_col_ref.header} in {cross_sheet_col_ref.sheet} in your submission."
+                        f"{self.headers.TREATMENT}s in the '{sheet}' sheet must be loaded into the database prior to "
+                        f"animal loading.  Please be sure to add each missing '{self.headers.TREATMENT}' to the "
+                        f"'{cross_sheet_col_ref.header}' column in the '{cross_sheet_col_ref.sheet}' sheet in your "
+                        "submission."
                     ),
                 ),
             )

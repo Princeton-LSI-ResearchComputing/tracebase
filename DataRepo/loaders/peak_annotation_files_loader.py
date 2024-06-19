@@ -113,6 +113,62 @@ class PeakAnnotationFilesLoader(TableLoader):
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [ArchiveFile]
 
+    def __init__(self, *args, **kwargs):
+        """Constructor.
+
+        Limitations:
+            Custom headers for the peak annotation details file are not (yet) supported.  Only the class defaults of the
+                MSRunsLoader are allowed.
+
+        *NOTE: This constructor requires the file argument (which is an optional argument to the superclass) if the df
+        argument is supplied.
+
+        Args:
+            Superclass Args:
+                df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
+                dry_run (Optional[boolean]) [False]: Dry run mode.
+                defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
+                    MUST HANDLE THE ROLLBACK.
+                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
+                file (Optional[str]) [None]: File name (for error reporting).
+                user_headers (Optional[dict]): Header names by header key.
+                defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
+                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+                defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+                extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                    unknown header, supply an empty list.
+                _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This
+                    is intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                    commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                    interface and seen by researchers, among other behaviors specific to non-privileged users).
+            Derived (this) class Args:
+                peak_annotation_details_file (Optional[str]): The name of the file that the Peak Annotation Details came
+                    from.
+                peak_annotation_details_sheet (Optional[str]): The name of the sheet that the Peak Annotation Details
+                    came from (if it was an excel file).
+                peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation Details
+                    sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of this
+                    instance)
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
+                ConditionallyRequiredArgs
+        Returns:
+            None
+        """
+        # Custom options for the MSRunsLoader member instance.
+        self.peak_annotation_details_file = kwargs.pop(
+            "peak_annotation_details_file", None
+        )
+        self.peak_annotation_details_sheet = kwargs.pop(
+            "peak_annotation_details_sheet", None
+        )
+        self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
+        super().__init__(*args, **kwargs)
+
     def load_data(self):
         """Loads the ArchiveFile table from the dataframe and calls the PeakAnnotationsLoader for each file.
 
@@ -279,7 +335,11 @@ class PeakAnnotationFilesLoader(TableLoader):
         peak_annotation_details_sheet = None
         peak_annotation_details_df = None
 
-        if MSRunsLoader.DataSheetName in get_sheet_names(self.file):
+        if self.peak_annotation_details_df is not None:
+            peak_annotation_details_file = self.peak_annotation_details_file
+            peak_annotation_details_sheet = self.peak_annotation_details_sheet
+            peak_annotation_details_df = self.peak_annotation_details_df
+        elif MSRunsLoader.DataSheetName in get_sheet_names(self.file):
             peak_annotation_details_file = self.file
             peak_annotation_details_sheet = MSRunsLoader.DataSheetName
             peak_annotation_details_df = read_from_file(
@@ -297,16 +357,21 @@ class PeakAnnotationFilesLoader(TableLoader):
         if sequence_name is not None:
             (
                 default_operator,
-                default_date,
                 default_lc_protocol_name,
                 default_instrument,
+                default_date,
             ) = re.split(r",\s*", sequence_name)
 
         # Create an instance of the specific peak annotations loader for this format
         peak_annot_loader = peak_annot_loader_class(
+            # These are the essential arguments
+            df=read_from_file(filepath, sheet=None),
+            file=filepath,
+            # Then we need either these 3 peak annotation details inputs
             peak_annotation_details_file=peak_annotation_details_file,
             peak_annotation_details_sheet=peak_annotation_details_sheet,
             peak_annotation_details_df=peak_annotation_details_df,
+            # Or... these default sequence inputs (as long as the sample headers = sample DB names)
             operator=default_operator,
             date=default_date,
             lc_protocol_name=default_lc_protocol_name,

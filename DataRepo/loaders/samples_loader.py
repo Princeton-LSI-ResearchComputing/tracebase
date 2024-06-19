@@ -402,13 +402,16 @@ class SamplesLoader(TableLoader):
         )
         if len(dnes) > 0:
             cross_sheet_col_ref = self.DataColumnMetadata.TISSUE.value.dynamic_choices
+            sheet = self.sheet
+            if sheet is None:
+                sheet = self.DataSheetName
             self.aggregated_errors_object.buffer_error(
                 MissingTissues(
                     dnes,
                     suggestion=(
-                        f"{self.headers.TISSUE}s in {self.sheet} must be loaded into the database prior to sample "
-                        f"loading.  Please be sure to add each missing {self.headers.TISSUE} to "
-                        f"{cross_sheet_col_ref.header} in {cross_sheet_col_ref.sheet} in your submission."
+                        f"{self.headers.TISSUE}s in the '{sheet}' sheet must be loaded into the database prior to "
+                        f"sample loading.  Please be sure to add each missing '{self.headers.TISSUE}' to the "
+                        f"'{cross_sheet_col_ref.header}' in the '{cross_sheet_col_ref.sheet}' in your submission."
                     ),
                 ),
             )

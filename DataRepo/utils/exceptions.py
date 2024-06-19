@@ -786,7 +786,7 @@ class MissingModelRecords(MissingRecords, ABC):
             nltab = "\n\t"
             summary = nltab.join(
                 [
-                    f"{terms} from row(s): ["
+                    f"'{terms}' from row(s): ["
                     + ", ".join(summarize_int_list([exc.rownum for exc in excs]))
                     + "]"
                     for terms, excs in self.exceptions_by_model_and_query[
