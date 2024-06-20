@@ -59,6 +59,7 @@ class FCirc(MaintainedModel, HierCachedModel):
             )
         ]
 
+    # TODO: Make this into a clean method
     def save(self, *args, **kwargs):
         """
         This checks to make sure that self.serum_sample is in fact a serum sample.

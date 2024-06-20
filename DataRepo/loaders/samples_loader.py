@@ -16,9 +16,9 @@ from DataRepo.models.researcher import (
 )
 from DataRepo.utils.exceptions import (
     DateParseError,
-    InfileError,
     MissingTissues,
     NewResearcher,
+    NoTracers,
     RecordDoesNotExist,
     RollbackException,
 )
@@ -143,7 +143,7 @@ class SamplesLoader(TableLoader):
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
-    Models = [Sample]
+    Models = [FCirc, Sample]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -187,14 +187,42 @@ class SamplesLoader(TableLoader):
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
+            sample = None
 
             # Get or create the animal record
             try:
-                self.get_or_create_sample(row, animal, tissue)
+                sample, _ = self.get_or_create_sample(row, animal, tissue)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+
+            if sample is not None and sample._is_serum_sample():
+                count = 0
+                for tracer in sample.animal.infusate.tracers.all():
+                    for label in tracer.labels.all():
+                        count += 1
+                        try:
+                            self.get_or_create_fcirc(sample, tracer, label.element)
+                        except RollbackException:
+                            # Exception handling was handled in get_or_create_*
+                            # Continue processing rows to find more errors
+                            pass
+                if (
+                    count == 0
+                    and not self.aggregated_errors_object.exception_type_exists(
+                        NoTracers
+                    )
+                ):
+                    self.aggregated_errors_object.buffer_warning(
+                        NoTracers(
+                            message=(
+                                "Unable to add FCirc records for serun samples because there are either no tracers or "
+                                "no tracer label records associated with the source animal (e.g. animal "
+                                f"'{sample.animal}')."
+                            )
+                        )
+                    )
 
         self.repackage_exceptions()
 
@@ -246,35 +274,31 @@ class SamplesLoader(TableLoader):
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             date = datetime.now()
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
-            # TODO: Once rebased on pending PRs, just call set_formatted_message instead of all this:
-            self.aggregated_errors_object.buffer_exception(
-                DateParseError(
-                    date_str,
-                    dpe.ve_exc,
-                    dpe.format,
-                    file=self.file,
-                    sheet=self.sheet,
-                    rownum=self.rownum,
-                    column=self.headers.DATE,
+            dpe.set_formatted_message(
+                file=self.file,
+                sheet=self.sheet,
+                rownum=self.rownum,
+                column=self.headers.DATE,
+                suggestion=(
+                    f"Setting a placeholder value of {date}, for now.  Note, this could cause a "
+                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DATE} conflicts."
                 ),
+            )
+            self.aggregated_errors_object.buffer_exception(
+                dpe,
                 orig_exception=dpe.ve_exc,
             )
         except ValueError as ve:
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback and use
-            # buffer_infile_exception
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             date = datetime.now()
-            self.aggregated_errors_object.buffer_exception(
-                InfileError(
-                    str(ve),
-                    file=self.file,
-                    sheet=self.sheet,
-                    rownum=self.rownum,
-                    column=self.headers.DATE,
+            self.buffer_infile_exception(
+                ve,
+                column=self.headers.DATE,
+                suggestion=(
+                    f"Setting a placeholder value of {date}, for now.  Note, this could cause a "
+                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DATE} conflicts."
                 ),
-                orig_exception=ve,
             )
 
         time_collected_str = self.get_row_val(row, self.headers.DAYS_INFUSED)
@@ -283,11 +307,17 @@ class SamplesLoader(TableLoader):
             if time_collected_str is not None:
                 time_collected = timedelta(minutes=time_collected_str)
         except Exception as e:
-            # TODO: After rebase, add a suggestion that explains any ConflictingValueError due to the fallback
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
             time_collected = timedelta(minutes=0)
-            self.buffer_infile_exception(e, column=self.headers.DAYS_INFUSED)
+            self.buffer_infile_exception(
+                e,
+                column=self.headers.DAYS_INFUSED,
+                suggestion=(
+                    f"Setting a placeholder value of {time_collected}, for now.  Note, this could cause a "
+                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DAYS_INFUSED} conflicts."
+                ),
+            )
 
         if animal is None or tissue is None or self.is_skip_row():
             # An animal or tissue being None would have already buffered a required value error
@@ -382,6 +412,47 @@ class SamplesLoader(TableLoader):
             self.add_skip_row_index()
 
         return rec
+
+    @transaction.atomic
+    def get_or_create_fcirc(self, sample, tracer, element):
+        """Get or create an FCirc record.
+
+        Args:
+            sample (Sample)
+            tracer (Tracer)
+            element (str)
+        Exceptions:
+            Raises:
+                RollbackException
+            Buffers:
+                None
+        Returns:
+            rec (Sample)
+            created (boolean)
+        """
+        rec = None
+        created = False
+
+        rec_dict = {
+            "serum_sample": sample,
+            "tracer": tracer,
+            "element": element,
+        }
+
+        try:
+            rec, created = FCirc.objects.get_or_create(**rec_dict)
+            if created:
+                rec.full_clean()
+                self.created(FCirc.__name__)
+            else:
+                self.existed(FCirc.__name__)
+        except Exception as e:
+            self.handle_load_db_errors(e, FCirc, rec_dict)
+            self.errored(FCirc.__name__)
+            # Now that the exception has been handled, trigger a rollback of this record load attempt
+            raise RollbackException
+
+        return rec, created
 
     def repackage_exceptions(self):
         """Summarize missing tissues.

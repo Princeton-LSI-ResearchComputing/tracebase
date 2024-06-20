@@ -5,6 +5,7 @@ import pandas as pd
 
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.models import Animal, Compound, Infusate
+from DataRepo.models.fcirc import FCirc
 from DataRepo.models.sample import Sample
 from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -54,7 +55,15 @@ class SamplesLoaderTests(TracebaseTestCase):
                 "errored": 0,
                 "warned": 0,
                 "updated": 0,
-            }
+            },
+            FCirc.__name__: {
+                "created": 0,
+                "existed": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+                "updated": 0,
+            },
         }
 
         super().setUpTestData()
@@ -84,6 +93,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
         counts = deepcopy(self.rec_counts)
         counts[Sample.__name__]["created"] = 1
+        counts[FCirc.__name__]["created"] = 1
         self.assertDictEqual(counts, sl.record_counts)
 
     def test_get_or_create_sample_success(self):
@@ -285,3 +295,20 @@ class SamplesLoaderTests(TracebaseTestCase):
         sl.repackage_exceptions()
         self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], MissingTissues)
+
+    def test_get_or_create_fcirc(self):
+        sample = Sample.objects.create(
+            name="s1",
+            researcher="Ralph",
+            date=string_to_datetime("2024-6-15"),
+            time_collected=timedelta(minutes=90),
+            animal=self.anml1,
+            tissue=self.tiss1,
+        )  # No exception = successful test
+        tracer = self.infusate.tracers.first()
+        sl = SamplesLoader()
+        sl.get_or_create_fcirc(sample, tracer, "C")
+        self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
+        counts = deepcopy(self.rec_counts)
+        counts[FCirc.__name__]["created"] = 1
+        self.assertDictEqual(counts, sl.record_counts)
