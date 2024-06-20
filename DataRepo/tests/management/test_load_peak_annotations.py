@@ -29,6 +29,17 @@ from DataRepo.utils.exceptions import (
 # inherit from TableLoader.
 
 
+def create_test_sequence(researcher, date):
+    # Load a sequence and all the MSRunSamples
+    lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+    MSRunSequence.objects.create(
+        researcher=researcher,
+        date=datetime.strptime(date, "%Y-%m-%d"),
+        instrument="unknown",
+        lc_method=lcm,
+    )
+
+
 class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
@@ -74,14 +85,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # Check the state of the coordinators
         self.assure_coordinator_state_is_initialized()
 
-        # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Michael Neinast",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Michael Neinast", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -174,14 +178,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         differs, it's a ConflictingValueErrors.  The formula for glucose was changed in the conflicting file.
         """
 
-        # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Michael Neinast",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Michael Neinast", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -327,21 +324,8 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
                 "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
             ),
         )
-        super().setUpTestData()
-
-    def test_multiple_accucor_labels(self):
-        """
-        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
-        error
-        """
         # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="anonymous",
-            date=datetime.strptime("2022-08-18", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("anonymous", "2022-08-18")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -366,7 +350,13 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
                 },
             ),
         ).load_data()
+        super().setUpTestData()
 
+    def test_multiple_accucor_labels(self):
+        """
+        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
+        error
+        """
         call_command(
             "load_peak_annotations",
             infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
@@ -407,14 +397,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
             skip_researcher_check=True,
         )
 
-        # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Michael Neinast",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Michael Neinast", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -452,13 +435,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_tracerlabels = 12
 
         # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Xianfeng Zeng",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Xianfeng Zeng", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {
@@ -509,13 +486,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_tracerlabels = 3
 
         # Load a sequence and all the MSRunSamples
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Xianfeng Zeng",
-            date=datetime.strptime("2021-04-29", "%Y-%m-%d"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
+        create_test_sequence("Xianfeng Zeng", "2021-04-29")
         MSRunsLoader(
             df=pd.DataFrame.from_dict(
                 {

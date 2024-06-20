@@ -8,6 +8,9 @@ from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
+from DataRepo.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
 from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
@@ -30,6 +33,7 @@ __all__ = [
     "IsoautocorrLoader",
     "IsocorrLoader",
     "MSRunsLoader",
+    "PeakAnnotationFilesLoader",
     "PeakAnnotationsLoader",
     "AccuCorDataLoader",
     "AnimalsLoader",
