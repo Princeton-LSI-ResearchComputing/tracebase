@@ -35,7 +35,7 @@ class SamplesLoaderTests(TracebaseTestCase):
             name=cls.anml1nm, genotype="WT", infusate=cls.infusate
         )
 
-        cls.tiss1nm = "test tissue"
+        cls.tiss1nm = "serum"
         cls.tiss1 = Tissue.objects.create(name=cls.tiss1nm)
 
         cls.row = pd.Series(
