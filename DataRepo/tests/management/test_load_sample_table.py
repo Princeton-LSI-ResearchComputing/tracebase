@@ -15,8 +15,11 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
+    MissingRecords,
     NewResearcher,
     NewResearchers,
+    RequiredColumnValues,
 )
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
@@ -264,19 +267,20 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
                 infile="DataRepo/data/tests/small_obob/study_missing_rqd_vals.xlsx",
             )
         aes = ar.exception
-        # TODO: After rebase for neighboring PRs, change 5 to 2, bec. the missing record errors will be summarized as 1
-        self.assertEqual(5, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[4], RequiredColumnValues))
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], RequiredColumnValues)
         self.assertEqual(
             2,
-            len(aes.exceptions[4].required_column_values),
+            len(aes.exceptions[0].required_column_values),
             msg="2 rows with missing required values",
         )
         self.assertIn(
             "[Sample, Date Collected, Researcher Name, Tissue, Collection Time] on rows: ['17']",
-            str(aes.exceptions[4]),
+            str(aes.exceptions[0]),
         )
         self.assertIn(
             "[Sample, Date Collected, Researcher Name, Tissue, Collection Time, Animal] on rows: ['18']",
-            str(aes.exceptions[4]),
+            str(aes.exceptions[0]),
         )
+        # Error unrelated to this test:
+        self.assertIsInstance(aes.exceptions[1], MissingRecords)

@@ -9,6 +9,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileDatabaseError,
     InfileError,
+    MissingRecords,
     RecordDoesNotExist,
     RequiredHeadersError,
 )
@@ -162,7 +163,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
         )
         self.assertIsInstance(aes.exceptions[2], InfileDatabaseError)
         self.assertIn("Field 'body_weight' expected a number", str(aes.exceptions[2]))
-        self.assertIsInstance(aes.exceptions[3], RecordDoesNotExist)
+        self.assertIsInstance(aes.exceptions[3], MissingRecords)
         self.assertIn("Study", str(aes.exceptions[3]))
         self.assertEqual(0, Animal.objects.count())
         self.assertDictEqual(
