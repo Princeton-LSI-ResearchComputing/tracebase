@@ -113,6 +113,7 @@ class InfileError(Exception):
         column: Optional[object] = None,
         rownum: Optional[object] = None,
         order=None,
+        suggestion=None,
     ):
         self.location_args = ["rownum", "column", "file", "sheet"]
         self.loc = generate_file_location_string(
@@ -126,6 +127,7 @@ class InfileError(Exception):
             file=file,
             column=column,
             order=order,
+            suggestion=suggestion,
         )
         super().__init__(self.message)
 
@@ -136,6 +138,7 @@ class InfileError(Exception):
         file=None,
         column=None,
         order=None,
+        suggestion=None,
     ):
         """This method allows one to change the string that will be returned when the exception is in string context.
 
@@ -227,6 +230,12 @@ class InfileError(Exception):
             message = message % tuple(insertions)
         else:
             message = message % self.loc
+
+        if suggestion is not None:
+            if message.endswith("\n"):
+                message += suggestion
+            else:
+                message += f"\n{suggestion}"
 
         self.message = message
 
@@ -1999,7 +2008,14 @@ class AggregatedErrors(Exception):
         # Return removed exceptions
         return matched_exceptions
 
-    def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
+    def modify_exception_type(
+        self,
+        exception_class,
+        is_fatal=None,
+        is_error=None,
+        attr_name=None,
+        attr_val=None,
+    ):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
@@ -2018,7 +2034,9 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if self.exception_matches(exception, exception_class):
+            if self.exception_matches(
+                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+            ):
                 if is_error is not None:
                     exception.is_error = is_error
                 if is_fatal is not None:

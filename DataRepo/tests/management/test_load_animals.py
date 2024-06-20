@@ -269,7 +269,6 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
                 infile="DataRepo/data/tests/small_obob/study_missing_rqd_vals.xlsx",
             )
         aes = ar.exception
-        # TODO: After rebase for neighboring PRs, change 5 to 2, bec. the missing record errors will be summarized as 1
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], RequiredColumnValues))
         self.assertEqual(

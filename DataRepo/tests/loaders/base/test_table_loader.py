@@ -654,8 +654,7 @@ class TableLoaderTests(TracebaseTestCase):
                 "\tattribute [TestInvalidLoader.DataRequiredValues] N-dimensional list of strings required, "
                 "but contains ['NoneType']\n"
                 "\tattribute [TestInvalidLoader.DataUniqueColumnConstraints] list required, NoneType set\n"
-                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, NoneType set\n"
-                "\tModels is required to have at least 1 Model class"
+                "\tattribute [TestInvalidLoader.FieldToDataHeaderKey] dict required, NoneType set"
             ),
             str(aes.exceptions[0]),
         )
