@@ -428,7 +428,7 @@ class AnimalsLoader(TableLoader):
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Protocol, query_dict)
-            self.add_skip_row_index()
+            # Treatment is not a required field, so no need to add to skip rows
 
         return rec
 
