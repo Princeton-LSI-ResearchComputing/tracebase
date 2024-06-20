@@ -9,12 +9,14 @@ from DataRepo.utils.exceptions import (
     DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
+    EmptyColumns,
     ExcelSheetNotFound,
     ExcelSheetsNotFound,
     InfileError,
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
+    MissingColumnGroup,
     MissingDataAdded,
     MissingRecords,
     MissingSamples,
@@ -41,6 +43,8 @@ from DataRepo.utils.exceptions import (
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
+    SheetMergeError,
+    UnequalColumnGroups,
     UnexpectedIsotopes,
     UnexpectedSamples,
     UnitsWrong,
@@ -1093,6 +1097,22 @@ class ExceptionTests(TracebaseTestCase):
         ro = RequiredOptions(["infile"])
         self.assertEqual("Missing required options: ['infile'].", str(ro))
 
+    def test_MissingColumnGroup(self):
+        mcg = MissingColumnGroup("Sample")
+        self.assertIn("No Sample columns found", str(mcg))
+
+    def test_UnequalColumnGroups(self):
+        exc = UnequalColumnGroups("Sample", {"orig": ["A", "B"], "corr": ["A", "C"]})
+        self.assertIn("sheets ['orig', 'corr'] differ", str(exc))
+        self.assertIn(
+            "'orig' sheet has 2 out of 3 total unique Sample columns, and is missing:\n\tC",
+            str(exc),
+        )
+        self.assertIn(
+            "'corr' sheet has 2 out of 3 total unique Sample columns, and is missing:\n\tB",
+            str(exc),
+        )
+
     def test_UnknownHeaderError(self):
         exc = UnknownHeaderError("C", ["A", "B"])
         self.assertEqual(
@@ -1117,6 +1137,21 @@ class ExceptionTests(TracebaseTestCase):
             "do_stuff requires a non-None value for argument 'val'.", str(exc)
         )
 
+    def test_EmptyColumns(self):
+        exc = EmptyColumns(
+            "Sample",
+            ["A", "B"],
+            ["Unnamed: jwbc", "Unnamed: wale"],
+            ["A", "B", "sample1", "sample2", "Unnamed: jwbc", "Unnamed: wale"],
+            addendum="They will be skipped.",
+        )
+        self.assertIn("[Sample] columns are expected", str(exc))
+        self.assertIn("2 expected constant columns", str(exc))
+        self.assertIn("6 columns total", str(exc))
+        self.assertIn("4 potential Sample columns", str(exc))
+        self.assertIn("2 were unnamed.", str(exc))
+        self.assertIn("They will be skipped.", str(exc))
+
     def test_DuplicateCompoundIsotope(self):
         dvs = [
             DuplicateValues({"1": [1, 2]}, ["A", "B", "C"]),
@@ -1126,6 +1161,11 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("Column(s) ['A', 'B']", str(exc))
         self.assertIn("1 (rows*: 3-4)", str(exc))
         self.assertIn("2 (rows*: 8, 11)", str(exc))
+
+    def test_SheetMergeError(self):
+        exc = SheetMergeError([100, 102])
+        self.assertIn("missing an Animal Name", str(exc))
+        self.assertIn("empty rows: [100, 102]", str(exc))
 
     def test_MzxmlSampleHeaderMismatch(self):
         exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
