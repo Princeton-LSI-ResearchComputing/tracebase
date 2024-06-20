@@ -19,6 +19,12 @@ from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.models.hier_cached_model import (
+    delete_all_caches,
+    disable_caching_updates,
+    enable_caching_updates,
+)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AllMissingCompounds,
@@ -164,10 +170,14 @@ class StudyLoader(TableLoader):
         Returns:
             None
         """
-        if kwargs.get("df") is not None or kwargs.get("defaults_df") is not None:
+        if (
+            kwargs.get("df") is not None
+            or kwargs.get("defaults_df") is not None
+            or kwargs.get("defer_rollback") is not None
+        ):
             ValueError(
                 f"The following superclass constructor arguments are prohibited by {type(self).__name__}: [df, "
-                "defaults_df]."
+                "defaults_df, defer_rollback]."
             )
 
         super().__init__(*args, **kwargs)
@@ -179,13 +189,22 @@ class StudyLoader(TableLoader):
         self.missing_compound_record_exceptions = []
         self.load_statuses = MultiLoadStatus()
 
+    @MaintainedModel.defer_autoupdates(
+        disable_opt_names=["validate", "dry_run"],
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_data(self):
         """Loads the study file and.
 
         Args:
             None
-        Raises:
-            None
+        Exceptions:
+            Raises:
+                AggregatedErrorsSet
+                MultiLoadStatus
+            Buffers:
+                ValueError
         Returns:
             None
         """
@@ -202,7 +221,7 @@ class StudyLoader(TableLoader):
 
         common_args = {
             "dry_run": self.dry_run,
-            "defer_rollback": self.defer_rollback,
+            "defer_rollback": True,
             "defaults_sheet": self.defaults_sheet,
             "file": self.file,
             "defaults_file": self.defaults_file,
@@ -218,12 +237,17 @@ class StudyLoader(TableLoader):
         # TODO: Add support for custom isotope positions delimiter to the loader
         # TODO: Add support for custom synonyms delimiter to the loader
 
+        disable_caching_updates()
+
         # This cycles through the loaders in the order in which they were defined in the namedtuple
         for loader_key in loaders._fields:
             sheet = getattr(sheet_names, loader_key)
             loader_class = getattr(loaders, loader_key)
 
             if sheet in file_sheets:
+                # Tell the MultiLoadStatus object we're going to try to load this sheet
+                self.load_statuses.init_load(sheet)
+
                 try:
                     # Build the keyword arguments to read_from_file
                     rffkwargs = {"sheet": sheet}
@@ -239,8 +263,11 @@ class StudyLoader(TableLoader):
                     )
                     # Load its data
                     loader.load_data()
+
                 except Exception as e:
                     self.package_group_exceptions(e, sheet)
+
+        enable_caching_updates()
 
         self.create_grouped_exceptions()
 
@@ -257,6 +284,9 @@ class StudyLoader(TableLoader):
         # a rollback of everything
         if not self.load_statuses.is_valid:
             raise self.load_statuses.get_final_exception()
+
+        if not self.dry_run:
+            delete_all_caches()
 
         # dry_run and defer_rollback are handled by the load_data wrapper
 

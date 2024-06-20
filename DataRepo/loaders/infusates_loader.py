@@ -886,6 +886,7 @@ class InfusatesLoader(TableLoader):
 
         return rec
 
+    # The overridden Infusate.objects.get_or_create has an atomic transaction decorator
     def get_or_create_infusate_tracer(self, tracer_dict, infusate_rec):
         """Get or create an InfusateTracer record.
 
@@ -902,14 +903,15 @@ class InfusatesLoader(TableLoader):
         """
         rec = None
         rec_dict = None
-        query_dict = None
         created = False
 
         try:
             tracer_name = tracer_dict["tracer_name"]
-            query_dict = {"name": tracer_name}
-            tracer_rec = Tracer.objects.get(name=tracer_name)
+            tracer_data = parse_tracer_string(tracer_name)
+            tracer_rec = Tracer.objects.get_tracer(tracer_data)
         except Exception as e:
+            # This is the "effective" query
+            query_dict = {"name": tracer_name}
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Tracer, query_dict)
@@ -1264,7 +1266,7 @@ class InfusatesLoader(TableLoader):
 
         for it_rec in rec.tracer_links.all():
             db_conc = it_rec.concentration
-            db_tracer_name = it_rec.tracer.name
+            db_tracer_name = it_rec.tracer._name()
 
             file_conc = None
             for te in infusate_dict["tracers"]:

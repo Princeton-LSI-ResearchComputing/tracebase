@@ -389,6 +389,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             for sh in self.msrun_sample_dict.keys():
                 self.msrun_sample_dict[sh]["seen"] = False
 
+        # Remove exceptions about Sample table search failures.  Those are remored by a different loader.  This avoids
+        # exceptions about MissingSamples exception building about sample names having come from different files.
+        self.msrunsloader.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Sample
+        )
+
         # TODO: Figure out a better way to handle buffered exceptions from another class that are only raised from a
         # specific method, so that methods raise them as a group instead of needing to incorporate instance loaders like
         # this for buffered errors
