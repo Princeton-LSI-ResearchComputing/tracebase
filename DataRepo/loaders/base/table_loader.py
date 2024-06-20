@@ -2044,11 +2044,34 @@ class TableLoader(ABC):
                     # Summarize multiple types of exceptions that are subclasses of SummarizableError
                     for exc_cls in self.aggregated_errors_object.get_exception_types():
                         if issubclass(exc_cls, SummarizableError):
+                            # TODO: Change this behavior to always leave exceptions unmodified, so that their
+                            # application to Excel shows their unchanged severity
+
+                            # Get the exceptions with their original attributes
+                            orig_excs = (
+                                self.aggregated_errors_object.get_exception_type(
+                                    exc_cls, modify=False
+                                )
+                            )
+                            # Determine the severity of the summarized exception
+                            is_fatal = False
+                            is_error = False
+                            for exc in orig_excs:
+                                if exc.is_error:
+                                    is_error = True
+                                if exc.is_fatal:
+                                    is_fatal = True
+                                if is_error and is_fatal:
+                                    break
+                            # Remove the exceptions (this modifies them to warnings (to de-emphasize them))
                             excs = self.aggregated_errors_object.remove_exception_type(
                                 exc_cls
                             )
-                            self.aggregated_errors_object.buffer_error(
-                                exc_cls.SummarizerExceptionClass(excs)
+                            # Buffer the summarized exception
+                            self.aggregated_errors_object.buffer_exception(
+                                exc_cls.SummarizerExceptionClass(excs),
+                                is_error=is_error,
+                                is_fatal=is_fatal,
                             )
 
                     if (
