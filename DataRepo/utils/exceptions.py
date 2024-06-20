@@ -2253,7 +2253,10 @@ class AggregatedErrors(Exception):
         return exc_cls in [type(exc) for exc in self.exceptions]
 
     def exception_matches(self, exception, cls, attr_name=None, attr_val=None):
-        return isinstance(exception, cls) and (
+        # Intentionally looks for exact type (not isinstance).  isinstance is not what we want here, because I cannot
+        # separate MissingSamples exceptions from NoSamples exceptions (because NoSamples is a subclass of
+        # MissingSamples))
+        return type(exception).__name__ == cls.__name__ and (
             attr_name is None
             or (
                 hasattr(exception, attr_name)

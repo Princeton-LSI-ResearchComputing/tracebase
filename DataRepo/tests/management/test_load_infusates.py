@@ -3,7 +3,11 @@ from django.core.management import call_command
 
 from DataRepo.models import Compound, Infusate, Tracer
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors, InfileError
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    InfileDatabaseError,
+    InfileError,
+)
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateTracerData,
@@ -316,7 +320,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(1, len(aes.get_exception_type(InfileError)))
+        self.assertEqual(1, len(aes.get_exception_type(InfileDatabaseError)))
         self.assertIn(
             "new infusate: [glutarino {glutamine-[13C5][20]}] with group name: [glutarino]",
             str(aes.exceptions[0]),
@@ -345,7 +349,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(1, len(aes.get_exception_type(InfileError)))
+        self.assertEqual(1, len(aes.get_exception_type(InfileDatabaseError)))
         self.assertIn(
             "new infusate: [lysine-[13C6][20]] with group name: [None]",
             str(aes.exceptions[0]),
