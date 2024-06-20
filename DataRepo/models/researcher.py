@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pandas as pd
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.functional import cached_property
@@ -25,7 +27,7 @@ def get_researchers():
             )
         )
     unique_researchers = list(pd.unique(list(filter(None, researchers))))
-    return unique_researchers
+    return sorted(unique_researchers)
 
 
 def validate_researchers(input_researchers, known_researchers=None, skip_flag=None):
@@ -50,6 +52,18 @@ def validate_researchers(input_researchers, known_researchers=None, skip_flag=No
                 known_researchers,
                 skip_flag,
             )
+
+
+def could_be_variant_researcher(
+    researcher: str, known_researchers: Optional[list] = None
+) -> bool:
+    """Check if a researcher could potentially be a variant of one already existing in the database.
+
+    Known can be supplied for efficiency.
+    """
+    if known_researchers is None:
+        known_researchers = get_researchers()
+    return len(known_researchers) > 0 and researcher not in known_researchers
 
 
 class Researcher:

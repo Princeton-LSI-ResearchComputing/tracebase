@@ -422,9 +422,6 @@ class LoadTableCommand(ABC, BaseCommand):
                 self.saved_aes.print_summary()
                 raise self.saved_aes
 
-            if self.dry_run_exception is not None:
-                raise self.dry_run_exception
-
             return retval
 
         return handle_wrapper
@@ -551,7 +548,14 @@ class LoadTableCommand(ABC, BaseCommand):
         if dtypes is None:
             df = read_from_file(file, sheet=sheet)
         else:
-            df = read_from_file(file, dtype=dtypes, sheet=sheet)
+            keep_default_na = False
+            if len([val for val in dtypes.values() if not isinstance(val, str)]):
+                # pandas will throw an error on empty cells if it cannot convert an empty string into a specified type,
+                # so setting keep_default_na to True will allow them to just be null.
+                keep_default_na = True
+            df = read_from_file(
+                file, dtype=dtypes, sheet=sheet, keep_default_na=keep_default_na
+            )
         return df
 
     def get_headers(self):

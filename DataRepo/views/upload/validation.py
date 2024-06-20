@@ -567,7 +567,7 @@ class DataValidationView(FormView):
                                 f"{len(exc.missing_treatment_errors)} treatment names"
                             )
                             self.extract_all_missing_treatments(exc)
-                        # We're only removing NoSamplesErrors. All their samples are added to the AllMissingSamplesError
+                        # We're only removing NoSamples. All their samples are added to the AllMissingSamplesError
 
                     elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
@@ -1531,7 +1531,9 @@ class DataValidationView(FormView):
                 "Cannot call create_study_file_writer when dfs_dict is not valid/created."
             )
 
-        xlsxwriter = pd.ExcelWriter(stream_obj, engine="xlsxwriter")
+        xlsxwriter = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
+            stream_obj, engine="xlsxwriter"
+        )
 
         for order_spec in self.get_study_sheet_column_display_order():
             sheet = order_spec[0]

@@ -50,11 +50,11 @@ from DataRepo.utils import (
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
-    IsotopeObservationParsingError,
     IsotopeParsingError,
-    MissingCompounds,
+    MissingCompoundsError,
     MissingSamplesError,
     MissingTissue,
+    ObservedIsotopeParsingError,
     RequiredSampleValuesError,
     SheetMergeError,
     get_column_dupes,
@@ -764,7 +764,7 @@ class DataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(
-            isinstance(aes.exceptions[0], MissingCompounds),
+            isinstance(aes.exceptions[0], MissingCompoundsError),
             msg=f"Exception [{type(aes.exceptions[0]).__name__}: {aes.exceptions[0]}] is MissingCompounds?",
         )
         exp_str = "1 compounds were not found in the database:\n\ttable sugar"
@@ -1043,7 +1043,7 @@ class PropertyTests(TracebaseTestCase):
         # make sure we get only 1 labeled element of nitrogen
         self.assertEqual(
             ["N"],
-            sample.animal.infusate.tracer_labeled_elements(),
+            sample.animal.infusate.tracer_labeled_elements,
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
@@ -1061,7 +1061,7 @@ class PropertyTests(TracebaseTestCase):
                 "element C (from the tracers in the infusate [methionine-(15N1)[200]])."
             ),
         ):
-            pg.labels.first().enrichment_fraction
+            pg.labels.first().enrichment_fraction  # pylint: disable=no-member
 
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
@@ -1116,7 +1116,7 @@ class PropertyTests(TracebaseTestCase):
 
         self.assertEqual(
             ["C"],
-            peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements(),
+            peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements,
         )
 
     def test_normalized_labeling_latest_serum(self):
@@ -1665,7 +1665,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
     def test_tracer_labeled_elements(self):
         anml = Animal.objects.get(name="xzl1")
         expected = ["C", "N"]
-        output = anml.infusate.tracer_labeled_elements()
+        output = anml.infusate.tracer_labeled_elements
         self.assertEqual(expected, output)
 
     def test_serum_tracers_enrichment_fraction(self):
@@ -2354,7 +2354,7 @@ class StudyLoadingTests(TracebaseTestCase):
                     MissingTissue(tissue_name="spleen", column="Tissue", rownum=2),
                 ]
             ),
-            MissingCompounds({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
+            MissingCompoundsError({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
             MissingSamplesError(["a", "b"]),
         ]
         aes = AggregatedErrors(exceptions=exceptions)
@@ -2561,7 +2561,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[1],
-                MissingCompounds,
+                MissingCompoundsError,
             ),
         )
         self.assertTrue(
@@ -2647,7 +2647,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_isotope_label_bad(self):
         tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(IsotopeObservationParsingError):
+        with self.assertRaises(ObservedIsotopeParsingError):
             AccuCorDataLoader.parse_isotope_string(
                 "label-5",
                 tracer_labeled_elements,
@@ -2655,7 +2655,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_isotope_label_empty(self):
         tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(IsotopeObservationParsingError):
+        with self.assertRaises(ObservedIsotopeParsingError):
             AccuCorDataLoader.parse_isotope_string(
                 "",
                 tracer_labeled_elements,

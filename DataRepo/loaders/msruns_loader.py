@@ -12,14 +12,21 @@ from django.forms import model_to_dict
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.models import MSRunSample, MSRunSequence, PeakGroup
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
+from DataRepo.models import (
+    ArchiveFile,
+    DataFormat,
+    DataType,
+    MaintainedModel,
+    MSRunSample,
+    MSRunSequence,
+    PeakGroup,
+    Sample,
+)
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.sample import Sample
 from DataRepo.models.utilities import exists_in_db, update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -28,6 +35,7 @@ from DataRepo.utils.exceptions import (
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
     MzxmlParseError,
+    MzxmlSampleHeaderMismatch,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -56,6 +64,7 @@ class MSRunsLoader(TableLoader):
     MZXMLNAME_KEY = "MZXMLNAME"
     ANNOTNAME_KEY = "ANNOTNAME"
     SEQNAME_KEY = "SEQNAME"
+    SKIP_KEY = "SKIP"
 
     DataSheetName = "Peak Annotation Details"
 
@@ -68,6 +77,7 @@ class MSRunsLoader(TableLoader):
             "MZXMLNAME",
             "ANNOTNAME",
             "SEQNAME",
+            "SKIP",
         ],
     )
 
@@ -78,6 +88,7 @@ class MSRunsLoader(TableLoader):
         MZXMLNAME="mzXML File Name",
         ANNOTNAME="Peak Annotation File Name",
         SEQNAME="Sequence Name",
+        SKIP="Skip",
     )
 
     # List of required header keys
@@ -94,7 +105,14 @@ class MSRunsLoader(TableLoader):
     # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
 
-    # No DataDefaultValues needed
+    DataDefaultValues = DataTableHeaders(
+        SAMPLENAME=None,
+        SAMPLEHEADER=None,
+        MZXMLNAME=None,
+        ANNOTNAME=None,
+        SEQNAME=None,
+        SKIP=False,
+    )
 
     DataColumnTypes: Dict[str, type] = {
         SAMPLENAME_KEY: str,
@@ -102,6 +120,7 @@ class MSRunsLoader(TableLoader):
         MZXMLNAME_KEY: str,
         ANNOTNAME_KEY: str,
         SEQNAME_KEY: str,
+        SKIP_KEY: bool,
     }
 
     # Combinations of columns whose values must be unique in the file
@@ -110,6 +129,10 @@ class MSRunsLoader(TableLoader):
         # and SEQUENCE_KEY will be ignored.  Duplicates can exist if the same mzXML was used in multiple peak annotation
         # files.
         [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
+        # A header must be unique per annot file.  The pair cannot repeat in the file.  It either has an mzXML file
+        # associated or not and it can have a sequence or not, and can only ever link to a single sample.
+        # Multiple different annot files of the same name are not supported.
+        [SAMPLEHEADER_KEY, ANNOTNAME_KEY],
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
@@ -175,6 +198,21 @@ class MSRunsLoader(TableLoader):
                 loader_class=SequencesLoader,
                 loader_header_key=SequencesLoader.SEQNAME_KEY,
             ),
+        ),
+        SKIP=TableColumn.init_flat(
+            name=DataHeaders.SKIP,
+            help_text="Whether to load data associated with this sample, e.g. a blank sample.",
+            guidance=(
+                f"Enter 'true' to skip loading of the sample and peak annotation data.  The mzXML file will be saved "
+                "if supplied, but it will not be associated with an MSRunSample or MSRunSequence, since the Sample "
+                f"record will not be created.  Note that the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and "
+                f"{DataHeaders.SEQNAME} columns must still have a unique combo value (for file validation, even though "
+                "they won't be used)."
+            ),
+            format="Boolean: 'true' or 'false'.",
+            default=False,
+            header_required=False,
+            value_required=False,
         ),
     )
 
@@ -330,8 +368,17 @@ class MSRunsLoader(TableLoader):
         # MSRunSample records
         self.mzxml_dict = defaultdict(lambda: defaultdict(list))
 
+        # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
+        # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
+        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(bool))
+
+    # There are maintained fields in the models involved, so deferring autoupdates will make this faster
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_data(self):
-        """Loads the MSRunSequence table from the dataframe.
+        """Loads the MSRunSample table from the dataframe.
         Args:
             None
         Exceptions:
@@ -386,11 +433,22 @@ class MSRunsLoader(TableLoader):
 
             for mzxml_basename in self.mzxml_dict.keys():
 
+                # We will skip creating MSRunSample records for blanks, because to have an MSRunSample record, you need
+                # a Sample record, and we don't create those for blank samples.
+                dirs = list(self.mzxml_dict[mzxml_basename].keys())
+                if mzxml_basename in self.skip_msrunsample_by_mzxml.keys():
+                    dirs = [
+                        dir
+                        for dir in self.mzxml_dict[mzxml_basename].keys()
+                        if dir
+                        not in self.skip_msrunsample_by_mzxml[mzxml_basename].keys()
+                    ]
+
                 # Guess the sample based on the mzXML file's basename
                 sample_name = self.guess_sample_name(mzxml_basename)
                 sample = self.get_sample_by_name(sample_name, from_mzxml=True)
 
-                for mzxml_dir in self.mzxml_dict[mzxml_basename].keys():
+                for mzxml_dir in dirs:
                     for mzxml_metadata in self.mzxml_dict[mzxml_basename][mzxml_dir]:
                         try:
                             self.get_or_create_msrun_sample_from_mzxml(
@@ -405,8 +463,123 @@ class MSRunsLoader(TableLoader):
         if self.aggregated_errors_object.should_raise():
             self.clean_up_created_mzxmls_in_archive()
 
+        # TODO: Repackage exceptions about RecordDoesNotExist for Sample records into either MissingSamples or
+        # UnskippedBlanks
+
         enable_caching_updates()
         delete_all_caches()
+
+    def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
+        """Using self.df, this returns a dict of metadata and MSRunSample records keyed on sample header for the
+        supplied peak_annot_file.
+
+        Sample headers are assumed to be unique per peak_annot_file, due to the DataUniqueColumnConstraints.
+
+        If an MSRunSample record does not exist, the value in the dict will be null and an error will be buffered (via
+        called methods (not directly in this method)).
+
+        This method is only intended to be called after a load has been performed.
+
+        Args:
+            peak_annot_file (str): Name of a single peak annotation file found in the dataframe
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                RecordDoesNotExist
+        Returns:
+            msrun_sample_dict (dict): A dict of Peak Annotation Details metadata and MSRunSample records for the
+                supplied peak_annot_file keyed on sample_header
+        """
+        _, target_annot_name = os.path.split(peak_annot_file)
+        msrun_sample_dict: dict = {}
+
+        # Save the current row index
+        save_row_index = self.row_index
+        # Initialize the row index
+        self.set_row_index(None)
+
+        for _, row in self.df.iterrows():
+            sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
+            sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
+            mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
+            sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+            tmp_annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
+            skip = self.get_row_val(row, self.headers.SKIP)
+
+            if tmp_annot_name is None:
+                continue
+
+            _, annot_name = os.path.split(tmp_annot_name)
+            if target_annot_name != annot_name:
+                continue
+
+            # Default value
+            msrun_sample_dict[sample_header] = {
+                MSRunSample.__name__: None,
+                self.headers.SAMPLENAME: sample_name,
+                self.headers.SAMPLEHEADER: sample_header,
+                self.headers.MZXMLNAME: mzxml_path,
+                self.headers.SEQNAME: sequence_name,
+                self.headers.ANNOTNAME: tmp_annot_name,
+                self.headers.SKIP: skip,
+            }
+
+            # If this sample is being skipped, we don't need to retrieve the MSRunSample record.  It shouldn't exist
+            # anyway (e.g. blank samples are not created).
+            if skip is True:
+                continue
+
+            sample = self.get_sample_by_name(sample_name)
+            msrun_sequence = self.get_msrun_sequence(name=sequence_name)
+
+            if sample is None or msrun_sequence is None:
+                continue
+
+            mzxml_metadata = self.get_matching_mzxml_metadata(
+                sample_name,
+                sample_header,
+                mzxml_path,
+            )
+
+            if mzxml_metadata is not None and mzxml_metadata["mzaf_record"] is not None:
+                # Concrete record query dict
+                query_dict = {
+                    "msrun_sequence": msrun_sequence,
+                    "sample": sample,
+                    "polarity": mzxml_metadata["polarity"],
+                    "mz_min": mzxml_metadata["mz_min"],
+                    "mz_max": mzxml_metadata["mz_max"],
+                    "ms_raw_file": mzxml_metadata["rawaf_record"],
+                    "ms_data_file": mzxml_metadata["mzaf_record"],
+                }
+            else:
+                query_dict = {
+                    "msrun_sequence": msrun_sequence,
+                    "sample": sample,
+                    "ms_data_file__isnull": True,
+                }
+
+            try:
+                msrun_sample_dict[sample_header][MSRunSample.__name__] = (
+                    MSRunSample.objects.get(**query_dict)
+                )
+            except MSRunSample.DoesNotExist as dne:
+                self.aggregated_errors_object.buffer_error(
+                    RecordDoesNotExist(
+                        MSRunSample,
+                        query_dict,
+                        file=self.file,
+                        sheet=self.sheet,
+                        rownum=self.rownum,
+                    ),
+                    orig_exception=dne,
+                )
+
+        # Restore the original row index
+        self.set_row_index(save_row_index)
+
+        return msrun_sample_dict
 
     @transaction.atomic
     def get_or_create_mzxml_and_raw_archive_files(self, mzxml_file):
@@ -541,9 +714,30 @@ class MSRunsLoader(TableLoader):
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
             annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
+            skip = self.get_row_val(row, self.headers.SKIP)
+
+            if skip is True:
+                self.skipped(MSRunSample.__name__)
+                mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
+                mzxml_basename, _ = os.path.splitext(mzxml_filename)
+                self.skip_msrunsample_by_mzxml[mzxml_basename][mzxml_dir] = True
+                return rec, created, updated
 
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
+
+            if mzxml_path is not None and sample_header is not None:
+                mzxml_basename, _ = os.path.splitext(os.path.basename(mzxml_path))
+                if sample_header != mzxml_basename:
+                    self.aggregated_errors_object.buffer_exception(
+                        MzxmlSampleHeaderMismatch(sample_header, mzxml_path),
+                        is_error=False,  # This is always a warning.
+                        # This exception will be fatal/raised in validate mode (but only printed in curator mode).
+                        # I.e. This can be ignored by a curator, but it should be brought to the attention of an
+                        # unprivileged user.
+                        is_fatal=self.validate,
+                    )
+                    self.warned(MSRunSample.__name__)
 
             if sample is None or msrun_sequence is None or self.is_skip_row():
                 self.skipped(MSRunSample.__name__)
@@ -929,11 +1123,12 @@ class MSRunsLoader(TableLoader):
         )
         lookup_key = name if name is not None else "default"
 
+        if lookup_key in self.msrun_sequence_dict.keys():
+            # We have already computed the value for this search before, so just return it from the dict
+            return self.msrun_sequence_dict[lookup_key]
+
         try:
-            if lookup_key in self.msrun_sequence_dict.keys():
-                # We have already computed the value for this search before, so just return it from the dict
-                return self.msrun_sequence_dict[lookup_key]
-            elif name is not None:
+            if name is not None:
                 # If we have a name, that means that the value is from the data sheet (not the defaults file/sheet)
                 # Record where any possible errors will come from for the catch below
                 origin = "infile"

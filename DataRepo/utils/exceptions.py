@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 import traceback
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -12,8 +13,12 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.core.management import CommandError
+from django.db.models import Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
+
+from DataRepo.models.animal import Animal
+from DataRepo.models.researcher import get_researchers
 
 if TYPE_CHECKING:
     from DataRepo.models.archive_file import ArchiveFile
@@ -103,35 +108,100 @@ class InfileError(Exception):
     def __init__(
         self,
         message,
+        file=None,
+        sheet=None,
+        column: Optional[object] = None,
+        rownum: Optional[object] = None,
+        order=None,
+    ):
+        self.location_args = ["rownum", "column", "file", "sheet"]
+        self.loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=column
+        )
+        self.message = message
+        self.orig_message = message
+        self.set_formatted_message(
+            rownum=rownum,
+            sheet=sheet,
+            file=file,
+            column=column,
+            order=order,
+        )
+        super().__init__(self.message)
+
+    def set_formatted_message(
+        self,
         rownum: Optional[object] = None,
         sheet=None,
         file=None,
         column=None,
         order=None,
     ):
-        location_args = ["rownum", "column", "file", "sheet"]
+        """This method allows one to change the string that will be returned when the exception is in string context.
+
+        Sets instance attributes:
+            rownum
+            sheet
+            file
+            column
+            order
+            message
+            loc
+
+        The purpose is so that a class independent of the file-processing code/script can raise an exception and be
+        caught by the file loading script, and the debug info (location of the data in the file that caused the error)
+        can be added to the exception.
+
+        Args:
+            rownum (Optional[int or str]): The row number in the file (where the header row is row 1) where the
+                offending data is located.  A row "name" can alternatively be supplied.
+            sheet (Optional[str]): If the file is an excel file, this is the sheet where the offending data is.
+            file (Optional[str]): File name or path where the offending data is located.
+            column (Optional[str]): Column name where the offending data is located.
+            order (Optional(List[str])) {"loc", "file", "sheet", "column", "rownum"} ["loc"]: List of 1-5 strings
+                corresponding the the '%s' placeholders in the message that was supplied to the constructor (i.e.
+                self.orig_message).  The effective default is ["loc"], which is a dynamically built string of all the
+                location information (rownum, column, sheet, and file).  The size of the list must equal the number of
+                placeholders in the message.  Note that if '%s' is not in the message, the generated value for "loc" is
+                appended to the message.
+        Exceptions:
+            Raises:
+                ProgrammingError
+            Buffers:
+                None
+        Returns:
+            None
+        """
         self.rownum = rownum
         self.sheet = sheet
         self.file = file
         self.column = column
-        loc = generate_file_location_string(
+        self.order = order
+        self.loc = generate_file_location_string(
             rownum=rownum, sheet=sheet, file=file, column=column
         )
-        self.loc = loc
+        message = self.orig_message
 
         if "%s" not in message:
             # The purpose of this (base) class is to provide file location context of erroneous data to exception
             # messages in a uniform way.  It inserts that information where `%s` occurs in the supplied message.
             # Instead of making `%s` (in the simplest case) required, and raise an exception, the `%s` is just appended.
-            message += "  Location: %s."
+            if not message.endswith("\n"):
+                message += "  "
+            message += "Location: %s."
 
         if order is not None:
-            if "loc" not in order and len(order) != len(location_args):
+            missing_loc_arg_placeholders = []
+            for locarg in self.location_args:
+                if getattr(self, locarg) is not None and locarg not in order:
+                    missing_loc_arg_placeholders.append(locarg)
+            if "loc" not in order and len(order) != len(self.location_args):
                 order.append("loc")
                 if message.count("%s") != len(order):
-                    raise ValueError(
-                        f"You must either provide all location arguments in your order list: {location_args} or "
-                        "provide an extra '%s' in your message for the leftover location information."
+                    raise ProgrammingError(
+                        f"You must either provide all location arguments in your order list: {self.location_args} or "
+                        "provide an extra '%s' in your message for the leftover location information "
+                        f"({missing_loc_arg_placeholders})."
                     )
             # Save the arguments in a dict
             vdict = {
@@ -149,16 +219,19 @@ class InfileError(Exception):
                 column = None
             if "rownum" in order:
                 rownum = None
-            loc = generate_file_location_string(
+            self.loc = generate_file_location_string(
                 rownum=rownum, sheet=sheet, file=file, column=column
             )
-            vdict["loc"] = loc
-            self.loc = loc
+            vdict["loc"] = self.loc
             insertions = [vdict[k] for k in order]
             message = message % tuple(insertions)
         else:
-            message = message % loc
-        super().__init__(message)
+            message = message % self.loc
+
+        self.message = message
+
+    def __str__(self):
+        return self.message
 
 
 class HeaderError(Exception):
@@ -291,6 +364,58 @@ class RequiredColumnValuesWhenNovel(RequiredColumnValues):
         self.model_name = model_name
 
 
+class MissingColumnGroup(InfileError):
+    def __init__(self, group_name, **kwargs):
+        message = f"No {group_name} columns found in %s.  At least 1 column of this type is required."
+        super().__init__(message, **kwargs)
+        self.group_name = group_name
+
+
+class UnequalColumnGroups(InfileError):
+    def __init__(self, group_name: str, sheet_dict: Dict[str, list], **kwargs):
+        """Constructor
+
+        Args:
+            group_name (str): The type of all the columns in a group of columns
+            sheet_dict (Dict[str, list]): A dict of lists of column names keyed on sheet.
+        """
+        colcounts: Dict[str, dict] = defaultdict(lambda: defaultdict(int))
+        all = []
+        for sheet in sheet_dict.keys():
+            for col in sheet_dict[sheet]:
+                colcounts[col][sheet] += 1
+                if col not in all:
+                    all.append(col)
+        missing = defaultdict(list)
+        for col in colcounts.keys():
+            if len(colcounts[col].keys()) < len(sheet_dict.keys()):
+                for sheet in sheet_dict.keys():
+                    if sheet not in colcounts[col].keys():
+                        missing[sheet].append(col)
+
+        nlt = "\n\t"
+        nums_str = (
+            "\n\t".join(
+                [
+                    (
+                        f"The '{sheet}' sheet has {len(lst)} out of {len(all)} total unique {group_name} columns, and "
+                        f"is missing:\n\t{nlt.join(missing[sheet])}\n"
+                    )
+                    for sheet, lst in sheet_dict.items()
+                    if len(missing[sheet]) > 0
+                ]
+            )
+            + f"All sheets compared: {list(sheet_dict.keys())} from %s."
+        )
+
+        message = f"{group_name} columns in the sheets {list(sheet_dict.keys())} differ.\n\t{nums_str}\n"
+        super().__init__(message, **kwargs)
+        self.colcounts = colcounts
+        self.missing = missing
+        self.group_name = group_name
+        self.sheet_dict = sheet_dict
+
+
 class RequiredHeadersError(InfileError, HeaderError):
     def __init__(self, missing, message=None, **kwargs):
         if not message:
@@ -363,6 +488,9 @@ class RequiredSampleValuesError(Exception):
         self.animal_hdr = animal_hdr
 
 
+# TODO: Remove this class when the accucor loader is deleted.  A combination of factors, such as performing a
+# get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
+# compound name for the peakgroup name makes this obsolete/unnecessary.
 class DuplicatePeakGroup(Exception):
     """Duplicate data for the same sample sequenced on the same day
 
@@ -402,6 +530,9 @@ class DuplicatePeakGroup(Exception):
         self.existing_peak_annotation_file = existing_peak_annotation_file
 
 
+# TODO: Remove this class when the accucor loader is deleted.  A combination of factors, such as performing a
+# get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
+# compound name for the peakgroup name makes this obsolete/unnecessary.
 class DuplicatePeakGroups(Exception):
     """Duplicate peak groups from a given peak annotation file
 
@@ -466,11 +597,471 @@ class ResearcherNotNew(Exception):
         self.existing_researchers = existing_researchers
 
 
+class NewResearchers(Exception):
+    """Summarization exception of NewResearcher exceptions.
+
+    Example output:
+
+    New researchers encountered.  Please check the existing researchers:
+        George
+        Frank
+    to ensure that the following researchers (parsed from the indicated file locations) are not variants of existing
+    names:
+        Edith (in column [Operator] of sheet [Sequences] in study.xlsx, on rows: '1-10')
+    """
+
+    def __init__(self, new_researcher_exceptions: List[NewResearcher]):
+        existing = "\n\t".join(get_researchers())
+        nre_dict: Dict[str, dict] = defaultdict(lambda: defaultdict(list))
+        for nre in new_researcher_exceptions:
+            file_loc = generate_file_location_string(
+                file=nre.file, sheet=nre.sheet, column=nre.column
+            )
+            if nre.rownum is not None:
+                nre_dict[nre.researcher][file_loc].append(nre.rownum)
+            elif "unreported rows" not in nre_dict[file_loc]:
+                nre_dict[nre.researcher][file_loc].append("unreported rows")
+        message = "New researchers encountered"
+        if existing == "":
+            message += ":"
+        else:
+            message += (
+                f".  Please check the existing researchers:\n\t{existing}\nto ensure that the following researchers "
+                "(parsed from the indicated file locations) are not variants of existing names:"
+            )
+        for nr in sorted(nre_dict.keys()):
+            for loc in sorted(nre_dict[nr].keys()):
+                message += f"\n\t{nr} (in {loc}, on rows: {summarize_int_list(nre_dict[nr][loc])})"
+        super().__init__(message)
+        self.new_researcher_exceptions = new_researcher_exceptions
+        self.existing = existing
+
+
+class NewResearcher(InfileError, SummarizableError):
+    SummarizerExceptionClass = NewResearchers
+
+    def __init__(self, researcher: str, message=None, **kwargs):
+        existing = "\n\t".join(get_researchers())
+        message = f"A new researcher [{researcher}] is being added (parsed from %s)."
+        if existing != "":
+            message += (
+                "  Please check the existing researchers to ensure this researcher name isn't a variant of an existing "
+                f"name:\n\t{existing}"
+            )
+        super().__init__(message, **kwargs)
+        self.researcher = researcher
+        self.existing = existing
+
+
+class MissingRecords(InfileError):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        message=None,
+        suggestion=None,
+        **kwargs,
+    ):
+        # Initialize the remaining kwargs
+        msg = "" if message is None else message
+        super().__init__(msg, **kwargs)
+
+        tmp_message = ""
+        exceptions_by_model_and_fields: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        exceptions_by_model_and_query: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        exceptions_by_model_query_and_loc: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for inst in exceptions:
+            q_str = inst._get_query_stub()
+            exceptions_by_model_and_fields[inst.model.__name__][q_str].append(inst)
+            search_terms = inst._get_query_values_str()
+            exceptions_by_model_and_query[inst.model.__name__][search_terms].append(
+                inst
+            )
+            exceptions_by_model_query_and_loc[inst.model.__name__][search_terms][
+                inst.loc
+            ].append(inst)
+
+        for mdl_name in exceptions_by_model_and_fields.keys():
+            for categorized_exceptions in exceptions_by_model_and_fields[
+                mdl_name
+            ].values():
+                loc_args, flds_str, vals_dict = (
+                    RecordDoesNotExist.get_failed_searches_dict(categorized_exceptions)
+                )
+
+                loc_str = generate_file_location_string(**loc_args)
+
+                # Summarize the values and the rows on which they occurred
+                nltab = "\n\t"
+                search_terms_str = nltab.join(
+                    list(
+                        map(
+                            lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
+                            vals_dict.keys(),
+                        )
+                    )
+                )
+                tmp_message += (
+                    f"{len(categorized_exceptions)} {mdl_name} records were not found (using search field(s): "
+                    f"{flds_str}) with values found in {loc_str}:{nltab}{search_terms_str}\n"
+                )
+
+        if not message:
+            message = tmp_message
+
+        if suggestion is not None:
+            if message.endswith("\n"):
+                message += suggestion
+            else:
+                message += f"  {suggestion}"
+
+        self.message = message
+        self.exceptions = exceptions
+        self.exceptions_by_model_and_query = exceptions_by_model_and_query
+        self.exceptions_by_model_query_and_loc = exceptions_by_model_query_and_loc
+
+
+class MissingModelRecords(MissingRecords, ABC):
+    @property
+    @abstractmethod
+    def ModelName(self):
+        pass
+
+    @property
+    @abstractmethod
+    def RecordName(self):
+        pass
+
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        **kwargs,
+    ):
+        file = None
+        sheet = None
+        column = None
+        for exc in exceptions:
+            if exc.model.__name__ != self.ModelName:
+                raise ProgrammingError(
+                    f"The supplied exceptions must all be for model {self.ModelName}, but found "
+                    f"{exc.model.__name__}."
+                )
+            if (
+                (file is not None and exc.file is not None and file != exc.file)
+                or (sheet is not None and exc.sheet is not None and sheet != exc.sheet)
+                or (
+                    column is not None
+                    and exc.column is not None
+                    and column != exc.column
+                )
+            ):
+                raise ProgrammingError(
+                    "The supplied exceptions must all be from the same file, sheet, and column."
+                )
+            file = exc.file
+            sheet = exc.sheet
+            column = exc.column
+
+        kwargs["file"] = file
+        kwargs["sheet"] = sheet
+        kwargs["column"] = column
+
+        # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
+        super().__init__(exceptions, **kwargs)
+        message = kwargs.pop("message", None)
+        if message is None:
+            nltab = "\n\t"
+            summary = nltab.join(
+                [
+                    f"'{terms}' from row(s): ["
+                    + ", ".join(summarize_int_list([exc.rownum for exc in excs]))
+                    + "]"
+                    for terms, excs in self.exceptions_by_model_and_query[
+                        self.ModelName
+                    ].items()
+                ]
+            )
+            message = (
+                f"{len(exceptions)} {self.ModelName}s matching the following values in %s were not found in the "
+                f"database:{nltab}{summary}\n"
+            )
+
+        self.orig_message = message
+        self.search_terms = list(
+            self.exceptions_by_model_and_query[self.ModelName].keys()
+        )
+        self.exceptions_by_query = self.exceptions_by_model_and_query[self.ModelName]
+        self.set_formatted_message(**kwargs)
+
+
+class MissingModelRecordsByFile(MissingRecords, ABC):
+    @property
+    @abstractmethod
+    def ModelName(self):
+        pass
+
+    @property
+    @abstractmethod
+    def RecordName(self):
+        pass
+
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        succinct=False,
+        **kwargs,
+    ):
+        for exc in exceptions:
+            if exc.model.__name__ != self.ModelName:
+                raise ProgrammingError(
+                    f"The supplied exceptions must all be for model {self.ModelName}, but found "
+                    f"{exc.model.__name__}."
+                )
+
+        # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
+        super().__init__(exceptions, **kwargs)
+        message = kwargs.pop("message", None)
+        if message is None:
+            nltt = "\n\t\t"
+            summary = ""
+            for terms, loc_dict in self.exceptions_by_model_query_and_loc[
+                self.ModelName
+            ].items():
+                summary += "\n\t"
+                if succinct:
+                    summary += "\n\t".join(loc_dict.keys())
+                else:
+                    summary += f"{terms}\n\t\t"
+                    summary += nltt.join(
+                        [
+                            f"{loc}, row(s): ["
+                            + ", ".join(
+                                summarize_int_list([exc.rownum for exc in excs])
+                            )
+                            + "]"
+                            for loc, excs in loc_dict.items()
+                        ]
+                    )
+            if succinct:
+                message = f"{len(exceptions)} {self.ModelName}s missing in the database:{summary}\nwhile processing %s."
+            else:
+                message = (
+                    f"{len(exceptions)} {self.ModelName}s matching the following values were not found in the "
+                    f"database:{summary}\nwhile processing %s."
+                )
+
+        self.orig_message = message
+        self.search_terms = list(
+            self.exceptions_by_model_and_query[self.ModelName].keys()
+        )
+        self.exceptions_by_query_and_loc = self.exceptions_by_model_query_and_loc[
+            self.ModelName
+        ]
+        self.set_formatted_message(**kwargs)
+
+
+class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
+    SummarizerExceptionClass = MissingRecords
+
+    def __init__(
+        self, model, query_obj: dict | Q, message=None, suggestion=None, **kwargs
+    ):
+        """General use DoesNotExist exception constructor for errors retrieving Model records.
+
+        Args:
+            model: (Model)
+            query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
+            message (Optional[str])
+            suggestion (str): An addendum as to how to possibly fix this issue.
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
+        if message is None:
+            message = (
+                f"{model.__name__} record matching {query_obj} from %s does not exist."
+            )
+        if suggestion is not None:
+            message += f"  {suggestion}"
+        super().__init__(message, **kwargs)
+        self.query_obj = query_obj
+        self.model = model
+        self.suggestion = suggestion
+
+    @classmethod
+    def get_failed_searches_dict(cls, instances: List[RecordDoesNotExist]):
+        """Given a list of RecordDoesNotExist instances, a field description and dict like the following example is
+        returned:
+
+            {"George": [1, 2, 3, 4]}
+
+        Where the first key is the search term, and the value is a list of row numbers from an input file where the term
+        was found.
+
+        Args:
+            instances (List[RecordDoesNotExist]): RecordDoesNotExist exceptions
+        Exceptions:
+            ProgrammingError
+        Returns:
+            loc_args (dict): file, sheet, and column values
+            fields_stub (str): Search field/column and comparator
+            search_valuecombos_rows_dict (defaultdict(list))
+        """
+        search_valuecombos_rows_dict = defaultdict(list)
+        model = None
+        fields_str = None
+        loc_args: Dict[str, str] = {}
+        for inst in instances:
+            if model is None:
+                model = inst.model
+            elif inst.model != model:
+                raise ProgrammingError(
+                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
+                    f"model.  {inst.model} != {model}"
+                )
+
+            cur_loc_args = {
+                "column": inst.column,
+                "file": inst.file,
+                "sheet": inst.sheet,
+            }
+            if len(loc_args.keys()) == 0:
+                loc_args = cur_loc_args
+            elif cur_loc_args != loc_args:
+                raise ProgrammingError(
+                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
+                    f"file/column.  {cur_loc_args} != {loc_args}"
+                )
+
+            query_fields_str = inst._get_query_stub()
+
+            if fields_str is None:
+                fields_str = query_fields_str
+            elif fields_str != query_fields_str:
+                raise ProgrammingError(
+                    "instances must be a list of RecordDoesNotExist exceptions generated from queries using the same "
+                    f"search fields (and comparators).  {fields_str} != {query_fields_str}"
+                )
+
+            query_values_str = inst._get_query_values_str()
+            rownum = (
+                inst.rownum if inst.rownum is not None else "no row number supplied"
+            )
+            search_valuecombos_rows_dict[query_values_str].append(rownum)
+
+        return loc_args, fields_str, search_valuecombos_rows_dict
+
+    def _get_query_stub(self, _query_obj: Optional[dict | Q] = None) -> str:
+        """This takes an instance and returns a string describing the fields (and comparators) the query operates on.
+        The values(/search terms) are replaced with numeric labels.  If there is only a single field/comparator, it will
+        be retendered as a single string (instead of a string version of a list or Q object).
+
+        The purpose of this method is to be able to generate strings that can be used as keys, so that a series of
+        failed searches using the same fields but different values can be grouped together.
+
+        Both arguments are private.  Do not supply manually.
+
+        Args:
+            _query_obj (Optional[dict|Q]): An object supplied to Model.objects.get/get_or_create/create/...
+        Exceptions:
+            None
+        Returns:
+            new_q (str|Q): The original call returns a string describing the search fields and comparators.  Recursive
+                calls return Q objects.
+        """
+        if _query_obj is None:
+            _query_obj = self.query_obj
+
+        # Not recursive when given a dict
+        if isinstance(_query_obj, dict):
+            return ", ".join(_query_obj.keys())
+
+        # Must be a Q instance
+        search_fields_str = ""
+        if _query_obj.negated:
+            search_fields_str += "NOT "
+        if len(_query_obj.children) > 1:
+            search_fields_str += f"({_query_obj.connector}: "
+        search_fields_str += ", ".join(
+            [
+                (
+                    self._get_query_stub(_query_obj=sub_q)
+                    if isinstance(sub_q, Q)
+                    else str(sub_q[0])
+                )
+                for sub_q in _query_obj.children
+            ]
+        )
+        if len(_query_obj.children) > 1:
+            search_fields_str += ")"
+
+        return search_fields_str
+
+    def _get_query_values_str(
+        self, _query_obj: Optional[dict | Q] = None, _uniq_vals: Optional[list] = None
+    ) -> list | str:
+        """This takes an instance and returns a string of comma-delimited search terms from the query_obj.
+
+        The purpose of this method is to be able to generate strings that can be used as keys, so that a series of
+        failed searches using the same values from multiple rownums can be grouped together.
+
+        NOTE: The values(/search terms) will either be the values from every query field from the query_obj (unique or
+        not) or will only be the unique values if self.column is defined.  A column value can be used in multiple field
+        matches.  This is intended to reduce redundancy.  For example, if searching for a compound and looking in
+        Compound.name or CompoundSynonym.name, the same value from 1 column is used.  We don't need to include it twice.
+
+        Limitations:
+            This is a simple heuristic.  If values are ever manipulated or static terms are added, the only result will
+            be a different number of values compared to the listed column.
+
+        Args:
+            _query_obj (Optional[dict|Q]): An object supplied to Model.objects.get/get_or_create/create/...
+            _label (int): 1 for first call, not 1 otherwise
+        Exceptions:
+            None
+        Returns:
+            _uniq_vals (list|str): The original call returns a string describing the search fields and comparators.
+                Recursive calls return a list.
+        """
+        first_call = False
+        if _query_obj is None:
+            first_call = True
+            _query_obj = self.query_obj
+
+        if isinstance(_query_obj, dict):
+            return ", ".join([str(val) for val in _query_obj.values()])
+
+        if _uniq_vals is None:
+            _uniq_vals = []
+
+        for sub_q in _query_obj.children:
+            if isinstance(sub_q, Q):
+                _uniq_vals.extend(
+                    self._get_query_values_str(_query_obj=sub_q, _uniq_vals=_uniq_vals)
+                )
+            else:
+                val = str(sub_q[1])
+                # We are only returning unique values if self.column is defined.  See doc string.
+                if self.column is None or val not in _uniq_vals:
+                    _uniq_vals.append(val)
+
+        if first_call:
+            return ", ".join(_uniq_vals)
+
+        return _uniq_vals
+
+
 class AllMissingSamplesError(Exception):
-    """This is a summary of the MissingSamplesError and NoSamplesError classes."""
+    """This is a summary of the MissingSamples and NoSamples classes."""
 
     def __init__(self, missing_samples_dict, message=None):
-        """An exception for all missing samples errors (MissingSampelsError and NoSamplesError).
+        """An exception for all missing samples errors (MissingSamples and NoSamples).
 
         Args:
             missing_samples_dict (dict): Example:
@@ -524,8 +1115,15 @@ class AllMissingSamplesError(Exception):
         self.missing_samples_dict = missing_samples_dict
 
 
+# TODO: Remove this class when the accucor loader is deleted
 class MissingSamplesError(Exception):
-    def __init__(self, missing_samples, message=None):
+    def __init__(
+        self,
+        missing_samples,
+        suggestion="Samples must be loaded prior to loading mass spec data.",
+        message=None,
+        exceptions: Optional[List[RecordDoesNotExist]] = None,
+    ):
         if missing_samples is None:
             missing_samples = []
         if not message:
@@ -534,45 +1132,180 @@ class MissingSamplesError(Exception):
             message = (
                 f"{num_missing} samples are missing in the database/sample-table-file:{nltab}"
                 f"{nltab.join(missing_samples)}\n"
-                "Samples must be loaded prior to loading mass spec data."
             )
+        if suggestion is not None:
+            message += suggestion
         super().__init__(message)
         self.missing_samples = missing_samples
+        self.suggestion = suggestion
+        self.exceptions = exceptions
 
 
+class MissingSamples(MissingRecords):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        **kwargs,
+    ):
+        super().__init__(exceptions, **kwargs)
+        # Add a custom attribute listing the missing sample headers
+        self.missing_samples = self.get_sample_names(exceptions)
+
+    @classmethod
+    def get_sample_names(cls, exceptions):
+        missing_samples = []
+        for exc in exceptions:
+            if exc.query_obj["name"] not in missing_samples:
+                missing_samples.append(exc.query_obj["name"])
+        return missing_samples
+
+
+class MissingCompounds(InfileError):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        message=None,
+        suggestion=None,
+        **kwargs,
+    ):
+        # Initialize the remaining kwargs
+        super().__init__("", **kwargs)
+        if not message:
+            loc_args, _, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
+                exceptions
+            )
+
+            loc_str = generate_file_location_string(**loc_args)
+
+            # Summarize the values and the rows on which they occurred
+            nltab = "\n\t"
+            cmdps_str = nltab.join(
+                list(
+                    map(
+                        lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
+                        vals_dict.keys(),
+                    )
+                )
+            )
+            message = (
+                f"{len(exceptions)} compounds matching the following values in {loc_str} in %s were not found in the "
+                f"database:{nltab}{cmdps_str}\n"
+            )
+
+        if suggestion is not None:
+            message += suggestion
+
+        self.orig_message = message
+        self.set_formatted_message(**kwargs)
+
+
+class RequiredArgument(Exception):
+    def __init__(self, argname, methodname=None, message=None):
+        if message is None:
+            if methodname is None:
+                message = f"A non-None value for argument '{argname}' is required."
+            else:
+                message = (
+                    f"{methodname} requires a non-None value for argument '{argname}'."
+                )
+        super().__init__(message)
+        self.argname = argname
+        self.methodname = methodname
+
+
+# TODO: Remove this class when the accucor loader is deleted
 class UnskippedBlanksError(MissingSamplesError):
-    def __init__(self, samples):
+    def __init__(self, sample_names, **kwargs):
+        if sample_names is None or len(sample_names) == 0:
+            raise RequiredArgument(
+                "sample_names",
+                type(self).__name__,
+                message="A non-zero sized list is required.",
+            )
         message = (
-            f"{len(samples)} samples that appear to possibly be blanks are missing in the database: "
-            f"[{', '.join(samples)}].  Blank samples should be skipped."
+            f"{len(sample_names)} samples that appear to possibly be blanks are missing in the database: "
+            f"[{', '.join(sample_names)}].  Blank samples should be skipped."
         )
-        super().__init__(samples, message)
+        super().__init__(sample_names, message=message, **kwargs)
 
 
-class NoSamplesError(Exception):
-    def __init__(self, missing_samples):
-        """An error to abbreviate an error about all samples.
+class UnskippedBlanks(MissingSamples):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        **kwargs,
+    ):
+        sample_names = self.get_sample_names(exceptions)
+        message = kwargs.pop("message", None)
+        if message is None:
+            message = (
+                f"{len(sample_names)} samples that appear to possibly be blanks are missing in the database: "
+                f"[{', '.join(sample_names)}]."
+            )
+        suggestion = kwargs.pop("suggestion", None)
+        if suggestion is None:
+            suggestion = (
+                "Be sure to set the skip column in the PeakAnnotation Details sheet to 'true' for blank "
+                "samples."
+            )
+        super().__init__(exceptions, message=message, suggestion=suggestion, **kwargs)
 
-        Args:
-            missing_samples (list of strings): Missing samples (with prefixes) that are not likely blanks (e.g. not
-                containing "blank").
 
-        Exceptions:
-            None
-
-        Returns:
-            instance containing:
-                missing_samples (list of strings): See args above
-        """
-        if missing_samples is None:
-            raise ValueError("A non-zero sized list of missing_samples is required.")
-        num_samples = len(missing_samples)
+# TODO: Remove this class when the accucor loader is deleted
+class NoSamplesError(MissingSamplesError):
+    def __init__(self, sample_names, **kwargs):
+        """An error to abbreviate an error about all samples."""
+        if sample_names is None or len(sample_names) == 0:
+            raise RequiredArgument(
+                "sample_names",
+                type(self).__name__,
+                message="A non-zero sized list is required.",
+            )
+        num_samples = len(sample_names)
         message = (
             f"None of the {num_samples} samples were found in the database/sample table file.  Samples "
-            "in the accucor/isocorr files must be present in the sample table file and loaded into the database "
+            "in the peak annotation files must be present in the sample table file and loaded into the database "
             "before they can be loaded from the mass spec data files."
         )
-        super().__init__(message)
+        super().__init__(sample_names, message=message, **kwargs)
+
+
+class NoSamples(MissingSamples):
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        **kwargs,
+    ):
+        num_samples = len(exceptions)
+        message = kwargs.pop("message", None)
+        if message is None:
+            message = f"None of the {num_samples} samples were found in the database/sample table file."
+        suggestion = kwargs.pop("suggestion", None)
+        if suggestion is None:
+            suggestion = (
+                "Samples in the peak annotation files must be present in the sample table file and loaded into the "
+                "database before they can be loaded from the mass spec data files."
+            )
+        super().__init__(exceptions, message=message, suggestion=suggestion, **kwargs)
+
+
+class UnexpectedSamples(InfileError):
+    def __init__(self, missing_samples, suggestion=None, **kwargs):
+        if missing_samples is None or len(missing_samples) == 0:
+            raise RequiredArgument(
+                "missing_samples",
+                type(self).__name__,
+                message="A non-zero sized list is required.",
+            )
+        message = kwargs.pop("message", None)
+        if message is None:
+            message = (
+                "The following sample data headers from the Peak Annotation Details sheet were not among the headers "
+                f"in %s: {missing_samples}."
+            )
+        if suggestion is not None:
+            message += f"  {suggestion}"
+        super().__init__(message, **kwargs)
         self.missing_samples = missing_samples
 
 
@@ -603,6 +1336,7 @@ class UnitsWrong(Exception):
         self.units_dict = units_dict
 
 
+# TODO: Delete when the accucor loader is deleted
 class EmptyColumnsError(Exception):
     def __init__(self, sheet_name, col_names):
         message = (
@@ -612,6 +1346,33 @@ class EmptyColumnsError(Exception):
         super().__init__(message)
         self.sheet_name = sheet_name
         self.col_names = col_names
+
+
+class EmptyColumns(InfileError):
+    def __init__(
+        self,
+        group_name: str,
+        expected: List[str],
+        empty: List[str],
+        all: List[str],
+        addendum=None,
+        **kwargs,
+    ):
+        group = list(set(all) - set(expected))
+        message = (
+            f"1 or more dynamically named [{group_name}] columns are expected, but some columns were parsed from %s "
+            f"that appear to have been unnamed (and may be empty).  {len(expected)} expected constant columns were "
+            f"present.  There are {len(all)} columns total, leaving {len(group)} potential {group_name} columns.  Of "
+            f"those, {len(empty)} were unnamed."
+        )
+        if addendum is not None:
+            message += f"  {addendum}"
+        super().__init__(message, **kwargs)
+        self.group_name = group_name
+        self.expected = expected
+        self.empty = empty
+        self.all = all
+        self.addendum = addendum
 
 
 class SampleColumnInconsistency(Exception):
@@ -1085,6 +1846,9 @@ class AggregatedErrors(Exception):
         exc_type_str    - a string ("Warning" or "Error") that can be used in custom reporting.
     """
 
+    # TODO: Figure out how to suppress exception prints during buffer_exception so that you don't see them during tests
+    # TODO: Prune the simulated stack trace more and add output that makes it clear it's a simulated trace
+    # TODO: Don't reset the current exception number when remove_* is used, because it's confusing to see repeated nums
     def __init__(
         self, message=None, exceptions=None, errors=None, warnings=None, quiet=False
     ):
@@ -1204,7 +1968,7 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if isinstance(exception, exception_class):
+            if self.exception_matches(exception, exception_class):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
@@ -1237,7 +2001,7 @@ class AggregatedErrors(Exception):
 
     def modify_exception_type(self, exception_class, is_fatal=None, is_error=None):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -1254,7 +2018,7 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if isinstance(exception, exception_class):
+            if self.exception_matches(exception, exception_class):
                 if is_error is not None:
                     exception.is_error = is_error
                 if is_fatal is not None:
@@ -1283,7 +2047,7 @@ class AggregatedErrors(Exception):
 
     def remove_exception_type(self, exception_class, modify=True):
         """
-        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
         for consolidation.
 
@@ -1506,6 +2270,93 @@ class AggregatedErrors(Exception):
 
     def exception_type_exists(self, exc_cls):
         return exc_cls in [type(exc) for exc in self.exceptions]
+
+    def exception_matches(self, exception, cls, attr_name=None, attr_val=None):
+        return isinstance(exception, cls) and (
+            attr_name is None
+            or (
+                hasattr(exception, attr_name)
+                and (
+                    (
+                        not type(attr_val).__name__ == "function"
+                        and getattr(exception, attr_name) == attr_val
+                    )
+                    or (
+                        type(attr_val).__name__ == "function"
+                        and attr_val(getattr(exception, attr_name))
+                    )
+                )
+            )
+        )
+
+    def exception_exists(self, cls, attr_name, attr_val):
+        """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
+
+        Args:
+            cls (Exception): The Exception class to look for.
+            attr_name (str): An attribute the buffered exception class has.
+            attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
+                must take a single argument (the value of the attribute) and return a boolean.
+        Exceptions:
+            None
+        Returns:
+            bool
+        """
+        for exc in self.exceptions:
+            if self.exception_matches(exc, cls, attr_name, attr_val):
+                return True
+        return False
+
+    def remove_matching_exceptions(self, cls, attr_name, attr_val):
+        """
+        To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
+        is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
+        for consolidation.
+
+        Args:
+            cls (Type): The class of exceptions to remove
+            attr_name (str): An attribute the buffered exception class has.
+            attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
+                must take a single argument (the value of the attribute) and return a boolean.
+        Exceptions:
+            None
+        Returns (List[Exception]): A list of exceptions of the supplied type, and containing the supplied attribute with
+            the supplied value (or with a value that yields true from the supplied value function).
+        """
+        matched_exceptions = []
+        unmatched_exceptions = []
+        is_fatal = False
+        is_error = False
+        num_errors = 0
+        num_warnings = 0
+
+        # Look for exceptions to remove and recompute new object values
+        for exception in self.exceptions:
+            if self.exception_matches(exception, cls, attr_name, attr_val):
+                matched_exceptions.append(exception)
+            else:
+                if exception.is_error:
+                    num_errors += 1
+                else:
+                    num_warnings += 1
+                if exception.is_fatal:
+                    is_fatal = True
+                if exception.is_error:
+                    is_error = True
+                unmatched_exceptions.append(exception)
+
+        self.num_errors = num_errors
+        self.num_warnings = num_warnings
+        self.is_fatal = is_fatal
+        self.is_error = is_error
+
+        # Reinitialize this object
+        self.exceptions = unmatched_exceptions
+        if not self.custom_message:
+            super().__init__(self.get_default_message())
+
+        # Return removed exceptions
+        return matched_exceptions
 
 
 class ConflictingValueErrors(Exception):
@@ -1812,26 +2663,41 @@ class SheetMergeError(Exception):
         self.animal_col_name = merge_col_name
 
 
-class NoTracerLabeledElements(Exception):
-    def __init__(self):
-        message = "tracer_labeled_elements required to process PARENT entries."
-        super().__init__(message)
+class NoTracerLabeledElements(InfileError):
+    def __init__(
+        self, compound: Optional[str] = None, elements: Optional[list] = None, **kwargs
+    ):
+        tcrstr = ""
+        if elements is not None and len(elements) > 0:
+            tcrstr = f" {elements}"
+        if compound is not None:
+            message = f"PeakGroup compound [{compound}] from %s contains no tracer_labeled_elements{tcrstr}."
+        else:
+            message = f"No tracer_labeled_elements{tcrstr}."
+        super().__init__(message, **kwargs)
 
 
-class IsotopeStringDupe(Exception):
+class NoTracers(InfileError):
+    def __init__(self, animal: Animal, **kwargs):
+        message = f"The Animal [{animal}] associated with %s, has no tracers."
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class IsotopeStringDupe(InfileError):
     """
     There are multiple isotope measurements that match the same parent tracer labeled element
     E.g. C13N15C13-label-2-1-1 would match C13 twice
     """
 
-    def __init__(self, measurement_str, parent_str):
+    def __init__(self, label, parent, **kwargs):
         message = (
-            f"Cannot uniquely match tracer labeled element ({parent_str}) in the measured labeled element string: "
-            f"[{measurement_str}]."
+            f"Cannot uniquely match tracer labeled element ({parent}) in the measured labeled element string: "
+            f"[{label}]."
         )
-        super().__init__(message)
-        self.measurement_str = measurement_str
-        self.parent_str = parent_str
+        super().__init__(message, **kwargs)
+        self.label = label
+        self.parent = parent
 
 
 class UnexpectedIsotopes(Exception):
@@ -1974,7 +2840,7 @@ class AllMissingCompounds(Exception):
         self.compounds_dict = compounds_dict
 
 
-class MissingCompounds(Exception):
+class MissingCompoundsError(Exception):
     def __init__(self, compounds_dict, message=None):
         """
         Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
@@ -2034,8 +2900,39 @@ class LCMethodFixturesMissing(Exception):
         self.err = err
 
 
-class IsotopeObservationParsingError(Exception):
+class ParsingError(Exception):
     pass
+
+
+class InfusateParsingError(ParsingError):
+    pass
+
+
+class TracerParsingError(ParsingError):
+    pass
+
+
+class IsotopeParsingError(ParsingError):
+    pass
+
+
+class ObservedIsotopeParsingError(InfileError):
+    pass
+
+
+class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
+    def __init__(self, elements, mass_numbers, counts, label, **kwargs):
+        super().__init__(
+            (
+                f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
+                f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]."
+            ),
+            **kwargs,
+        )
+        self.elements = elements
+        self.mass_numbers = mass_numbers
+        self.counts = counts
+        self.label = label
 
 
 class MultipleMassNumbers(Exception):
@@ -2065,6 +2962,17 @@ class TracerLabeledElementNotFound(Exception):
     pass
 
 
+class UnexpectedLabels(InfileError):
+    def __init__(self, unexpected, possible, **kwargs):
+        message = (
+            f"Observed peak label(s) {unexpected} were not among the expected labels {possible}.  There may be "
+            "contamination."
+        )
+        super().__init__(message, **kwargs)
+        self.possible = possible
+        self.unexpected = unexpected
+
+
 class SampleIndexNotFound(Exception):
     def __init__(self, sheet_name, num_cols, non_sample_colnames):
         message = (
@@ -2075,6 +2983,17 @@ class SampleIndexNotFound(Exception):
         super().__init__(message)
         self.sheet_name = sheet_name
         self.num_cols = num_cols
+
+
+# TODO: Once the accucor loader is deleted, delete this class.
+class CorrectedCompoundHeaderMissing(Exception):
+    def __init__(self):
+        message = (
+            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
+            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
+            "on the command line)."
+        )
+        super().__init__(message)
 
 
 class LCMSDefaultsRequired(Exception):
@@ -2105,6 +3024,7 @@ class LCMSDefaultsRequired(Exception):
         self.affected_sample_headers_list = affected_sample_headers_list
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class UnexpectedLCMSSampleDataHeaders(Exception):
     def __init__(self, unexpected, peak_annot_file):
         message = (
@@ -2117,6 +3037,7 @@ class UnexpectedLCMSSampleDataHeaders(Exception):
         self.peak_annot_file = peak_annot_file
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class MissingLCMSSampleDataHeaders(Exception):
     def __init__(self, missing, peak_annot_file, missing_defaults):
         using_defaults = len(missing_defaults) == 0
@@ -2176,6 +3097,7 @@ class PeakAnnotationParseError(Exception):
         super().__init__(self.message)
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
 class MismatchedSampleHeaderMZXML(Exception):
     def __init__(self, mismatching_mzxmls):
         message = (
@@ -2190,6 +3112,21 @@ class MismatchedSampleHeaderMZXML(Exception):
         self.mismatching_mzxmls = mismatching_mzxmls
 
 
+class MzxmlSampleHeaderMismatch(InfileError):
+    def __init__(self, header, mzxml_file, **kwargs):
+        mzxml_basename, _ = os.path.splitext(os.path.basename(mzxml_file))
+        message = (
+            f"The sample header does not match the base name of the mzXML file [{mzxml_file}], as listed in %s:\n"
+            f"\tSample header:       [{header}]\n"
+            f"\tmzXML Base Filename: [{mzxml_basename}]"
+        )
+        super().__init__(message, **kwargs)
+        self.header = header
+        self.mzxml_basename = mzxml_basename
+        self.mzxml_file = mzxml_file
+
+
+# TODO: Delete once the accucor and accompanying lcms code is deleted
 class DuplicateSampleDataHeaders(Exception):
     def __init__(self, dupes, lcms_metadata, samples):
         cs = ", "
@@ -2206,20 +3143,6 @@ class DuplicateSampleDataHeaders(Exception):
         # used by code that catches this exception
         self.lcms_metadata = lcms_metadata
         self.samples = samples
-
-
-class NonUniqueSampleDataHeader(Exception):
-    def __init__(self, header, dupes):
-        dupes_str = ""
-        for file in dupes.keys():
-            dupes_str += f"\n\tOccurs {dupes[file]} times in {file}"
-        message = (
-            f"Sample data header '{header}' is not unique across all supplied peak annotation files:"
-            f"{dupes_str}"
-        )
-        super().__init__(message)
-        self.dupes = dupes
-        self.header = header
 
 
 class NonUniqueSampleDataHeaders(Exception):
@@ -2244,6 +3167,22 @@ class NonUniqueSampleDataHeaders(Exception):
         )
         super().__init__(message)
         self.nusdh_list = nusdh_list
+
+
+class NonUniqueSampleDataHeader(SummarizableError):
+    SummarizerExceptionClass = NonUniqueSampleDataHeaders
+
+    def __init__(self, header, dupes):
+        dupes_str = ""
+        for file in dupes.keys():
+            dupes_str += f"\n\tOccurs {dupes[file]} times in {file}"
+        message = (
+            f"Sample data header '{header}' is not unique across all supplied peak annotation files:"
+            f"{dupes_str}"
+        )
+        super().__init__(message)
+        self.dupes = dupes
+        self.header = header
 
 
 class InvalidHeaders(InfileError, ValidationError):
@@ -2286,7 +3225,7 @@ class InvalidLCMSHeaders(InvalidHeaders):
 
 class DuplicateHeaders(ValidationError):
     def __init__(self, dupes, all):
-        message = f"Duplicate column headers: {dupes.keys()}.  All: {all}"
+        message = f"Duplicate column headers: {list(dupes.keys())}.  All: {all}"
         for k in dupes.keys():
             message += f"\n\t{k} occurs {dupes[k]} times"
         super().__init__(message)
@@ -2567,7 +3506,7 @@ class InfileDatabaseError(InfileError):
         message = f"{type(exception).__name__} in %s"
         if rec_dict is not None:
             message += f", creating record:\n\t{nltab.join(deets)}"
-        message += f"\n\t{type(exception).__name__}: {str(exception)}"
+        message += f"\n\t{type(exception).__name__}: {exception}"
         super().__init__(message, **kwargs)
         self.exception = exception
         self.rec_dict = rec_dict
@@ -2577,6 +3516,8 @@ class MzxmlParseError(Exception):
     pass
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
+# having only a single peak group representation of a compound per sequence/sample
 class AmbiguousMSRun(InfileError):
     def __init__(self, pg_rec, peak_annot1, peak_annot2, **kwargs):
         message = (
@@ -2595,6 +3536,8 @@ class AmbiguousMSRun(InfileError):
         self.peak_annot2 = peak_annot2
 
 
+# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
+# having only a single peak group representation of a compound per sequence/sample
 class AmbiguousMSRuns(Exception):
     def __init__(self, ambig_dict, infile):
         deets = ""
@@ -2623,6 +3566,32 @@ class AmbiguousMSRuns(Exception):
         super().__init__(message)
         self.ambig_dict = ambig_dict
         self.infile = infile
+
+
+class MultiplePeakGroupRepresentations(ValidationError):
+    def __init__(self, new_rec, existing_recs):
+        """MultiplePeakGroupRepresentations constructor.
+
+        Args:
+            new_rec (PeakGroup): An uncommitted record.
+            existing_recs (PeakGroup.QuerySet)
+        """
+        leader = "Existing: "
+        from_files = [r.peak_annotation_file.filename for r in existing_recs.all()]
+        from_str = f"\n\t{leader}".join(from_files)
+        message = (
+            f"Multiple representations of this peak group were encountered:\n"
+            f"\tcompound: {new_rec.name}\n"
+            f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
+            f"\tSample: {new_rec.msrun_sample.sample}\n"
+            "Each peak group originated from:\n"
+            f"\tProposed: {new_rec.peak_annotation_file.filename}\n"
+            f"\t{leader}{from_str}\n"
+            "Only 1 representation of a compound per sequence and sample is allowed.  "
+        )
+        super().__init__(message, code="MultiplePeakGroupRepresentations")
+        self.new_rec = new_rec
+        self.existing_recs = existing_recs
 
 
 class CompoundSynonymExists(Exception):
@@ -2741,17 +3710,6 @@ class CompoundDoesNotExist(InfileError, ObjectDoesNotExist):
         self.name = name
 
 
-class RecordDoesNotExist(InfileError, ObjectDoesNotExist):
-    def __init__(self, model, query_dict, message=None, **kwargs):
-        if message is None:
-            message = (
-                f"{model.__name__} record matching {query_dict} from %s does not exist."
-            )
-        super().__init__(message, **kwargs)
-        self.query_dict = query_dict
-        self.model = model
-
-
 class MultipleRecordsReturned(InfileError, MultipleObjectsReturned):
     def __init__(self, model, query_dict, message=None, **kwargs):
         if message is None:
@@ -2781,6 +3739,56 @@ class RollbackException(Exception):
     """
 
     pass
+
+
+class TracerGroupsInconsistent(ValidationError):
+    def __init__(self, new_infusate, dupe_infusates, group_name_mismatches):
+        message = (
+            f"Validation error(s) adding new infusate: [{new_infusate}] with group name: "
+            f"[{new_infusate.tracer_group_name}]:\n\t"
+        )
+
+        if len(dupe_infusates) == 1:
+            message += (
+                f"Infusate exists with the same tracers at the same concentrations already: "
+                f"[{dupe_infusates[0]}]\n"
+                "\tSuggested resolution: Use the existing infusate instead of creating a duplicate.\n"
+            )
+        elif len(dupe_infusates) > 1:
+            message += "Multiple infusates exist with the same tracers at the same concentrations already:\n\t\t"
+            message += "\n\t\t".join(dupe_infusates)
+            message += "\n\tSuggested resolution: Duplicate records should be consolidated and re-used.\n"
+
+        if len(group_name_mismatches) > 0:
+            first_tgn = group_name_mismatches[0].tracer_group_name
+            num_diff = len(
+                [
+                    inf
+                    for inf in group_name_mismatches
+                    if inf.tracer_group_name != first_tgn
+                ]
+            )
+            if num_diff == 0:
+                message += (
+                    f"Infusate(s) (like [{group_name_mismatches[0]}]) exist with a different tracer group name: "
+                    f"[{group_name_mismatches[0].tracer_group_name}]\n"
+                    "\tSuggested resolution: Either edit your tracer group name to match the existing record, or if "
+                    "you want to change the tracer group name for this assortment of tracers, edit the existing "
+                    f"{len(group_name_mismatches)} records' tracer group name to match the new name (or lack there-of)."
+                    "\n"
+                )
+            else:
+                message += "Infusates exist with inconsistent tracer group names:\n"
+                message += "\n\t".join(group_name_mismatches)
+                message += (
+                    "\n\tSuggested resolution: Existing infusate records with inconsistent tracer group names should "
+                    "be edited to match and the tracer group name should be re-used.\n"
+                )
+                message += "\n\t\t".join(group_name_mismatches)
+        super().__init__(message)
+        self.new_infusate = new_infusate
+        self.dupe_infusates = dupe_infusates
+        self.group_name_mismatches = group_name_mismatches
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

@@ -1253,9 +1253,9 @@ class TableLoaderTests(TracebaseTestCase):
             tl._get_pretty_headers_helper(["a", ["b", "c"]]),
         )
 
-        # a and (b or c) required - but no markers
+        # a and (b or c) required - but no all-required markers
         self.assertEqual(
-            "a, (b, c)",
+            "a, (b, c)^",
             tl._get_pretty_headers_helper(["a", ["b", "c"]], markers=False),
         )
 
@@ -1347,6 +1347,23 @@ class TableLoaderTests(TracebaseTestCase):
             tl.get_missing_headers(
                 supd_headers=["a", "c"],
                 reqd_headers=["c", [["a", ["d", "f"]], ["a", "e"]], "g"],
+            ),
+        )
+
+    def test_duplicate_required_header_in_or_group(self):
+        """This test was added based on an error encountered when handling changes needed in the load_infusates branch,
+        due to a rebase.  2 tests of files whose headers should have changed lead to a weird error about missing and
+        unknown headers.  The header requirements were 2 or'ed and-groups, where there were 2 shared headers in each
+        and-group, and one of those common headers was missing.  The resulting report of missing headers had duplicates
+        listed.  I changed the code to only add a header if it wasn't already in the current group being added-to.  This
+        test checks that the output is consolidated.  This test failed before the fix was implemented.
+        """
+        tl = self.TestLoader()
+        self.assertEqual(
+            (["a"], True),
+            tl.get_missing_headers(
+                supd_headers=["f", "b", "c", "d", "e"],
+                reqd_headers=[[["a", "b", "c", "d"], ["a", "e", "d"]]],
             ),
         )
 

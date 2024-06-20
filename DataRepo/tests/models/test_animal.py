@@ -5,6 +5,7 @@ from django.core.management import call_command
 from django.test import override_settings, tag
 
 from DataRepo.models import Animal, Infusate, Sample
+from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -15,7 +16,7 @@ class AnimalTests(TracebaseTestCase):
         super().setUp()
         infusate = Infusate()
         infusate.save()
-        Animal.objects.create(
+        self.animal = Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
             sex="M",
@@ -120,3 +121,12 @@ class AnimalTests(TracebaseTestCase):
             .count()
         )
         self.assertEqual(1, ac)
+
+    def test_get_or_create_study_link(self):
+        study = Study.objects.create(name="test_study")
+        rec, cre = self.animal.get_or_create_study_link(study)
+        self.assertTrue(cre)
+        self.assertIsNotNone(rec)
+        rec, cre = self.animal.get_or_create_study_link(study)
+        self.assertFalse(cre)
+        self.assertIsNotNone(rec)

@@ -1,0 +1,8 @@
+Animal ID	Animal Genotype	Animal Body Weight	Infusate	Infusion Rate	Animal State	Experiment Name	Animal Treatment
+969	WT	27.2	C16:0-[13C16][1]	0.55	Fasted	obob_fasted 
+970	WT	26.8	C16:0-[13C16][1]	0.56	Fasted	obob_fasted 
+971	WT	26.3	lysine-[13C6][2]	0.11	Fasted	obob_fasted 
+972	WT	25.6	lysine-[13C6][2]	0.12	Fasted	obob_fasted 
+979	ob/ob	53.6	C16:0-[13C16][1]	0.37	Fasted	obob_fasted 
+981	ob/ob	48.8	lysine-[13C6][2]	0.06	Fasted	obob_fasted 
+982	ob/ob	50.2	lysine-[13C6][2]	0.06	Fasted	obob_fasted 

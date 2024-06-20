@@ -113,12 +113,12 @@ class LoadTracersCommandTests(TracebaseTestCase):
 
         # EXCEPTION1(WARNING): InfileError: There are [2] rows [2, 3] of data defining isotopes for Tracer Name
         # [lysine-[13C6]] in file [DataRepo/data/tests/tracers/tracers_with_errors.tsv], but the number of labels parsed
-        # from the Tracer Name [1] does not match the number of rows for Tracer Number 1.  Perhaps Tracer Number 1 is on
-        # the wrong number of rows?
+        # from the Tracer Name [1] does not match the number of rows for Tracer Row Group 1.  Perhaps Tracer Row Group 1
+        # is on the wrong number of rows?
         self.assertIn("[2] rows [2, 3]", str(aes.exceptions[0]))
         self.assertIn("[lysine-[13C6]]", str(aes.exceptions[0]))
         self.assertIn("parsed from the Tracer Name [1]", str(aes.exceptions[0]))
-        self.assertIn("Tracer Number 1.", str(aes.exceptions[0]))
+        self.assertIn("Tracer Row Group 1.", str(aes.exceptions[0]))
 
         # EXCEPTION2(ERROR): InfileError: Isotope data from columns [Element: C, Mass Number: 14, Label Count: 4, Label
         # Positions: None] on row(s) [4, 5] does not match any of the isotopes parsed from the Tracer Name
@@ -135,47 +135,47 @@ class LoadTracersCommandTests(TracebaseTestCase):
 
         # EXCEPTION3(WARNING): InfileError: There are [2] rows [4, 5] of data defining isotopes for Tracer Name
         # [threonine-[13C4]] in file [DataRepo/data/tests/tracers/tracers_with_errors.tsv], but the number of labels
-        # parsed from the Tracer Name [1] does not match the number of rows for Tracer Number 2.  Perhaps Tracer Number
-        # 2 is on the wrong number of rows?
+        # parsed from the Tracer Name [1] does not match the number of rows for Tracer Row Group 2.  Perhaps Tracer Row
+        # Group 2 is on the wrong number of rows?
         self.assertIn("[2] rows [4, 5]", str(aes.exceptions[2]))
         self.assertIn("Tracer Name [threonine-[13C4]]", str(aes.exceptions[2]))
         self.assertIn("parsed from the Tracer Name [1]", str(aes.exceptions[2]))
-        self.assertIn("Tracer Number 2.", str(aes.exceptions[2]))
+        self.assertIn("Tracer Row Group 2.", str(aes.exceptions[2]))
 
         # EXCEPTION4(ERROR): InfileError: Compound name from column [aspartate] does not match the name parsed from the
         # tracer name (aspartame-[13C4]): [aspartame]: column [Compound Name] on row [7] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]
         self.assertIn("[aspartate]", str(aes.exceptions[3]))
-        self.assertIn("tracer name (aspartame-[13C4])", str(aes.exceptions[3]))
+        self.assertIn("Tracer Name (aspartame-[13C4])", str(aes.exceptions[3]))
         self.assertIn("row [7]", str(aes.exceptions[3]))
 
-        # EXCEPTION5(ERROR): InfileError: column [Tracer Number and Compound Name] in file
+        # EXCEPTION5(ERROR): InfileError: column [Tracer Row Group and Compound Name] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
-        # Tracer Number 1 is associated with multiple Compound Names on the indicated rows.  Only one Compound Name is
-        # allowed per Tracer Number.
+        # Tracer Row Group 1 is associated with multiple Compound Names on the indicated rows.  Only one Compound Name
+        # is allowed per Tracer Row Group.
         #     lysine (on rows: [2])
         #     asparagine (on rows: [3])
-        self.assertIn("[Tracer Number and Compound Name]", str(aes.exceptions[4]))
+        self.assertIn("[Tracer Row Group and Compound Name]", str(aes.exceptions[4]))
         self.assertIn("lysine (on rows: [2])", str(aes.exceptions[4]))
         self.assertIn("asparagine (on rows: [3])", str(aes.exceptions[4]))
 
-        # EXCEPTION6(ERROR): InfileError: column [Tracer Name and Tracer Number] in file
+        # EXCEPTION6(ERROR): InfileError: column [Tracer Name and Tracer Row Group] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
-        # Tracer Number 2 is associated with multiple Tracer Names on the indicated rows.  Only one Tracer Name is
-        # allowed per Tracer Number.
+        # Tracer Row Group 2 is associated with multiple Tracer Names on the indicated rows.  Only one Tracer Name is
+        # allowed per Tracer Row Group.
         #     threonine-[13C4] (on rows: [4])
         #     threonine-[14C4] (on rows: [5])
-        self.assertIn("[Tracer Name and Tracer Number]", str(aes.exceptions[5]))
+        self.assertIn("[Tracer Name and Tracer Row Group]", str(aes.exceptions[5]))
         self.assertIn("threonine-[13C4] (on rows: [4])", str(aes.exceptions[5]))
         self.assertIn("threonine-[14C4] (on rows: [5])", str(aes.exceptions[5]))
 
-        # EXCEPTION7(ERROR): InfileError: column [Tracer Number and Tracer Name] in file
+        # EXCEPTION7(ERROR): InfileError: column [Tracer Row Group and Tracer Name] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
-        # Tracer Name aspartame-[13C4] is associated with multiple Tracer Numbers on the indicated rows.  Only one
-        # Tracer Number is allowed per Tracer Name.
+        # Tracer Name aspartame-[13C4] is associated with multiple Tracer Row Groups on the indicated rows.  Only one
+        # Tracer Row Group is allowed per Tracer Name.
         #     3 (on rows: [6])
         #     4 (on rows: [7])
-        self.assertIn("[Tracer Number and Tracer Name]", str(aes.exceptions[6]))
+        self.assertIn("[Tracer Row Group and Tracer Name]", str(aes.exceptions[6]))
         self.assertIn("3 (on rows: [6])", str(aes.exceptions[6]))
         self.assertIn("4 (on rows: [7])", str(aes.exceptions[6]))
 

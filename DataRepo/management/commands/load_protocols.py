@@ -1,3 +1,6 @@
+from typing import Type
+
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
@@ -6,7 +9,7 @@ class Command(LoadTableCommand):
     """Command to load the Protocol model from a table-like file."""
 
     help = "Loads data from a protocol table into the database"
-    loader_class = ProtocolsLoader
+    loader_class: Type[TableLoader] = ProtocolsLoader
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.

@@ -7,16 +7,20 @@ import pandas as pd
 from django.core.files import File
 
 from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.models.animal import Animal
-from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
-from DataRepo.models.infusate import Infusate
-from DataRepo.models.lc_method import LCMethod
-from DataRepo.models.msrun_sample import MSRunSample
-from DataRepo.models.msrun_sequence import MSRunSequence
-from DataRepo.models.peak_data import PeakData
-from DataRepo.models.peak_group import PeakGroup
-from DataRepo.models.sample import Sample
-from DataRepo.models.tissue import Tissue
+from DataRepo.models import (
+    Animal,
+    ArchiveFile,
+    DataFormat,
+    DataType,
+    Infusate,
+    LCMethod,
+    MSRunSample,
+    MSRunSequence,
+    PeakData,
+    PeakGroup,
+    Sample,
+    Tissue,
+)
 from DataRepo.tests.tracebase_test_case import (
     TracebaseArchiveTestCase,
     TracebaseTestCase,
@@ -42,7 +46,6 @@ def create_animal_and_tissue_records():
         infusate=inf,
     )
     tsu = Tissue.objects.create(name="Brain")
-    print(f"CREATED ANIMAL AND TISSUE: {anml} {tsu}")
     return anml, tsu
 
 
@@ -1288,9 +1291,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertFalse(
-            updated
-        )  # Peakgroups are updated, but not the MSRunSequence placeholder record itself
+        # Peakgroups are updated, but not the MSRunSample placeholder record itself
+        self.assertFalse(updated)
 
         # Check that the existing placeholder record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
@@ -1373,7 +1375,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
-    def test_load_data(self):
+    def test_load_data_no_infile(self):
         """This tests loading JUST the mzxml files with just the files themselves and defaults arguments (/command line
         options).  I.e. no dataframe (/infile)."""
 
@@ -1430,3 +1432,92 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
             os.path.isfile(msrs.ms_data_file.file_location.path),
             msg="Asserts mzXML file was created in the archive.",
         )
+        # No exception = successful test
+
+    def setup_load(self):
+        anml, tsu = create_animal_and_tissue_records()
+        # Create a sequence for the load to retrieve
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
+        seq = MSRunSequence.objects.create(
+            researcher="Dick",
+            date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
+            instrument=inst,
+            lc_method=lcm,
+        )
+        # Create sample for the load to retrieve
+        s1 = Sample.objects.create(
+            name="s1",
+            tissue=tsu,
+            animal=anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        return inst, seq, s1
+
+    def test_load_data_infile(self):
+        inst, seq, s1 = self.setup_load()
+
+        # Create a dataframe to use to retrieve the records
+        # Including a sample (s2) from a non-matching file (which should not be retrieved)
+        df = pd.DataFrame.from_dict(
+            {
+                "Sample Name": ["s1"],
+                "Sample Data Header": ["s1_pos"],
+                "mzXML File Name": [None],
+                "Peak Annotation File Name": ["accucor.xlsx"],
+                "Sequence Name": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
+            },
+        )
+        msrl = MSRunsLoader(df=df)
+        msrl.load_data()
+        # No exception = successful test
+        MSRunSample.objects.get(
+            msrun_sequence=seq,
+            sample=s1,
+            ms_data_file__isnull=True,
+        )
+
+    def test_get_loaded_msrun_sample_dict(self):
+        inst, seq, s1 = self.setup_load()
+
+        # Create MSRunSample record for the load to retrieve
+        msrs1 = MSRunSample.objects.create(
+            msrun_sequence=seq,
+            sample=s1,
+            polarity=None,
+            ms_raw_file=None,
+            ms_data_file=None,
+        )
+
+        # Create a dataframe to use to retrieve the records
+        # Including a sample (s2) from a non-matching file (which should not be retrieved)
+        df = pd.DataFrame.from_dict(
+            {
+                "Sample Name": ["s1", "s2"],
+                "Sample Data Header": ["s1_pos", "s2_pos"],
+                "mzXML File Name": ["s1_pos.mzXML", "s2_pos.mzXML"],
+                "Peak Annotation File Name": ["accucor.xlsx", "accucor2.xlsx"],
+                "Sequence Name": [
+                    f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
+                    f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
+                ],
+            },
+        )
+
+        msrl = MSRunsLoader(df=df)
+        msrsd = msrl.get_loaded_msrun_sample_dict("accucor.xlsx")
+
+        expected = {
+            "s1_pos": {
+                "MSRunSample": msrs1,
+                "Peak Annotation File Name": "accucor.xlsx",
+                "Sample Data Header": "s1_pos",
+                "Sample Name": "s1",
+                "Sequence Name": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                "Skip": False,
+                "mzXML File Name": "s1_pos.mzXML",
+            },
+        }
+
+        self.assertDictEqual(expected, msrsd)
