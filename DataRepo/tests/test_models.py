@@ -1043,7 +1043,7 @@ class PropertyTests(TracebaseTestCase):
         # make sure we get only 1 labeled element of nitrogen
         self.assertEqual(
             ["N"],
-            sample.animal.infusate.tracer_labeled_elements(),
+            sample.animal.infusate.tracer_labeled_elements,
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
@@ -1116,7 +1116,7 @@ class PropertyTests(TracebaseTestCase):
 
         self.assertEqual(
             ["C"],
-            peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements(),
+            peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements,
         )
 
     def test_normalized_labeling_latest_serum(self):
@@ -1665,7 +1665,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
     def test_tracer_labeled_elements(self):
         anml = Animal.objects.get(name="xzl1")
         expected = ["C", "N"]
-        output = anml.infusate.tracer_labeled_elements()
+        output = anml.infusate.tracer_labeled_elements
         self.assertEqual(expected, output)
 
     def test_serum_tracers_enrichment_fraction(self):

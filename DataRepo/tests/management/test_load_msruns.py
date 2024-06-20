@@ -2,12 +2,14 @@ from datetime import datetime, timedelta
 
 from django.core.management import call_command
 
-from DataRepo.models.animal import Animal
-from DataRepo.models.infusate import Infusate
-from DataRepo.models.lc_method import LCMethod
-from DataRepo.models.msrun_sequence import MSRunSequence
-from DataRepo.models.sample import Sample
-from DataRepo.models.tissue import Tissue
+from DataRepo.models import (
+    Animal,
+    Infusate,
+    LCMethod,
+    MSRunSequence,
+    Sample,
+    Tissue,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,

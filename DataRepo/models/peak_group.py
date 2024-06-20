@@ -87,10 +87,18 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         included in the returned list.
         """
         peak_labeled_elements = []
-        for atom in self.msrun_sample.sample.animal.infusate.tracer_labeled_elements():
+        for atom in self.tracer_labeled_elements:
             if atom_count_in_formula(self.formula, atom) > 0:
                 peak_labeled_elements.append(atom)
         return peak_labeled_elements
+
+    @property
+    @cached_function
+    def tracer_labeled_elements(self):
+        """
+        This method returns a unique list of the labeled elements that exist among the tracers.
+        """
+        return self.msrun_sample.sample.animal.infusate.tracer_labeled_elements
 
     # @cached_function is *slower* than uncached
     @cached_property

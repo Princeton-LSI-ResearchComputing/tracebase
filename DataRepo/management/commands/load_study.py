@@ -63,7 +63,7 @@ class Command(BaseCommand):
             "files_missing_all": defaultdict(list),
             "files_missing_some": defaultdict(list),
             "all_missing_samples": defaultdict(list),
-        }  # For NoSamplesError and MissingSamplesError
+        }  # For NoSamples and MissingSamples
         self.missing_tissue_errors = []
         self.missing_treatment_errors = []
         self.missing_compounds = defaultdict(dict)

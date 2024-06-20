@@ -7,8 +7,13 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.models import LCMethod, MSRunSequence
+from DataRepo.models.researcher import (
+    could_be_variant_researcher,
+    get_researchers,
+)
 from DataRepo.utils.exceptions import (
     InfileError,
+    NewResearcher,
     RecordDoesNotExist,
     RollbackException,
 )
@@ -158,6 +163,8 @@ class SequencesLoader(TableLoader):
         Returns:
             Nothing
         """
+        known_researchers = get_researchers()
+
         for _, row in self.df.iterrows():
             try:
                 lc_rec = self.get_lc_method(self.get_row_val(row, self.headers.LCNAME))
@@ -166,12 +173,24 @@ class SequencesLoader(TableLoader):
                 # Continue processing rows to find more errors
                 lc_rec = None
 
+            # Check the researcher being added, and buffer a warning if new
+            # Doing this before skipping intentionally, so we check all in the file.
+            operator = self.get_row_val(row, self.headers.OPERATOR)
+            if operator is not None and could_be_variant_researcher(
+                operator, known_researchers=known_researchers
+            ):
+                # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
+                self.aggregated_errors_object.buffer_warning(
+                    NewResearcher(operator), is_fatal=self.validate
+                )
+                self.warned(MSRunSequence.__name__)
+
             if self.is_skip_row() or lc_rec is None:
                 self.skipped(MSRunSequence.__name__)
                 continue
 
             try:
-                self.get_or_create_sequence(row, lc_rec)
+                self.get_or_create_sequence(row, lc_rec, operator)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -197,7 +216,7 @@ class SequencesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
                     model=LCMethod,
-                    query_dict=query_dict,
+                    query_obj=query_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.file,
@@ -213,8 +232,8 @@ class SequencesLoader(TableLoader):
         return rec
 
     @transaction.atomic
-    def get_or_create_sequence(self, row, lc_rec):
-        """Gets or creates an MSRunSequence record from the supplied row and LCMethod record.
+    def get_or_create_sequence(self, row, lc_rec, researcher):
+        """Gets or creates an MSRunSequence record from the supplied row, LCMethod record, and operator/researcher.
 
         This method is decorated with transaction.atomic so that any specific record creation that causes an exception
         will be rolled back and loading can proceed (in order to catch more errors).  That exception is buffered and
@@ -223,6 +242,7 @@ class SequencesLoader(TableLoader):
         Args:
             row (pandas dataframe row)
             lc_rec (LCMethod)
+            operator (str)
         Raises:
             RollbackException
         Returns:
@@ -234,7 +254,6 @@ class SequencesLoader(TableLoader):
         created = False
 
         try:
-            researcher = self.get_row_val(row, self.headers.OPERATOR)
             date_str = self.get_row_val(row, self.headers.DATE)
             date = string_to_datetime(
                 date_str,

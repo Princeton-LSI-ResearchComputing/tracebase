@@ -687,7 +687,7 @@ class SampleTableLoader:
         if animal_rec and infusate_rec:
             # Animal Label - Load each unique labeled element among the tracers for this animal
             # This is where enrichment_fraction, enrichment_abundance, and normalized_labeling functions live
-            for labeled_element in infusate_rec.tracer_labeled_elements():
+            for labeled_element in infusate_rec.tracer_labeled_elements:
                 if self.verbosity >= 2:
                     print(
                         f"Finding or inserting animal label '{labeled_element}' for '{animal_rec}'..."
