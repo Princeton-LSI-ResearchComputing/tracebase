@@ -11,6 +11,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     ConflictingValueError,
     InfileError,
+    MissingTissues,
     NewResearcher,
     RecordDoesNotExist,
     RollbackException,
@@ -258,3 +259,29 @@ class SamplesLoaderTests(TracebaseTestCase):
         self.assertIsNone(rec3)
         self.assert_dne(sl)
         self.assertEqual(sl.aggregated_errors_object.exceptions[0].model, Tissue)
+
+    def test_samples_loader_repackage_exceptions(self):
+        sl = SamplesLoader()
+        sl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Tissue,
+                {"name": "coccyx"},
+                column="Tissue",
+                file="study.xlsx",
+                sheet="Samples",
+                rownum=3,
+            )
+        )
+        sl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Tissue,
+                {"name": "elbow pit"},
+                column="Tissue",
+                file="study.xlsx",
+                sheet="Samples",
+                rownum=9,
+            )
+        )
+        sl.repackage_exceptions()
+        self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], MissingTissues)

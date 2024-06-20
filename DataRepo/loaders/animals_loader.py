@@ -18,7 +18,11 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.models.utilities import value_from_choices_label
-from DataRepo.utils.exceptions import RollbackException
+from DataRepo.utils.exceptions import (
+    MissingTreatments,
+    RecordDoesNotExist,
+    RollbackException,
+)
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 AnimalStudy = Animal.studies.through
@@ -176,6 +180,8 @@ class AnimalsLoader(TableLoader):
             dynamic_choices=ColumnReference(
                 loader_class=ProtocolsLoader,
                 loader_header_key=ProtocolsLoader.NAME_KEY,
+                # TODO: This ColumnReference ends up calling the Animal Treatment header "Protocol Name".  Figure out
+                # how to fix that.  See test: test_animals_loader_repackage_exceptions
             ),
         ),
     )
@@ -253,6 +259,8 @@ class AnimalsLoader(TableLoader):
                     # Exception handling was handled in get_or_create_*
                     # Continue processing rows to find more errors
                     pass
+
+        self.repackage_exceptions()
 
     @transaction.atomic
     def get_or_create_animal(
@@ -561,3 +569,39 @@ class AnimalsLoader(TableLoader):
             raise RollbackException()
 
         return rec, created
+
+    def repackage_exceptions(self):
+        """Summarize missing treatments.
+
+        Args:
+            None
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                MissingTreatments
+        Returns:
+            None
+        """
+        # Summarize missing tissues
+        dnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Protocol
+        )
+        if len(dnes) > 0:
+            cross_sheet_col_ref = (
+                self.DataColumnMetadata.TREATMENT.value.dynamic_choices
+            )
+            sheet = self.sheet
+            if sheet is None:
+                sheet = self.DataSheetName
+            self.aggregated_errors_object.buffer_error(
+                MissingTreatments(
+                    dnes,
+                    suggestion=(
+                        f"{self.headers.TREATMENT}s in the '{sheet}' sheet must be loaded into the database prior to "
+                        f"animal loading.  Please be sure to add each missing '{self.headers.TREATMENT}' to the "
+                        f"'{cross_sheet_col_ref.header}' column in the '{cross_sheet_col_ref.sheet}' sheet in your "
+                        "submission."
+                    ),
+                ),
+            )

@@ -35,8 +35,8 @@ from DataRepo.models import (
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
     AllMissingSamplesError,
-    AllMissingTissues,
-    AllMissingTreatments,
+    AllMissingTissuesErrors,
+    AllMissingTreatmentsErrors,
     MissingDataAdded,
     MultiLoadStatus,
     NonUniqueSampleDataHeader,
@@ -536,8 +536,8 @@ class DataValidationView(FormView):
             # data and to remove related errors that those fixes address)
             for exc_class in [
                 AllMissingSamplesError,
-                AllMissingTissues,
-                AllMissingTreatments,
+                AllMissingTissuesErrors,
+                AllMissingTreatmentsErrors,
                 NoSamplesError,
             ]:
 
@@ -557,12 +557,12 @@ class DataValidationView(FormView):
                                 f"{len(exc.missing_samples_dict['all_missing_samples'].keys())} sample names"
                             )
                             self.extract_all_missing_samples(exc)
-                        elif exc_class == AllMissingTissues:
+                        elif exc_class == AllMissingTissuesErrors:
                             data_added.append(
                                 f"{len(exc.missing_tissue_errors)} tissue names"
                             )
                             self.extract_all_missing_tissues(exc)
-                        elif exc_class == AllMissingTreatments:
+                        elif exc_class == AllMissingTreatmentsErrors:
                             data_added.append(
                                 f"{len(exc.missing_treatment_errors)} treatment names"
                             )

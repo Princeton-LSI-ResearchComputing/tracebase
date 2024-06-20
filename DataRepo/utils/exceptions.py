@@ -1150,62 +1150,24 @@ class MissingSamplesError(Exception):
         self.exceptions = exceptions
 
 
-class MissingSamples(MissingRecords):
-    def __init__(
-        self,
-        exceptions: List[RecordDoesNotExist],
-        **kwargs,
-    ):
-        super().__init__(exceptions, **kwargs)
-        # Add a custom attribute listing the missing sample headers
-        self.missing_samples = self.get_sample_names(exceptions)
-
-    @classmethod
-    def get_sample_names(cls, exceptions):
-        missing_samples = []
-        for exc in exceptions:
-            if exc.query_obj["name"] not in missing_samples:
-                missing_samples.append(exc.query_obj["name"])
-        return missing_samples
+class MissingSamples(MissingModelRecords):
+    ModelName = "Sample"
+    RecordName = ModelName
 
 
-class MissingCompounds(InfileError):
-    def __init__(
-        self,
-        exceptions: List[RecordDoesNotExist],
-        message=None,
-        suggestion=None,
-        **kwargs,
-    ):
-        # Initialize the remaining kwargs
-        super().__init__("", **kwargs)
-        if not message:
-            loc_args, _, vals_dict = RecordDoesNotExist.get_failed_searches_dict(
-                exceptions
-            )
+class AllMissingSamples(MissingModelRecordsByFile):
+    ModelName = "Sample"
+    RecordName = ModelName
 
-            loc_str = generate_file_location_string(**loc_args)
 
-            # Summarize the values and the rows on which they occurred
-            nltab = "\n\t"
-            cmdps_str = nltab.join(
-                list(
-                    map(
-                        lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
-                        vals_dict.keys(),
-                    )
-                )
-            )
-            message = (
-                f"{len(exceptions)} compounds matching the following values in {loc_str} in %s were not found in the "
-                f"database:{nltab}{cmdps_str}\n"
-            )
+class MissingCompounds(MissingModelRecords):
+    ModelName = "Compound"
+    RecordName = ModelName
 
-        if suggestion is not None:
-            message += suggestion
 
-        self.orig_message = message
-        self.set_formatted_message(**kwargs)
+class AllMissingCompounds(MissingModelRecordsByFile):
+    ModelName = "Compound"
+    RecordName = ModelName
 
 
 class RequiredArgument(Exception):
@@ -1244,12 +1206,12 @@ class UnskippedBlanks(MissingSamples):
         exceptions: List[RecordDoesNotExist],
         **kwargs,
     ):
-        sample_names = self.get_sample_names(exceptions)
+        super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
         if message is None:
             message = (
-                f"{len(sample_names)} samples that appear to possibly be blanks are missing in the database: "
-                f"[{', '.join(sample_names)}]."
+                f"{len(exceptions)} samples that appear to possibly be blanks are missing in the database: "
+                f"[{', '.join(self.search_terms)}]."
             )
         suggestion = kwargs.pop("suggestion", None)
         if suggestion is None:
@@ -1257,7 +1219,8 @@ class UnskippedBlanks(MissingSamples):
                 "Be sure to set the skip column in the PeakAnnotation Details sheet to 'true' for blank "
                 "samples."
             )
-        super().__init__(exceptions, message=message, suggestion=suggestion, **kwargs)
+        self.orig_message = message
+        self.set_formatted_message(suggestion=suggestion, **kwargs)
 
 
 # TODO: Remove this class when the accucor loader is deleted
@@ -2730,7 +2693,7 @@ class UnexpectedIsotopes(Exception):
         self.compounds = compounds
 
 
-class AllMissingTissues(Exception):
+class AllMissingTissuesErrors(Exception):
     """
     Takes a list of MissingTissue exceptions and a list of existing tissue names.
     """
@@ -2772,7 +2735,7 @@ class AllMissingTissues(Exception):
 
 
 # TODO: Create an AllInfileErrors class using AllMissingTreatments and AllMissingTissues as a template
-class AllMissingTreatments(Exception):
+class AllMissingTreatmentsErrors(Exception):
     """
     Takes a list of MissingTreatment exceptions and a list of existing treatment names.
     """
@@ -2816,7 +2779,7 @@ class AllMissingTreatments(Exception):
         self.missing_treatment_errors = missing_treatment_errors
 
 
-class AllMissingCompounds(Exception):
+class AllMissingCompoundsErrors(Exception):
     """
     This is the same as the MissingCompounds class, but it takes a 3D dict that is used to report every file (and rows
     in that file) where each missing compound exists.
@@ -2887,6 +2850,7 @@ class MissingCompoundsError(Exception):
         self.compounds_dict = compounds_dict
 
 
+# TODO: Delete when sample_table_loader is removed
 class MissingTissue(InfileError):
     def __init__(self, tissue_name, message=None, **kwargs):
         if not message:
@@ -2895,6 +2859,17 @@ class MissingTissue(InfileError):
         self.tissue_name = tissue_name
 
 
+class MissingTissues(MissingModelRecords):
+    ModelName = "Tissue"
+    RecordName = ModelName
+
+
+class AllMissingTissues(MissingModelRecordsByFile):
+    ModelName = "Tissue"
+    RecordName = ModelName
+
+
+# TODO: Delete when sample_table_loader is removed
 class MissingTreatment(InfileError):
     def __init__(self, treatment_name, message=None, **kwargs):
         if not message:
@@ -2903,6 +2878,16 @@ class MissingTreatment(InfileError):
             )
         super().__init__(message, **kwargs)
         self.treatment_name = treatment_name
+
+
+class MissingTreatments(MissingModelRecords):
+    ModelName = "Protocol"
+    RecordName = "Treatment"
+
+
+class AllMissingTreatments(MissingModelRecordsByFile):
+    ModelName = "Protocol"
+    RecordName = "Treatment"
 
 
 class LCMethodFixturesMissing(Exception):

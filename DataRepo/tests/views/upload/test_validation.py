@@ -7,8 +7,8 @@ from DataRepo.models import Protocol, Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
 from DataRepo.utils.exceptions import (
     AllMissingSamplesError,
-    AllMissingTissues,
-    AllMissingTreatments,
+    AllMissingTissuesErrors,
+    AllMissingTreatmentsErrors,
     MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
@@ -374,18 +374,18 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
         amse_warn2 = AllMissingSamplesError(missing_sample_dict)
         amse_warn2.is_error = False
 
-        amti_err = AllMissingTissues([MissingTissue("elbow pit")])
+        amti_err = AllMissingTissuesErrors([MissingTissue("elbow pit")])
         amti_err.is_error = True
-        amti_warn = AllMissingTissues([MissingTissue("elbow pit")])
+        amti_warn = AllMissingTissuesErrors([MissingTissue("elbow pit")])
         amti_warn.is_error = False
-        amti_warn2 = AllMissingTissues([MissingTissue("elbow pit")])
+        amti_warn2 = AllMissingTissuesErrors([MissingTissue("elbow pit")])
         amti_warn2.is_error = False
 
-        amtr_err = AllMissingTreatments([MissingTreatment("wined-and-dined")])
+        amtr_err = AllMissingTreatmentsErrors([MissingTreatment("wined-and-dined")])
         amtr_err.is_error = True
-        amtr_warn = AllMissingTreatments([MissingTreatment("wined-and-dined")])
+        amtr_warn = AllMissingTreatmentsErrors([MissingTreatment("wined-and-dined")])
         amtr_warn.is_error = False
-        amtr_warn2 = AllMissingTreatments([MissingTreatment("wined-and-dined")])
+        amtr_warn2 = AllMissingTreatmentsErrors([MissingTreatment("wined-and-dined")])
         amtr_warn2.is_error = False
 
         vo.load_status_data.set_load_exception(amse_err, "All Samples present")
@@ -412,16 +412,21 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
             2, len(vo.extracted_exceptions[AllMissingSamplesError.__name__]["warnings"])
         )
         self.assertEqual(
-            1, len(vo.extracted_exceptions[AllMissingTissues.__name__]["errors"])
+            1, len(vo.extracted_exceptions[AllMissingTissuesErrors.__name__]["errors"])
         )
         self.assertEqual(
-            2, len(vo.extracted_exceptions[AllMissingTissues.__name__]["warnings"])
+            2,
+            len(vo.extracted_exceptions[AllMissingTissuesErrors.__name__]["warnings"]),
         )
         self.assertEqual(
-            1, len(vo.extracted_exceptions[AllMissingTreatments.__name__]["errors"])
+            1,
+            len(vo.extracted_exceptions[AllMissingTreatmentsErrors.__name__]["errors"]),
         )
         self.assertEqual(
-            2, len(vo.extracted_exceptions[AllMissingTreatments.__name__]["warnings"])
+            2,
+            len(
+                vo.extracted_exceptions[AllMissingTreatmentsErrors.__name__]["warnings"]
+            ),
         )
         self.assertDictEqual(
             {
@@ -504,7 +509,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
     def test_extract_all_missing_tissues(self):
         vo = DataValidationView()
         vo.extract_all_missing_tissues(
-            AllMissingTissues(
+            AllMissingTissuesErrors(
                 [
                     MissingTissue("elbow pit"),
                     MissingTissue("earlobe"),
@@ -524,7 +529,7 @@ class DataValidationViewTests(TracebaseTransactionTestCase):
     def test_extract_all_missing_treatments(self):
         vo = DataValidationView()
         vo.extract_all_missing_treatments(
-            AllMissingTreatments(
+            AllMissingTreatmentsErrors(
                 [
                     MissingTreatment("berated"),
                     MissingTreatment("wined-and-dined"),
