@@ -28,7 +28,7 @@ TRACER_ENCODING_PATTERN = re.compile(
     r"^(?P<compound_name>.*?)-\[(?P<isotopes>[^\[\]]+)\]$"
 )
 TRACER_WITH_CONC_ENCODING_PATTERN = re.compile(
-    r"^(?P<compound_name>.*?)-\[(?P<isotopes>[^\[\]]+)\]\[(?P<concentration>[^\[\]]+)\]$"
+    r"^(?P<tracer_str>(?P<compound_name>.*?)-\[(?P<isotopes>[^\[\]]+)\])\[(?P<concentration>[^\[\]]+)\]$"
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
@@ -241,13 +241,14 @@ def parse_tracer_with_conc_string(tracer_string: str) -> Tuple[TracerData, float
         concentration (float)
     """
     tracer_data: TracerData = {
-        "unparsed_string": tracer_string,
+        "unparsed_string": "",  # Conc removed below to be compatible with the patterns that omit concentrations...
         "compound_name": "",
         "isotopes": list(),
     }
     concentration = 0.0
     match = re.search(TRACER_WITH_CONC_ENCODING_PATTERN, tracer_string)
     if match:
+        tracer_data["unparsed_string"] = match.group("tracer_str").strip()
         tracer_data["compound_name"] = match.group("compound_name").strip()
         tracer_data["isotopes"] = parse_isotope_string(match.group("isotopes").strip())
         concentration = float(match.group("concentration").strip())

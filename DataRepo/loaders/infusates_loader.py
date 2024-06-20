@@ -8,12 +8,17 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
-from DataRepo.utils.exceptions import InfileError, summarize_int_list
+from DataRepo.utils.exceptions import (
+    InfileError,
+    TracerParsingError,
+    summarize_int_list,
+)
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
     InfusateTracerData,
     parse_infusate_name,
+    parse_infusate_name_with_concs,
     parse_tracer_string,
 )
 
@@ -583,6 +588,8 @@ class InfusatesLoader(TableLoader):
                 parsed_infusate = parse_infusate_name(
                     table_infusate_name, table_concentrations
                 )
+            except TracerParsingError:
+                parsed_infusate = parse_infusate_name_with_concs(table_infusate_name)
             except InfusateParsingError as ipe:
                 rownums = [t["rownum"] for t in table_infusate["tracers"]]
                 self.aggregated_errors_object.buffer_error(
@@ -879,6 +886,7 @@ class InfusatesLoader(TableLoader):
 
         return rec
 
+    # The overridden Infusate.objects.get_or_create has an atomic transaction decorator
     def get_or_create_infusate_tracer(self, tracer_dict, infusate_rec):
         """Get or create an InfusateTracer record.
 
@@ -895,14 +903,15 @@ class InfusatesLoader(TableLoader):
         """
         rec = None
         rec_dict = None
-        query_dict = None
         created = False
 
         try:
             tracer_name = tracer_dict["tracer_name"]
-            query_dict = {"name": tracer_name}
-            tracer_rec = Tracer.objects.get(name=tracer_name)
+            tracer_data = parse_tracer_string(tracer_name)
+            tracer_rec = Tracer.objects.get_tracer(tracer_data)
         except Exception as e:
+            # This is the "effective" query
+            query_dict = {"name": tracer_name}
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Tracer, query_dict)
@@ -1257,7 +1266,7 @@ class InfusatesLoader(TableLoader):
 
         for it_rec in rec.tracer_links.all():
             db_conc = it_rec.concentration
-            db_tracer_name = it_rec.tracer.name
+            db_tracer_name = it_rec.tracer._name()
 
             file_conc = None
             for te in infusate_dict["tracers"]:
