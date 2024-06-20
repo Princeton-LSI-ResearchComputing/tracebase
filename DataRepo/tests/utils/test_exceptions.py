@@ -3,7 +3,7 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AllMissingTreatments,
+    AllMissingTreatmentsErrors,
     CompoundDoesNotExist,
     DateParseError,
     DuplicateCompoundIsotopes,
@@ -1059,7 +1059,7 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_AllMissingTreatments(self):
-        amt = AllMissingTreatments(
+        amt = AllMissingTreatmentsErrors(
             [
                 MissingTreatment(
                     treatment_name="sphincter",
@@ -1232,12 +1232,12 @@ class ExceptionTests(TracebaseTestCase):
             ),
         ]
         mcs = MissingCompounds(excs)
-        self.assertIn("2 compounds", str(mcs))
+        self.assertIn("2 Compounds", str(mcs))
         self.assertIn(
             "in column [compound] of sheet [Corrected] in accucor.xlsx", str(mcs)
         )
-        self.assertIn("lysine from row(s): ['5']", str(mcs))
-        self.assertIn("vibranium from row(s): ['19']", str(mcs))
+        self.assertIn("'lysine' from row(s): [5]", str(mcs))
+        self.assertIn("'vibranium' from row(s): [19]", str(mcs))
 
     def test_MissingRecords(self):
         from DataRepo.models import Compound, MSRunSample
@@ -1300,10 +1300,9 @@ class ExceptionTests(TracebaseTestCase):
 
     def test_MissingSamples(self):
         mss = MissingSamples(self.get_sample_dnes())
-        self.assertIn("2 Sample records", str(mss))
-        self.assertIn("sample1 from row(s): ['5']", str(mss))
-        self.assertIn("sample2 from row(s): ['19']", str(mss))
-        self.assertIn("using search field(s): name", str(mss))
+        self.assertIn("2 Samples", str(mss))
+        self.assertIn("'sample1' from row(s): [5]", str(mss))
+        self.assertIn("'sample2' from row(s): [19]", str(mss))
         self.assertIn("column [Sample] of sheet [Corrected] in accucor.xlsx", str(mss))
 
     def test_UnskippedBlanks(self):

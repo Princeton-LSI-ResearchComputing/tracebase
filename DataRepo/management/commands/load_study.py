@@ -16,10 +16,10 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AllMissingCompounds,
+    AllMissingCompoundsErrors,
     AllMissingSamplesError,
-    AllMissingTissues,
-    AllMissingTreatments,
+    AllMissingTissuesErrors,
+    AllMissingTreatmentsErrors,
     DryRun,
     MissingCompoundsError,
     MissingSamplesError,
@@ -427,7 +427,7 @@ class Command(BaseCommand):
                         )
 
             missing_tissue_exceptions = exception.modify_exception_type(
-                AllMissingTissues, is_fatal=False, is_error=False
+                AllMissingTissuesErrors, is_fatal=False, is_error=False
             )
             for missing_tissue_exception in missing_tissue_exceptions:
                 self.missing_tissue_errors.extend(
@@ -435,7 +435,7 @@ class Command(BaseCommand):
                 )
 
             missing_treatment_exceptions = exception.modify_exception_type(
-                AllMissingTreatments, is_fatal=False, is_error=False
+                AllMissingTreatmentsErrors, is_fatal=False, is_error=False
             )
             for missing_treatment_exception in missing_treatment_exceptions:
                 self.missing_treatment_errors.extend(
@@ -498,7 +498,7 @@ class Command(BaseCommand):
         # Collect all the missing tissues in 1 error to add to the tissues file
         if len(self.missing_tissue_errors) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingTissues(self.missing_tissue_errors),
+                AllMissingTissuesErrors(self.missing_tissue_errors),
                 "All Tissues Exist in the Database",
                 top=True,
             )
@@ -506,7 +506,7 @@ class Command(BaseCommand):
         # Collect all the missing treatments in 1 error to add to the treatments file
         if len(self.missing_treatment_errors) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingTreatments(self.missing_treatment_errors),
+                AllMissingTreatmentsErrors(self.missing_treatment_errors),
                 "All Treatments Exist in the Database",
                 top=True,
             )
@@ -514,7 +514,7 @@ class Command(BaseCommand):
         # Collect all the missing compounds in 1 error to add to the compounds file
         if len(self.missing_compounds) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingCompounds(self.missing_compounds),
+                AllMissingCompoundsErrors(self.missing_compounds),
                 "All Compounds Exist in the Database",
                 top=True,
             )

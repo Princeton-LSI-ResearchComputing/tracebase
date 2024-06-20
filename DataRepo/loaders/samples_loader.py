@@ -9,6 +9,7 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
+from DataRepo.models.fcirc import FCirc
 from DataRepo.models.researcher import (
     could_be_variant_researcher,
     get_researchers,
@@ -16,7 +17,9 @@ from DataRepo.models.researcher import (
 from DataRepo.utils.exceptions import (
     DateParseError,
     InfileError,
+    MissingTissues,
     NewResearcher,
+    RecordDoesNotExist,
     RollbackException,
 )
 from DataRepo.utils.file_utils import string_to_datetime
@@ -192,6 +195,8 @@ class SamplesLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+
+        self.repackage_exceptions()
 
     @transaction.atomic
     def get_or_create_sample(self, row, animal: Animal, tissue: Tissue):
@@ -377,3 +382,36 @@ class SamplesLoader(TableLoader):
             self.add_skip_row_index()
 
         return rec
+
+    def repackage_exceptions(self):
+        """Summarize missing tissues.
+
+        Args:
+            None
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                MissingTissues
+        Returns:
+            None
+        """
+        # Summarize missing tissues
+        dnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Tissue
+        )
+        if len(dnes) > 0:
+            cross_sheet_col_ref = self.DataColumnMetadata.TISSUE.value.dynamic_choices
+            sheet = self.sheet
+            if sheet is None:
+                sheet = self.DataSheetName
+            self.aggregated_errors_object.buffer_error(
+                MissingTissues(
+                    dnes,
+                    suggestion=(
+                        f"{self.headers.TISSUE}s in the '{sheet}' sheet must be loaded into the database prior to "
+                        f"sample loading.  Please be sure to add each missing '{self.headers.TISSUE}' to the "
+                        f"'{cross_sheet_col_ref.header}' in the '{cross_sheet_col_ref.sheet}' in your submission."
+                    ),
+                ),
+            )

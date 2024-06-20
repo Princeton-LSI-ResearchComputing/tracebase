@@ -44,9 +44,9 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
-    AllMissingCompounds,
+    AllMissingCompoundsErrors,
     AllMissingSamplesError,
-    AllMissingTissues,
+    AllMissingTissuesErrors,
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
@@ -2348,7 +2348,7 @@ class StudyLoadingTests(TracebaseTestCase):
         """
         lsc = LoadStudyCommand()
         exceptions = [
-            AllMissingTissues(
+            AllMissingTissuesErrors(
                 [
                     MissingTissue(tissue_name="spleen", column="Tissue", rownum=1),
                     MissingTissue(tissue_name="spleen", column="Tissue", rownum=2),
@@ -2537,7 +2537,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["All Tissues Exist in the Database"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingTissues,
+                AllMissingTissuesErrors,
             ),
         )
         self.assertTrue(
@@ -2545,7 +2545,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["All Compounds Exist in the Database"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingCompounds,
+                AllMissingCompoundsErrors,
             ),
         )
         self.assertTrue(
@@ -2553,7 +2553,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingTissues,
+                AllMissingTissuesErrors,
             ),
         )
         self.assertTrue(

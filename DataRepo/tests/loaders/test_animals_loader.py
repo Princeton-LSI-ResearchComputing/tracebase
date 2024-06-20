@@ -10,6 +10,7 @@ from DataRepo.utils.exceptions import (
     InfileDatabaseError,
     InfileError,
     MissingRecords,
+    MissingTreatments,
     RecordDoesNotExist,
     RequiredHeadersError,
 )
@@ -312,3 +313,31 @@ class AnimalsLoaderTests(TracebaseTestCase):
         rec2, cre2 = al.get_or_create_animal_label(anml, "C")
         self.assertFalse(cre2)
         self.assertIsNotNone(rec2)
+
+    def test_animals_loader_repackage_exceptions(self):
+        al = AnimalsLoader()
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Protocol,
+                {"name": "abused"},
+                column="Treatment",
+                file="study.xlsx",
+                sheet="Animals",
+                rownum=3,
+            )
+        )
+        al.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Protocol,
+                {"name": "wined and dined"},
+                column="Treatment",
+                file="study.xlsx",
+                sheet="Animals",
+                rownum=9,
+            )
+        )
+        al.repackage_exceptions()
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], MissingTreatments
+        )
