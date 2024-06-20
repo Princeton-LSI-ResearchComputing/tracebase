@@ -13,7 +13,11 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors, RequiredColumnValues
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    NewResearcher,
+    NewResearchers,
+)
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_infusate_name_with_concs,
@@ -112,57 +116,52 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
     def test_dupe_samples_not_loaded(self):
         self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
 
-    # TODO: Uncomment (and update) after rebase that brings in the NewResearcher exception
-    # @MaintainedModel.no_autoupdates()
-    # def test_ls_new_researcher_and_aggregate_errors(self):
-    #     # The error string must include:
-    #     #   The new researcher is in the error
-    #     #   Hidden flag is suggested
-    #     #   Existing researchers are shown
-    #     exp_err = (
-    #         "1 researchers: [Han Solo] out of 1 do not exist in the database.  Current researchers are:\n\tMichael "
-    #         "Neinast\n\tXianfeng Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to "
-    #         "your command."
-    #     )
-    #     with self.assertRaises(AggregatedErrors) as ar:
-    #         call_command(
-    #             "load_sample_table",
-    #             infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
-    #             headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-    #         )
-    #     aes = ar.exception
-    #     ures = [e for e in aes.exceptions if isinstance(e, NewResearcher)]
-    #     self.assertEqual(1, len(ures))
-    #     self.assertIn(
-    #         exp_err,
-    #         str(ures[0]),
-    #     )
-    #     # There are 5 conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
-    #     self.assertEqual(6, len(aes.exceptions))
+    @MaintainedModel.no_autoupdates()
+    def test_ls_new_researcher_and_aggregate_errors(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = "check the existing researchers:\n\tMichael Neinast\n\tXianfeng Zeng"
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_sample_table",
+                infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo_new.tsv",
+                headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
+            )
+        aes = ar.exception
+        ures = [e for e in aes.exceptions if isinstance(e, NewResearchers)]
+        self.assertEqual(1, len(ures))
+        self.assertIn(
+            exp_err,
+            str(ures[0]),
+        )
+        # There are conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
+        self.assertEqual(2, len(aes.exceptions))
 
-    # @MaintainedModel.no_autoupdates()
-    # def test_ls_new_researcher_confirmed(self):
-    #     with self.assertRaises(AggregatedErrors) as ar:
-    #         call_command(
-    #             "load_samples",
-    #             "DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
-    #             sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-    #             skip_researcher_check=True,
-    #         )
-    #     aes = ar.exception
-    #     # Test that no researcher exception occurred
-    #     ures = [e for e in aes.exceptions if isinstance(e, NewResearcher)]
-    #     self.assertEqual(0, len(ures))
-    #     # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
-    #     cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueError)]
-    #     self.assertIn("Han Solo", str(cves[0]))
-    #     self.assertEqual(5, len(cves))
-    #     # There are 24 expected errors total
-    #     self.assertEqual(5, len(aes.exceptions))
-    #     self.assertIn(
-    #         "5 exceptions occurred, including type(s): [ConflictingValueError].",
-    #         str(ar.exception),
-    #     )
+    @MaintainedModel.no_autoupdates()
+    def test_ls_new_researcher_confirmed(self):
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_samples",
+                "DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
+                sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
+                skip_researcher_check=True,
+            )
+        aes = ar.exception
+        # Test that no researcher exception occurred
+        ures = [e for e in aes.exceptions if isinstance(e, NewResearcher)]
+        self.assertEqual(0, len(ures))
+        # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
+        cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueError)]
+        self.assertIn("Han Solo", str(cves[0]))
+        self.assertEqual(5, len(cves))
+        # There are 24 expected errors total
+        self.assertEqual(5, len(aes.exceptions))
+        self.assertIn(
+            "5 exceptions occurred, including type(s): [ConflictingValueError].",
+            str(ar.exception),
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

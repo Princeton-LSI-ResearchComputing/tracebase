@@ -9,10 +9,14 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
-from DataRepo.models.researcher import get_researchers
+from DataRepo.models.researcher import (
+    could_be_variant_researcher,
+    get_researchers,
+)
 from DataRepo.utils.exceptions import (
     DateParseError,
     InfileError,
+    NewResearcher,
     RollbackException,
 )
 from DataRepo.utils.file_utils import string_to_datetime
@@ -212,15 +216,21 @@ class SamplesLoader(TableLoader):
         name = self.get_row_val(row, self.headers.SAMPLE)
 
         researcher = self.get_row_val(row, self.headers.HANDLER)
-        # TODO: Uncomment after the rebase that brings in the Researcher.could_be_variant_researcher method
-        # if researcher is not None and could_be_variant_researcher(
-        #     researcher, known_researchers=self.known_researchers
-        # ):
-        #     # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
-        #     self.aggregated_errors_object.buffer_warning(
-        #         NewResearcher(researcher), is_fatal=self.validate
-        #     )
-        #     self.warned(Sample.__name__)
+        if researcher is not None and could_be_variant_researcher(
+            researcher, known_researchers=self.known_researchers
+        ):
+            # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
+            self.aggregated_errors_object.buffer_warning(
+                NewResearcher(
+                    researcher,
+                    file=self.file,
+                    sheet=self.sheet,
+                    rownum=self.rownum,
+                    column=self.headers.HANDLER,
+                ),
+                is_fatal=self.validate,
+            )
+            self.warned(Sample.__name__)
 
         date_str = self.get_row_val(row, self.headers.DATE)
         try:

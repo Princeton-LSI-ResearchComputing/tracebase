@@ -665,41 +665,54 @@ class MissingRecords(InfileError):
         msg = "" if message is None else message
         super().__init__(msg, **kwargs)
 
-        if not message:
-            message = ""
-            exceptions_by_query_type: Dict[str, dict] = defaultdict(
-                lambda: defaultdict(list)
+        tmp_message = ""
+        exceptions_by_model_and_fields: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        exceptions_by_model_and_query: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        exceptions_by_model_query_and_loc: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for inst in exceptions:
+            q_str = inst._get_query_stub()
+            exceptions_by_model_and_fields[inst.model.__name__][q_str].append(inst)
+            search_terms = inst._get_query_values_str()
+            exceptions_by_model_and_query[inst.model.__name__][search_terms].append(
+                inst
             )
-            for inst in exceptions:
-                q_str = inst._get_query_stub()
-                exceptions_by_query_type[inst.model.__name__][q_str].append(inst)
+            exceptions_by_model_query_and_loc[inst.model.__name__][search_terms][
+                inst.loc
+            ].append(inst)
 
-            for mdl_name in exceptions_by_query_type.keys():
-                for categorized_exceptions in exceptions_by_query_type[
-                    mdl_name
-                ].values():
-                    loc_args, flds_str, vals_dict = (
-                        RecordDoesNotExist.get_failed_searches_dict(
-                            categorized_exceptions
+        for mdl_name in exceptions_by_model_and_fields.keys():
+            for categorized_exceptions in exceptions_by_model_and_fields[
+                mdl_name
+            ].values():
+                loc_args, flds_str, vals_dict = (
+                    RecordDoesNotExist.get_failed_searches_dict(categorized_exceptions)
+                )
+
+                loc_str = generate_file_location_string(**loc_args)
+
+                # Summarize the values and the rows on which they occurred
+                nltab = "\n\t"
+                search_terms_str = nltab.join(
+                    list(
+                        map(
+                            lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
+                            vals_dict.keys(),
                         )
                     )
+                )
+                tmp_message += (
+                    f"{len(categorized_exceptions)} {mdl_name} records were not found (using search field(s): "
+                    f"{flds_str}) with values found in {loc_str}:{nltab}{search_terms_str}\n"
+                )
 
-                    loc_str = generate_file_location_string(**loc_args)
-
-                    # Summarize the values and the rows on which they occurred
-                    nltab = "\n\t"
-                    search_terms_str = nltab.join(
-                        list(
-                            map(
-                                lambda key: f"{key} from row(s): {summarize_int_list(vals_dict[key])}",
-                                vals_dict.keys(),
-                            )
-                        )
-                    )
-                    message += (
-                        f"{len(categorized_exceptions)} {mdl_name} records were not found (using search field(s): "
-                        f"{flds_str}) with values found in {loc_str}:{nltab}{search_terms_str}\n"
-                    )
+        if not message:
+            message = tmp_message
 
         if suggestion is not None:
             if message.endswith("\n"):
@@ -708,6 +721,148 @@ class MissingRecords(InfileError):
                 message += f"  {suggestion}"
 
         self.message = message
+        self.exceptions = exceptions
+        self.exceptions_by_model_and_query = exceptions_by_model_and_query
+        self.exceptions_by_model_query_and_loc = exceptions_by_model_query_and_loc
+
+
+class MissingModelRecords(MissingRecords, ABC):
+    @property
+    @abstractmethod
+    def ModelName(self):
+        pass
+
+    @property
+    @abstractmethod
+    def RecordName(self):
+        pass
+
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        **kwargs,
+    ):
+        file = None
+        sheet = None
+        column = None
+        for exc in exceptions:
+            if exc.model.__name__ != self.ModelName:
+                raise ProgrammingError(
+                    f"The supplied exceptions must all be for model {self.ModelName}, but found "
+                    f"{exc.model.__name__}."
+                )
+            if (
+                (file is not None and exc.file is not None and file != exc.file)
+                or (sheet is not None and exc.sheet is not None and sheet != exc.sheet)
+                or (
+                    column is not None
+                    and exc.column is not None
+                    and column != exc.column
+                )
+            ):
+                raise ProgrammingError(
+                    "The supplied exceptions must all be from the same file, sheet, and column."
+                )
+            file = exc.file
+            sheet = exc.sheet
+            column = exc.column
+
+        kwargs["file"] = file
+        kwargs["sheet"] = sheet
+        kwargs["column"] = column
+
+        # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
+        super().__init__(exceptions, **kwargs)
+        message = kwargs.pop("message", None)
+        if message is None:
+            nltab = "\n\t"
+            summary = nltab.join(
+                [
+                    f"'{terms}' from row(s): ["
+                    + ", ".join(summarize_int_list([exc.rownum for exc in excs]))
+                    + "]"
+                    for terms, excs in self.exceptions_by_model_and_query[
+                        self.ModelName
+                    ].items()
+                ]
+            )
+            message = (
+                f"{len(exceptions)} {self.ModelName}s matching the following values in %s were not found in the "
+                f"database:{nltab}{summary}\n"
+            )
+
+        self.orig_message = message
+        self.search_terms = list(
+            self.exceptions_by_model_and_query[self.ModelName].keys()
+        )
+        self.exceptions_by_query = self.exceptions_by_model_and_query[self.ModelName]
+        self.set_formatted_message(**kwargs)
+
+
+class MissingModelRecordsByFile(MissingRecords, ABC):
+    @property
+    @abstractmethod
+    def ModelName(self):
+        pass
+
+    @property
+    @abstractmethod
+    def RecordName(self):
+        pass
+
+    def __init__(
+        self,
+        exceptions: List[RecordDoesNotExist],
+        succinct=False,
+        **kwargs,
+    ):
+        for exc in exceptions:
+            if exc.model.__name__ != self.ModelName:
+                raise ProgrammingError(
+                    f"The supplied exceptions must all be for model {self.ModelName}, but found "
+                    f"{exc.model.__name__}."
+                )
+
+        # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
+        super().__init__(exceptions, **kwargs)
+        message = kwargs.pop("message", None)
+        if message is None:
+            nltt = "\n\t\t"
+            summary = ""
+            for terms, loc_dict in self.exceptions_by_model_query_and_loc[
+                self.ModelName
+            ].items():
+                summary += "\n\t"
+                if succinct:
+                    summary += "\n\t".join(loc_dict.keys())
+                else:
+                    summary += f"{terms}\n\t\t"
+                    summary += nltt.join(
+                        [
+                            f"{loc}, row(s): ["
+                            + ", ".join(
+                                summarize_int_list([exc.rownum for exc in excs])
+                            )
+                            + "]"
+                            for loc, excs in loc_dict.items()
+                        ]
+                    )
+            if succinct:
+                message = f"{len(exceptions)} {self.ModelName}s missing in the database:{summary}\nwhile processing %s."
+            else:
+                message = (
+                    f"{len(exceptions)} {self.ModelName}s matching the following values were not found in the "
+                    f"database:{summary}\nwhile processing %s."
+                )
+
+        self.orig_message = message
+        self.search_terms = list(
+            self.exceptions_by_model_and_query[self.ModelName].keys()
+        )
+        self.exceptions_by_query_and_loc = self.exceptions_by_model_query_and_loc[
+            self.ModelName
+        ]
+        self.set_formatted_message(**kwargs)
 
 
 class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
