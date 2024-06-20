@@ -21,7 +21,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTissues,
     AllMissingTreatments,
     DryRun,
-    MissingCompounds,
+    MissingCompoundsError,
     MissingSamplesError,
     MultiLoadStatus,
     NoSamplesError,
@@ -455,7 +455,7 @@ class Command(BaseCommand):
             # }
             # This is the dict structure required by AllMissingCompounds's constructor.
             missing_compound_exceptions = exception.modify_exception_type(
-                MissingCompounds, is_fatal=False, is_error=False
+                MissingCompoundsError, is_fatal=False, is_error=False
             )
             for missing_compound_exception in missing_compound_exceptions:
                 for compound in missing_compound_exception.compounds_dict.keys():

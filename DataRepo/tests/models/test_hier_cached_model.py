@@ -264,6 +264,7 @@ class GlobalCacheTests(TracebaseTestCase):
             "PeakGroup": [
                 "peak_labeled_elements",
                 "tracer_labeled_elements",
+                "possible_isotope_observations",
             ],
             "FCirc": [
                 "last_peak_group_in_animal",
@@ -490,6 +491,7 @@ class HierCachedModelTests(TracebaseTestCase):
         expected = [
             "peak_labeled_elements",
             "tracer_labeled_elements",
+            "possible_isotope_observations",
         ]
         self.assertEqual(
             expected,

@@ -203,3 +203,32 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
                     "Protocol category for an Animal must be of type "
                     f"{Protocol.ANIMAL_TREATMENT}"
                 )
+
+    def get_or_create_study_link(self, study):
+        """Get or create a peakgroup_compound record (so that it can be used in record creation stats).
+        Args:
+            study (Study)
+        Exceptions:
+            None
+        Returns:
+            rec (Optional[AnimalStudy])
+            created (boolean)
+        """
+        AnimalStudy = Animal.studies.through
+
+        # This is the effective rec_dict
+        rec_dict = {
+            "animal": self,
+            "study": study,
+        }
+
+        # Get pre- and post- counts to determine if a record was created (add does a get_or_create)
+        count_before = self.studies.count()
+        self.studies.add(study)
+        count_after = self.studies.count()
+        created = count_after > count_before
+
+        # Retrieve the record (created or not - .add() doesn't return a record)
+        rec = AnimalStudy.objects.get(**rec_dict)
+
+        return rec, created
