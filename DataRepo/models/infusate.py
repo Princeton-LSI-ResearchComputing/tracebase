@@ -209,7 +209,9 @@ class Infusate(MaintainedModel, HierCachedModel):
         """
         from DataRepo.utils.infusate_name_parser import (
             InfusateParsingError,
+            TracerParsingError,
             parse_infusate_name,
+            parse_infusate_name_with_concs,
         )
 
         # Any infusate name string (e.g. as supplied from a file) may not have the tracers in the same order
@@ -218,6 +220,8 @@ class Infusate(MaintainedModel, HierCachedModel):
         rec_data = parse_infusate_name(rec_name, rec_concentrations)
         try:
             sup_data = parse_infusate_name(supplied_name, supplied_concs)
+        except TracerParsingError:
+            sup_data = parse_infusate_name_with_concs(supplied_name)
         except InfusateParsingError as ipe:
             # If the name and concs is invalid due to unmatching numbers of tracers and concentrations, return False
             if (

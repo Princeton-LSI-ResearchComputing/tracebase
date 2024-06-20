@@ -295,7 +295,8 @@ class InfusateParsingTests(InfusateTest):
 
     def test_parse_tracer_with_conc_string(self):
         tcr_data, conc = parse_tracer_with_conc_string("lactate-[13C3][148.88]")
-        self.assertEqual("lactate-[13C3][148.88]", tcr_data["unparsed_string"])
+        self.assertEqual("lactate-[13C3]", tcr_data["unparsed_string"])
+        self.assertEqual(148.88, conc)
         self.assertEqual("lactate", tcr_data["compound_name"])
         self.assertEqual(1, len(tcr_data["isotopes"]))
         self.assertIsNotNone(tcr_data["isotopes"][0])
