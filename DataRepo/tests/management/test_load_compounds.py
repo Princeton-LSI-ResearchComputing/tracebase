@@ -15,7 +15,6 @@ from DataRepo.utils import (
     SynonymExistsAsMismatchedCompound,
     UnknownHeadersError,
 )
-from DataRepo.utils.exceptions import DryRun
 
 
 @tag("compounds")
@@ -384,12 +383,11 @@ class CompoundsLoaderTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
 class CompoundValidationLoadingTests(TracebaseTestCase):
-    def test_compounds_loaded(self):
-        with self.assertRaises(DryRun):
-            call_command(
-                "load_compounds",
-                infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
-                dry_run=True,
-                verbosity=0,
-            )
+    def test_compounds_not_loaded_in_dry_run(self):
+        call_command(
+            "load_compounds",
+            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            dry_run=True,
+            verbosity=0,
+        )
         self.assertEqual(0, Compound.objects.all().count())

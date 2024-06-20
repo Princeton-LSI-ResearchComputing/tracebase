@@ -22,7 +22,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueErrors,
-    DryRun,
     DuplicateFileHeaders,
 )
 
@@ -139,16 +138,15 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             msg="Ensure there is data in the database before the test",
         )
 
-        with self.assertRaises(DryRun):
-            call_command(
-                "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                operator="Michael Neinast",
-                dry_run=True,
-            )
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            operator="Michael Neinast",
+            dry_run=True,
+        )
 
         post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
         post_load_counts = self.get_record_counts()
