@@ -9,7 +9,6 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
-from DataRepo.models.fcirc import FCirc
 from DataRepo.models.researcher import (
     could_be_variant_researcher,
     get_researchers,
