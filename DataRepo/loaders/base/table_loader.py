@@ -17,6 +17,7 @@ from DataRepo.models.maintained_model import AutoUpdateFailed
 from DataRepo.models.utilities import get_model_fields
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AggregatedErrorsSet,
     ConflictingValueError,
     DryRun,
     DuplicateHeaders,
@@ -25,6 +26,7 @@ from DataRepo.utils.exceptions import (
     InfileDatabaseError,
     InfileError,
     InvalidHeaderCrossReferenceError,
+    MultiLoadStatus,
     NoLoadData,
     RecordDoesNotExist,
     RequiredColumnValue,
@@ -949,10 +951,7 @@ class TableLoader(ABC):
                     f"{type(cls.DefaultsHeaders)} set"
                 )
 
-            if cls.Models is None or len(cls.Models) == 0:
-                # Raise programming-related errors immediately
-                typeerrs.append("Models is required to have at least 1 Model class")
-            else:
+            if cls.Models is not None and len(cls.Models) > 0:
                 mdlerrs = []
                 for mdl in cls.Models:
                     if not issubclass(mdl, Model):
@@ -1246,7 +1245,10 @@ class TableLoader(ABC):
             )
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1475,7 +1477,10 @@ class TableLoader(ABC):
             df = self.df
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1529,7 +1534,10 @@ class TableLoader(ABC):
             reqd_values = self.reqd_values
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1541,7 +1549,10 @@ class TableLoader(ABC):
 
         # Is there data to check?
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -2018,6 +2029,16 @@ class TableLoader(ABC):
 
                         retval = fn(*args, **kwargs)
 
+                    except (AggregatedErrorsSet, MultiLoadStatus):
+                        # These exceptions should not be raised by a loader that is actually directly loading any model
+                        # data.  They should only be raised when the load_data method is calling other TableLoader
+                        # classes.
+                        # So in the event that an AggregatedErrorsSet or MultiLoadStatus exception is raised, there is
+                        # nothing left to do.  All summarizable exceptions will have been summarized already by the
+                        # called loaders.  Unwanted exceptions have been removed and we're not in DryRun mode.  There
+                        # will not have been any autoupdates of maintained fields.  Rollback is intended as part and
+                        # parcel with the raising of this exception.
+                        raise
                     except AggregatedErrors as aes:
                         if aes != self.aggregated_errors_object:
                             self.aggregated_errors_object.merge_aggregated_errors_object(
@@ -2260,7 +2281,14 @@ class TableLoader(ABC):
         """
         return self.record_counts
 
-    def check_for_inconsistencies(self, rec, rec_dict, orig_exception=None):
+    def check_for_inconsistencies(
+        self,
+        rec,
+        rec_dict,
+        orig_exception=None,
+        is_error=True,
+        is_fatal=True,
+    ):
         """Generate ConflictingValueError exceptions based on differences between a supplied record and dict.
 
         This function compares the supplied database model record with the dict that was used to (get or) create a
@@ -2288,6 +2316,8 @@ class TableLoader(ABC):
             rec (Model object)
             rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
             orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
+            is_error (bool)
+            is_fatal (bool)
         Exceptions:
             Raises:
                 Nothing
@@ -2307,7 +2337,7 @@ class TableLoader(ABC):
                 }
         if len(differences.keys()) > 0:
             found_errors = True
-            self.aggregated_errors_object.buffer_error(
+            self.aggregated_errors_object.buffer_exception(
                 ConflictingValueError(
                     rec,
                     differences,
@@ -2317,11 +2347,13 @@ class TableLoader(ABC):
                     file=self.file,
                 ),
                 orig_exception=orig_exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
             )
         return found_errors
 
     def buffer_infile_exception(
-        self, exception, is_error=True, is_fatal=True, column=None
+        self, exception, is_error=True, is_fatal=True, column=None, suggestion=None
     ):
         """Convenience method to keep the loading code succinct.  Buffers an exception (default: as fatal error) as an
         InfileError.  Use this to provide file context to any non-database related exception.  The file name, sheet, and
@@ -2332,6 +2364,7 @@ class TableLoader(ABC):
             is_error (bool) [True]
             is_fatal (bool) [True]
             column (str|int) [None]: Name of the column or columns that is the source of the erroneous data.
+            suggestion (Optional[str])
         Exceptions:
             Raises:
                 None
@@ -2347,6 +2380,7 @@ class TableLoader(ABC):
                 sheet=self.sheet,
                 column=column,
                 rownum=self.rownum,
+                suggestion=suggestion,
             ),
             is_error=is_error,
             is_fatal=is_fatal,
@@ -2360,6 +2394,8 @@ class TableLoader(ABC):
         rec_dict,
         columns=None,
         handle_all=True,
+        is_error=True,
+        is_fatal=True,
     ):
         """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
 
@@ -2377,6 +2413,8 @@ class TableLoader(ABC):
             rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
             columns (object): Column or columns that were being processed when the exception occurred.
             handle_all (bool) [True]: Whether to handle exceptions unrelated to specifically supported db exceptions.
+            is_error (bool)
+            is_fatal (bool)
 
         Exceptions:
             Raises:
@@ -2432,7 +2470,11 @@ class TableLoader(ABC):
                     if qs.count() == 1:
                         rec = qs.first()
                         errs_found = self.check_for_inconsistencies(
-                            rec, rec_dict, orig_exception=exception
+                            rec,
+                            rec_dict,
+                            orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
                         )
                         if errs_found:
                             return True
@@ -2452,7 +2494,7 @@ class TableLoader(ABC):
                         colname = self.FieldToHeader[model.__name__][fldname]
                     elif columns is not None:
                         colname += f" ({columns})"
-                    self.aggregated_errors_object.buffer_error(
+                    self.aggregated_errors_object.buffer_exception(
                         RequiredValueError(
                             column=colname,
                             rownum=self.rownum,
@@ -2461,7 +2503,10 @@ class TableLoader(ABC):
                             sheet=self.sheet,
                             file=self.file,
                             rec_dict=rec_dict,
-                        )
+                        ),
+                        orig_exception=exception,
+                        is_error=is_error,
+                        is_fatal=is_fatal,
                     )
                     return True
 
@@ -2498,9 +2543,11 @@ class TableLoader(ABC):
                             if not self.aggregated_errors_object.exception_type_exists(
                                 InfileDatabaseError
                             ):
-                                self.aggregated_errors_object.buffer_error(
+                                self.aggregated_errors_object.buffer_exception(
                                     exc,
                                     orig_exception=orig_exception,
+                                    is_error=is_error,
+                                    is_fatal=is_fatal,
                                 )
                             else:
                                 if "Value '" in orig_estr:
@@ -2527,9 +2574,11 @@ class TableLoader(ABC):
                                     if val in str(existing_exc.exception):
                                         already_buffered = True
                                 if not already_buffered:
-                                    self.aggregated_errors_object.buffer_error(
+                                    self.aggregated_errors_object.buffer_exception(
                                         exc,
                                         orig_exception=exception,
+                                        is_error=is_error,
+                                        is_fatal=is_fatal,
                                     )
                             # Whether we buffered or not, the error was identified and handled (by either buffering or
                             # ignoring a duplicate)
@@ -2546,7 +2595,7 @@ class TableLoader(ABC):
                         # we can assume that it's worthwhile doing so, because since it is a custom class, we infer it
                         # to contain sufficient debugging information (aside from the file context, which we are adding
                         # here).  Django core exceptions do not.
-                        self.aggregated_errors_object.buffer_error(
+                        self.aggregated_errors_object.buffer_exception(
                             InfileError(
                                 f"{type(orig_exception).__name__}: {orig_sub_exception}",
                                 file=self.file,
@@ -2554,16 +2603,22 @@ class TableLoader(ABC):
                                 rownum=self.rownum,
                             ),
                             orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
                         )
                     return True
 
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method
-            self.aggregated_errors_object.buffer_error(exception)
+            self.aggregated_errors_object.buffer_exception(
+                exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
+            )
             return True
 
         elif isinstance(exception, ObjectDoesNotExist):
-            self.aggregated_errors_object.buffer_error(
+            self.aggregated_errors_object.buffer_exception(
                 RecordDoesNotExist(
                     model,
                     rec_dict,
@@ -2573,12 +2628,14 @@ class TableLoader(ABC):
                     rownum=self.rownum,
                 ),
                 orig_exception=exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
             )
             # No skip for queries. The (foreign key) field may not be required.  Proceed (to find more errors).
             return True
 
         elif isinstance(exception, MultipleObjectsReturned):
-            self.aggregated_errors_object.buffer_error(
+            self.aggregated_errors_object.buffer_exception(
                 RecordDoesNotExist(
                     model,
                     rec_dict,
@@ -2588,18 +2645,26 @@ class TableLoader(ABC):
                     rownum=self.rownum,
                 ),
                 orig_exception=exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
             )
             # No skip for queries. The (foreign key) field may not be required.  Proceed (to find more errors).
             return True
 
         if handle_all:
             if rec_dict is not None and len(rec_dict.keys()) > 0:
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     exc,
                     orig_exception=exception,
+                    is_error=is_error,
+                    is_fatal=is_fatal,
                 )
             else:
-                self.aggregated_errors_object.buffer_error(exception)
+                self.aggregated_errors_object.buffer_exception(
+                    exception,
+                    is_error=is_error,
+                    is_fatal=is_fatal,
+                )
             return True
 
         # If we get here, we did not identify the error as one we knew what to do with
