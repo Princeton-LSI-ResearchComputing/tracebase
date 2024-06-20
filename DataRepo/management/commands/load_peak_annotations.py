@@ -1,3 +1,5 @@
+from typing import Type
+
 from django.core.management import CommandError
 
 from DataRepo.loaders import (
@@ -9,6 +11,7 @@ from DataRepo.loaders import (
     SequencesLoader,
     UnicorrLoader,
 )
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.utils.exceptions import ConditionallyRequiredOptions
 from DataRepo.utils.file_utils import read_from_file
@@ -19,7 +22,7 @@ class Command(LoadTableCommand):
     from a table-like file."""
 
     help = "Loads data from a table-like file into the database"
-    loader_class = UnicorrLoader
+    loader_class: Type[TableLoader] = UnicorrLoader
 
     def __init__(self, *args, **kwargs):
         # Don't require any options (i.e. don't require the --infile option)
@@ -139,10 +142,12 @@ class Command(LoadTableCommand):
 
         Args:
             options (dict of strings): String values provided on the command line by option name.
-
         Exceptions:
-            None (See LoadTableCommand._handler for exceptions in the wrapper)
-
+            Raises:
+                CommandError
+                ConditionallyRequiredOptions
+            Buffers:
+                None
         Returns:
             None
         """

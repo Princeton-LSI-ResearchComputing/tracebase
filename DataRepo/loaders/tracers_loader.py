@@ -256,13 +256,11 @@ class TracersLoader(TableLoader):
                     commits anything, but it also raises warnings as fatal (so they can be reported through the web
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
-                synonym_separator (Optional[str]) [;]: Synonym string delimiter.
-
-        Raises:
-            Nothing
-
+                positions_delimiter (Optional[str]) [;]: Isotope positions delimiter.
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.positions_delimiter = kwargs.pop(
             "positions_delimiter", self.POSITIONS_DELIMITER

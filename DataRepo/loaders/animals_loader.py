@@ -4,11 +4,11 @@ from typing import Dict, Optional
 
 from django.db import transaction
 
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
 from DataRepo.models import (
     Animal,
     AnimalLabel,
@@ -513,7 +513,7 @@ class AnimalsLoader(TableLoader):
             elements (List[Optional[str]])
         """
         # Including None when empty so that the skipped count will get incremented once.
-        return [None] if infusate is None else infusate.tracer_labeled_elements()
+        return [None] if infusate is None else infusate.tracer_labeled_elements
 
     @transaction.atomic
     def get_or_create_animal_label(

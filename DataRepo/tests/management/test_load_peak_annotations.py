@@ -428,7 +428,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
                         "small_cor.csv",
                         "small_cor.csv",
                     ],
-                    # TODO: Just realized that we either should not allow commas in names of change the seq name delim
+                    # TODO: Just realized that we either should not allow commas in names or change the seq name delim
                     "Sequence Name": [
                         "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(3)

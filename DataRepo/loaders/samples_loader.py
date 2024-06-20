@@ -5,8 +5,8 @@ from typing import Dict
 from django.db import transaction
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
-from DataRepo.loaders.table_column import ColumnReference, TableColumn
-from DataRepo.loaders.table_loader import TableLoader
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
 from DataRepo.models.researcher import get_researchers

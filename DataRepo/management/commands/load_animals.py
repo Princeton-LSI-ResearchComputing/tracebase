@@ -1,4 +1,7 @@
+from typing import Type
+
 from DataRepo.loaders.animals_loader import AnimalsLoader
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 
@@ -6,7 +9,7 @@ class Command(LoadTableCommand):
     """Command to load the Animal, AnimalLabel, and Animal_studies models from a table-like file."""
 
     help = "Loads animals from a table-like file into the database"
-    loader_class = AnimalsLoader
+    loader_class: Type[TableLoader] = AnimalsLoader
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass

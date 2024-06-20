@@ -407,7 +407,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         Args:
             None
-        Raises:
+        Exceptions:
             None
         Returns:
             None

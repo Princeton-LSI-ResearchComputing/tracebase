@@ -173,6 +173,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "skipped": 0,
                     "errored": 1,
                     "updated": 0,
+                    "warned": 0,
                 },
                 "AnimalLabel": {
                     "created": 0,
@@ -180,6 +181,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "skipped": 1,
                     "errored": 0,
                     "updated": 0,
+                    "warned": 0,
                 },
                 "Animal_studies": {
                     "created": 0,
@@ -187,6 +189,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                     "skipped": 1,
                     "errored": 0,
                     "updated": 0,
+                    "warned": 0,
                 },
             },
             al.record_counts,

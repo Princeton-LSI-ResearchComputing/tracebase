@@ -50,8 +50,7 @@ class SamplesLoaderTests(TracebaseTestCase):
                 "existed": 0,
                 "skipped": 0,
                 "errored": 0,
-                # TODO: Uncomment after rebase of neighboring PRs
-                # "warned": 0,
+                "warned": 0,
                 "updated": 0,
             }
         }
@@ -193,8 +192,7 @@ class SamplesLoaderTests(TracebaseTestCase):
 
         counts = deepcopy(self.rec_counts)
         counts[Sample.__name__]["errored"] = 1  # One record (3 errors)
-        # TODO: Uncomment after rebase of neighboring PRs
-        # counts[Sample.__name__]["warned"] = 1
+        counts[Sample.__name__]["warned"] = 1
         self.assertDictEqual(counts, sl.record_counts)
 
     def assert_skipped(self, sl, rec, cre):
