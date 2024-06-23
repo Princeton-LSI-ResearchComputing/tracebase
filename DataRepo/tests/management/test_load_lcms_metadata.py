@@ -16,6 +16,8 @@ from DataRepo.models import (
     MSRunSample,
     Sample,
 )
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; NoMZXMLFiles,
     AggregatedErrors,
@@ -33,6 +35,7 @@ from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; 
     UnexpectedLCMSSampleDataHeaders,
     read_from_file,
 )
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.utils.lcms_metadata_parser import (
     check_peak_annotation_files,
     get_lcms_metadata_dict_from_file,
@@ -659,12 +662,30 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def load_samples(self):
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
         call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+            "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        # call_command(
+        #     "load_animals_and_samples",
+        #     animal_and_sample_table_filename=(
+        #         "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+        #     ),
+        # )
 
     # Requirement 1.1 is tested by the method tests above
 
@@ -814,37 +835,39 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(DuplicateSampleDataHeaders, type(aes.exceptions[0]))
 
-    @MaintainedModel.no_autoupdates()
-    def test_lcms_metadata_unique_sample_good(self):
-        """
-        Test item from issue #706:
-        - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
-        """
-        call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
-            ),
-            lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv",
-        )
+    # TODO: Obsolete, delete
+    # @MaintainedModel.no_autoupdates()
+    # def test_lcms_metadata_unique_sample_good(self):
+    #     """
+    #     Test item from issue #706:
+    #     - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
+    #     """
+    #     call_command(
+    #         "load_animals_and_samples",
+    #         animal_and_sample_table_filename=(
+    #             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+    #         ),
+    #         lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv",
+    #     )
 
-    @MaintainedModel.no_autoupdates()
-    def test_lcms_metadata_unique_sample_missing(self):
-        """
-        Test item from issue #706:
-        - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
-        """
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_animals_and_samples",
-                animal_and_sample_table_filename=(
-                    "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
-                ),
-                lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_missing_db_sample.tsv",
-            )
-        aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
+    # TODO: Obsolete, delete
+    # @MaintainedModel.no_autoupdates()
+    # def test_lcms_metadata_unique_sample_missing(self):
+    #     """
+    #     Test item from issue #706:
+    #     - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
+    #     """
+    #     with self.assertRaises(AggregatedErrors) as ar:
+    #         call_command(
+    #             "load_animals_and_samples",
+    #             animal_and_sample_table_filename=(
+    #                 "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+    #             ),
+    #             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_missing_db_sample.tsv",
+    #         )
+    #     aes = ar.exception
+    #     self.assertEqual(1, len(aes.exceptions))
+    #     self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
 
 class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
@@ -872,12 +895,31 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def load_samples(self):
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+
         call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+            "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        # call_command(
+        #     "load_animals_and_samples",
+        #     animal_and_sample_table_filename=(
+        #         "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+        #     ),
+        # )
 
     @MaintainedModel.no_autoupdates()
     def load_peak_annotations(self, lcms_file):

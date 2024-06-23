@@ -117,60 +117,7 @@ class DataValidationView(FormView):
             self.output_study_filename = self.study_filename
             self.all_infile_names.append(self.study_filename)
 
-        if self.study_file is not None:
-            study_sheets = get_sheet_names(self.study_file)
-
-            # Refresh the loader objects using the actual supplied file
-            if SamplesLoader.DataSheetName in study_sheets:
-                self.samples_loader = SamplesLoader(
-                    df=read_from_file(
-                        self.study_file,
-                        sheet=SamplesLoader.DataSheetName,
-                        dtype=SamplesLoader._get_column_types(),
-                    ),
-                    file=self.study_file,
-                )
-            if AnimalsLoader.DataSheetName in study_sheets:
-                self.animals_loader = AnimalsLoader(
-                    df=read_from_file(
-                        self.study_file,
-                        sheet=AnimalsLoader.DataSheetName,
-                        dtype=AnimalsLoader._get_column_types(),
-                    ),
-                    file=self.study_file,
-                )
-            if TissuesLoader.DataSheetName in study_sheets:
-                self.tissues_loader = TissuesLoader(
-                    df=read_from_file(
-                        self.study_file,
-                        sheet=TissuesLoader.DataSheetName,
-                        dtype=TissuesLoader._get_column_types(),
-                    ),
-                    file=self.study_file,
-                )
-            if ProtocolsLoader.DataSheetName in study_sheets:
-                self.treatments_loader = ProtocolsLoader(
-                    df=read_from_file(
-                        self.study_file,
-                        sheet=ProtocolsLoader.DataSheetName,
-                        dtype=ProtocolsLoader._get_column_types(
-                            ProtocolsLoader.DataHeadersExcel
-                        ),
-                    ),
-                    file=self.study_file,
-                )
-            if CompoundsLoader.DataSheetName in study_sheets:
-                self.compounds_loader = CompoundsLoader(
-                    df=read_from_file(
-                        self.study_file,
-                        sheet=CompoundsLoader.DataSheetName,
-                        dtype=CompoundsLoader._get_column_types(),
-                    ),
-                    file=self.study_file,
-                )
-
         self.peak_annot_files = peak_annot_files
-        self.annot_files_dict: Dict[str, str] = {}
         if len(peak_annot_filenames) == 0 and len(peak_annot_files) > 0:
             peak_annot_filenames = [str(os.path.basename(f)) for f in peak_annot_files]
 
@@ -194,21 +141,13 @@ class DataValidationView(FormView):
         # validation readiness
         self.determine_study_file_validation_readiness()
 
-        # Get the peak annotation details
-        peak_annotation_details_file = None
-        peak_annotation_details_df = None
-        # ...and the default sequence (if any).
-        annot_file_loader_info: Dict[str, dict] = defaultdict(dict)
+        user_file_formats: Dict[str, str] = {}
         error_messages = []
 
         if self.study_file is not None:
-            if MSRunsLoader.DataSheetName in get_sheet_names(self.study_file):
-                peak_annotation_details_file = self.study_file
-                peak_annotation_details_df = read_from_file(
-                    peak_annotation_details_file,
-                    MSRunsLoader.DataSheetName,
-                    # TODO: Add dtypes argument here
-                )
+            # The purpose of this block is to allow the user to specify the peak annotation file format (incase it's
+            # ambiguous).  We just want a loader object to be able to read the file to extract missing samples and
+            # compounds in the event we're not ready to validate.
 
             if PeakAnnotationFilesLoader.DataSheetName in get_sheet_names(
                 self.study_file
@@ -224,64 +163,50 @@ class DataValidationView(FormView):
                 for _, row in pafl.df.iterrows():
                     # "actual" means not the original file from the form submission, but the nonsense filename created
                     # by the browser
-                    filename, actual_filepath, format_code = pafl.get_file_and_format(row)
-                    actual_filename = os.path.basename(actual_filepath)
-                    (
-                        operator,
-                        lc_protocol_name,
-                        instrument,
-                        date,
-                    ) = pafl.get_default_sequence_details(row)
+                    user_filename, _, user_format_code = pafl.get_file_and_format(row)
+                    supported = PeakAnnotationsLoader.get_supported_formats()
 
-                    if format_code in PeakAnnotationsLoader.get_supported_formats():
-                        annot_file_loader_info[actual_filename][
-                            "format_code"
-                        ] = format_code
-                    else:
-                        annot_file_loader_info[actual_filename]["format_code"] = None
+                    if user_format_code is not None and user_format_code in supported:
+                        user_file_formats[user_filename] = user_format_code
+                    elif user_format_code is not None:
                         error_messages.append(
-                            f"Unrecognized format code: {format_code} from {self.study_file}, sheet "
+                            f"Unrecognized format code: {user_format_code} from {self.study_file}, sheet "
                             f"'{PeakAnnotationFilesLoader.DataSheetName}', row {row.name + 2}."
                         )
 
-                    annot_file_loader_info[actual_filename]["kwargs"] = {
-                        "operator": operator,
-                        "lc_protocol_name": lc_protocol_name,
-                        "instrument": instrument,
-                        "date": date,
-                    }
-
+        # Now we will sort through the peak annotation files that were supplied and create loader objects for them to
+        # extract autofill data
+        self.annot_files_dict: Dict[str, str] = {}
         self.peak_annot_filenames = []
         self.peak_annotations_loaders = []
         peak_annot_loader_class: Type[PeakAnnotationsLoader]
+
         if peak_annot_files is not None and len(peak_annot_files) > 0:
             for index, peak_annot_file in enumerate(peak_annot_files):
-                self.all_infile_names.append(peak_annot_filenames[index])
-                self.peak_annot_filenames.append(peak_annot_filenames[index])
+                # Save the user's file name (different from the actual nonsense filename from the web form)
+                peak_annot_filename = peak_annot_filenames[index]
+                self.all_infile_names.append(peak_annot_filename)
+                self.peak_annot_filenames.append(peak_annot_filename)
                 if (
-                    peak_annot_filenames[index] in self.annot_files_dict.keys()
-                    and self.annot_files_dict[peak_annot_filenames[index]]
-                    != peak_annot_file
+                    peak_annot_filename in self.annot_files_dict.keys()
+                    and self.annot_files_dict[peak_annot_filename] != peak_annot_file
                 ):
                     error_messages.append(
-                        f"Peak annotation filenames must be unique.  Filename {peak_annot_filenames[index]} was "
+                        f"Peak annotation filenames must be unique.  Filename {peak_annot_filename} was "
                         "encountered multiple times."
                     )
                     continue
-                self.annot_files_dict[peak_annot_filenames[index]] = peak_annot_file
 
-                # "actual" means not the original file from the form submission, but the hashed filename created by
-                # the browser
-                actual_filename = os.path.basename(peak_annot_file)
-                loader_kwargs = {}
+                # Map the user's filename to the web form file path
+                self.annot_files_dict[peak_annot_filename] = peak_annot_file
+
+                # Now we will determine the format to decide which loader to create.
+                # We will defer to the user's supplied format (if any)
                 matching_formats = []
-                if actual_filename in annot_file_loader_info.keys():
-                    loader_kwargs = annot_file_loader_info[actual_filename]["kwargs"]
-                    format_code = annot_file_loader_info[actual_filename]["format_code"]
-                    if format_code is not None:
-                        matching_formats = [format_code]
-
-                if len(matching_formats) == 0:
+                if peak_annot_filename in user_file_formats.keys():
+                    user_format_code = user_file_formats[peak_annot_filename]
+                    matching_formats = [user_format_code]
+                else:
                     matching_formats = PeakAnnotationsLoader.determine_matching_formats(
                         # Do not enforce column types when we don't know what columns exist yet
                         read_from_file(peak_annot_file, sheet=None)
@@ -307,11 +232,7 @@ class DataValidationView(FormView):
                             # These are the essential arguments
                             df=read_from_file(peak_annot_file, sheet=None),
                             file=peak_annot_file,
-                            # Then we need either these 3 peak annotation details inputs
-                            peak_annotation_details_file=peak_annotation_details_file,
-                            peak_annotation_details_df=peak_annotation_details_df,
-                            # Or... these default sequence inputs (as long as the sample headers = sample DB names)
-                            **loader_kwargs,
+                            # We don't need the default sequence info - we only want to read the file
                         )
                     )
 
@@ -807,34 +728,51 @@ class DataValidationView(FormView):
         # see if rows already exist or not.  We use a potentially composite key based on the unique column constraints
         # because there can exist the same individual value multiple times in a column and we do not want to prevent an
         # add if it adds a unique row).
-        self.add_autofill_data(
+        samples_added = self.add_autofill_data(
             SamplesLoader.DataSheetName,
             self.samples_loader.header_keys_to_names(
                 # Specifically selected unique column constraint group - used to find existing rows
                 SamplesLoader.DataUniqueColumnConstraints[0]
             ),
         )
-        self.add_autofill_data(
+        tissues_added = self.add_autofill_data(
             TissuesLoader.DataSheetName,
             self.tissues_loader.header_keys_to_names(
                 # Specifically selected unique column constraint group - used to find existing rows
                 TissuesLoader.DataUniqueColumnConstraints[0]
             ),
         )
-        self.add_autofill_data(
+        treatments_added = self.add_autofill_data(
             ProtocolsLoader.DataSheetName,
             self.treatments_loader.header_keys_to_names(
                 # Specifically selected unique column constraint group - used to find existing rows
                 ProtocolsLoader.DataUniqueColumnConstraints[0]
             ),
         )
-        self.add_autofill_data(
+        compounds_added = self.add_autofill_data(
             CompoundsLoader.DataSheetName,
             self.compounds_loader.header_keys_to_names(
                 # Specifically selected unique column constraint group - used to find existing rows
                 CompoundsLoader.DataUniqueColumnConstraints[0]
             ),
         )
+
+        data_added = (
+            samples_added or tissues_added or treatments_added or compounds_added
+        )
+
+        if data_added and not self.autofill_only_mode:
+            # Add a warning about added data
+            added_warning = MissingDataAdded(
+                addition_notes=data_added, file=self.output_study_filename
+            )
+            self.load_status_data.set_load_exception(
+                added_warning,
+                "Autofill Note",
+                top=True,
+                default_is_error=False,
+                default_is_fatal=False,
+            )
 
     def add_autofill_data(self, sheet, row_key_headers):
         """This method, given a sheet name, adds the data from self.autofill_dict[sheet] to self.dfs_dict[sheet],
@@ -920,18 +858,7 @@ class DataValidationView(FormView):
             if existing_index is None:
                 next_empty_index += 1
 
-        if data_added and not self.autofill_only_mode:
-            # Add a warning about added data
-            added_warning = MissingDataAdded(
-                addition_notes=data_added, file=self.output_study_filename
-            )
-            self.load_status_data.set_load_exception(
-                added_warning,
-                "Autofill Note",
-                top=True,
-                default_is_error=False,
-                default_is_fatal=False,
-            )
+        return data_added
 
     def get_existing_dfs_index(self, sheet, row_key_headers, unique_row_key):
         """This determines if a row already exists in dfs_dict that matches the provided unique_row_key.

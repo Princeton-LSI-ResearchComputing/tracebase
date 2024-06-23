@@ -702,7 +702,9 @@ class MissingRecords(InfileError):
                 mdl_name
             ].values():
                 loc_args, flds_str, vals_dict = (
-                    RecordDoesNotExist.get_failed_searches_dict(categorized_exceptions, _one_source=self._one_source)
+                    RecordDoesNotExist.get_failed_searches_dict(
+                        categorized_exceptions, _one_source=self._one_source
+                    )
                 )
 
                 loc_str = generate_file_location_string(**loc_args)
@@ -739,6 +741,7 @@ class MissingRecords(InfileError):
 
 class MissingModelRecords(MissingRecords, ABC):
     """Keeps tract of missing records for one model for one file"""
+
     _one_source = True
 
     @property
@@ -815,6 +818,7 @@ class MissingModelRecords(MissingRecords, ABC):
 
 class MissingModelRecordsByFile(MissingRecords, ABC):
     """Keeps tract of missing records for one model across multiple files"""
+
     _one_source = False
 
     @property
@@ -912,7 +916,9 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         self.suggestion = suggestion
 
     @classmethod
-    def get_failed_searches_dict(cls, instances: List[RecordDoesNotExist], _one_source=True):
+    def get_failed_searches_dict(
+        cls, instances: List[RecordDoesNotExist], _one_source=True
+    ):
         """Given a list of RecordDoesNotExist instances, a field description and dict like the following example is
         returned:
 
@@ -936,7 +942,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         search_valuecombos_rows_dict = defaultdict(list)
         model = None
         fields_str = None
-        def_loc_args: Dict[str, str] = {
+        def_loc_args: Dict[str, Optional[str]] = {
             "column": None,
             "file": None,
             "sheet": None,
@@ -1456,10 +1462,8 @@ class MultiLoadStatus(Exception):
                 load associated with the load_key.  This is useful when summarizing a category of common exceptions from
                 multiple load_keys.  Ignored when exception is an AggregatedErrors object.  Otherwise only used if
                 exception.is_fatal, is not present.
-
         Exceptions:
             None
-
         Returns:
             None
         """
@@ -1477,10 +1481,6 @@ class MultiLoadStatus(Exception):
         if isinstance(exception, AggregatedErrors):
             new_aes = exception
         else:
-            # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
-            # so...
-            print(exception)
-
             # Wrap the exception in an AggregatedErrors class
             new_aes = AggregatedErrors()
             is_error = (
@@ -1765,23 +1765,13 @@ class AggregatedErrorsSet(Exception):
         self.num_errors = 0
         self.is_fatal = False
         self.is_error = False
-        if len(self.aggregated_errors_dict.keys()) > 0:
-            for aes_key in self.aggregated_errors_dict.keys():
-                if self.aggregated_errors_dict[aes_key].num_errors > 0:
-                    self.num_errors += 1
-                elif self.aggregated_errors_dict[aes_key].num_warnings > 0:
-                    self.num_warnings += 1
-                if self.aggregated_errors_dict[aes_key].is_fatal:
-                    self.is_fatal = True
-                if self.aggregated_errors_dict[aes_key].is_error:
-                    self.is_error = True
-        self.custom_message = False
-        if message:
-            self.custom_message = True
-            current_message = message
-        else:
-            current_message = self.get_default_message()
-        super().__init__(current_message)
+        self.custom_message = message is not None
+        self.message = None
+        self.update(message=message)
+        super().__init__(self.message)
+
+    def __str__(self):
+        return self.message
 
     def get_default_message(self):
         should_raise_message = (
@@ -1811,6 +1801,33 @@ class AggregatedErrorsSet(Exception):
         for aes_key in self.aggregated_errors_dict.keys():
             smry_str += f"{aes_key}: {self.aggregated_errors_dict[aes_key].get_summary_string()}\n"
         return smry_str
+
+    def update(self, message=None):
+        """Refresh the instance attributes (e.g. if the contained AggregatedErrors objects changed)."""
+        self.num_warnings = 0
+        self.num_errors = 0
+        self.is_fatal = False
+        self.is_error = False
+        if len(self.aggregated_errors_dict.keys()) > 0:
+            for aes_key in self.aggregated_errors_dict.keys():
+                if self.aggregated_errors_dict[aes_key].num_errors > 0:
+                    self.num_errors += 1
+                elif self.aggregated_errors_dict[aes_key].num_warnings > 0:
+                    self.num_warnings += 1
+                else:
+                    # Remove AggregatedErrors objects that have been completely gutted
+                    del self.aggregated_errors_dict[aes_key]
+                if self.aggregated_errors_dict[aes_key].is_fatal:
+                    self.is_fatal = True
+                if self.aggregated_errors_dict[aes_key].is_error:
+                    self.is_error = True
+        self.custom_message = False
+        if message:
+            self.custom_message = True
+            current_message = message
+        else:
+            current_message = self.get_default_message()
+        self.message = current_message
 
 
 class AggregatedErrors(Exception):

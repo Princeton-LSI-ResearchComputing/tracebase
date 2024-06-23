@@ -17,7 +17,11 @@ from DataRepo.loaders.peak_annotations_loader import (
 )
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
-from DataRepo.utils.exceptions import AggregatedErrorsSet, RollbackException
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    AggregatedErrorsSet,
+    RollbackException,
+)
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 
 
@@ -461,7 +465,7 @@ class PeakAnnotationFilesLoader(TableLoader):
             # These are the essential arguments
             df=read_from_file(filepath, sheet=None),
             file=filepath,
-            filename=filename,  # In case filebath is a temp file with a nonsense name
+            filename=filename,  # In case filepath is a temp file with a nonsense name
             # Then we need either these 3 peak annotation details inputs
             peak_annotation_details_file=peak_annotation_details_file,
             peak_annotation_details_sheet=peak_annotation_details_sheet,
@@ -476,8 +480,9 @@ class PeakAnnotationFilesLoader(TableLoader):
             defer_rollback=self.defer_rollback,
         )
 
-        # Load this peak annotations file
-        peak_annot_loader.load_data()
-
-        # Log the peak annot loader's exceptions by file
-        self.aggregated_errors_dict[filename] = peak_annot_loader.aggregated_errors_object
+        try:
+            # Load this peak annotations file
+            peak_annot_loader.load_data()
+        except AggregatedErrors as aes:
+            # Log the peak annot loader's exceptions by file
+            self.aggregated_errors_dict[filename] = aes

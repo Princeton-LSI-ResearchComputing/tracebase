@@ -151,34 +151,37 @@ class StudyLoaderTests(TracebaseTestCase):
         aess = ar.exception
 
         # Make sure all the exceptions are categorized correctly per sheet and special category
-        self.assertEqual(7, len(aess.aggregated_errors_dict.keys()))
-        self.assertEqual(1, len(aess.aggregated_errors_dict["Animals"].exceptions))
-        self.assertTrue(
-            aess.aggregated_errors_dict["Animals"].exception_type_exists(
-                MissingTreatments
-            )
-        )
-        self.assertEqual(1, len(aess.aggregated_errors_dict["Samples"].exceptions))
-        self.assertTrue(
-            aess.aggregated_errors_dict["Samples"].exception_type_exists(MissingTissues)
+        self.assertEqual(
+            5,
+            len(aess.aggregated_errors_dict.keys()),
+            msg=f"AES keys: {list(aess.aggregated_errors_dict.keys())}",
         )
         self.assertEqual(
-            1, len(aess.aggregated_errors_dict["Peak Annotation Details"].exceptions)
+            3,
+            len(aess.aggregated_errors_dict["study_missing_data.xlsx"].exceptions),
+            msg=f"Exceptions: {list(aess.aggregated_errors_dict['study_missing_data.xlsx'].get_exception_types())}",
         )
-
-        # TODO: Change this to MissingSamples
         self.assertTrue(
             aess.aggregated_errors_dict[
-                "Peak Annotation Details"
+                "study_missing_data.xlsx"
+            ].exception_type_exists(MissingTreatments)
+        )
+        self.assertTrue(
+            aess.aggregated_errors_dict[
+                "study_missing_data.xlsx"
+            ].exception_type_exists(MissingTissues)
+        )
+        self.assertTrue(
+            aess.aggregated_errors_dict[
+                "study_missing_data.xlsx"
             ].exception_type_exists(MissingRecords)
         )
 
-        # TODO: It would be nice if every file got its own category
         self.assertEqual(
-            1, len(aess.aggregated_errors_dict["Peak Annotation Files"].exceptions)
+            1, len(aess.aggregated_errors_dict["alaglu_cor.xlsx"].exceptions)
         )
         self.assertTrue(
-            aess.aggregated_errors_dict["Peak Annotation Files"].exception_type_exists(
+            aess.aggregated_errors_dict["alaglu_cor.xlsx"].exception_type_exists(
                 NoSamples
             )
         )
@@ -222,10 +225,15 @@ class StudyLoaderTests(TracebaseTestCase):
             RecordDoesNotExist(Compound, {"name": "titanium"})
         ]
         sl.create_grouped_exceptions()
-        self.assertEqual(2, len(sl.load_statuses.statuses.keys()))
+        self.assertEqual(
+            3,
+            len(sl.load_statuses.statuses.keys()),
+            msg=f"Load status keys: {list(sl.load_statuses.statuses.keys())}",
+        )
         self.assertIn(
             "All Samples Exist in the Database", sl.load_statuses.statuses.keys()
         )
         self.assertIn(
             "All Compounds Exist in the Database", sl.load_statuses.statuses.keys()
         )
+        self.assertIn("study_missing_data.xlsx", sl.load_statuses.statuses.keys())

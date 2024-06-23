@@ -2133,21 +2133,39 @@ class TableLoader(ABC):
                             self.aggregated_errors_object
                             not in aes_set.aggregated_errors_dict.values()
                         ):
-                            # Could have raised a separate object (assumes self.filename is the load_key key)
-                            if load_key in aes_set.aggregated_errors_dict.keys():
-                                aes_set.aggregated_errors_dict[load_key].merge_aggregated_errors_object(
-                                    self.aggregated_errors_object
+                            if (
+                                # If there are exceptions in this class's AES obj and either are fatal
+                                len(self.aggregated_errors_object.exceptions) > 0
+                                and (
+                                    self.aggregated_errors_object.should_raise()
+                                    or aes_set.should_raise()
                                 )
-                            else:
-                                aes_set.aggregated_errors_dict[load_key] = self.aggregated_errors_object
+                            ):
+                                # We need to incorporate the objects into 1 AggregatedErrorsSet object
 
-                            # Preserve any custom message
-                            msg = aes_set.message if aes_set.custom_message else None
-                            new_aes_set = AggregatedErrorsSet(aes_set.aggregated_errors_dict, message=msg)
+                                # Could have raised a separate object (assumes self.filename is the load_key key)
+                                if load_key in aes_set.aggregated_errors_dict.keys():
+                                    aes_set.aggregated_errors_dict[
+                                        load_key
+                                    ].merge_aggregated_errors_object(
+                                        self.aggregated_errors_object
+                                    )
+                                else:
+                                    aes_set.aggregated_errors_dict[load_key] = (
+                                        self.aggregated_errors_object
+                                    )
 
-                            # Raise the updated AggregatedErrorsSet exception
-                            if new_aes_set.should_raise():
-                                raise new_aes_set
+                                # Preserve any custom message
+                                msg = (
+                                    aes_set.message if aes_set.custom_message else None
+                                )
+                                new_aes_set = AggregatedErrorsSet(
+                                    aes_set.aggregated_errors_dict, message=msg
+                                )
+
+                                # Raise the updated AggregatedErrorsSet exception
+                                if new_aes_set.should_raise():
+                                    raise new_aes_set
 
                         # Raise the AggregatedErrorsSet object we received
                         if aes_set.should_raise():

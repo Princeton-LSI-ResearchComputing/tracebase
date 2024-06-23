@@ -1,4 +1,3 @@
-import traceback
 from collections import namedtuple
 from typing import Dict, List, Type
 
@@ -41,7 +40,7 @@ from DataRepo.utils.exceptions import (
     NoSamples,
     RecordDoesNotExist,
 )
-from DataRepo.utils.file_utils import get_sheet_names, read_from_file
+from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 
 
 class StudyLoader(TableLoader):
@@ -217,7 +216,7 @@ class StudyLoader(TableLoader):
             # Tell the MultiLoadStatus object we're going to try to load these files
             load_keys=[
                 self.get_friendly_filename(),
-                *list(self.annot_files_dict.keys())
+                *list(self.annot_files_dict.keys()),
             ]
         )
 
@@ -246,12 +245,21 @@ class StudyLoader(TableLoader):
                     f"The [file] argument to {type(self).__name__}() is required."
                 )
             )
+        elif not is_excel(self.file):
+            raise AggregatedErrors().buffer_error(
+                ValueError(
+                    f"'{self.file}' is not an excel file.  StudyLoader's file argument requires excel."
+                )
+            )
 
         file_sheets = get_sheet_names(self.file)
         sheet_names = self.get_sheet_names_tuple()
         loaders = self.Loaders
 
-        if len(self.annot_files_dict.keys()) > 0 and PeakAnnotationFilesLoader.DataSheetName not in file_sheets:
+        if (
+            len(self.annot_files_dict.keys()) > 0
+            and PeakAnnotationFilesLoader.DataSheetName not in file_sheets
+        ):
             self.buffer_infile_exception(
                 (
                     f"Peak annotation files [{list(self.annot_files_dict.keys())}] were provided without a "
@@ -297,7 +305,6 @@ class StudyLoader(TableLoader):
                     if dtypes is not None and len(dtypes.keys()) > 0:
                         rffkwargs["dtype"] = dtypes
 
-                    print(f"CALLING LOADER: {loader_class.__name__}")
                     # Create a loader instance (e.g. CompoundsLoader())
                     loader = loader_class(
                         df=read_from_file(self.file, **rffkwargs),
@@ -405,12 +412,9 @@ class StudyLoader(TableLoader):
 
             for load_key, aes in exception.aggregated_errors_dict.items():
                 self.extract_repeated_exceptions(aes)
-                self.load_statuses.set_load_exception(exception, load_key)
+                self.load_statuses.set_load_exception(aes, load_key)
 
         else:
-            # Print the trace
-            print("".join(traceback.format_tb(exception.__traceback__)))
-            print(f"EXCEPTION: {type(exception).__name__}: {str(exception)}")
             self.load_statuses.set_load_exception(exception, parent_file)
 
     def extract_repeated_exceptions(self, aes: AggregatedErrors):
@@ -452,7 +456,9 @@ class StudyLoader(TableLoader):
         Returns:
             None
         """
-        mrecs_excs = aes.modify_exception_type(missing_class, is_fatal=False, is_error=False)
+        mrecs_excs = aes.modify_exception_type(
+            missing_class, is_fatal=False, is_error=False
+        )
         for mrecs_exc in mrecs_excs:
             buffer.extend(mrecs_exc.exceptions)
 

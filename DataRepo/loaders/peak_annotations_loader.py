@@ -493,8 +493,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     continue
 
         # This currently only repackages DuplicateValues exceptions, but may do more WRT mapping to original file
-        # locations of errors later.  It could be called at the top of this method, but given the plan, having it here
-        # at the bottom is better.
+        # locations of errors later.  It could be called at the top of this method (bec dupes are handled before this
+        # method is called), but given the plan to have it handle more exceptions, having it here at the bottom is
+        # better.
         self.handle_file_exceptions()
 
         enable_caching_updates()
@@ -588,7 +589,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if None in recs:
                 # Cannot set the name based on the records when they contain a None value.  There will be an error
                 # anyway, so just set the name from the column.
-                pgname = name_str
+                pgname = self.CompoundNamesDelimiter.join(sorted(names))
             else:
                 recs = sorted(recs, key=lambda rec: rec.name)
                 # Set the peak group name to the sorted primary compound names, delimited by "/"
