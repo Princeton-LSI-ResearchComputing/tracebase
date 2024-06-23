@@ -1,3 +1,4 @@
+import os
 import re
 from collections import namedtuple
 from typing import Dict
@@ -16,7 +17,7 @@ from DataRepo.loaders.peak_annotations_loader import (
 )
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
-from DataRepo.utils.exceptions import RollbackException
+from DataRepo.utils.exceptions import AggregatedErrorsSet, RollbackException
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 
 
@@ -129,12 +130,13 @@ class PeakAnnotationFilesLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
                 extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -151,6 +153,11 @@ class PeakAnnotationFilesLoader(TableLoader):
                 peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation Details
                     sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of this
                     instance)
+                annot_files_dict (Optional[Dict[str, str]]): This is a dict of peak annotation file paths keyed on peak
+                    annotation file basename.  This is not necessary on the command line.  It is only provided for the
+                    purpose of web forms, where the name of the actual file is a randomized hash string at the end of a
+                    temporary path.  This dict associates the user's readable filename parsed from the infile (the key)
+                    with the actual file (the value).
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -160,6 +167,9 @@ class PeakAnnotationFilesLoader(TableLoader):
             None
         """
         # Custom options for the MSRunsLoader member instance.
+        # NOTE: We COULD make a friendly version of this file for the web interface, but we don't accept this separate
+        # file in that interface, so it will currently always be set using self.file.  These options will only
+        # effectively be used on the command line, where self.file *is* already friendly.
         self.peak_annotation_details_file = kwargs.pop(
             "peak_annotation_details_file", None
         )
@@ -167,7 +177,11 @@ class PeakAnnotationFilesLoader(TableLoader):
             "peak_annotation_details_sheet", None
         )
         self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
+        self.annot_files_dict = kwargs.pop("annot_files_dict", None)
         super().__init__(*args, **kwargs)
+
+        # For tracking exceptions of the individual peak annotation loaders
+        self.aggregated_errors_dict = {}
 
     def load_data(self):
         """Loads the ArchiveFile table from the dataframe and calls the PeakAnnotationsLoader for each file.
@@ -181,18 +195,40 @@ class PeakAnnotationFilesLoader(TableLoader):
         """
         for _, row in self.df.iterrows():
             # Determine the format
-            filepath, format_code = self.get_file_and_format(row)
+            filename, filepath, format_code = self.get_file_and_format(row)
 
             # Load the ArchiveFile entry for the peak annotations file
             try:
-                self.get_or_create_annot_file(filepath, format_code)
+                self.get_or_create_annot_file(filepath, format_code, filename=filename)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
+            (
+                operator,
+                lc_protocol_name,
+                instrument,
+                date,
+            ) = self.get_default_sequence_details(row)
+
             # Load the peak annotations
-            self.load_peak_annotations(row, filepath, format_code)
+            self.load_peak_annotations(
+                filepath,
+                format_code,
+                operator=operator,
+                lc_protocol_name=lc_protocol_name,
+                instrument=instrument,
+                date=date,
+                filename=filename,
+            )
+
+        # If any of the PeakAnnotationLoaders had any fatal error, raise an AggregatedErrorsSet exception.  This
+        # loader's aggregated_errors_object will be incorporated in TableLoader's load wrapper, after summarizing and
+        # processing its exceptions.
+        for aes in self.aggregated_errors_dict.values():
+            if aes.should_raise():
+                raise AggregatedErrorsSet(self.aggregated_errors_dict)
 
     def get_file_and_format(self, row):
         """Gets the file path and determines the file format.
@@ -200,13 +236,34 @@ class PeakAnnotationFilesLoader(TableLoader):
         Args:
             row (pd.Series)
         Exceptions:
-            None
+            InfileError
         Returns:
+            filename (str): The user's given name for the file (in case the path has a hashed temp name from a web form)
             filepath (str)
             format_code (str)
         """
-        filepath = self.get_row_val(row, self.headers.FILE)
+        filepath_str = self.get_row_val(row, self.headers.FILE)
         format_code = self.get_row_val(row, self.headers.FORMAT)
+
+        filename = os.path.basename(filepath_str)
+
+        if (
+            self.annot_files_dict is not None
+            and filename in self.annot_files_dict.keys()
+        ):
+            filepath = self.annot_files_dict[filename]
+        else:
+            filepath = filepath_str
+
+        if not os.path.isfile(filepath):
+            msg = ""
+            if filepath_str != filepath:
+                msg = f" using supplied path: {filepath}."
+            self.buffer_infile_exception(
+                f"File '{filepath_str}' not found{msg}.",
+                column=self.headers.FILE,
+            )
+            return None, None, format_code
 
         matching_formats = PeakAnnotationsLoader.determine_matching_formats(
             # Do not enforce column types when we don't know what columns exist yet
@@ -236,10 +293,10 @@ class PeakAnnotationFilesLoader(TableLoader):
                     column=self.headers.FORMAT,
                 )
 
-        return filepath, format_code
+        return filename, filepath, format_code
 
     @transaction.atomic
-    def get_or_create_annot_file(self, filepath, format_code):
+    def get_or_create_annot_file(self, filepath, format_code, filename=None):
         """Gets or creates an ArchiveFile record from self.file.
 
         Args:
@@ -265,10 +322,10 @@ class PeakAnnotationFilesLoader(TableLoader):
         # Get or create the ArchiveFile record for the mzXML
         try:
             rec_dict = {
-                # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "is_binary": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+                "filename": filename,  # In case the file is a tmp file from a web form with a nonsense name
                 "file_location": filepath,  # Intentionally a string and not a File object
                 "data_type": DataType.objects.get(code="ms_peak_annotation"),
                 "data_format": DataFormat.objects.get(code=format_code),
@@ -292,19 +349,68 @@ class PeakAnnotationFilesLoader(TableLoader):
 
         return rec, created
 
-    def load_peak_annotations(self, row, filepath, format_code):
-        """Loads the peak annotations file reference in the row and supplies a default sequence, if supplied.
+    def get_default_sequence_details(self, row):
+        """Retrieves the sequence name and parses it into its parts.
 
         Args:
             row (pd.Series)
+        Exceptions:
+            None
+        Returns:
+            default_operator (Optional[str])
+            default_lc_protocol_name (Optional[str])
+            default_instrument (Optional[str])
+            default_date (Optional[str])
+        """
+        sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+
+        # Get the default sequence (if any).  This can be overridden by peak_annotation_details_df
+        default_operator = None
+        default_date = None
+        default_lc_protocol_name = None
+        default_instrument = None
+
+        if sequence_name is not None:
+            (
+                default_operator,
+                default_lc_protocol_name,
+                default_instrument,
+                default_date,
+            ) = re.split(r",\s*", sequence_name)
+
+        return (
+            default_operator,
+            default_lc_protocol_name,
+            default_instrument,
+            default_date,
+        )
+
+    def load_peak_annotations(
+        self,
+        filepath,
+        format_code,
+        operator=None,
+        lc_protocol_name=None,
+        instrument=None,
+        date=None,
+        filename=None,
+    ):
+        """Loads the peak annotations file reference in the row and supplies a default sequence, if supplied.
+
+        Args:
             filepath (str)
             format_code (str)
+            operator (str): Default researcher
+            date (str): Default date
+            lc_protocol_name (str): Default LC protocol name
+            instrument (str): Default instrument
         Exceptions:
             None
         Returns:
             None
         """
-        sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+        if filename is None and filepath is not None:
+            filename = os.path.basename(filepath)
 
         if (
             filepath is None
@@ -313,7 +419,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         ):
             self.buffer_infile_exception(
                 (
-                    f"Skipping load of peak annotations file {filepath}.  Unrecognized format code: {format_code}.  "
+                    f"Skipping load of peak annotations file {filename}.  Unrecognized format code: {format_code}.  "
                     f"Must be one of {PeakAnnotationsLoader.get_supported_formats()}."
                 ),
                 column=self.headers.FORMAT,
@@ -350,35 +456,28 @@ class PeakAnnotationFilesLoader(TableLoader):
                 # TODO: Add dtypes argument here
             )
 
-        # Get the default sequence (if any).  This can be overridden by peak_annotation_details_df
-        default_operator = None
-        default_date = None
-        default_lc_protocol_name = None
-        default_instrument = None
-
-        if sequence_name is not None:
-            (
-                default_operator,
-                default_lc_protocol_name,
-                default_instrument,
-                default_date,
-            ) = re.split(r",\s*", sequence_name)
-
         # Create an instance of the specific peak annotations loader for this format
         peak_annot_loader = peak_annot_loader_class(
             # These are the essential arguments
             df=read_from_file(filepath, sheet=None),
             file=filepath,
+            filename=filename,  # In case filebath is a temp file with a nonsense name
             # Then we need either these 3 peak annotation details inputs
             peak_annotation_details_file=peak_annotation_details_file,
             peak_annotation_details_sheet=peak_annotation_details_sheet,
             peak_annotation_details_df=peak_annotation_details_df,
             # Or... these default sequence inputs (as long as the sample headers = sample DB names)
-            operator=default_operator,
-            date=default_date,
-            lc_protocol_name=default_lc_protocol_name,
-            instrument=default_instrument,
+            operator=operator,
+            date=date,
+            lc_protocol_name=lc_protocol_name,
+            instrument=instrument,
+            # Pass-alongs
+            _validate=self.validate,
+            defer_rollback=self.defer_rollback,
         )
 
         # Load this peak annotations file
         peak_annot_loader.load_data()
+
+        # Log the peak annot loader's exceptions by file
+        self.aggregated_errors_dict[filename] = peak_annot_loader.aggregated_errors_object

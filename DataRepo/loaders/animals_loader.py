@@ -123,26 +123,70 @@ class AnimalsLoader(TableLoader):
     }
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(name=DataHeaders.NAME, field=Animal.name),
+        NAME=TableColumn.init_flat(
+            name=DataHeaders.NAME,
+            field=Animal.name,
+            # TODO: Replace "Samples" and "Sample" below with a reference to its loader's DataSheetName and the
+            # corresponding column, respectively
+            # Cannot reference the SamplesLoader here (to include the name of its sheet and its tracer name column)
+            # due to circular import
+            reference=ColumnReference(
+                header="Sample",
+                sheet="Samples",
+            ),
+        ),
         INFUSIONRATE=TableColumn.init_flat(
-            name=DataHeaders.INFUSIONRATE, field=Animal.infusion_rate
+            name=DataHeaders.INFUSIONRATE,
+            field=Animal.infusion_rate,
+            format="Units: ul/min/g (microliters/min/gram)",
         ),
         GENOTYPE=TableColumn.init_flat(
             name=DataHeaders.GENOTYPE, field=Animal.genotype
         ),
-        WEIGHT=TableColumn.init_flat(name=DataHeaders.WEIGHT, field=Animal.body_weight),
-        AGE=TableColumn.init_flat(name=DataHeaders.AGE, field=Animal.age, type=float),
+        WEIGHT=TableColumn.init_flat(
+            name=DataHeaders.WEIGHT,
+            field=Animal.body_weight,
+            format="Units: grams.",
+        ),
+        AGE=TableColumn.init_flat(
+            name=DataHeaders.AGE,
+            field=Animal.age,
+            type=float,
+            format="Units: weeks (integer or decimal).",
+        ),
         SEX=TableColumn.init_flat(name=DataHeaders.SEX, field=Animal.sex),
         DIET=TableColumn.init_flat(name=DataHeaders.DIET, field=Animal.diet),
         FEEDINGSTATUS=TableColumn.init_flat(
-            name=DataHeaders.FEEDINGSTATUS, field=Animal.feeding_status
+            name=DataHeaders.FEEDINGSTATUS,
+            field=Animal.feeding_status,
+            guidance=(
+                "Note that the drop-downs are populated by existing values in the database, to encourage consistency.  "
+                "You may add new values."
+            ),
+            static_choices=[
+                (fs, fs)
+                for fs in list(
+                    # NOTE: Not sure what would happen if there are no animal records - did not test that
+                    Animal.objects.order_by("feeding_status")
+                    .values_list("feeding_status", flat=True)
+                    .distinct("feeding_status")
+                )
+            ],
         ),
         INFUSATE=TableColumn.init_flat(
             name=DataHeaders.INFUSATE,
             field=Animal.infusate,
-            guidance=(
-                f"Select an {DataHeaders.INFUSATE} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {InfusatesLoader.DataHeaders.NAME} column in the {InfusatesLoader.DataSheetName} sheet."
+            format=(
+                "Individual tracer compounds will be formatted: compound_name-[weight element count,weight "
+                "element count]\nexample: valine-[13C5,15N1]\n"
+                "\n"
+                "Mixtures of compounds will be formatted: tracer_group_name {tracer[conc]; tracer[conc]}\n"
+                "example:\n"
+                "BCAAs {isoleucine-[13C6,15N1][23.2];leucine-[13C6,15N1][100];valine-[13C5,15N1][0.9]}\n"
+                "\n"
+                "Note that the concentrations in the name are limited to "
+                f"{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES} significant figures, but the saved value is as "
+                "entered."
             ),
             type=str,
             dynamic_choices=ColumnReference(
@@ -198,14 +242,21 @@ class AnimalsLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+                extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                    unknown header, supply an empty list.
+                _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This
+                    is intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                    commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                    interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 study_delimiter (Optional[str]) [;]: Study name string delimiter.
         Exceptions:

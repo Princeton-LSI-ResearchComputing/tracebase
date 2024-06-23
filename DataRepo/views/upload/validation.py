@@ -1,54 +1,46 @@
 import base64
 import os.path
-import shutil
-import tempfile
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from io import BytesIO
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional, Type
 
 import pandas as pd
 import xlsxwriter
-import yaml  # type: ignore
 from django.conf import settings
-from django.core.management import call_command
 from django.db.utils import ProgrammingError
+from django.forms import ValidationError
 from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
-from jsonschema import ValidationError
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
-from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
+from DataRepo.loaders.animals_loader import AnimalsLoader
+from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.loaders.protocols_loader import ProtocolsLoader
-from DataRepo.loaders.sample_table_loader import SampleTableLoader
-from DataRepo.loaders.tissues_loader import TissuesLoader
-from DataRepo.models import (
-    Animal,
-    InfusateTracer,
-    LCMethod,
-    MSRunSequence,
-    Researcher,
-    Sample,
-    Study,
+from DataRepo.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
 )
+from DataRepo.loaders.peak_annotations_loader import (
+    AccucorLoader,
+    IsoautocorrLoader,
+    IsocorrLoader,
+    PeakAnnotationsLoader,
+    UnicorrLoader,
+)
+from DataRepo.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.loaders.samples_loader import SamplesLoader
+from DataRepo.loaders.study_loader import StudyLoader
+from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
-    AllMissingSamplesError,
-    AllMissingTissuesErrors,
-    AllMissingTreatmentsErrors,
+    AllMissingCompounds,
+    AllMissingSamples,
+    AllMissingTissues,
+    AllMissingTreatments,
     MissingDataAdded,
     MultiLoadStatus,
-    NonUniqueSampleDataHeader,
-    NonUniqueSampleDataHeaders,
-    NoSamplesError,
+    NoSamples,
 )
-from DataRepo.utils.file_utils import read_from_file, read_headers_from_file
-from DataRepo.utils.lcms_metadata_parser import (
-    LCMS_DB_SAMPLE_HDR,
-    LCMS_FL_SAMPLE_HDR,
-    LCMS_PEAK_ANNOT_HDR,
-)
+from DataRepo.utils.file_utils import get_sheet_names, read_from_file
 from DataRepo.utils.text_utils import autowrap
 
 
@@ -56,123 +48,143 @@ class DataValidationView(FormView):
     form_class = DataSubmissionValidationForm
     template_name = "DataRepo/validate_submission.html"
     success_url = ""
-    accucor_filenames: List[str] = []
-    accucor_files: List[str] = []
-    isocorr_filenames: List[str] = []
-    isocorr_files: List[str] = []
-    animal_sample_filename = None
-    animal_sample_file = None
+    peak_annot_filenames_replacement: List[str] = []
+    peak_annot_files_replacement: List[str] = []
+    study_filename = None
+    study_file = None
     submission_url = settings.SUBMISSION_FORM_URL
     # Study doc version (default and supported list)
-    default_version = "2"
+    default_version = "3"
     supported_versions = [default_version]
-    ANIMALS_SHEET = "Animals"
-    SAMPLES_SHEET = "Samples"
-    SAMPLE_HEADS = SampleTableLoader.DefaultSampleTableHeaders
-    AnimalColumns = namedtuple(
-        "AnimalColumns",
-        [
-            "ANIMAL_NAME",
-            "ANIMAL_AGE",
-            "ANIMAL_SEX",
-            "ANIMAL_GENOTYPE",
-            "ANIMAL_TREATMENT",
-            "ANIMAL_WEIGHT",
-            "INFUSATE",
-            "TRACER_CONCENTRATIONS",
-            "ANIMAL_INFUSION_RATE",
-            "ANIMAL_DIET",
-            "ANIMAL_FEEDING_STATUS",
-            "STUDY_NAME",
-            "STUDY_DESCRIPTION",
-        ],
-    )
-    SampleColumns = namedtuple(
-        "SampleColumns",
-        [
-            "SAMPLE_NAME",
-            "SAMPLE_DATE",
-            "SAMPLE_RESEARCHER",
-            "TISSUE_NAME",
-            "TIME_COLLECTED",
-            "ANIMAL_NAME",
-        ],
-    )
+    row_key_delim = "__DELIM__"
 
     def __init__(self):
         super().__init__()
-        self.autofill_dict = {
-            self.SAMPLES_SHEET: defaultdict(dict),
-            TissuesLoader.DataSheetName: defaultdict(dict),
-            ProtocolsLoader.DataSheetName: defaultdict(dict),
-        }
+
+        self.autofill_dict = defaultdict(lambda: defaultdict(dict))
+        self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
+        # TODO: Add Peak Annotation Details
+        # self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[CompoundsLoader.DataSheetName] = defaultdict(dict)
+
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         self.valid = None
         self.results = {}
         self.exceptions = {}
         self.ordered_keys = []
         self.load_status_data: Optional[MultiLoadStatus] = None
+        self.animals_loader = AnimalsLoader()
+        self.samples_loader = SamplesLoader()
         self.tissues_loader = TissuesLoader()
-        # Providing a dummy excel file will change the headers in the returned column types to the custom excel headers
-        # TODO: Make it possible to explicitly set the type of headers we want so that a dummy file name is not required
-        self.treatments_loader = ProtocolsLoader(file="dummy.xlsx")
+        self.treatments_loader = ProtocolsLoader(
+            headers=ProtocolsLoader.DataHeadersExcel
+        )
+        self.compounds_loader = CompoundsLoader()
+        self.peak_annotations_loaders = []
         self.output_study_filename = "study.xlsx"
         self.autofill_only_mode = True
         self.dfs_dict = self.create_study_dfs_dict()
-        self.animal_sample_file = None
-        self.peak_annotation_files = None
-        self.peak_annotation_filenames = None
+        self.study_file = None
+        self.peak_annot_files = None
+        self.peak_annot_filenames = []
 
     def set_files(
         self,
-        sample_file=None,
-        sample_filename: Optional[str] = None,
-        peak_annotation_files=None,
-        peak_annotation_filenames: Optional[List[str]] = None,
+        study_file=None,
+        study_filename: Optional[str] = None,
+        peak_annot_files=None,
+        peak_annot_filenames=None,
     ):
         """
         This method allows the files to be set.  It takes 2 different optional params for file names (that are used in
         reporting) to accommodate random temporary file names.  If file names are not supplied, the basename of the
         actual files is used for reporting.
         """
+        if peak_annot_files is None:
+            peak_annot_files = []
+        if peak_annot_filenames is None:
+            peak_annot_filenames = []
         self.all_infile_names = []
 
-        self.animal_sample_file = sample_file
-        self.animal_sample_filename = sample_filename
-        if sample_filename is None and sample_file is not None:
-            self.animal_sample_filename = str(os.path.basename(sample_file))
+        self.study_file = study_file
+        self.study_filename = study_filename
+        if study_filename is None and study_file is not None:
+            self.study_filename = str(os.path.basename(study_file))
 
-        if self.animal_sample_filename is not None:
-            self.output_study_filename = self.animal_sample_filename
-            self.all_infile_names.append(self.animal_sample_filename)
+        if self.study_filename is not None:
+            self.output_study_filename = self.study_filename
+            self.all_infile_names.append(self.study_filename)
 
-        if self.animal_sample_file is not None:
+        if self.study_file is not None:
+            study_sheets = get_sheet_names(self.study_file)
+
             # Refresh the loader objects using the actual supplied file
-            self.tissues_loader = TissuesLoader(file=self.animal_sample_file)
-            # Providing an excel file will change the headers in the returned column types to the custom excel headers
-            self.treatments_loader = ProtocolsLoader(file=self.animal_sample_file)
+            if SamplesLoader.DataSheetName in study_sheets:
+                self.samples_loader = SamplesLoader(
+                    df=read_from_file(
+                        self.study_file,
+                        sheet=SamplesLoader.DataSheetName,
+                        dtype=SamplesLoader._get_column_types(),
+                    ),
+                    file=self.study_file,
+                )
+            if AnimalsLoader.DataSheetName in study_sheets:
+                self.animals_loader = AnimalsLoader(
+                    df=read_from_file(
+                        self.study_file,
+                        sheet=AnimalsLoader.DataSheetName,
+                        dtype=AnimalsLoader._get_column_types(),
+                    ),
+                    file=self.study_file,
+                )
+            if TissuesLoader.DataSheetName in study_sheets:
+                self.tissues_loader = TissuesLoader(
+                    df=read_from_file(
+                        self.study_file,
+                        sheet=TissuesLoader.DataSheetName,
+                        dtype=TissuesLoader._get_column_types(),
+                    ),
+                    file=self.study_file,
+                )
+            if ProtocolsLoader.DataSheetName in study_sheets:
+                self.treatments_loader = ProtocolsLoader(
+                    df=read_from_file(
+                        self.study_file,
+                        sheet=ProtocolsLoader.DataSheetName,
+                        dtype=ProtocolsLoader._get_column_types(
+                            ProtocolsLoader.DataHeadersExcel
+                        ),
+                    ),
+                    file=self.study_file,
+                )
+            if CompoundsLoader.DataSheetName in study_sheets:
+                self.compounds_loader = CompoundsLoader(
+                    df=read_from_file(
+                        self.study_file,
+                        sheet=CompoundsLoader.DataSheetName,
+                        dtype=CompoundsLoader._get_column_types(),
+                    ),
+                    file=self.study_file,
+                )
 
-        self.peak_annotation_files = peak_annotation_files
-        if (
-            peak_annotation_filenames is None
-            and peak_annotation_files is not None
-            and len(peak_annotation_files) > 0
-        ):
-            peak_annotation_filenames = [
-                str(os.path.basename(f)) for f in peak_annotation_files
-            ]
+        self.peak_annot_files = peak_annot_files
+        self.annot_files_dict: Dict[str, str] = {}
+        if len(peak_annot_filenames) == 0 and len(peak_annot_files) > 0:
+            peak_annot_filenames = [str(os.path.basename(f)) for f in peak_annot_files]
 
         if (
-            peak_annotation_filenames is not None
-            and len(peak_annotation_filenames) > 0
+            len(peak_annot_filenames) == 0
+            and len(peak_annot_filenames) > 0
             and (
-                peak_annotation_files is None
-                or len(peak_annotation_filenames) != len(peak_annotation_files)
+                len(peak_annot_files) == 0
+                or len(peak_annot_filenames) != len(peak_annot_files)
             )
         ):
             raise ProgrammingError(
-                f"The number of peak annotation file names [{len(peak_annotation_filenames)}] must be equal to the "
-                f"number of peak annotation files [{peak_annotation_files}]."
+                f"The number of peak annotation file names [{len(peak_annot_filenames)}] must be equal to the "
+                f"number of peak annotation files [{peak_annot_files}]."
             )
 
         # Get an initial dfs_dict (a dict representation of the output study doc, either created or as obtained from the
@@ -182,35 +194,151 @@ class DataValidationView(FormView):
         # validation readiness
         self.determine_study_file_validation_readiness()
 
-        # Initialize the accucor and isocorr files and filenames
-        # TODO: We will not need to separate these files once the accucor loader is refactored.
-        not_peak_annot_files = []
-        self.accucor_files = []
-        self.isocorr_files = []
-        self.accucor_filenames = []
-        self.isocorr_filenames = []
-        self.peak_annotation_filenames = []
-        if peak_annotation_files is not None and len(peak_annotation_files) > 0:
-            # Convince mypy that peak_annotation_files is defined
-            peak_annot_filenames: List[str] = cast(List[str], peak_annotation_filenames)
-            for index, peak_annot_file in enumerate(peak_annotation_files):
-                peak_annotation_filename = peak_annot_filenames[index]
-                self.all_infile_names.append(peak_annotation_filename)
-                self.peak_annotation_filenames.append(peak_annotation_filename)
+        # Get the peak annotation details
+        peak_annotation_details_file = None
+        peak_annotation_details_df = None
+        # ...and the default sequence (if any).
+        annot_file_loader_info: Dict[str, dict] = defaultdict(dict)
+        error_messages = []
 
-                if AccuCorDataLoader.is_accucor(peak_annot_file):
-                    self.accucor_files.append(peak_annot_file)
-                    self.accucor_filenames.append(peak_annotation_filename)
-                elif AccuCorDataLoader.is_isocorr(peak_annot_file):
-                    self.isocorr_files.append(peak_annot_file)
-                    self.isocorr_filenames.append(peak_annotation_filename)
+        if self.study_file is not None:
+            if MSRunsLoader.DataSheetName in get_sheet_names(self.study_file):
+                peak_annotation_details_file = self.study_file
+                peak_annotation_details_df = read_from_file(
+                    peak_annotation_details_file,
+                    MSRunsLoader.DataSheetName,
+                    # TODO: Add dtypes argument here
+                )
+
+            if PeakAnnotationFilesLoader.DataSheetName in get_sheet_names(
+                self.study_file
+            ):
+                pafl = PeakAnnotationFilesLoader(
+                    df=read_from_file(
+                        self.study_file,
+                        sheet=PeakAnnotationFilesLoader.DataSheetName,
+                        dtype=PeakAnnotationFilesLoader._get_column_types(),
+                    ),
+                    file=self.study_file,
+                )
+                for _, row in pafl.df.iterrows():
+                    # "actual" means not the original file from the form submission, but the nonsense filename created
+                    # by the browser
+                    filename, actual_filepath, format_code = pafl.get_file_and_format(row)
+                    actual_filename = os.path.basename(actual_filepath)
+                    (
+                        operator,
+                        lc_protocol_name,
+                        instrument,
+                        date,
+                    ) = pafl.get_default_sequence_details(row)
+
+                    if format_code in PeakAnnotationsLoader.get_supported_formats():
+                        annot_file_loader_info[actual_filename][
+                            "format_code"
+                        ] = format_code
+                    else:
+                        annot_file_loader_info[actual_filename]["format_code"] = None
+                        error_messages.append(
+                            f"Unrecognized format code: {format_code} from {self.study_file}, sheet "
+                            f"'{PeakAnnotationFilesLoader.DataSheetName}', row {row.name + 2}."
+                        )
+
+                    annot_file_loader_info[actual_filename]["kwargs"] = {
+                        "operator": operator,
+                        "lc_protocol_name": lc_protocol_name,
+                        "instrument": instrument,
+                        "date": date,
+                    }
+
+        self.peak_annot_filenames = []
+        self.peak_annotations_loaders = []
+        peak_annot_loader_class: Type[PeakAnnotationsLoader]
+        if peak_annot_files is not None and len(peak_annot_files) > 0:
+            for index, peak_annot_file in enumerate(peak_annot_files):
+                self.all_infile_names.append(peak_annot_filenames[index])
+                self.peak_annot_filenames.append(peak_annot_filenames[index])
+                if (
+                    peak_annot_filenames[index] in self.annot_files_dict.keys()
+                    and self.annot_files_dict[peak_annot_filenames[index]]
+                    != peak_annot_file
+                ):
+                    error_messages.append(
+                        f"Peak annotation filenames must be unique.  Filename {peak_annot_filenames[index]} was "
+                        "encountered multiple times."
+                    )
+                    continue
+                self.annot_files_dict[peak_annot_filenames[index]] = peak_annot_file
+
+                # "actual" means not the original file from the form submission, but the hashed filename created by
+                # the browser
+                actual_filename = os.path.basename(peak_annot_file)
+                loader_kwargs = {}
+                matching_formats = []
+                if actual_filename in annot_file_loader_info.keys():
+                    loader_kwargs = annot_file_loader_info[actual_filename]["kwargs"]
+                    format_code = annot_file_loader_info[actual_filename]["format_code"]
+                    if format_code is not None:
+                        matching_formats = [format_code]
+
+                if len(matching_formats) == 0:
+                    matching_formats = PeakAnnotationsLoader.determine_matching_formats(
+                        # Do not enforce column types when we don't know what columns exist yet
+                        read_from_file(peak_annot_file, sheet=None)
+                    )
+
+                if len(matching_formats) == 1:
+                    if matching_formats[0] == AccucorLoader.format_code:
+                        peak_annot_loader_class = AccucorLoader
+                    elif matching_formats[0] == IsocorrLoader.format_code:
+                        peak_annot_loader_class = IsocorrLoader
+                    elif matching_formats[0] == IsoautocorrLoader.format_code:
+                        peak_annot_loader_class = IsoautocorrLoader
+                    elif matching_formats[0] == UnicorrLoader.format_code:
+                        peak_annot_loader_class = UnicorrLoader
+                    else:
+                        raise ProgrammingError(
+                            f"Unrecognized format code: {matching_formats}."
+                        )
+
+                    # Create an instance of the loader, appended onto the loaders
+                    self.peak_annotations_loaders.append(
+                        peak_annot_loader_class(
+                            # These are the essential arguments
+                            df=read_from_file(peak_annot_file, sheet=None),
+                            file=peak_annot_file,
+                            # Then we need either these 3 peak annotation details inputs
+                            peak_annotation_details_file=peak_annotation_details_file,
+                            peak_annotation_details_df=peak_annotation_details_df,
+                            # Or... these default sequence inputs (as long as the sample headers = sample DB names)
+                            **loader_kwargs,
+                        )
+                    )
+
+                elif len(matching_formats) == 0:
+                    error_messages.append(
+                        f"No matching formats for peak annotation file: {peak_annot_filenames[index]}.  Must be one of "
+                        f"{PeakAnnotationsLoader.get_supported_formats()}.  Please enter the correct "
+                        f"'{PeakAnnotationFilesLoader.DataHeaders.FORMAT}' for "
+                        f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' in the "
+                        f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet of '{self.study_filename}'."
+                    )
                 else:
-                    not_peak_annot_files.append(peak_annot_filenames[index])
+                    error_messages.append(
+                        f"Multiple matching formats: {matching_formats} for peak annotation file: "
+                        f"{peak_annot_filenames[index]}.  Please enter the correct "
+                        f"'{PeakAnnotationFilesLoader.DataHeaders.FORMAT}' for "
+                        f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' in the "
+                        f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet of '{self.study_filename}'."
+                    )
 
-        if len(not_peak_annot_files) > 0:
+        if len(error_messages) > 0:
+            msg = "\n\t".join(error_messages)
             raise ValidationError(
-                "Peak annotation files must be either Accucor or Isocorr excel files.  Could not identify the type of "
-                f"the following supplied files: {not_peak_annot_files}."
+                f"Could not identify the type of the peak annotation files for the reasons shown below:\n\t{msg}\n"
+                f"Supported formats: {PeakAnnotationsLoader.get_supported_formats()}.  Note that format determination "
+                "is made using sheet names and column headers.  If a csv or tsv was supplied, the determination can be "
+                "ambiguous due to common header names."
             )
 
     def dispatch(self, request, *args, **kwargs):
@@ -229,11 +357,11 @@ class DataValidationView(FormView):
 
         if "animal_sample_table" in request.FILES:
             sample_file = request.FILES["animal_sample_table"]
-            tmp_sample_file = sample_file.temporary_file_path()
+            tmp_study_file = sample_file.temporary_file_path()
         else:
             # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
             sample_file = None
-            tmp_sample_file = None
+            tmp_study_file = None
 
         if "peak_annotation_files" in request.FILES:
             peak_annotation_files = request.FILES.getlist("peak_annotation_files")
@@ -242,12 +370,10 @@ class DataValidationView(FormView):
             peak_annotation_files = []
 
         self.set_files(
-            tmp_sample_file,
-            sample_filename=str(sample_file) if sample_file is not None else None,
-            peak_annotation_files=[
-                fp.temporary_file_path() for fp in peak_annotation_files
-            ],
-            peak_annotation_filenames=[str(fp) for fp in peak_annotation_files],
+            tmp_study_file,
+            study_filename=str(sample_file) if sample_file is not None else None,
+            peak_annot_files=[fp.temporary_file_path() for fp in peak_annotation_files],
+            peak_annot_filenames=[str(fp) for fp in peak_annotation_files],
         )
 
         return self.form_valid(form)
@@ -257,7 +383,7 @@ class DataValidationView(FormView):
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
 
-        debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
+        debug = f"sf: {self.study_file} num pafs: {len(self.peak_annot_files)}"
 
         # Initialize a status object for the results for each input file
         # TODO: Make the MultiLoadStatus class more of a "status" class for multuple "categories" of things that
@@ -276,7 +402,6 @@ class DataValidationView(FormView):
             # Extract errors from the validation that can be used to autofill missing values in the study doc
             self.extract_autofill_from_exceptions(
                 retain_as_warnings=not self.autofill_only_mode,
-                add_autofill_warning=not self.autofill_only_mode,
             )
 
         self.format_results_for_template()
@@ -311,10 +436,9 @@ class DataValidationView(FormView):
         )
 
     def determine_study_file_validation_readiness(self):
-        """Determines if the data is ready for validation by seeing it the study doc has any values in it other than
+        """Determines if the data is ready for validation by seeing if the study doc has any values in it other than
         sample names and if there are peak annotation files to populate it.  It does this by inspecting
-        self.animal_sample_file, self.peak_annotation_files, and the data parsed into self.dfs_dict from
-        self.animal_sample_file.
+        self.study_file, self.peak_annot_files, and the data parsed into self.dfs_dict from self.study_file.
 
         The purpose of this method is to avoid time consuming processing of a file that is only destined to produce
         missing sample name errors by identifying this futile case and setting self.autofill_only_mode to True (or
@@ -327,29 +451,32 @@ class DataValidationView(FormView):
         Returns:
             ready_for_validation (boolean): The opposite of the autofill_only_mode
         """
-        if self.peak_annotation_files is None or len(self.peak_annotation_files) == 0:
+        if self.peak_annot_files is None or len(self.peak_annot_files) == 0:
             # Cannot do autofill-only if there is no source of autofill data (currently)
+            # This can happen if there were exceptions (like missing required headers)
             self.autofill_only_mode = False
             return not self.autofill_only_mode
 
-        if self.animal_sample_file is None or not self.dfs_dict_is_valid():
+        if self.study_file is None or not self.dfs_dict_is_valid():
             # If there's no study data, we will want to autofill
             self.autofill_only_mode = True
             return not self.autofill_only_mode
 
-        # TODO: This none_vals strategy was copied from table_loader.  Encapsulate it in 1 place.
+        # TODO: Instead of doing this none_vals strategy, dynamically create a dataframe out of the dfs_dict and then
+        # use get_row_val and check if the result is None
+        # TODO: I should probably alter this strategy and check if all required columns have values on every row?
         none_vals = ["", "nan"]
-        for header in self.samples_ordered_display_headers:
+        for header in self.samples_loader.get_ordered_display_headers():
             if (
-                header == self.SAMPLE_HEADS.SAMPLE_NAME
-                or header not in self.dfs_dict[self.SAMPLES_SHEET].keys()
+                header == SamplesLoader.DataHeaders.SAMPLE
+                or header not in self.dfs_dict[SamplesLoader.DataSheetName].keys()
             ):
+                # Skipping the Sample header and any unknown header
                 continue
 
-            for val in self.dfs_dict[self.SAMPLES_SHEET][header].values():
+            for val in self.dfs_dict[SamplesLoader.DataSheetName][header].values():
                 if val is not None and isinstance(val, str) and val not in none_vals:
-                    # If any data has been manually added, we should check for mistakes (so, validate, i.e. autofill-
-                    # only = False)
+                    # If *any* data has been manually added, we will validate
                     self.autofill_only_mode = False
                     return not self.autofill_only_mode
 
@@ -373,10 +500,11 @@ class DataValidationView(FormView):
         # indicate errors/warning/required-values/read-only-values, and formulas for inter-sheet population of
         # dropdowns.
         column_metadata = {
-            self.ANIMALS_SHEET: self.get_animal_header_metadata(),
-            self.SAMPLES_SHEET: self.get_sample_header_metadata(),
-            self.tissues_loader.DataSheetName: self.tissues_loader.get_header_metadata(),
-            self.treatments_loader.DataSheetName: self.treatments_loader.get_header_metadata(),
+            AnimalsLoader.DataSheetName: self.animals_loader.get_header_metadata(),
+            SamplesLoader.DataSheetName: self.samples_loader.get_header_metadata(),
+            TissuesLoader.DataSheetName: self.tissues_loader.get_header_metadata(),
+            ProtocolsLoader.DataSheetName: self.treatments_loader.get_header_metadata(),
+            CompoundsLoader.DataSheetName: self.compounds_loader.get_header_metadata(),
         }
         for order_spec in self.get_study_sheet_column_display_order():
             sheet = order_spec[0]
@@ -406,7 +534,8 @@ class DataValidationView(FormView):
             xlsxwriter.sheets[sheet].autofit()
 
     def extract_autofill_from_peak_annotation_files(self):
-        """Extracts data from multiple accucor/isocorr files that can be used to populate a made-from-scratch study doc.
+        """Extracts data from multiple peak annotation files that can be used to populate a made-from-scratch study doc.
+
         Populates self.autofill_dict.
 
         Args:
@@ -416,59 +545,70 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        existing_sample_names = []
-        if self.dfs_dict_is_valid():
-            existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
-                self.SAMPLE_HEADS.SAMPLE_NAME
-            ].values()
+        for i in range(len(self.peak_annot_files)):
+            # TODO: Add commented code when Peak Annotation Details sheet is added
+            # peak_annot_filename = self.peak_annot_filenames[i]
+            peak_annot_loader: PeakAnnotationsLoader = self.peak_annotations_loaders[i]
 
-        corrected_sheet = 1  # Second sheet in both accucor and isocorr
-        peak_annot_sample_headers = defaultdict(
-            lambda: {"sample_name": None, "metadata": defaultdict(dict)}
-        )
-        for i in range(len(self.peak_annotation_files)):
-            peak_annot_file = self.peak_annotation_files[i]
-            peak_annot_filename = (
-                self.peak_annotation_filenames[i]
-                if self.peak_annotation_filenames is not None
-                else self.peak_annotation_files[i]
-            )
-
-            # Extracting sample header list from the peak annotation file
-            for fl_sample_header in AccuCorDataLoader.get_sample_headers(
-                read_headers_from_file(
-                    peak_annot_file, sheet=corrected_sheet, filetype="excel"
+            # Extracting sample, sample header, compound, mzxml,
+            for _, row in peak_annot_loader.df.iterrows():
+                sample_header = peak_annot_loader.get_row_val(
+                    row, peak_annot_loader.headers.SAMPLEHEADER
                 )
-            ):
-                db_sample_name = MSRunsLoader.guess_sample_name(fl_sample_header)
-                # We only want the fl_sample_header keys for uniqueness, but saving the lcms metadata for later autofill
-                # of the yet-to-be-added LCMS sheets
-                peak_annot_sample_headers[fl_sample_header][
-                    "sample_name"
-                ] = db_sample_name
-                # TODO: Add autofill of the LCMS sheet(s)
-                peak_annot_sample_headers[fl_sample_header]["metadata"][
-                    peak_annot_filename
-                ] = {
-                    LCMS_DB_SAMPLE_HDR: db_sample_name,
-                    LCMS_FL_SAMPLE_HDR: fl_sample_header,
-                    LCMS_PEAK_ANNOT_HDR: peak_annot_filename,
-                }
+                sample_name = MSRunsLoader.guess_sample_name(sample_header)
 
-        for fl_sample_header in sorted(peak_annot_sample_headers.keys()):
-            sample_name = peak_annot_sample_headers[fl_sample_header]["sample_name"]
-            # Skip likely blanks
-            if (
-                not AccuCorDataLoader.is_a_blank(sample_name)
-                and sample_name not in existing_sample_names
-            ):
-                self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
-                    self.SAMPLE_HEADS.SAMPLE_NAME: sample_name
-                }
+                if not PeakAnnotationsLoader.is_a_blank(sample_name):
+                    self.autofill_dict[SamplesLoader.DataSheetName][sample_name] = {
+                        SamplesLoader.DataHeaders.SAMPLE: sample_name
+                    }
 
-    def extract_autofill_from_exceptions(
-        self, retain_as_warnings=True, add_autofill_warning=True
-    ):
+                # TODO: Add Peak Annotation Details sheet
+                # # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
+                # unique_annot_deets_key = self.row_key_delim.join(
+                #     [sample_header, peak_annot_filename]
+                # )
+                # self.autofill_dict[MSRunsLoader.DataSheetName][
+                #     unique_annot_deets_key
+                # ] = {
+                #     MSRunsLoader.DataHeaders.SAMPLEHEADER: sample_header,
+                #     MSRunsLoader.DataHeaders.SAMPLENAME: sample_name,
+                #     # No point in entering the mzXML. It will default to this in its loader:
+                #     # MSRunsLoader.DataHeaders.MZXMLNAME: f"{sample_header}.mzXML",
+                #     MSRunsLoader.DataHeaders.ANNOTNAME: peak_annot_filename,
+                #     MSRunsLoader.DataHeaders.SKIP: PeakAnnotationsLoader.is_a_blank(
+                #         sample_header
+                #     ),
+                #     # Not going to fill in a SEQNAME - will rely on the default in the Peak Annotation Files sheet
+                # }
+
+                # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in the
+                # peak_annot_loader if any compounds are not in the database
+                formula = peak_annot_loader.get_row_val(
+                    row, peak_annot_loader.headers.FORMULA
+                )
+                delimited_compound_names, compound_recs = (
+                    peak_annot_loader.get_peak_group_name_and_compounds(row)
+                )
+                for index, compound_string in enumerate(
+                    delimited_compound_names.split(
+                        PeakAnnotationsLoader.CompoundNamesDelimiter
+                    )
+                ):
+                    compound_rec = compound_recs[index]
+                    if compound_rec is not None:
+                        compound_name = compound_rec.name
+                        # Override whatever formula we found in the file with the one linked to this compound
+                        formula = compound_rec.formula
+                    else:
+                        compound_name = compound_string.strip()
+
+                    # TODO: Add a check for discrepancies, e.g. if the formula is different on different rows
+                    self.autofill_dict[CompoundsLoader.DataSheetName][compound_name] = {
+                        CompoundsLoader.DataHeaders.NAME: compound_name,
+                        CompoundsLoader.DataHeaders.FORMULA: formula,
+                    }
+
+    def extract_autofill_from_exceptions(self, retain_as_warnings=True):
         """Remove exceptions related to references to missing underlying data and extract their data.
 
         This produces a dict named autofill_dict keyed on sheet name.
@@ -499,15 +639,9 @@ class DataValidationView(FormView):
         - In any of the above cases:
           - If the load key's value ends up empty, the load key is removed
 
-        TODO: It does not yet handle AllMissingCompounds, as there's not a sheet yet for compounds in the animal/sample
-        doc
-
         Args:
             retain_as_warnings (boolean): Track extracted error and warning exceptions as warnings.  If False, no pre-
-                existing errors or warnings will be reported.  See add_autofill_warning for the separately added
-                warnings about added data.
-            add_autofill_warning (boolean): If any data will be autofilled and this option is True, a MissingDataAdded
-                warning will be buffered.
+                existing errors or warnings will be reported.
         Exceptions:
             Buffers:
                 MissingDataAdded
@@ -518,12 +652,13 @@ class DataValidationView(FormView):
         """
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         # Init the autofill dict for the subsequent calls
-        self.autofill_dict = {
-            self.SAMPLES_SHEET: defaultdict(dict),
-            TissuesLoader.DataSheetName: defaultdict(dict),
-            ProtocolsLoader.DataSheetName: defaultdict(dict),
-        }
-        warning_load_key = "Autofill Note"
+        self.autofill_dict = defaultdict(lambda: defaultdict(dict))
+        self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
+        # TODO: Add Peak Annotation Details
+        # self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[CompoundsLoader.DataSheetName] = defaultdict(dict)
         data_added = []
 
         # For every AggregatedErrors objects associated with a file or category
@@ -535,10 +670,11 @@ class DataValidationView(FormView):
             # For each exception class we want to extract from the AggregatedErrors object (in order to both "fix" the
             # data and to remove related errors that those fixes address)
             for exc_class in [
-                AllMissingSamplesError,
-                AllMissingTissuesErrors,
-                AllMissingTreatmentsErrors,
-                NoSamplesError,
+                AllMissingCompounds,  # Only removing - These are extracted already from the peak annotations files
+                AllMissingSamples,  # Note, these are extracted from the peak annotations files, so this is extra
+                AllMissingTissues,
+                AllMissingTreatments,
+                NoSamples,  # Note, these are extracted from the peak annotations files, so this is extra
             ]:
 
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
@@ -552,19 +688,18 @@ class DataValidationView(FormView):
                                 "errors"
                             ].append(exc)
 
-                        if exc_class == AllMissingSamplesError:
-                            data_added.append(
-                                f"{len(exc.missing_samples_dict['all_missing_samples'].keys())} sample names"
-                            )
+                        if exc_class == NoSamples:
+                            data_added.append(f"{len(exc.search_terms)} sample names")
                             self.extract_all_missing_samples(exc)
-                        elif exc_class == AllMissingTissuesErrors:
-                            data_added.append(
-                                f"{len(exc.missing_tissue_errors)} tissue names"
-                            )
+                        elif exc_class == AllMissingSamples:
+                            data_added.append(f"{len(exc.search_terms)} sample names")
+                            self.extract_all_missing_samples(exc)
+                        elif exc_class == AllMissingTissues:
+                            data_added.append(f"{len(exc.search_terms)} tissue names")
                             self.extract_all_missing_tissues(exc)
-                        elif exc_class == AllMissingTreatmentsErrors:
+                        elif exc_class == AllMissingTreatments:
                             data_added.append(
-                                f"{len(exc.missing_treatment_errors)} treatment names"
+                                f"{len(exc.search_terms)} treatment names"
                             )
                             self.extract_all_missing_treatments(exc)
                         # We're only removing NoSamples. All their samples are added to the AllMissingSamplesError
@@ -574,23 +709,8 @@ class DataValidationView(FormView):
                             "warnings"
                         ].append(exc)
 
-        if len(data_added) > 0 and add_autofill_warning:
-            # Add a warning about added data
-            added_warning = MissingDataAdded(
-                addition_notes=data_added, file=self.output_study_filename
-            )
-            self.load_status_data.set_load_exception(
-                added_warning,
-                warning_load_key,
-                top=True,
-                default_is_error=False,
-                default_is_fatal=False,
-            )
-
     def extract_all_missing_samples(self, exc):
-        """Extracts autofill data from the supplied AllMissingSamplesError exception and puts it in self.autofill_dict.
-        The contained missing sample data is in the form of accucor/isocorr column headers, so an attempt is made to
-        remove common appended suffixes, e.g. sample1_pos_scan1.
+        """Extracts autofill data from the supplied AllMissingSamples exception and puts it in self.autofill_dict.
 
         self.autofill_dict = {
             "Samples": {unique_record_key: {header: sample_name}},  # Fills in entries here
@@ -599,27 +719,21 @@ class DataValidationView(FormView):
         }
 
         Args:
-            exc (AllMissingSamplesError): And exception object containing data about missing Samples.
-
+            exc (AllMissingSamples): And exception object containing data about missing Samples.
         Exceptions:
             None
-
         Returns:
             None
         """
-        # Get sample names that are already in the sample sheet (so we can skip them)
-        existing_sample_names = []
-        if self.dfs_dict_is_valid():
-            existing_sample_names = self.dfs_dict[self.SAMPLES_SHEET][
-                self.SAMPLE_HEADS.SAMPLE_NAME
-            ].values()
-
-        for sample_header in exc.missing_samples_dict["all_missing_samples"].keys():
-            sample_name = MSRunsLoader.guess_sample_name(sample_header)
-            if sample_name not in existing_sample_names:
-                self.autofill_dict[self.SAMPLES_SHEET][sample_name] = {
-                    self.SAMPLE_HEADS.SAMPLE_NAME: sample_name
-                }
+        # NOTE: `exc.search_terms` is only a list of sample names because the database query that hit an error was
+        # searching using only the sample name.  In other words, if some other Sample model query were performed (e.g.
+        # using the sample description, or some search for a substring of a sample name), then this will be wrong.  If
+        # there are code changes that cause that to happen, the construction of the exceptions will have to be
+        # refactored.
+        for sample_name in exc.search_terms:
+            self.autofill_dict[SamplesLoader.DataSheetName][sample_name] = {
+                SamplesLoader.DataHeaders.SAMPLE: sample_name
+            }
 
     def extract_all_missing_tissues(self, exc):
         """Extracts autofill data from the supplied AllMissingTissues exception and puts it in self.autofill_dict.
@@ -632,16 +746,19 @@ class DataValidationView(FormView):
 
         Args:
             exc (AllMissingTissues): And exception object containing data about missing Tissues.
-
         Exceptions:
             None
-
         Returns:
             None
         """
-        for mte in exc.missing_tissue_errors:
-            self.autofill_dict[TissuesLoader.DataSheetName][mte.tissue_name] = {
-                TissuesLoader.DataHeaders.NAME: mte.tissue_name
+        # NOTE: `exc.search_terms` is only a list of tissue names because the database query that hit an error was
+        # searching using only the tissue name.  In other words, if some other Tissue model query were performed (e.g.
+        # using the tissue description, or some search for a substring of a tissue name), then this will be wrong.  If
+        # there are code changes that cause that to happen, the construction of the exceptions will have to be
+        # refactored.
+        for tissue_name in exc.search_terms:
+            self.autofill_dict[TissuesLoader.DataSheetName][tissue_name] = {
+                TissuesLoader.DataHeaders.NAME: tissue_name
             }
 
     def extract_all_missing_treatments(self, exc):
@@ -655,16 +772,19 @@ class DataValidationView(FormView):
 
         Args:
             exc (AllMissingTreatments): And exception object containing data about missing Treatments.
-
         Exceptions:
             None
-
         Returns:
             None
         """
-        for mte in exc.missing_treatment_errors:
-            self.autofill_dict[ProtocolsLoader.DataSheetName][mte.treatment_name] = {
-                ProtocolsLoader.DataHeadersExcel.NAME: mte.treatment_name
+        # NOTE: `exc.search_terms` is only a list of treatment names because the database query that hit an error was
+        # searching using only the treatment name.  In other words, if some other Protocol model query were performed
+        # (e.g. using the treatment description, or some search for a substring of a treatment name), then this will be
+        # wrong.  If there are code changes that cause that to happen, the construction of the exceptions will have to
+        # be refactored.
+        for treatment_name in exc.search_terms:
+            self.autofill_dict[ProtocolsLoader.DataSheetName][treatment_name] = {
+                ProtocolsLoader.DataHeadersExcel.NAME: treatment_name
             }
 
     def add_extracted_autofill_data(self):
@@ -681,11 +801,42 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        self.add_autofill_data(self.SAMPLES_SHEET)
-        self.add_autofill_data(TissuesLoader.DataSheetName)
-        self.add_autofill_data(ProtocolsLoader.DataSheetName)
+        # NOTE: If add_autofill_data added data without looking at the existing data, so it could inadvertently add data
+        # that already exists in the file.  So, in order to see if the data already exists, we need to tell
+        # add_autofill_data how to construct the unique key (via the 2nd arg in each of the calls below) to be able to
+        # see if rows already exist or not.  We use a potentially composite key based on the unique column constraints
+        # because there can exist the same individual value multiple times in a column and we do not want to prevent an
+        # add if it adds a unique row).
+        self.add_autofill_data(
+            SamplesLoader.DataSheetName,
+            self.samples_loader.header_keys_to_names(
+                # Specifically selected unique column constraint group - used to find existing rows
+                SamplesLoader.DataUniqueColumnConstraints[0]
+            ),
+        )
+        self.add_autofill_data(
+            TissuesLoader.DataSheetName,
+            self.tissues_loader.header_keys_to_names(
+                # Specifically selected unique column constraint group - used to find existing rows
+                TissuesLoader.DataUniqueColumnConstraints[0]
+            ),
+        )
+        self.add_autofill_data(
+            ProtocolsLoader.DataSheetName,
+            self.treatments_loader.header_keys_to_names(
+                # Specifically selected unique column constraint group - used to find existing rows
+                ProtocolsLoader.DataUniqueColumnConstraints[0]
+            ),
+        )
+        self.add_autofill_data(
+            CompoundsLoader.DataSheetName,
+            self.compounds_loader.header_keys_to_names(
+                # Specifically selected unique column constraint group - used to find existing rows
+                CompoundsLoader.DataUniqueColumnConstraints[0]
+            ),
+        )
 
-    def add_autofill_data(self, sheet):
+    def add_autofill_data(self, sheet, row_key_headers):
         """This method, given a sheet name, adds the data from self.autofill_dict[sheet] to self.dfs_dict[sheet],
         starting at the first empty row.
 
@@ -703,31 +854,53 @@ class DataValidationView(FormView):
         Args:
             sheet (string): The name of the sheet, which is the first key in both the self.autofill_dict and
                 self.dfs_dict.
-
+            row_key_headers (List[str]): These are the headers whose values are used to construct the unique row keys.
+                E.g. The unique row key for the Compounds sheet is "Name".  The value of that key from the autofill_dict
+                is used to see if a row already exists in the dfs_dict where the autofill should occur.  If one doesn't
+                exist, a new row is created.
         Exceptions:
             None
-
         Returns:
             None
         """
         # Get the first row index where we will be adding data (we will be incrementing this)
-        index = self.get_next_row_index(sheet)
-        # We don't need the record keys, so we're going to iterate over the records of new data
-        for sheet_dict in self.autofill_dict[sheet].values():
-            # We're going to iterate over the headers present in the dfs_dict, but we need to keep track is and headers
+        next_empty_index = self.get_next_row_index(sheet)
+        current_last_index = next_empty_index - 1 if next_empty_index > 0 else 0
+        data_added = False
+
+        # Iterate over the records of new data
+        for unique_row_key, sheet_dict in self.autofill_dict[sheet].items():
+
+            # We're going to iterate over the headers present in the dfs_dict, but we need to keep track if any headers
             # in the sheet_dict are absent in the dfs_dict, so we can catch it up after the loop
             headers_present = dict((k, False) for k in sheet_dict.keys())
+
+            # Check to see if this row already exists
+            index = next_empty_index
+            existing_index = self.get_existing_dfs_index(
+                sheet, row_key_headers, unique_row_key
+            )
+            if existing_index is not None:
+                index = existing_index
+
             # For the columns in the sheet (dfs_dict)
             for header in self.dfs_dict[sheet].keys():
                 # If the header is one we're adding data to
                 if header in sheet_dict.keys():
                     # Record that the header was found
                     headers_present[header] = True
-                    # Add the new data  in the next row
-                    self.dfs_dict[sheet][header][index] = sheet_dict[header]
+
+                    # Only fill in the value if it doesn't already have a value.
+                    # Custom-entered values from the user trump autofill.
+                    if self.dfs_dict[sheet][header].get(index) is None:
+                        # Add the new data
+                        self.dfs_dict[sheet][header][index] = sheet_dict[header]
+                        data_added = True
+
                 else:
                     # Fill in the columns we're not adding data to with None
                     self.dfs_dict[sheet][header][index] = None
+
             # Now catch up any columns that were not present
             for missing_header in [
                 h for h, present in headers_present.items() if not present
@@ -735,12 +908,58 @@ class DataValidationView(FormView):
                 # Create the column
                 self.dfs_dict[sheet][missing_header] = {}
                 # Iterate over the missing rows and set them to None
-                for missing_index in range(index):
+                for missing_index in range(current_last_index):
                     self.dfs_dict[sheet][missing_header][missing_index] = None
+
                 # Now set the new row value for the missing column
-                self.dfs_dict[sheet][header][index] = sheet_dict[header]
+                if self.dfs_dict[sheet][header].get(index) is None:
+                    self.dfs_dict[sheet][header][index] = sheet_dict[header]
+                    data_added = True
+
             # Increment the new row number
-            index += 1
+            if existing_index is None:
+                next_empty_index += 1
+
+        if data_added and not self.autofill_only_mode:
+            # Add a warning about added data
+            added_warning = MissingDataAdded(
+                addition_notes=data_added, file=self.output_study_filename
+            )
+            self.load_status_data.set_load_exception(
+                added_warning,
+                "Autofill Note",
+                top=True,
+                default_is_error=False,
+                default_is_fatal=False,
+            )
+
+    def get_existing_dfs_index(self, sheet, row_key_headers, unique_row_key):
+        """This determines if a row already exists in dfs_dict that matches the provided unique_row_key.
+
+        Note, the row_key_headers are used on each row in the dfs_dict to construct its unique key and compare it to the
+        provided unique_row_key.  If no matching row exists, None is returned.
+
+        Args:
+            sheet (str)
+            row_key_headers (List[str])
+            unique_row_key (str)
+        Exceptions:
+            None
+        Returns:
+            index (Optional[int])
+        """
+        first_empty_index = self.get_next_row_index(sheet)
+        if first_empty_index is None:
+            return None
+        for index in range(first_empty_index):
+            # This assumes that the row_key_headers all have values (since they are required keys)
+            cur_row_key = self.row_key_delim.join(
+                [self.dfs_dict[sheet][hdr].get(index, "") for hdr in row_key_headers]
+            )
+            if cur_row_key == unique_row_key:
+                # This assumes that the value combo is unique
+                return index
+        return None
 
     def get_study_sheet_column_display_order(self):
         """Returns a list of lists to specify the sheet and column order of a created study excel file.
@@ -754,16 +973,20 @@ class DataValidationView(FormView):
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
             list of lists of a string (sheet name) and list of strings (column names)
         """
         return [
-            [self.ANIMALS_SHEET, self.animals_ordered_display_headers],
-            [self.SAMPLES_SHEET, self.samples_ordered_display_headers],
+            [
+                AnimalsLoader.DataSheetName,
+                self.animals_loader.get_ordered_display_headers(),
+            ],
+            [
+                SamplesLoader.DataSheetName,
+                self.samples_loader.get_ordered_display_headers(),
+            ],
             [
                 ProtocolsLoader.DataSheetName,
                 self.treatments_loader.get_ordered_display_headers(),
@@ -771,6 +994,10 @@ class DataValidationView(FormView):
             [
                 TissuesLoader.DataSheetName,
                 self.tissues_loader.get_ordered_display_headers(),
+            ],
+            [
+                CompoundsLoader.DataSheetName,
+                self.compounds_loader.get_ordered_display_headers(),
             ],
         ]
 
@@ -787,14 +1014,16 @@ class DataValidationView(FormView):
             (string): Cell location or column letter
         """
         headers = []
-        if sheet == self.ANIMALS_SHEET:
-            headers = self.animals_ordered_display_headers
-        elif sheet == self.SAMPLES_SHEET:
-            headers = self.samples_ordered_display_headers
+        if sheet == AnimalsLoader.DataSheetName:
+            headers = self.animals_loader.get_ordered_display_headers()
+        elif sheet == SamplesLoader.DataSheetName:
+            headers = self.samples_loader.get_ordered_display_headers()
         elif sheet == ProtocolsLoader.DataSheetName:
             headers = self.treatments_loader.get_ordered_display_headers()
         elif sheet == TissuesLoader.DataSheetName:
             headers = self.tissues_loader.get_ordered_display_headers()
+        elif sheet == CompoundsLoader.DataSheetName:
+            headers = self.compounds_loader.get_ordered_display_headers()
         else:
             raise ValueError(f"Invalid sheet: [{sheet}].")
         column_letter = xlsxwriter.utility.xl_col_to_name(headers.index(header))
@@ -809,10 +1038,8 @@ class DataValidationView(FormView):
 
         Args:
             sheet (string): Name of the sheet to get the last row from
-
         Exceptions:
             None
-
         Returns:
             last_index (Optional[int]): None if there are no rows, otherwise the max row index.
         """
@@ -832,15 +1059,13 @@ class DataValidationView(FormView):
         of this method.
 
         Args:
-            version (string) [2]: tracebase study doc version number
-
+            version (string) [3]: tracebase study doc version number
         Exceptions:
-            Exception
-
+            None
         Returns:
             dict of dicts: dataframes-style dicts dict keyed on sheet name
         """
-        if self.animal_sample_file is None:
+        if self.study_file is None:
             return self.create_study_dfs_dict(version=version)
         return self.get_study_dfs_dict(version=version)
 
@@ -857,11 +1082,9 @@ class DataValidationView(FormView):
 
         Args:
             dfs_dict (dict of dicts): Supply this if you want to "fill in" missing sheets only.
-            version (string) [2]: Tracebase study doc version number.
-
+            version (string) [3]: Tracebase study doc version number.
         Exceptions:
             NotImplementedError
-
         Returns:
             dfs_dict (dict of dicts): pandas' style list-dicts keyed on sheet name
         """
@@ -871,10 +1094,8 @@ class DataValidationView(FormView):
             if dfs_dict is None:
                 # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
                 return {
-                    # TODO: Update the animal and sample entries below once the loader has been refactored
-                    # The sample table loader has not yet been refactored/split
-                    self.ANIMALS_SHEET: self.animals_dict,
-                    self.SAMPLES_SHEET: self.samples_dict,
+                    AnimalsLoader.DataSheetName: self.animals_loader.get_dataframe_template(),
+                    SamplesLoader.DataSheetName: self.samples_loader.get_dataframe_template(),
                     ProtocolsLoader.DataSheetName: self.treatments_loader.get_dataframe_template(
                         populate=True,
                         filter={"category": Protocol.ANIMAL_TREATMENT},
@@ -882,27 +1103,36 @@ class DataValidationView(FormView):
                     TissuesLoader.DataSheetName: self.tissues_loader.get_dataframe_template(
                         populate=True
                     ),
+                    CompoundsLoader.DataSheetName: self.compounds_loader.get_dataframe_template(),
                 }
 
             if (
-                self.ANIMALS_SHEET in dfs_dict.keys()
-                and len(dfs_dict[self.ANIMALS_SHEET].keys()) > 0
+                AnimalsLoader.DataSheetName in dfs_dict.keys()
+                and len(dfs_dict[AnimalsLoader.DataSheetName].keys()) > 0
             ):
                 self.fill_in_missing_columns(
-                    dfs_dict, self.ANIMALS_SHEET, self.animals_dict
+                    dfs_dict,
+                    AnimalsLoader.DataSheetName,
+                    self.animals_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[self.ANIMALS_SHEET] = self.animals_dict
+                dfs_dict[AnimalsLoader.DataSheetName] = (
+                    self.animals_loader.get_dataframe_template()
+                )
 
             if (
-                self.SAMPLES_SHEET in dfs_dict.keys()
-                and len(dfs_dict[self.SAMPLES_SHEET].keys()) > 0
+                SamplesLoader.DataSheetName in dfs_dict.keys()
+                and len(dfs_dict[SamplesLoader.DataSheetName].keys()) > 0
             ):
                 self.fill_in_missing_columns(
-                    dfs_dict, self.SAMPLES_SHEET, self.samples_dict
+                    dfs_dict,
+                    SamplesLoader.DataSheetName,
+                    self.samples_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[self.SAMPLES_SHEET] = self.samples_dict
+                dfs_dict[SamplesLoader.DataSheetName] = (
+                    self.samples_loader.get_dataframe_template()
+                )
 
             if ProtocolsLoader.DataSheetName in dfs_dict.keys():
                 self.fill_in_missing_columns(
@@ -926,6 +1156,17 @@ class DataValidationView(FormView):
                     self.tissues_loader.get_dataframe_template(populate=True)
                 )
 
+            if CompoundsLoader.DataSheetName in dfs_dict.keys():
+                self.fill_in_missing_columns(
+                    dfs_dict,
+                    CompoundsLoader.DataSheetName,
+                    self.compounds_loader.get_dataframe_template(),
+                )
+            else:
+                dfs_dict[CompoundsLoader.DataSheetName] = (
+                    self.compounds_loader.get_dataframe_template()
+                )
+
             return dfs_dict
 
         raise NotImplementedError(
@@ -945,10 +1186,8 @@ class DataValidationView(FormView):
             sheet (string): Name of the sheet key in the dfs_dict that the template corresponds to.  The sheet is
                 assumed to be present as a key in dfs_dict.
             tamplate (dict of dicts): A dict containing all of the expected columns (the values are not used).
-
         Exceptions:
             None
-
         Returns:
             None
         """
@@ -966,206 +1205,14 @@ class DataValidationView(FormView):
             # No need to change anything if nothing was missing
             dfs_dict[sheet] = sheet_dict
 
-    @property
-    def animals_dict(self):
-        """Property to return an empty dict template for the Animals sheet.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            dict of empty dicts keyed on header
-        """
-        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return dict((h, {}) for h in self.animals_ordered_display_headers)
-
-    @property
-    def animals_ordered_display_headers(self):
-        """Property to return the ordered Animals sheet headers intended to be included in the template.
-
-        Headers may be a subset of those in self.animals_dict.
-
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            list of strings
-        """
-        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return [
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_AGE,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_SEX,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_GENOTYPE,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_TREATMENT,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_WEIGHT,
-            SampleTableLoader.DefaultSampleTableHeaders.INFUSATE,
-            SampleTableLoader.DefaultSampleTableHeaders.TRACER_CONCENTRATIONS,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_INFUSION_RATE,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_DIET,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_FEEDING_STATUS,
-            SampleTableLoader.DefaultSampleTableHeaders.STUDY_NAME,
-            SampleTableLoader.DefaultSampleTableHeaders.STUDY_DESCRIPTION,
-        ]
-
-    @property
-    def animals_sheet_metadata(self):
-        """Property to return metadata about the excel column.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            namedtuple (AnimalColumns) of TableColumns
-        """
-        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return self.AnimalColumns(
-            ANIMAL_NAME=TableColumn.init_flat(
-                field=Animal.name,
-                reference=ColumnReference(
-                    header=self.SAMPLE_HEADS.ANIMAL_NAME,
-                    sheet=self.SAMPLES_SHEET,
-                ),
-            ),
-            ANIMAL_AGE=TableColumn.init_flat(
-                field=Animal.age,
-                format="Units: weeks (integer or decimal).",
-            ),
-            ANIMAL_SEX=TableColumn.init_flat(field=Animal.sex),
-            ANIMAL_GENOTYPE=TableColumn.init_flat(field=Animal.genotype),
-            ANIMAL_WEIGHT=TableColumn.init_flat(field=Animal.body_weight),
-            INFUSATE=TableColumn.init_flat(
-                field=Animal.age,
-                guidance=(
-                    "Individual tracer compounds will be formatted: compound_name-[weight element count,weight "
-                    "element count]\nexample: valine-[13C5,15N1]\n"
-                    "\n"
-                    "Mixtures of compounds will be formatted: tracer_group_name {tracer; tracer}\n"
-                    "example:\n"
-                    "BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}"
-                ),
-            ),
-            TRACER_CONCENTRATIONS=TableColumn.init_flat(
-                field=InfusateTracer.concentration,
-                guidance=(
-                    f"Multiple tracers in a single {self.SAMPLE_HEADS.INFUSATE} should have "
-                    f"{self.SAMPLE_HEADS.TRACER_CONCENTRATIONS} specified as a semi-colon delimited list in the "
-                    f"same order and cardinality as the list of tracers in the {self.SAMPLE_HEADS.INFUSATE} column."
-                ),
-            ),
-            ANIMAL_INFUSION_RATE=TableColumn.init_flat(field=Animal.infusion_rate),
-            ANIMAL_DIET=TableColumn.init_flat(field=Animal.diet),
-            ANIMAL_FEEDING_STATUS=TableColumn.init_flat(
-                field=Animal.feeding_status,
-                guidance=(
-                    "Any value can be entered, despite the list of choices.  Indicate length of fasting/feeding in "
-                    f"'{self.SAMPLE_HEADS.STUDY_DESCRIPTION}'."
-                ),
-                static_choices=[
-                    ("fasted", "fasted"),
-                    ("fed", "fed"),
-                    ("refed", "refed"),
-                ],
-            ),
-            ANIMAL_TREATMENT=TableColumn.init_flat(field=Animal.treatment),
-            STUDY_NAME=TableColumn.init_flat(field=Study.name),
-            STUDY_DESCRIPTION=TableColumn.init_flat(field=Study.description),
-        )
-
-    @property
-    def samples_dict(self):
-        """Property to return an empty dict template for the Samples sheet.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            dict of empty dicts keyed on header.
-        """
-        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return dict((h, {}) for h in self.samples_ordered_display_headers)
-
-    @property
-    def samples_ordered_display_headers(self):
-        """Property to return the ordered Samples sheet headers intended to be included in the template.
-
-        Headers may be a subset of those in self.samples_dict.
-
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            list of strings (headers)
-        """
-        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return [
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME,
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_DATE,
-            SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_RESEARCHER,
-            SampleTableLoader.DefaultSampleTableHeaders.TISSUE_NAME,
-            SampleTableLoader.DefaultSampleTableHeaders.TIME_COLLECTED,
-            SampleTableLoader.DefaultSampleTableHeaders.ANIMAL_NAME,
-        ]
-
-    @property
-    def samples_sheet_metadata(self):
-        """Property to return metadata about the excel column.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            namedtuple (SampleColumns) of TableColumns
-        """
-        # TODO: Eliminate this property once the sample table loader is split and inherits from TableLoader
-        return self.SampleColumns(
-            SAMPLE_NAME=TableColumn.init_flat(
-                field=Sample.name,
-                guidance=(
-                    "MUST match the sample names in the peak annotation file, minus any appended suffixes (e.g. "
-                    "'_pos')."
-                ),
-            ),
-            SAMPLE_DATE=TableColumn.init_flat(
-                field=Sample.date,
-                format="Format: YYYY-MM-DD.",
-            ),
-            SAMPLE_RESEARCHER=TableColumn.init_flat(
-                name=self.SAMPLE_HEADS.SAMPLE_RESEARCHER,
-                help_text="Name of researcher who collected the sample.",
-            ),
-            TISSUE_NAME=TableColumn.init_flat(
-                field=Sample.tissue,
-                reference=ColumnReference(
-                    loader_class=TissuesLoader,
-                    loader_header_key=TissuesLoader.NAME_KEY,
-                ),
-            ),
-            TIME_COLLECTED=TableColumn.init_flat(
-                field=Sample.time_collected,
-                format="Units: minutes.",
-            ),
-            ANIMAL_NAME=TableColumn.init_flat(
-                field=Sample.animal,
-                reference=ColumnReference(
-                    header=self.SAMPLE_HEADS.ANIMAL_NAME,
-                    sheet=self.ANIMALS_SHEET,
-                ),
-            ),
-        )
-
     def get_study_dfs_dict(self, version=default_version):
-        """Read in each sheet in self.animal_sample_file as a dict of dicts keyed on sheet (filling in any missing
-        sheets and columns).
+        """Read in each sheet in self.study_file as a dict of dicts keyed on sheet (filling in any missing sheets and
+        columns).
 
         Args:
-            version (string) [2]: tracebase study doc version number
-
+            version (string) [3]: tracebase study doc version number
         Exceptions:
             NotImplementedError
-
         Returns:
             dfs_dict (dict of dicts): pandas-style dicts dict keyed on sheet name
         """
@@ -1173,7 +1220,7 @@ class DataValidationView(FormView):
             f"{self.default_version}."
         ):
             dict_of_dataframes = read_from_file(
-                self.animal_sample_file, sheet=None, dtype=self.get_study_dtypes_dict()
+                self.study_file, sheet=None, dtype=self.get_study_dtypes_dict()
             )
 
             # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
@@ -1195,11 +1242,13 @@ class DataValidationView(FormView):
         """Retrieve the dtype data for each sheet.
 
         Args:
-            version (string) [2]: tracebase study doc version number
+            version (string) [3]: tracebase study doc version number
 
         Exceptions:
-            NotImplementedError
-
+            Raises:
+                NotImplementedError
+            Buffers:
+                None
         Returns:
             dtypes (Dict[str, Dict[str, type]]): dtype dicts keyed by sheet name
         """
@@ -1207,15 +1256,11 @@ class DataValidationView(FormView):
             f"{self.default_version}."
         ):
             return {
-                # TODO: Update the animal and sample entries below once the loader has been refactored
-                # The sample table loader has not yet been refactored/split
-                self.ANIMALS_SHEET: {
-                    self.SAMPLE_HEADS.ANIMAL_NAME: str,
-                    self.SAMPLE_HEADS.ANIMAL_TREATMENT: str,
-                },
-                self.SAMPLES_SHEET: {self.SAMPLE_HEADS.ANIMAL_NAME: str},
+                AnimalsLoader.DataSheetName: self.animals_loader.get_column_types(),
+                SamplesLoader.DataSheetName: self.samples_loader.get_column_types(),
                 ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(),
                 TissuesLoader.DataSheetName: self.tissues_loader.get_column_types(),
+                CompoundsLoader.DataSheetName: self.compounds_loader.get_column_types(),
             }
         raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
@@ -1273,246 +1318,21 @@ class DataValidationView(FormView):
     # No need to disable autoupdates adding the @no_autoupdates decorator to this function because supplying
     # `validate=True` automatically disables them
     def validate_study(self):
-        tmpdir_obj = tempfile.TemporaryDirectory()
-        tmpdir = tmpdir_obj.name
-
-        # TODO: create_yaml() *could* raise ValueError or KeyError if the required sample file is not provided or if 2
-        # accucor/isocorr files have the same name, but there should be checks on the submitted form data in the Django
-        # form which should call form_invalid in those cases, so instead of adding a graceful exception to the user
-        # *here* to catch those cases, add those checks to the form validation.  Check that the required sample file is
-        # provided and that none of the accucor/isocorr files have the same name)
-        yaml_file = self.create_yaml(tmpdir)
-
         load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
         try:
-            call_command(
-                "load_study",
-                yaml_file,
-                validate=True,
-                verbosity=3,
-                skip_cache_updates=True,
-            )
+            StudyLoader(
+                file=self.study_file,
+                filename=self.study_filename,
+                _validate=True,
+                annot_files_dict=self.annot_files_dict,
+            ).load_data()
         except MultiLoadStatus as mls:
             load_status_data = mls
-
-        tmpdir_obj.cleanup()
 
         self.load_status_data = load_status_data
 
         return self.load_status_data.is_valid
-
-    def create_yaml(self, tmpdir):
-        basic_loading_data = {
-            # TODO: Add the ability for the validation interface to take tissues, compounds, & a separate protocols file
-            # The following are placeholders - Not yet supported by the validation view
-            #   "tissues": "tissues.tsv",
-            #   "compounds": "compounds.tsv",
-            # The following placeholders are added by add_sample_data() if an animal sample table is provided
-            #   "protocols": None,
-            #   "animals_samples_treatments": {
-            #       "table": None,
-            #       "skip_researcher_check": False,
-            #   },
-            "accucor_data": {
-                "accucor_files": [
-                    # {
-                    #     "name": None,  # Added by self.add_ms_data()
-                    #     "isocorr_format": False,  # Set by self.add_ms_data()
-                    # },
-                ],
-                "lc_protocol": LCMethod.create_name(),
-                "instrument": MSRunSequence.INSTRUMENT_DEFAULT,
-                "date": "1972-11-24",
-                "researcher": Researcher.RESEARCHER_DEFAULT,
-                "new_researcher": False,
-            },
-        }
-
-        # Going to use a temp directory so we can report the user's given file names (not the randomized name supplied
-        # by django forms)
-        self.add_sample_data(basic_loading_data, tmpdir)
-        self.add_ms_data(
-            basic_loading_data,
-            tmpdir,
-            self.accucor_files,
-            self.accucor_filenames,
-            False,
-        )
-        self.add_ms_data(
-            basic_loading_data, tmpdir, self.isocorr_files, self.isocorr_filenames, True
-        )
-
-        loading_yaml = os.path.join(tmpdir, "loading.yaml")
-
-        with open(loading_yaml, "w") as file:
-            yaml.dump(basic_loading_data, file)
-
-        return loading_yaml
-
-    def add_sample_data(self, basic_loading_data, tmpdir):
-        if self.animal_sample_file is None:
-            # The animal sample file is optional
-            return
-
-        form_sample_file_path = self.animal_sample_file
-
-        # The django form gives a random file name, but the user's name is available.  Here, we're supporting with or
-        # without the user's file name to support tests that don't use a randomized temp file.
-        if self.animal_sample_filename:
-            sf = self.animal_sample_filename
-        else:
-            # This is for non-random file names (e.g. for the test code)
-            sf = os.path.basename(form_sample_file_path)
-
-        # To associate the file with the yaml file created in the temp directory, we must copy it
-        sfp = os.path.join(tmpdir, str(sf))
-        shutil.copyfile(form_sample_file_path, sfp)
-
-        basic_loading_data["protocols"] = sfp
-        basic_loading_data["animals_samples_treatments"] = {
-            "table": sfp,
-            "skip_researcher_check": False,
-        }
-
-    def add_ms_data(self, basic_loading_data, tmpdir, files, filenames, is_isocorr):
-        for i, form_file_path in enumerate(files):
-            if len(files) == len(filenames):
-                fn = filenames[i]
-            else:
-                # This is for non-random file names (e.g. for the test code)
-                fn = os.path.basename(form_file_path)
-
-            fp = os.path.join(tmpdir, str(fn))
-            shutil.copyfile(form_file_path, fp)
-
-            if fn in [
-                dct["name"]
-                for dct in basic_loading_data["accucor_data"]["accucor_files"]
-            ]:
-                ft = "Isocorr" if is_isocorr else "Accucor"
-                raise KeyError(
-                    f"{ft} filename conflict: {fn}.  All Accucor/Isocorr file names must be unique."
-                )
-
-            basic_loading_data["accucor_data"]["accucor_files"].append(
-                {
-                    "name": fp,
-                    "isocorr_format": is_isocorr,
-                }
-            )
-
-    # TODO: If this still exists and is unused once the study submission refactor is done, delete it.
-    def build_lcms_dict(
-        self,
-        peak_annot_sample_headers,
-        peak_annot_file_name,
-        sample_suffixes=None,
-    ):
-        """Build a partial LCMS metadata dict keyed on the headers and containing dicts keyed on the headers of an LCMS
-        file.
-
-        Args:
-            peak_annot_sample_headers (list of strings): Sample headers (including blanks) parsed from the accucor or
-                isocorr file
-            peak_annot_file_name (string): And accucor or isocorr file name without the path
-            sample_suffixes (list of raw strings): Regular expressions of suffix strings found at the end of a peak
-                annotation file sample header (e.g. "_pos")
-
-        Exceptions:
-            ProgrammingError
-
-        Returns:
-            lcms_dict
-        """
-
-        # Initialize the dict we'll be returning
-        lcms_dict = defaultdict(dict)
-        # Keep track of duplicate sample headers
-        dupe_headers = defaultdict(lambda: defaultdict(list))
-
-        # Traverse the headers and built the dict
-        for peak_annot_sample_header in peak_annot_sample_headers:
-            # The tracebase sample name is the header with manually (and repeatedly) added suffixes removed
-            # This is a heuristic.  It is not perfect.  If may be possible to allow the user to enter them in the form
-            # in the future, but for now, this uses the common ones.
-            db_sample_name = MSRunsLoader.guess_sample_name(
-                peak_annot_sample_header,
-                suffix_patterns=sample_suffixes,
-                add_patterns=True,
-            )
-
-            # If we've already seen this header, it is a duplicate
-            if peak_annot_sample_header in dupe_headers.keys():
-                dupe_headers[peak_annot_sample_header][peak_annot_file_name] += 1
-            elif peak_annot_sample_header in lcms_dict.keys():
-                dupe_headers[peak_annot_sample_header][peak_annot_file_name] = 2
-            else:
-                lcms_dict[peak_annot_sample_header] = {
-                    "sort level": 0,
-                    LCMS_DB_SAMPLE_HDR: db_sample_name,
-                    LCMS_FL_SAMPLE_HDR: peak_annot_sample_header,
-                    LCMS_PEAK_ANNOT_HDR: peak_annot_file_name,
-                }
-
-        # Add individual errors to be added as cell comments to the excel file.
-        # Represent duplicate headers as errors in the column values, for the user to manually address
-        all_dup_errs = []
-        for duph in dupe_headers.keys():
-            lcms_dict[duph]["sort level"] = 1
-            lcms_dict[duph]["error"] = NonUniqueSampleDataHeader(
-                duph, dupe_headers[duph]
-            )
-            all_dup_errs.append(lcms_dict[duph]["error"])
-
-        # Errors for reporting on the web page
-        if len(all_dup_errs) > 0:
-            # TODO: If this is added to the results, this error should be passed to the template
-            self.lcms_build_errors = NonUniqueSampleDataHeaders(all_dup_errs)
-
-        return lcms_dict
-
-    # TODO: If this still exists and is unused once the study submission refactor is done, delete it.
-    @classmethod
-    def lcms_dict_to_tsv_string(cls, lcms_dict):
-        """Takes the lcms_dict and creates a string of (destined to be) file content.
-
-        It includes a header line and the following lines are sorted by the state of the row (full, missing, and various
-        types of errors), then by accucor and sample.
-
-        Args:
-            lcms_dict (defaultdict(dict(str))): The keys of the outer dict are not included in the output, but the keys
-                of the inner dict are the column headers.
-
-        Exceptions:
-            None
-
-        Returns:
-            lcms_data (string): The eventual content of an lcms file, including headers
-        """
-        headers = [
-            LCMS_DB_SAMPLE_HDR,
-            LCMS_FL_SAMPLE_HDR,
-            LCMS_PEAK_ANNOT_HDR,
-        ]
-        lcms_data = "\t".join(headers) + "\n"
-        for key in dict(
-            sorted(
-                lcms_dict.items(),
-                key=lambda x: (
-                    x[1][
-                        "sort level"
-                    ],  # This sorts erroneous and missing data to the bottom
-                    x[1][LCMS_PEAK_ANNOT_HDR],  # Then sort by accucor file name
-                    x[1][LCMS_FL_SAMPLE_HDR],  # Then by sample (header)
-                ),
-            )
-        ).keys():
-            lcms_data += (
-                "\t".join(map(lambda head: lcms_dict[key][head], headers)) + "\n"
-            )
-
-        return lcms_data
 
     def create_study_file_writer(self, stream_obj: BytesIO):
         """Returns an xlsxwriter for an excel file created from the self.dfs_dict.
@@ -1564,7 +1384,8 @@ class DataValidationView(FormView):
         return xlsxwriter
 
     def dfs_dict_is_valid(self):
-        """This determines whether self.dfs_dict is correctly populated.
+        """This determines whether self.dfs_dict is correctly structured (not populated), e.g. all required headers are
+        present.
 
         Args:
             None
@@ -1582,48 +1403,24 @@ class DataValidationView(FormView):
         ) < len(self.get_study_sheet_column_display_order()):
             return False
 
-        missing_treat_heads, _ = self.treatments_loader.get_missing_headers(
-            self.dfs_dict[ProtocolsLoader.DataSheetName].keys()
-        )
-        missing_tiss_heads, _ = self.tissues_loader.get_missing_headers(
-            self.dfs_dict[TissuesLoader.DataSheetName].keys()
-        )
-
         return (
             # Required headers present in each sheet
-            self.SAMPLE_HEADS.SAMPLE_NAME in self.dfs_dict[self.SAMPLES_SHEET].keys()
-            and self.SAMPLE_HEADS.ANIMAL_NAME
-            in self.dfs_dict[self.ANIMALS_SHEET].keys()
-            and missing_treat_heads is None
-            and missing_tiss_heads is None
-        )
-
-    def get_animal_header_metadata(self):
-        """Returns a dict keyed on current animal headers, whose values are ColumnHeader objects.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            dict of ColumnHeaders keyed on column names
-        """
-        return dict(
-            (getattr(self.SAMPLE_HEADS, hk), v.header)
-            for hk, v in self.animals_sheet_metadata._asdict().items()
-        )
-
-    def get_sample_header_metadata(self):
-        """Returns a dict keyed on current sample headers, whose values are ColumnHeader objects.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            dict of ColumnHeaders keyed on column names
-        """
-        return dict(
-            (getattr(self.SAMPLE_HEADS, hk), v.header)
-            for hk, v in self.samples_sheet_metadata._asdict().items()
+            SamplesLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[SamplesLoader.DataSheetName])
+            ).check_dataframe_headers()
+            and AnimalsLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[AnimalsLoader.DataSheetName])
+            ).check_dataframe_headers()
+            and TissuesLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[TissuesLoader.DataSheetName])
+            ).check_dataframe_headers()
+            and ProtocolsLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[ProtocolsLoader.DataSheetName]),
+                headers=ProtocolsLoader.DataHeadersExcel,
+            ).check_dataframe_headers()
+            and CompoundsLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[CompoundsLoader.DataSheetName])
+            ).check_dataframe_headers()
         )
 
 

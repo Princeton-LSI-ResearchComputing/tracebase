@@ -40,7 +40,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
         self.assertEqual(exp_fmt, fmt)
         self.assertEqual(exp_file, file)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
@@ -55,7 +56,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(exp_fmt, fmt)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
@@ -71,7 +73,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(exp_fmt, fmt)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
@@ -85,8 +88,9 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
         self.assertIsNone(fmt)
+        self.assertEqual("study.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
         self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)
@@ -103,7 +107,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("small_cor.csv", name)
         self.assertEqual(exp_file, file)
         self.assertIsNone(fmt)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
@@ -213,13 +218,15 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
             file="DataRepo/data/tests/small_obob/study.xlsx"
         )
         file = "DataRepo/data/tests/small_obob2/obob_maven_c160_inf.xlsx"
-        row = pd.Series(
-            {
-                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: "Dick, polar-HILIC-25-min, QE2, 1991-5-7"
-            }
-        )
         fmt = "accucor"
-        pafl.load_peak_annotations(row, file, fmt)
+        pafl.load_peak_annotations(
+            file,
+            fmt,
+            operator="Dick",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="QE2",
+            date="1991-5-7",
+        )
 
         self.assert_test_peak_annotations_loaded()
 
@@ -286,3 +293,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl.load_data()
 
         self.assert_test_peak_annotations_loaded()
+
+    def test_get_default_sequence_details(self):
+        # TODO: Implement test
+        pass

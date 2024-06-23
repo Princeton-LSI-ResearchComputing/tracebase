@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Dict, List, Optional
@@ -243,12 +244,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
                 extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -273,6 +275,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     (when it has a default for the instrument column for the Sequences sheet).
                 date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
                     with defaults_df (when it has a default for the date column for the Sequences sheet).
+                filename (Optional[str]): In case the (superclass arg) "file" is a temp file with a nonsense name.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -383,7 +386,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.msrun_sample_dict = {}
         if self.peak_annotation_details_df is not None:
             self.msrun_sample_dict = self.msrunsloader.get_loaded_msrun_sample_dict(
-                peak_annot_file=self.file
+                peak_annot_file=self.friendly_file  # The name in the sheet will be the friendly one
             )
             # Keep track of what has been retrieved
             for sh in self.msrun_sample_dict.keys():
@@ -516,10 +519,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Get or create the ArchiveFile record for the mzXML
         try:
             rec_dict = {
-                # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "is_binary": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+                "filename": os.path.basename(
+                    self.friendly_file
+                ),  # In case file is a temp file with a nonsense name
                 "file_location": self.file,  # Intentionally a string and not a File object
                 "data_type": DataType.objects.get(code="ms_peak_annotation"),
                 "data_format": DataFormat.objects.get(code=self.format_code),
@@ -567,22 +572,29 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     RecordDoesNotExist(
                         Compound,
                         Compound.get_name_query_expression(name),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         column=self.headers.COMPOUND,
                         rownum=self.rownum,
                     ),
                     orig_exception=cmpderr,
                 )
+                # Appending so that not only the skip count can be updated, but so the build-a-submission interface can
+                # associate a delimited name with whether the record was found of not
+                recs.append(None)
 
         pgname = None
         if len(recs) > 0:
-            # Set the peak group name to the sorted primary compound names, delimited by "/"
-            pgname = self.CompoundNamesDelimiter.join(
-                [r.name for r in sorted(recs, key=lambda r: r.name)]
-            )
+            if None in recs:
+                # Cannot set the name based on the records when they contain a None value.  There will be an error
+                # anyway, so just set the name from the column.
+                pgname = name_str
+            else:
+                recs = sorted(recs, key=lambda rec: rec.name)
+                # Set the peak group name to the sorted primary compound names, delimited by "/"
+                pgname = self.CompoundNamesDelimiter.join([r.name for r in recs])
 
-        return pgname, sorted(recs, key=lambda rec: rec.name)
+        return pgname, recs
 
     @transaction.atomic
     def get_or_create_peak_group(self, row, peak_annot_file, pgname):
@@ -642,7 +654,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 self.aggregated_errors_object.buffer_error(
                     NoTracers(
                         msrun_sample.sample.animal,
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -717,7 +729,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     Sample,
                     query_dict,
                     suggestion=self.missing_msrs_suggestion,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=self.headers.SAMPLEHEADER,
                     rownum=self.rownum,
@@ -740,7 +752,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     # missing MSRunSample record
                     {"sample__name": sample_header},
                     suggestion=self.missing_msrs_suggestion,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=self.headers.SAMPLEHEADER,
                     rownum=self.rownum,
@@ -800,7 +812,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     MSRunSample,
                     query_dict,
                     suggestion=self.missing_msrs_suggestion,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=self.headers.SAMPLEHEADER,
                     rownum=self.rownum,
@@ -822,7 +834,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     self.aggregated_errors_object.buffer_error(
                         InfileError(
                             str(e),
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                             rownum=self.rownum,
                         ),
@@ -844,7 +856,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         Args:
             pgrec (Optional[PeakGroup])
-            cmpd_rec (Compound)
+            cmpd_rec (Optional[Compound])
         Exceptions:
             Buffers:
                 None
@@ -857,7 +869,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         created = False
         rec = None
 
-        if pgrec is None or self.is_skip_row():
+        if pgrec is None or cmpd_rec is None or self.is_skip_row():
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
             self.skipped(PeakGroupCompound.__name__)
@@ -868,7 +880,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         except NoTracerLabeledElements as ntle:
             # Add infile context to the exception
             ntle.set_formatted_message(
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 column=self.headers.COMPOUND,
                 rownum=self.rownum,
@@ -992,7 +1004,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # For the exceptions below (for convenience)
         infile_err_args = {
-            "file": self.file,
+            "file": self.friendly_file,
             "sheet": self.sheet,
             "rownum": self.rownum,
             "column": self.headers.ISOTOPELABEL,
@@ -1203,8 +1215,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 UnexpectedSamples(
                     unexpected_samples,
                     suggestion=(
-                        f"Make sure that the {self.headers.SAMPLEHEADER}s whose peak annotation file is '{self.file}' "
-                        f"in the {self.msrunsloader.DataSheetName} sheet/file is correct."
+                        f"Make sure that the {self.headers.SAMPLEHEADER}s whose peak annotation file is "
+                        f"'{self.friendly_file}' in the {self.msrunsloader.DataSheetName} sheet/file is correct."
                     ),
                 )
             )

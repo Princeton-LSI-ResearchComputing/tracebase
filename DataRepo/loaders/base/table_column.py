@@ -104,6 +104,7 @@ class ColumnHeader:
         guidance: Optional[str] = None,
         format: Optional[str] = None,
         reference: Optional[ColumnReference] = None,
+        dynamic_choices: Optional[ColumnReference] = None,
         # ColumnHeader arguments set by field, but can be supplied (e.g. if None or to override)
         help_text: Optional[str] = None,
         required: Optional[bool] = None,
@@ -172,6 +173,7 @@ class ColumnHeader:
         self.guidance = guidance
         self.reference = reference
         self.unique = unique
+        self.dynamic_choices = dynamic_choices
 
     @property
     def comment(self):
@@ -208,6 +210,13 @@ class ColumnHeader:
             if comment != "":
                 comment += "\n\n"
             comment += f"Must match a value in column '{self.reference.header}' in sheet: {self.reference.sheet}."
+        if self.dynamic_choices is not None:
+            if comment != "":
+                comment += "\n\n"
+            comment += (
+                f"Select a '{self.name}' from the dropdowns in this column.  The dropdowns are populated by the "
+                f"'{self.dynamic_choices.header}' column in the {self.dynamic_choices.sheet} sheet."
+            )
         if self.unique is not None and self.unique:
             if comment != "":
                 comment += "\n\n"
@@ -394,6 +403,8 @@ class TableColumn:
                 # Set by field (but provided for overriding)
                 help_text=help_text,
                 required=header_required,
+                # adds a note about where the drop-down contents come from
+                dynamic_choices=dynamic_choices,
             ),
             value=ColumnValue(
                 field=field,
