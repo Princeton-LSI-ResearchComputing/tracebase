@@ -163,15 +163,7 @@ class AnimalsLoader(TableLoader):
                 "Note that the drop-downs are populated by existing values in the database, to encourage consistency.  "
                 "You may add new values."
             ),
-            static_choices=[
-                (fs, fs)
-                for fs in list(
-                    # NOTE: Not sure what would happen if there are no animal records - did not test that
-                    Animal.objects.order_by("feeding_status")
-                    .values_list("feeding_status", flat=True)
-                    .distinct("feeding_status")
-                )
-            ],
+            current_choices=True,
         ),
         INFUSATE=TableColumn.init_flat(
             name=DataHeaders.INFUSATE,

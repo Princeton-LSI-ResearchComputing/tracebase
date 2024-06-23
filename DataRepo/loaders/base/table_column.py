@@ -4,6 +4,7 @@ from typing import List, Optional
 from django.db.models import Field
 
 from DataRepo.utils.exceptions import (
+    ConditionallyRequiredArgs,
     ConditionallyRequiredOptions,
     MutuallyExclusiveOptions,
 )
@@ -245,6 +246,7 @@ class ColumnValue:
         type: Optional[type] = str,
         static_choices: Optional[List[tuple]] = None,
         dynamic_choices: Optional[ColumnReference] = None,
+        current_choices: bool = False,
         unique: Optional[bool] = None,
         formula: Optional[str] = None,
     ):
@@ -256,10 +258,12 @@ class ColumnValue:
             required (bool): Whether a value is required to be present.  Derived from field.blank, but can be
                 overridden.
             type (type) [str]: The type of data expected in the excel column.
-            static_choices (list of tuples): (Will be) used to populate a drop-down list.  Derived from the model field,
-                but can be overridden.
+            static_choices (Optional[List[tuple]|Callable[[], List[tuple]]]): (Will be) used to populate a drop-down
+                list.  Derived from the model field, but can be overridden.
             dynamic_choices (ColumnReference): (Will be) used to populate a drop-down list using the contents of a
                 column in another sheet.  Overrides static_choices.
+            current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
+                Requires field to be supplied.
             unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
                 overridden.
             formula (string): Excel formula to use to populate the column.
@@ -270,27 +274,42 @@ class ColumnValue:
         Returns:
             instance
         """
+        self.model = None
+        self.field = None
         if field is not None:
             # Convert to the class
-            field = field.field
+            self.field = field.field
+            self.model = field.field.model
 
             # Handle overrides and unset/missing attributes.  If anything is invalid, it should be caught downstream.
-            if hasattr(field, "unique") and field.unique is not None and unique is None:
-                unique = field.unique
             if (
-                hasattr(field, "default")
-                and field.default is not None
+                hasattr(self.field, "unique")
+                and self.field.unique is not None
+                and unique is None
+            ):
+                unique = self.field.unique
+            if (
+                hasattr(self.field, "default")
+                and self.field.default is not None
                 and default is None
             ):
-                default = field.default
-            if hasattr(field, "blank") and field.blank is not None and required is None:
-                required = not field.blank
+                default = self.field.default
             if (
-                hasattr(field, "choices")
-                and field.choices is not None
+                hasattr(self.field, "blank")
+                and self.field.blank is not None
+                and required is None
+            ):
+                required = not self.field.blank
+            if (
+                hasattr(self.field, "choices")
+                and self.field.choices is not None
                 and static_choices is None
             ):
-                static_choices = field.choices
+                static_choices = self.field.choices
+        elif current_choices:
+            raise ConditionallyRequiredArgs(
+                "ColumnValue requires a field argument if current_choices is True"
+            )
 
         # Default values
         if required is None:
@@ -300,11 +319,42 @@ class ColumnValue:
 
         self.default = default
         self.required = required
-        self.static_choices = static_choices
+        self._static_choices = static_choices
         self.dynamic_choices = dynamic_choices
+        self.current_choices = current_choices
         self.type = type
         self.unique = unique
         self.formula = formula
+
+    @property
+    def static_choices(self):
+        """Made this into a property to support "current_choices".
+
+        This data could not be compiled during the instantiation of an object because the migrations check ends up
+        evaluating classes that use a TableColumn object as a value of class attributes, which causes a database query
+        to try to execute before the database is setup.  This property avoids that situation.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            choices (List[tuple])
+        """
+        choices = self._static_choices
+        if self.current_choices:
+            fldnm = self.field.name
+            choices = [
+                (fs, fs)
+                for fs in list(
+                    self.model.objects.order_by(fldnm)
+                    .values_list(fldnm, flat=True)
+                    .distinct(fldnm)
+                )
+            ]
+            if len(choices) == 0:
+                choices = None
+        return choices
 
 
 class TableColumn:
@@ -369,6 +419,7 @@ class TableColumn:
         default=None,
         value_required: Optional[bool] = None,
         static_choices: Optional[List[tuple]] = None,
+        current_choices: bool = False,
     ):
         """Alternate TableColumn constructor.  (This is the pythonic was to implement multiple constructors.)
         Args:
@@ -387,6 +438,7 @@ class TableColumn:
             default (object): A default value for the column.
             value_required (bool): Whether every cell must have a value (derived from field).
             static_choices (list of tuples): Possible values in the column (derived from field).
+            current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
         Exceptions:
             None
         Returns:
@@ -416,6 +468,7 @@ class TableColumn:
                 default=default,
                 required=value_required,
                 static_choices=static_choices,
+                current_choices=current_choices,
             ),
             readonly=readonly,
         )
