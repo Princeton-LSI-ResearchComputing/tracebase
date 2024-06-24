@@ -10,7 +10,9 @@ from DataRepo.loaders import ProtocolsLoader, TissuesLoader
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
+from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
+from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Protocol, Tissue
@@ -143,6 +145,20 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
                 "Tracer Name": {},
+            },
+            "LC Protocols": {
+                "Description": str,
+                "LC Protocol": str,
+                "Name": str,
+                "Run Length": int,
+            },
+            "Sequences": {
+                "Date": str,
+                "Instrument": str,
+                "LC Protocol Name": str,
+                "Notes": str,
+                "Operator": str,
+                "Sequence Name": str,
             },
         }
 
@@ -321,6 +337,20 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tracer Group Name": {},
                 "Tracer Name": {},
             },
+            "LC Protocols": {
+                "Description": {},
+                "LC Protocol": {},
+                "Name": {},
+                "Run Length": {},
+            },
+            "Sequences": {
+                "Date": {},
+                "Instrument": {},
+                "LC Protocol Name": {},
+                "Notes": {},
+                "Operator": {},
+                "Sequence Name": {},
+            },
             "Infusions": None,  # Ignoring this one
         }
 
@@ -406,6 +436,20 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tracer Concentration": float,
                 "Tracer Group Name": str,
                 "Tracer Name": str,
+            },
+            "LC Protocols": {
+                "Description": str,
+                "LC Protocol": str,
+                "Name": str,
+                "Run Length": int,
+            },
+            "Sequences": {
+                "Date": str,
+                "Instrument": str,
+                "LC Protocol Name": str,
+                "Notes": str,
+                "Operator": str,
+                "Sequence Name": str,
             },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
@@ -499,6 +543,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 },
                 "Compounds": {},
                 "Study": {},
+                "Animals": {},
+                "Tracers": {},
+                "Infusates": {},
+                "LC Protocols": {},
+                "Sequences": {},
             },
             vo.autofill_dict,
         )
@@ -545,6 +594,8 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             AnimalsLoader.DataSheetName: {},
             TracersLoader.DataSheetName: {},
             InfusatesLoader.DataSheetName: {},
+            LCProtocolsLoader.DataSheetName: {},
+            SequencesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -572,6 +623,8 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             AnimalsLoader.DataSheetName: {},
             TracersLoader.DataSheetName: {},
             InfusatesLoader.DataSheetName: {},
+            LCProtocolsLoader.DataSheetName: {},
+            SequencesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -601,6 +654,8 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             AnimalsLoader.DataSheetName: {},
             TracersLoader.DataSheetName: {},
             InfusatesLoader.DataSheetName: {},
+            LCProtocolsLoader.DataSheetName: {},
+            SequencesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -661,6 +716,20 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
                 "Tracer Name": {},
+            },
+            "LC Protocols": {
+                "Description": {},
+                "LC Protocol": {},
+                "Name": {},
+                "Run Length": {},
+            },
+            "Sequences": {
+                "Date": {},
+                "Instrument": {},
+                "LC Protocol Name": {},
+                "Notes": {},
+                "Operator": {},
+                "Sequence Name": {},
             },
         }
 
@@ -737,6 +806,8 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Study": {},
                 "Tracers": {},
                 "Infusates": {},
+                "LC Protocols": {},
+                "Sequences": {},
             },
             dvv.autofill_dict,
         )
