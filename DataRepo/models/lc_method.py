@@ -57,7 +57,7 @@ class LCMethod(models.Model):
         ],
         help_text=(
             "Time duration to complete a sample run "
-            "through the liquid chromatography method.",
+            "through the liquid chromatography method."
         ),
     )
 

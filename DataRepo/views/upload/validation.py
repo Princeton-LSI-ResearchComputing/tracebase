@@ -1415,7 +1415,9 @@ class DataValidationView(FormView):
                 df=pd.DataFrame.from_dict(self.dfs_dict[InfusatesLoader.DataSheetName])
             ).check_dataframe_headers()
             and LCProtocolsLoader(
-                df=pd.DataFrame.from_dict(self.dfs_dict[LCProtocolsLoader.DataSheetName])
+                df=pd.DataFrame.from_dict(
+                    self.dfs_dict[LCProtocolsLoader.DataSheetName]
+                )
             ).check_dataframe_headers()
             and SequencesLoader(
                 df=pd.DataFrame.from_dict(self.dfs_dict[SequencesLoader.DataSheetName])
