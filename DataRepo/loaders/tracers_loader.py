@@ -241,12 +241,13 @@ class TracersLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
                 extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -352,7 +353,7 @@ class TracersLoader(TableLoader):
                         InfileError(
                             f"{self.headers.ID} undefined.",
                             rownum=self.rownum,
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                         )
                     )
@@ -394,7 +395,10 @@ class TracersLoader(TableLoader):
 
             except Exception as e:
                 exc = InfileError(
-                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                    str(e),
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.friendly_file,
                 )
                 self.add_skip_row_index(row.name)
                 self.aggregated_errors_object.buffer_error(exc)
@@ -598,7 +602,7 @@ class TracersLoader(TableLoader):
                             f"{self.headers.COMPOUND}: [{compound_name}] does not match the {self.headers.COMPOUND} "
                             f"parsed from {self.headers.NAME} ({table_tracer_name}): [{parsed_compound_name}] on %s"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         rownum=table_tracer["rownum"],
                     )
@@ -635,7 +639,7 @@ class TracersLoader(TableLoader):
                                 f"Isotope data from columns [{cols}] on row(s) {irows} does not match any of the "
                                 f"isotopes parsed from the {self.headers.NAME} [{table_tracer_name}] on %s."
                             ),
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                             rownum=table_tracer["rownum"],
                         )
@@ -653,7 +657,7 @@ class TracersLoader(TableLoader):
                             f"rows for {self.headers.ID} {tracer_number}.  Perhaps {self.headers.ID} {tracer_number} "
                             "is on the wrong number of rows?"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -747,7 +751,7 @@ class TracersLoader(TableLoader):
 
         except Exception as e:
             exc = InfileError(
-                str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                str(e), rownum=self.rownum, sheet=self.sheet, file=self.friendly_file
             )
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
@@ -791,7 +795,7 @@ class TracersLoader(TableLoader):
                     name=compound_name,
                     rownum=self.rownum,
                     column=self.headers.COMPOUND,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -800,7 +804,10 @@ class TracersLoader(TableLoader):
             # This also updates the skip row indexes
             self.aggregated_errors_object.buffer_error(
                 InfileError(
-                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                    str(e),
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.friendly_file,
                 )
             )
 
@@ -907,7 +914,10 @@ class TracersLoader(TableLoader):
             except Exception as e:
                 self.add_skip_row_index()
                 exc = InfileError(
-                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                    str(e),
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.friendly_file,
                 )
                 # Package errors (like IntegrityError and ValidationError) with relevant details
                 # This also updates the skip row indexes
@@ -1003,7 +1013,7 @@ class TracersLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.ID} and {self.headers.COMPOUND}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1027,7 +1037,7 @@ class TracersLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.NAME} and {self.headers.ID}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1051,7 +1061,7 @@ class TracersLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.ID} and {self.headers.NAME}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1095,7 +1105,7 @@ class TracersLoader(TableLoader):
                     f"The supplied tracer name [{supplied_name}] from row %s does not match the automatically "
                     f"generated name [{generated_name}] using the data on rows {data_rownums}."
                 ),
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 column=self.headers.NAME,
                 rownum=tracer_dict["rownum"],

@@ -18,12 +18,14 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueErrors,
     DuplicateFileHeaders,
 )
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 # TODO: Swap out all of the calls to load_animals_and_samples and load_samples once those loaders are refactored to
 # inherit from TableLoader.
@@ -49,13 +51,31 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             "load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
         call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
+            "load_animals",
+            infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        # call_command(
+        #     "load_animals_and_samples",
+        #     animal_and_sample_table_filename=(
+        #         "DataRepo/data/tests/small_obob/"
+        #         "small_obob_animal_and_sample_table.xlsx"
+        #     ),
+        # )
         super().setUpTestData()
 
     def assure_coordinator_state_is_initialized(

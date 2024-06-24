@@ -227,12 +227,13 @@ class MSRunsLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
                 extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -256,6 +257,9 @@ class MSRunsLoader(TableLoader):
         Returns:
             None
         """
+        # NOTE: We COULD make a friendly version of mzxml_files for the web interface, but we don't accept this separate
+        # file in that interface, so it will only ever effectively be used on the command line, where mzxml_files *are*
+        # already friendly.
         self.mzxml_files = kwargs.pop("mzxml_files", [])
         operator_default = kwargs.pop("operator", None)
         date_default = kwargs.pop("date", None)
@@ -266,7 +270,7 @@ class MSRunsLoader(TableLoader):
 
         # We are going to use defaults from the SequencesLoader if no dataframe (i.e. --infile) was provided
         seqloader = SequencesLoader(
-            df=self.file,  # Only used for reporting errors with the defaults sheet
+            df=self.friendly_file,  # Only used for reporting errors with the defaults sheet
             defaults_df=self.defaults_df,
             defaults_file=self.defaults_file,
         )
@@ -345,7 +349,7 @@ class MSRunsLoader(TableLoader):
                         file=(
                             self.defaults_file
                             if self.defaults_file is not None
-                            else self.file
+                            else self.friendly_file
                         ),
                         sheet=self.sheet,
                         column=seqloader.DefaultsHeaders.DEFAULT_VALUE,
@@ -569,7 +573,7 @@ class MSRunsLoader(TableLoader):
                     RecordDoesNotExist(
                         MSRunSample,
                         query_dict,
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         rownum=self.rownum,
                     ),
@@ -758,7 +762,7 @@ class MSRunsLoader(TableLoader):
                             f"An MSRunSample record has already been associated with this mzXML: {mzxml_metadata}.  "
                             "This may be a duplicate mzXML file reference: %s."
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         column=self.headers.MZXMLNAME,
                         rownum=self.rownum,
@@ -980,8 +984,8 @@ class MSRunsLoader(TableLoader):
         except Sample.DoesNotExist as dne:
             if from_mzxml:
                 file = (
-                    self.file
-                    if self.file is not None
+                    self.friendly_file
+                    if self.friendly_file is not None
                     else f"the {self.DataSheetName} sheet/file"
                 )
                 self.aggregated_errors_object.buffer_error(
@@ -1002,7 +1006,7 @@ class MSRunsLoader(TableLoader):
                     RecordDoesNotExist(
                         Sample,
                         {"name": sample_name},
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         column=self.headers.SAMPLENAME,
                         rownum=self.rownum,
@@ -1132,7 +1136,7 @@ class MSRunsLoader(TableLoader):
                 # If we have a name, that means that the value is from the data sheet (not the defaults file/sheet)
                 # Record where any possible errors will come from for the catch below
                 origin = "infile"
-                error_source = self.file
+                error_source = self.friendly_file
                 sheet = self.sheet
                 column = self.DefaultsHeaders.DEFAULT_VALUE
                 rownum = self.rownum
@@ -1171,9 +1175,9 @@ class MSRunsLoader(TableLoader):
                         error_source = self.defaults_file
                         sheet = None
                         column = self.DefaultsHeaders.DEFAULT_VALUE
-                    elif self.file is not None:
+                    elif self.friendly_file is not None:
                         origin = "defaultsfile"  # Really, the sheet in the --infile, but that doesn't matter
-                        error_source = self.file
+                        error_source = self.friendly_file
                         sheet = self.defaults_sheet
                         column = self.DefaultsHeaders.DEFAULT_VALUE
                     else:
@@ -1376,7 +1380,7 @@ class MSRunsLoader(TableLoader):
                         "requiring defaults to be supplied, add one of the paths of the above files to the "
                         f"{self.defaults.MZXMLNAME} column in %s."
                     ),
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     rownum=self.rownum,
                 )

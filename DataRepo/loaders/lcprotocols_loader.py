@@ -104,10 +104,8 @@ class LCProtocolsLoader(TableLoader):
 
         Args:
             None
-
-        Raises:
+        Exceptions:
             None
-
         Returns:
             None
         """
@@ -172,7 +170,7 @@ class LCProtocolsLoader(TableLoader):
                         },
                         rownum=self.rownum,
                         sheet=self.sheet,
-                        file=self.file,
+                        file=self.friendly_file,
                     )
                 )
                 self.warned(LCMethod.__name__)

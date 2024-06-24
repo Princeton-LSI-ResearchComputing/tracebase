@@ -10,9 +10,11 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     MaintainedModelCoordinator,
 )
+from DataRepo.models.study import Study
 from DataRepo.models.tracer import Tracer
 from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
 def create_infusate_records():
@@ -421,14 +423,32 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         """Ensure the sample load doesn't leave stuff in the buffer when it exits successfully"""
         # The sample load only auto-updates fields with the "name" label in the decorator, so the sample_table_loader
         # must clear the buffer when it ends successfully
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
         call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
+            "load_animals",
+            infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            dry_run=False,
         )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        # call_command(
+        #     "load_animals_and_samples",
+        #     animal_and_sample_table_filename=(
+        #         "DataRepo/data/tests/small_obob/"
+        #         "small_obob_animal_and_sample_table.xlsx"
+        #     ),
+        #     dry_run=False,
+        # )
         self.assert_coordinator_state_is_initialized()
 
     def test_error_when_buffer_not_clear(self):

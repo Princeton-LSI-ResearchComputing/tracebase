@@ -3,7 +3,10 @@ import tempfile
 
 from django.core.management import call_command
 
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.utils.studies_exporter import BadQueryTerm
 
 
@@ -26,11 +29,29 @@ class StudiesExporterTestBase(TracebaseTestCase):
             "load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
-        call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
-            "small_obob_animal_and_sample_table.xlsx",
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
         )
+        call_command(
+            "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        # call_command(
+        #     "load_animals_and_samples",
+        #     animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+        #     "small_obob_animal_and_sample_table.xlsx",
+        # )
 
 
 class StudiesExporterTests(StudiesExporterTestBase):

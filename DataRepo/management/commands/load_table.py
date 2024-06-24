@@ -1,6 +1,6 @@
 import argparse
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Type
 
 from django.core.management import BaseCommand, CommandError
 
@@ -61,7 +61,7 @@ class LoadTableCommand(ABC, BaseCommand):
     # See load_tissues.Command for a concrete example.
     @property
     @abstractmethod
-    def loader_class(self):  # type[TableLoader]
+    def loader_class(self) -> Type[TableLoader]:
         pass
 
     def __init__(
@@ -207,16 +207,16 @@ class LoadTableCommand(ABC, BaseCommand):
             kwargs["defer_rollback"] = self.options["defer_rollback"]
 
             # Intermediate loader state (needed before calling get_dataframe)
-            self.loader = self.loader_class(*args, **kwargs)
+            self.loader: TableLoader = self.loader_class(*args, **kwargs)
 
             # Now we can parse the dataframe using the user-customized dtype dict
             kwargs["df"] = self.get_dataframe()
 
             # Re-initialize associated data
-            self.loader = self.loader_class(*args, **kwargs)
+            self.loader: TableLoader = self.loader_class(*args, **kwargs)
         else:
             # Before handle() has been called (with options), just initialize the loader with all supplied arguments
-            self.loader = self.loader_class(*args, **kwargs)
+            self.loader: TableLoader = self.loader_class(*args, **kwargs)
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.

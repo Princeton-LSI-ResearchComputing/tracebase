@@ -100,7 +100,14 @@ class SamplesLoader(TableLoader):
     }
 
     DataColumnMetadata = DataTableHeaders(
-        SAMPLE=TableColumn.init_flat(name=DataHeaders.SAMPLE, field=Sample.name),
+        SAMPLE=TableColumn.init_flat(
+            name=DataHeaders.SAMPLE,
+            field=Sample.name,
+            guidance=(
+                "MUST match the sample names in the peak annotation file, minus any appended suffixes (e.g. "
+                "'_pos')."
+            ),
+        ),
         HANDLER=TableColumn.init_flat(
             name=DataHeaders.HANDLER, field=Sample.researcher
         ),
@@ -117,10 +124,6 @@ class SamplesLoader(TableLoader):
         TISSUE=TableColumn.init_flat(
             name=DataHeaders.TISSUE,
             field=Sample.tissue,
-            guidance=(
-                f"Select a {DataHeaders.TISSUE} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {TissuesLoader.DataHeaders.NAME} column in the {TissuesLoader.DataSheetName} sheet."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=TissuesLoader,
@@ -130,10 +133,6 @@ class SamplesLoader(TableLoader):
         ANIMAL=TableColumn.init_flat(
             name=DataHeaders.ANIMAL,
             field=Sample.animal,
-            guidance=(
-                f"Select a {DataHeaders.ANIMAL} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {AnimalsLoader.DataHeaders.NAME} column in the {AnimalsLoader.DataSheetName} sheet."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=AnimalsLoader,
@@ -154,14 +153,21 @@ class SamplesLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+                extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                    unknown header, supply an empty list.
+                _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This
+                    is intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                    commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                    interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 None
         Exceptions:
@@ -256,7 +262,7 @@ class SamplesLoader(TableLoader):
             self.aggregated_errors_object.buffer_warning(
                 NewResearcher(
                     researcher,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     rownum=self.rownum,
                     column=self.headers.HANDLER,
@@ -275,7 +281,7 @@ class SamplesLoader(TableLoader):
             # we can catch more errors
             date = datetime.now()
             dpe.set_formatted_message(
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 rownum=self.rownum,
                 column=self.headers.DATE,

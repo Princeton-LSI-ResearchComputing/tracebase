@@ -220,22 +220,31 @@ class InfusatesLoader(TableLoader):
 
         Args:
             Superclass Args:
-                df (pandas dataframe): Data, e.g. as parsed from a table-like file.
-                headers (Optional[Tableheaders namedtuple]) [DataHeaders]: Header names by header key.
-                defaults (Optional[Tableheaders namedtuple]) [DataDefaultValues]: Default values by header key.
+                df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
+                user_headers (Optional[dict]): Header names by header key.
+                defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
+                headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
+                defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+                extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                    unknown header, supply an empty list.
+                _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This
+                    is intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                    commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                    interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 synonym_separator (Optional[str]) [;]: Synonym string delimiter.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.tracer_delimiter = kwargs.pop("tracer_delimiter", self.TRACER_DELIMETER)
         super().__init__(*args, **kwargs)
@@ -245,12 +254,10 @@ class InfusatesLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
-            Nothing
+            None
         """
         self.infusates_dict = defaultdict(dict)
         self.infusate_name_to_number = defaultdict(lambda: defaultdict(list))
@@ -277,12 +284,10 @@ class InfusatesLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             None (explicitly)
-
         Returns:
-            Nothing
+            None
         """
         # Gather all the data needed for the infusates (an infusate can span multiple rows)
         self.build_infusates_dict()
@@ -300,13 +305,11 @@ class InfusatesLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 InfileError
-
         Returns:
             None
         """
@@ -335,7 +338,7 @@ class InfusatesLoader(TableLoader):
                         InfileError(
                             f"{self.headers.ID} undefined.",
                             rownum=self.rownum,
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                         )
                     )
@@ -369,7 +372,10 @@ class InfusatesLoader(TableLoader):
 
             except Exception as e:
                 exc = InfileError(
-                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                    str(e),
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.friendly_file,
                 )
                 self.add_skip_row_index(row.name)
                 self.aggregated_errors_object.buffer_error(exc)
@@ -383,10 +389,8 @@ class InfusatesLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
             None
         """
@@ -491,10 +495,8 @@ class InfusatesLoader(TableLoader):
 
         Args:
             row (pandas dataframe row)
-
         Exceptions:
             None
-
         Returns:
             infusate_number (integer)
             tracer_group_name (string)
@@ -561,15 +563,13 @@ class InfusatesLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 InfileError
-
         Returns:
-            Nothing
+            None
         """
         for infusate_number in self.infusates_dict.keys():
             table_infusate = self.infusates_dict[infusate_number]
@@ -600,7 +600,7 @@ class InfusatesLoader(TableLoader):
                             f"{self.headers.TRACERCONC}(s): {table_concentrations} on row(s) {rownums} via "
                             f"{self.headers.ID} {infusate_number} in %s: {ipe}"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -621,7 +621,7 @@ class InfusatesLoader(TableLoader):
                             f"{self.headers.TRACERGROUP} parsed from {self.headers.NAME} ({table_infusate_name}): "
                             f"[{parsed_tracer_group_name}] on %s"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         rownum=table_infusate["rownum"],
                     )
@@ -675,7 +675,7 @@ class InfusatesLoader(TableLoader):
                                 f"Tracer data from columns [{cols}] on row(s) {irows} does not match any of the "
                                 f"tracers parsed from the {self.headers.NAME} [{table_infusate_name}] on %s."
                             ),
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                             rownum=table_infusate["rownum"],
                         )
@@ -693,7 +693,7 @@ class InfusatesLoader(TableLoader):
                             f"rows for {self.headers.ID} {infusate_number}.  Perhaps {self.headers.ID} "
                             f"{infusate_number} is on the wrong number of rows?"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -725,10 +725,8 @@ class InfusatesLoader(TableLoader):
 
         Agrs:
             None
-
         Exceptions:
             None
-
         Returns:
             None
         """
@@ -783,10 +781,8 @@ class InfusatesLoader(TableLoader):
 
         Args:
             infusate_dict (dict)
-
         Exceptions:
             None
-
         Returns:
             rec (Tracer)
             created (boolean)
@@ -811,13 +807,11 @@ class InfusatesLoader(TableLoader):
 
         Args:
             infusate_dict (dict)
-
         Exceptions:
             Raises:
-                Nothing (explicitly)
+                None
             Buffers:
                 InfileError (repackages other exceptions)
-
         Returns:
             rec (Optional[Infusate])
         """
@@ -845,7 +839,7 @@ class InfusatesLoader(TableLoader):
                 f"{type(e).__name__}: {e}",
                 rownum=self.rownum,
                 sheet=self.sheet,
-                file=self.file,
+                file=self.friendly_file,
             )
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
@@ -862,13 +856,11 @@ class InfusatesLoader(TableLoader):
 
         Args:
             infusate_dict (dict)
-
         Exceptions:
             Raises:
-                Nothing (explicitly)
+                None
             Buffers:
-                Nothing (explicitly)
-
+                None
         Returns:
             rec (Tracer)
         """
@@ -893,10 +885,8 @@ class InfusatesLoader(TableLoader):
         Args:
             tracer_dict (dict)
             infusate_rec (Infusate)
-
-        Raises:
-            Nothing (explicitly)
-
+        Exceptions:
+            None
         Returns:
             rec (Optional[InfusateTracer])
             created (boolean)
@@ -961,10 +951,8 @@ class InfusatesLoader(TableLoader):
             infusate_number (integer)
             tracer_group_name (string)
             infusate_name (string)
-
         Exceptions:
             None
-
         Returns:
             None
         """
@@ -1012,13 +1000,11 @@ class InfusatesLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             Raises:
                 None
             Buffers:
                 InfileError
-
         Returns:
             None
         """
@@ -1040,7 +1026,7 @@ class InfusatesLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.ID} and {self.headers.TRACERGROUP}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1076,7 +1062,7 @@ class InfusatesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1107,7 +1093,7 @@ class InfusatesLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.NAME} and {self.headers.ID}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1131,7 +1117,7 @@ class InfusatesLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.ID} and {self.headers.NAME}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1160,7 +1146,7 @@ class InfusatesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1193,7 +1179,7 @@ class InfusatesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1214,13 +1200,11 @@ class InfusatesLoader(TableLoader):
         Args:
             rec (Infusate): An Infusate model object
             infusate_dict (dict): Data parsed from potentially multiple rows relating to a single Infusate
-
         Exceptions:
             Raises:
                 InfileError
             Buffers:
                 InfileError
-
         Returns:
             None
         """
@@ -1246,7 +1230,7 @@ class InfusatesLoader(TableLoader):
                     f"{supplied_concentrations} from %s do not match the automatically generated name (shown with "
                     f"concentrations) [{rec._name()}] using the data on rows {data_rownums}."
                 ),
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 rownum=infusate_dict["rownum"],
             )
@@ -1293,7 +1277,7 @@ class InfusatesLoader(TableLoader):
             err_msg = "%s:\n\t" + "\n\t".join(err_msgs)
             exc = InfileError(
                 err_msg,
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
             )
             self.add_skip_row_index(index_list=rowidxs)
