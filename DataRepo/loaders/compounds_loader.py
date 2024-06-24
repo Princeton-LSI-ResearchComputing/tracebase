@@ -1,5 +1,5 @@
 from collections import defaultdict, namedtuple
-from typing import Optional
+from typing import Dict, Optional
 
 from django.db import transaction
 from django.db.utils import IntegrityError
@@ -56,7 +56,13 @@ class CompoundsLoader(TableLoader):
     DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
-    # No DataColumnTypes needed
+
+    DataColumnTypes: Dict[str, type] = {
+        NAME_KEY: str,
+        HMDBID_KEY: str,
+        FORMULA_KEY: str,
+        SYNONYMS_KEY: str,
+    }
 
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [[NAME_KEY], [HMDBID_KEY]]

@@ -7,9 +7,12 @@ from django.test import override_settings
 from django.urls import reverse
 
 from DataRepo.loaders import ProtocolsLoader, TissuesLoader
+from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
+from DataRepo.loaders.infusates_loader import InfusatesLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
+from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Protocol, Tissue
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
@@ -124,6 +127,22 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Description": {},
                 "Name": {},
                 "Study ID": {},
+            },
+            "Tracers": {
+                "Compound Name": {},
+                "Element": {},
+                "Label Count": {},
+                "Label Positions": {},
+                "Mass Number": {},
+                "Tracer Name": {},
+                "Tracer Row Group": {},
+            },
+            "Infusates": {
+                "Infusate Name": {},
+                "Infusate Row Group": {},
+                "Tracer Concentration": {},
+                "Tracer Group Name": {},
+                "Tracer Name": {},
             },
         }
 
@@ -286,6 +305,22 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": {},
                 "Study ID": {},
             },
+            "Tracers": {
+                "Compound Name": {},
+                "Element": {},
+                "Label Count": {},
+                "Label Positions": {},
+                "Mass Number": {},
+                "Tracer Name": {},
+                "Tracer Row Group": {},
+            },
+            "Infusates": {
+                "Infusate Name": {},
+                "Infusate Row Group": {},
+                "Tracer Concentration": {},
+                "Tracer Group Name": {},
+                "Tracer Name": {},
+            },
             "Infusions": None,  # Ignoring this one
         }
 
@@ -350,7 +385,28 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": str,
                 "Study ID": str,
             },
-            "Compounds": None,  # Not yet in the infile
+            "Compounds": {
+                "Compound": str,
+                "HMDB ID": str,
+                "Formula": str,
+                "Synonyms": str,
+            },
+            "Tracers": {
+                "Compound Name": str,
+                "Element": str,
+                "Label Count": int,
+                "Label Positions": str,
+                "Mass Number": int,
+                "Tracer Name": str,
+                "Tracer Row Group": int,
+            },
+            "Infusates": {
+                "Infusate Name": str,
+                "Infusate Row Group": int,
+                "Tracer Concentration": float,
+                "Tracer Group Name": str,
+                "Tracer Name": str,
+            },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
@@ -486,6 +542,9 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             TissuesLoader.DataSheetName: {},
             CompoundsLoader.DataSheetName: {},
             StudyTableLoader.DataSheetName: {},
+            AnimalsLoader.DataSheetName: {},
+            TracersLoader.DataSheetName: {},
+            InfusatesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -510,6 +569,9 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "earlobe": {TissuesLoader.DataHeaders.NAME: "earlobe"},
             },
             StudyTableLoader.DataSheetName: {},
+            AnimalsLoader.DataSheetName: {},
+            TracersLoader.DataSheetName: {},
+            InfusatesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -536,6 +598,9 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             },
             TissuesLoader.DataSheetName: {},
             StudyTableLoader.DataSheetName: {},
+            AnimalsLoader.DataSheetName: {},
+            TracersLoader.DataSheetName: {},
+            InfusatesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -580,6 +645,22 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Description": {},
                 "Name": {},
                 "Study ID": {},
+            },
+            "Tracers": {
+                "Compound Name": {},
+                "Element": {},
+                "Label Count": {},
+                "Label Positions": {},
+                "Mass Number": {},
+                "Tracer Name": {},
+                "Tracer Row Group": {},
+            },
+            "Infusates": {
+                "Infusate Name": {},
+                "Infusate Row Group": {},
+                "Tracer Concentration": {},
+                "Tracer Group Name": {},
+                "Tracer Name": {},
             },
         }
 
@@ -646,6 +727,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                         "Formula": "C3H7NO3",
                     },
                 },
+                "Animals": {},
                 "Samples": {
                     "072920_XXX1_1_TS1": {"Sample": "072920_XXX1_1_TS1"},
                     "072920_XXX1_2_bra": {"Sample": "072920_XXX1_2_bra"},
@@ -653,6 +735,8 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tissues": {},
                 "Treatments": {},
                 "Study": {},
+                "Tracers": {},
+                "Infusates": {},
             },
             dvv.autofill_dict,
         )
