@@ -132,6 +132,10 @@ class Sample(MaintainedModel, HierCachedModel):
     def __str__(self):
         return str(self.name)
 
+    @classmethod
+    def is_a_blank(cls, sample_name):
+        return "blank" in sample_name.lower()
+
 
 class InvalidArgument(ValueError):
     pass

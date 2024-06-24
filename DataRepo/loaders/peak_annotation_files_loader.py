@@ -60,6 +60,7 @@ class PeakAnnotationFilesLoader(TableLoader):
     DataColumnTypes: Dict[str, type] = {
         FILE_KEY: str,
         FORMAT_KEY: str,
+        SEQNAME_KEY: str,
     }
 
     # DataDefaultValues not needed

@@ -1096,11 +1096,13 @@ class TableLoader(ABC):
             and hasattr(obj, "_fields")
         )
 
-    def get_column_types(self):
+    def get_column_types(self, optional_mode=False):
         """Returns a dict of column types by header name (not header key).
 
         Args:
-            None
+            optional_mode (bool): Only include types that do not raise pandas exceptions when empty (because they are
+                optional).  Currently, this means it will only include string types, e.g. so that animal names that are
+                only numbers stay as strings.
         Exceptions:
             None
         Returns:
@@ -1110,21 +1112,25 @@ class TableLoader(ABC):
             return None
 
         if hasattr(self, "headers") and self.headers is not None:
-            return self._get_column_types(self.headers)
+            return self._get_column_types(self.headers, optional_mode=optional_mode)
 
-        return self._get_column_types()
+        return self._get_column_types(optional_mode=optional_mode)
 
     @classmethod
-    def _get_column_types(self, headers=None):
+    def _get_column_types(self, headers=None, optional_mode=False):
         """Returns a dict of column types by header name (not header key).
 
         Args:
             headers (namedtuple)
+            optional_mode (bool): Only include types that do not raise pandas exceptions when empty (because they are
+                optional).  Currently, this means it will only include string types, e.g. so that animal names that are
+                only numbers stay as strings.
         Exceptions:
             None
         Returns:
             dtypes (dict): Types by header name (instead of by header key)
         """
+        # TODO: Make optional mode have the ability to consider the required state for the column
         if self.DataColumnTypes is None:
             return None
 
@@ -1133,6 +1139,8 @@ class TableLoader(ABC):
 
         dtypes = {}
         for key in self.DataColumnTypes.keys():
+            if optional_mode and self.DataColumnTypes[key] != str:
+                continue
             hdr = getattr(headers, key)
             if hdr is None:
                 # This is in case the custom-supplied headers are incomplete (they should not be if they came from the

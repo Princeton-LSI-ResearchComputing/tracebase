@@ -57,6 +57,7 @@ class MSRunsLoader(TableLoader):
         r"_neg",
         r"_scan[0-9]+",
     ]
+    SKIP_STRINGS = ["skip", "true", "t", "yes", "y"]
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     SAMPLENAME_KEY = "SAMPLENAME"
@@ -105,14 +106,7 @@ class MSRunsLoader(TableLoader):
     # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
 
-    DataDefaultValues = DataTableHeaders(
-        SAMPLENAME=None,
-        SAMPLEHEADER=None,
-        MZXMLNAME=None,
-        ANNOTNAME=None,
-        SEQNAME=None,
-        SKIP=False,
-    )
+    # DataDefaultValues not needed
 
     DataColumnTypes: Dict[str, type] = {
         SAMPLENAME_KEY: str,
@@ -120,19 +114,22 @@ class MSRunsLoader(TableLoader):
         MZXMLNAME_KEY: str,
         ANNOTNAME_KEY: str,
         SEQNAME_KEY: str,
-        SKIP_KEY: bool,
+        SKIP_KEY: str,
     }
 
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [
-        # All combined must be unique, but note that duplicates of SAMPLENAME_KEY, (SAMPLEHEADER_KEY or MZXMLNAME_KEY),
-        # and SEQUENCE_KEY will be ignored.  Duplicates can exist if the same mzXML was used in multiple peak annotation
-        # files.
-        [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
         # A header must be unique per annot file.  The pair cannot repeat in the file.  It either has an mzXML file
         # associated or not and it can have a sequence or not, and can only ever link to a single sample.
         # Multiple different annot files of the same name are not supported.
         [SAMPLEHEADER_KEY, ANNOTNAME_KEY],
+        # Since the annotation file is optional (e.g. for unanalyzed mzxml files), and mzXML file names can be the same,
+        # we need more than just the header or mzXML file name, we need the sequence.  If a user can't tell which
+        # sequence to use, all we can do is add their path to differentiate them.
+        # All combined must be unique, but note that duplicates of SAMPLENAME_KEY, (SAMPLEHEADER_KEY or MZXMLNAME_KEY),
+        # and SEQUENCE_KEY will be ignored. Duplicates can exist if the same mzXML was used in multiple peak annotation
+        # files.
+        [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
@@ -213,6 +210,11 @@ class MSRunsLoader(TableLoader):
             default=False,
             header_required=False,
             value_required=False,
+            static_choices=[
+                # Treated as False (easier tor the user to see what is skipped at a glance)
+                ("", ""),
+                ("Skip", "Skip"),
+            ],
         ),
     )
 
@@ -509,7 +511,12 @@ class MSRunsLoader(TableLoader):
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
             tmp_annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
-            skip = self.get_row_val(row, self.headers.SKIP)
+            skip_str = self.get_row_val(row, self.headers.SKIP)
+            skip = (
+                True
+                if skip_str is not None and skip_str.lower() in self.SKIP_STRINGS
+                else False
+            )
 
             if tmp_annot_name is None:
                 continue
@@ -519,6 +526,9 @@ class MSRunsLoader(TableLoader):
                 continue
 
             # Default value
+            # TODO: Consolidate the strategy.  I had made a quick change to the SKIP value coming from the file due to a
+            # pandas quirk about dtype and empty excel cells, but the value returned by this method converts it to a
+            # boolean, looked up by the header.  This can lead to confusion, so pick one strategy and go with it.
             msrun_sample_dict[sample_header] = {
                 MSRunSample.__name__: None,
                 self.headers.SAMPLENAME: sample_name,
@@ -718,7 +728,12 @@ class MSRunsLoader(TableLoader):
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
             annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
-            skip = self.get_row_val(row, self.headers.SKIP)
+            skip_str = self.get_row_val(row, self.headers.SKIP)
+            skip = (
+                True
+                if skip_str is not None and skip_str.lower() in self.SKIP_STRINGS
+                else False
+            )
 
             if skip is True:
                 self.skipped(MSRunSample.__name__)

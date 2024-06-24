@@ -549,7 +549,7 @@ class LoadTableCommand(ABC, BaseCommand):
             df = read_from_file(file, sheet=sheet)
         else:
             keep_default_na = False
-            if len([val for val in dtypes.values() if not isinstance(val, str)]):
+            if len([val for val in dtypes.values() if not isinstance(val, str)]) > 0:
                 # pandas will throw an error on empty cells if it cannot convert an empty string into a specified type,
                 # so setting keep_default_na to True will allow them to just be null.
                 keep_default_na = True
