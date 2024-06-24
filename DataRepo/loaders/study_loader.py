@@ -156,6 +156,24 @@ class StudyLoader(TableLoader):
         ERRORS=None,
     )
 
+    # NOTE: The instance copies this and adds to the copy
+    CustomLoaderKwargs = DataTableHeaders(
+        STUDY={},
+        ANIMALS={},
+        SAMPLES={},
+        TREATMENTS={"headers": ProtocolsLoader.DataHeadersExcel},
+        TISSUES={},
+        INFUSATES={},
+        TRACERS={},
+        COMPOUNDS={},
+        LCPROTOCOLS={},
+        SEQUENCES={},
+        HEADERS={},
+        FILES={},
+        DEFAULTS=None,
+        ERRORS=None,
+    )
+
     DataSheetDisplayOrder = [
         STUDY_SHEET,
         ANIMALS_SHEET,
@@ -224,22 +242,11 @@ class StudyLoader(TableLoader):
 
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
 
-        self.CustomLoaderKwargs = self.DataTableHeaders(
-            STUDY={},
-            ANIMALS={},
-            SAMPLES={},
-            TREATMENTS={},
-            TISSUES={},
-            INFUSATES={},
-            TRACERS={},
-            COMPOUNDS={},
-            LCPROTOCOLS={},
-            SEQUENCES={},
-            HEADERS={},
-            FILES={"annot_files_dict": self.annot_files_dict},
-            DEFAULTS=None,
-            ERRORS=None,
-        )
+        clkwa = self.CustomLoaderKwargs._asdict()
+        clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
+        # This occludes the CustomLoaderKwargs class attribute (which we copied and are leaving unchanged)
+        # Just note that only the instance has annot_files_dict
+        self.CustomLoaderKwargs = self.DataTableHeaders(**clkwa)
 
         super().__init__(*args, **kwargs)
 
@@ -471,7 +478,8 @@ class StudyLoader(TableLoader):
                 display_order_spec.append([sheet_name, ["Errors"]])
             else:
                 loader_cls = getattr(cls.Loaders, sheet_key)
-                loader = loader_cls()
+                kwargs = getattr(cls.CustomLoaderKwargs, sheet_key)
+                loader = loader_cls(**kwargs)
 
                 display_order_spec.append(
                     [sheet_name, loader.get_ordered_display_headers()]
