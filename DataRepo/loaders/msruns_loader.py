@@ -118,14 +118,17 @@ class MSRunsLoader(TableLoader):
 
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [
-        # All combined must be unique, but note that duplicates of SAMPLENAME_KEY, (SAMPLEHEADER_KEY or MZXMLNAME_KEY),
-        # and SEQUENCE_KEY will be ignored.  Duplicates can exist if the same mzXML was used in multiple peak annotation
-        # files.
-        [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
         # A header must be unique per annot file.  The pair cannot repeat in the file.  It either has an mzXML file
         # associated or not and it can have a sequence or not, and can only ever link to a single sample.
         # Multiple different annot files of the same name are not supported.
         [SAMPLEHEADER_KEY, ANNOTNAME_KEY],
+        # Since the annotation file is optional (e.g. for unanalyzed mzxml files), and mzXML file names can be the same,
+        # we need more than just the header or mzXML file name, we need the sequence.  If a user can't tell which
+        # sequence to use, all we can do is add their path to differentiate them.
+        # All combined must be unique, but note that duplicates of SAMPLENAME_KEY, (SAMPLEHEADER_KEY or MZXMLNAME_KEY),
+        # and SEQUENCE_KEY will be ignored. Duplicates can exist if the same mzXML was used in multiple peak annotation
+        # files.
+        [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
     ]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.

@@ -78,6 +78,7 @@ class DataValidationView(FormView):
         InfusatesLoader.DataSheetName,
         LCProtocolsLoader.DataSheetName,
         SequencesLoader.DataSheetName,
+        MSRunsLoader.DataSheetName,
     ]
 
     def __init__(self):
@@ -761,11 +762,18 @@ class DataValidationView(FormView):
         # add if it adds a unique row).
         loader: TableLoader
         for loader in [
+            self.studies_loader,
+            self.animals_loader,
             self.samples_loader,
             self.tissues_loader,
             self.treatments_loader,
             self.compounds_loader,
             self.studies_loader,
+            self.infusates_loader,
+            self.tracers_loader,
+            self.msruns_loader,
+            self.sequences_loader,
+            self.lcprotocols_loader,
         ]:
             # This is a list of column headers in a sheet whose combination defines a unique row
             # We need it to find existing rows that match the composite key in the autofitt dict, so that we don't
@@ -1034,7 +1042,9 @@ class DataValidationView(FormView):
                     CompoundsLoader.DataSheetName: self.compounds_loader.get_dataframe_template(),
                     TracersLoader.DataSheetName: self.tracers_loader.get_dataframe_template(),
                     InfusatesLoader.DataSheetName: self.infusates_loader.get_dataframe_template(),
-                    LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_dataframe_template(),
+                    LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_dataframe_template(
+                        populate=True
+                    ),
                     SequencesLoader.DataSheetName: self.sequences_loader.get_dataframe_template(),
                     MSRunsLoader.DataSheetName: self.msruns_loader.get_dataframe_template(),
                 }
