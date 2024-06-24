@@ -12,6 +12,9 @@ from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
 from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
+from DataRepo.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
@@ -169,6 +172,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Skip": bool,
                 "mzXML File Name": str,
             },
+            "Peak Annotation Files": {
+                "Default Sequence Name": str,
+                "File Format": str,
+                "Peak Annotation File": str,
+            },
         }
 
         self.assert_dfs_dicts(expected, dfs_dict)
@@ -320,11 +328,6 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "HMDB ID": {},
                 "Synonyms": {},
             },
-            "Peak Annotation Files": {
-                "Peak Annotation File": {},
-                "File Format": {},
-                "Default Sequence Name": {},
-            },
             "Study": {
                 "Description": {},
                 "Name": {},
@@ -367,6 +370,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Sequence Name": {},
                 "Skip": {},
                 "mzXML File Name": {},
+            },
+            "Peak Annotation Files": {
+                "Default Sequence Name": {},
+                "File Format": {},
+                "Peak Annotation File": {},
             },
             "Infusions": None,  # Ignoring this one
         }
@@ -476,6 +484,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Skip": bool,
                 "mzXML File Name": str,
             },
+            "Peak Annotation Files": {
+                "Default Sequence Name": str,
+                "File Format": str,
+                "Peak Annotation File": str,
+            },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
@@ -574,6 +587,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "LC Protocols": {},
                 "Sequences": {},
                 "Peak Annotation Details": {},
+                "Peak Annotation Files": {},
             },
             vo.autofill_dict,
         )
@@ -623,6 +637,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             LCProtocolsLoader.DataSheetName: {},
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
+            PeakAnnotationFilesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -653,6 +668,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             LCProtocolsLoader.DataSheetName: {},
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
+            PeakAnnotationFilesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -685,6 +701,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             LCProtocolsLoader.DataSheetName: {},
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
+            PeakAnnotationFilesLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -767,6 +784,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Sequence Name": {},
                 "Skip": {},
                 "mzXML File Name": {},
+            },
+            "Peak Annotation Files": {
+                "Default Sequence Name": {},
+                "File Format": {},
+                "Peak Annotation File": {},
             },
         }
 
@@ -863,6 +885,12 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                         "Sample Data Header": "blank_1_404020",
                         "Sample Name": "blank_1_404020",
                         "Skip": True,
+                    },
+                },
+                "Peak Annotation Files": {
+                    "accucor1.xlsx": {
+                        "File Format": "accucor",
+                        "Peak Annotation File": "accucor1.xlsx",
                     },
                 },
             },
