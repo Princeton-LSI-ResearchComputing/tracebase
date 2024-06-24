@@ -57,6 +57,7 @@ class MSRunsLoader(TableLoader):
         r"_neg",
         r"_scan[0-9]+",
     ]
+    SKIP_STRINGS = ["skip", "true", "t", "yes", "y"]
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     SAMPLENAME_KEY = "SAMPLENAME"
@@ -113,7 +114,7 @@ class MSRunsLoader(TableLoader):
         MZXMLNAME_KEY: str,
         ANNOTNAME_KEY: str,
         SEQNAME_KEY: str,
-        SKIP_KEY: bool,
+        SKIP_KEY: str,
     }
 
     # Combinations of columns whose values must be unique in the file
@@ -209,6 +210,11 @@ class MSRunsLoader(TableLoader):
             default=False,
             header_required=False,
             value_required=False,
+            static_choices=[
+                # Treated as False (easier tor the user to see what is skipped at a glance)
+                ("", ""),
+                ("Skip", "Skip"),
+            ],
         ),
     )
 
@@ -505,7 +511,12 @@ class MSRunsLoader(TableLoader):
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
             tmp_annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
-            skip = self.get_row_val(row, self.headers.SKIP)
+            skip_str = self.get_row_val(row, self.headers.SKIP)
+            skip = (
+                True
+                if skip_str is not None and skip_str.lower() in self.SKIP_STRINGS
+                else False
+            )
 
             if tmp_annot_name is None:
                 continue
@@ -515,6 +526,9 @@ class MSRunsLoader(TableLoader):
                 continue
 
             # Default value
+            # TODO: Consolidate the strategy.  I had made a quick change to the SKIP value coming from the file due to a
+            # pandas quirk about dtype and empty excel cells, but the value returned by this method converts it to a
+            # boolean, looked up by the header.  This can lead to confusion, so pick one strategy and go with it.
             msrun_sample_dict[sample_header] = {
                 MSRunSample.__name__: None,
                 self.headers.SAMPLENAME: sample_name,
@@ -714,7 +728,12 @@ class MSRunsLoader(TableLoader):
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
             annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
-            skip = self.get_row_val(row, self.headers.SKIP)
+            skip_str = self.get_row_val(row, self.headers.SKIP)
+            skip = (
+                True
+                if skip_str is not None and skip_str.lower() in self.SKIP_STRINGS
+                else False
+            )
 
             if skip is True:
                 self.skipped(MSRunSample.__name__)

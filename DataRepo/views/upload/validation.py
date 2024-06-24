@@ -187,11 +187,18 @@ class DataValidationView(FormView):
             if PeakAnnotationFilesLoader.DataSheetName in get_sheet_names(
                 self.study_file
             ):
+                # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+                # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+                # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+                # about it.  But not setting types works for now.  I might need to explicitly set str in some places to
+                # avoid accidental int types...
                 pafl = PeakAnnotationFilesLoader(
                     df=read_from_file(
                         self.study_file,
                         sheet=PeakAnnotationFilesLoader.DataSheetName,
-                        dtype=PeakAnnotationFilesLoader._get_column_types(),
+                        dtype=PeakAnnotationFilesLoader._get_column_types(
+                            optional_mode=True
+                        ),
                     ),
                     file=self.study_file,
                 )
@@ -559,7 +566,7 @@ class DataValidationView(FormView):
                 if Sample.is_a_blank(sample_name) is True:
                     # Automatically skip samples that appear to be blanks
                     # Leave as None if False - It will make the column easier for the user to read
-                    skip = True
+                    skip = MSRunsLoader.SKIP_STRINGS[0]
 
                 # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
                 unique_annot_deets_key = self.row_key_delim.join(
@@ -1260,8 +1267,15 @@ class DataValidationView(FormView):
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
+            # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet how
+            # to address a type error from pandas when it encounters empty cells.  I have a comment in other code that
+            # says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think about it.  But
+            # not setting types works for now.  I might need to explicitly set str in some places to avoid accidental
+            # int types...
             dict_of_dataframes = read_from_file(
-                self.study_file, sheet=None, dtype=self.get_study_dtypes_dict()
+                self.study_file,
+                sheet=None,
+                dtype=self.get_study_dtypes_dict(),
             )
 
             # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
@@ -1297,18 +1311,42 @@ class DataValidationView(FormView):
             f"{self.default_version}."
         ):
             return {
-                StudyTableLoader.DataSheetName: self.studies_loader.get_column_types(),
-                AnimalsLoader.DataSheetName: self.animals_loader.get_column_types(),
-                SamplesLoader.DataSheetName: self.samples_loader.get_column_types(),
-                ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(),
-                TissuesLoader.DataSheetName: self.tissues_loader.get_column_types(),
-                CompoundsLoader.DataSheetName: self.compounds_loader.get_column_types(),
-                TracersLoader.DataSheetName: self.tracers_loader.get_column_types(),
-                InfusatesLoader.DataSheetName: self.infusates_loader.get_column_types(),
-                LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_column_types(),
-                SequencesLoader.DataSheetName: self.sequences_loader.get_column_types(),
-                MSRunsLoader.DataSheetName: self.msruns_loader.get_column_types(),
-                PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_column_types(),
+                StudyTableLoader.DataSheetName: self.studies_loader.get_column_types(
+                    optional_mode=True
+                ),
+                AnimalsLoader.DataSheetName: self.animals_loader.get_column_types(
+                    optional_mode=True
+                ),
+                SamplesLoader.DataSheetName: self.samples_loader.get_column_types(
+                    optional_mode=True
+                ),
+                ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(
+                    optional_mode=True
+                ),
+                TissuesLoader.DataSheetName: self.tissues_loader.get_column_types(
+                    optional_mode=True
+                ),
+                CompoundsLoader.DataSheetName: self.compounds_loader.get_column_types(
+                    optional_mode=True
+                ),
+                TracersLoader.DataSheetName: self.tracers_loader.get_column_types(
+                    optional_mode=True
+                ),
+                InfusatesLoader.DataSheetName: self.infusates_loader.get_column_types(
+                    optional_mode=True
+                ),
+                LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_column_types(
+                    optional_mode=True
+                ),
+                SequencesLoader.DataSheetName: self.sequences_loader.get_column_types(
+                    optional_mode=True
+                ),
+                MSRunsLoader.DataSheetName: self.msruns_loader.get_column_types(
+                    optional_mode=True
+                ),
+                PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_column_types(
+                    optional_mode=True
+                ),
             }
         raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"

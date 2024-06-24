@@ -325,7 +325,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 al.msrunsloader.headers.MZXMLNAME: None,
                 al.msrunsloader.headers.SEQNAME: f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",
                 al.msrunsloader.headers.ANNOTNAME: "accucor1.xlsx",
-                al.msrunsloader.headers.SKIP: None,
+                al.msrunsloader.headers.SKIP: False,
             }
         }
         self.assertDictEqual(expected_msrun_sample_dict, al.msrun_sample_dict)
@@ -354,7 +354,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                     f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",
                     f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",
                 ],
-                "Skip": [None, None, True],
+                "Skip": [None, None, "Skip"],
             },
         )
         al = AccucorLoader(

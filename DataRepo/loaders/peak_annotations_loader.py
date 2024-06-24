@@ -698,6 +698,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
             self.msrun_sample_dict[sample_header]["seen"] = True
 
+            # TODO: Consolidate the strategy.  I had made a quick change to the SKIP value coming from the file due to a
+            # pandas quirk about dtype and empty excel cells, but the value returned by
+            # self.msrunsloader.get_loaded_msrun_sample_dict is converted to a boolean.  This can lead to confusion, so
+            # pick one strategy and go with it.
             if (
                 self.msrunsloader.headers.SKIP
                 in self.msrun_sample_dict[sample_header].keys()
