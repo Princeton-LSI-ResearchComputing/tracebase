@@ -9,6 +9,7 @@ from django.urls import reverse
 from DataRepo.loaders import ProtocolsLoader, TissuesLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
+from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.models import Protocol, Tissue
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
@@ -118,6 +119,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Formula": {},
                 "HMDB ID": {},
                 "Synonyms": {},
+            },
+            "Study": {
+                "Description": {},
+                "Name": {},
+                "Study ID": {},
             },
         }
 
@@ -275,6 +281,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "File Format": {},
                 "Default Sequence Name": {},
             },
+            "Study": {
+                "Description": {},
+                "Name": {},
+                "Study ID": {},
+            },
             "Infusions": None,  # Ignoring this one
         }
 
@@ -333,6 +344,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             "Tissues": {
                 "Description": str,
                 "Tissue": str,
+            },
+            "Study": {
+                "Description": str,
+                "Name": str,
+                "Study ID": str,
             },
             "Compounds": None,  # Not yet in the infile
         }
@@ -426,6 +442,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                     "wined-and-dined": {"Animal Treatment": "wined-and-dined"}
                 },
                 "Compounds": {},
+                "Study": {},
             },
             vo.autofill_dict,
         )
@@ -446,7 +463,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
 
     def test_extract_all_missing_samples(self):
         vo = DataValidationView()
-        vo.extract_all_missing_samples(
+        vo.extract_all_missing_values(
             AllMissingSamples(
                 [
                     RecordDoesNotExist(Sample, {"name": "s1"}, file="accucor1.xlsx"),
@@ -455,7 +472,9 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                     RecordDoesNotExist(Sample, {"name": "s3"}, file="accucor3.xlsx"),
                     RecordDoesNotExist(Sample, {"name": "s1"}, file="accucor4.xlsx"),
                 ]
-            )
+            ),
+            "Samples",
+            "Sample",
         )
         expected = {
             SamplesLoader.DataSheetName: {
@@ -466,18 +485,21 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             ProtocolsLoader.DataSheetName: {},
             TissuesLoader.DataSheetName: {},
             CompoundsLoader.DataSheetName: {},
+            StudyTableLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
     def test_extract_all_missing_tissues(self):
         vo = DataValidationView()
-        vo.extract_all_missing_tissues(
+        vo.extract_all_missing_values(
             AllMissingTissues(
                 [
                     RecordDoesNotExist(Tissue, {"name": "elbow pit"}),
                     RecordDoesNotExist(Tissue, {"name": "earlobe"}),
                 ]
-            )
+            ),
+            "Tissues",
+            "Tissue",
         )
         expected = {
             CompoundsLoader.DataSheetName: {},
@@ -487,18 +509,21 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "elbow pit": {TissuesLoader.DataHeaders.NAME: "elbow pit"},
                 "earlobe": {TissuesLoader.DataHeaders.NAME: "earlobe"},
             },
+            StudyTableLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
     def test_extract_all_missing_treatments(self):
         vo = DataValidationView()
-        vo.extract_all_missing_treatments(
+        vo.extract_all_missing_values(
             AllMissingTreatments(
                 [
                     RecordDoesNotExist(Protocol, {"name": "berated"}),
                     RecordDoesNotExist(Protocol, {"name": "wined-and-dined"}),
                 ]
-            )
+            ),
+            "Treatments",
+            "Animal Treatment",
         )
         expected = {
             CompoundsLoader.DataSheetName: {},
@@ -510,6 +535,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 },
             },
             TissuesLoader.DataSheetName: {},
+            StudyTableLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -549,6 +575,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Formula": {},
                 "HMDB ID": {},
                 "Synonyms": {},
+            },
+            "Study": {
+                "Description": {},
+                "Name": {},
+                "Study ID": {},
             },
         }
 
@@ -621,6 +652,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 },
                 "Tissues": {},
                 "Treatments": {},
+                "Study": {},
             },
             dvv.autofill_dict,
         )

@@ -113,6 +113,8 @@ class StudyLoaderTests(TracebaseTestCase):
                 "TISSUES": "Tissues",
                 "TRACERS": "Tracers",
                 "TREATMENTS": "Treatments",
+                "DEFAULTS": "Defaults",
+                "ERRORS": "Errors",
             },
             snt._asdict(),
         )
