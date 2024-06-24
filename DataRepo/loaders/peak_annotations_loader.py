@@ -1156,7 +1156,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         possible_blank_dnes = []
         likely_missing_dnes = []
         for sdne in sample_dnes:
-            if self.is_a_blank(sdne.query_obj["name"]):
+            if Sample.is_a_blank(sdne.query_obj["name"]):
                 possible_blank_dnes.append(sdne)
             else:
                 likely_missing_dnes.append(sdne)
@@ -1221,10 +1221,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     ),
                 )
             )
-
-    @classmethod
-    def is_a_blank(cls, sample_name):
-        return "blank" in sample_name.lower()
 
     def handle_file_exceptions(self):
         """Repackage and summarize repeated exceptions.

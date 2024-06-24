@@ -37,6 +37,7 @@ from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models.protocol import Protocol
+from DataRepo.models.sample import Sample
 from DataRepo.utils.exceptions import (
     AllMissingCompounds,
     AllMissingSamples,
@@ -88,8 +89,7 @@ class DataValidationView(FormView):
         self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
-        # TODO: Add Peak Annotation Details
-        # self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[CompoundsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TracersLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[InfusatesLoader.DataSheetName] = defaultdict(dict)
@@ -115,6 +115,7 @@ class DataValidationView(FormView):
         self.infusates_loader = InfusatesLoader()
         self.lcprotocols_loader = LCProtocolsLoader()
         self.sequences_loader = SequencesLoader()
+        self.msruns_loader = MSRunsLoader()
         self.peak_annotations_loaders = []
 
         self.output_study_filename = "study.xlsx"
@@ -470,6 +471,7 @@ class DataValidationView(FormView):
             InfusatesLoader.DataSheetName: self.infusates_loader.get_header_metadata(),
             LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_header_metadata(),
             SequencesLoader.DataSheetName: self.sequences_loader.get_header_metadata(),
+            MSRunsLoader.DataSheetName: self.msruns_loader.get_header_metadata(),
         }
         for order_spec in StudyLoader.get_study_sheet_column_display_order():
             sheet = order_spec[0]
@@ -516,8 +518,7 @@ class DataValidationView(FormView):
         """
         seen = defaultdict(dict)
         for i in range(len(self.peak_annot_files)):
-            # TODO: Add commented code when Peak Annotation Details sheet is added
-            # peak_annot_filename = self.peak_annot_filenames[i]
+            peak_annot_filename = self.peak_annot_filenames[i]
             peak_annot_loader: PeakAnnotationsLoader = self.peak_annotations_loaders[i]
 
             # Extracting sample, sample header, compound, mzxml,
@@ -535,30 +536,35 @@ class DataValidationView(FormView):
 
                     sample_name = MSRunsLoader.guess_sample_name(sample_header)
 
-                    if not PeakAnnotationsLoader.is_a_blank(sample_name):
+                    # TODO: This should use parsing of the Peak Annotation Details sheet to decide on blanks/skips
+                    # instead of only guessing
+                    if not Sample.is_a_blank(sample_name):
                         print(f"FOUND SAMPLE {sample_name}")
                         self.autofill_dict[SamplesLoader.DataSheetName][sample_name] = {
                             SamplesLoader.DataHeaders.SAMPLE: sample_name
                         }
 
-                # TODO: Add Peak Annotation Details sheet
-                # # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
-                # unique_annot_deets_key = self.row_key_delim.join(
-                #     [sample_header, peak_annot_filename]
-                # )
-                # self.autofill_dict[MSRunsLoader.DataSheetName][
-                #     unique_annot_deets_key
-                # ] = {
-                #     MSRunsLoader.DataHeaders.SAMPLEHEADER: sample_header,
-                #     MSRunsLoader.DataHeaders.SAMPLENAME: sample_name,
-                #     # No point in entering the mzXML. It will default to this in its loader:
-                #     # MSRunsLoader.DataHeaders.MZXMLNAME: f"{sample_header}.mzXML",
-                #     MSRunsLoader.DataHeaders.ANNOTNAME: peak_annot_filename,
-                #     MSRunsLoader.DataHeaders.SKIP: PeakAnnotationsLoader.is_a_blank(
-                #         sample_header
-                #     ),
-                #     # Not going to fill in a SEQNAME - will rely on the default in the Peak Annotation Files sheet
-                # }
+                skip = None
+                if Sample.is_a_blank(sample_name) is True:
+                    # Automatically skip samples that appear to be blanks
+                    # Leave as None if False - It will make the column easier for the user to read
+                    skip = True
+
+                # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
+                unique_annot_deets_key = self.row_key_delim.join(
+                    [sample_header, peak_annot_filename]
+                )
+                self.autofill_dict[MSRunsLoader.DataSheetName][
+                    unique_annot_deets_key
+                ] = {
+                    MSRunsLoader.DataHeaders.SAMPLEHEADER: sample_header,
+                    MSRunsLoader.DataHeaders.SAMPLENAME: sample_name,
+                    # No point in entering the mzXML. It will default to this in its loader:
+                    # MSRunsLoader.DataHeaders.MZXMLNAME: f"{sample_header}.mzXML",
+                    MSRunsLoader.DataHeaders.ANNOTNAME: peak_annot_filename,
+                    MSRunsLoader.DataHeaders.SKIP: skip,
+                    # Not going to fill in a SEQNAME - will rely on the default in the Peak Annotation Files sheet
+                }
 
                 # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in the
                 # peak_annot_loader if any compounds are not in the database
@@ -640,8 +646,7 @@ class DataValidationView(FormView):
         self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
-        # TODO: Add Peak Annotation Details
-        # self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[CompoundsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[AnimalsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TracersLoader.DataSheetName] = defaultdict(dict)
@@ -839,17 +844,24 @@ class DataValidationView(FormView):
 
             # For the columns in the sheet (dfs_dict)
             for header in self.dfs_dict[sheet].keys():
+                print(f"ADDING TO COLUMN {header}")
                 # If the header is one we're adding data to
                 if header in sheet_dict.keys():
+                    print(f"LOOKING TO FILL IN {sheet_dict[header]} ON ROW {index}")
                     # Record that the header was found
                     headers_present[header] = True
 
                     # Only fill in the value if it doesn't already have a value.
                     # Custom-entered values from the user trump autofill.
                     if self.dfs_dict[sheet][header].get(index) is None:
+                        print(f"FILLING IN {sheet_dict[header]} ON ROW {index}")
                         # Add the new data
                         self.dfs_dict[sheet][header][index] = sheet_dict[header]
                         data_added = True
+                    else:
+                        print(
+                            f"THE VALUE WAS NOT NONE: {self.dfs_dict[sheet][header].get(index)}, SO NOT OVERWRITING"
+                        )
 
                 else:
                     # Fill in the columns we're not adding data to with None
@@ -937,6 +949,8 @@ class DataValidationView(FormView):
             headers = self.lcprotocols_loader.get_ordered_display_headers()
         elif sheet == SequencesLoader.DataSheetName:
             headers = self.sequences_loader.get_ordered_display_headers()
+        elif sheet == MSRunsLoader.DataSheetName:
+            headers = self.msruns_loader.get_ordered_display_headers()
         else:
             raise ValueError(f"Invalid sheet: [{sheet}].")
         column_letter = xlsxwriter.utility.xl_col_to_name(headers.index(header))
@@ -1022,6 +1036,7 @@ class DataValidationView(FormView):
                     InfusatesLoader.DataSheetName: self.infusates_loader.get_dataframe_template(),
                     LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_dataframe_template(),
                     SequencesLoader.DataSheetName: self.sequences_loader.get_dataframe_template(),
+                    MSRunsLoader.DataSheetName: self.msruns_loader.get_dataframe_template(),
                 }
 
             if (
@@ -1143,6 +1158,17 @@ class DataValidationView(FormView):
                     self.sequences_loader.get_dataframe_template()
                 )
 
+            if MSRunsLoader.DataSheetName in dfs_dict.keys():
+                self.fill_in_missing_columns(
+                    dfs_dict,
+                    MSRunsLoader.DataSheetName,
+                    self.msruns_loader.get_dataframe_template(),
+                )
+            else:
+                dfs_dict[MSRunsLoader.DataSheetName] = (
+                    self.msruns_loader.get_dataframe_template()
+                )
+
             return dfs_dict
 
         raise NotImplementedError(
@@ -1242,6 +1268,7 @@ class DataValidationView(FormView):
                 InfusatesLoader.DataSheetName: self.infusates_loader.get_column_types(),
                 LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_column_types(),
                 SequencesLoader.DataSheetName: self.sequences_loader.get_column_types(),
+                MSRunsLoader.DataSheetName: self.msruns_loader.get_column_types(),
             }
         raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
@@ -1421,6 +1448,9 @@ class DataValidationView(FormView):
             ).check_dataframe_headers()
             and SequencesLoader(
                 df=pd.DataFrame.from_dict(self.dfs_dict[SequencesLoader.DataSheetName])
+            ).check_dataframe_headers()
+            and MSRunsLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[MSRunsLoader.DataSheetName])
             ).check_dataframe_headers()
         )
 

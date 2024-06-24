@@ -7,7 +7,6 @@ from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
     IsocorrLoader,
-    PeakAnnotationsLoader,
 )
 from DataRepo.models import (
     ArchiveFile,
@@ -211,6 +210,10 @@ class DerivedPeakAnnotationsLoaderTestCase(TracebaseTestCase):
 
 
 class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
+    """Interestingly, this class doesn't explicitly use the PeakAnnotationsLoader class directly.  It's not even
+    imported.  It is an abstract base class, so this tests it using its derived classes.
+    """
+
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
     INSTRUMENT = MSRunSequence.INSTRUMENT_CHOICES[0][0]
@@ -322,7 +325,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 al.msrunsloader.headers.MZXMLNAME: None,
                 al.msrunsloader.headers.SEQNAME: f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",
                 al.msrunsloader.headers.ANNOTNAME: "accucor1.xlsx",
-                al.msrunsloader.headers.SKIP: False,
+                al.msrunsloader.headers.SKIP: None,
             }
         }
         self.assertDictEqual(expected_msrun_sample_dict, al.msrun_sample_dict)
@@ -792,10 +795,6 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             ["s1"],
             al.aggregated_errors_object.get_exception_type(NoSamples)[0].search_terms,
         )
-
-    def test_is_a_blank(self):
-        self.assertTrue(PeakAnnotationsLoader.is_a_blank("a Blank sample"))
-        self.assertFalse(PeakAnnotationsLoader.is_a_blank("sample1"))
 
 
 class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):

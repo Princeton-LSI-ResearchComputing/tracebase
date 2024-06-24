@@ -105,14 +105,7 @@ class MSRunsLoader(TableLoader):
     # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
 
-    DataDefaultValues = DataTableHeaders(
-        SAMPLENAME=None,
-        SAMPLEHEADER=None,
-        MZXMLNAME=None,
-        ANNOTNAME=None,
-        SEQNAME=None,
-        SKIP=False,
-    )
+    # DataDefaultValues not needed
 
     DataColumnTypes: Dict[str, type] = {
         SAMPLENAME_KEY: str,

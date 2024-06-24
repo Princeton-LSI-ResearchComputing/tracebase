@@ -11,6 +11,7 @@ from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
 from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
+from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
@@ -159,6 +160,14 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Notes": str,
                 "Operator": str,
                 "Sequence Name": str,
+            },
+            "Peak Annotation Details": {
+                "Peak Annotation File Name": str,
+                "Sample Data Header": str,
+                "Sample Name": str,
+                "Sequence Name": str,
+                "Skip": bool,
+                "mzXML File Name": str,
             },
         }
 
@@ -351,6 +360,14 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Operator": {},
                 "Sequence Name": {},
             },
+            "Peak Annotation Details": {
+                "Peak Annotation File Name": {},
+                "Sample Data Header": {},
+                "Sample Name": {},
+                "Sequence Name": {},
+                "Skip": {},
+                "mzXML File Name": {},
+            },
             "Infusions": None,  # Ignoring this one
         }
 
@@ -451,6 +468,14 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Operator": str,
                 "Sequence Name": str,
             },
+            "Peak Annotation Details": {
+                "Peak Annotation File Name": str,
+                "Sample Data Header": str,
+                "Sample Name": str,
+                "Sequence Name": str,
+                "Skip": bool,
+                "mzXML File Name": str,
+            },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
@@ -548,6 +573,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusates": {},
                 "LC Protocols": {},
                 "Sequences": {},
+                "Peak Annotation Details": {},
             },
             vo.autofill_dict,
         )
@@ -596,6 +622,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             InfusatesLoader.DataSheetName: {},
             LCProtocolsLoader.DataSheetName: {},
             SequencesLoader.DataSheetName: {},
+            MSRunsLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -625,6 +652,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             InfusatesLoader.DataSheetName: {},
             LCProtocolsLoader.DataSheetName: {},
             SequencesLoader.DataSheetName: {},
+            MSRunsLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -656,6 +684,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             InfusatesLoader.DataSheetName: {},
             LCProtocolsLoader.DataSheetName: {},
             SequencesLoader.DataSheetName: {},
+            MSRunsLoader.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -730,6 +759,14 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Notes": {},
                 "Operator": {},
                 "Sequence Name": {},
+            },
+            "Peak Annotation Details": {
+                "Peak Annotation File Name": {},
+                "Sample Data Header": {},
+                "Sample Name": {},
+                "Sequence Name": {},
+                "Skip": {},
+                "mzXML File Name": {},
             },
         }
 
@@ -808,6 +845,26 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusates": {},
                 "LC Protocols": {},
                 "Sequences": {},
+                "Peak Annotation Details": {
+                    "072920_XXX1_1_TS1__DELIM__accucor1.xlsx": {
+                        "Peak Annotation File Name": "accucor1.xlsx",
+                        "Sample Data Header": "072920_XXX1_1_TS1",
+                        "Sample Name": "072920_XXX1_1_TS1",
+                        "Skip": None,
+                    },
+                    "072920_XXX1_2_bra__DELIM__accucor1.xlsx": {
+                        "Peak Annotation File Name": "accucor1.xlsx",
+                        "Sample Data Header": "072920_XXX1_2_bra",
+                        "Sample Name": "072920_XXX1_2_bra",
+                        "Skip": None,
+                    },
+                    "blank_1_404020__DELIM__accucor1.xlsx": {
+                        "Peak Annotation File Name": "accucor1.xlsx",
+                        "Sample Data Header": "blank_1_404020",
+                        "Sample Name": "blank_1_404020",
+                        "Skip": True,
+                    },
+                },
             },
             dvv.autofill_dict,
         )
