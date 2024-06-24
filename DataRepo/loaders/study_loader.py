@@ -1,6 +1,7 @@
 from collections import namedtuple
 from typing import Dict, List, Type
 
+from django.db import ProgrammingError
 from django.db.models import Model
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
@@ -29,11 +30,14 @@ from DataRepo.utils.exceptions import (
     AggregatedErrorsSet,
     AllMissingCompounds,
     AllMissingSamples,
+    AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
     MissingCompounds,
+    MissingModelRecordsByFile,
     MissingRecords,
     MissingSamples,
+    MissingStudies,
     MissingTissues,
     MissingTreatments,
     MultiLoadStatus,
@@ -52,12 +56,14 @@ class StudyLoader(TableLoader):
     INFUSATES_SHEET = "INFUSATES"
     TRACERS_SHEET = "TRACERS"
     COMPOUNDS_SHEET = "COMPOUNDS"
-    LCPROTOCOLS_SHEET = "LCPROTOCOL"
+    LCPROTOCOLS_SHEET = "LCPROTOCOLS"
     SEQUENCES_SHEET = "SEQUENCES"
     HEADERS_SHEET = "HEADERS"
     FILES_SHEET = "FILES"
+    DEFAULTS_SHEET = "DEFAULTS"
+    ERRORS_SHEET = "ERRORS"
 
-    # Overloading this for sheet keys (not header keys)
+    # Overloading this for sheet keys (not header keys), in load order
     DataTableHeaders = namedtuple(
         "DataTableHeaders",
         [
@@ -73,6 +79,8 @@ class StudyLoader(TableLoader):
             "SEQUENCES",
             "HEADERS",
             "FILES",
+            "DEFAULTS",
+            "ERRORS",
         ],
     )
 
@@ -90,6 +98,8 @@ class StudyLoader(TableLoader):
         SEQUENCES=SequencesLoader.DataSheetName,
         HEADERS=MSRunsLoader.DataSheetName,
         FILES=PeakAnnotationFilesLoader.DataSheetName,
+        DEFAULTS="Defaults",
+        ERRORS="Errors",
     )
 
     # Overloading for required sheets
@@ -100,6 +110,9 @@ class StudyLoader(TableLoader):
         SEQUENCES_SHEET,
         HEADERS_SHEET,
         FILES_SHEET,
+        # TODO: Add Infusates and Tracers
+        # INFUSATES_SHEET,
+        # TRACERS_SHEET,
     ]
 
     # These are unused...
@@ -119,6 +132,8 @@ class StudyLoader(TableLoader):
         SEQUENCES=None,
         HEADERS=None,
         FILES=None,
+        DEFAULTS=None,
+        ERRORS=None,
     )
     Models: List[Model] = []
     # Unused (currently)
@@ -137,7 +152,26 @@ class StudyLoader(TableLoader):
         SEQUENCES=SequencesLoader,
         HEADERS=MSRunsLoader,
         FILES=PeakAnnotationFilesLoader,
+        DEFAULTS=None,
+        ERRORS=None,
     )
+
+    DataSheetDisplayOrder = [
+        STUDY_SHEET,
+        ANIMALS_SHEET,
+        SAMPLES_SHEET,
+        TREATMENTS_SHEET,
+        FILES_SHEET,
+        HEADERS_SHEET,
+        INFUSATES_SHEET,
+        TRACERS_SHEET,
+        SEQUENCES_SHEET,
+        TISSUES_SHEET,
+        COMPOUNDS_SHEET,
+        LCPROTOCOLS_SHEET,
+        DEFAULTS_SHEET,
+        ERRORS_SHEET,
+    ]
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -203,10 +237,13 @@ class StudyLoader(TableLoader):
             SEQUENCES={},
             HEADERS={},
             FILES={"annot_files_dict": self.annot_files_dict},
+            DEFAULTS=None,
+            ERRORS=None,
         )
 
         super().__init__(*args, **kwargs)
 
+        self.missing_study_record_exceptions = []
         self.missing_sample_record_exceptions = []
         self.no_sample_record_exceptions = []
         self.missing_tissue_record_exceptions = []
@@ -219,6 +256,16 @@ class StudyLoader(TableLoader):
                 *list(self.annot_files_dict.keys()),
             ]
         )
+
+        self.check_study_class_attributes()
+
+    @classmethod
+    def check_study_class_attributes(cls):
+        """Basically just error-checks that the sheet display keys are equivalent to the load order keys."""
+        if set(cls.DataTableHeaders._fields) != set(cls.DataSheetDisplayOrder):
+            raise ProgrammingError(
+                "DataTableHeaders and DataSheetDisplayOrder must have the same sheet keys"
+            )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -292,6 +339,8 @@ class StudyLoader(TableLoader):
 
         # This cycles through the loaders in the order in which they were defined in the namedtuple
         for loader_key in loaders._fields:
+            if getattr(loaders, loader_key) is None:
+                continue
             sheet = getattr(sheet_names, loader_key)
             loader_class: Type[TableLoader] = getattr(loaders, loader_key)
             custom_args = getattr(self.CustomLoaderKwargs, loader_key)
@@ -377,6 +426,59 @@ class StudyLoader(TableLoader):
         # This class does not take or use a dataframe with headers.  It only takes a file and calls other loaders.
         return self.get_headers()
 
+    @classmethod
+    def get_study_sheet_column_display_order(cls, required=False):
+        """Returns a list of lists to specify the sheet and column order of a created study excel file.
+
+        The structure of the returned list is:
+
+            [
+                [sheet_name, [column_names]],
+                ...
+            ]
+
+        Args:
+            required (bool): Only return the required sheets
+        Exceptions:
+            None
+        Returns:
+            list of lists of a string (sheet name) and list of strings (column names)
+        """
+        ordered_sheet_keys = cls.DataSheetDisplayOrder
+        display_order_spec = []
+        loader: Type[TableLoader]
+        for sheet_key in ordered_sheet_keys:
+            if required and sheet_key not in cls.DataRequiredHeaders:
+                continue
+
+            sheet_name = getattr(cls.DataHeaders, sheet_key)
+
+            if sheet_key == cls.DEFAULTS_SHEET:
+                # Special case: The default sheet - We can use THIS class's superclass to get the defaults details, as
+                # they are defined in the superclass and all the loaders derive from that
+                display_order_spec.append(
+                    [
+                        sheet_name,
+                        [
+                            getattr(cls.DefaultsHeaders, dhk)
+                            for dhk in cls.DefaultsTableHeaders._fields
+                        ],
+                    ]
+                )
+            elif sheet_key == cls.ERRORS_SHEET:
+                # This is the only place currently where the headers in the errors sheet is defined.  This will likely
+                # change
+                display_order_spec.append([sheet_name, ["Errors"]])
+            else:
+                loader_cls = getattr(cls.Loaders, sheet_key)
+                loader = loader_cls()
+
+                display_order_spec.append(
+                    [sheet_name, loader.get_ordered_display_headers()]
+                )
+
+        return display_order_spec
+
     def package_group_exceptions(self, exception):
         """Repackages an exception for consolidated reporting.
 
@@ -431,6 +533,7 @@ class StudyLoader(TableLoader):
             None
         """
         for exc_cls, buffer in [
+            (MissingStudies, self.missing_study_record_exceptions),
             (MissingSamples, self.missing_sample_record_exceptions),
             (NoSamples, self.no_sample_record_exceptions),
             (MissingTissues, self.missing_tissue_record_exceptions),
@@ -468,42 +571,51 @@ class StudyLoader(TableLoader):
         aggregated for any load file.
         """
 
-        # Collect all the missing samples in 1 error to add to the animal sample table file
-        if len(self.missing_sample_record_exceptions) > 0:
-            self.load_statuses.set_load_exception(
-                AllMissingSamples(self.missing_sample_record_exceptions),
+        exc_cls: MissingModelRecordsByFile
+        exc_lst: List[RecordDoesNotExist]
+        for exc_cls, exc_lst, load_key, succinct in [
+            (
+                AllMissingStudies,
+                self.missing_study_record_exceptions,
+                "All Studies Exist in the Database",
+                False,
+            ),
+            (
+                AllMissingSamples,
+                self.missing_sample_record_exceptions,
                 "All Samples Exist in the Database",
-                top=True,
-            )
-
-        # Collect all the missing samples in 1 error to add to the animal sample table file
-        if len(self.no_sample_record_exceptions) > 0:
-            self.load_statuses.set_load_exception(
-                AllMissingSamples(self.no_sample_record_exceptions, succinct=True),
+                False,
+            ),
+            (
+                AllMissingSamples,
+                self.no_sample_record_exceptions,
                 "No Files are Missing All Samples",
-                top=True,
-            )
-
-        # Collect all the missing tissues in 1 error to add to the tissues file
-        if len(self.missing_tissue_record_exceptions) > 0:
-            self.load_statuses.set_load_exception(
-                AllMissingTissues(self.missing_tissue_record_exceptions),
+                True,
+            ),
+            (
+                AllMissingTissues,
+                self.missing_tissue_record_exceptions,
                 "All Tissues Exist in the Database",
-                top=True,
-            )
-
-        # Collect all the missing treatments in 1 error to add to the treatments file
-        if len(self.missing_treatment_record_exceptions) > 0:
-            self.load_statuses.set_load_exception(
-                AllMissingTreatments(self.missing_treatment_record_exceptions),
+                False,
+            ),
+            (
+                AllMissingTreatments,
+                self.missing_treatment_record_exceptions,
                 "All Treatments Exist in the Database",
-                top=True,
-            )
-
-        # Collect all the missing compounds in 1 error to add to the compounds file
-        if len(self.missing_compound_record_exceptions) > 0:
-            self.load_statuses.set_load_exception(
-                AllMissingCompounds(self.missing_compound_record_exceptions),
+                False,
+            ),
+            (
+                AllMissingCompounds,
+                self.missing_compound_record_exceptions,
                 "All Compounds Exist in the Database",
-                top=True,
-            )
+                False,
+            ),
+        ]:
+
+            # Collect all the missing samples in 1 error to add to the animal sample table file
+            if len(exc_lst) > 0:
+                self.load_statuses.set_load_exception(
+                    exc_cls(exc_lst, succinct=succinct),
+                    load_key,
+                    top=True,
+                )

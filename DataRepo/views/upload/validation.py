@@ -14,6 +14,7 @@ from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
@@ -29,11 +30,13 @@ from DataRepo.loaders.peak_annotations_loader import (
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.study_loader import StudyLoader
+from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
     AllMissingCompounds,
     AllMissingSamples,
+    AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
     MissingDataAdded,
@@ -58,10 +61,21 @@ class DataValidationView(FormView):
     supported_versions = [default_version]
     row_key_delim = "__DELIM__"
 
+    # TODO: Until all sheets are supported, this variable will be used to filter the sheets obtained from StudyLoader
+    build_sheets = [
+        StudyTableLoader.DataSheetName,
+        AnimalsLoader.DataSheetName,
+        SamplesLoader.DataSheetName,
+        ProtocolsLoader.DataSheetName,
+        TissuesLoader.DataSheetName,
+        CompoundsLoader.DataSheetName,
+    ]
+
     def __init__(self):
         super().__init__()
 
         self.autofill_dict = defaultdict(lambda: defaultdict(dict))
+        self.autofill_dict[StudyTableLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
@@ -75,6 +89,7 @@ class DataValidationView(FormView):
         self.exceptions = {}
         self.ordered_keys = []
         self.load_status_data: Optional[MultiLoadStatus] = None
+        self.studies_loader = StudyTableLoader()
         self.animals_loader = AnimalsLoader()
         self.samples_loader = SamplesLoader()
         self.tissues_loader = TissuesLoader()
@@ -421,14 +436,19 @@ class DataValidationView(FormView):
         # indicate errors/warning/required-values/read-only-values, and formulas for inter-sheet population of
         # dropdowns.
         column_metadata = {
+            StudyTableLoader.DataSheetName: self.studies_loader.get_header_metadata(),
             AnimalsLoader.DataSheetName: self.animals_loader.get_header_metadata(),
             SamplesLoader.DataSheetName: self.samples_loader.get_header_metadata(),
             TissuesLoader.DataSheetName: self.tissues_loader.get_header_metadata(),
             ProtocolsLoader.DataSheetName: self.treatments_loader.get_header_metadata(),
             CompoundsLoader.DataSheetName: self.compounds_loader.get_header_metadata(),
         }
-        for order_spec in self.get_study_sheet_column_display_order():
+        for order_spec in StudyLoader.get_study_sheet_column_display_order():
             sheet = order_spec[0]
+            if sheet not in self.build_sheets:
+                # Skipping unsupported sheets
+                continue
+
             worksheet = xlsxwriter.sheets[sheet]
             headers = order_spec[1]
 
@@ -574,13 +594,13 @@ class DataValidationView(FormView):
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         # Init the autofill dict for the subsequent calls
         self.autofill_dict = defaultdict(lambda: defaultdict(dict))
+        self.autofill_dict[StudyTableLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
         # TODO: Add Peak Annotation Details
         # self.autofill_dict[MSRunsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[CompoundsLoader.DataSheetName] = defaultdict(dict)
-        data_added = []
 
         # For every AggregatedErrors objects associated with a file or category
         for load_key in [
@@ -590,12 +610,37 @@ class DataValidationView(FormView):
         ]:
             # For each exception class we want to extract from the AggregatedErrors object (in order to both "fix" the
             # data and to remove related errors that those fixes address)
-            for exc_class in [
-                AllMissingCompounds,  # Only removing - These are extracted already from the peak annotations files
-                AllMissingSamples,  # Note, these are extracted from the peak annotations files, so this is extra
-                AllMissingTissues,
-                AllMissingTreatments,
-                NoSamples,  # Note, these are extracted from the peak annotations files, so this is extra
+            for exc_class, sheet, header in [
+                (
+                    AllMissingCompounds,
+                    CompoundsLoader.DataSheetName,
+                    CompoundsLoader.DataHeaders.NAME,
+                ),
+                (
+                    AllMissingSamples,
+                    SamplesLoader.DataSheetName,
+                    SamplesLoader.DataHeaders.SAMPLE,
+                ),
+                (
+                    AllMissingStudies,
+                    StudyTableLoader.DataSheetName,
+                    StudyTableLoader.DataHeaders.NAME,
+                ),
+                (
+                    AllMissingTissues,
+                    TissuesLoader.DataSheetName,
+                    TissuesLoader.DataHeaders.NAME,
+                ),
+                (
+                    AllMissingTreatments,
+                    ProtocolsLoader.DataSheetName,
+                    ProtocolsLoader.DataHeadersExcel.NAME,
+                ),
+                (
+                    NoSamples,
+                    SamplesLoader.DataSheetName,
+                    SamplesLoader.DataHeaders.SAMPLE,
+                ),
             ]:
 
                 # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
@@ -609,104 +654,38 @@ class DataValidationView(FormView):
                                 "errors"
                             ].append(exc)
 
-                        if exc_class == NoSamples:
-                            data_added.append(f"{len(exc.search_terms)} sample names")
-                            self.extract_all_missing_samples(exc)
-                        elif exc_class == AllMissingSamples:
-                            data_added.append(f"{len(exc.search_terms)} sample names")
-                            self.extract_all_missing_samples(exc)
-                        elif exc_class == AllMissingTissues:
-                            data_added.append(f"{len(exc.search_terms)} tissue names")
-                            self.extract_all_missing_tissues(exc)
-                        elif exc_class == AllMissingTreatments:
-                            data_added.append(
-                                f"{len(exc.search_terms)} treatment names"
-                            )
-                            self.extract_all_missing_treatments(exc)
-                        # We're only removing NoSamples. All their samples are added to the AllMissingSamplesError
+                        self.extract_all_missing_values(exc, sheet, header)
 
                     elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
 
-    def extract_all_missing_samples(self, exc):
-        """Extracts autofill data from the supplied AllMissingSamples exception and puts it in self.autofill_dict.
+    def extract_all_missing_values(self, exc, sheet, header):
+        """Extracts autofill data from supplied AllMissing* exception and puts it in self.autofill_dict.
 
-        self.autofill_dict = {
-            "Samples": {unique_record_key: {header: sample_name}},  # Fills in entries here
-            "Tissues": defaultdict(dict),
-            "Treatments": defaultdict(dict),
-        }
-
+        Example:
+            self.autofill_dict = {
+                "Samples": {unique_record_key: {header: sample_name}},  # Fills in entries here
+                "Tissues": defaultdict(dict),
+                "Treatments": defaultdict(dict),
+            }
         Args:
-            exc (AllMissingSamples): And exception object containing data about missing Samples.
+            exc (MissingModelRecordsByFile): An exception object containing data about missing records from a model.
+            sheet (str)
+            header (str)
         Exceptions:
             None
         Returns:
             None
         """
-        # NOTE: `exc.search_terms` is only a list of sample names because the database query that hit an error was
-        # searching using only the sample name.  In other words, if some other Sample model query were performed (e.g.
-        # using the sample description, or some search for a substring of a sample name), then this will be wrong.  If
-        # there are code changes that cause that to happen, the construction of the exceptions will have to be
-        # refactored.
-        for sample_name in exc.search_terms:
-            self.autofill_dict[SamplesLoader.DataSheetName][sample_name] = {
-                SamplesLoader.DataHeaders.SAMPLE: sample_name
-            }
-
-    def extract_all_missing_tissues(self, exc):
-        """Extracts autofill data from the supplied AllMissingTissues exception and puts it in self.autofill_dict.
-
-        self.autofill_dict = {
-            "Samples": defaultdict(dict),
-            "Tissues": {unique_record_key: {header: tissue_name}},  # Fills in entries here
-            "Treatments": defaultdict(dict),
-        }
-
-        Args:
-            exc (AllMissingTissues): And exception object containing data about missing Tissues.
-        Exceptions:
-            None
-        Returns:
-            None
-        """
-        # NOTE: `exc.search_terms` is only a list of tissue names because the database query that hit an error was
-        # searching using only the tissue name.  In other words, if some other Tissue model query were performed (e.g.
-        # using the tissue description, or some search for a substring of a tissue name), then this will be wrong.  If
-        # there are code changes that cause that to happen, the construction of the exceptions will have to be
-        # refactored.
-        for tissue_name in exc.search_terms:
-            self.autofill_dict[TissuesLoader.DataSheetName][tissue_name] = {
-                TissuesLoader.DataHeaders.NAME: tissue_name
-            }
-
-    def extract_all_missing_treatments(self, exc):
-        """Extracts autofill data from the supplied AllMissingTreatments exception and puts it in self.autofill_dict.
-
-        self.autofill_dict = {
-            "Samples": defaultdict(dict),
-            "Tissues": defaultdict(dict),
-            "Treatments": {unique_record_key: {header: treatment_name}},  # Fills in entries here
-        }
-
-        Args:
-            exc (AllMissingTreatments): And exception object containing data about missing Treatments.
-        Exceptions:
-            None
-        Returns:
-            None
-        """
-        # NOTE: `exc.search_terms` is only a list of treatment names because the database query that hit an error was
-        # searching using only the treatment name.  In other words, if some other Protocol model query were performed
-        # (e.g. using the treatment description, or some search for a substring of a treatment name), then this will be
-        # wrong.  If there are code changes that cause that to happen, the construction of the exceptions will have to
-        # be refactored.
-        for treatment_name in exc.search_terms:
-            self.autofill_dict[ProtocolsLoader.DataSheetName][treatment_name] = {
-                ProtocolsLoader.DataHeadersExcel.NAME: treatment_name
-            }
+        # NOTE: `exc.search_terms` is only a list of unique values because the database query that hit an error was
+        # searching using a unique field.  In other words, if some other query were performed (e.g. using a non-unique
+        # field or a combination of fields or the search term was a substring of a record's value for the field), then
+        # this will be wrong.  If there are code changes that cause that to happen, the construction of the exceptions
+        # will have to be refactored.
+        for unique_val in exc.search_terms:
+            self.autofill_dict[sheet][unique_val] = {header: unique_val}
 
     def add_extracted_autofill_data(self):
         """Appends new rows from self.autofill_dict to self.dfs_dict.
@@ -728,38 +707,28 @@ class DataValidationView(FormView):
         # see if rows already exist or not.  We use a potentially composite key based on the unique column constraints
         # because there can exist the same individual value multiple times in a column and we do not want to prevent an
         # add if it adds a unique row).
-        samples_added = self.add_autofill_data(
-            SamplesLoader.DataSheetName,
-            self.samples_loader.header_keys_to_names(
+        loader: TableLoader
+        for loader in [
+            self.samples_loader,
+            self.tissues_loader,
+            self.treatments_loader,
+            self.compounds_loader,
+            self.studies_loader,
+        ]:
+            # This is a list of column headers in a sheet whose combination defines a unique row
+            # We need it to find existing rows that match the composite key in the autofitt dict, so that we don't
+            # accidentally add duplicate data
+            unique_column_combo_list = loader.header_keys_to_names(
                 # Specifically selected unique column constraint group - used to find existing rows
-                SamplesLoader.DataUniqueColumnConstraints[0]
-            ),
-        )
-        tissues_added = self.add_autofill_data(
-            TissuesLoader.DataSheetName,
-            self.tissues_loader.header_keys_to_names(
-                # Specifically selected unique column constraint group - used to find existing rows
-                TissuesLoader.DataUniqueColumnConstraints[0]
-            ),
-        )
-        treatments_added = self.add_autofill_data(
-            ProtocolsLoader.DataSheetName,
-            self.treatments_loader.header_keys_to_names(
-                # Specifically selected unique column constraint group - used to find existing rows
-                ProtocolsLoader.DataUniqueColumnConstraints[0]
-            ),
-        )
-        compounds_added = self.add_autofill_data(
-            CompoundsLoader.DataSheetName,
-            self.compounds_loader.header_keys_to_names(
-                # Specifically selected unique column constraint group - used to find existing rows
-                CompoundsLoader.DataUniqueColumnConstraints[0]
-            ),
-        )
+                # If any ldesired index happens to not be 0, this will need to be a loop variable
+                loader.DataUniqueColumnConstraints[0]
+            )
 
-        data_added = (
-            samples_added or tissues_added or treatments_added or compounds_added
-        )
+            if self.add_autofill_data(
+                loader.DataSheetName,
+                unique_column_combo_list,
+            ):
+                data_added = True
 
         if data_added and not self.autofill_only_mode:
             # Add a warning about added data
@@ -801,7 +770,7 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        # Get the first row index where we will be adding data (we will be incrementing this)
+        # Get the first row index where we will be adding the first new row (we will be incrementing this)
         next_empty_index = self.get_next_row_index(sheet)
         current_last_index = next_empty_index - 1 if next_empty_index > 0 else 0
         data_added = False
@@ -888,46 +857,6 @@ class DataValidationView(FormView):
                 return index
         return None
 
-    def get_study_sheet_column_display_order(self):
-        """Returns a list of lists to specify the sheet and column order of a created study excel file.
-
-        The structure of the returned list is:
-
-            [
-                [sheet_name, [column_names]],
-                ...
-            ]
-
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            list of lists of a string (sheet name) and list of strings (column names)
-        """
-        return [
-            [
-                AnimalsLoader.DataSheetName,
-                self.animals_loader.get_ordered_display_headers(),
-            ],
-            [
-                SamplesLoader.DataSheetName,
-                self.samples_loader.get_ordered_display_headers(),
-            ],
-            [
-                ProtocolsLoader.DataSheetName,
-                self.treatments_loader.get_ordered_display_headers(),
-            ],
-            [
-                TissuesLoader.DataSheetName,
-                self.tissues_loader.get_ordered_display_headers(),
-            ],
-            [
-                CompoundsLoader.DataSheetName,
-                self.compounds_loader.get_ordered_display_headers(),
-            ],
-        ]
-
     def header_to_cell(self, sheet, header, letter_only=False):
         """Convert a sheet name and header string into the corresponding excel cell location, e.g. "A1".
         Args:
@@ -941,7 +870,9 @@ class DataValidationView(FormView):
             (string): Cell location or column letter
         """
         headers = []
-        if sheet == AnimalsLoader.DataSheetName:
+        if sheet == StudyTableLoader.DataSheetName:
+            headers = self.studies_loader.get_ordered_display_headers()
+        elif sheet == AnimalsLoader.DataSheetName:
             headers = self.animals_loader.get_ordered_display_headers()
         elif sheet == SamplesLoader.DataSheetName:
             headers = self.samples_loader.get_ordered_display_headers()
@@ -1021,6 +952,7 @@ class DataValidationView(FormView):
             if dfs_dict is None:
                 # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
                 return {
+                    StudyTableLoader.DataSheetName: self.studies_loader.get_dataframe_template(),
                     AnimalsLoader.DataSheetName: self.animals_loader.get_dataframe_template(),
                     SamplesLoader.DataSheetName: self.samples_loader.get_dataframe_template(),
                     ProtocolsLoader.DataSheetName: self.treatments_loader.get_dataframe_template(
@@ -1032,6 +964,20 @@ class DataValidationView(FormView):
                     ),
                     CompoundsLoader.DataSheetName: self.compounds_loader.get_dataframe_template(),
                 }
+
+            if (
+                StudyTableLoader.DataSheetName in dfs_dict.keys()
+                and len(dfs_dict[StudyTableLoader.DataSheetName].keys()) > 0
+            ):
+                self.fill_in_missing_columns(
+                    dfs_dict,
+                    StudyTableLoader.DataSheetName,
+                    self.studies_loader.get_dataframe_template(),
+                )
+            else:
+                dfs_dict[StudyTableLoader.DataSheetName] = (
+                    self.studies_loader.get_dataframe_template()
+                )
 
             if (
                 AnimalsLoader.DataSheetName in dfs_dict.keys()
@@ -1183,6 +1129,7 @@ class DataValidationView(FormView):
             f"{self.default_version}."
         ):
             return {
+                StudyTableLoader.DataSheetName: self.studies_loader.get_column_types(),
                 AnimalsLoader.DataSheetName: self.animals_loader.get_column_types(),
                 SamplesLoader.DataSheetName: self.samples_loader.get_column_types(),
                 ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(),
@@ -1282,15 +1229,18 @@ class DataValidationView(FormView):
             stream_obj, engine="xlsxwriter"
         )
 
-        for order_spec in self.get_study_sheet_column_display_order():
+        for order_spec in StudyLoader.get_study_sheet_column_display_order():
             sheet = order_spec[0]
             columns = order_spec[1]
+
+            if sheet not in self.build_sheets:
+                # Skipping unsupported sheets
+                continue
 
             # Error-check the ordered sheets/columns
             if sheet not in self.dfs_dict.keys():
                 raise KeyError(
-                    f"Sheet [{sheet}] from get_study_sheet_column_display_order not in self.dfs_dict: "
-                    f"{self.dfs_dict.keys()}"
+                    f"Sheet [{sheet}] from the StudyLoader not in self.dfs_dict: {self.dfs_dict.keys()}"
                 )
             else:
                 missing_headers = []
@@ -1299,8 +1249,8 @@ class DataValidationView(FormView):
                         missing_headers.append(header)
                 if len(missing_headers) > 0:
                     KeyError(
-                        f"The following headers for sheet [{sheet}] obtained from get_study_sheet_column_display_order "
-                        f"are not in self.dfs_dict[{sheet}]: {missing_headers}"
+                        f"The following headers for sheet [{sheet}] obtained from the StudyLoader are not in "
+                        f"self.dfs_dict[{sheet}]: {missing_headers}"
                     )
 
             # Create a dataframe and add it as an excel object to an xlsxwriter sheet
@@ -1321,18 +1271,21 @@ class DataValidationView(FormView):
         Returns:
             valid (boolean)
         """
-        if self.dfs_dict is None or len(
+        if self.dfs_dict is None or set(
             [
-                s
-                for s in self.get_study_sheet_column_display_order()
+                s[0]
+                for s in StudyLoader.get_study_sheet_column_display_order()
                 if s[0] in self.dfs_dict.keys()
             ]
-        ) < len(self.get_study_sheet_column_display_order()):
+        ) < set(self.build_sheets):
             return False
 
         return (
             # Required headers present in each sheet
-            SamplesLoader(
+            StudyTableLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[StudyTableLoader.DataSheetName])
+            ).check_dataframe_headers()
+            and SamplesLoader(
                 df=pd.DataFrame.from_dict(self.dfs_dict[SamplesLoader.DataSheetName])
             ).check_dataframe_headers()
             and AnimalsLoader(

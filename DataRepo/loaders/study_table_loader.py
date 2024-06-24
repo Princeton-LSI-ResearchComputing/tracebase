@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import Dict
 
 from django.db import transaction
 
@@ -44,7 +45,13 @@ class StudyTableLoader(TableLoader):
     DataRequiredValues = DataRequiredHeaders
 
     # No DataDefaultValues needed
-    # No DataColumnTypes needed
+
+    # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
+    DataColumnTypes: Dict[str, type] = {
+        CODE_KEY: str,
+        NAME_KEY: str,
+        DESC_KEY: str,
+    }
 
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]

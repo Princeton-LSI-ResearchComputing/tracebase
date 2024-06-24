@@ -2908,6 +2908,16 @@ class AllMissingTissues(MissingModelRecordsByFile):
     RecordName = ModelName
 
 
+class MissingStudies(MissingModelRecords):
+    ModelName = "Study"
+    RecordName = ModelName
+
+
+class AllMissingStudies(MissingModelRecordsByFile):
+    ModelName = "Study"
+    RecordName = ModelName
+
+
 # TODO: Delete when sample_table_loader is removed
 class MissingTreatment(InfileError):
     def __init__(self, treatment_name, message=None, **kwargs):
