@@ -29,12 +29,10 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrorsSet,
-    AllMissingSamples,
     AllMissingTissues,
     MissingRecords,
     MissingTissues,
     MissingTreatments,
-    NoSamples,
     RecordDoesNotExist,
 )
 
