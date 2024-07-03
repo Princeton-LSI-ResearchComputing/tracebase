@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Dict, List, Optional
@@ -385,7 +386,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.msrun_sample_dict = {}
         if self.peak_annotation_details_df is not None:
             self.msrun_sample_dict = self.msrunsloader.get_loaded_msrun_sample_dict(
-                peak_annot_file=self.file
+                peak_annot_file=self.friendly_file  # The name in the sheet will be the friendly one
             )
             # Keep track of what has been retrieved
             for sh in self.msrun_sample_dict.keys():
@@ -519,10 +520,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Get or create the ArchiveFile record for the mzXML
         try:
             rec_dict = {
-                # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "is_binary": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+                "filename": os.path.basename(
+                    self.friendly_file
+                ),  # In case file is a temp file with a nonsense name
                 "file_location": self.file,  # Intentionally a string and not a File object
                 "data_type": DataType.objects.get(code="ms_peak_annotation"),
                 "data_format": DataFormat.objects.get(code=self.format_code),
@@ -570,7 +573,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     RecordDoesNotExist(
                         Compound,
                         Compound.get_name_query_expression(name),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         column=self.headers.COMPOUND,
                         rownum=self.rownum,
@@ -652,7 +655,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 self.aggregated_errors_object.buffer_error(
                     NoTracers(
                         msrun_sample.sample.animal,
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -727,7 +730,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     Sample,
                     query_dict,
                     suggestion=self.missing_msrs_suggestion,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=self.headers.SAMPLEHEADER,
                     rownum=self.rownum,
@@ -750,7 +753,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     # missing MSRunSample record
                     {"sample__name": sample_header},
                     suggestion=self.missing_msrs_suggestion,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=self.headers.SAMPLEHEADER,
                     rownum=self.rownum,
@@ -810,7 +813,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     MSRunSample,
                     query_dict,
                     suggestion=self.missing_msrs_suggestion,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=self.headers.SAMPLEHEADER,
                     rownum=self.rownum,
@@ -832,7 +835,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     self.aggregated_errors_object.buffer_error(
                         InfileError(
                             str(e),
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                             rownum=self.rownum,
                         ),
@@ -878,7 +881,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         except NoTracerLabeledElements as ntle:
             # Add infile context to the exception
             ntle.set_formatted_message(
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 column=self.headers.COMPOUND,
                 rownum=self.rownum,
@@ -1002,7 +1005,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # For the exceptions below (for convenience)
         infile_err_args = {
-            "file": self.file,
+            "file": self.friendly_file,
             "sheet": self.sheet,
             "rownum": self.rownum,
             "column": self.headers.ISOTOPELABEL,
@@ -1213,8 +1216,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 UnexpectedSamples(
                     unexpected_samples,
                     suggestion=(
-                        f"Make sure that the {self.headers.SAMPLEHEADER}s whose peak annotation file is '{self.file}' "
-                        f"in the {self.msrunsloader.DataSheetName} sheet/file is correct."
+                        f"Make sure that the {self.headers.SAMPLEHEADER}s whose peak annotation file is "
+                        f"'{self.friendly_file}' in the {self.msrunsloader.DataSheetName} sheet/file is correct."
                     ),
                 )
             )

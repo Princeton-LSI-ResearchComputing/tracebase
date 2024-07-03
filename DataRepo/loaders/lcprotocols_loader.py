@@ -170,7 +170,7 @@ class LCProtocolsLoader(TableLoader):
                         },
                         rownum=self.rownum,
                         sheet=self.sheet,
-                        file=self.file,
+                        file=self.friendly_file,
                     )
                 )
                 self.warned(LCMethod.__name__)

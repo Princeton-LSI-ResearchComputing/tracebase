@@ -1,3 +1,4 @@
+import os
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
@@ -195,6 +196,7 @@ class TableLoader(ABC):
         dry_run=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
         file=None,
+        filename=None,  # In case file is a temp file with a nonsense name
         data_sheet=None,
         defaults_df=None,
         defaults_sheet=None,
@@ -266,12 +268,24 @@ class TableLoader(ABC):
         self.validate = _validate
 
         # For error reporting
-        self.file = file
+        self.file = file  # Also used for type checking
         self.sheet = data_sheet
         self.defaults_file = defaults_file
         self.defaults_sheet = defaults_sheet
         self.row_index = None
         self.rownum = None
+        self.friendly_file = (
+            file  # In case the file is a temp file with a nonsense name
+        )
+        if filename is not None and self.file is not None:
+            # In case a path was provided
+            friendly_path, friendly_name = os.path.split(filename)
+            if friendly_path is None or str(friendly_path) == "":
+                friendly_path, _ = os.path.split(file)
+                self.friendly_file = os.path.join(friendly_path, friendly_name)
+            else:
+                self.friendly_file = filename
+        # TODO: Add a self.friendly_defaults_file instance attribute (low priority, as we will not often use this)
 
         # This is for preserving derived class headers and defaults
         self.headers = headers
@@ -282,6 +296,23 @@ class TableLoader(ABC):
 
         # Metadata
         self.initialize_metadata()
+
+    def get_friendly_filename(self):
+        """Returns the friendly name of self.file (if it is defined).  "Friendly" means the name the user gave it (in
+        case self.file is a tempo file with a nonsense name).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Retruns:
+            friendly_filename (Optional[str])
+        """
+        if self.friendly_file is not None:
+            return os.path.basename(self.friendly_file)
+        if self.file is None:
+            return None
+        return os.path.basename(self.file)
 
     def apply_loader_wrapper(self):
         """This applies a decorator to the derived class's load_data method.
@@ -1490,7 +1521,7 @@ class TableLoader(ABC):
             if len(dupes) > 0:
                 self.aggregated_errors_object.buffer_error(
                     DuplicateValues(
-                        dupes, unique_combo, sheet=self.sheet, file=self.file
+                        dupes, unique_combo, sheet=self.sheet, file=self.friendly_file
                     )
                 )
 
@@ -1732,7 +1763,7 @@ class TableLoader(ABC):
             raise UnknownHeaderError(
                 header,
                 self.all_headers,
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 message=(
                     f"Header [{header}] supplied to get_row_val while processing %s is not configured in either the "
@@ -1746,7 +1777,9 @@ class TableLoader(ABC):
                 header,
                 list(self.DefaultsHeaders._asdict().values()),
                 file=(
-                    self.defaults_file if self.defaults_file is not None else self.file
+                    self.defaults_file
+                    if self.defaults_file is not None
+                    else self.friendly_file
                 ),
                 sheet=self.defaults_sheet,
                 message=(
@@ -1905,7 +1938,7 @@ class TableLoader(ABC):
                     source_sheet=self.defaults_sheet,
                     column=self.DefaultsHeaders.COLUMN_NAME,
                     unknown_headers=unknown_headers,
-                    target_file=self.file,
+                    target_file=self.friendly_file,
                     target_sheet=self.sheet,
                     target_headers=infile_headers,
                 )
@@ -2000,6 +2033,7 @@ class TableLoader(ABC):
                     What's returned by the wrapped method
                 """
                 retval = None
+                aes_set = None
                 with transaction.atomic():
                     try:
                         self.check_dataframe_headers()
@@ -2008,16 +2042,27 @@ class TableLoader(ABC):
 
                         retval = fn(*args, **kwargs)
 
-                    except (AggregatedErrorsSet, MultiLoadStatus):
-                        # These exceptions should not be raised by a loader that is actually directly loading any model
-                        # data.  They should only be raised when the load_data method is calling other TableLoader
-                        # classes.
-                        # So in the event that an AggregatedErrorsSet or MultiLoadStatus exception is raised, there is
-                        # nothing left to do.  All summarizable exceptions will have been summarized already by the
-                        # called loaders.  Unwanted exceptions have been removed and we're not in DryRun mode.  There
-                        # will not have been any autoupdates of maintained fields.  Rollback is intended as part and
-                        # parcel with the raising of this exception.
+                    except MultiLoadStatus:
+                        # In the event that a MultiLoadStatus exception is raised, there is nothing left to do.  All
+                        # summarizable exceptions will have been summarized already by the called loaders.  Unwanted
+                        # exceptions have been removed and we're not in DryRun mode.  There will not have been any
+                        # autoupdates of maintained fields.  Rollback is intended as part and parcel with the raising of
+                        # this exception.  So, raise
                         raise
+                    except AggregatedErrorsSet as aess:
+                        # If an AggregatedErrorsSet exception is being raised by a TableLoader class, there are 2
+                        # possibilities:
+                        # 1. A file was being loader by this instance we're in right now, but it also called other child
+                        #    loaders, in which case the exceptions raised in this class need to be summarized (and the
+                        #    sub-loaders would already have been summarized).
+                        # 2. The loader was only running sub-loaders and there is no file that was being loaded to
+                        #    reference as a key in the AggregatedErrorsSet's dict of AggregatedErrors objects.  There
+                        #    can also be nothing to summarize, because it wasn't iterating over a file.
+                        # In either case, we need to process the aggregated_errors_object associated with this loader
+                        # and then raise the AggregatedErrorsSet exception.
+                        # The self.aggregated_errors_object by be contained in aess.  If it is not, we add it, and if it
+                        # is, the operations on it below will be updated in the set object as well.
+                        aes_set = aess
                     except AggregatedErrors as aes:
                         if aes != self.aggregated_errors_object:
                             self.aggregated_errors_object.merge_aggregated_errors_object(
@@ -2073,6 +2118,58 @@ class TableLoader(ABC):
                                 is_error=is_error,
                                 is_fatal=is_fatal,
                             )
+
+                    if aes_set is not None:
+                        # Right now, individual loader classes set the load key manually to the friendly filename.  This
+                        # assumes that is the case with every loader that does this (which is currently only the
+                        # PeakAnnotationFilesLoader)
+                        load_key = self.get_friendly_filename()
+                        if load_key is None:
+                            # If there is no load file, use the loader class's name
+                            load_key = type(self).__name__
+
+                        # If self.aggregated_errors_object is not in the aggregated_errors_set_object, we need to add it
+                        if (
+                            self.aggregated_errors_object
+                            not in aes_set.aggregated_errors_dict.values()
+                        ):
+                            if (
+                                # If there are exceptions in this class's AES obj and either are fatal
+                                len(self.aggregated_errors_object.exceptions) > 0
+                                and (
+                                    self.aggregated_errors_object.should_raise()
+                                    or aes_set.should_raise()
+                                )
+                            ):
+                                # We need to incorporate the objects into 1 AggregatedErrorsSet object
+
+                                # Could have raised a separate object (assumes self.filename is the load_key key)
+                                if load_key in aes_set.aggregated_errors_dict.keys():
+                                    aes_set.aggregated_errors_dict[
+                                        load_key
+                                    ].merge_aggregated_errors_object(
+                                        self.aggregated_errors_object
+                                    )
+                                else:
+                                    aes_set.aggregated_errors_dict[load_key] = (
+                                        self.aggregated_errors_object
+                                    )
+
+                                # Preserve any custom message
+                                msg = (
+                                    aes_set.message if aes_set.custom_message else None
+                                )
+                                new_aes_set = AggregatedErrorsSet(
+                                    aes_set.aggregated_errors_dict, message=msg
+                                )
+
+                                # Raise the updated AggregatedErrorsSet exception
+                                if new_aes_set.should_raise():
+                                    raise new_aes_set
+
+                        # Raise the AggregatedErrorsSet object we received
+                        if aes_set.should_raise():
+                            raise aes_set
 
                     if (
                         self.aggregated_errors_object.should_raise()
@@ -2308,7 +2405,7 @@ class TableLoader(ABC):
                     rec_dict=rec_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
-                    file=self.file,
+                    file=self.friendly_file,
                 ),
                 orig_exception=orig_exception,
                 is_error=is_error,
@@ -2340,7 +2437,7 @@ class TableLoader(ABC):
         self.aggregated_errors_object.buffer_exception(
             InfileError(
                 str(exception),
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 column=column,
                 rownum=self.rownum,
@@ -2397,7 +2494,7 @@ class TableLoader(ABC):
             rec_dict,
             rownum=self.rownum,
             sheet=self.sheet,
-            file=self.file,
+            file=self.friendly_file,
             column=columns,
         )
 
@@ -2463,7 +2560,7 @@ class TableLoader(ABC):
                             model_name=model.__name__,
                             field_name=fldname,
                             sheet=self.sheet,
-                            file=self.file,
+                            file=self.friendly_file,
                             rec_dict=rec_dict,
                         ),
                         orig_exception=exception,
@@ -2560,7 +2657,7 @@ class TableLoader(ABC):
                         self.aggregated_errors_object.buffer_exception(
                             InfileError(
                                 f"{type(orig_exception).__name__}: {orig_sub_exception}",
-                                file=self.file,
+                                file=self.friendly_file,
                                 sheet=self.sheet,
                                 rownum=self.rownum,
                             ),
@@ -2584,7 +2681,7 @@ class TableLoader(ABC):
                 RecordDoesNotExist(
                     model,
                     rec_dict,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=columns,
                     rownum=self.rownum,
@@ -2601,7 +2698,7 @@ class TableLoader(ABC):
                 RecordDoesNotExist(
                     model,
                     rec_dict,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     column=columns,
                     rownum=self.rownum,

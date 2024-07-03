@@ -17,7 +17,11 @@ from DataRepo.loaders.peak_annotations_loader import (
 )
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
-from DataRepo.utils.exceptions import RollbackException
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    AggregatedErrorsSet,
+    RollbackException,
+)
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 
 
@@ -167,6 +171,9 @@ class PeakAnnotationFilesLoader(TableLoader):
             None
         """
         # Custom options for the MSRunsLoader member instance.
+        # NOTE: We COULD make a friendly version of this file for the web interface, but we don't accept this separate
+        # file in that interface, so it will currently always be set using self.file.  These options will only
+        # effectively be used on the command line, where self.file *is* already friendly.
         self.peak_annotation_details_file = kwargs.pop(
             "peak_annotation_details_file", None
         )
@@ -174,7 +181,11 @@ class PeakAnnotationFilesLoader(TableLoader):
             "peak_annotation_details_sheet", None
         )
         self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
+        self.annot_files_dict = kwargs.pop("annot_files_dict", None)
         super().__init__(*args, **kwargs)
+
+        # For tracking exceptions of the individual peak annotation loaders
+        self.aggregated_errors_dict = {}
 
     def load_data(self):
         """Loads the ArchiveFile table from the dataframe and calls the PeakAnnotationsLoader for each file.
@@ -188,11 +199,11 @@ class PeakAnnotationFilesLoader(TableLoader):
         """
         for _, row in self.df.iterrows():
             # Determine the format
-            filepath, format_code = self.get_file_and_format(row)
+            filename, filepath, format_code = self.get_file_and_format(row)
 
             # Load the ArchiveFile entry for the peak annotations file
             try:
-                self.get_or_create_annot_file(filepath, format_code)
+                self.get_or_create_annot_file(filepath, format_code, filename=filename)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -216,19 +227,47 @@ class PeakAnnotationFilesLoader(TableLoader):
                 filename=filename,
             )
 
+        # If any of the PeakAnnotationLoaders had any fatal error, raise an AggregatedErrorsSet exception.  This
+        # loader's aggregated_errors_object will be incorporated in TableLoader's load wrapper, after summarizing and
+        # processing its exceptions.
+        for aes in self.aggregated_errors_dict.values():
+            if aes.should_raise():
+                raise AggregatedErrorsSet(self.aggregated_errors_dict)
+
     def get_file_and_format(self, row):
         """Gets the file path and determines the file format.
 
         Args:
             row (pd.Series)
         Exceptions:
-            None
+            InfileError
         Returns:
+            filename (str): The user's given name for the file (in case the path has a hashed temp name from a web form)
             filepath (str)
             format_code (str)
         """
-        filepath = self.get_row_val(row, self.headers.FILE)
+        filepath_str = self.get_row_val(row, self.headers.FILE)
         format_code = self.get_row_val(row, self.headers.FORMAT)
+
+        filename = os.path.basename(filepath_str)
+
+        if (
+            self.annot_files_dict is not None
+            and filename in self.annot_files_dict.keys()
+        ):
+            filepath = self.annot_files_dict[filename]
+        else:
+            filepath = filepath_str
+
+        if not os.path.isfile(filepath):
+            msg = ""
+            if filepath_str != filepath:
+                msg = f" using supplied path: {filepath}."
+            self.buffer_infile_exception(
+                f"File '{filepath_str}' not found{msg}.",
+                column=self.headers.FILE,
+            )
+            return None, None, format_code
 
         matching_formats = PeakAnnotationsLoader.determine_matching_formats(
             # Do not enforce column types when we don't know what columns exist yet
@@ -258,10 +297,10 @@ class PeakAnnotationFilesLoader(TableLoader):
                     column=self.headers.FORMAT,
                 )
 
-        return filepath, format_code
+        return filename, filepath, format_code
 
     @transaction.atomic
-    def get_or_create_annot_file(self, filepath, format_code):
+    def get_or_create_annot_file(self, filepath, format_code, filename=None):
         """Gets or creates an ArchiveFile record from self.file.
 
         Args:
@@ -287,10 +326,10 @@ class PeakAnnotationFilesLoader(TableLoader):
         # Get or create the ArchiveFile record for the mzXML
         try:
             rec_dict = {
-                # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "is_binary": xxx,  # Gets automatically filled in by the override of get_or_create
                 # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+                "filename": filename,  # In case the file is a tmp file from a web form with a nonsense name
                 "file_location": filepath,  # Intentionally a string and not a File object
                 "data_type": DataType.objects.get(code="ms_peak_annotation"),
                 "data_format": DataFormat.objects.get(code=format_code),
@@ -426,6 +465,7 @@ class PeakAnnotationFilesLoader(TableLoader):
             # These are the essential arguments
             df=read_from_file(filepath, sheet=None),
             file=filepath,
+            filename=filename,  # In case filepath is a temp file with a nonsense name
             # Then we need either these 3 peak annotation details inputs
             peak_annotation_details_file=peak_annotation_details_file,
             peak_annotation_details_sheet=peak_annotation_details_sheet,
@@ -440,5 +480,9 @@ class PeakAnnotationFilesLoader(TableLoader):
             defer_rollback=self.defer_rollback,
         )
 
-        # Load this peak annotations file
-        peak_annot_loader.load_data()
+        try:
+            # Load this peak annotations file
+            peak_annot_loader.load_data()
+        except AggregatedErrors as aes:
+            # Log the peak annot loader's exceptions by file
+            self.aggregated_errors_dict[filename] = aes

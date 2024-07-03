@@ -1622,6 +1622,10 @@ class TableLoaderUtilitiesTests(TracebaseTestCase):
         )
         self.assertEqual("['one', 'two', 'three']", str(ve))
 
+    def test_get_friendly_filename(self):
+        # TODO: Implement test
+        pass
+
     def test__get_column_types(self):
         # TODO: Implement test
         pass

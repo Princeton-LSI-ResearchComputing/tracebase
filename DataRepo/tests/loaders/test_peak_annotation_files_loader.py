@@ -40,7 +40,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
         self.assertEqual(exp_fmt, fmt)
         self.assertEqual(exp_file, file)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
@@ -55,7 +56,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: exp_fmt,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(exp_fmt, fmt)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
@@ -71,7 +73,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("6eaafasted1_cor.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(exp_fmt, fmt)
         self.assertEqual(0, len(pafl.aggregated_errors_object.exceptions))
@@ -85,8 +88,9 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
         self.assertIsNone(fmt)
+        self.assertEqual("study.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
         self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)
@@ -103,7 +107,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: None,
             }
         )
-        file, fmt = pafl.get_file_and_format(row)
+        name, file, fmt = pafl.get_file_and_format(row)
+        self.assertEqual("small_cor.csv", name)
         self.assertEqual(exp_file, file)
         self.assertIsNone(fmt)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))

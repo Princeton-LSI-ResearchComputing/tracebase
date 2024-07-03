@@ -338,7 +338,7 @@ class InfusatesLoader(TableLoader):
                         InfileError(
                             f"{self.headers.ID} undefined.",
                             rownum=self.rownum,
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                         )
                     )
@@ -372,7 +372,10 @@ class InfusatesLoader(TableLoader):
 
             except Exception as e:
                 exc = InfileError(
-                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                    str(e),
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.friendly_file,
                 )
                 self.add_skip_row_index(row.name)
                 self.aggregated_errors_object.buffer_error(exc)
@@ -597,7 +600,7 @@ class InfusatesLoader(TableLoader):
                             f"{self.headers.TRACERCONC}(s): {table_concentrations} on row(s) {rownums} via "
                             f"{self.headers.ID} {infusate_number} in %s: {ipe}"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -618,7 +621,7 @@ class InfusatesLoader(TableLoader):
                             f"{self.headers.TRACERGROUP} parsed from {self.headers.NAME} ({table_infusate_name}): "
                             f"[{parsed_tracer_group_name}] on %s"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                         rownum=table_infusate["rownum"],
                     )
@@ -672,7 +675,7 @@ class InfusatesLoader(TableLoader):
                                 f"Tracer data from columns [{cols}] on row(s) {irows} does not match any of the "
                                 f"tracers parsed from the {self.headers.NAME} [{table_infusate_name}] on %s."
                             ),
-                            file=self.file,
+                            file=self.friendly_file,
                             sheet=self.sheet,
                             rownum=table_infusate["rownum"],
                         )
@@ -690,7 +693,7 @@ class InfusatesLoader(TableLoader):
                             f"rows for {self.headers.ID} {infusate_number}.  Perhaps {self.headers.ID} "
                             f"{infusate_number} is on the wrong number of rows?"
                         ),
-                        file=self.file,
+                        file=self.friendly_file,
                         sheet=self.sheet,
                     )
                 )
@@ -836,7 +839,7 @@ class InfusatesLoader(TableLoader):
                 f"{type(e).__name__}: {e}",
                 rownum=self.rownum,
                 sheet=self.sheet,
-                file=self.file,
+                file=self.friendly_file,
             )
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
@@ -1023,7 +1026,7 @@ class InfusatesLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.ID} and {self.headers.TRACERGROUP}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1059,7 +1062,7 @@ class InfusatesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1090,7 +1093,7 @@ class InfusatesLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.NAME} and {self.headers.ID}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1114,7 +1117,7 @@ class InfusatesLoader(TableLoader):
                 InfileError(
                     msg,
                     column=f"{self.headers.ID} and {self.headers.NAME}",
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1143,7 +1146,7 @@ class InfusatesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1176,7 +1179,7 @@ class InfusatesLoader(TableLoader):
             self.aggregated_errors_object.buffer_error(
                 InfileError(
                     msg,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                 )
             )
@@ -1227,7 +1230,7 @@ class InfusatesLoader(TableLoader):
                     f"{supplied_concentrations} from %s do not match the automatically generated name (shown with "
                     f"concentrations) [{rec._name()}] using the data on rows {data_rownums}."
                 ),
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 rownum=infusate_dict["rownum"],
             )
@@ -1274,7 +1277,7 @@ class InfusatesLoader(TableLoader):
             err_msg = "%s:\n\t" + "\n\t".join(err_msgs)
             exc = InfileError(
                 err_msg,
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
             )
             self.add_skip_row_index(index_list=rowidxs)

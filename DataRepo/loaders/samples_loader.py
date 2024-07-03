@@ -263,7 +263,7 @@ class SamplesLoader(TableLoader):
             self.aggregated_errors_object.buffer_warning(
                 NewResearcher(
                     researcher,
-                    file=self.file,
+                    file=self.friendly_file,
                     sheet=self.sheet,
                     rownum=self.rownum,
                     column=self.headers.HANDLER,
@@ -282,7 +282,7 @@ class SamplesLoader(TableLoader):
             # we can catch more errors
             date = datetime.now()
             dpe.set_formatted_message(
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 rownum=self.rownum,
                 column=self.headers.DATE,

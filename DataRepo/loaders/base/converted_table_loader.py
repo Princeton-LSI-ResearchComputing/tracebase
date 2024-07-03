@@ -509,7 +509,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                     MissingColumnGroup(
                         self.condense_columns_dict[sheet_key]["header_column"],
                         sheet=sheet_key,
-                        file=self.file,
+                        file=self.friendly_file,
                     )
                 )
 
@@ -530,7 +530,9 @@ class ConvertedTableLoader(TableLoader, ABC):
                             # If any sheet has a different number as the first, buffer an error
                             self.aggregated_errors_object.buffer_error(
                                 UnequalColumnGroups(
-                                    coltype, condense_cols[coltype], file=self.file
+                                    coltype,
+                                    condense_cols[coltype],
+                                    file=self.friendly_file,
                                 )
                             )
                             break
@@ -560,7 +562,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                     erroneous_condense_columns,
                     list(df_dict[sheet].columns),
                     sheet=sheet,
-                    file=self.file,
+                    file=self.friendly_file,
                     addendum=msg,
                 ),
                 is_error=is_error,

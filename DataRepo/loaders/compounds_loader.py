@@ -334,7 +334,7 @@ class CompoundsLoader(TableLoader):
                     syn_dupe_dict,
                     [self.headers.SYNONYMS],
                     sheet=self.sheet,
-                    file=self.file,
+                    file=self.friendly_file,
                 )
             )
 
@@ -361,6 +361,6 @@ class CompoundsLoader(TableLoader):
                         "common."
                     ),
                     sheet=self.sheet,
-                    file=self.file,
+                    file=self.friendly_file,
                 )
             )
