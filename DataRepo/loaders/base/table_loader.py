@@ -1079,14 +1079,36 @@ class TableLoader(ABC):
             return None
 
         if hasattr(self, "headers") and self.headers is not None:
-            headers = self.headers
-        else:
+            return self._get_column_types(self.headers)
+
+        return self._get_column_types()
+
+    @classmethod
+    def _get_column_types(self, headers=None):
+        """Returns a dict of column types by header name (not header key).
+
+        Args:
+            headers (namedtuple)
+        Exceptions:
+            None
+        Returns:
+            dtypes (dict): Types by header name (instead of by header key)
+        """
+        if self.DataColumnTypes is None:
+            return None
+
+        if headers is None:
             headers = self.DataHeaders
 
         dtypes = {}
         for key in self.DataColumnTypes.keys():
             hdr = getattr(headers, key)
-            dtypes[hdr] = self.DataColumnTypes[key]
+            if hdr is None:
+                # This is in case the custom-supplied headers are incomplete (they should not be if they came from the
+                # instance - only if this is called externally)
+                dtypes[getattr(self.DataHeaders, key)] = self.DataColumnTypes[key]
+            else:
+                dtypes[hdr] = self.DataColumnTypes[key]
 
         return dtypes
 
@@ -1181,23 +1203,24 @@ class TableLoader(ABC):
 
         return outdict
 
-    def check_dataframe_headers(self, reading_defaults=False):
+    def check_dataframe_headers(self, reading_defaults=False, error=True):
         """Error-checks the headers in the dataframe.
 
         Args:
             reading_defaults (boolean) [False]: Whether defaults data is being read or not
-
+            error (bool) [True]: Buffers/raises errors is True
         Exceptions:
             Raises:
                 AggregatedErrors
-                    RequiredHeadersError
                 ValueError
             Buffers:
                 UnknownHeadersError
-
+                RequiredHeadersError
         Returns:
-            Nothing
+            passed (bool)
         """
+        passed = True
+
         if reading_defaults:
             df = self.defaults_df
             all_headers = list(self.DefaultsHeaders._asdict().values())
@@ -1221,11 +1244,12 @@ class TableLoader(ABC):
             if (
                 not self.aggregated_errors_object.exception_type_exists(NoLoadData)
                 and len(self.Models) > 0
+                and error
             ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
-            return
+            return len(self.Models) == 0
 
         missing_headers = None
         if reqd_headers is not None:
@@ -1233,16 +1257,20 @@ class TableLoader(ABC):
                 df.columns, reqd_headers=reqd_headers
             )
             if missing_headers is not None:
-                pretty_missing_headers = self.get_pretty_headers(
-                    reqd_spec=missing_headers,
-                    all_reqd=all_reqd,
-                    reqd_only=True,
-                    legend=False,
-                    markers=False,
-                )
-                self.aggregated_errors_object.buffer_error(
-                    RequiredHeadersError(pretty_missing_headers, file=file, sheet=sheet)
-                )
+                if error:
+                    pretty_missing_headers = self.get_pretty_headers(
+                        reqd_spec=missing_headers,
+                        all_reqd=all_reqd,
+                        reqd_only=True,
+                        legend=False,
+                        markers=False,
+                    )
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredHeadersError(
+                            pretty_missing_headers, file=file, sheet=sheet
+                        )
+                    )
+                passed = False
 
         if all_headers is not None and not any_header_allowed:
             unknown_headers = []
@@ -1251,12 +1279,16 @@ class TableLoader(ABC):
                     unknown_headers.append(file_header)
             if len(unknown_headers) > 0:
                 if not reading_defaults or missing_headers is not None:
-                    self.aggregated_errors_object.buffer_error(
-                        UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
-                    )
+                    if error:
+                        self.aggregated_errors_object.buffer_error(
+                            UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
+                        )
+                    passed = False
 
-        if missing_headers is not None:
+        if missing_headers is not None and error:
             raise self.aggregated_errors_object
+
+        return passed
 
     def get_missing_headers(
         self, supd_headers, reqd_headers=None, _anded=True, _first=True
@@ -1462,24 +1494,25 @@ class TableLoader(ABC):
                     )
                 )
 
-    def check_dataframe_values(self, reading_defaults=False):
+    def check_dataframe_values(self, reading_defaults=False, error=True):
         """Preprocesses the dataframe to ensure that required values are satisfied.
 
         If there are missing required values, a RequiredColumnValue exception is buffered and the row is marked to be
         skipped.
 
         Args:
-            df (pandas dataframe) [self.df]
-
+            reading_defaults (bool): Whether we should be reading the df or defaults_df
+            error (bool): If True, exceptions are buffered/raised. If False, only returns the passed status, no error.
         Exceptions:
             Raises:
-                None
+                ProgrammingError
             Buffers:
                 RequiredColumnValue
-
+                NoLoadData
         Returns:
-            None
+            passed (bool): False if the data fails the check, True if it passes.
         """
+        passed = True
         # TODO: Add a check of the types and of enums here (in addition to read_from_file).  See:
         # DataRepo.tests.loaders.test_animals_loader.AnimalsLoaderTests.test_animals_loader_load_data_invalid
         if reading_defaults:
@@ -1495,30 +1528,21 @@ class TableLoader(ABC):
             headers = self.headers
             reqd_values = self.reqd_values
 
-        if df is None:
-            if (
-                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
-                and len(self.Models) > 0
-            ):
-                self.aggregated_errors_object.buffer_warning(
-                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
-                )
-            return
-
         # Do we need to do anything?
         if reqd_values is None or len(reqd_values) == 0:
-            return
+            return passed
 
         # Is there data to check?
         if df is None:
             if (
                 not self.aggregated_errors_object.exception_type_exists(NoLoadData)
                 and len(self.Models) > 0
+                and error
             ):
                 self.aggregated_errors_object.buffer_warning(
-                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
+                    NoLoadData("No dataframe provided.  Nothing to load.")
                 )
-            return
+            return len(self.Models) == 0
 
         # Are we in the proper initialized state?
         if hasattr(self, "row_index") and self.row_index is not None:
@@ -1528,33 +1552,40 @@ class TableLoader(ABC):
                 "before check_dataframe_values is called (e.g. from the load_data wrapper.)"
             )
 
+        save_row_index = self.row_index
+        self.set_row_index(None)
+
         for _, row in df.iterrows():
             missing_reqd_vals, all_reqd = self.get_missing_values(
                 row, reqd_values=reqd_values, headers=headers
             )
 
             if missing_reqd_vals is not None:
-                pretty_missing_reqd_vals = self.get_pretty_headers(
-                    reqd_spec=missing_reqd_vals,
-                    all_reqd=all_reqd,
-                    reqd_only=True,
-                    legend=False,
-                    markers=False,
-                )
-                # TODO: Figure out a way to just skip entirely empty rows and not report required missing column values
-                self.aggregated_errors_object.buffer_error(
-                    RequiredColumnValue(
-                        pretty_missing_reqd_vals,
-                        file=file,
-                        sheet=sheet,
-                        rownum=row.name + 2,
+                if error:
+                    pretty_missing_reqd_vals = self.get_pretty_headers(
+                        reqd_spec=missing_reqd_vals,
+                        all_reqd=all_reqd,
+                        reqd_only=True,
+                        legend=False,
+                        markers=False,
                     )
-                )
-                if not reading_defaults:
-                    self.add_skip_row_index(row.name)
+                    # TODO: Figure out a way to skip entirely empty rows and not report required missing column values
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredColumnValue(
+                            pretty_missing_reqd_vals,
+                            file=file,
+                            sheet=sheet,
+                            rownum=row.name + 2,
+                        )
+                    )
+                    if not reading_defaults:
+                        self.add_skip_row_index(row.name)
+                passed = False
 
         # Reset the row index (which was altered by get_row_val inside get_missing_values)
-        self.set_row_index(None)
+        self.set_row_index(save_row_index)
+
+        return passed
 
     def get_missing_values(
         self,

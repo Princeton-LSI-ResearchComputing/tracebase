@@ -1621,3 +1621,7 @@ class TableLoaderUtilitiesTests(TracebaseTestCase):
             ]
         )
         self.assertEqual("['one', 'two', 'three']", str(ve))
+
+    def test__get_column_types(self):
+        # TODO: Implement test
+        pass

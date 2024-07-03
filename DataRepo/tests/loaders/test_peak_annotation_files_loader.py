@@ -213,13 +213,15 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
             file="DataRepo/data/tests/small_obob/study.xlsx"
         )
         file = "DataRepo/data/tests/small_obob2/obob_maven_c160_inf.xlsx"
-        row = pd.Series(
-            {
-                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: "Dick, polar-HILIC-25-min, QE2, 1991-5-7"
-            }
-        )
         fmt = "accucor"
-        pafl.load_peak_annotations(row, file, fmt)
+        pafl.load_peak_annotations(
+            file,
+            fmt,
+            operator="Dick",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="QE2",
+            date="1991-5-7",
+        )
 
         self.assert_test_peak_annotations_loaded()
 
@@ -286,3 +288,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl.load_data()
 
         self.assert_test_peak_annotations_loaded()
+
+    def test_get_default_sequence_details(self):
+        # TODO: Implement test
+        pass

@@ -298,19 +298,68 @@ class PeakAnnotationFilesLoader(TableLoader):
 
         return rec, created
 
-    def load_peak_annotations(self, row, filepath, format_code):
-        """Loads the peak annotations file reference in the row and supplies a default sequence, if supplied.
+    def get_default_sequence_details(self, row):
+        """Retrieves the sequence name and parses it into its parts.
 
         Args:
             row (pd.Series)
+        Exceptions:
+            None
+        Returns:
+            default_operator (Optional[str])
+            default_lc_protocol_name (Optional[str])
+            default_instrument (Optional[str])
+            default_date (Optional[str])
+        """
+        sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+
+        # Get the default sequence (if any).  This can be overridden by peak_annotation_details_df
+        default_operator = None
+        default_date = None
+        default_lc_protocol_name = None
+        default_instrument = None
+
+        if sequence_name is not None:
+            (
+                default_operator,
+                default_lc_protocol_name,
+                default_instrument,
+                default_date,
+            ) = re.split(r",\s*", sequence_name)
+
+        return (
+            default_operator,
+            default_lc_protocol_name,
+            default_instrument,
+            default_date,
+        )
+
+    def load_peak_annotations(
+        self,
+        filepath,
+        format_code,
+        operator=None,
+        lc_protocol_name=None,
+        instrument=None,
+        date=None,
+        filename=None,
+    ):
+        """Loads the peak annotations file reference in the row and supplies a default sequence, if supplied.
+
+        Args:
             filepath (str)
             format_code (str)
+            operator (str): Default researcher
+            date (str): Default date
+            lc_protocol_name (str): Default LC protocol name
+            instrument (str): Default instrument
         Exceptions:
             None
         Returns:
             None
         """
-        sequence_name = self.get_row_val(row, self.headers.SEQNAME)
+        if filename is None and filepath is not None:
+            filename = os.path.basename(filepath)
 
         if (
             filepath is None
@@ -319,7 +368,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         ):
             self.buffer_infile_exception(
                 (
-                    f"Skipping load of peak annotations file {filepath}.  Unrecognized format code: {format_code}.  "
+                    f"Skipping load of peak annotations file {filename}.  Unrecognized format code: {format_code}.  "
                     f"Must be one of {PeakAnnotationsLoader.get_supported_formats()}."
                 ),
                 column=self.headers.FORMAT,

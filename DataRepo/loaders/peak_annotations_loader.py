@@ -577,15 +577,22 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     ),
                     orig_exception=cmpderr,
                 )
+                # Appending so that not only the skip count can be updated, but so the build-a-submission interface can
+                # associate a delimited name with whether the record was found of not
+                recs.append(None)
 
         pgname = None
         if len(recs) > 0:
-            # Set the peak group name to the sorted primary compound names, delimited by "/"
-            pgname = self.CompoundNamesDelimiter.join(
-                [r.name for r in sorted(recs, key=lambda r: r.name)]
-            )
+            if None in recs:
+                # Cannot set the name based on the records when they contain a None value.  There will be an error
+                # anyway, so just set the name from the column.
+                pgname = self.CompoundNamesDelimiter.join(sorted(names))
+            else:
+                recs = sorted(recs, key=lambda rec: rec.name)
+                # Set the peak group name to the sorted primary compound names, delimited by "/"
+                pgname = self.CompoundNamesDelimiter.join([r.name for r in recs])
 
-        return pgname, sorted(recs, key=lambda rec: rec.name)
+        return pgname, recs
 
     @transaction.atomic
     def get_or_create_peak_group(self, row, peak_annot_file, pgname):
@@ -860,7 +867,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         created = False
         rec = None
 
-        if pgrec is None or self.is_skip_row():
+        if pgrec is None or cmpd_rec is None or self.is_skip_row():
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
             self.skipped(PeakGroupCompound.__name__)
