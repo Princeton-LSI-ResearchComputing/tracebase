@@ -213,7 +213,7 @@ class PeakAnnotationFilesLoader(TableLoader):
                 lc_protocol_name=lc_protocol_name,
                 instrument=instrument,
                 date=date,
-                filename=filename,
+                filename=os.path.basename(filepath),
             )
 
     def get_file_and_format(self, row):
