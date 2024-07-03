@@ -154,14 +154,21 @@ class SamplesLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
+                extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
+                    unknown header, supply an empty list.
+                _validate (bool): If true, runs in validate mode, perhaps better described as "non-curator mode".  This
+                    is intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
+                    commits anything, but it also raises warnings as fatal (so they can be reported through the web
+                    interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 None
         Exceptions:

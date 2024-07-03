@@ -104,10 +104,8 @@ class LCProtocolsLoader(TableLoader):
 
         Args:
             None
-
-        Raises:
+        Exceptions:
             None
-
         Returns:
             None
         """

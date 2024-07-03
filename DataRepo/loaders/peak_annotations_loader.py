@@ -243,12 +243,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
                 extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -273,6 +274,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     (when it has a default for the instrument column for the Sequences sheet).
                 date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
                     with defaults_df (when it has a default for the date column for the Sequences sheet).
+                filename (Optional[str]): In case the (superclass arg) "file" is a temp file with a nonsense name.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -490,8 +492,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     continue
 
         # This currently only repackages DuplicateValues exceptions, but may do more WRT mapping to original file
-        # locations of errors later.  It could be called at the top of this method, but given the plan, having it here
-        # at the bottom is better.
+        # locations of errors later.  It could be called at the top of this method (bec dupes are handled before this
+        # method is called), but given the plan to have it handle more exceptions, having it here at the bottom is
+        # better.
         self.handle_file_exceptions()
 
         enable_caching_updates()
@@ -844,7 +847,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         Args:
             pgrec (Optional[PeakGroup])
-            cmpd_rec (Compound)
+            cmpd_rec (Optional[Compound])
         Exceptions:
             Buffers:
                 None

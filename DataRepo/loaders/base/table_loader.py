@@ -144,10 +144,10 @@ class TableLoader(ABC):
         """Derived classes must implement a load_data method that does the work of the load.
         Args:
             None
-        Raises:
-            TBD by the derived class
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         pass
 
@@ -214,12 +214,13 @@ class TableLoader(ABC):
             dry_run (Optional[boolean]) [False]: Dry run mode.
             defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
                 HANDLE THE ROLLBACK.
-            data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            file (Optional[str]) [None]: File name (for error reporting).
+            data_sheet (Optional[str]): Sheet name (for error reporting).
+            defaults_sheet (Optional[str]): Sheet name (for error reporting).
+            file (Optional[str]): File path.
+            filename (Optional[str]): Filename (for error reporting).
             user_headers (Optional[dict]): Header names by header key.
             defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-            defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+            defaults_file (Optional[str]): Defaults file name (None if the same as infile).
             headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
             defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
             extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -228,12 +229,10 @@ class TableLoader(ABC):
                 intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
                 commits anything, but it also raises warnings as fatal (so they can be reported through the web
                 interface and seen by researchers, among other behaviors specific to non-privileged users).
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         if len(args) > 0:
             raise AggregatedErrors().buffer_error(
@@ -293,12 +292,10 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         # Apply the _loader decorator to the load_data method in the derived class
         decorated_derived_class_method = self._loader()(getattr(self, "load_data"))
@@ -312,12 +309,10 @@ class TableLoader(ABC):
 
         Args:
             index (int)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.row_index = index
         if index is None:
@@ -336,10 +331,8 @@ class TableLoader(ABC):
 
         Args:
             index (Optional[int]): A manually supplied row index
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             boolean: Whether the row should be skipped or not
         """
@@ -351,10 +344,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             headers (namedtuple of DataTableHeaders)
         """
@@ -383,12 +374,10 @@ class TableLoader(ABC):
 
         Args:
             custom_headers (dict): Header names by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.headers = self._merge_headers(custom_headers)
 
@@ -441,12 +430,12 @@ class TableLoader(ABC):
 
         Args:
             custom_headers (dict): Header names by header key
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
                 ValueError
-
         Returns:
             headers (namedtuple of DataTableHeaders)
         """
@@ -545,10 +534,8 @@ class TableLoader(ABC):
                 must supply headers.
             all_reqd (boolean) [True]: Whether the first dimension of reqd_spec is all required or not (1 of any
                 required)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             pretty_headers (string)
         """
@@ -610,10 +597,8 @@ class TableLoader(ABC):
             _anded (boolean) [True]: Private.  Whether all or 1 of the header items in this dimension are required
             markers (boolean) [True]: Whether to include "all required" annotations appended to items (*) and
                 parenthases around the outer group.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             pretty_headers (string)
         """
@@ -661,10 +646,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             keys (list of strings)
         """
@@ -681,10 +664,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
         """
@@ -702,12 +683,10 @@ class TableLoader(ABC):
 
         Args:
             custom_defaults (dict): Default values by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.defaults = self._merge_defaults(custom_defaults)
 
@@ -719,12 +698,12 @@ class TableLoader(ABC):
 
         Args:
             custom_defaults (dict): Default values by header key
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
                 InfileError
-
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
         """
@@ -809,14 +788,14 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 ValueError
                 TypeError
-
         Returns:
-            Nothing
+            None
         """
         # We create an aggregated errors object in class methods because we may not have an instance with one
         aes = AggregatedErrors()
@@ -996,13 +975,13 @@ class TableLoader(ABC):
         Args:
             headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
             defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
-
         Returns:
-            Nothing
+            None
         """
         typeerrs = []
 
@@ -1056,10 +1035,8 @@ class TableLoader(ABC):
 
         Args:
             obj (object): Any object.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             boolean
         """
@@ -1077,10 +1054,8 @@ class TableLoader(ABC):
 
         Args:
             obj (object): Any object.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             boolean
         """
@@ -1095,8 +1070,8 @@ class TableLoader(ABC):
 
         Args:
             None
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             dtypes (dict): Types by header name (instead of by header key)
         """
@@ -1125,11 +1100,11 @@ class TableLoader(ABC):
         Args:
             indict (dict of objects): Any objects by header key
             headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
-
         Returns:
             outdict (dict): objects by header name (instead of by header key)
         """
@@ -1177,13 +1152,11 @@ class TableLoader(ABC):
 
         Args:
             indict (dict of objects): Any objects by header key
-
         Exceptions:
             Raises:
                 KeyError
             Buffers:
                 None
-
         Returns:
             outdict (dict): objects by header name (instead of by header key)
         """
@@ -1322,10 +1295,8 @@ class TableLoader(ABC):
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
             _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
                 recursion.  Do not supply.
-
         Exceptions:
             None
-
         Returns:
             missing (list of strings and lists): an N-dimensional list of missing headers where every dimension deeper
                 alternates between all required and 1 of any required
@@ -1380,10 +1351,8 @@ class TableLoader(ABC):
         Args:
             ndim_header_keys (list of strings and lists): N-dimensional list of header keys.  See get_missing_headers.
             headers (Optional[namedtuple of TableHeaders]) [self.get_headers()]: header names by key
-
         Exceptions:
             None
-
         Returns
             ndim_header_names (list of strings and lists): N-dimensional list of header keys.  See get_missing_headers.
         """
@@ -1403,10 +1372,8 @@ class TableLoader(ABC):
 
         Args:
             ndim_strings (list of strings and lists)
-
         Exceptions:
             None
-
         Returns
             invalid_types (list of strings): Names of all invalid types contained in any dimension od ndim_strings
         """
@@ -1428,13 +1395,10 @@ class TableLoader(ABC):
         Example:
             input = [a, [b, c], [[c, d], [a, e]]]
             output = [a, b, c, d, e]
-
         Args:
             ndim_strings (list of strings and lists)
-
         Exceptions:
             None
-
         Returns
             flat_uniques (list of strings): a unique flat list of all items in ndim_strings
         """
@@ -1460,15 +1424,13 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
-        Exceptions Buffered:
-            DuplicateValues
-
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                DuplicateValues
         Returns:
-            Nothing
+            None
         """
         if self.unique_constraints is None:
             return
@@ -1622,10 +1584,8 @@ class TableLoader(ABC):
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
             _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
                 recursion.  Do not supply.
-
         Exceptions:
             None
-
         Returns:
             missing (list of strings and lists): an N-dimensional list of headers that have missing required values on
                 the row where every dimension deeper alternates between all required and 1 of any required
@@ -1663,12 +1623,13 @@ class TableLoader(ABC):
         Args:
             index (int): Row index.  Mutually exclusive with index_list.  Required if index_list is None.
             index_list (list of ints)L Row indexes.  Mutually exclusive with index.  Required if index is None.
-
-        Raises:
-            ValueError
-
+        Exceptions:
+            Raises:
+                ValueError
+            Buffers:
+                None
         Returns:
-            Nothing
+            None
         """
         if index is None and index_list is None:
             if not hasattr(self, "row_index") and self.row_index is None:
@@ -1690,10 +1651,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             skip_row_indexes (list of integers)
         """
@@ -1710,11 +1669,12 @@ class TableLoader(ABC):
             strip (boolean) [True]: Whether to strip leading and trailing spaces.
             reading_defaults (boolean) [False]: Whether defaults data is currently being read.  Only 2 different files
                 or sheets are supported, the ones for the data being loaded and the defaults.
-
-        Raises:
-            ValueError
-            RequiredColumnValue
-
+        Exceptions:
+            Raises:
+                ValueError
+                RequiredColumnValue
+            Buffers:
+                None
         Returns:
             val (object): Data from the row at the column (header)
         """
@@ -1779,15 +1739,13 @@ class TableLoader(ABC):
 
         Args:
             None
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 ExcelSheetsNotFound
                 InvalidHeaderCrossReferenceError
                 TypeError
-
         Returns:
             user_defaults (dict): Default values by header name
         """
@@ -1942,13 +1900,11 @@ class TableLoader(ABC):
 
         Args:
             intuple (DataTableHeaders namedtuple): objects by header key
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 TypeError
-
         Returns:
             defdict (Optional[dict of objects]): objects by header name
         """
@@ -1970,10 +1926,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defdict (dict of objects): default values by header name
         """
@@ -1985,10 +1939,8 @@ class TableLoader(ABC):
 
         Args:
             cls (TableLoader)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             load_decorator (function)
         """
@@ -1998,10 +1950,8 @@ class TableLoader(ABC):
 
             Args:
                 cls (TableLoader)
-
-            Raises:
-                Nothing
-
+            Exceptions:
+                None
             Returns:
                 apply_wrapper (function)
             """
@@ -2013,10 +1963,8 @@ class TableLoader(ABC):
 
                 Args:
                     None
-
-                Raises:
-                    TBD by derived class
-
+                Exceptions:
+                    None
                 Returns:
                     What's returned by the wrapped method
                 """
@@ -2145,10 +2093,11 @@ class TableLoader(ABC):
 
         Args:
             model_name (str)
-
-        Raises:
-            ValueError
-
+        Exceptions:
+            Raises:
+                ValueError
+            Buffers:
+                None
         Returns:
             model_name (str)
         """
@@ -2169,10 +2118,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             models (list of model classes)
         """
@@ -2184,12 +2131,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["created"] += num
 
@@ -2198,12 +2143,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["updated"] += num
 
@@ -2212,12 +2155,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["existed"] += num
 
@@ -2226,12 +2167,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["skipped"] += num
 
@@ -2242,12 +2181,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["errored"] += num
 
@@ -2258,12 +2195,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["warned"] += num
 
@@ -2272,10 +2207,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             record_counts (dict of dicts of ints): Counts by model and status
         """
@@ -2320,7 +2253,7 @@ class TableLoader(ABC):
             is_fatal (bool)
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 ConflictingValueError
         Returns:
@@ -2415,16 +2348,14 @@ class TableLoader(ABC):
             handle_all (bool) [True]: Whether to handle exceptions unrelated to specifically supported db exceptions.
             is_error (bool)
             is_fatal (bool)
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 ValueError
                 InfileDatabaseError
                 ConflictingValueError
                 RequiredValueError
-
         Returns:
             boolean indicating whether an error was handled(/buffered).
         """
@@ -2678,10 +2609,11 @@ class TableLoader(ABC):
             data (DataFrame or list of dicts): The table data parsed from a file.
             unique_col_keys (list of column name strings): Column names whose combination must be unique.
             ignore_row_idxs (list of integers): Rows to ignore.
-
-        Raises:
-            UnknownHeadersError
-
+        Exceptions:
+            Raises:
+                UnknownHeadersError
+            Buffers:
+                None
         Returns:
             1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
             2. A list of all row indexes containing duplicate data.
@@ -2714,8 +2646,8 @@ class TableLoader(ABC):
         """Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
         Args:
             model (Model)
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             uflds (List of model fields)
         """
@@ -2735,8 +2667,8 @@ class TableLoader(ABC):
         Args:
             model (Model)
             fields (Optional[list of Model Fields])
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             fields (list of strings): field names
         """
@@ -2757,8 +2689,8 @@ class TableLoader(ABC):
         Args:
             model (Model)
             fields (Optional[list of Model Fields])
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             fields (list of strings): field names
         """
@@ -2775,8 +2707,8 @@ class TableLoader(ABC):
         """Retrieves all non-auto-fields from the supplied model and returns as a list of actual fields.
         Args:
             model (Model)
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             uflds (List of model fields)
         """
@@ -2794,8 +2726,8 @@ class TableLoader(ABC):
         Args:
             fld (Model Field)
             fld_names (list of strings): field names
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             boolean: Whether the fld is in fld_names
         """
@@ -2816,10 +2748,8 @@ class TableLoader(ABC):
             all (boolean) [False]: Whether to include all headers (that are mapped to a field).
             populate (boolean) [False]: Whether to add all of the database data to the dataframe.
             filter (dict): A dict of field names and values to filter on.
-
         Exceptions:
             NotImplementedError
-
         Returns:
             converted_out_dict (dict of dicts): This is intended to match pandas' version of a dict of lists, where the
                 lists are actually dicts indexed by integers
@@ -2879,10 +2809,8 @@ class TableLoader(ABC):
 
         Args:
             all (boolean) [False]: Whether to return all ordered current headers (or just those without class defaults)
-
         Exceptions:
             None
-
         Returns:
             header names (list of strings): Current header names (not keys) in the order in which they were defined in
                 DataTableHeaders

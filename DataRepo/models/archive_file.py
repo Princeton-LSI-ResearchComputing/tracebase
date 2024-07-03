@@ -116,8 +116,8 @@ class ArchiveFileQuerySet(models.QuerySet):
         Args:
             kwargs (dict): The field names (keys) and values.
                 file_location (str|Path|File): Required.
-                filename (str): Optional.  Can be derived from file_location.
-                checksum (str): Optional.  Can be derived from file_location
+                filename (Optional[str]): Can be derived from file_location.
+                checksum (Optional[str]): Can be derived from file_location.
                 data_type (str|DataType): Required.
                 data_format (str|DataFormat): Required.
             is_binary (boolean): An optional way to indicate if the file is binary or not, overriding the automatic

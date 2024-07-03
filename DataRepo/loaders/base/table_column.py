@@ -247,8 +247,8 @@ class ColumnValue:
             required (bool): Whether a value is required to be present.  Derived from field.blank, but can be
                 overridden.
             type (type) [str]: The type of data expected in the excel column.
-            static_choices (list of tuples): (Will be) used to populate a drop-down list.  Derived from the model field,
-                but can be overridden.
+            static_choices (Optional[List[tuple]|Callable[[], List[tuple]]]): (Will be) used to populate a drop-down
+                list.  Derived from the model field, but can be overridden.
             dynamic_choices (ColumnReference): (Will be) used to populate a drop-down list using the contents of a
                 column in another sheet.  Overrides static_choices.
             unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be

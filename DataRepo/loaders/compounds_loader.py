@@ -99,12 +99,13 @@ class CompoundsLoader(TableLoader):
                 dry_run (Optional[boolean]) [False]: Dry run mode.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
-                data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-                file (Optional[str]) [None]: File name (for error reporting).
+                data_sheet (Optional[str]): Sheet name (for error reporting).
+                defaults_sheet (Optional[str]): Sheet name (for error reporting).
+                file (Optional[str]): File path.
+                filename (Optional[str]): Filename (for error reporting).
                 user_headers (Optional[dict]): Header names by header key.
                 defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-                defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+                defaults_file (Optional[str]): Defaults file name (None if the same as infile).
                 headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
                 defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
                 extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -115,12 +116,10 @@ class CompoundsLoader(TableLoader):
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
                 synonyms_delimiter (Optional[str]) [;]: Synonym string delimiter.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.synonyms_delimiter = kwargs.pop(
             "synonyms_delimiter", self.SYNONYMS_DELIMITER
@@ -132,12 +131,10 @@ class CompoundsLoader(TableLoader):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         # TableLoader doesn't handle parsing column values like the delimited synonyms column, so we need to check
         # it explicitly in this derived class.
@@ -182,8 +179,11 @@ class CompoundsLoader(TableLoader):
         """Get or create a compound record.
         Args:
             row (pandas dataframe row)
-        Raises:
-            RollbackException
+        Exceptions:
+            Raises:
+                RollbackException
+            Buffers:
+                None
         Returns:
             rec (Optional[Compound])
         """
@@ -240,10 +240,13 @@ class CompoundsLoader(TableLoader):
         Args:
             synonym (string)
             cmpd_rec (Compound)
-        Raises:
-            RollbackException
+        Exceptions:
+            Raises:
+                RollbackException
+            Buffers:
+                None
         Returns:
-            Nothing
+            None
         """
         rec_dict = None
         try:
@@ -274,10 +277,8 @@ class CompoundsLoader(TableLoader):
 
         Args:
             synonyms_string (Optional[str]): String of delimited synonyms
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             synonyms (list of strings)
         """
@@ -297,15 +298,13 @@ class CompoundsLoader(TableLoader):
 
         Args:
             None
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffered:
                 DuplicateValues
-
         Returns:
-            Nothing
+            None
         """
         # Create a dict to track what names/synonyms occur on which rows
         namesyn_dict = defaultdict(lambda: defaultdict(list))
