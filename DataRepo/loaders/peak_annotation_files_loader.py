@@ -1,3 +1,4 @@
+import os
 import re
 from collections import namedtuple
 from typing import Dict
@@ -197,8 +198,23 @@ class PeakAnnotationFilesLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
+            (
+                operator,
+                lc_protocol_name,
+                instrument,
+                date,
+            ) = self.get_default_sequence_details(row)
+
             # Load the peak annotations
-            self.load_peak_annotations(row, filepath, format_code)
+            self.load_peak_annotations(
+                filepath,
+                format_code,
+                operator=operator,
+                lc_protocol_name=lc_protocol_name,
+                instrument=instrument,
+                date=date,
+                filename=filename,
+            )
 
     def get_file_and_format(self, row):
         """Gets the file path and determines the file format.
@@ -405,20 +421,6 @@ class PeakAnnotationFilesLoader(TableLoader):
                 # TODO: Add dtypes argument here
             )
 
-        # Get the default sequence (if any).  This can be overridden by peak_annotation_details_df
-        default_operator = None
-        default_date = None
-        default_lc_protocol_name = None
-        default_instrument = None
-
-        if sequence_name is not None:
-            (
-                default_operator,
-                default_lc_protocol_name,
-                default_instrument,
-                default_date,
-            ) = re.split(r",\s*", sequence_name)
-
         # Create an instance of the specific peak annotations loader for this format
         peak_annot_loader = peak_annot_loader_class(
             # These are the essential arguments
@@ -429,10 +431,13 @@ class PeakAnnotationFilesLoader(TableLoader):
             peak_annotation_details_sheet=peak_annotation_details_sheet,
             peak_annotation_details_df=peak_annotation_details_df,
             # Or... these default sequence inputs (as long as the sample headers = sample DB names)
-            operator=default_operator,
-            date=default_date,
-            lc_protocol_name=default_lc_protocol_name,
-            instrument=default_instrument,
+            operator=operator,
+            date=date,
+            lc_protocol_name=lc_protocol_name,
+            instrument=instrument,
+            # Pass-alongs
+            _validate=self.validate,
+            defer_rollback=self.defer_rollback,
         )
 
         # Load this peak annotations file
