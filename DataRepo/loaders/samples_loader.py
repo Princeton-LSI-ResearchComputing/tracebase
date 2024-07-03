@@ -100,7 +100,14 @@ class SamplesLoader(TableLoader):
     }
 
     DataColumnMetadata = DataTableHeaders(
-        SAMPLE=TableColumn.init_flat(name=DataHeaders.SAMPLE, field=Sample.name),
+        SAMPLE=TableColumn.init_flat(
+            name=DataHeaders.SAMPLE,
+            field=Sample.name,
+            guidance=(
+                "MUST match the sample names in the peak annotation file, minus any appended suffixes (e.g. "
+                "'_pos')."
+            ),
+        ),
         HANDLER=TableColumn.init_flat(
             name=DataHeaders.HANDLER, field=Sample.researcher
         ),
@@ -117,10 +124,6 @@ class SamplesLoader(TableLoader):
         TISSUE=TableColumn.init_flat(
             name=DataHeaders.TISSUE,
             field=Sample.tissue,
-            guidance=(
-                f"Select a {DataHeaders.TISSUE} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {TissuesLoader.DataHeaders.NAME} column in the {TissuesLoader.DataSheetName} sheet."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=TissuesLoader,
@@ -130,10 +133,6 @@ class SamplesLoader(TableLoader):
         ANIMAL=TableColumn.init_flat(
             name=DataHeaders.ANIMAL,
             field=Sample.animal,
-            guidance=(
-                f"Select a {DataHeaders.ANIMAL} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {AnimalsLoader.DataHeaders.NAME} column in the {AnimalsLoader.DataSheetName} sheet."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=AnimalsLoader,

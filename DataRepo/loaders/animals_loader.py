@@ -123,26 +123,62 @@ class AnimalsLoader(TableLoader):
     }
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(name=DataHeaders.NAME, field=Animal.name),
+        NAME=TableColumn.init_flat(
+            name=DataHeaders.NAME,
+            field=Animal.name,
+            # TODO: Replace "Samples" and "Sample" below with a reference to its loader's DataSheetName and the
+            # corresponding column, respectively
+            # Cannot reference the SamplesLoader here (to include the name of its sheet and its tracer name column)
+            # due to circular import
+            reference=ColumnReference(
+                header="Sample",
+                sheet="Samples",
+            ),
+        ),
         INFUSIONRATE=TableColumn.init_flat(
-            name=DataHeaders.INFUSIONRATE, field=Animal.infusion_rate
+            name=DataHeaders.INFUSIONRATE,
+            field=Animal.infusion_rate,
+            format="Units: ul/min/g (microliters/min/gram)",
         ),
         GENOTYPE=TableColumn.init_flat(
             name=DataHeaders.GENOTYPE, field=Animal.genotype
         ),
-        WEIGHT=TableColumn.init_flat(name=DataHeaders.WEIGHT, field=Animal.body_weight),
-        AGE=TableColumn.init_flat(name=DataHeaders.AGE, field=Animal.age, type=float),
+        WEIGHT=TableColumn.init_flat(
+            name=DataHeaders.WEIGHT,
+            field=Animal.body_weight,
+            format="Units: grams.",
+        ),
+        AGE=TableColumn.init_flat(
+            name=DataHeaders.AGE,
+            field=Animal.age,
+            type=float,
+            format="Units: weeks (integer or decimal).",
+        ),
         SEX=TableColumn.init_flat(name=DataHeaders.SEX, field=Animal.sex),
         DIET=TableColumn.init_flat(name=DataHeaders.DIET, field=Animal.diet),
         FEEDINGSTATUS=TableColumn.init_flat(
-            name=DataHeaders.FEEDINGSTATUS, field=Animal.feeding_status
+            name=DataHeaders.FEEDINGSTATUS,
+            field=Animal.feeding_status,
+            guidance=(
+                "Note that the drop-downs are populated by existing values in the database, to encourage consistency.  "
+                "You may add new values."
+            ),
+            current_choices=True,
         ),
         INFUSATE=TableColumn.init_flat(
             name=DataHeaders.INFUSATE,
             field=Animal.infusate,
-            guidance=(
-                f"Select an {DataHeaders.INFUSATE} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {InfusatesLoader.DataHeaders.NAME} column in the {InfusatesLoader.DataSheetName} sheet."
+            format=(
+                "Individual tracer compounds will be formatted: compound_name-[weight element count,weight "
+                "element count]\nexample: valine-[13C5,15N1]\n"
+                "\n"
+                "Mixtures of compounds will be formatted: tracer_group_name {tracer[conc]; tracer[conc]}\n"
+                "example:\n"
+                "BCAAs {isoleucine-[13C6,15N1][23.2];leucine-[13C6,15N1][100];valine-[13C5,15N1][0.9]}\n"
+                "\n"
+                "Note that the concentrations in the name are limited to "
+                f"{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES} significant figures, but the saved value is as "
+                "entered."
             ),
             type=str,
             dynamic_choices=ColumnReference(
