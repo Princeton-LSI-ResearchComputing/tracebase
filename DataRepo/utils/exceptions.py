@@ -663,6 +663,8 @@ class NewResearcher(InfileError, SummarizableError):
 
 
 class MissingRecords(InfileError):
+    _one_source = True
+
     def __init__(
         self,
         exceptions: List[RecordDoesNotExist],
@@ -700,7 +702,9 @@ class MissingRecords(InfileError):
                 mdl_name
             ].values():
                 loc_args, flds_str, vals_dict = (
-                    RecordDoesNotExist.get_failed_searches_dict(categorized_exceptions)
+                    RecordDoesNotExist.get_failed_searches_dict(
+                        categorized_exceptions, _one_source=self._one_source
+                    )
                 )
 
                 loc_str = generate_file_location_string(**loc_args)
@@ -736,6 +740,10 @@ class MissingRecords(InfileError):
 
 
 class MissingModelRecords(MissingRecords, ABC):
+    """Keeps tract of missing records for one model for one file"""
+
+    _one_source = True
+
     @property
     @abstractmethod
     def ModelName(self):
@@ -809,6 +817,10 @@ class MissingModelRecords(MissingRecords, ABC):
 
 
 class MissingModelRecordsByFile(MissingRecords, ABC):
+    """Keeps tract of missing records for one model across multiple files"""
+
+    _one_source = False
+
     @property
     @abstractmethod
     def ModelName(self):
@@ -904,7 +916,9 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         self.suggestion = suggestion
 
     @classmethod
-    def get_failed_searches_dict(cls, instances: List[RecordDoesNotExist]):
+    def get_failed_searches_dict(
+        cls, instances: List[RecordDoesNotExist], _one_source=True
+    ):
         """Given a list of RecordDoesNotExist instances, a field description and dict like the following example is
         returned:
 
@@ -915,6 +929,9 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
 
         Args:
             instances (List[RecordDoesNotExist]): RecordDoesNotExist exceptions
+            _one_source (bool) [True]: When this is True, it ensures that all the exceptions come from the same file,
+                sheet, and column.  This is necessary if you will be treating the list of exceptions as all having come
+                from 1 such place.
         Exceptions:
             ProgrammingError
         Returns:
@@ -925,7 +942,12 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         search_valuecombos_rows_dict = defaultdict(list)
         model = None
         fields_str = None
-        loc_args: Dict[str, str] = {}
+        def_loc_args: Dict[str, Optional[str]] = {
+            "column": None,
+            "file": None,
+            "sheet": None,
+        }
+        loc_args = def_loc_args.copy()
         for inst in instances:
             if model is None:
                 model = inst.model
@@ -935,18 +957,19 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                     f"model.  {inst.model} != {model}"
                 )
 
-            cur_loc_args = {
-                "column": inst.column,
-                "file": inst.file,
-                "sheet": inst.sheet,
-            }
-            if len(loc_args.keys()) == 0:
-                loc_args = cur_loc_args
-            elif cur_loc_args != loc_args:
-                raise ProgrammingError(
-                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
-                    f"file/column.  {cur_loc_args} != {loc_args}"
-                )
+            if _one_source:
+                cur_loc_args = {
+                    "column": inst.column,
+                    "file": inst.file,
+                    "sheet": inst.sheet,
+                }
+                if loc_args == def_loc_args:
+                    loc_args = cur_loc_args
+                elif cur_loc_args != loc_args:
+                    raise ProgrammingError(
+                        "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
+                        f"file/column.  {cur_loc_args} != {loc_args}"
+                    )
 
             query_fields_str = inst._get_query_stub()
 
