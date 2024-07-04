@@ -37,6 +37,8 @@ from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models.compound import Compound
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
 from DataRepo.models.tracer import Tracer
@@ -51,6 +53,7 @@ from DataRepo.utils.exceptions import (
     NoSamples,
 )
 from DataRepo.utils.file_utils import get_sheet_names, read_from_file
+from DataRepo.utils.infusate_name_parser import parse_tracer_string
 from DataRepo.utils.text_utils import autowrap
 
 
@@ -941,6 +944,7 @@ class DataValidationView(FormView):
             None
         """
         self.add_dynamic_dropdown_tracer_data()
+        self.add_dynamic_dropdown_infusate_data()
 
     def add_dynamic_dropdown_tracer_data(self):
         """This uses the compound names in the Compounds sheet to query the database for tracers that include those
@@ -1019,6 +1023,101 @@ class DataValidationView(FormView):
                     ] = tracer_rec._name()
                     next_row_idx += 1
                 next_tracer_row_group_num += 1
+
+    def add_dynamic_dropdown_infusate_data(self):
+        """This uses the tracer data in the Tracers sheet to query the database for infusates that include those
+        tracers and populate the Infusates sheet with potentially useful data for the user.
+
+        NOTE: This assumes that the Infusate Name column is automatically filled in via excel formula.
+
+        Limitations:
+            - This will not work with partially manually filled in infusate data - only with fully filled in rows.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if (
+            TracersLoader.DataSheetName not in self.dfs_dict.keys()
+            or InfusatesLoader.DataSheetName not in self.dfs_dict.keys()
+        ):
+            return
+
+        # Get all the tracer names from the tracers sheet (which is assumed to have already been populated by
+        # add_dynamic_dropdown_tracer_data)
+        tracer_names = dict(
+            (name, 0)
+            for name in list(
+                self.dfs_dict[TracersLoader.DataSheetName][
+                    TracersLoader.DataHeaders.NAME
+                ].values()
+            )
+        )
+
+        # Create a list of all the tracer record IDs present in the Tracers sheet
+        tracer_ids = []
+        for tn in tracer_names.keys():
+            td = parse_tracer_string(tn)
+            trcr = Tracer.objects.get_tracer(td)
+            if trcr is not None:
+                tracer_ids.append(trcr.pk)
+
+        # Create a dict of infusates keyed on name
+        recs_dict = dict(
+            (itl_rec.infusate._name(), itl_rec.infusate)
+            for itl_rec in InfusateTracer.objects.filter(tracer__id__in=tracer_ids)
+            .order_by("infusate__id")
+            .distinct("infusate__id")
+        )
+
+        # Convenience shortcut
+        cols = self.dfs_dict[InfusatesLoader.DataSheetName]
+
+        # Determine the index of the next empty row and the next infusate row group number
+        next_row_idx = self.get_next_row_index(InfusatesLoader.DataSheetName)
+        row_group_nums = sorted(
+            [int(i) for i in cols[InfusatesLoader.DataHeaders.ID].values()]
+        )
+        next_infusate_row_group_num = 1
+        if len(row_group_nums) > 0:
+            next_infusate_row_group_num = row_group_nums[-1] + 1
+
+        infusate_rec: Infusate
+        for name, infusate_rec in recs_dict.items():
+
+            if name not in cols[InfusatesLoader.DataHeaders.NAME].values():
+
+                # Only add the current infusate if all its tracers are in the tracers sheet
+                all_tracers_present = True
+                for itl in infusate_rec.tracer_links.all():
+                    if itl.tracer.id not in tracer_ids:
+                        all_tracers_present = False
+                        break
+
+                if all_tracers_present:
+
+                    for itl_rec in infusate_rec.tracer_links.all():
+                        cols[InfusatesLoader.DataHeaders.ID][
+                            next_row_idx
+                        ] = next_infusate_row_group_num
+                        cols[InfusatesLoader.DataHeaders.TRACERGROUP][
+                            next_row_idx
+                        ] = infusate_rec.tracer_group_name
+                        cols[InfusatesLoader.DataHeaders.TRACERNAME][
+                            next_row_idx
+                        ] = itl_rec.tracer._name()
+                        cols[InfusatesLoader.DataHeaders.TRACERCONC][
+                            next_row_idx
+                        ] = itl_rec.concentration
+                        cols[InfusatesLoader.DataHeaders.NAME][
+                            next_row_idx
+                        ] = infusate_rec._name()
+
+                        next_row_idx += 1
+
+                    next_infusate_row_group_num += 1
 
     def fill_missing_from_db(self):
         """After missing data has been autofilled (extracted from both exceptions and/or from the input files, e.g. the
