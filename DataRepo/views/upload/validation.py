@@ -39,6 +39,7 @@ from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models.compound import Compound
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
+from DataRepo.models.tracer import Tracer
 from DataRepo.utils.exceptions import (
     AllMissingCompounds,
     AllMissingSamples,
@@ -377,6 +378,8 @@ class DataValidationView(FormView):
         self.format_results_for_template()
 
         self.add_extracted_autofill_data()
+
+        self.add_dynamic_dropdown_data()
 
         self.fill_missing_from_db()
 
@@ -920,6 +923,102 @@ class DataValidationView(FormView):
                 next_empty_index += 1
 
         return data_added
+
+    def add_dynamic_dropdown_data(self):
+        """This method adds data from the database that may or may not be needed for a given study, but is provided to
+        make manual population of the sheets MUCH easier for the user.
+
+        Example:
+            In the case where we don't know the tracers, but we have the measured compounds (extracted from the peak
+            annotations file, we can add any/all existing tracers that include those compounds, which in turn can be
+            used to populate the infusates sheet, and in turn, populates the dropdowns for infusates in the Animals
+            sheet.  This also makes it easier for the user to use the example tracer entries to add novel tracers.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.add_dynamic_dropdown_tracer_data()
+
+    def add_dynamic_dropdown_tracer_data(self):
+        """This uses the compound names in the Compounds sheet to query the database for tracers that include those
+        compounds and populate the Tracers sheet with potentially useful data for the user.
+
+        NOTE: This assumes that the Tracer Name column is automatically filled in via excel formula.
+
+        Limitations:
+            - This will not work with partially manually filled in tracer data - only with fully filled in rows.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if (
+            CompoundsLoader.DataSheetName not in self.dfs_dict.keys()
+            or TracersLoader.DataSheetName not in self.dfs_dict.keys()
+        ):
+            return
+
+        compound_names = list(
+            self.dfs_dict[CompoundsLoader.DataSheetName][
+                CompoundsLoader.DataHeaders.NAME
+            ].values()
+        )
+
+        recs_dict = dict(
+            (rec._name(), rec)
+            for rec in Tracer.objects.filter(compound__name__in=compound_names)
+        )
+
+        cols = self.dfs_dict[TracersLoader.DataSheetName]
+
+        next_row_idx = self.get_next_row_index(TracersLoader.DataSheetName)
+        row_group_nums = sorted(
+            [int(i) for i in cols[TracersLoader.DataHeaders.ID].values()]
+        )
+        next_tracer_row_group_num = 1
+        if len(row_group_nums) > 0:
+            next_tracer_row_group_num = row_group_nums[-1] + 1
+
+        tracer_rec: Tracer
+        for name, tracer_rec in recs_dict.items():
+            if name not in cols[TracersLoader.DataHeaders.NAME].values():
+                for label_rec in tracer_rec.labels.all():
+                    cols[TracersLoader.DataHeaders.ID][
+                        next_row_idx
+                    ] = next_tracer_row_group_num
+                    cols[TracersLoader.DataHeaders.COMPOUND][
+                        next_row_idx
+                    ] = tracer_rec.compound.name
+                    cols[TracersLoader.DataHeaders.MASSNUMBER][
+                        next_row_idx
+                    ] = label_rec.mass_number
+                    cols[TracersLoader.DataHeaders.ELEMENT][
+                        next_row_idx
+                    ] = label_rec.element
+                    cols[TracersLoader.DataHeaders.LABELCOUNT][
+                        next_row_idx
+                    ] = label_rec.count
+                    if label_rec.positions is None:
+                        cols[TracersLoader.DataHeaders.LABELPOSITIONS][
+                            next_row_idx
+                        ] = None
+                    else:
+                        poss_str = TracersLoader.POSITIONS_DELIMITER.join(
+                            [str(ps) for ps in sorted(label_rec.positions)]
+                        )
+                        cols[TracersLoader.DataHeaders.LABELPOSITIONS][
+                            next_row_idx
+                        ] = poss_str
+                    cols[TracersLoader.DataHeaders.NAME][
+                        next_row_idx
+                    ] = tracer_rec._name()
+                    next_row_idx += 1
+                next_tracer_row_group_num += 1
 
     def fill_missing_from_db(self):
         """After missing data has been autofilled (extracted from both exceptions and/or from the input files, e.g. the

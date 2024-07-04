@@ -1447,3 +1447,11 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
     def test_fill_missing_compound_data_from_db(self):
         # TODO: Implement test
         pass
+
+    def test_add_dynamic_dropdown_data(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_dynamic_dropdown_tracer_data(self):
+        # TODO: Implement test
+        pass
