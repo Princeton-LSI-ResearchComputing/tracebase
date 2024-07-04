@@ -36,6 +36,7 @@ from DataRepo.loaders.study_loader import StudyLoader
 from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.models.compound import Compound
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
 from DataRepo.utils.exceptions import (
@@ -376,6 +377,8 @@ class DataValidationView(FormView):
         self.format_results_for_template()
 
         self.add_extracted_autofill_data()
+
+        self.fill_missing_from_db()
 
         study_stream = BytesIO()
 
@@ -775,7 +778,7 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        # NOTE: If add_autofill_data added data without looking at the existing data, so it could inadvertently add data
+        # NOTE: If add_autofill_data added data without looking at the existing data, it could inadvertently add data
         # that already exists in the file.  So, in order to see if the data already exists, we need to tell
         # add_autofill_data how to construct the unique key (via the 2nd arg in each of the calls below) to be able to
         # see if rows already exist or not.  We use a potentially composite key based on the unique column constraints
@@ -826,8 +829,8 @@ class DataValidationView(FormView):
             )
 
     def add_autofill_data(self, sheet, row_key_headers):
-        """This method, given a sheet name, adds the data from self.autofill_dict[sheet] to self.dfs_dict[sheet],
-        starting at the first empty row.
+        """This method, given a sheet name (and called by add_extracted_autofill_data), adds the data from
+        self.autofill_dict[sheet] to self.dfs_dict[sheet], starting at the first empty row.
 
         Note the structures of the source dicts involved:
         - self.autofill_dict[sheet] is structured like {unique_key_str: {header1: value1, header2: value2}}
@@ -917,6 +920,69 @@ class DataValidationView(FormView):
                 next_empty_index += 1
 
         return data_added
+
+    def fill_missing_from_db(self):
+        """After missing data has been autofilled (extracted from both exceptions and/or from the input files, e.g. the
+        user added a tissue in the samples sheet and it got added to the tissues sheet), this goes through the dfs_dict
+        and uses the filled-in values on the row to search the DB for matching entire records, and fills in any columns
+        that are empty.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.fill_missing_compound_data_from_db()
+
+    def fill_missing_compound_data_from_db(self):
+        """Traverse the rows of the compounds sheet in the self.dfs_dict and use the DB to fill in column values.
+
+        This intentionally leaves potentially incorrect filled in values.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if CompoundsLoader.DataSheetName not in self.dfs_dict.keys():
+            return
+
+        cols = self.dfs_dict[CompoundsLoader.DataSheetName]
+
+        names = list(
+            self.dfs_dict[CompoundsLoader.DataSheetName][
+                CompoundsLoader.DataHeaders.NAME
+            ].values()
+        )
+
+        recs_dict = dict(
+            (rec.name, rec) for rec in Compound.objects.filter(name__in=names)
+        )
+
+        for rowidx in cols[CompoundsLoader.DataHeaders.NAME].keys():
+            name = cols[CompoundsLoader.DataHeaders.NAME][rowidx]
+            if name in recs_dict.keys():
+                if cols[CompoundsLoader.DataHeaders.HMDB_ID][rowidx] is None:
+                    cols[CompoundsLoader.DataHeaders.HMDB_ID][rowidx] = recs_dict[
+                        name
+                    ].hmdb_id
+                if cols[CompoundsLoader.DataHeaders.FORMULA][rowidx] is None:
+                    cols[CompoundsLoader.DataHeaders.FORMULA][rowidx] = recs_dict[
+                        name
+                    ].formula
+                if cols[CompoundsLoader.DataHeaders.SYNONYMS][rowidx] is None:
+                    syn_str = CompoundsLoader.SYNONYMS_DELIMITER.join(
+                        sorted(
+                            list(
+                                recs_dict[name].synonyms.values_list("name", flat=True)
+                            )
+                        )
+                    )
+                    cols[CompoundsLoader.DataHeaders.SYNONYMS][rowidx] = syn_str
 
     def get_existing_dfs_index(self, sheet, row_key_headers, unique_row_key):
         """This determines if a row already exists in dfs_dict that matches the provided unique_row_key.
@@ -1310,44 +1376,26 @@ class DataValidationView(FormView):
         if version == self.default_version or version.startswith(
             f"{self.default_version}."
         ):
-            return {
-                StudyTableLoader.DataSheetName: self.studies_loader.get_column_types(
-                    optional_mode=True
-                ),
-                AnimalsLoader.DataSheetName: self.animals_loader.get_column_types(
-                    optional_mode=True
-                ),
-                SamplesLoader.DataSheetName: self.samples_loader.get_column_types(
-                    optional_mode=True
-                ),
-                ProtocolsLoader.DataSheetName: self.treatments_loader.get_column_types(
-                    optional_mode=True
-                ),
-                TissuesLoader.DataSheetName: self.tissues_loader.get_column_types(
-                    optional_mode=True
-                ),
-                CompoundsLoader.DataSheetName: self.compounds_loader.get_column_types(
-                    optional_mode=True
-                ),
-                TracersLoader.DataSheetName: self.tracers_loader.get_column_types(
-                    optional_mode=True
-                ),
-                InfusatesLoader.DataSheetName: self.infusates_loader.get_column_types(
-                    optional_mode=True
-                ),
-                LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_column_types(
-                    optional_mode=True
-                ),
-                SequencesLoader.DataSheetName: self.sequences_loader.get_column_types(
-                    optional_mode=True
-                ),
-                MSRunsLoader.DataSheetName: self.msruns_loader.get_column_types(
-                    optional_mode=True
-                ),
-                PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_column_types(
-                    optional_mode=True
-                ),
-            }
+            ldr_types = {}
+            ldr: TableLoader
+            for ldr in [
+                self.studies_loader,
+                self.animals_loader,
+                self.samples_loader,
+                self.treatments_loader,
+                self.tissues_loader,
+                self.compounds_loader,
+                self.tracers_loader,
+                self.infusates_loader,
+                self.lcprotocols_loader,
+                self.sequences_loader,
+                self.msruns_loader,
+                self.peakannotfiles_loader,
+            ]:
+                ldr_types[ldr.DataSheetName] = ldr.get_column_types(optional_mode=True)
+
+            return ldr_types
+
         raise NotImplementedError(
             f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
         )
