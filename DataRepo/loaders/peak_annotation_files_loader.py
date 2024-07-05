@@ -1,5 +1,4 @@
 import os
-import re
 from collections import namedtuple
 from typing import Dict
 
@@ -17,6 +16,7 @@ from DataRepo.loaders.peak_annotations_loader import (
 )
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
+from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
@@ -75,6 +75,8 @@ class PeakAnnotationFilesLoader(TableLoader):
             "data_format": FORMAT_KEY,
         }
     }
+
+    # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
         FILE=TableColumn.init_flat(
@@ -369,19 +371,12 @@ class PeakAnnotationFilesLoader(TableLoader):
         """
         sequence_name = self.get_row_val(row, self.headers.SEQNAME)
 
-        # Get the default sequence (if any).  This can be overridden by peak_annotation_details_df
-        default_operator = None
-        default_date = None
-        default_lc_protocol_name = None
-        default_instrument = None
-
-        if sequence_name is not None:
-            (
-                default_operator,
-                default_lc_protocol_name,
-                default_instrument,
-                default_date,
-            ) = re.split(r",\s*", sequence_name)
+        (
+            default_operator,
+            default_lc_protocol_name,
+            default_instrument,
+            default_date,
+        ) = MSRunSequence.parse_sequence_name(sequence_name)
 
         return (
             default_operator,

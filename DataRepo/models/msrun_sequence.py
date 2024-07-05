@@ -27,6 +27,7 @@ class MSRunSequence(Model):
     #    such a problem is encountered, an error is buffered and eventually raised at the end of a failed load.
     # 3. To avoid hard-coding static "magic" values in multiple places.
     INSTRUMENT_DEFAULT = INSTRUMENT_CHOICES[-1][0]
+    SEQNAME_DELIMITER = ","
 
     id = AutoField(primary_key=True)
     researcher = CharField(
@@ -78,4 +79,47 @@ class MSRunSequence(Model):
         return str(
             f"MS run sequence on instrument [{self.instrument}] with LC protocol [{self.lc_method.name}], operated by "
             f"{self.researcher} on {self.date}"
+        )
+
+    @classmethod
+    def parse_sequence_name(cls, sequence_name: str):
+        """Parses a sequence name into its parts.
+
+        Args:
+            name (str)
+        Exceptions:
+            None
+        Returns:
+            operator (Optional[str])
+            lc_protocol_name (Optional[str])
+            instrument (Optional[str])
+            date (Optional[str])
+        """
+        operator = None
+        date = None
+        lc_protocol_name = None
+        instrument = None
+
+        if sequence_name is not None:
+            (
+                operator,
+                lc_protocol_name,
+                instrument,
+                date,
+            ) = sequence_name.split(cls.SEQNAME_DELIMITER)
+
+            if operator is not None:
+                operator = operator.strip()
+            if lc_protocol_name is not None:
+                lc_protocol_name = lc_protocol_name.strip()
+            if instrument is not None:
+                instrument = instrument.strip()
+            if date is not None:
+                date = date.strip()
+
+        return (
+            operator,
+            lc_protocol_name,
+            instrument,
+            date,
         )

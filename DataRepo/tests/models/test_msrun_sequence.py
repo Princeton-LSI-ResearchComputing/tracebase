@@ -38,3 +38,7 @@ class MSRunSequenceTests(TracebaseTestCase):
             seq.save()
         exc = ar.exception
         self.assertEqual(ValidationError, type(exc))
+
+    def test_parse_sequence_name(self):
+        # TODO: Implement test
+        pass

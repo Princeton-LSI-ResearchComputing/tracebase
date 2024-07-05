@@ -54,7 +54,7 @@ class StudyTableLoader(TableLoader):
     }
 
     # Combinations of columns whose values must be unique in the file
-    DataUniqueColumnConstraints = [[CODE_KEY], [NAME_KEY]]
+    DataUniqueColumnConstraints = [[NAME_KEY], [CODE_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
@@ -64,6 +64,8 @@ class StudyTableLoader(TableLoader):
             "description": DESC_KEY,
         },
     }
+
+    # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
         CODE=TableColumn.init_flat(field=Study.code),

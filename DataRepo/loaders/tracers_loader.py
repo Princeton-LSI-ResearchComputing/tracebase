@@ -95,13 +95,6 @@ class TracersLoader(TableLoader):
     DataUniqueColumnConstraints = [
         [
             ID_KEY,
-            COMPOUND_KEY,
-            ELEMENT_KEY,
-            MASSNUMBER_KEY,
-            LABELCOUNT_KEY,
-            LABELPOSITIONS_KEY,
-        ],
-        [
             NAME_KEY,
             COMPOUND_KEY,
             ELEMENT_KEY,
@@ -135,6 +128,8 @@ class TracersLoader(TableLoader):
             "positions": LABELPOSITIONS_KEY,
         },
     }
+
+    # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
         ID=TableColumn.init_flat(

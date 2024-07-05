@@ -94,6 +94,8 @@ class SequencesLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,

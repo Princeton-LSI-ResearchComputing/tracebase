@@ -921,9 +921,9 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         dvv.study_file = "study.xlsx"  # Invalid, but does not matter
         dvv.peak_annot_files = ["accucor.xlsx"]  # Invalid, but does not matter
         dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
-        # Flesh it (with a single manually entered value)
-        dvv.dfs_dict["Samples"]["Animal"] = {0: "george"}
-        # Should be true because manually added data (animal ID) in addition to the sample names
+        # Flesh it (with a single manually entered value into an optional column)
+        dvv.dfs_dict["Samples"]["Collection Time"] = {0: 90}
+        # Should be true because manually added data (Collection Time) in addition to the sample names
         self.assertTrue(dvv.determine_study_file_validation_readiness())
 
     def test_create_study_file_writer(self):
@@ -1457,5 +1457,69 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         pass
 
     def test_add_dynamic_dropdown_infusate_data(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_files(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_study_doc(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_animals_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_samples_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_peak_annot_files_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_peak_annot_details_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_infusates_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_tracers_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_init_row_group_nums(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_infusate_data(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_tracer_data(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_compound_name(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_existing_compound_primary_name(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_sequence_name(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_lcprotocol_name(self):
+        # TODO: Implement test
+        pass
+
+    def test_extract_autofill_from_sequences_sheet(self):
         # TODO: Implement test
         pass

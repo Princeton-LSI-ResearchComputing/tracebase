@@ -7,6 +7,7 @@ from typing import Dict, Optional, Type
 import pandas as pd
 import xlsxwriter
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.utils import ProgrammingError
 from django.forms import ValidationError
 from django.shortcuts import redirect, render
@@ -39,6 +40,8 @@ from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
+from DataRepo.models.lc_method import LCMethod
+from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
 from DataRepo.models.tracer import Tracer
@@ -52,8 +55,11 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NoSamples,
 )
-from DataRepo.utils.file_utils import get_sheet_names, read_from_file
-from DataRepo.utils.infusate_name_parser import parse_tracer_string
+from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
+from DataRepo.utils.infusate_name_parser import (
+    parse_infusate_name_with_concs,
+    parse_tracer_string,
+)
 from DataRepo.utils.text_utils import autowrap
 
 
@@ -100,6 +106,76 @@ class DataValidationView(FormView):
         self.autofill_dict[SequencesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[PeakAnnotationFilesLoader.DataSheetName] = defaultdict(dict)
 
+        # These are used to help determine whether to validate or only autofill.  If a non-autofill column has any
+        # values, it will trigger validate mode
+        self.autofill_columns = {
+            StudyTableLoader.DataSheetName: [
+                StudyTableLoader.DataHeaders.NAME,  # Consumes
+            ],
+            AnimalsLoader.DataSheetName: [
+                AnimalsLoader.DataHeaders.NAME,  # Consumes
+                AnimalsLoader.DataHeaders.TREATMENT,  # Feeds
+                AnimalsLoader.DataHeaders.INFUSATE,  # Feeds
+                AnimalsLoader.DataHeaders.STUDY,  # Feeds
+            ],
+            SamplesLoader.DataSheetName: [
+                SamplesLoader.DataHeaders.SAMPLE,  # Consumes
+                SamplesLoader.DataHeaders.TISSUE,  # Feeds
+                SamplesLoader.DataHeaders.ANIMAL,  # Feeds
+            ],
+            TissuesLoader.DataSheetName: [
+                TissuesLoader.DataHeaders.NAME,  # Consumes
+            ],
+            ProtocolsLoader.DataSheetName: [
+                ProtocolsLoader.DataHeadersExcel.NAME,
+            ],
+            MSRunsLoader.DataSheetName: [
+                MSRunsLoader.DataHeaders.SAMPLEHEADER,  # Consumes
+                MSRunsLoader.DataHeaders.SAMPLENAME,  # Consumes
+                MSRunsLoader.DataHeaders.ANNOTNAME,  # Consumes
+                MSRunsLoader.DataHeaders.SKIP,  # Consumes
+                MSRunsLoader.DataHeaders.SEQNAME,  # Feeds
+            ],
+            CompoundsLoader.DataSheetName: [
+                CompoundsLoader.DataHeaders.NAME,  # Consumes
+                CompoundsLoader.DataHeaders.FORMULA,  # Consumes
+                CompoundsLoader.DataHeaders.NAME,  # Consumes
+            ],
+            TracersLoader.DataSheetName: [
+                TracersLoader.DataHeaders.ID,  # Consumes
+                TracersLoader.DataHeaders.NAME,  # Consumes
+                TracersLoader.DataHeaders.COMPOUND,  # Feeds and Consumes
+                TracersLoader.DataHeaders.ELEMENT,  # Consumes
+                TracersLoader.DataHeaders.MASSNUMBER,  # Consumes
+                TracersLoader.DataHeaders.LABELCOUNT,  # Consumes
+                TracersLoader.DataHeaders.LABELPOSITIONS,  # Consumes
+            ],
+            InfusatesLoader.DataSheetName: [
+                InfusatesLoader.DataHeaders.NAME,  # Consumes
+                InfusatesLoader.DataHeaders.ID,  # Consumes
+                InfusatesLoader.DataHeaders.TRACERGROUP,  # Consumes
+                InfusatesLoader.DataHeaders.TRACERNAME,  # Feeds and Consumes
+                InfusatesLoader.DataHeaders.TRACERCONC,  # Consumes
+            ],
+            LCProtocolsLoader.DataSheetName: [
+                LCProtocolsLoader.DataHeaders.NAME,  # Consumes
+                LCProtocolsLoader.DataHeaders.TYPE,  # Consumes
+                LCProtocolsLoader.DataHeaders.RUNLEN,  # Consumes
+            ],
+            SequencesLoader.DataSheetName: [
+                SequencesLoader.DataHeaders.SEQNAME,  # Consumes
+                SequencesLoader.DataHeaders.OPERATOR,  # Consumes
+                SequencesLoader.DataHeaders.LCNAME,  # Feeds and Consumes
+                SequencesLoader.DataHeaders.INSTRUMENT,  # Consumes
+                SequencesLoader.DataHeaders.DATE,  # Consumes
+            ],
+            PeakAnnotationFilesLoader.DataSheetName: [
+                PeakAnnotationFilesLoader.DataHeaders.FILE,  # Consumes
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT,  # Consumes
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME,  # Feeds
+            ],
+        }
+
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         self.valid = None
         self.results = {}
@@ -126,7 +202,10 @@ class DataValidationView(FormView):
         self.output_study_filename = "study.xlsx"
         self.autofill_only_mode = True
         self.dfs_dict = self.create_study_dfs_dict()
+        self.init_row_group_nums()
         self.study_file = None
+        self.study_filename = None
+        self.study_file_sheets = []
         self.peak_annot_files = None
         self.peak_annot_filenames = []
 
@@ -157,6 +236,9 @@ class DataValidationView(FormView):
             self.output_study_filename = self.study_filename
             self.all_infile_names.append(self.study_filename)
 
+        if study_file is not None and is_excel(study_file):
+            self.study_file_sheets = get_sheet_names(study_file)
+
         self.peak_annot_files = peak_annot_files
         if len(peak_annot_filenames) == 0 and len(peak_annot_files) > 0:
             peak_annot_filenames = [str(os.path.basename(f)) for f in peak_annot_files]
@@ -177,6 +259,8 @@ class DataValidationView(FormView):
         # Get an initial dfs_dict (a dict representation of the output study doc, either created or as obtained from the
         # user)
         self.dfs_dict = self.get_or_create_dfs_dict()
+        self.init_row_group_nums()
+
         # Now that self.animal_sample_file, self.peak_annotation_files, and self.dfs_dict have been set, determine
         # validation readiness
         self.determine_study_file_validation_readiness()
@@ -195,8 +279,8 @@ class DataValidationView(FormView):
                 # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
                 # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
                 # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
-                # about it.  But not setting types works for now.  I might need to explicitly set str in some places to
-                # avoid accidental int types...
+                # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+                # in order to avoid accidental int(/etc) types...
                 pafl = PeakAnnotationFilesLoader(
                     df=read_from_file(
                         self.study_file,
@@ -206,6 +290,7 @@ class DataValidationView(FormView):
                         ),
                     ),
                     file=self.study_file,
+                    filename=self.study_filename,
                 )
                 for _, row in pafl.df.iterrows():
                     # "actual" means not the original file from the form submission, but the nonsense filename created
@@ -367,7 +452,7 @@ class DataValidationView(FormView):
             print("Extracting autofill information from file")
 
             # Extract autofill data directly from the peak annotation files
-            self.extract_autofill_from_peak_annotation_files()
+            self.extract_autofill_from_files()
         else:
             print("Validating study")
             self.validate_study()
@@ -413,6 +498,29 @@ class DataValidationView(FormView):
             ),
         )
 
+    def init_row_group_nums(self):
+        # We need to get the next available infusates sheet row group number
+        inf_row_group_nums = [
+            int(i)
+            for i in self.dfs_dict[InfusatesLoader.DataSheetName][
+                InfusatesLoader.DataHeaders.ID
+            ].values()
+        ]
+        self.next_infusate_row_group_num = 1
+        if len(inf_row_group_nums) > 0:
+            self.next_infusate_row_group_num = max(inf_row_group_nums) + 1
+
+        # We need to get the next available tracers sheet row group number
+        trcr_row_group_nums = [
+            int(i)
+            for i in self.dfs_dict[TracersLoader.DataSheetName][
+                TracersLoader.DataHeaders.ID
+            ].values()
+        ]
+        self.next_tracer_row_group_num = 1
+        if len(trcr_row_group_nums) > 0:
+            self.next_tracer_row_group_num = max(trcr_row_group_nums) + 1
+
     def determine_study_file_validation_readiness(self):
         """Determines if the data is ready for validation by seeing if the study doc has any values in it other than
         sample names and if there are peak annotation files to populate it.  It does this by inspecting
@@ -444,19 +552,36 @@ class DataValidationView(FormView):
         # use get_row_val and check if the result is None
         # TODO: I should probably alter this strategy and check if all required columns have values on every row?
         none_vals = ["", "nan"]
-        for header in self.samples_loader.get_ordered_display_headers():
-            if (
-                header == SamplesLoader.DataHeaders.SAMPLE
-                or header not in self.dfs_dict[SamplesLoader.DataSheetName].keys()
-            ):
-                # Skipping the Sample header and any unknown header
-                continue
 
-            for val in self.dfs_dict[SamplesLoader.DataSheetName][header].values():
-                if val is not None and isinstance(val, str) and val not in none_vals:
-                    # If *any* data has been manually added, we will validate
-                    self.autofill_only_mode = False
-                    return not self.autofill_only_mode
+        loader: TableLoader
+        for loader in [
+            # Loaders that aren't completely autofilled
+            self.samples_loader,
+            self.animals_loader,
+            self.studies_loader,
+            self.sequences_loader,
+        ]:
+            if loader.DataSheetName not in self.dfs_dict.keys():
+                continue
+            for header in loader.get_ordered_display_headers():
+                # Validate if *any* optional data has been added to the samples sheet
+                if (
+                    # If the column is an autofill column or a column that feeds an autofill column, ignore it
+                    header in self.autofill_columns[loader.DataSheetName]
+                    # Skip columns that aren't present
+                    or header not in self.dfs_dict[loader.DataSheetName].keys()
+                ):
+                    # Skipping the Sample header and any unknown header
+                    continue
+
+                for val in self.dfs_dict[loader.DataSheetName][header].values():
+                    if val is not None and str(val) not in none_vals:
+                        print(
+                            f"GOING INTO VALIDATION MODE BECAUSE {loader.DataSheetName} has a value in column {header}"
+                        )
+                        # If *any* data has been manually added, we will validate
+                        self.autofill_only_mode = False
+                        return not self.autofill_only_mode
 
         # There is nothing that needs to be validated
         self.autofill_only_mode = True
@@ -522,6 +647,423 @@ class DataValidationView(FormView):
                     )
             xlsxwriter.sheets[sheet].autofit()
 
+    def extract_autofill_from_files(self):
+        """Calls methods for extracting autofill data from the submitted files."""
+        self.extract_autofill_from_study_doc()
+        self.extract_autofill_from_peak_annotation_files()
+
+    def extract_autofill_from_study_doc(self):
+        """Extracts data from various sheets of the study doc.
+
+        Populates self.autofill_dict.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if self.study_file is None:
+            return
+
+        self.extract_autofill_from_animals_sheet()
+        self.extract_autofill_from_samples_sheet()
+        self.extract_autofill_from_peak_annot_files_sheet()
+        self.extract_autofill_from_peak_annot_details_sheet()
+        self.extract_autofill_from_infusates_sheet()
+        self.extract_autofill_from_tracers_sheet()
+        self.extract_autofill_from_sequences_sheet()
+
+    def extract_autofill_from_animals_sheet(self):
+        if AnimalsLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = AnimalsLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=AnimalsLoader.DataSheetName,
+                dtype=AnimalsLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+        seen = {
+            "infusates": defaultdict(dict),
+            "tracers": defaultdict(dict),
+            "treatments": defaultdict(dict),
+            "studies": defaultdict(dict),
+            "compounds": defaultdict(dict),
+        }
+
+        # Convenience shortcut
+        inf_sheet_cols = self.dfs_dict[InfusatesLoader.DataSheetName]
+
+        for _, row in loader.df.iterrows():
+            infusate_name = loader.get_row_val(row, loader.headers.INFUSATE)
+            if (
+                infusate_name is not None
+                and infusate_name not in seen["infusates"].keys()
+                and infusate_name
+                not in inf_sheet_cols[InfusatesLoader.DataHeaders.NAME].values()
+            ):
+                inf_data = parse_infusate_name_with_concs(infusate_name)
+                self.extract_autofill_from_infusate_data(
+                    inf_data,
+                    infusate_name,
+                    seen,
+                )
+                self.next_infusate_row_group_num += 1
+
+            treatment_name = loader.get_row_val(row, loader.headers.TREATMENT)
+            if (
+                treatment_name is not None
+                and treatment_name not in seen["treatments"].keys()
+            ):
+                self.autofill_dict[ProtocolsLoader.DataSheetName][treatment_name] = {
+                    ProtocolsLoader.DataHeadersExcel.NAME: treatment_name
+                }
+                seen["treatments"][treatment_name] = True
+
+            studies_str = loader.get_row_val(row, loader.headers.STUDY)
+            if studies_str is not None:
+                for study_str in studies_str.split(loader.StudyDelimiter):
+                    study_name = study_str.strip()
+                    if (
+                        study_name is not None
+                        and study_name != ""
+                        and study_name not in seen["studies"].keys()
+                    ):
+                        self.autofill_dict[StudyTableLoader.DataSheetName][
+                            study_name
+                        ] = {StudyTableLoader.DataHeaders.NAME: study_name}
+                        seen["studies"][study_name] = True
+
+    def extract_autofill_from_infusate_data(
+        self,
+        inf_data,
+        infusate_name,
+        seen,
+    ):
+        # Convenience shortcut
+        trcr_sheet_cols = self.dfs_dict[TracersLoader.DataSheetName]
+
+        for inf_trcr in inf_data["tracers"]:
+            tracer_name = inf_trcr["tracer"]["unparsed_string"]
+            conc = inf_trcr["concentration"]
+            inf_unique_key = self.row_key_delim.join(
+                [
+                    str(val)
+                    for val in [
+                        # The order of these values is based on the first element in the InfusatesLoader's
+                        # DataColumnUniqueConstraints, which is important for not duplicating data upon autofill
+                        self.next_infusate_row_group_num,
+                        tracer_name,
+                        conc,
+                        infusate_name,
+                    ]
+                ]
+            )
+            self.autofill_dict[InfusatesLoader.DataSheetName][inf_unique_key] = {
+                InfusatesLoader.DataHeaders.NAME: infusate_name,
+                InfusatesLoader.DataHeaders.ID: self.next_infusate_row_group_num,
+                InfusatesLoader.DataHeaders.TRACERGROUP: inf_data["infusate_name"],
+                InfusatesLoader.DataHeaders.TRACERNAME: tracer_name,
+                InfusatesLoader.DataHeaders.TRACERCONC: conc,
+            }
+
+            # Now we can autofill the tracers sheet
+            if (
+                tracer_name is not None
+                and tracer_name not in seen["tracers"].keys()
+                and tracer_name
+                not in trcr_sheet_cols[TracersLoader.DataHeaders.NAME].values()
+            ):
+                trcr_data = inf_trcr["tracer"]
+                self.extract_autofill_from_tracer_data(trcr_data, seen)
+                self.next_tracer_row_group_num += 1
+
+        seen["infusates"][infusate_name] = True
+
+    def extract_autofill_from_tracer_data(self, trcr_data, seen):
+        tracer_name = trcr_data["unparsed_string"]
+        # TODO: Get official/primary compound name from this string
+        compound_name = self.get_existing_compound_primary_name(
+            trcr_data["compound_name"]
+        )
+        for label_data in trcr_data["isotopes"]:
+            element = label_data["element"]
+            mass_number = label_data["mass_number"]
+            count = label_data["count"]
+            poss_list = label_data["positions"]
+            poss_str = None
+            if poss_list is not None and len(poss_list) > 0:
+                poss_str = TracersLoader.POSITIONS_DELIMITER.join(
+                    [str(pos) for pos in sorted(poss_list)]
+                )
+            unique_key = self.row_key_delim.join(
+                [
+                    str(val)
+                    for val in [
+                        # The order of these values is based on the first element in the TracersLoader's
+                        # DataColumnUniqueConstraints, which is important for not duplicating data upon
+                        # autofill
+                        self.next_tracer_row_group_num,
+                        tracer_name,
+                        compound_name,
+                        element,
+                        mass_number,
+                        count,
+                        poss_str,
+                    ]
+                ]
+            )
+            self.autofill_dict[TracersLoader.DataSheetName][unique_key] = {
+                TracersLoader.DataHeaders.ID: self.next_tracer_row_group_num,
+                TracersLoader.DataHeaders.NAME: tracer_name,
+                TracersLoader.DataHeaders.COMPOUND: compound_name,
+                TracersLoader.DataHeaders.ELEMENT: element,
+                TracersLoader.DataHeaders.MASSNUMBER: mass_number,
+                TracersLoader.DataHeaders.LABELCOUNT: count,
+                TracersLoader.DataHeaders.LABELPOSITIONS: poss_str,
+            }
+
+        seen["tracers"][tracer_name] = True
+
+        self.extract_autofill_from_compound_name(compound_name, seen)
+
+    def extract_autofill_from_compound_name(self, compound_str, seen):
+        if compound_str is not None and compound_str not in seen["compounds"].keys():
+            compound_name = self.get_existing_compound_primary_name(compound_str)
+            self.autofill_dict[CompoundsLoader.DataSheetName][compound_name] = {
+                CompoundsLoader.DataHeaders.NAME: compound_name
+            }
+            seen["compounds"][compound_name] = True
+
+    def get_existing_compound_primary_name(self, compound_str):
+        try:
+            rec = Compound.compound_matching_name_or_synonym(compound_str)
+            if rec is not None:
+                return rec.name
+        except (ValidationError, ObjectDoesNotExist):
+            # This error will be raised upon the load attempt
+            pass
+
+        return compound_str
+
+    def extract_autofill_from_samples_sheet(self):
+        if SamplesLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = SamplesLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=SamplesLoader.DataSheetName,
+                dtype=SamplesLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+        seen = {
+            "tissues": defaultdict(dict),
+            "animals": defaultdict(dict),
+        }
+        for _, row in loader.df.iterrows():
+            tissue_name = loader.get_row_val(row, loader.headers.TISSUE)
+            if tissue_name is not None and tissue_name not in seen["tissues"].keys():
+                self.autofill_dict[TissuesLoader.DataSheetName][tissue_name] = {
+                    TissuesLoader.DataHeaders.NAME: tissue_name
+                }
+                seen["tissues"][tissue_name] = True
+
+            animal_name = loader.get_row_val(row, loader.headers.ANIMAL)
+            if animal_name is not None and animal_name not in seen["animals"].keys():
+                self.autofill_dict[AnimalsLoader.DataSheetName][animal_name] = {
+                    AnimalsLoader.DataHeaders.NAME: animal_name
+                }
+                seen["animals"][animal_name] = True
+
+    def extract_autofill_from_peak_annot_files_sheet(self):
+        if PeakAnnotationFilesLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = PeakAnnotationFilesLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=PeakAnnotationFilesLoader.DataSheetName,
+                dtype=PeakAnnotationFilesLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+        seen = {
+            "sequences": defaultdict(dict),
+            "lcprotocols": defaultdict(dict),
+        }
+        for _, row in loader.df.iterrows():
+            seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
+            self.extract_autofill_from_sequence_name(seq_name, seen)
+
+    def extract_autofill_from_peak_annot_details_sheet(self):
+        if MSRunsLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = MSRunsLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=MSRunsLoader.DataSheetName,
+                dtype=MSRunsLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+        # We're going to ignore the sample column.  It's way more likely it will have been auto-filled itself, and the
+        # samples sheet is populated at the same time, so doing that here is just wasted cycles.  Instead, we're looking
+        # for manually filled-in data to autofill elsewhere.
+        seen = {
+            "sequences": defaultdict(dict),
+            "lcprotocols": defaultdict(dict),
+        }
+        for _, row in loader.df.iterrows():
+            seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
+            self.extract_autofill_from_sequence_name(seq_name, seen)
+
+    def extract_autofill_from_sequence_name(self, seq_name, seen):
+        if seq_name is not None and seq_name not in seen["sequences"].keys():
+            (
+                operator,
+                lc_protocol_name,
+                instrument,
+                date,
+            ) = MSRunSequence.parse_sequence_name(seq_name)
+            self.autofill_dict[SequencesLoader.DataSheetName][seq_name] = {
+                SequencesLoader.DataHeaders.SEQNAME: seq_name,
+                SequencesLoader.DataHeaders.OPERATOR: operator,
+                SequencesLoader.DataHeaders.LCNAME: lc_protocol_name,
+                SequencesLoader.DataHeaders.INSTRUMENT: instrument,
+                SequencesLoader.DataHeaders.DATE: date,
+            }
+            seen["sequences"][seq_name] = True
+
+            self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
+
+    def extract_autofill_from_lcprotocol_name(self, lc_protocol_name, seen):
+        if (
+            lc_protocol_name is not None
+            and lc_protocol_name not in seen["lcprotocols"].keys()
+        ):
+            typ, runlen = LCMethod.parse_lc_protocol_name(lc_protocol_name)
+            self.autofill_dict[LCProtocolsLoader.DataSheetName][lc_protocol_name] = {
+                LCProtocolsLoader.DataHeaders.NAME: lc_protocol_name,
+                LCProtocolsLoader.DataHeaders.TYPE: typ,
+                LCProtocolsLoader.DataHeaders.RUNLEN: runlen,
+            }
+            seen["lcprotocols"][lc_protocol_name] = True
+
+    def extract_autofill_from_infusates_sheet(self):
+        if InfusatesLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = InfusatesLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=InfusatesLoader.DataSheetName,
+                dtype=InfusatesLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+
+        # Convenience shortcut
+        trcr_sheet_cols = self.dfs_dict[TracersLoader.DataSheetName]
+
+        seen = {
+            "tracers": defaultdict(dict),
+            "compounds": defaultdict(dict),
+        }
+        for _, row in loader.df.iterrows():
+            tracer_name = loader.get_row_val(row, loader.headers.TRACERNAME)
+            if (
+                tracer_name is not None
+                and tracer_name not in seen["tracers"].keys()
+                and tracer_name
+                not in trcr_sheet_cols[TracersLoader.DataHeaders.NAME].values()
+            ):
+                trcr_data = parse_tracer_string(tracer_name)
+                self.extract_autofill_from_tracer_data(trcr_data, seen)
+                self.next_tracer_row_group_num += 1
+
+    def extract_autofill_from_tracers_sheet(self):
+        if TracersLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = TracersLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=TracersLoader.DataSheetName,
+                dtype=TracersLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+        seen = {"compounds": defaultdict(dict)}
+        for _, row in loader.df.iterrows():
+            compound_name = loader.get_row_val(row, loader.headers.COMPOUND)
+            self.extract_autofill_from_compound_name(compound_name, seen)
+
+    def extract_autofill_from_sequences_sheet(self):
+        if SequencesLoader.DataSheetName not in self.study_file_sheets:
+            return
+
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # in order to avoid accidental int(/etc) types...
+        loader = SequencesLoader(
+            df=read_from_file(
+                self.study_file,
+                sheet=SequencesLoader.DataSheetName,
+                dtype=SequencesLoader._get_column_types(optional_mode=True),
+            ),
+            file=self.study_file,
+            filename=self.study_filename,
+        )
+        seen = {"lcprotocols": defaultdict(dict)}
+        for _, row in loader.df.iterrows():
+            lc_protocol_name = loader.get_row_val(row, loader.headers.LCNAME)
+            self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
+
     def extract_autofill_from_peak_annotation_files(self):
         """Extracts data from multiple peak annotation files that can be used to populate a made-from-scratch study doc.
 
@@ -548,7 +1090,7 @@ class DataValidationView(FormView):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: peak_annot_loader.format_code,
             }
 
-            # Extracting sample, sample header, compound, mzxml,
+            # Extracting samples and compounds
             for _, row in peak_annot_loader.df.iterrows():
                 print(str(row.name), end="\r")
                 sample_header = peak_annot_loader.get_row_val(
@@ -790,6 +1332,9 @@ class DataValidationView(FormView):
         # see if rows already exist or not.  We use a potentially composite key based on the unique column constraints
         # because there can exist the same individual value multiple times in a column and we do not want to prevent an
         # add if it adds a unique row).
+
+        data_added = False
+
         loader: TableLoader
         for loader in [
             self.studies_loader,
@@ -798,7 +1343,6 @@ class DataValidationView(FormView):
             self.tissues_loader,
             self.treatments_loader,
             self.compounds_loader,
-            self.studies_loader,
             self.infusates_loader,
             self.tracers_loader,
             self.msruns_loader,
@@ -981,12 +1525,6 @@ class DataValidationView(FormView):
         cols = self.dfs_dict[TracersLoader.DataSheetName]
 
         next_row_idx = self.get_next_row_index(TracersLoader.DataSheetName)
-        row_group_nums = sorted(
-            [int(i) for i in cols[TracersLoader.DataHeaders.ID].values()]
-        )
-        next_tracer_row_group_num = 1
-        if len(row_group_nums) > 0:
-            next_tracer_row_group_num = row_group_nums[-1] + 1
 
         tracer_rec: Tracer
         for name, tracer_rec in recs_dict.items():
@@ -994,7 +1532,7 @@ class DataValidationView(FormView):
                 for label_rec in tracer_rec.labels.all():
                     cols[TracersLoader.DataHeaders.ID][
                         next_row_idx
-                    ] = next_tracer_row_group_num
+                    ] = self.next_tracer_row_group_num
                     cols[TracersLoader.DataHeaders.COMPOUND][
                         next_row_idx
                     ] = tracer_rec.compound.name
@@ -1022,7 +1560,7 @@ class DataValidationView(FormView):
                         next_row_idx
                     ] = tracer_rec._name()
                     next_row_idx += 1
-                next_tracer_row_group_num += 1
+                self.next_tracer_row_group_num += 1
 
     def add_dynamic_dropdown_infusate_data(self):
         """This uses the tracer data in the Tracers sheet to query the database for infusates that include those
@@ -1077,12 +1615,6 @@ class DataValidationView(FormView):
 
         # Determine the index of the next empty row and the next infusate row group number
         next_row_idx = self.get_next_row_index(InfusatesLoader.DataSheetName)
-        row_group_nums = sorted(
-            [int(i) for i in cols[InfusatesLoader.DataHeaders.ID].values()]
-        )
-        next_infusate_row_group_num = 1
-        if len(row_group_nums) > 0:
-            next_infusate_row_group_num = row_group_nums[-1] + 1
 
         infusate_rec: Infusate
         for name, infusate_rec in recs_dict.items():
@@ -1101,7 +1633,7 @@ class DataValidationView(FormView):
                     for itl_rec in infusate_rec.tracer_links.all():
                         cols[InfusatesLoader.DataHeaders.ID][
                             next_row_idx
-                        ] = next_infusate_row_group_num
+                        ] = self.next_infusate_row_group_num
                         cols[InfusatesLoader.DataHeaders.TRACERGROUP][
                             next_row_idx
                         ] = infusate_rec.tracer_group_name
@@ -1117,7 +1649,7 @@ class DataValidationView(FormView):
 
                         next_row_idx += 1
 
-                    next_infusate_row_group_num += 1
+                    self.next_infusate_row_group_num += 1
 
     def fill_missing_from_db(self):
         """After missing data has been autofilled (extracted from both exceptions and/or from the input files, e.g. the
@@ -1203,7 +1735,10 @@ class DataValidationView(FormView):
         for index in range(first_empty_index):
             # This assumes that the row_key_headers all have values (since they are required keys)
             cur_row_key = self.row_key_delim.join(
-                [self.dfs_dict[sheet][hdr].get(index, "") for hdr in row_key_headers]
+                [
+                    str(self.dfs_dict[sheet][hdr].get(index, ""))
+                    for hdr in row_key_headers
+                ]
             )
             if cur_row_key == unique_row_key:
                 # This assumes that the value combo is unique
@@ -1264,11 +1799,13 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            last_index (Optional[int]): None if there are no rows, otherwise the max row index.
+            last_index (int): 0 if there are no rows, otherwise the max row index + 1.
         """
         for hdr in self.dfs_dict[sheet].keys():
-            # This assumes that indexes are contiguous starting from 0 and that the values are never None
-            return len(self.dfs_dict[sheet][hdr].keys())
+            if len(self.dfs_dict[sheet][hdr].keys()) == 0:
+                return 0
+            return max(self.dfs_dict[sheet][hdr].keys()) + 1
+        return 0
 
     def get_or_create_dfs_dict(self, version=default_version):
         """Get or create dataframes dict templates for each sheet in self.animal_sample_file as a dict keyed on sheet.
@@ -1388,7 +1925,10 @@ class DataValidationView(FormView):
                 )
             else:
                 dfs_dict[ProtocolsLoader.DataSheetName] = (
-                    self.treatments_loader.get_dataframe_template(populate=True)
+                    self.treatments_loader.get_dataframe_template(
+                        populate=True,
+                        filter={"category": Protocol.ANIMAL_TREATMENT},
+                    )
                 )
 
             if TissuesLoader.DataSheetName in dfs_dict.keys():
@@ -1443,7 +1983,7 @@ class DataValidationView(FormView):
                 )
             else:
                 dfs_dict[LCProtocolsLoader.DataSheetName] = (
-                    self.lcprotocols_loader.get_dataframe_template()
+                    self.lcprotocols_loader.get_dataframe_template(populate=True)
                 )
 
             if SequencesLoader.DataSheetName in dfs_dict.keys():
@@ -1560,9 +2100,12 @@ class DataValidationView(FormView):
     def get_study_dtypes_dict(self, version=default_version):
         """Retrieve the dtype data for each sheet.
 
+        NOTE: The returned dict is not what the pandas' read methods take directly.  The returned 2D dict can only be
+        used by read_from_file, which reads each sheet individually and retrieves each sheet's specific dtype dict from
+        what is returned here.
+
         Args:
             version (string) [3]: tracebase study doc version number
-
         Exceptions:
             Raises:
                 NotImplementedError

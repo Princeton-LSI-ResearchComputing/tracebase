@@ -82,7 +82,7 @@ class InfusateQuerySet(models.QuerySet):
 
 
 class Infusate(MaintainedModel, HierCachedModel):
-    objects = InfusateQuerySet().as_manager()
+    objects: InfusateQuerySet = InfusateQuerySet().as_manager()
 
     CONCENTRATION_SIGNIFICANT_FIGURES = 3
     TRACER_DELIMETER = ";"

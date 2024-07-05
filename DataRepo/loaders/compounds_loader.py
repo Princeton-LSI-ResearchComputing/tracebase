@@ -81,6 +81,8 @@ class CompoundsLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(field=Compound.name),
         HMDB_ID=TableColumn.init_flat(field=Compound.hmdb_id),

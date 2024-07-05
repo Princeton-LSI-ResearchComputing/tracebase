@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 
 from DataRepo.models.element_label import ElementLabel
@@ -37,9 +38,13 @@ class TracerQuerySet(models.QuerySet):
 
         # First, check if the compound is found
         Compound = get_model_by_name("Compound")
-        compound = Compound.compound_matching_name_or_synonym(
-            tracer_data["compound_name"]
-        )
+        try:
+            compound = Compound.compound_matching_name_or_synonym(
+                tracer_data["compound_name"]
+            )
+        except ObjectDoesNotExist:
+            compound = None
+
         if compound:
             # Check for tracers of the compound with same number of labels
             tracers = Tracer.objects.annotate(num_labels=models.Count("labels")).filter(
@@ -59,7 +64,7 @@ class TracerQuerySet(models.QuerySet):
 
 
 class Tracer(MaintainedModel, ElementLabel):
-    objects = TracerQuerySet().as_manager()
+    objects: TracerQuerySet = TracerQuerySet().as_manager()
 
     COMPOUND_DELIMITER = "-"
     LABELS_DELIMITER = ","
@@ -97,7 +102,11 @@ class Tracer(MaintainedModel, ElementLabel):
     )
     def _name(self):
         # format: `compound-[labelname,labelname,...]`, e.g. lysine-[13C6,15N2]
-        if self.id is None or self.labels is None or self.labels.count() == 0:
+        if (
+            self.id is None
+            or self.labels is None  # pylint: disable=no-member
+            or self.labels.count() == 0
+        ):
             return self.compound.name
         labels_string = self.LABELS_DELIMITER.join(
             [str(label) for label in self.labels.all()]

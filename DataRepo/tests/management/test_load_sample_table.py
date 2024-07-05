@@ -275,11 +275,11 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
             msg="2 rows with missing required values",
         )
         self.assertIn(
-            "[Sample, Date Collected, Researcher Name, Tissue, Collection Time] on rows: ['17']",
+            "[Sample, Date Collected, Researcher Name, Tissue] on rows: ['17']",
             str(aes.exceptions[0]),
         )
         self.assertIn(
-            "[Sample, Date Collected, Researcher Name, Tissue, Collection Time, Animal] on rows: ['18']",
+            "[Sample, Date Collected, Researcher Name, Tissue, Animal] on rows: ['18']",
             str(aes.exceptions[0]),
         )
         # Error unrelated to this test:

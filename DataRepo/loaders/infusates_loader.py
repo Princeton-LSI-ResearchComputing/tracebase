@@ -127,6 +127,8 @@ class InfusatesLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         ID=TableColumn.init_flat(
             name=DataHeaders.ID,

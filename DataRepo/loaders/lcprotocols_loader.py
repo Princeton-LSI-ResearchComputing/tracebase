@@ -74,6 +74,12 @@ class LCProtocolsLoader(TableLoader):
         },
     }
 
+    FieldToDataValueConverter = {
+        LCMethod.__name__: {
+            "run_length": lambda val: val.total_seconds() // 60,
+        },
+    }
+
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(
             field=LCMethod.name,

@@ -166,6 +166,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         MEDMZ=TableColumn.init_flat(name=DataHeaders.MEDMZ, field=PeakData.med_mz),
         MEDRT=TableColumn.init_flat(name=DataHeaders.MEDRT, field=PeakData.med_rt),

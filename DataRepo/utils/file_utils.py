@@ -226,6 +226,9 @@ def _read_from_xlsx(
             dtype_n = None
             if isinstance(dtype, dict):
                 dtype_n = dtype.get(sheet_n, None)
+                if dtype_n is not None and not isinstance(dtype_n, dict):
+                    # Assume one big dict of column types for all sheets
+                    dtype_n = dtype
 
             # Recursive calls
             df_dict[sheet_n] = read_from_file(

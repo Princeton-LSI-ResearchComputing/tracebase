@@ -136,6 +136,7 @@ class StudyLoader(TableLoader):
         ERRORS=None,
     )
     Models: List[Model] = []
+    # No FieldToDataValueConverter needed
     # Unused (currently)
     DataSheetName = "Defaults"
 

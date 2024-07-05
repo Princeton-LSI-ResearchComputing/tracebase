@@ -163,6 +163,12 @@ class TableLoader(ABC):
     # dict of types by header key
     DataColumnTypes: Optional[Dict[str, Type[str]]] = None
 
+    # FieldToDataValueConverter is a dict of (lambda) functions keyed on model and field names
+    # Use this for exporting the database field values to the value in the column
+    # For example: Animal.age is read in in weeks, stored as a timedelta, which defaults to output in days, thus the
+    # converter can be used to output in weeks
+    FieldToDataValueConverter: Optional[Dict[str, dict]] = None
+
     # For the defaults sheet...
     DefaultsSheetName = "Defaults"
 
@@ -2913,7 +2919,21 @@ class TableLoader(ABC):
                         if fld in self.FieldToHeader[model_class.__name__].keys():
                             header = self.FieldToHeader[model_class.__name__][fld]
                             if header in display_headers:
-                                out_dict[header].append(getattr(rec, fld))
+                                val = getattr(rec, fld)
+                                if (
+                                    val is not None
+                                    and self.FieldToDataValueConverter is not None
+                                    and model_class.__name__
+                                    in self.FieldToDataValueConverter.keys()
+                                    and fld
+                                    in self.FieldToDataValueConverter[
+                                        model_class.__name__
+                                    ]
+                                ):
+                                    val = self.FieldToDataValueConverter[
+                                        model_class.__name__
+                                    ][fld](val)
+                                out_dict[header].append(val)
 
                 for hdr in display_headers:
                     if hdr not in out_dict.keys():

@@ -143,6 +143,8 @@ class MSRunsLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         SAMPLENAME=TableColumn.init_flat(
             name=DataHeaders.SAMPLENAME, field=MSRunSample.sample
@@ -1156,7 +1158,12 @@ class MSRunsLoader(TableLoader):
                 column = self.DefaultsHeaders.DEFAULT_VALUE
                 rownum = self.rownum
 
-                operator, lcprotname, instrument, date_str = re.split(r",\s*", name)
+                (
+                    operator,
+                    lcprotname,
+                    instrument,
+                    date_str,
+                ) = MSRunSequence.parse_sequence_name(name)
 
                 date = string_to_datetime(
                     date_str,

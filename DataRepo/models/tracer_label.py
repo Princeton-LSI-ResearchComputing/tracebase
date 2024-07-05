@@ -25,7 +25,7 @@ class TracerLabelQuerySet(models.QuerySet):
 
 
 class TracerLabel(MaintainedModel, ElementLabel):
-    objects = TracerLabelQuerySet().as_manager()
+    objects: TracerLabelQuerySet = TracerLabelQuerySet().as_manager()
 
     POSITIONS_DELIMITER = ","
     POSITIONS_DIVIDER = "-"

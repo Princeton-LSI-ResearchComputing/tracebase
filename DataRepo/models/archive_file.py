@@ -211,7 +211,7 @@ class ArchiveFileQuerySet(models.QuerySet):
 class ArchiveFile(models.Model):
     """Store the file location, checksum, datatype, and format of files."""
 
-    objects = ArchiveFileQuerySet().as_manager()
+    objects: ArchiveFileQuerySet = ArchiveFileQuerySet().as_manager()
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)

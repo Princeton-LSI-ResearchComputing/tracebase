@@ -70,7 +70,14 @@ class SamplesLoader(TableLoader):
     ]
 
     # List of header keys for columns that require a value
-    DataRequiredValues = DataRequiredHeaders
+    DataRequiredValues = [
+        SAMPLE_KEY,
+        DATE_KEY,
+        HANDLER_KEY,
+        TISSUE_KEY,
+        # DAYS_INFUSED_KEY,  # Not required in model
+        ANIMAL_KEY,
+    ]
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {
@@ -96,6 +103,12 @@ class SamplesLoader(TableLoader):
             "tissue": TISSUE_KEY,
             "time_collected": DAYS_INFUSED_KEY,
             "animal": ANIMAL_KEY,
+        },
+    }
+
+    FieldToDataValueConverter = {
+        Sample.__name__: {
+            "time_collected": lambda val: val.total_seconds() // 60,
         },
     }
 

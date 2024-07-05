@@ -149,3 +149,7 @@ class LCMethodTests(TracebaseTestCase):
             new_lcm_name,
             msg="Name returned should be based on the type and run length field values, not the value in the field.",
         )
+
+    def test_parse_lc_protocol_name(self):
+        # TODO: Implement test
+        pass
