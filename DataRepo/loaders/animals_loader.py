@@ -122,6 +122,12 @@ class AnimalsLoader(TableLoader):
         },
     }
 
+    FieldToDataValueConverter = {
+        Animal.__name__: {
+            "age": lambda val: val.total_seconds() // 604800,
+        },
+    }
+
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(
             name=DataHeaders.NAME,
