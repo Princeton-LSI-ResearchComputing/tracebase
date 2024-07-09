@@ -94,10 +94,14 @@ class LCProtocolsLoader(TableLoader):
                 '"-min")'
             ),
         ),
-        TYPE=TableColumn.init_flat(field=LCMethod.type),
+        TYPE=TableColumn.init_flat(field=LCMethod.type, current_choices=True),
         RUNLEN=TableColumn.init_flat(
             field=LCMethod.run_length,
             format="Units: minutes.",
+            current_choices=True,
+            current_choices_converter=FieldToDataValueConverter[LCMethod.__name__][
+                "run_length"
+            ],
         ),
         DESC=TableColumn.init_flat(field=LCMethod.description),
     )

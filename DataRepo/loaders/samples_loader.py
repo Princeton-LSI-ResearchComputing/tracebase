@@ -122,7 +122,7 @@ class SamplesLoader(TableLoader):
             ),
         ),
         HANDLER=TableColumn.init_flat(
-            name=DataHeaders.HANDLER, field=Sample.researcher
+            name=DataHeaders.HANDLER, field=Sample.researcher, current_choices=True
         ),
         DATE=TableColumn.init_flat(
             name=DataHeaders.DATE,
