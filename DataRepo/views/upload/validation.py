@@ -17,6 +17,7 @@ from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
+from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
@@ -690,17 +691,23 @@ class DataValidationView(FormView):
                 # distinct database query)
                 static_choices = column_metadata[sheet][header].static_choices
                 current_choices = column_metadata[sheet][header].current_choices
+                dynamic_choices: ColumnReference = column_metadata[sheet][
+                    header
+                ].dynamic_choices
 
-                # Novel values are allowed for static choices when static choices are populated by a distinct database
-                # query
-                show_error = current_choices is not None
+                if static_choices is None and dynamic_choices is None:
+                    continue
+
+                # Get the cell's letter designation as it will be in excel
+                col_letter = self.header_to_cell(
+                    sheet=sheet, header=header, letter_only=True
+                )
+                cell_range = f"{col_letter}2:{col_letter}{last_validation_index}"
 
                 if static_choices is not None:
-                    # Get the cell's letter designation as it will be in excel
-                    cell = self.header_to_cell(
-                        sheet=sheet, header=header, letter_only=True
-                    )
-                    cell_range = f"{cell}2:{cell}{last_validation_index}"
+                    # Novel values are allowed for static choices when static choices are populated by a distinct
+                    # database query
+                    show_error = current_choices is False
 
                     values_list = sorted(
                         [
@@ -710,13 +717,15 @@ class DataValidationView(FormView):
                         ]
                     )
 
-                    if len(values_list) > 255:
+                    if len(str(values_list)) > 255:
                         # Excel limits dropdown lists to 255 items
                         warnings.warn(
                             f"The dropdown list for sheet {sheet}, column {header} exceeds Excel's limit of 255 "
-                            "items.  The list has been truncated.  Please consider changing the DataColumnMetadata "
-                            "settings for the associated loader class."
+                            "characters.  The list has been truncated.  Please consider changing the "
+                            "DataColumnMetadata settings for the associated loader class."
                         )
+                        while len(str(values_list)) > 252:
+                            values_list.pop()
                         values_list = [*values_list[0:253], "..."]
 
                     # Add a dropdown menu for all cells in this column (except the header) to the last_validation_index
@@ -726,6 +735,32 @@ class DataValidationView(FormView):
                             "validate": "list",
                             "source": values_list,
                             "show_error": show_error,
+                            "dropdown": True,
+                        },
+                    )
+                elif dynamic_choices is not None:
+                    next_ref_index = self.get_next_row_index(dynamic_choices.sheet)
+                    last_ref_validation_index = next_ref_index + self.validation_offset
+                    ref_col_letter = self.header_to_cell(
+                        sheet=dynamic_choices.sheet,
+                        header=dynamic_choices.header,
+                        letter_only=True,
+                    )
+                    ref_cell_range = ""
+                    if sheet != dynamic_choices.sheet:
+                        ref_cell_range += f"'{dynamic_choices.sheet}'!"
+                    ref_cell_range += f"${ref_col_letter}$2:${ref_col_letter}${last_ref_validation_index}"
+
+                    print(
+                        f"ADDING DYNAMIC CHOICES TO SHEET {sheet}, COLUMN {header}: {ref_cell_range}"
+                    )
+                    # Add a dropdown menu for all cells in this column (except the header) to the last_validation_index
+                    worksheet.data_validation(
+                        cell_range,
+                        {
+                            "validate": "list",
+                            "source": ref_cell_range,
+                            "show_error": False,
                             "dropdown": True,
                         },
                     )

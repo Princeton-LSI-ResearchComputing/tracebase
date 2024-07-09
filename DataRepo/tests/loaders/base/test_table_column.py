@@ -96,7 +96,9 @@ class ColumnHeaderTests(TracebaseTestCase):
 
     def test_ColumnHeader_comment(self):
         chf = ColumnHeader(field=TestTableColumnModel.name)
-        self.assertEqual("This be the name.\n\nMust be unique.", chf.comment)
+        self.assertEqual(
+            "This be the name.\n\nMust be unique.\n\nRequired.", chf.comment
+        )
 
 
 class ColumnValueTests(TracebaseTestCase):

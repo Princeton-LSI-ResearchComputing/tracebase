@@ -11,6 +11,7 @@ from django.forms import model_to_dict
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
+from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models import (
     ArchiveFile,
@@ -147,7 +148,12 @@ class MSRunsLoader(TableLoader):
 
     DataColumnMetadata = DataTableHeaders(
         SAMPLENAME=TableColumn.init_flat(
-            name=DataHeaders.SAMPLENAME, field=MSRunSample.sample
+            name=DataHeaders.SAMPLENAME,
+            field=MSRunSample.sample,
+            dynamic_choices=ColumnReference(
+                loader_class=SamplesLoader,
+                loader_header_key=SamplesLoader.SAMPLE_KEY,
+            ),
         ),
         SAMPLEHEADER=TableColumn.init_flat(
             name=DataHeaders.SAMPLEHEADER,
@@ -167,9 +173,17 @@ class MSRunsLoader(TableLoader):
                 f"an {DataHeaders.MZXMLNAME} that was not used in a {DataHeaders.ANNOTNAME}, leave this value empty."
             ),
             guidance=(
-                f"You do not have the have an {DataHeaders.MZXMLNAME} associated with every {DataHeaders.SAMPLEHEADER} "
-                f"from a {DataHeaders.ANNOTNAME} worked out ahead of time.  That association can be made at a later "
-                "date."
+                f"Note, you do not need to have an {DataHeaders.MZXMLNAME} associated with every "
+                f"{DataHeaders.SAMPLEHEADER} from a {DataHeaders.ANNOTNAME} worked out ahead of time.  That "
+                "association can be made at a later date."
+            ),
+            # TODO: Replace "Peak Annotation Files" and "Peak Annotation File" below with a reference to its loader's
+            # DataSheetName and the corresponding column, respectively.
+            # Cannot reference the PeakAnnotationFilesLoader here (to include the name of its sheet and its file column)
+            # due to circular import.
+            dynamic_choices=ColumnReference(
+                sheet="Peak Annotation Files",
+                header="Peak Annotation File",
             ),
             header_required=False,
             value_required=False,
@@ -179,10 +193,6 @@ class MSRunsLoader(TableLoader):
             help_text=(
                 f"The MSRun Sequence associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
                 f"{DataHeaders.MZXMLNAME} on this row."
-            ),
-            guidance=(
-                "Use the dropdowns to select values in this column.  If the dropdowns are empty or the "
-                f"sequence is missing, add a row for it to the {SequencesLoader.DataSheetName} sheet."
             ),
             type=str,
             format=(
@@ -202,20 +212,20 @@ class MSRunsLoader(TableLoader):
             name=DataHeaders.SKIP,
             help_text="Whether to load data associated with this sample, e.g. a blank sample.",
             guidance=(
-                f"Enter 'true' to skip loading of the sample and peak annotation data.  The mzXML file will be saved "
+                f"Enter 'skip' to skip loading of the sample and peak annotation data.  The mzXML file will be saved "
                 "if supplied, but it will not be associated with an MSRunSample or MSRunSequence, since the Sample "
                 f"record will not be created.  Note that the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and "
                 f"{DataHeaders.SEQNAME} columns must still have a unique combo value (for file validation, even though "
                 "they won't be used)."
             ),
-            format="Boolean: 'true' or 'false'.",
+            format="Boolean: 'skip' or ''.",
             default=False,
             header_required=False,
             value_required=False,
             static_choices=[
                 # Treated as False (easier tor the user to see what is skipped at a glance)
                 ("", ""),
-                ("Skip", "Skip"),
+                ("skip", "skip"),
             ],
         ),
     )

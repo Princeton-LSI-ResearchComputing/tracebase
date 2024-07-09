@@ -62,8 +62,10 @@ class TissuesLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(field=Tissue.name),
-        DESCRIPTION=TableColumn.init_flat(field=Tissue.description),
+        NAME=TableColumn.init_flat(field=Tissue.name, name=DataHeaders.NAME),
+        DESCRIPTION=TableColumn.init_flat(
+            field=Tissue.description, name=DataHeaders.DESCRIPTION
+        ),
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling

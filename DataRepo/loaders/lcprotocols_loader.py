@@ -83,6 +83,7 @@ class LCProtocolsLoader(TableLoader):
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(
             field=LCMethod.name,
+            name=DataHeaders.NAME,
             type=str,
             readonly=True,
             # TODO: Create the method that applies the formula to the NAME column on every row
@@ -94,16 +95,19 @@ class LCProtocolsLoader(TableLoader):
                 '"-min")'
             ),
         ),
-        TYPE=TableColumn.init_flat(field=LCMethod.type, current_choices=True),
+        TYPE=TableColumn.init_flat(
+            field=LCMethod.type, name=DataHeaders.TYPE, current_choices=True
+        ),
         RUNLEN=TableColumn.init_flat(
             field=LCMethod.run_length,
+            name=DataHeaders.RUNLEN,
             format="Units: minutes.",
             current_choices=True,
             current_choices_converter=FieldToDataValueConverter[LCMethod.__name__][
                 "run_length"
             ],
         ),
-        DESC=TableColumn.init_flat(field=LCMethod.description),
+        DESC=TableColumn.init_flat(field=LCMethod.description, name=DataHeaders.DESC),
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.

@@ -98,10 +98,6 @@ class PeakAnnotationFilesLoader(TableLoader):
                 f"The default MSRun Sequence to use when loading {DataHeaders.FILE}.  Overridden by values supplied in "
                 f"{MSRunsLoader.DataHeaders.SEQNAME} in the {MSRunsLoader.DataSheetName} sheet."
             ),
-            guidance=(
-                "Use the dropdowns to select values in this column.  If the dropdowns are empty or the "
-                f"sequence is missing, add a row for it to the {SequencesLoader.DataSheetName} sheet."
-            ),
             type=str,
             format=(
                 "Comma-delimited string combining the values from these columns from the "
