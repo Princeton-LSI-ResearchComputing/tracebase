@@ -115,17 +115,36 @@ class SequencesLoader(TableLoader):
                 f"- {DataHeaders.DATE}"
             ),
             # TODO: Create the method that applies the formula to the SEQNAME column on every row
-            # Excel formula that creates f"{operator}, {lc_name}, {instrument}, {date}" using the spreadsheet columns on
-            # the current row.  The header keys will be replaced by the excel column letters:
-            # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), ", ", INDIRECT("C" & ROW()), ", ", INDIRECT("D" & ROW()), ", ",
+            # Excel formula that creates f"{OPERATOR}, {LCNAME}, {INSTRUMENT}, {DATE}" using the spreadsheet columns on
+            # the current row.  The header keys will be replaced by the excel column letters.  Simplified example:
+            # 'CONCATENATE(INDIRECT("B" & ROW()), ", ", INDIRECT("C" & ROW()), ", ", INDIRECT("D" & ROW()), ", ",
             # INDIRECT("E" & ROW()))'
+            # NOTE: The inclusion of function prefixes like `_xlfn.` is documented as necessary in xlsxwriter.  If not
+            # included, the excel formulas will behave erratically.  The process used to discover the prefixes necessary
+            # is documented here:
+            # https://xlsxwriter.readthedocs.io/working_with_formulas.html#dealing-with-formula-errors
+            # But basically:
+            # 1. Manually paste the (unprefixed) formula into an exported sheet (which should fix the formula, unless
+            #    you have a syntax error).
+            # 2. Save the file.
+            # 3. unzip myfile.xlsx -d myfile
+            # 4. xmllint --format myfile/xl/worksheets/sheet8.xml | grep '</f>'
+            # 5. Update the prefixes in the formula below to match the prefixes in the working formula that was manually
+            #    fixed.
             formula=(
-                "=CONCATENATE("
-                f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), ", ", '
-                f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), ", ", '
-                f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), ", ", '
+                "=IF("
+                "OR("
+                f'NOT(ISBLANK(INDIRECT("{{{OPERATOR_KEY}}}" & ROW()))),'
+                f'NOT(ISBLANK(INDIRECT("{{{LCNAME_KEY}}}" & ROW()))),'
+                f'NOT(ISBLANK(INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()))),'
+                f'NOT(ISBLANK(INDIRECT("{{{DATE_KEY}}}" & ROW()))),'
+                "),"
+                f'_xlfn.TEXTJOIN("{MSRunSequence.SEQNAME_DELIMITER} ", FALSE, '
+                f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), '
+                f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), '
+                f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
-                ")"
+                '),"")'
             ),
         ),
         OPERATOR=TableColumn.init_flat(

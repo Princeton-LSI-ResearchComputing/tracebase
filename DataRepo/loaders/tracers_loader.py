@@ -196,30 +196,49 @@ class TracersLoader(TableLoader):
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
             # current row.  The header keys will be replaced by the excel column letters.
-            # Example:
+            # Simplified example:
             # =CONCATENATE(
-            #   B2,
+            #   INDIRECT("B" & ROW()),
             #   "-[",
             #   TEXTJOIN(",",TRUE,
             #     BYROW(
-            #       FILTER(C:E,A:A=A2,""),
+            #       FILTER(C:E,A:A=INDIRECT("A" & ROW()),""),
             #       LAMBDA(row, CONCAT(row))
             #     )
             #   ),
             #   "]"
             # )
+            # NOTE: The inclusion of function prefixes like `_xlpm.` is documented as necessary for the LAMBDA variables
+            # in xlsxwriter.  If not included, the export of the excel document will corrupt the formulas.
+            # Other errors however occur without other prefixes.  The process used to discover the prefixes necessary is
+            # documented here: https://xlsxwriter.readthedocs.io/working_with_formulas.html#dealing-with-formula-errors
+            # But basically:
+            # 1. Manually paste the (unprefixed) formula into an exported sheet (which should fix the formula, unless
+            #    you have a syntax error).
+            # 2. Save the file.
+            # 3. unzip myfile.xlsx -d myfile
+            # 4. xmllint --format myfile/xl/worksheets/sheet8.xml | grep '</f>'
+            # 5. Update the prefixes in the formula below to match the prefixes in the working formula that was manually
+            #    fixed.
             formula=(
-                "=CONCATENATE("
-                f"{{{COMPOUND_KEY}}},"
+                "=IF("
+                "AND("
+                f'ISBLANK(INDIRECT("{{{COMPOUND_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{MASSNUMBER_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{LABELCOUNT_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{ID_KEY}}}" & ROW()))'
+                '),"",'
+                "CONCATENATE("
+                f'INDIRECT("{{{COMPOUND_KEY}}}" & ROW()),'
                 '"-[",'
-                'TEXTJOIN(",",TRUE,'
-                "BYROW("
-                f"FILTER({{{MASSNUMBER_KEY}}}:{{{LABELCOUNT_KEY}}},"
+                '_xlfn.TEXTJOIN(",",TRUE,'
+                "_xlfn.BYROW("
+                f"_xlfn._xlws.FILTER({{{MASSNUMBER_KEY}}}:{{{LABELCOUNT_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
-                "LAMBDA(row, CONCAT(row))"
+                "_xlfn._xlws.LAMBDA(_xlpm.row, _xlfn.CONCAT(_xlpm.row))"
                 ")),"
                 '"]"'
-                ")"
+                "))"
             ),
         ),
     )

@@ -186,7 +186,7 @@ class InfusatesLoader(TableLoader):
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
             # current row.  The header keys will be replaced by the excel column letters.
-            # Example:
+            # Simplified example:
             # =CONCATENATE(
             #   IF(ISBLANK(B2),"",CONCATENATE(B2," ")),
             #   IF(ROWS(FILTER(A:A,A:A=A2,""))>1,"{",""),
@@ -201,16 +201,52 @@ class InfusatesLoader(TableLoader):
             #   ),
             #   IF(ROWS(FILTER(A:A,A:A=A2,""))>1,"}","")
             # )
+            # NOTE: The inclusion of function prefixes like `_xlpm.` is documented as necessary for the LAMBDA variables
+            # in xlsxwriter.  If not included, the export of the excel document will corrupt the formulas.
+            # Other errors however occur without other prefixes.  The process used to discover the prefixes necessary is
+            # documented here: https://xlsxwriter.readthedocs.io/working_with_formulas.html#dealing-with-formula-errors
+            # But basically:
+            # 1. Manually paste the (unprefixed) formula into an exported sheet (which should fix the formula, unless
+            #    you have a syntax error).
+            # 2. Save the file.
+            # 3. unzip myfile.xlsx -d myfile
+            # 4. xmllint --format myfile/xl/worksheets/sheet8.xml | grep '</f>'
+            # 5. Update the prefixes in the formula below to match the prefixes in the working formula that was manually
+            #    fixed.
             formula=(
-                "=CONCATENATE("
-                f'IF(ISBLANK(INDIRECT("{{{GROUP_NAME_KEY}}}" & ROW())),"",CONCATENATE(INDIRECT("{{{GROUP_NAME_KEY}}}" '
-                f'& ROW())," ")),'
-                f'IF(ROWS(FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),'
-                f'""))>1,"{{",""),TEXTJOIN(";",TRUE,SORT(MAP(FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},'
-                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),FILTER({{{CONC_KEY}}}:{{{CONC_KEY}}},'
-                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),LAMBDA(a,b,CONCATENATE(a,"[",b,"]")))'
-                f")),IF(ROWS(FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}="
-                f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"}}",""))'
+                # If there's any data on the row
+                "=IF("
+                # "OR" makes excel significantly more responsive
+                "OR("
+                f'NOT(ISBLANK(INDIRECT("{{{ID_KEY}}}" & ROW()))),'
+                f'NOT(ISBLANK(INDIRECT("{{{GROUP_NAME_KEY}}}" & ROW()))),'
+                f'NOT(ISBLANK(INDIRECT("{{{TRACER_NAME_KEY}}}" & ROW()))),'
+                f'NOT(ISBLANK(INDIRECT("{{{CONC_KEY}}}" & ROW()))),'
+                "),"
+                # Build the infusate name
+                "CONCATENATE("
+                # If there is a tracer group name
+                f'IF(ISBLANK(INDIRECT("{{{GROUP_NAME_KEY}}}" & ROW())),"",'
+                # Insert the tracer group name
+                f'CONCATENATE(INDIRECT("{{{GROUP_NAME_KEY}}}" & ROW())," ")),'
+                # If there is more than 1 tracer with this row group ID, include an opening curly brace
+                f"IF(ROWS(_xlfn._xlws.FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}="
+                f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"{{{{",""),'
+                # Join the sorted tracers (from multiple rows) using a ';' delimiter, (mapping the names and concs)
+                '_xlfn.TEXTJOIN(";",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
+                # Filter all tracer names to get ones whose tracer row group ID is the same as as this row's group ID
+                f"_xlfn._xlws.FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),'
+                # Filter all concentrations to get ones whose tracer row group ID is the same as as this row's group ID
+                f"_xlfn._xlws.FILTER({{{CONC_KEY}}}:{{{CONC_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Apply this lambda to the tracer names and concentrations filtered above to concatenate the tracers and
+                # their concentrations
+                '_xlfn.LAMBDA(_xlpm.a,_xlpm.b,CONCATENATE(_xlpm.a,"[",_xlpm.b,"]"))))),'
+                # If there is more than 1 tracer for this row group ID, include a closing curly brace
+                f"IF(ROWS(_xlfn._xlws.FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}="
+                f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"}}}}","")),'
+                '"")'
             ),
         ),
     )

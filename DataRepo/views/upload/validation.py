@@ -213,7 +213,7 @@ class DataValidationView(FormView):
         self.peak_annot_filenames = []
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
-        self.validation_offset = 50
+        self.validation_offset = 10
 
     def set_files(
         self,
@@ -654,11 +654,9 @@ class DataValidationView(FormView):
             xlsx_writer.sheets[sheet].autofit()
 
         self.add_dropdowns(xlsx_writer)
+        self.add_formulas(xlsx_writer)
 
     def add_dropdowns(self, xlsx_writer):
-        self.add_static_dropdowns(xlsx_writer)
-
-    def add_static_dropdowns(self, xlsx_writer):
         column_metadata = {
             StudyTableLoader.DataSheetName: self.studies_loader.get_value_metadata(),
             AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
@@ -685,7 +683,6 @@ class DataValidationView(FormView):
             worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
             headers = order_spec[1]
 
-            # Add comments to header cells
             for header in headers:
                 # static_choices can be set automatically via the field, manually, or via "current_choices" (e.g. a
                 # distinct database query)
@@ -764,6 +761,91 @@ class DataValidationView(FormView):
                             "dropdown": True,
                         },
                     )
+
+    def add_formulas(self, xlsx_writer):
+        column_metadata = {
+            StudyTableLoader.DataSheetName: self.studies_loader.get_value_metadata(),
+            AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
+            SamplesLoader.DataSheetName: self.samples_loader.get_value_metadata(),
+            TissuesLoader.DataSheetName: self.tissues_loader.get_value_metadata(),
+            ProtocolsLoader.DataSheetName: self.treatments_loader.get_value_metadata(),
+            CompoundsLoader.DataSheetName: self.compounds_loader.get_value_metadata(),
+            TracersLoader.DataSheetName: self.tracers_loader.get_value_metadata(),
+            InfusatesLoader.DataSheetName: self.infusates_loader.get_value_metadata(),
+            LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_value_metadata(),
+            SequencesLoader.DataSheetName: self.sequences_loader.get_value_metadata(),
+            MSRunsLoader.DataSheetName: self.msruns_loader.get_value_metadata(),
+            PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_value_metadata(),
+        }
+        loader: TableLoader
+        for loader in [
+            self.studies_loader,
+            self.animals_loader,
+            self.samples_loader,
+            self.tissues_loader,
+            self.treatments_loader,
+            self.compounds_loader,
+            self.tracers_loader,
+            self.infusates_loader,
+            self.lcprotocols_loader,
+            self.sequences_loader,
+            self.msruns_loader,
+            self.peakannotfiles_loader,
+        ]:
+            sheet = loader.DataSheetName
+            if sheet not in self.build_sheets:
+                # Skipping unsupported sheets
+                continue
+
+            last_validation_index = (
+                self.get_next_row_index(sheet) + self.validation_offset
+            )
+            worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
+
+            # Create a dict of header keys to excel column letter for all headers
+            headers_dict = loader.get_headers()._asdict()
+            header_letters_dict = {}
+            for header_key, header in headers_dict.items():
+                if header in self.dfs_dict[sheet].keys():
+                    header_letters_dict[header_key] = self.header_to_cell(
+                        sheet=sheet, header=header, letter_only=True
+                    )
+
+            column_metadata = loader.get_value_metadata()
+
+            for header_key, header in headers_dict.items():
+                if header not in self.dfs_dict[sheet].keys():
+                    continue
+
+                formula_template = column_metadata[header].formula
+
+                if formula_template is None:
+                    continue
+
+                col_letter = header_letters_dict[header_key]
+
+                # This substitutes instances of "{NAME}" (where "NAME" is a TableLoader.DataHeaders namedtuple
+                # attribute) with the column letter for each header that occurs in the formula
+                print(
+                    f"FORMATTING FSTRING: {formula_template} USING DICT: {headers_dict}"
+                )
+                formula = formula_template.format(**header_letters_dict)
+
+                for index in range(last_validation_index):
+                    # Indexes start from 0.  Any value at index zero ends up in what excel labels as row 2 (because row
+                    # numbers start at 1 and row 1 is the header).
+                    rownum = index + 2
+
+                    # Only fill in a formula if the cell doesn't already have a value.
+                    # (Because custom-entered values from the user trump formulas).
+                    if self.dfs_dict[sheet][header].get(index) is None:
+                        print(
+                            f"FORMULA FOR SHEET {sheet}, COLUMN {header}, INDEX {index}, "
+                            f"LOCATION {col_letter}{rownum}: {formula}"
+                        )
+                        worksheet.write_formula(
+                            f"{col_letter}{rownum}", formula, None, ""
+                        )
 
     def extract_autofill_from_files(self):
         """Calls methods for extracting autofill data from the submitted files."""
