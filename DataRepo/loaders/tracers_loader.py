@@ -221,22 +221,46 @@ class TracersLoader(TableLoader):
             # 5. Update the prefixes in the formula below to match the prefixes in the working formula that was manually
             #    fixed.
             formula=(
+                # If all columns are empty, return an empty string
                 "=IF("
                 "AND("
                 f'ISBLANK(INDIRECT("{{{COMPOUND_KEY}}}" & ROW())),'
                 f'ISBLANK(INDIRECT("{{{MASSNUMBER_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{ELEMENT_KEY}}}" & ROW())),'
                 f'ISBLANK(INDIRECT("{{{LABELCOUNT_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{LABELPOSITIONS_KEY}}}" & ROW())),'
                 f'ISBLANK(INDIRECT("{{{ID_KEY}}}" & ROW()))'
                 '),"",'
+                # Otherwise, build the tracer name
                 "CONCATENATE("
+                # Start with the compound
                 f'INDIRECT("{{{COMPOUND_KEY}}}" & ROW()),'
+                # Wrap the labels in "-[]"
                 '"-[",'
-                '_xlfn.TEXTJOIN(",",TRUE,'
-                "_xlfn.BYROW("
-                f"_xlfn._xlws.FILTER({{{MASSNUMBER_KEY}}}:{{{LABELCOUNT_KEY}}},"
+                # Join all the label strings with ","
+                '_xlfn.TEXTJOIN(",",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
+                # Include mass number from every row for this group
+                f"_xlfn._xlws.FILTER({{{MASSNUMBER_KEY}}}:{{{MASSNUMBER_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
-                "_xlfn._xlws.LAMBDA(_xlpm.row, _xlfn.CONCAT(_xlpm.row))"
-                ")),"
+                # Include element from every row for this group
+                f"_xlfn._xlws.FILTER({{{ELEMENT_KEY}}}:{{{ELEMENT_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Include count from every row for this group
+                f"_xlfn._xlws.FILTER({{{LABELCOUNT_KEY}}}:{{{LABELCOUNT_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Include positions from every row for this group
+                f"_xlfn._xlws.FILTER({{{LABELPOSITIONS_KEY}}}:{{{LABELPOSITIONS_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Build each label string using a lambda
+                "_xlfn._xlws.LAMBDA(_xlpm.mass, _xlpm.elem, _xlpm.cnt, _xlpm.poss, "
+                # Concatenate the label elements
+                "CONCATENATE("
+                # If the positions string is empty, return an empty string, otherwise, return the positions string
+                'IF(ISBLANK(_xlpm.poss),"",_xlpm.poss), IF(ISBLANK(_xlpm.poss),"","-"), '
+                # And just straight-up join the other columns as-is
+                "_xlpm.mass, _xlpm.elem, _xlpm.cnt))"
+                "))),"
+                # Close off the square bracket in the encompassing "-[]"
                 '"]"'
                 "))"
             ),

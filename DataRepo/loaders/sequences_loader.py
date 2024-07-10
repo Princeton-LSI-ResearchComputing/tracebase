@@ -143,7 +143,10 @@ class SequencesLoader(TableLoader):
                 f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), '
-                f'INDIRECT("{{{DATE_KEY}}}" & ROW())'
+                # If the date is blank, return empty string
+                f'IF(ISBLANK(INDIRECT("{{{DATE_KEY}}}" & ROW())),"",'
+                # Otherwise, format the date (because excel returns an encoded number)
+                f'TEXT(INDIRECT("{{{DATE_KEY}}}" & ROW()),"yyyy-mm-dd"))'
                 '),"")'
             ),
         ),

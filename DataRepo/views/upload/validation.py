@@ -763,20 +763,6 @@ class DataValidationView(FormView):
                     )
 
     def add_formulas(self, xlsx_writer):
-        column_metadata = {
-            StudyTableLoader.DataSheetName: self.studies_loader.get_value_metadata(),
-            AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
-            SamplesLoader.DataSheetName: self.samples_loader.get_value_metadata(),
-            TissuesLoader.DataSheetName: self.tissues_loader.get_value_metadata(),
-            ProtocolsLoader.DataSheetName: self.treatments_loader.get_value_metadata(),
-            CompoundsLoader.DataSheetName: self.compounds_loader.get_value_metadata(),
-            TracersLoader.DataSheetName: self.tracers_loader.get_value_metadata(),
-            InfusatesLoader.DataSheetName: self.infusates_loader.get_value_metadata(),
-            LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_value_metadata(),
-            SequencesLoader.DataSheetName: self.sequences_loader.get_value_metadata(),
-            MSRunsLoader.DataSheetName: self.msruns_loader.get_value_metadata(),
-            PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_value_metadata(),
-        }
         loader: TableLoader
         for loader in [
             self.studies_loader,
@@ -826,9 +812,6 @@ class DataValidationView(FormView):
 
                 # This substitutes instances of "{NAME}" (where "NAME" is a TableLoader.DataHeaders namedtuple
                 # attribute) with the column letter for each header that occurs in the formula
-                print(
-                    f"FORMATTING FSTRING: {formula_template} USING DICT: {headers_dict}"
-                )
                 formula = formula_template.format(**header_letters_dict)
 
                 for index in range(last_validation_index):
@@ -840,7 +823,7 @@ class DataValidationView(FormView):
                     # (Because custom-entered values from the user trump formulas).
                     if self.dfs_dict[sheet][header].get(index) is None:
                         print(
-                            f"FORMULA FOR SHEET {sheet}, COLUMN {header}, INDEX {index}, "
+                            f"INSERTING FORMULA FOR SHEET {sheet}, COLUMN {header}, INDEX {index}, "
                             f"LOCATION {col_letter}{rownum}: {formula}"
                         )
                         worksheet.write_formula(
