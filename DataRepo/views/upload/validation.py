@@ -201,6 +201,20 @@ class DataValidationView(FormView):
         self.msruns_loader = MSRunsLoader()
         self.peakannotfiles_loader = PeakAnnotationFilesLoader()
         self.peak_annotations_loaders = []
+        self.loaders: Dict[str, TableLoader] = {
+            StudyTableLoader.DataSheetName: self.studies_loader,
+            AnimalsLoader.DataSheetName: self.animals_loader,
+            SamplesLoader.DataSheetName: self.samples_loader,
+            TissuesLoader.DataSheetName: self.tissues_loader,
+            ProtocolsLoader.DataSheetName: self.treatments_loader,
+            CompoundsLoader.DataSheetName: self.compounds_loader,
+            TracersLoader.DataSheetName: self.tracers_loader,
+            InfusatesLoader.DataSheetName: self.infusates_loader,
+            LCProtocolsLoader.DataSheetName: self.lcprotocols_loader,
+            SequencesLoader.DataSheetName: self.sequences_loader,
+            MSRunsLoader.DataSheetName: self.msruns_loader,
+            PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader,
+        }
 
         self.output_study_filename = "study.xlsx"
         self.autofill_only_mode = True
@@ -213,7 +227,69 @@ class DataValidationView(FormView):
         self.peak_annot_filenames = []
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
-        self.validation_offset = 10
+        self.validation_offset = 20
+
+        # Excel cell styles
+        border = 1
+        border_color = "#D9D9D9"
+        self.header_fmt = {
+            "border": border,
+            "bold": True,
+        }
+        self.data_row1_fmt = {
+            "border": border,
+            "left_color": border_color,
+            "right_color": border_color,
+            "bottom_color": border_color,
+        }
+        self.data_rown_fmt = {
+            "border": border,
+            "border_color": border_color,
+        }
+        self.excel_formats = {
+            "database": {
+                "fmt1": None,  # The format objects must be created from the workbook
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#D7E4BC"},
+            },
+            "autofill": {
+                "fmt1": None,
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#E1EBCD"},
+            },
+            "optional": {
+                "fmt1": None,
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#FFFFFF"},
+            },
+            "required": {
+                "fmt1": None,
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#DCE6F1"},
+            },
+            "error": {
+                "fmt1": None,
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#F2DCDB"},
+            },
+            "warning": {
+                "fmt1": None,
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#FDE9D9"},
+            },
+            "readonly": {
+                "fmt1": None,
+                "fmtn": None,
+                "fmth": None,
+                "dict": {"bg_color": "#F2F2F2"},
+            },
+        }
 
     def set_files(
         self,
@@ -2413,6 +2489,10 @@ class DataValidationView(FormView):
             stream_obj, engine="xlsxwriter"
         )
 
+        # Create the cell format objects we will need
+        workbook = xlsx_writer.book
+        self.create_format_objects(workbook)
+
         for order_spec in StudyLoader.get_study_sheet_column_display_order():
             sheet = order_spec[0]
             columns = order_spec[1]
@@ -2445,7 +2525,61 @@ class DataValidationView(FormView):
                 index=False,
             )
 
+            # Color the database cells
+            worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
+            column_metadata = self.loaders[sheet].get_column_metadata()
+            for header in columns:
+                cell_letter = self.header_to_cell(sheet, header, letter_only=True)
+                if column_metadata[header].readonly:
+                    # Format the entire column of readonly(/formula) columns
+                    worksheet.set_column(
+                        f"{cell_letter}:{cell_letter}",
+                        None,
+                        self.excel_formats["readonly"]["fmtn"],
+                    )
+                    # Exclude(/overwrite) the format of the header
+                    worksheet.conditional_format(
+                        f"{cell_letter}1:{cell_letter}1",
+                        {
+                            "type": "no_errors",
+                            "format": self.excel_formats["readonly"]["fmth"],
+                        },
+                    )
+                elif column_metadata[header].value.required:
+                    # Format just the headers of required columns
+                    worksheet.conditional_format(
+                        f"{cell_letter}1:{cell_letter}1",
+                        {
+                            "type": "no_errors",
+                            "format": self.excel_formats["required"]["fmth"],
+                        },
+                    )
+                else:
+                    # Format just the headers of optional columns
+                    worksheet.conditional_format(
+                        f"{cell_letter}1:{cell_letter}1",
+                        {
+                            "type": "no_errors",
+                            "format": self.excel_formats["optional"]["fmth"],
+                        },
+                    )
+
         return xlsx_writer
+
+    def create_format_objects(self, workbook):
+        for fmt_key in self.excel_formats.keys():
+            # Format for the header row
+            self.excel_formats[fmt_key]["fmth"] = workbook.add_format(
+                {**self.excel_formats[fmt_key]["dict"], **self.header_fmt}
+            )
+            # Format for the first row of data
+            self.excel_formats[fmt_key]["fmt1"] = workbook.add_format(
+                {**self.excel_formats[fmt_key]["dict"], **self.data_row1_fmt}
+            )
+            # Format for subsequent rows
+            self.excel_formats[fmt_key]["fmtn"] = workbook.add_format(
+                {**self.excel_formats[fmt_key]["dict"], **self.data_rown_fmt}
+            )
 
     def dfs_dict_is_valid(self):
         """This determines whether self.dfs_dict is correctly structured (not populated), e.g. all required headers are

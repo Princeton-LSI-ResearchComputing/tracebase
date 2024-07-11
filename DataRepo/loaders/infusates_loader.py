@@ -176,6 +176,7 @@ class InfusatesLoader(TableLoader):
         ),
         NAME=TableColumn.init_flat(
             name=DataHeaders.NAME,
+            readonly=True,  # This is a "soft" read-only.  Users can enter values, but use of the formula is encouraged.
             field=Infusate.name,
             type=str,
             # TODO: Replace "Infusate" and "Animals" below with a reference to its loader's column and DataSheetName

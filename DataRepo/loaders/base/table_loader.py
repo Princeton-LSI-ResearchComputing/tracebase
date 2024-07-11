@@ -1228,6 +1228,21 @@ class TableLoader(ABC):
             for hk, v in self.DataColumnMetadata._asdict().items()
         )
 
+    def get_column_metadata(self):
+        """Returns a dict keyed on the current header, whose values are TableColumn objects.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (Dict[str, ColumnValue])
+        """
+        return dict(
+            (getattr(self.headers, hk), v)
+            for hk, v in self.DataColumnMetadata._asdict().items()
+        )
+
     def header_name_to_key(self, indict):
         """Returns the supplied indict, but its keys are changed from header name to header key.
 
