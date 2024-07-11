@@ -2527,7 +2527,7 @@ class DataValidationView(FormView):
 
             # Color the database cells
             worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
-            column_metadata = self.loaders[sheet].get_column_metadata()
+            column_metadata = self.loaders[sheet].get_value_metadata()
             for header in columns:
                 cell_letter = self.header_to_cell(sheet, header, letter_only=True)
                 if column_metadata[header].readonly:
@@ -2545,7 +2545,7 @@ class DataValidationView(FormView):
                             "format": self.excel_formats["readonly"]["fmth"],
                         },
                     )
-                elif column_metadata[header].value.required:
+                elif column_metadata[header].required:
                     # Format just the headers of required columns
                     worksheet.conditional_format(
                         f"{cell_letter}1:{cell_letter}1",

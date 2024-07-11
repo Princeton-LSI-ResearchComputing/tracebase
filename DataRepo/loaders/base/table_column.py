@@ -106,6 +106,8 @@ class ColumnHeader:
         format: Optional[str] = None,
         reference: Optional[ColumnReference] = None,
         dynamic_choices: Optional[ColumnReference] = None,
+        readonly: bool = False,
+        formula: Optional[str] = None,
         # ColumnHeader arguments set by field, but can be supplied (e.g. if None or to override)
         help_text: Optional[str] = None,
         required: Optional[bool] = None,
@@ -128,6 +130,8 @@ class ColumnHeader:
                 overridden.
             include_model_in_header (bool): Option to include the field's model name in the header (if name not
                 supplied).
+            readonly (bool): Whether the column may be only read (i.e. not edited).
+            formula (string): Excel formula to use to populate the column.
 
         Exceptions:
             ConditionallyRequiredOptions
@@ -175,6 +179,8 @@ class ColumnHeader:
         self.reference = reference
         self.unique = unique
         self.dynamic_choices = dynamic_choices
+        self.readonly = readonly
+        self.formula = formula
 
     @property
     def comment(self):
@@ -197,6 +203,13 @@ class ColumnHeader:
             return None
 
         comment = ""
+        if self.readonly:
+            comment += "Readonly."
+            if self.formula is not None:
+                comment += "  (Calculated by formula.)"
+            comment += "\n\n"
+        elif self.formula is not None:
+            comment += "Calculated by formula.\n\n"
         if self.help_text is not None:
             comment += self.help_text
         if self.guidance is not None:
@@ -256,6 +269,7 @@ class ColumnValue:
         current_choices_converter: Optional[Callable] = None,
         unique: Optional[bool] = None,
         formula: Optional[str] = None,
+        readonly: bool = False,
     ):
         """ColumnValue constructor.
 
@@ -275,6 +289,7 @@ class ColumnValue:
             unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
                 overridden.
             formula (string): Excel formula to use to populate the column.
+            readonly (bool): Whether the column may be only read (i.e. not edited).
 
         Exceptions:
             None
@@ -334,6 +349,7 @@ class ColumnValue:
         self.type = type
         self.unique = unique
         self.formula = formula
+        self.readonly = readonly
 
     @property
     def static_choices(self):
@@ -401,6 +417,7 @@ class TableColumn:
             # Convert to the class
             self.field = field.field
             self.model = field.field.model
+        self.readonly = readonly
 
         if header is None:
             if field is None:
@@ -411,8 +428,6 @@ class TableColumn:
         if value is None:
             value = ColumnValue(field=field)
         self.value = value
-
-        self.readonly = readonly
 
     @classmethod
     def init_flat(
@@ -442,7 +457,7 @@ class TableColumn:
         """Alternate TableColumn constructor.  (This is the pythonic was to implement multiple constructors.)
         Args:
             field (Field): A model field that can be used to derive some instance attributes.
-            readonly (bool): Whether the column cannot be edited.
+            readonly (bool): Whether the column can be edited or not.
             name (str): Header.
             guidance (str): Additional notes to help_text, if the excel version differs from the model field.
             format (str): Notes on units or delimited values.
@@ -465,17 +480,19 @@ class TableColumn:
         """
         return cls(
             field=field,
+            readonly=readonly,
             header=ColumnHeader(
                 field=field,
                 name=name,
                 guidance=guidance,
                 format=format,
                 reference=reference,
+                dynamic_choices=dynamic_choices,
+                readonly=readonly,
+                formula=formula,
                 # Set by field (but provided for overriding)
                 help_text=help_text,
                 required=header_required,
-                # adds a note about where the drop-down contents come from
-                dynamic_choices=dynamic_choices,
             ),
             value=ColumnValue(
                 field=field,
@@ -483,6 +500,7 @@ class TableColumn:
                 unique=unique,
                 dynamic_choices=dynamic_choices,
                 formula=formula,
+                readonly=readonly,
                 # Set by field (but provided for overriding)
                 default=default,
                 required=value_required,
@@ -490,7 +508,6 @@ class TableColumn:
                 current_choices=current_choices,
                 current_choices_converter=current_choices_converter,
             ),
-            readonly=readonly,
         )
 
 
