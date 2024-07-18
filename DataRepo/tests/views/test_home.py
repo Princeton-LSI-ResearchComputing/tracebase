@@ -45,7 +45,7 @@ class HomeViewTests(TracebaseTestCase):
 
         call_command("loaddata", "lc_methods")
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/dataframes/loading.yaml",
             verbosity=6,
         )

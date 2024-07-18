@@ -1,16 +1,30 @@
+import argparse
 from typing import Type
+
+from django.core.management import CommandError
 
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 
-# TODO: Rename this file to "load_samples.py" after the old one is deleted
 class Command(LoadTableCommand):
     """Command to load the Sample model from a table-like file."""
 
     help = "Loads samples from a table-like file into the database"
     loader_class: Type[TableLoader] = SamplesLoader
+
+    def add_arguments(self, parser):
+        # Add the options provided by the superclass
+        super().add_arguments(parser)
+
+        parser.add_argument(
+            # Legacy support - catch this option and issue an error if it is used.
+            "--sample-table-filename",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -32,4 +46,11 @@ class Command(LoadTableCommand):
         Returns:
             None
         """
+        if options["sample_table_filename"]:
+            raise CommandError(
+                "By supplying --sample-table-filename, it looks like you're trying to call the old version of this "
+                "script.  This script has been renamed.  Use `pythong manage.py legacy_load_samples ...` instead."
+                f"{options}"
+            )
+
         self.load_data()

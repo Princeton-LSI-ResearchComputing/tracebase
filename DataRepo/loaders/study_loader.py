@@ -16,7 +16,7 @@ from DataRepo.loaders.peak_annotation_files_loader import (
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.loaders.study_table_loader import StudyTableLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models.hier_cached_model import (
@@ -48,6 +48,8 @@ from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 
 
 class StudyLoader(TableLoader):
+    """Loads an entire study doc (i.e. all of its sheets - not just the Study model)."""
+
     STUDY_SHEET = "STUDY"
     ANIMALS_SHEET = "ANIMALS"
     SAMPLES_SHEET = "SAMPLES"
@@ -86,7 +88,7 @@ class StudyLoader(TableLoader):
 
     # Overloading this for sheet names (not header names)
     DataHeaders = DataTableHeaders(
-        STUDY=StudyTableLoader.DataSheetName,
+        STUDY=StudiesLoader.DataSheetName,
         ANIMALS=AnimalsLoader.DataSheetName,
         SAMPLES=SamplesLoader.DataSheetName,
         TREATMENTS=ProtocolsLoader.DataSheetName,
@@ -138,7 +140,7 @@ class StudyLoader(TableLoader):
     DataSheetName = "Defaults"
 
     Loaders = DataTableHeaders(
-        STUDY=StudyTableLoader,
+        STUDY=StudiesLoader,
         ANIMALS=AnimalsLoader,
         SAMPLES=SamplesLoader,
         TREATMENTS=ProtocolsLoader,

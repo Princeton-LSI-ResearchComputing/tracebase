@@ -1,4 +1,4 @@
-from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.legacy.accucor_data_loader import AccuCorDataLoader
 from DataRepo.models import DataFormat
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import PeakAnnotationParseError

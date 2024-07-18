@@ -17,8 +17,8 @@ from DataRepo.utils.exceptions import AggregatedErrorsSet
 class Command(BaseCommand):
     # Show this when the user types help
     help = (
-        "Loads a set of studies using the load_study command. Input is a file of "
-        "filenames listing load_study YAML config files, one per line."
+        "Loads a set of studies using the legacy_load_study command. Input is a file of "
+        "filenames listing legacy_load_study YAML config files, one per line."
         "Example usage: manage.py load_study_set list_of_study_config_files.txt"
     )
 
@@ -26,7 +26,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "study_set_list",
             type=argparse.FileType("r"),
-            help=("File of load_study config filenames, one per line"),
+            help=("File of legacy_load_study config filenames, one per line"),
         )
 
     @MaintainedModel.defer_autoupdates(
@@ -51,7 +51,7 @@ class Command(BaseCommand):
                         self.style.MIGRATE_HEADING(f"Loading study using {study_path}")
                     )
                     call_command(
-                        "load_study", study_path, verbosity=options["verbosity"]
+                        "legacy_load_study", study_path, verbosity=options["verbosity"]
                     )
                     studies_loaded.append(study_dir_name)
                 except AggregatedErrorsSet as aes:

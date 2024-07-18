@@ -4,7 +4,7 @@ from typing import Optional
 
 from django.core.management import BaseCommand, CommandError
 
-from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.legacy.accucor_data_loader import AccuCorDataLoader
 from DataRepo.models import DataFormat
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,

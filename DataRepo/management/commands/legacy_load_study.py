@@ -51,7 +51,7 @@ class Command(BaseCommand):
     help = (
         "Loads tissues, compounds, animals, samples, and accucor data using a YAML "
         "file to specify parameters. "
-        "Example usage: manage.py load_study config_file.yaml "
+        "Example usage: manage.py load_study_v2 config_file.yaml "
     )
 
     def __init__(self, *args, **kwargs):
@@ -256,7 +256,7 @@ class Command(BaseCommand):
 
                 try:
                     call_command(
-                        "load_animals_and_samples",
+                        "legacy_load_animals_and_samples",
                         animal_and_sample_table_filename=animals_samples_table_file,
                         table_headers=headers_file,
                         skip_researcher_check=skip_researcher_check,
@@ -327,7 +327,7 @@ class Command(BaseCommand):
 
                     try:
                         call_command(
-                            "load_accucor_msruns",
+                            "legacy_load_accucor_msruns",
                             accucor_file=accucor_file,
                             lc_protocol_name=lc_protocol_name,
                             instrument=instrument,

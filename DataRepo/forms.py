@@ -20,7 +20,7 @@ from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.legacy.accucor_data_loader import AccuCorDataLoader
 from DataRepo.utils.file_utils import is_excel
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:

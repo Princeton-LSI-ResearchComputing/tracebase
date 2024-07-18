@@ -166,7 +166,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
     # TODO: When the SampleTableLoader inherits from TableLoader, remove this test already copied to loader.py
     def test_check_for_inconsistencies(self):
         call_command(
-            "load_study_table",
+            "load_studies",
             infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         rec = Study.objects.first()
@@ -194,7 +194,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         Tests handle_load_db_errors's handling of unique constraint violations (i.e. IntegrityErrors).
         """
         call_command(
-            "load_study_table",
+            "load_studies",
             infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         conflicts = []

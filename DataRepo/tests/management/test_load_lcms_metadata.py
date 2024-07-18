@@ -4,8 +4,8 @@ from datetime import datetime
 import pandas as pd
 from django.core.management import call_command
 
-from DataRepo.loaders.accucor_data_loader import AccuCorDataLoader
-from DataRepo.loaders.sample_table_loader import (
+from DataRepo.loaders.legacy.accucor_data_loader import AccuCorDataLoader
+from DataRepo.loaders.legacy.sample_table_loader import (
     LCMSDBSampleMissing,
     SampleTableLoader,
 )
@@ -19,7 +19,7 @@ from DataRepo.models import (
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; NoMZXMLFiles,
+from DataRepo.utils import (
     AggregatedErrors,
     AggregatedErrorsSet,
     DuplicateSampleDataHeaders,
@@ -656,7 +656,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
@@ -674,14 +674,14 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             ),
         )
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         # call_command(
-        #     "load_animals_and_samples",
+        #     "legacy_load_animals_and_samples",
         #     animal_and_sample_table_filename=(
         #         "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         #     ),
@@ -706,7 +706,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.load_samples()
         self.assertEqual(0, MSRunSample.objects.count())
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             instrument="unknown",
             lc_protocol_name="polar-HILIC-25-min",
@@ -747,7 +747,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_accucor_msruns",
+                "legacy_load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_only_reqd_col_vals.tsv",
@@ -767,7 +767,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.load_samples()
         self.assertEqual(0, MSRunSample.objects.count())
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
@@ -807,7 +807,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(InvalidLCMSHeaders) as ar:
             call_command(
-                "load_accucor_msruns",
+                "legacy_load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_missing_date_col.tsv",
@@ -826,7 +826,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_accucor_msruns",
+                "legacy_load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_dupe_sample_header.tsv",
@@ -843,7 +843,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
     #     - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
     #     """
     #     call_command(
-    #         "load_animals_and_samples",
+    #         "legacy_load_animals_and_samples",
     #         animal_and_sample_table_filename=(
     #             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
     #         ),
@@ -859,7 +859,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
     #     """
     #     with self.assertRaises(AggregatedErrors) as ar:
     #         call_command(
-    #             "load_animals_and_samples",
+    #             "legacy_load_animals_and_samples",
     #             animal_and_sample_table_filename=(
     #                 "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
     #             ),
@@ -889,7 +889,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             "loaddata", "data_types.yaml", "data_formats.yaml", "lc_methods.yaml"
         )
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
@@ -908,14 +908,14 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             ),
         )
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         # call_command(
-        #     "load_animals_and_samples",
+        #     "legacy_load_animals_and_samples",
         #     animal_and_sample_table_filename=(
         #         "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         #     ),
@@ -924,7 +924,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def load_peak_annotations(self, lcms_file):
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
@@ -990,7 +990,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     def test_LCMethodFixturesMissing(self):
         # Load everything but the LCMethod fixtures
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         self.load_samples()
@@ -1025,10 +1025,10 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def test_MissingPeakAnnotationFiles(self):
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
+        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         with self.assertRaises(AggregatedErrorsSet) as ar:
             call_command(
-                "load_study",
+                "legacy_load_study",
                 "DataRepo/data/tests/small_obob/small_obob_study_params_lcms_extra_accucor.yaml",
             )
         aess = ar.exception
@@ -1053,7 +1053,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_accucor_msruns",
+                "legacy_load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_msng_hdr_row.tsv",
@@ -1068,7 +1068,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_accucor_msruns",
+                "legacy_load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="unknown",
@@ -1089,7 +1089,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     #     self.load_samples()
     #     with self.assertRaises(AggregatedErrors) as ar:
     #         call_command(
-    #             "load_accucor_msruns",
+    #             "legacy_load_accucor_msruns",
     #             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
     #             lc_protocol_name="polar-HILIC-25-min",
     #             instrument="unknown",
@@ -1109,7 +1109,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_accucor_msruns",
+                "legacy_load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="unknown",
@@ -1131,7 +1131,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         # The following should succeed without error even though the sample headers do not match the mzxml files.  It
         # only prints a warning (not checked)
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",

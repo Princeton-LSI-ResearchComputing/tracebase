@@ -8,7 +8,7 @@ previewing the software.  For test data to use for development, see ../tests/.
 ### Studies
 
 These directories are organized so that they can be loaded using the
-`load_study` management command.
+`legacy_load_study` management command.
 
 - `protocols` - A "study" with just protocols that are used in the example
   datasets

@@ -166,8 +166,8 @@ def check_peak_annotation_files(
 ):
     """
     Check that all peak annotation files explicitly listed in the LCMS metadata are in the supplied peak annot file
-    list.  This is intended to be used by load_study to ensure that a user remembered to supply all files and that they
-    didn't get any file names wrong.
+    list.  This is intended to be used by legacy_load_study to ensure that a user remembered to supply all files and
+    that they didn't get any file names wrong.
 
     Note, since annot_files_from_study represents files listing in the loading.yaml file, this function does not check
     that peak annotation files supplied in the study directory are in the study yaml file.

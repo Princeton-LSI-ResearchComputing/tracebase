@@ -1,15 +1,15 @@
 from typing import Type
 
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.study_table_loader import StudyTableLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 
 class Command(LoadTableCommand):
-    """Command to load the Study model from a table-like file."""
+    """Command to load the Study model (i.e. not an entire study doc) from a table-like file."""
 
     help = "Loads data from a study table (e.g. study code, name, and description) into the database."
-    loader_class: Type[TableLoader] = StudyTableLoader
+    loader_class: Type[TableLoader] = StudiesLoader
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.

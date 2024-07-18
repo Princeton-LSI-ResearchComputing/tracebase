@@ -22,7 +22,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
@@ -78,21 +78,22 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                 ),
             )
             call_command(
-                "load_sample_table",
+                "load_samples",
                 infile=(
                     "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
             )
             # call_command(
-            #     "load_animals_and_samples",
+            #     "legacy_load_animals_and_samples",
             #     animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
             #     "small_obob_animal_and_sample_table.xlsx",
             #     # No longer need the defer_autoupdates option.  That is handled by a context manager.
             #     # defer_autoupdates=True,
             # )
 
-            # Assure that the load_animals_and_samples decorator's coordinator passed up it's buffer before exiting.
+            # Assure that the legacy_load_animals_and_samples decorator's coordinator passed up it's buffer before
+            # exiting.
             bs1 = parent_coordinator.buffer_size()
             self.assertGreater(bs1, 0)
             # Record the first buffered object
@@ -105,7 +106,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
             child_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
             with MaintainedModel.custom_coordinator(child_coordinator):
                 call_command(
-                    "load_accucor_msruns",
+                    "legacy_load_accucor_msruns",
                     accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                     skip_samples=("blank"),
                     lc_protocol_name="polar-HILIC-25-min",
@@ -144,7 +145,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
     #     parent_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
     #     with MaintainedModel.custom_coordinator(parent_coordinator):
     #         call_command(
-    #             "load_samples",
+    #             "legacy_load_samples",
     #             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
     #             sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
     #             defer_autoupdates=True,
@@ -161,7 +162,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
     #     self.assert_no_fcirc_data_to_start()
 
     #     call_command(
-    #         "load_study",
+    #         "legacy_load_study",
     #         "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
     #     )
 

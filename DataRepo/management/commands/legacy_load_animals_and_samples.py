@@ -3,7 +3,7 @@ import argparse
 import yaml  # type: ignore
 from django.core.management import BaseCommand, CommandError
 
-from DataRepo.loaders.sample_table_loader import SampleTableLoader
+from DataRepo.loaders.legacy.sample_table_loader import SampleTableLoader
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
@@ -97,14 +97,14 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
-        # mass autoupdates/buffer-clearings after all load scripts are complete
+        # Intended for use by load_study_v2 to prevent individual loader autoupdates and buffer clearing, then perform
+        # all mass autoupdates/buffer-clearings after all load scripts are complete
         parser.add_argument(
             "--defer-autoupdates",
             action="store_true",
             help=argparse.SUPPRESS,
         )
-        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
+        # Intended for use by load_study_v2 to prevent rollback of changes in the event of an error so that for example,
         # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
             "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)

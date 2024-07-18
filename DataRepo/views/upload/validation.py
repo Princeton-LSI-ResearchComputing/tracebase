@@ -36,8 +36,8 @@ from DataRepo.loaders.peak_annotations_loader import (
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.study_loader import StudyLoader
-from DataRepo.loaders.study_table_loader import StudyTableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models.compound import Compound
@@ -78,7 +78,7 @@ class DataValidationView(FormView):
 
     # TODO: Until all sheets are supported, this variable will be used to filter the sheets obtained from StudyLoader
     build_sheets = [
-        StudyTableLoader.DataSheetName,
+        StudiesLoader.DataSheetName,
         AnimalsLoader.DataSheetName,
         SamplesLoader.DataSheetName,
         ProtocolsLoader.DataSheetName,
@@ -96,7 +96,7 @@ class DataValidationView(FormView):
         super().__init__()
 
         self.autofill_dict = defaultdict(lambda: defaultdict(dict))
-        self.autofill_dict[StudyTableLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[StudiesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[AnimalsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
@@ -112,8 +112,8 @@ class DataValidationView(FormView):
         # These are used to help determine whether to validate or only autofill.  If a non-autofill column has any
         # values, it will trigger validate mode
         self.autofill_columns = {
-            StudyTableLoader.DataSheetName: [
-                StudyTableLoader.DataHeaders.NAME,  # Consumes
+            StudiesLoader.DataSheetName: [
+                StudiesLoader.DataHeaders.NAME,  # Consumes
             ],
             AnimalsLoader.DataSheetName: [
                 AnimalsLoader.DataHeaders.NAME,  # Consumes
@@ -186,7 +186,7 @@ class DataValidationView(FormView):
         self.ordered_keys = []
         self.load_status_data: Optional[MultiLoadStatus] = None
 
-        self.studies_loader = StudyTableLoader()
+        self.studies_loader = StudiesLoader()
         self.animals_loader = AnimalsLoader()
         self.samples_loader = SamplesLoader()
         self.tissues_loader = TissuesLoader()
@@ -202,7 +202,7 @@ class DataValidationView(FormView):
         self.peakannotfiles_loader = PeakAnnotationFilesLoader()
         self.peak_annotations_loaders = []
         self.loaders: Dict[str, TableLoader] = {
-            StudyTableLoader.DataSheetName: self.studies_loader,
+            StudiesLoader.DataSheetName: self.studies_loader,
             AnimalsLoader.DataSheetName: self.animals_loader,
             SamplesLoader.DataSheetName: self.samples_loader,
             TissuesLoader.DataSheetName: self.tissues_loader,
@@ -685,7 +685,7 @@ class DataValidationView(FormView):
         # indicate errors/warning/required-values/read-only-values, and formulas for inter-sheet population of
         # dropdowns.
         column_metadata = {
-            StudyTableLoader.DataSheetName: self.studies_loader.get_header_metadata(),
+            StudiesLoader.DataSheetName: self.studies_loader.get_header_metadata(),
             AnimalsLoader.DataSheetName: self.animals_loader.get_header_metadata(),
             SamplesLoader.DataSheetName: self.samples_loader.get_header_metadata(),
             TissuesLoader.DataSheetName: self.tissues_loader.get_header_metadata(),
@@ -734,7 +734,7 @@ class DataValidationView(FormView):
 
     def add_dropdowns(self, xlsx_writer):
         column_metadata = {
-            StudyTableLoader.DataSheetName: self.studies_loader.get_value_metadata(),
+            StudiesLoader.DataSheetName: self.studies_loader.get_value_metadata(),
             AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
             SamplesLoader.DataSheetName: self.samples_loader.get_value_metadata(),
             TissuesLoader.DataSheetName: self.tissues_loader.get_value_metadata(),
@@ -998,9 +998,9 @@ class DataValidationView(FormView):
                         and study_name != ""
                         and study_name not in seen["studies"].keys()
                     ):
-                        self.autofill_dict[StudyTableLoader.DataSheetName][
-                            study_name
-                        ] = {StudyTableLoader.DataHeaders.NAME: study_name}
+                        self.autofill_dict[StudiesLoader.DataSheetName][study_name] = {
+                            StudiesLoader.DataHeaders.NAME: study_name
+                        }
                         seen["studies"][study_name] = True
 
     def extract_autofill_from_infusate_data(
@@ -1473,7 +1473,7 @@ class DataValidationView(FormView):
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         # Init the autofill dict for the subsequent calls
         self.autofill_dict = defaultdict(lambda: defaultdict(dict))
-        self.autofill_dict[StudyTableLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[StudiesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[SamplesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[TissuesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[ProtocolsLoader.DataSheetName] = defaultdict(dict)
@@ -1507,8 +1507,8 @@ class DataValidationView(FormView):
                 ),
                 (
                     AllMissingStudies,
-                    StudyTableLoader.DataSheetName,
-                    StudyTableLoader.DataHeaders.NAME,
+                    StudiesLoader.DataSheetName,
+                    StudiesLoader.DataHeaders.NAME,
                 ),
                 (
                     AllMissingTissues,
@@ -2017,7 +2017,7 @@ class DataValidationView(FormView):
             (string): Cell location or column letter
         """
         headers = []
-        if sheet == StudyTableLoader.DataSheetName:
+        if sheet == StudiesLoader.DataSheetName:
             headers = self.studies_loader.get_ordered_display_headers()
         elif sheet == AnimalsLoader.DataSheetName:
             headers = self.animals_loader.get_ordered_display_headers()
@@ -2113,7 +2113,7 @@ class DataValidationView(FormView):
             if dfs_dict is None:
                 # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
                 return {
-                    StudyTableLoader.DataSheetName: self.studies_loader.get_dataframe_template(),
+                    StudiesLoader.DataSheetName: self.studies_loader.get_dataframe_template(),
                     AnimalsLoader.DataSheetName: self.animals_loader.get_dataframe_template(),
                     SamplesLoader.DataSheetName: self.samples_loader.get_dataframe_template(),
                     ProtocolsLoader.DataSheetName: self.treatments_loader.get_dataframe_template(
@@ -2135,16 +2135,16 @@ class DataValidationView(FormView):
                 }
 
             if (
-                StudyTableLoader.DataSheetName in dfs_dict.keys()
-                and len(dfs_dict[StudyTableLoader.DataSheetName].keys()) > 0
+                StudiesLoader.DataSheetName in dfs_dict.keys()
+                and len(dfs_dict[StudiesLoader.DataSheetName].keys()) > 0
             ):
                 self.fill_in_missing_columns(
                     dfs_dict,
-                    StudyTableLoader.DataSheetName,
+                    StudiesLoader.DataSheetName,
                     self.studies_loader.get_dataframe_template(),
                 )
             else:
-                dfs_dict[StudyTableLoader.DataSheetName] = (
+                dfs_dict[StudiesLoader.DataSheetName] = (
                     self.studies_loader.get_dataframe_template()
                 )
 
@@ -2603,8 +2603,8 @@ class DataValidationView(FormView):
 
         return (
             # Required headers present in each sheet
-            StudyTableLoader(
-                df=pd.DataFrame.from_dict(self.dfs_dict[StudyTableLoader.DataSheetName])
+            StudiesLoader(
+                df=pd.DataFrame.from_dict(self.dfs_dict[StudiesLoader.DataSheetName])
             ).check_dataframe_headers()
             and SamplesLoader(
                 df=pd.DataFrame.from_dict(self.dfs_dict[SamplesLoader.DataSheetName])

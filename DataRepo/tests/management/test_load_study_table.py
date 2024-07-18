@@ -8,7 +8,7 @@ class StudyDataLoadingTests(TracebaseTestCase):
     def test_load_study_data_command(self):
         self.assertEqual(Study.objects.count(), 0)
         call_command(
-            "load_study_table",
+            "load_studies",
             infile="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
         )
         self.assertEqual(Study.objects.count(), 1)
