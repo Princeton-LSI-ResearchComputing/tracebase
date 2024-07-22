@@ -1604,6 +1604,14 @@ class TableLoaderTests(TracebaseTestCase):
             "expects 0 positional arguments, but got: 1", str(aes.exceptions[0])
         )
 
+    def test_get_value_metadata(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_column_metadata(self):
+        # TODO: Implement test
+        pass
+
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):
     def test_flatten(self):

@@ -695,7 +695,7 @@ class ConvertedTableLoader(TableLoader, ABC):
         return list(cls.OrigDataRequiredHeaders.keys())
 
     @classmethod
-    def get_required_headers(cls, sheet):
+    def get_required_headers(cls, sheet=None):
         """Returns a list of required original headers in the supplied required sheet.  Returns headers from all
         required sheets if the supplied sheet is None.
 

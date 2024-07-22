@@ -1,10 +1,16 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Dict, List, Type
+from copy import deepcopy
+import pandas as pd
+from typing import Dict, List, Optional, Type
 
 from django.db import ProgrammingError
 from django.db.models import Model
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
+from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
@@ -24,7 +30,9 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
+from DataRepo.models.infusate import Infusate
 from DataRepo.models.maintained_model import MaintainedModel
+from DataRepo.models.protocol import Protocol
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
@@ -33,6 +41,7 @@ from DataRepo.utils.exceptions import (
     AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
+    InvalidStudyDocVersion,
     MissingCompounds,
     MissingModelRecordsByFile,
     MissingRecords,
@@ -41,14 +50,25 @@ from DataRepo.utils.exceptions import (
     MissingTissues,
     MissingTreatments,
     MultiLoadStatus,
+    MultipleStudyDocVersions,
     NoSamples,
     RecordDoesNotExist,
+    UnknownStudyDocVersion,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
+from DataRepo.utils.infusate_name_parser import parse_infusate_name, parse_tracer_concentrations
 
 
-class StudyLoader(TableLoader):
+class StudyLoader(ConvertedTableLoader, ABC):
     """Loads an entire study doc (i.e. all of its sheets - not just the Study model)."""
+
+    @property
+    @abstractmethod
+    def version_number(self) -> str:
+        """The version of the study doc"""
+        pass
+
+    CurrentLoaderName = "StudyV3Loader"
 
     STUDY_SHEET = "STUDY"
     ANIMALS_SHEET = "ANIMALS"
@@ -307,8 +327,7 @@ class StudyLoader(TableLoader):
             )
 
         file_sheets = get_sheet_names(self.file)
-        sheet_names = self.get_sheet_names_tuple()
-        loaders = self.Loaders
+        loaders = self.get_loader_instances(sheets_to_make=file_sheets)
 
         if (
             len(self.annot_files_dict.keys()) > 0
@@ -323,16 +342,6 @@ class StudyLoader(TableLoader):
             )
             raise self.aggregated_errors_object
 
-        common_args = {
-            "dry_run": self.dry_run,
-            "defer_rollback": True,
-            "defaults_sheet": self.defaults_sheet,
-            "file": self.file,
-            "filename": self.get_friendly_filename(),
-            "defaults_file": self.defaults_file,
-            "_validate": self.validate,
-        }
-
         # TODO: Add support for custom args for every loader for each of these (given multiple inputs, e.g. a file for
         # each input: animals.csv, samples.tsv, etc)
         # file, user_headers, headers, extra_headers, defaults
@@ -345,34 +354,14 @@ class StudyLoader(TableLoader):
         disable_caching_updates()
 
         # This cycles through the loaders in the order in which they were defined in the namedtuple
-        for loader_key in loaders._fields:
-            if getattr(loaders, loader_key) is None:
+        for loader_key in self.Loaders._fields:
+            if loader_key not in loaders.keys():
                 continue
-            sheet = getattr(sheet_names, loader_key)
-            loader_class: Type[TableLoader] = getattr(loaders, loader_key)
-            custom_args = getattr(self.CustomLoaderKwargs, loader_key)
-
-            if sheet in file_sheets:
-
-                try:
-                    # Build the keyword arguments to read_from_file
-                    rffkwargs = {"sheet": sheet}
-                    dtypes = self.get_loader_class_dtypes(loader_class)
-                    if dtypes is not None and len(dtypes.keys()) > 0:
-                        rffkwargs["dtype"] = dtypes
-
-                    # Create a loader instance (e.g. CompoundsLoader())
-                    loader = loader_class(
-                        df=read_from_file(self.file, **rffkwargs),
-                        data_sheet=sheet,
-                        **common_args,
-                        **custom_args,
-                    )
-                    # Load its data
-                    loader.load_data()
-
-                except Exception as e:
-                    self.package_group_exceptions(e)
+            loader = loaders[loader_key]
+            try:
+                loader.load_data()
+            except Exception as e:
+                self.package_group_exceptions(e)
 
         enable_caching_updates()
 
@@ -396,6 +385,87 @@ class StudyLoader(TableLoader):
             delete_all_caches()
 
         # dry_run and defer_rollback are handled by the load_data wrapper
+
+    def get_loader_instances(self, sheets_to_make=None):
+        """Instantiated the loaders and returns a dict of loader instances keyed on loader keys.
+
+        Args:
+            sheets_to_make (Optional[List[str]]): List of sheet keys, e.g. "ANIMALS"
+        Exceptions:
+            None
+        Returns:
+            loaders (Dict[str, TableLoader]): Dict of loader objects keyed on sheet key
+        """
+
+        loaders = {}
+        loader_classes = self.Loaders
+        sheet_names = self.get_sheet_names_tuple()
+
+        common_args = {
+            "dry_run": self.dry_run,
+            "defer_rollback": True,
+            "defaults_sheet": self.defaults_sheet,
+            "file": self.file,
+            "filename": self.get_friendly_filename(),
+            "defaults_file": self.defaults_file,
+            "_validate": self.validate,
+        }
+
+        # This cycles through the loaders in the order in which they were defined in the namedtuple
+        loader_class: Type[TableLoader]
+        for loader_key, loader_class in loader_classes._asdict().items():
+            if getattr(loader_classes, loader_key) is None:
+                continue
+            sheet = getattr(sheet_names, loader_key)
+            custom_args = getattr(self.CustomLoaderKwargs, loader_key)
+
+            if sheets_to_make is None or sheet in sheets_to_make:
+
+                # Build the keyword arguments to read_from_file
+                rffkwargs = {"sheet": sheet}
+                dtypes = self.get_loader_class_dtypes(loader_class)
+                if dtypes is not None and len(dtypes.keys()) > 0:
+                    rffkwargs["dtype"] = dtypes
+
+                # Create a loader instance (e.g. CompoundsLoader())
+                loaders[loader_key] = loader_class(
+                    df=None if self.file is None else read_from_file(self.file, **rffkwargs),
+                    data_sheet=sheet,
+                    **common_args,
+                    **custom_args,
+                )
+
+        return loaders
+
+    @classmethod
+    def _get_loader_instances(cls, sheets_to_make=None):
+        """A class version of get_loader_instances.
+
+        Args:
+            sheets_to_make (Optional[List[str]]): List of sheet keys, e.g. "ANIMALS"
+        Exceptions:
+            None
+        Returns:
+            loaders (Dict[str, TableLoader]): Dict of loader objects keyed on sheet key
+        """
+
+        loaders = {}
+        loader_classes = cls.Loaders
+        sheet_names = cls.DataHeaders
+
+        # This cycles through the loaders in the order in which they were defined in the namedtuple
+        loader_class: Type[TableLoader]
+        for loader_key, loader_class in loader_classes._asdict().items():
+            if getattr(loader_classes, loader_key) is None:
+                continue
+            sheet = getattr(sheet_names, loader_key)
+            custom_args = getattr(cls.CustomLoaderKwargs, loader_key)
+
+            if sheets_to_make is None or sheet in sheets_to_make:
+                # Create a loader instance (e.g. CompoundsLoader())
+                loaders[loader_key] = loader_class(**custom_args)
+
+        return loaders
 
     def get_loader_class_dtypes(self, loader_class: Type[TableLoader], headers=None):
         """Retrieve a dtypes dict from the loader_class.
@@ -627,3 +697,467 @@ class StudyLoader(TableLoader):
                     load_key,
                     top=True,
                 )
+
+    @classmethod
+    def determine_matching_versions(cls, df) -> List[str]:
+        """Given a dict of dataframes, return a list of the version numbers of the matching versions.
+
+        Args:
+            df (Dict[str,pd.DataFrame]|pd.DataFrame)
+        Exceptions:
+            None
+        Returns:
+            matching_version_numbers (List[str]): Version numbers of the matching study doc versions.
+        """
+        matching_version_numbers: List[str] = []
+        CurrentStudyLoader: Optional[StudyLoader] = None
+        loaders = cls._get_loader_instances()
+        supplied_sheets = set(list(df.keys()))
+        for study_loader_subcls in cls.__subclasses__():
+            if study_loader_subcls.__name__ == cls.CurrentLoaderName:
+                # This is the latest version, which is handled below
+                CurrentStudyLoader = study_loader_subcls
+
+            if isinstance(df, dict):
+                # "headers" (from TableLoader) are "sheets" in this loader, because it is overloaded.  This loader has
+                # no column headers of its own.  It just defines all the sheets and their individual loaders.
+                required_sheets = set(study_loader_subcls.get_required_sheets())
+                print(f"REQUIRED v{study_loader_subcls.version_number} SHEETS: {required_sheets}\nSUPPLIED SHEETS: {supplied_sheets}")
+                if required_sheets <= supplied_sheets:
+                    # So far so good.  Let's assume it's a match unless the headers in each sheet say otherwise...
+                    match = True
+                    loader: TableLoader
+                    for loader in loaders.values():
+                        sheet = loader.DataSheetName
+                        if sheet in required_sheets:
+                            expected_headers = set(study_loader_subcls.get_required_headers(sheet))
+                            supplied_headers = set(list(df[sheet].columns))
+                            print(f"EXPECTED {sheet} HEADERS: {expected_headers}\nSUPPLIED {sheet} HEADERS: {supplied_headers}")
+                            if not expected_headers <= supplied_headers:
+                                match = False
+                                break
+                    if match:
+                        matching_version_numbers.append(str(study_loader_subcls.version_number))
+            else:  # pd.DataFrame
+                # All we can do here (currently) is check that the headers in the dataframe are a subset of the
+                # flattened original headers (from all the sheets).  It would be possible to do the determination by
+                # specific sheet header contents if the class attributes were populated differently, but that can be
+                # done via a refactor.
+                supplied_headers = set(list(df.columns))
+                expected_headers = set(study_loader_subcls.get_required_headers(None))
+                if expected_headers <= supplied_headers:
+                    matching_version_numbers.append(str(study_loader_subcls.version_number))
+
+        # The version 3 loader can load only optional sheets (any assortment of the sheets, really), so if we don't
+        # have a matching loader yet, we can look at the optional sheets to see if there's any overlap.
+        if len(matching_version_numbers) == 0 and isinstance(df, dict):
+            study_loader_subcls = StudyV3Loader
+
+            # "headers" (from TableLoader) are "sheets" in this loader, because it is overloaded.  This loader has
+            # no column headers of its own.  It just defines all the sheets and their individual loaders.
+            expected_sheets = set(study_loader_subcls.DataHeaders._asdict().values())
+            common_sheets = expected_sheets.intersection(supplied_sheets)
+            print(f"EXPECTED v{study_loader_subcls.version_number} SHEETS: {expected_sheets}\nSUPPLIED SHEETS: {supplied_sheets}")
+            if len(common_sheets) > 0:
+                # So far so good.  Let's assume it's a match unless the headers in each sheet say otherwise...
+                match = True
+                loader: TableLoader
+                for loader in loaders.values():
+                    sheet = loader.DataSheetName
+                    if sheet in expected_sheets:
+                        required_headers = set(
+                            list(
+                                getattr(loader.DataHeaders, hk)
+                                for hk in loader.flatten_ndim_strings(loader.DataRequiredHeaders)
+                            )
+                        )
+                        supplied_headers = set(list(df[sheet].columns))
+                        print(f"REQUIRED {sheet} HEADERS: {required_headers}\nSUPPLIED {sheet} HEADERS: {supplied_headers}")
+                        if not required_headers <= supplied_headers:
+                            match = False
+                            break
+                if match:
+                    matching_version_numbers.append(str(study_loader_subcls.version_number))
+
+        # This just checks to make sure that a valid derived class was set as the cls.CurrentLoaderName
+        if CurrentStudyLoader is None:
+            dclss = [c.__name__ for c in cls.__subclasses__()]
+            if cls.CurrentLoaderName is None:
+                raise ProgrammingError(
+                    f"The latest/current loader/file version is not set.  "
+                    "See StudyLoader.CurrentLoaderName."
+                )
+            raise ProgrammingError(
+                "The latest/current loader/file version was not found among the derived classes: "
+                f"{dclss}"
+            )
+
+        return matching_version_numbers
+
+    @classmethod
+    def get_supported_versions(cls) -> List[str]:
+        """Get a list of all supported version numbers (of the infile [aka, the 'study doc'])."""
+        return [
+            str(subcls.version_number) for subcls in StudyLoader.__subclasses__()
+        ]
+
+    @classmethod
+    def get_loader_class(cls, file, version=None):
+        loader_class: TableLoader
+
+        df = read_from_file(file, sheet=None)
+
+        if version is not None:
+            version_numbers = [version]
+        else:
+            version_numbers = StudyLoader.determine_matching_versions(df)
+
+        if len(version_numbers) == 1:
+            if version_numbers[0] == StudyV2Loader.version_number:
+                loader_class = StudyV2Loader
+            elif version_numbers[0] == StudyV3Loader.version_number:
+                loader_class = StudyV3Loader
+            else:
+                raise InvalidStudyDocVersion(f"Unrecognized version number: {version_numbers}.")
+        elif len(version_numbers) == 0:
+            raise UnknownStudyDocVersion(
+                "Unable to determine study doc version.  Please supply one of the supported formats: "
+                f"{StudyLoader.get_supported_versions()}."
+            )
+        else:
+            raise MultipleStudyDocVersions(
+                "Unable to identify study doc version.  Please supply one of these multiple matching formats: "
+                f"{version_numbers}."
+            )
+
+        return loader_class
+
+    # TODO: ConvertedTableLoader was originally written to convert a dict of pandas dataframes to 1 pandas dataframe,
+    # however, this class does a conversion to a dict of pandas dataframes (i.e. it doesn't do a merge).  This
+    # functionality was superimposed on top of ConvertedTableLoader by this override, an override of convert_df in the
+    # derived classes, and some class attribute changes. This strategy should be consolidated and the merge_dict class
+    # attribute should be made to be optional.
+    @classmethod
+    def get_required_headers(cls, sheet=None):
+        """Returns a list of required original headers in the supplied required sheet.  Returns headers from all
+        required sheets if the supplied sheet is None.
+
+        NOTE: This is an override of ConvertedTableLoader's method, because the assortment of headers differs, so we
+        can't use the same namedtuple for each version, like we did for the PeakAnnotationsLoader.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            sheets (List[str])
+        """
+        if sheet is None:
+            all_hdrs = []
+            for lst in cls.OrigDataRequiredHeaders.values():
+                for hdr in lst:
+                    if hdr not in all_hdrs:
+                        all_hdrs.append(hdr)
+        else:
+            all_hdrs = cls.OrigDataRequiredHeaders[sheet]
+
+        return all_hdrs
+
+
+class StudyV3Loader(StudyLoader):
+    version_number = "3.0"
+
+    OrigDataTableHeaders = StudyLoader.DataTableHeaders
+    OrigDataHeaders = StudyLoader.DataHeaders
+    OrigDataColumnTypes = None
+
+    # TODO: ConvertedTableLoader was originally written to convert a dict of pandas dataframes to 1 pandas dataframe,
+    # however, this class does a conversion to a dict of pandas dataframes (i.e. it doesn't do a merge).  This
+    # functionality was superimposed on top of ConvertedTableLoader by an override of get_required_headers, convert_df,
+    # and changes to the following class attribute. This strategy should be consolidated and the merge_dict class
+    # attribute should be made to be optional.
+
+    # Explanation: OrigDataRequiredHeaders is different here from how ConvertedTableLoader expects it, so classmethod
+    # get_required_headers was overridden to accommodate it.  Since "OrigDataHeaders" defined the sheet names (not the
+    # headers), we couldn't use the keys in there as the actual column headers in each individual sheet, so this just
+    # puts those headers directly in this class attribute.
+    OrigDataRequiredHeaders = {
+        StudiesLoader.DataSheetName: [
+            getattr(StudiesLoader.DataHeaders, hk)
+            for hk in StudiesLoader.flatten_ndim_strings(StudiesLoader.DataRequiredHeaders)
+        ],
+        AnimalsLoader.DataSheetName: [
+            getattr(AnimalsLoader.DataHeaders, hk)
+            for hk in AnimalsLoader.flatten_ndim_strings(AnimalsLoader.DataRequiredHeaders)
+        ],
+        SamplesLoader.DataSheetName: [
+            getattr(SamplesLoader.DataHeaders, hk)
+            for hk in SamplesLoader.flatten_ndim_strings(SamplesLoader.DataRequiredHeaders)
+        ],
+        SequencesLoader.DataSheetName: [
+            getattr(SequencesLoader.DataHeaders, hk)
+            for hk in SequencesLoader.flatten_ndim_strings(SequencesLoader.DataRequiredHeaders)
+        ],
+        MSRunsLoader.DataSheetName: [
+            getattr(MSRunsLoader.DataHeaders, hk)
+            for hk in MSRunsLoader.flatten_ndim_strings(MSRunsLoader.DataRequiredHeaders)
+        ],
+        PeakAnnotationFilesLoader.DataSheetName: [
+            getattr(PeakAnnotationFilesLoader.DataHeaders, hk)
+            for hk in PeakAnnotationFilesLoader.flatten_ndim_strings(PeakAnnotationFilesLoader.DataRequiredHeaders)
+        ],
+    }
+
+    # This is the only one we need to define, in case multiple sheets are provided.  E.g. if the user adds a custom
+    # sheet.
+    # TODO: Make this optional by allowing the end result of the conversion be a dict of dataframes
+    # merge_dict is unused, because convert_df will be overridden.
+    merge_dict = {
+        "first_sheet": StudyLoader.DataSheetName,
+        "next_merge_dict": None,
+    }
+    add_columns_dict = None
+    condense_columns_dict = None
+    nan_defaults_dict = None
+    sort_columns = None
+    nan_filldown_columns = None
+    merged_column_rename_dict = None
+    merged_drop_columns_list = None
+
+    def convert_df(self):
+        # This is the current version that everything gets converted into
+        return self.orig_df
+
+
+class StudyV2Loader(StudyLoader):
+    version_number = "2.0"
+
+    OrigDataTableHeaders = namedtuple(
+        "DataTableHeaders",
+        [
+            "ANIMALS",
+            "SAMPLES",
+            "TISSUES",
+            "TREATMENTS",
+        ],
+    )
+
+    # Overloading this for sheet names (not header names)
+    OrigDataHeaders = OrigDataTableHeaders(
+        ANIMALS="Animals",
+        SAMPLES="Samples",
+        TISSUES="Tissues",
+        TREATMENTS="Treatments",
+    )
+
+    OrigDataColumnTypes = None
+
+    # TODO: ConvertedTableLoader was originally written to convert a dict of pandas dataframes to 1 pandas dataframe,
+    # however, this class does a conversion to a dict of pandas dataframes (i.e. it doesn't do a merge).  This
+    # functionality was superimposed on top of ConvertedTableLoader by an override of get_required_headers, convert_df,
+    # and changes to the following class attribute. This strategy should be consolidated and the merge_dict class
+    # attribute should be made to be optional.
+
+    # Explanation: OrigDataRequiredHeaders is different here from how ConvertedTableLoader expects it, so classmethod
+    # get_required_headers was overridden to accommodate it.  Since "OrigDataHeaders" defined the sheet names (not the
+    # headers), we couldn't use the keys in there as the actual column headers in each individual sheet, so this just
+    # puts those headers directly in this class attribute.
+    OrigDataRequiredHeaders = {
+        "Animals": [
+            "Animal ID",
+            "Infusate",
+            "Infusion Rate",
+            "Study Name",
+        ],
+        "Samples": [
+            "Animal ID",
+            "Sample Name",
+            "Researcher Name",
+            "Tissue",
+            "Collection Time",
+        ],
+    }
+
+    # This is the only one we need to define, in case multiple sheets are provided.  E.g. if the user adds a custom
+    # sheet.
+    # TODO: Make this optional by allowing the end result of the conversion be a dict of dataframes
+    # merge_dict is unused, because convert_df will be overridden.
+    merge_dict = {
+        "first_sheet": StudyLoader.DataSheetName,
+        "next_merge_dict": None,
+    }
+    add_columns_dict = None
+    condense_columns_dict = None
+    nan_defaults_dict = None
+    sort_columns = None
+    nan_filldown_columns = None
+    merged_column_rename_dict = None
+    merged_drop_columns_list = None
+
+    def convert_df(self):
+        if not isinstance(self.orig_df, dict):
+            raise NotImplementedError(
+                "A single pandas DataFrame (i.e. a merge of the Animals and Samples sheets) is not yet supported.  "
+                "Must be a dict of pandas dataframes."
+            )
+
+        indf_dict = deepcopy(self.orig_df)
+
+        # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
+        # data.
+        dfs_dict = {}
+        # Get a dict of all the loader instances (e.g. StudiesLoader, AnimalsLoader, etc)
+        loaders: Dict[str, TableLoader] = self.get_loader_instances()
+        populate_sheets = [
+            ProtocolsLoader.DataSheetName,
+            LCProtocolsLoader.DataSheetName,
+            TissuesLoader.DataSheetName,
+        ]
+        filters = {ProtocolsLoader.DataSheetName: {"category": Protocol.ANIMAL_TREATMENT}}
+
+        # Add missing sheets (Note, there are non that need renamed)
+        for hk in StudyLoader.DataHeaders._fields:
+            sheet = getattr(StudyLoader.DataHeaders, hk)
+            if sheet in indf_dict.keys():
+                dfs_dict[sheet] = indf_dict[sheet].to_dict()
+            dfs_dict[sheet] = loaders[hk].get_dataframe_template(
+                populate=sheet in populate_sheets,
+                filter=None if sheet not in filters.keys() else filters[sheet],
+            )
+
+        # Animals sheet mods
+        sheet = AnimalsLoader.DataSheetName
+
+        # Rename Animal Genotype -> Genotype
+        old_header = "Animal Genotype"
+        new_header = loaders["ANIMALS"].GENOTYPE
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Rename Animal Body Weight -> Weight
+        old_header = "Animal Body Weight"
+        new_header = loaders["ANIMALS"].WEIGHT
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Rename Animal Treatment -> Treatment
+        old_header = "Animal Treatment"
+        new_header = loaders["ANIMALS"].TREATMENT
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Rename Study Name -> Study
+        old_header = "Study Name"
+        new_header = loaders["ANIMALS"].STUDY
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Rename Animal ID -> Animal Name
+        old_header = "Animal ID"
+        new_header = loaders["ANIMALS"].ANIMAL
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Copy Study name and description to study sheet
+        animals_study_name_header = loaders["ANIMALS"].STUDY
+        animals_study_desc_header = "Study Description"
+
+        study_study_name_header = loaders["STUDY"].NAME
+        study_study_desc_header = loaders["STUDY"].DESC
+
+        study_dict = {study_study_name_header: {}, study_study_desc_header: {}}
+        new_i = 0
+        seen = {}
+
+        for i in dfs_dict[sheet][animals_study_name_header].keys():
+            name = dfs_dict[sheet][animals_study_name_header][i]
+            desc = dfs_dict[sheet][animals_study_desc_header][i]
+            key = f"{name},{str(desc)}"
+            if key not in seen.keys():
+                study_dict[study_study_name_header][new_i] = name
+                study_dict[study_study_desc_header][new_i] = desc
+                seen[key] = 0
+                new_i += 1
+
+        dfs_dict[StudiesLoader.DataSheetName] = study_dict
+
+        # Delete Study description column from the Animals sheet
+        dfs_dict[sheet].pop(animals_study_desc_header)
+
+        # Modify the Infusate column to include the tracer concentrations in the name
+        animals_infusate_header = loaders["ANIMALS"].INFUSATE
+        animals_concentrations_header = "Tracer Concentrations"
+        infusates_name_header = loaders["INFUSATES"].NAME
+        tracers_name_header = loaders["TRACERS"].NAME
+
+        infusates = {}
+        tracers = {}
+
+        for i, infusate_name in dfs_dict[sheet][animals_infusate_header].items():
+            concs_str = dfs_dict[sheet][animals_concentrations_header][i]
+
+            concentrations = parse_tracer_concentrations(concs_str)
+            infusate_data = parse_infusate_name(infusate_name, concentrations)
+            infusate_name_with_concs = Infusate.name_from_data(infusate_data)
+
+            dfs_dict[sheet][animals_infusate_header][i] = infusate_name_with_concs
+
+            if infusate_name_with_concs not in infusates.keys():
+                infusates[infusate_name_with_concs] = 0
+
+                for tracer_link in infusate_data["tracers"]:
+                    tracer_name = tracer_link["tracer"]["unparsed_string"]
+
+                    if tracer_name not in tracers.keys():
+                        tracers[tracer_name] = 0
+
+        # Add the Infusates and Tracers to their respective sheets (name only)
+        new_i = 0
+        for infusate_name in infusates.keys():
+            dfs_dict[InfusatesLoader.DataSheetName][infusates_name_header][new_i] = infusate_name
+
+            # Fill in 'None' values for all the other columns on this row
+            for header in loaders["INFUSATES"].get_headers():
+                if header != infusates_name_header:
+                    dfs_dict[InfusatesLoader.DataSheetName][header][new_i] = None
+            new_i += 1
+
+        new_i = 0
+        for tracer_name in tracers.keys():
+            dfs_dict[TracersLoader.DataSheetName][tracers_name_header][new_i] = tracer_name
+
+            # Fill in 'None' values for all the other columns on this row
+            for header in loaders["TRACERS"].get_headers():
+                if header != tracers_name_header:
+                    dfs_dict[TracersLoader.DataSheetName][header][new_i] = None
+            new_i += 1
+
+        # Delete tracer concentrations
+        dfs_dict[sheet].pop(animals_concentrations_header)
+
+        # Samples sheet mods
+        sheet = SamplesLoader.DataSheetName
+
+        # Rename Sample Name -> Sample
+        old_header = "Sample Name"
+        new_header = loaders["SAMPLES"].SAMPLE
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Rename Animal ID -> Animal
+        old_header = "Animal ID"
+        new_header = loaders["SAMPLES"].ANIMAL
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        # Rename Researcher Name -> Researcher
+        old_header = "Researcher Name"
+        new_header = loaders["SAMPLES"].HANDLER
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+
+        # Tissues sheet mods
+        sheet = TissuesLoader.DataSheetName
+
+        # Rename TraceBase Tissue Name -> Tissue
+        old_header = "Animal ID"
+        new_header = loaders["TISSUES"].NAME
+        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+        return dict(
+            (sheet, pd.DataFrame.from_dict(dfs_dict[sheet]))
+            for sheet in dfs_dict.keys()
+        )

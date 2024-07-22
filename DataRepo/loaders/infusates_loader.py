@@ -66,11 +66,9 @@ class InfusatesLoader(TableLoader):
                 TRACER_NAME_KEY,
                 CONC_KEY,
             ],
-            # Or the ID, infusate name, and concentration (with concs in the same row order and their order in the name)
+            # Or the infusate name (with concs in the same row order and their order in the name)
             [
-                ID_KEY,
                 NAME_KEY,
-                CONC_KEY,
             ],
         ],
     ]
@@ -84,11 +82,9 @@ class InfusatesLoader(TableLoader):
                 TRACER_NAME_KEY,
                 CONC_KEY,
             ],
-            # Or the ID, infusate name, and concentration (with concs in the same row order and their order in the name)
+            # Or just the infusate name
             [
-                ID_KEY,
                 NAME_KEY,
-                CONC_KEY,
             ],
         ],
     ]
@@ -356,6 +352,9 @@ class InfusatesLoader(TableLoader):
         if not hasattr(self, "infusates_dict"):
             self.init_load()
 
+        # The auto_infusate_number is decremented (i.e. is a negative number) to avoid collisions in gappy data.
+        auto_infusate_number = 0
+
         for _, row in self.df.iterrows():
             try:
                 # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
@@ -374,17 +373,18 @@ class InfusatesLoader(TableLoader):
                 ) = self.get_row_data(row)
 
                 if infusate_number is None:
-                    self.aggregated_errors_object.buffer_error(
+                    auto_infusate_number -= 1
+                    infusate_number = auto_infusate_number
+                    self.aggregated_errors_object.buffer_warning(
                         InfileError(
-                            f"{self.headers.ID} undefined.",
+                            f"{self.headers.ID} undefined.  Assuming no row groups and assigning '{infusate_number}'.",
                             rownum=self.rownum,
                             file=self.friendly_file,
                             sheet=self.sheet,
                         )
                     )
-                    self.errored(Infusate.__name__)
-                    self.errored(InfusateTracer.__name__)
-                    continue
+                    self.warned(Infusate.__name__)
+                    self.warned(InfusateTracer.__name__)
 
                 if not self.valid_infusates[infusate_number]:
                     continue

@@ -1014,7 +1014,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
-        call_command("loaddata", "data_types", "data_formats")
+        call_command("loaddata", "lc_methods", "data_types", "data_formats")
         call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -1313,27 +1313,12 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertTemplateUsed(response, "validation_disabled.html")
 
     def test_accucor_validation_error(self):
-        # self.clear_database()
-        # self.initialize_databases()
+        self.clear_database()
+        self.initialize_databases()
 
         # TODO: Add the missing Sheet to the data (then remove these loads)
-        Study.objects.create(name="Small OBOB")
-        Compound.objects.create(
-            name="lysine", formula="C6H14N2O2", hmdb_id="HMDB0000182"
-        )
-        Compound.objects.create(
-            name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
-        )
-        Compound.objects.create(name="lactate", formula="C3H6O3", hmdb_id="HMDB0000190")
         Infusate.objects.get_or_create_infusate(
             parse_infusate_name_with_concs("lysine-[13C6][23.2]")
-        )
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Xianfeng Zeng",
-            date=string_to_datetime("1972-11-24"),
-            instrument="unknown",
-            lc_method=lcm,
         )
 
         sample_file = (
@@ -1373,8 +1358,9 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
             msg=f"{afkey} should be a key in the exceptions dict.  Its keys are: {exceptions.keys()}",
         )
         self.assertEqual(0, num_errors[afkey])
+        self.assertEqual(2, num_warnings[afkey], msg=f"All exceptions: {exceptions[afkey]}")
         self.assertEqual("NoSamples", exceptions[afkey][0]["type"])
-        self.assertEqual(1, num_warnings[afkey])
+        self.assertEqual("UnexpectedSamples", exceptions[afkey][1]["type"])
 
         # All samples in sample table combined error
         groupkey = "No Files are Missing All Samples"
@@ -1521,5 +1507,21 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         pass
 
     def test_extract_autofill_from_sequences_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_dropdowns(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_static_dropdowns(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_formulas(self):
+        # TODO: Implement test
+        pass
+
+    def test_create_format_objects(self):
         # TODO: Implement test
         pass

@@ -186,6 +186,10 @@ class InfusateTests(TracebaseTestCase):
             )
         )
 
+    def test_name_from_data(self):
+        # TODO: Implement test
+        pass
+
 
 @tag("load_study")
 class MaintainedModelDeferredTests(TracebaseTestCase):

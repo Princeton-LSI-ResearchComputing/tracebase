@@ -3843,6 +3843,18 @@ class TracerGroupsInconsistent(ValidationError):
         self.group_name_mismatches = group_name_mismatches
 
 
+class InvalidStudyDocVersion(Exception):
+    pass
+
+
+class UnknownStudyDocVersion(Exception):
+    pass
+
+
+class MultipleStudyDocVersions(Exception):
+    pass
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:

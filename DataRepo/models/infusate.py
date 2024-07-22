@@ -185,6 +185,24 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         return name, concentrations
 
+    @classmethod
+    def name_from_data(self, infusate_data: InfusateData):
+        """Build an infusate name (not in the database) from an InfusateData object."""
+        name = self.TRACER_DELIMETER.join(
+            sorted(
+                map(
+                    lambda o: o["tracer"]["unparsed_string"]
+                    + f"[{o['concentration']:.{self.CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
+                    infusate_data["tracers"],
+                )
+            )
+        )
+
+        if infusate_data.infusate_name is not None:
+            name = f"{infusate_data.infusate_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
+
+        return name
+
     def infusate_name_equal(self, supplied_name, supplied_concs):
         """Determines if a supplied infusate name and concentrations are the same as the record.
 

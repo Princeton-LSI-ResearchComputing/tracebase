@@ -11,7 +11,7 @@ class LoadAccucorFilesWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         # Importing here to avoid running those tests
-        from DataRepo.tests.management.test_load_peak_annotations import (
+        from DataRepo.tests.management.commands.test_load_peak_annotations import (
             LoadAccucorWithMultipleTracersLabelsCommandTests,
         )
 
@@ -45,7 +45,7 @@ class LoadIsocorrFilesCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         # Importing here to avoid running those tests
-        from DataRepo.tests.management.test_load_peak_annotations import (
+        from DataRepo.tests.management.commands.test_load_peak_annotations import (
             LoadIsocorrCommandTests,
         )
 

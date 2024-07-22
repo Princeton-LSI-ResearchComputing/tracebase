@@ -2357,7 +2357,7 @@ class DataValidationView(FormView):
         )
 
     def get_study_dtypes_dict(self, version=default_version):
-        """Retrieve the dtype data for each sheet.
+        """Retrieve the dtype data for every sheet in one 2-dimensional dict (keyed on sheet and header).
 
         NOTE: The returned dict is not what the pandas' read methods take directly.  The returned 2D dict can only be
         used by read_from_file, which reads each sheet individually and retrieves each sheet's specific dtype dict from
@@ -2455,7 +2455,9 @@ class DataValidationView(FormView):
         load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
         try:
-            StudyLoader(
+            # Get the StudyLoader for the version of the input file
+            loader_class = StudyLoader.get_loader_class(self.study_file)
+            loader_class(
                 file=self.study_file,
                 filename=self.study_filename,
                 _validate=True,

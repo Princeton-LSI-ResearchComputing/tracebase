@@ -6,6 +6,7 @@ from django.core.management import CommandError
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.study_loader import StudyLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
+from DataRepo.utils.exceptions import InvalidStudyDocVersion, MultipleStudyDocVersions, UnknownStudyDocVersion
 
 
 class Command(LoadTableCommand):
@@ -16,13 +17,33 @@ class Command(LoadTableCommand):
     """
 
     help = "Loads all data from a study doc (e.g. Animals, Samples, Compounds, etc) into the database."
-    loader_class: Type[TableLoader] = StudyLoader
+    loader_class: Type[TableLoader]
 
-    # TODO: Remove this after all dependent code has been updated for the new version of this script
+    def __init__(self, *args, **kwargs):
+        # Don't require any options (i.e. don't require the --infile option)
+        super().__init__(
+            *args,
+            custom_loader_init=True,
+            **kwargs,
+        )
+
     def add_arguments(self, parser):
         # Add the options provided by the superclass
         super().add_arguments(parser)
 
+        # This option overrides dynamic format determination.
+        parser.add_argument(
+            "--version",
+            type=str,
+            help=(
+                f"{{{StudyLoader.get_supported_versions()}}} Version of the study doc (--infile).  "
+                "Default: dynamically determined version."
+            ),
+            choices=StudyLoader.get_supported_versions(),
+            required=False,
+        )
+
+        # TODO: Remove this after all dependent code has been updated for the new version of this script
         parser.add_argument(
             # Legacy support - catch this option and issue an error if it is used.
             "study_params",
@@ -58,5 +79,20 @@ class Command(LoadTableCommand):
                 "script.  This script has been renamed.  Use `pythong manage.py legacy_load_study ...` instead."
                 f"{options}"
             )
+
+        try:
+            self.loader_class = StudyLoader.get_loader_class(
+                self.get_infile(),
+                version=options.get("version"),
+            )
+        except InvalidStudyDocVersion as isdv:
+            raise CommandError(str(usdv)).with_traceback(isdv.__traceback__)
+        except UnknownStudyDocVersion as usdv:
+            raise CommandError(str(usdv) + "  See --version.").with_traceback(usdv.__traceback__)
+        except MultipleStudyDocVersions as msdv:
+            raise CommandError(str(msdv) + "  See --version.").with_traceback(msdv.__traceback__)
+
+        # We can now instantiate the StudyV#Loader, since we know the study doc version
+        self.init_loader()
 
         self.load_data()

@@ -1,9 +1,12 @@
-from typing import Type
+from typing import Dict, Type
 
 from django.db.models import Model
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
-from DataRepo.loaders.study_loader import StudyLoader
+from DataRepo.loaders.base.table_loader import TableLoader
+from DataRepo.loaders.protocols_loader import ProtocolsLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
+from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.models import (
     Animal,
     ArchiveFile,
@@ -37,6 +40,7 @@ from DataRepo.utils.exceptions import (
     NoSamples,
     RecordDoesNotExist,
 )
+from DataRepo.utils.file_utils import read_from_file
 
 PeakGroupCompound: Type[Model] = PeakGroup.compounds.through
 
@@ -45,7 +49,7 @@ class StudyLoaderTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     def test_study_loader_load_data_success(self):
-        sl = StudyLoader(
+        sl = StudyV3Loader(
             file="DataRepo/data/tests/submission_v3/multitracer_v3/study.xlsx"
         )
         sl.load_data()
@@ -76,7 +80,7 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
     def test_study_loader_get_class_dtypes(self):
-        sl = StudyLoader()
+        sl = StudyV3Loader()
         dt = sl.get_loader_class_dtypes(AnimalsLoader)
         self.assertDictEqual(
             {
@@ -97,7 +101,7 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
     def test_study_loader_get_sheet_names_tuple(self):
-        sl = StudyLoader()
+        sl = StudyV3Loader()
         snt = sl.get_sheet_names_tuple()
         self.assertDictEqual(
             {
@@ -121,7 +125,7 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
     def test_study_loader_package_group_exceptions(self):
-        sl = StudyLoader(
+        sl = StudyV3Loader(
             file="DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
         )
         with self.assertRaises(AggregatedErrorsSet) as ar:
@@ -217,7 +221,7 @@ class StudyLoaderTests(TracebaseTestCase):
         )
 
     def test_study_loader_create_grouped_exceptions(self):
-        sl = StudyLoader(
+        sl = StudyV3Loader(
             file="DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
         )
         sl.missing_sample_record_exceptions = [
@@ -239,3 +243,38 @@ class StudyLoaderTests(TracebaseTestCase):
             "All Compounds Exist in the Database", sl.load_statuses.statuses.keys()
         )
         self.assertIn("study_missing_data.xlsx", sl.load_statuses.statuses.keys())
+
+    def test_get_loader_instances(self):
+        sl = StudyV3Loader(dry_run=True)
+        loaders: Dict[str, TableLoader] = sl.get_loader_instances()
+        self.assertIsInstance(loaders, dict)
+        self.assertEqual(
+            set(StudyV3Loader.DataHeaders._fields),
+            set(list(loaders.keys()) + ["DEFAULTS", "ERRORS"]),
+        )
+        # Make sure that the loaders were instantiated using the common args
+        self.assertTrue(loaders["STUDY"].dry_run)
+        # Make sure that the loaders were instantiated using the custom args
+        self.assertEqual(ProtocolsLoader.DataHeadersExcel, loaders["TREATMENTS"].get_headers())
+
+    def test_determine_matching_versions_v2(self):
+        df = read_from_file("DataRepo/data/tests/study_doc_versions/study_v2.xlsx", sheet=None)
+        version_list = StudyLoader.determine_matching_versions(df)
+        self.assertEqual(["2.0"], version_list)
+
+    def test_determine_matching_versions_v3(self):
+        df = read_from_file("DataRepo/data/tests/study_doc_versions/study_v3.xlsx", sheet=None)
+        version_list = StudyLoader.determine_matching_versions(df)
+        self.assertEqual(["3.0"], version_list)
+
+
+class StudyV3LoaderTests(TracebaseTestCase):
+    def test_convert_df_v3(self):
+        # TODO: Implement test
+        pass
+
+
+class StudyV2LoaderTests(TracebaseTestCase):
+    def test_convert_df_v2(self):
+        # TODO: Implement test
+        pass

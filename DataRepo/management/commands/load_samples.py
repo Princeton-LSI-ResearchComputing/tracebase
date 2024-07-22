@@ -21,9 +21,17 @@ class Command(LoadTableCommand):
 
         parser.add_argument(
             # Legacy support - catch this option and issue an error if it is used.
+            "--animal-and-sample-table-filename",
+            required=False,
+            type=str,
+            help=argparse.SUPPRESS,
+        )
+
+        parser.add_argument(
+            # Legacy support - catch this option and issue an error if it is used.
             "--sample-table-filename",
-            action="store_true",
-            default=False,
+            required=False,
+            type=str,
             help=argparse.SUPPRESS,
         )
 
@@ -48,7 +56,7 @@ class Command(LoadTableCommand):
             None
         """
         # TODO: Remove this after all dependent code has been updated for the new version of this script
-        if options["sample_table_filename"]:
+        if options["sample_table_filename"] is not None:
             raise CommandError(
                 "By supplying --sample-table-filename, it looks like you're trying to call the old version of this "
                 "script.  This script has been renamed.  Use `pythong manage.py legacy_load_samples ...` instead."

@@ -4,8 +4,8 @@ from DataRepo.models import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-class StudyDataLoadingTests(TracebaseTestCase):
-    def test_load_study_data_command(self):
+class LoadStudiesTests(TracebaseTestCase):
+    def test_load_studies_command(self):
         self.assertEqual(Study.objects.count(), 0)
         call_command(
             "load_studies",
