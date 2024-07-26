@@ -4,9 +4,15 @@ from typing import Type
 from django.core.management import CommandError
 
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.study_loader import StudyLoader
+from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils.exceptions import InvalidStudyDocVersion, MultipleStudyDocVersions, UnknownStudyDocVersion
+from DataRepo.utils.exceptions import (
+    InvalidStudyDocVersion,
+    MultipleStudyDocVersions,
+    OptionsNotAvailable,
+    UnknownStudyDocVersion,
+)
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(LoadTableCommand):
@@ -17,12 +23,15 @@ class Command(LoadTableCommand):
     """
 
     help = "Loads all data from a study doc (e.g. Animals, Samples, Compounds, etc) into the database."
-    loader_class: Type[TableLoader]
+
+    # This is the default loader_class version
+    loader_class: Type[TableLoader] = StudyV3Loader
 
     def __init__(self, *args, **kwargs):
         # Don't require any options (i.e. don't require the --infile option)
         super().__init__(
             *args,
+            opt_defaults={"defer_rollback": True},
             custom_loader_init=True,
             **kwargs,
         )
@@ -33,7 +42,7 @@ class Command(LoadTableCommand):
 
         # This option overrides dynamic format determination.
         parser.add_argument(
-            "--version",
+            "--infile-version",
             type=str,
             help=(
                 f"{{{StudyLoader.get_supported_versions()}}} Version of the study doc (--infile).  "
@@ -51,6 +60,28 @@ class Command(LoadTableCommand):
             nargs="?",
             help=argparse.SUPPRESS,
         )
+
+    # TODO: Support for a dict of dataframes should be introduced in LoadtableCommand.get_dataframe and this override of
+    # that method should be removed
+    def get_dataframe(self, **kwargs):
+        """Parses data from the infile.  This is an override of the superclass's method in order to return a dict of
+        dataframes of all sheets instead of a dataframe of the cls.DataSheetName sheet.
+
+        Args:
+            kwargs (dict): Ignored superclass arguments.
+        Exceptions:
+            None
+        Returns:
+            (Dict[str, pandas DataFrame])
+        """
+        if self.options is None:
+            raise OptionsNotAvailable()
+
+        file = self.get_infile()
+        if file is None:
+            return None
+
+        return read_from_file(file, sheet=None)
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -81,18 +112,23 @@ class Command(LoadTableCommand):
             )
 
         try:
+            df = read_from_file(self.get_infile(), sheet=None)
             self.loader_class = StudyLoader.get_loader_class(
-                self.get_infile(),
-                version=options.get("version"),
+                df,
+                version=options.get("infile_version"),
             )
         except InvalidStudyDocVersion as isdv:
-            raise CommandError(str(usdv)).with_traceback(isdv.__traceback__)
+            raise CommandError(str(isdv)).with_traceback(isdv.__traceback__)
         except UnknownStudyDocVersion as usdv:
-            raise CommandError(str(usdv) + "  See --version.").with_traceback(usdv.__traceback__)
+            raise CommandError(str(usdv) + "  See --infile-version.").with_traceback(
+                usdv.__traceback__
+            )
         except MultipleStudyDocVersions as msdv:
-            raise CommandError(str(msdv) + "  See --version.").with_traceback(msdv.__traceback__)
+            raise CommandError(str(msdv) + "  See --infile-version.").with_traceback(
+                msdv.__traceback__
+            )
 
-        # We can now instantiate the StudyV#Loader, since we know the study doc version
+        # We can now instantiate the StudyV{number}Loader, since we know the study doc version
         self.init_loader()
 
         self.load_data()

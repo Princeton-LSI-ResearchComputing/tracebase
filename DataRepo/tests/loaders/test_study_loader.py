@@ -5,7 +5,6 @@ from django.db.models import Model
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
-from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.models import (
     Animal,
@@ -49,8 +48,10 @@ class StudyLoaderTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     def test_study_loader_load_data_success(self):
+        file = "DataRepo/data/tests/submission_v3/multitracer_v3/study.xlsx"
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/submission_v3/multitracer_v3/study.xlsx"
+            df=read_from_file(file, sheet=None),
+            file=file,
         )
         sl.load_data()
         self.assertEqual(1, Animal.objects.count())
@@ -84,17 +85,14 @@ class StudyLoaderTests(TracebaseTestCase):
         dt = sl.get_loader_class_dtypes(AnimalsLoader)
         self.assertDictEqual(
             {
-                "Age": int,
                 "Animal Name": str,
                 "Diet": str,
                 "Feeding Status": str,
                 "Genotype": str,
                 "Infusate": str,
-                "Infusion Rate": float,
                 "Sex": str,
                 "Study": str,
                 "Treatment": str,
-                "Weight": float,
             },
             dt,
         )
@@ -125,8 +123,12 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
 
     def test_study_loader_package_group_exceptions(self):
+        file = (
+            "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+        )
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            df=read_from_file(file, sheet=None),
+            file=file,
         )
         with self.assertRaises(AggregatedErrorsSet) as ar:
             sl.load_data()
@@ -221,8 +223,12 @@ class StudyLoaderTests(TracebaseTestCase):
         )
 
     def test_study_loader_create_grouped_exceptions(self):
+        file = (
+            "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+        )
         sl = StudyV3Loader(
-            file="DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+            df=read_from_file(file, sheet=None),
+            file=file,
         )
         sl.missing_sample_record_exceptions = [
             RecordDoesNotExist(Sample, {"name": "s1"})
@@ -255,15 +261,21 @@ class StudyLoaderTests(TracebaseTestCase):
         # Make sure that the loaders were instantiated using the common args
         self.assertTrue(loaders["STUDY"].dry_run)
         # Make sure that the loaders were instantiated using the custom args
-        self.assertEqual(ProtocolsLoader.DataHeadersExcel, loaders["TREATMENTS"].get_headers())
+        self.assertEqual(
+            ProtocolsLoader.DataHeadersExcel, loaders["TREATMENTS"].get_headers()
+        )
 
     def test_determine_matching_versions_v2(self):
-        df = read_from_file("DataRepo/data/tests/study_doc_versions/study_v2.xlsx", sheet=None)
+        df = read_from_file(
+            "DataRepo/data/tests/study_doc_versions/study_v2.xlsx", sheet=None
+        )
         version_list = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["2.0"], version_list)
 
     def test_determine_matching_versions_v3(self):
-        df = read_from_file("DataRepo/data/tests/study_doc_versions/study_v3.xlsx", sheet=None)
+        df = read_from_file(
+            "DataRepo/data/tests/study_doc_versions/study_v3.xlsx", sheet=None
+        )
         version_list = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["3.0"], version_list)
 

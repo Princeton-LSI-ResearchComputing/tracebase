@@ -295,6 +295,8 @@ class InfusatesLoader(TableLoader):
         Returns:
             None
         """
+        # The auto_infusate_number is decremented (i.e. is a negative number) to avoid collisions in gappy data.
+        self.auto_infusate_number = 0
         self.infusates_dict = defaultdict(dict)
         self.infusate_name_to_number = defaultdict(lambda: defaultdict(list))
         self.valid_infusates = {}
@@ -352,9 +354,6 @@ class InfusatesLoader(TableLoader):
         if not hasattr(self, "infusates_dict"):
             self.init_load()
 
-        # The auto_infusate_number is decremented (i.e. is a negative number) to avoid collisions in gappy data.
-        auto_infusate_number = 0
-
         for _, row in self.df.iterrows():
             try:
                 # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
@@ -372,25 +371,11 @@ class InfusatesLoader(TableLoader):
                     tracer_concentration,
                 ) = self.get_row_data(row)
 
-                if infusate_number is None:
-                    auto_infusate_number -= 1
-                    infusate_number = auto_infusate_number
-                    self.aggregated_errors_object.buffer_warning(
-                        InfileError(
-                            f"{self.headers.ID} undefined.  Assuming no row groups and assigning '{infusate_number}'.",
-                            rownum=self.rownum,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                        )
-                    )
-                    self.warned(Infusate.__name__)
-                    self.warned(InfusateTracer.__name__)
-
                 if not self.valid_infusates[infusate_number]:
                     continue
 
                 if infusate_number not in self.infusates_dict.keys():
-                    # Initialize the tracer dict
+                    # Initialize the infusates dict
                     self.infusates_dict[infusate_number] = {
                         "tracer_group_name": tracer_group_name,
                         "infusate_name": infusate_name,
@@ -412,13 +397,16 @@ class InfusatesLoader(TableLoader):
 
             except Exception as e:
                 exc = InfileError(
-                    str(e),
+                    f"{type(e).__name__}: {e}",
                     rownum=self.rownum,
                     sheet=self.sheet,
                     file=self.friendly_file,
                 )
                 self.add_skip_row_index(row.name)
-                self.aggregated_errors_object.buffer_error(exc)
+                self.aggregated_errors_object.buffer_error(
+                    exc,
+                    orig_exception=e,
+                )
                 if infusate_number is not None:
                     self.valid_infusates[infusate_number] = False
 
@@ -550,6 +538,30 @@ class InfusatesLoader(TableLoader):
         tracer_name = self.get_row_val(row, self.headers.TRACERNAME)
         tracer_concentration = self.get_row_val(row, self.headers.TRACERCONC)
 
+        if infusate_number is None:
+            # Since the row group number is optional, but this code requires a value, we will assign a negative number
+            # (to avoid collisions).  However, this assumes that the data is filled in correctly and that the missing
+            # number means it's a single-tracer infusate.  If it's not, they will get a unique column constraint error.
+            # Ideally, in this instance, they would not have filled in other data (as that's the intention: to support
+            # either entering the data or the name), because the unique column constraints effectively evaluate None as
+            # not equal to None.
+            self.auto_infusate_number -= 1
+            infusate_number = self.auto_infusate_number
+            self.aggregated_errors_object.buffer_warning(
+                InfileError(
+                    (
+                        f"{self.headers.ID} undefined.  Assuming a single-tracer infusate and assigning a negative "
+                        f"number '{infusate_number}' (to avoid conflating this with another row that has a "
+                        f"{self.headers.ID})."
+                    ),
+                    rownum=self.rownum,
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                )
+            )
+            self.warned(Infusate.__name__)
+            self.warned(InfusateTracer.__name__)
+
         retval = (
             infusate_number,
             tracer_group_name,
@@ -675,44 +687,49 @@ class InfusatesLoader(TableLoader):
                 all_match = True
                 for table_tracer in table_infusate["tracers"]:
                     table_tracer_name = table_tracer["tracer_name"]
-                    if table_tracer_name is None:
-                        fill_in_tracer_data = True
-
                     table_tracer_conc = table_tracer["tracer_concentration"]
 
-                    # Make sure that the concentrations associated with the tracers in the names have a match
-                    match = False
-                    for parsed_infusate_tracer in parsed_infusate["tracers"]:
-                        parsed_tracer_name = parsed_infusate_tracer["tracer"][
-                            "unparsed_string"
-                        ]
-                        parsed_concentration = parsed_infusate_tracer["concentration"]
+                    if table_tracer_name is None or table_tracer_conc is None:
+                        fill_in_tracer_data = True
 
-                        if math.isclose(parsed_concentration, table_tracer_conc) and (
-                            parsed_tracer_name == table_tracer_name
-                            or table_tracer_name is None
-                        ):
-                            match = True
+                    if table_tracer_conc is not None:
+                        # Make sure that the concentrations associated with the tracers in the names have a match
+                        match = False
+                        for parsed_infusate_tracer in parsed_infusate["tracers"]:
+                            parsed_tracer_name = parsed_infusate_tracer["tracer"][
+                                "unparsed_string"
+                            ]
+                            parsed_concentration = parsed_infusate_tracer[
+                                "concentration"
+                            ]
+
+                            if math.isclose(
+                                parsed_concentration, float(table_tracer_conc)
+                            ) and (
+                                parsed_tracer_name == table_tracer_name
+                                or table_tracer_name is None
+                            ):
+                                match = True
+                                break
+
+                        if match is False:
+                            all_match = False
                             break
-
-                    if match is False:
-                        all_match = False
-                        break
 
                 # If at least 1 tracer did not match, report the first non-match at the point where the loop above was
                 # broken
                 if all_match is False:
                     cols = ", ".join(
                         [
-                            f"{self.headers.TRACERNAME}: {table_tracer['tracer_name']}",
-                            f"{self.headers.TRACERCONC}: {table_tracer['tracer_concentration']}",
+                            f"{table_tracer['tracer_name']} (from column '{self.headers.TRACERNAME}')",
+                            f"{table_tracer['tracer_concentration']} (from column '{self.headers.TRACERCONC}')",
                         ]
                     )
                     irows = [tr["rownum"] for tr in table_infusate["tracers"]]
                     self.aggregated_errors_object.buffer_error(
                         InfileError(
                             (
-                                f"Tracer data from columns [{cols}] on row(s) {irows} does not match any of the "
+                                f"Tracer data [{cols}] on row(s) {irows} does not match any of the "
                                 f"tracers parsed from the {self.headers.NAME} [{table_infusate_name}] on %s."
                             ),
                             file=self.friendly_file,
@@ -812,9 +829,12 @@ class InfusatesLoader(TableLoader):
                 )
 
             # Identify tracer group names associated with different groups of tracers
-            group_name_dict[tgn][tracer_group_key].append(infusate_number)
-            if len(group_name_dict[tgn].keys()) > 1:
-                self.inconsistent_group_names["mult_nums"][tgn] = group_name_dict[tgn]
+            if self.infusates_dict[infusate_number]["tracer_group_name"] is not None:
+                group_name_dict[tgn][tracer_group_key].append(infusate_number)
+                if len(group_name_dict[tgn].keys()) > 1:
+                    self.inconsistent_group_names["mult_nums"][tgn] = group_name_dict[
+                        tgn
+                    ]
 
     def get_or_create_just_infusate(self, infusate_dict):
         """Get or create an Infusate record.
@@ -998,7 +1018,9 @@ class InfusatesLoader(TableLoader):
         """
         # Make sure that each infusate number is always associated with the same tracer group name
         if (
-            self.infusates_dict[infusate_number]["tracer_group_name"]
+            tracer_group_name is not None
+            and self.infusates_dict[infusate_number]["tracer_group_name"] is not None
+            and self.infusates_dict[infusate_number]["tracer_group_name"]
             != tracer_group_name
         ):
             if (

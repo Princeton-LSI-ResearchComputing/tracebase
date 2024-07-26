@@ -198,8 +198,8 @@ class Infusate(MaintainedModel, HierCachedModel):
             )
         )
 
-        if infusate_data.infusate_name is not None:
-            name = f"{infusate_data.infusate_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
+        if infusate_data["infusate_name"] is not None:
+            name = f"{infusate_data['infusate_name']} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
 
         return name
 

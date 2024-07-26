@@ -1699,7 +1699,7 @@ class MSRunsLoader(TableLoader):
 
         Args:
             mzxml_bamename (string): The basename of an mzXML file (or accucor/isocorr sample header.
-            suffix_patterns (list of regular expression strings)
+            suffix_patterns (list of regular expression strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: E.g. "_pos".
             add_patterns (boolean): Whether to add the supplied patterns to the defaults or replace them.
         Exceptions:
             None

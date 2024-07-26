@@ -19,6 +19,7 @@ from DataRepo.models import (
 )
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils.exceptions import (
+    MissingStudies,
     MissingTreatments,
     RecordDoesNotExist,
     RollbackException,
@@ -425,6 +426,8 @@ class AnimalsLoader(TableLoader):
         query_dict = {"name": name}
 
         try:
+            # This will only work for pre-existing records, but it produces a simpler error.  Records created during the
+            # current load will not have names yet (due to deferred autoupdates).
             rec = Infusate.objects.get(**query_dict)
         except Exception as e:
             try:
@@ -444,8 +447,6 @@ class AnimalsLoader(TableLoader):
                 # This also updates the skip row indexes
                 self.handle_load_db_errors(e2, Infusate, query_dict)
                 self.add_skip_row_index()
-                # TODO: After merge, make sure all the loaders use handle_load_db_errors for RecordDoesNotExist errors
-
         return rec
 
     def get_treatment(self, row):
@@ -629,10 +630,10 @@ class AnimalsLoader(TableLoader):
             None
         """
         # Summarize missing tissues
-        dnes = self.aggregated_errors_object.remove_matching_exceptions(
+        tdnes = self.aggregated_errors_object.remove_matching_exceptions(
             RecordDoesNotExist, "model", Protocol
         )
-        if len(dnes) > 0:
+        if len(tdnes) > 0:
             cross_sheet_col_ref = (
                 self.DataColumnMetadata.TREATMENT.value.dynamic_choices
             )
@@ -641,10 +642,30 @@ class AnimalsLoader(TableLoader):
                 sheet = self.DataSheetName
             self.aggregated_errors_object.buffer_error(
                 MissingTreatments(
-                    dnes,
+                    tdnes,
                     suggestion=(
                         f"{self.headers.TREATMENT}s in the '{sheet}' sheet must be loaded into the database prior to "
                         f"animal loading.  Please be sure to add each missing '{self.headers.TREATMENT}' to the "
+                        f"'{cross_sheet_col_ref.header}' column in the '{cross_sheet_col_ref.sheet}' sheet in your "
+                        "submission."
+                    ),
+                ),
+            )
+
+        # Summarize missing studies
+        sdnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Study
+        )
+        if len(sdnes) > 0:
+            cross_sheet_col_ref = self.DataColumnMetadata.STUDY.value.dynamic_choices
+            sheet = self.sheet
+            if sheet is None:
+                sheet = self.DataSheetName
+            self.aggregated_errors_object.buffer_error(
+                MissingStudies(
+                    sdnes,
+                    suggestion=(
+                        f"Please be sure to add each missing '{self.headers.STUDY}' to the "
                         f"'{cross_sheet_col_ref.header}' column in the '{cross_sheet_col_ref.sheet}' sheet in your "
                         "submission."
                     ),

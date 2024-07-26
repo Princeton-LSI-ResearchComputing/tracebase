@@ -20,6 +20,7 @@ from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AggregatedErrorsSet,
+    FileFromInputNotFound,
     RollbackException,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
@@ -259,13 +260,12 @@ class PeakAnnotationFilesLoader(TableLoader):
             filepath = filepath_str
 
         if not os.path.isfile(filepath):
-            msg = ""
-            if filepath_str != filepath:
-                msg = f" using supplied path: {filepath}."
             self.buffer_infile_exception(
-                f"File '{filepath_str}' not found{msg}.",
+                FileFromInputNotFound(filepath_str, tmpfile=filepath),
+                suggestion="Skipping load.",
                 column=self.headers.FILE,
             )
+            self.add_skip_row_index()
             return None, None, format_code
 
         matching_formats = PeakAnnotationsLoader.determine_matching_formats(
@@ -408,17 +408,27 @@ class PeakAnnotationFilesLoader(TableLoader):
         if filename is None and filepath is not None:
             filename = os.path.basename(filepath)
 
-        if (
-            filepath is None
-            or format_code is None
+        if filepath is not None and (
+            format_code is None
             or format_code not in PeakAnnotationsLoader.get_supported_formats()
         ):
             self.buffer_infile_exception(
                 (
-                    f"Skipping load of peak annotations file {filename}.  Unrecognized format code: {format_code}.  "
+                    f"Skipping load of peak annotations file '{filename}'.  Unrecognized format code: {format_code}.  "
                     f"Must be one of {PeakAnnotationsLoader.get_supported_formats()}."
                 ),
                 column=self.headers.FORMAT,
+                is_error=False,
+            )
+            return
+
+        if self.is_skip_row():
+            return
+
+        if filepath is None:
+            self.buffer_infile_exception(
+                "Peak annotations file is undefined.",
+                column=self.headers.FILE,
                 is_error=False,
             )
             return

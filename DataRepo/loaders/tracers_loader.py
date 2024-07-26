@@ -319,6 +319,7 @@ class TracersLoader(TableLoader):
         Returns:
             Nothing
         """
+        self.auto_tracer_number = 0
         self.tracers_dict = defaultdict(dict)
         self.tracer_name_to_number = defaultdict(lambda: defaultdict(list))
         self.valid_tracers = {}
@@ -386,19 +387,6 @@ class TracersLoader(TableLoader):
                     count,
                     positions,
                 ) = self.get_row_data(row)
-
-                if tracer_number is None:
-                    self.aggregated_errors_object.buffer_error(
-                        InfileError(
-                            f"{self.headers.ID} undefined.",
-                            rownum=self.rownum,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                        )
-                    )
-                    self.errored(Tracer.__name__)
-                    self.errored(TracerLabel.__name__)
-                    continue
 
                 if not self.valid_tracers[tracer_number]:
                     continue
@@ -557,9 +545,22 @@ class TracersLoader(TableLoader):
         positions = self.parse_label_positions(raw_positions)
 
         if tracer_number is None:
-            # Automatically populate the tracer number
-            # Index from 1
-            tracer_number = row.name + 1
+            self.auto_tracer_number -= 1
+            tracer_number = self.auto_tracer_number
+            self.aggregated_errors_object.buffer_warning(
+                InfileError(
+                    (
+                        f"{self.headers.ID} undefined.  Assuming a single-labeled-element tracer and assigning a "
+                        f"negative number '{tracer_number}' (to avoid conflating this with another row that has a "
+                        f"{self.headers.ID})."
+                    ),
+                    rownum=self.rownum,
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                )
+            )
+            self.errored(Tracer.__name__)
+            self.errored(TracerLabel.__name__)
 
         retval = (
             tracer_number,

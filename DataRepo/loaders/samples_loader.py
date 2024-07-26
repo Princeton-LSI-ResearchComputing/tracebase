@@ -275,6 +275,7 @@ class SamplesLoader(TableLoader):
             self.aggregated_errors_object.buffer_warning(
                 NewResearcher(
                     researcher,
+                    known=self.known_researchers,
                     file=self.friendly_file,
                     sheet=self.sheet,
                     rownum=self.rownum,

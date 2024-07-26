@@ -444,6 +444,19 @@ class HeaderConfigError(HeaderError):
         self.missing = missing
 
 
+class FileFromInputNotFound(InfileError):
+    """This is for reporting file names parsed from a file that could not be found."""
+
+    def __init__(self, filepath: str, message=None, tmpfile=None, **kwargs):
+        if message is None:
+            msg = ""
+            if filepath != tmpfile:
+                msg = f" (using temporary file path: '{filepath}')"
+            message = f"File not found: '{filepath}'{msg}, as parsed from %s."
+        super().__init__(message, **kwargs)
+        self.filepath = filepath
+
+
 class RequiredValuesError(InfileError):
     def __init__(self, missing, message=None, **kwargs):
         if not message:
@@ -620,9 +633,16 @@ class NewResearchers(Exception):
     """
 
     def __init__(self, new_researcher_exceptions: List[NewResearcher]):
-        existing = "\n\t".join(get_researchers())
         nre_dict: Dict[str, dict] = defaultdict(lambda: defaultdict(list))
+        known: List[str] = []
         for nre in new_researcher_exceptions:
+            if len(known) == 0:
+                if nre.known is not None:
+                    known = nre.known
+            elif set(known) != set(nre.known):
+                raise ProgrammingError(
+                    "Different sets of known researchers encountered."
+                )
             file_loc = generate_file_location_string(
                 file=nre.file, sheet=nre.sheet, column=nre.column
             )
@@ -630,6 +650,7 @@ class NewResearchers(Exception):
                 nre_dict[nre.researcher][file_loc].append(nre.rownum)
             elif "unreported rows" not in nre_dict[file_loc]:
                 nre_dict[nre.researcher][file_loc].append("unreported rows")
+        existing = "\n\t".join(known)
         message = "New researchers encountered"
         if existing == "":
             message += ":"
@@ -649,8 +670,11 @@ class NewResearchers(Exception):
 class NewResearcher(InfileError, SummarizableError):
     SummarizerExceptionClass = NewResearchers
 
-    def __init__(self, researcher: str, message=None, **kwargs):
-        existing = "\n\t".join(get_researchers())
+    def __init__(self, researcher: str, known=None, message=None, **kwargs):
+        if known is None:
+            existing = "\n\t".join(get_researchers())
+        else:
+            existing = "\n\t".join(known)
         message = f"A new researcher [{researcher}] is being added (parsed from %s)."
         if existing != "":
             message += (
@@ -659,7 +683,7 @@ class NewResearcher(InfileError, SummarizableError):
             )
         super().__init__(message, **kwargs)
         self.researcher = researcher
-        self.existing = existing
+        self.known = known
 
 
 class MissingRecords(InfileError):
@@ -676,7 +700,11 @@ class MissingRecords(InfileError):
         msg = "" if message is None else message
         super().__init__(msg, **kwargs)
 
-        tmp_message = ""
+        tmp_message = (
+            "The following records were missing either because they were not in the corresponding sheets or because "
+            "errors were encountered during their load attempt that prevented their creation (in which case you will "
+            "see those errors, likely above this one):\n"
+        )
         exceptions_by_model_and_fields: Dict[str, dict] = defaultdict(
             lambda: defaultdict(list)
         )
@@ -693,8 +721,12 @@ class MissingRecords(InfileError):
             exceptions_by_model_and_query[inst.model.__name__][search_terms].append(
                 inst
             )
+            # Group by file, sheet, and column - we will summarize the row numbers elsewhere
+            inst_loc = generate_file_location_string(
+                file=inst.file, sheet=inst.sheet, column=inst.column
+            )
             exceptions_by_model_query_and_loc[inst.model.__name__][search_terms][
-                inst.loc
+                inst_loc
             ].append(inst)
 
         for mdl_name in exceptions_by_model_and_fields.keys():
@@ -804,8 +836,8 @@ class MissingModelRecords(MissingRecords, ABC):
                 ]
             )
             message = (
-                f"{len(exceptions)} {self.ModelName}s matching the following values in %s were not found in the "
-                f"database:{nltab}{summary}\n"
+                f"{len(self.exceptions_by_model_and_query[self.ModelName].keys())} {self.ModelName} records matching "
+                f"the following values in %s were not found in the database:{nltab}{summary}\n"
             )
 
         self.orig_message = message
@@ -1285,7 +1317,15 @@ class NoSamples(MissingSamples):
 
 
 class UnexpectedSamples(InfileError):
-    def __init__(self, missing_samples, suggestion=None, **kwargs):
+    def __init__(
+        self,
+        missing_samples,
+        rel_file,
+        rel_sheet,
+        rel_column,
+        suggestion=None,
+        **kwargs,
+    ):
         if missing_samples is None or len(missing_samples) == 0:
             raise RequiredArgument(
                 "missing_samples",
@@ -1294,9 +1334,13 @@ class UnexpectedSamples(InfileError):
             )
         message = kwargs.pop("message", None)
         if message is None:
+            rel_loc = generate_file_location_string(
+                file=rel_file, sheet=rel_sheet, column=rel_column
+            )
             message = (
-                "The following sample data headers from the Peak Annotation Details sheet were not among the headers "
-                f"in %s: {missing_samples}."
+                f"According to the values in {rel_loc} the following sample data headers should be in %s, but they "
+                f"were not there: {missing_samples}.  This can likely be fixed by changing the file associated with "
+                f"the headers in {rel_loc}."
             )
         if suggestion is not None:
             message += f"  {suggestion}"
@@ -1433,11 +1477,23 @@ class MultiLoadStatus(Exception):
                 self.init_load(load_key)
 
     def init_load(self, load_key):
-        self.statuses[load_key] = {
-            "aggregated_errors": None,
-            "state": "PASSED",
-            "top": True,  # Passing files will appear first
-        }
+        if isinstance(load_key, str):
+            self.statuses[load_key] = {
+                "aggregated_errors": None,
+                "state": "PASSED",
+                "top": True,  # Passing files will appear first
+            }
+        elif isinstance(load_key, list):
+            for lk in load_key:
+                self.statuses[lk] = {
+                    "aggregated_errors": None,
+                    "state": "PASSED",
+                    "top": True,  # Passing files will appear first
+                }
+        else:
+            raise ProgrammingError(
+                f"Invalid load_key type: {type(load_key).__name__}.  Only str & list are accepted."
+            )
 
     def set_load_exception(
         self,
@@ -3745,6 +3801,74 @@ class ConditionallyRequiredArgs(InfileError):
 
 class NoLoadData(Exception):
     pass
+
+
+class PlaceholdersAdded(Exception):
+    def __init__(self, pa_list: list[PlaceholderAdded]):
+        pae_dict: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(object)))
+        from_version = None
+        to_version = None
+        for pae in pa_list:
+            filesheet = generate_file_location_string(file=pae.file, sheet=pae.sheet)
+            row = pae.rownum if pae.rownum is not None else "all rows"
+            column = pae.column if pae.column is not None else "all columns"
+            pae_dict[filesheet][row][column] = pae
+            from_version = pae.from_version
+            to_version = pae.to_version
+        sum_dict: dict = defaultdict(lambda: defaultdict(list))
+        for filesheet in pae_dict.keys():
+            for row in pae_dict[filesheet].keys():
+                cols = ", ".join(sorted(pae_dict[filesheet][row].keys()))
+                sum_dict[filesheet][cols].append(row)
+        message = (
+            f"The conversion of the input study doc from from version {from_version} to version {to_version} "
+            "resulted in placeholder values being added due to unconsolidated/missing data in the older version.\n"
+            "Please edit the placeholder values described below:\n"
+        )
+        for filesheet in sum_dict.keys():
+            if len(sum_dict[filesheet].keys()) == 1:
+                prepend_str = "\t"
+                postpend_str = f" in {filesheet}"
+            else:
+                prepend_str = "\t\t"
+                postpend_str = ""
+                message += f"\t{filesheet}:\n"
+            for cols in sum_dict[filesheet].keys():
+                message += (
+                    f"{prepend_str}columns [{cols}] on row(s) ["
+                    + ", ".join(summarize_int_list(sum_dict[filesheet][cols]))
+                    + f"]{postpend_str}\n"
+                )
+        super().__init__(message)
+        self.pa_list = pa_list
+
+
+class PlaceholderAdded(SummarizableError, InfileError):
+    SummarizerExceptionClass = PlaceholdersAdded
+
+    def __init__(
+        self, from_version, to_version, message=None, suggestion=None, **kwargs
+    ):
+        if message is None:
+            message = (
+                f"The conversion of the input study doc from from version {from_version} to version {to_version} "
+                "resulted in placeholder values being added due to unconsolidated/missing data in the older version.\n"
+                "Please update the placeholder value(s) added to %s."
+            )
+        if suggestion is not None:
+            message += f"  {suggestion}"
+        super().__init__(message, **kwargs)
+        self.from_version = from_version
+        self.to_version = to_version
+
+
+class PlaceholderDetected(InfileError):
+    def __init__(self, message=None, suggestion=None, **kwargs):
+        if message is None:
+            message = "Placeholder values detected on %s.  Skipping load of the corresponding record(s)."
+        if suggestion is not None:
+            message += f"  {suggestion}"
+        super().__init__(message, **kwargs)
 
 
 class NotATableLoader(TypeError):
