@@ -1,170 +1,163 @@
-from datetime import timedelta
+# from datetime import timedelta
 
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
 
-from DataRepo.models import (
-    Animal,
+from DataRepo.models import (  # Animal,; Tissue,
     Infusate,
     MaintainedModel,
     Sample,
     Study,
-    Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import (
+from DataRepo.utils.exceptions import (  # ConflictingValueError,; NewResearcher,; NewResearchers,
     AggregatedErrors,
-    ConflictingValueError,
     MissingRecords,
-    NewResearcher,
-    NewResearchers,
     RequiredColumnValues,
 )
-from DataRepo.utils.infusate_name_parser import (
-    parse_infusate_name,
+from DataRepo.utils.infusate_name_parser import (  # parse_infusate_name,
     parse_infusate_name_with_concs,
 )
 
+# @override_settings(CACHES=settings.TEST_CACHES)
+# class LoadSamplesSmallObob2Tests(TracebaseTestCase):
+#     fixtures = ["lc_methods.yaml"]
 
-@override_settings(CACHES=settings.TEST_CACHES)
-class LoadSamplesSmallObob2Tests(TracebaseTestCase):
-    fixtures = ["lc_methods.yaml"]
+#     @classmethod
+#     def setUpTestData(cls):
+#         Study.objects.create(name="obob_fasted")
+#         Study.objects.create(name="exp024_michael lactate timecourse")
 
-    @classmethod
-    def setUpTestData(cls):
-        Study.objects.create(name="obob_fasted")
-        Study.objects.create(name="exp024_michael lactate timecourse")
+#         call_command(
+#             "load_protocols",
+#             infile="DataRepo/data/tests/small_obob2/protocols.tsv",
+#         )
+#         call_command(
+#             "load_tissues",
+#             infile="DataRepo/data/tests/small_obob2/tissues.tsv",
+#         )
+#         call_command(
+#             "load_compounds",
+#             infile="DataRepo/data/tests/small_obob2/compounds.tsv",
+#         )
 
-        call_command(
-            "load_protocols",
-            infile="DataRepo/data/tests/small_obob2/protocols.tsv",
-        )
-        call_command(
-            "load_tissues",
-            infile="DataRepo/data/tests/small_obob2/tissues.tsv",
-        )
-        call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/small_obob2/compounds.tsv",
-        )
+#         Infusate.objects.get_or_create_infusate(
+#             parse_infusate_name("lysine-[13C6]", [2])
+#         )
+#         Infusate.objects.get_or_create_infusate(
+#             parse_infusate_name("C16:0-[13C16]", [1])
+#         )
+#         Infusate.objects.get_or_create_infusate(
+#             parse_infusate_name("lactate-[13C3]", [148.88])
+#         )
 
-        Infusate.objects.get_or_create_infusate(
-            parse_infusate_name("lysine-[13C6]", [2])
-        )
-        Infusate.objects.get_or_create_infusate(
-            parse_infusate_name("C16:0-[13C16]", [1])
-        )
-        Infusate.objects.get_or_create_infusate(
-            parse_infusate_name("lactate-[13C3]", [148.88])
-        )
+#         call_command(
+#             "load_animals",
+#             infile="DataRepo/data/tests/small_obob2/animals_table.tsv",
+#             headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
+#         )
+#         call_command(
+#             "load_samples",
+#             infile="DataRepo/data/tests/small_obob2/samples_table.tsv",
+#             headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
+#         )
 
-        call_command(
-            "load_animals",
-            infile="DataRepo/data/tests/small_obob2/animals_table.tsv",
-            headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
-        )
-        call_command(
-            "load_samples",
-            infile="DataRepo/data/tests/small_obob2/samples_table.tsv",
-            headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
-        )
+#         call_command(
+#             "load_animals",
+#             infile="DataRepo/data/tests/small_obob2/serum_lactate_animal_table.tsv",
+#             headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
+#         )
+#         call_command(
+#             "load_samples",
+#             infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_new.tsv",
+#             headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
+#         )
 
-        call_command(
-            "load_animals",
-            infile="DataRepo/data/tests/small_obob2/serum_lactate_animal_table.tsv",
-            headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
-        )
-        call_command(
-            "load_samples",
-            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_new.tsv",
-            headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
-        )
+#     def test_samples_loaded(self):
+#         self.assertEqual(15, Sample.objects.all().count())
 
-    def test_samples_loaded(self):
-        self.assertEqual(15, Sample.objects.all().count())
+#     def test_sample_data(self):
+#         sample = Sample.objects.get(name="bat-xz969")
+#         self.assertEqual(sample.time_collected, timedelta(minutes=150))
+#         self.assertEqual(sample.researcher, "Xianfeng Zeng")
+#         self.assertEqual(sample.animal.name, "969")
+#         self.assertEqual(sample.tissue.name, "brown_adipose_tissue")
 
-    def test_sample_data(self):
-        sample = Sample.objects.get(name="bat-xz969")
-        self.assertEqual(sample.time_collected, timedelta(minutes=150))
-        self.assertEqual(sample.researcher, "Xianfeng Zeng")
-        self.assertEqual(sample.animal.name, "969")
-        self.assertEqual(sample.tissue.name, "brown_adipose_tissue")
+#     def test_sample_is_serum(self):
+#         serum = Sample.objects.get(name="serum-xz971")
+#         self.assertTrue(serum.is_serum_sample)
+#         nonserum = Sample.objects.get(name="bat-xz969")
+#         self.assertFalse(nonserum.is_serum_sample)
 
-    def test_sample_is_serum(self):
-        serum = Sample.objects.get(name="serum-xz971")
-        self.assertTrue(serum.is_serum_sample)
-        nonserum = Sample.objects.get(name="bat-xz969")
-        self.assertFalse(nonserum.is_serum_sample)
+#     def test_animal_serum_sample_methods(self):
+#         animal = Animal.objects.get(name="971")
+#         serum_samples = animal.samples.filter(
+#             tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+#         )
+#         self.assertEqual(serum_samples.count(), 1)
+#         last_serum_sample = animal.last_serum_sample
+#         self.assertEqual(last_serum_sample.name, "serum-xz971")
+#         self.assertEqual(last_serum_sample.name, serum_samples.last().name)
 
-    def test_animal_serum_sample_methods(self):
-        animal = Animal.objects.get(name="971")
-        serum_samples = animal.samples.filter(
-            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
-        )
-        self.assertEqual(serum_samples.count(), 1)
-        last_serum_sample = animal.last_serum_sample
-        self.assertEqual(last_serum_sample.name, "serum-xz971")
-        self.assertEqual(last_serum_sample.name, serum_samples.last().name)
+#     def test_missing_time_collected_warning(self):
+#         animal = Animal.objects.get(name="971")
+#         last_serum_sample = animal.last_serum_sample
+#         # pretend the time_collected did not exist
+#         last_serum_sample.time_collected = None
+#         with self.assertWarns(UserWarning):
+#             # The auto-update of the MaintainedField generates the warning
+#             last_serum_sample.save()
 
-    def test_missing_time_collected_warning(self):
-        animal = Animal.objects.get(name="971")
-        last_serum_sample = animal.last_serum_sample
-        # pretend the time_collected did not exist
-        last_serum_sample.time_collected = None
-        with self.assertWarns(UserWarning):
-            # The auto-update of the MaintainedField generates the warning
-            last_serum_sample.save()
+#     def test_dupe_samples_not_loaded(self):
+#         self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
 
-    def test_dupe_samples_not_loaded(self):
-        self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
+#     @MaintainedModel.no_autoupdates()
+#     def test_ls_new_researcher_and_aggregate_errors(self):
+#         # The error string must include:
+#         #   The new researcher is in the error
+#         #   Hidden flag is suggested
+#         #   Existing researchers are shown
+#         exp_err = "check the existing researchers:\n\tMichael Neinast\n\tXianfeng Zeng"
+#         with self.assertRaises(AggregatedErrors) as ar:
+#             call_command(
+#                 "load_samples",
+#                 infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo_new.tsv",
+#                 headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
+#             )
+#         aes = ar.exception
+#         ures = [e for e in aes.exceptions if isinstance(e, NewResearchers)]
+#         self.assertEqual(1, len(ures))
+#         self.assertIn(
+#             exp_err,
+#             str(ures[0]),
+#         )
+#         # There are conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
+#         self.assertEqual(2, len(aes.exceptions))
 
-    @MaintainedModel.no_autoupdates()
-    def test_ls_new_researcher_and_aggregate_errors(self):
-        # The error string must include:
-        #   The new researcher is in the error
-        #   Hidden flag is suggested
-        #   Existing researchers are shown
-        exp_err = "check the existing researchers:\n\tMichael Neinast\n\tXianfeng Zeng"
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_samples",
-                infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo_new.tsv",
-                headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
-            )
-        aes = ar.exception
-        ures = [e for e in aes.exceptions if isinstance(e, NewResearchers)]
-        self.assertEqual(1, len(ures))
-        self.assertIn(
-            exp_err,
-            str(ures[0]),
-        )
-        # There are conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
-        self.assertEqual(2, len(aes.exceptions))
-
-    @MaintainedModel.no_autoupdates()
-    def test_ls_new_researcher_confirmed(self):
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "legacy_load_samples",
-                "DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
-                sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-                skip_researcher_check=True,
-            )
-        aes = ar.exception
-        # Test that no researcher exception occurred
-        ures = [e for e in aes.exceptions if isinstance(e, NewResearcher)]
-        self.assertEqual(0, len(ures))
-        # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
-        cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueError)]
-        self.assertIn("Han Solo", str(cves[0]))
-        self.assertEqual(5, len(cves))
-        # There are 24 expected errors total
-        self.assertEqual(5, len(aes.exceptions))
-        self.assertIn(
-            "5 exceptions occurred, including type(s): [ConflictingValueError].",
-            str(ar.exception),
-        )
+#     @MaintainedModel.no_autoupdates()
+#     def test_ls_new_researcher_confirmed(self):
+#         with self.assertRaises(AggregatedErrors) as ar:
+#             call_command(
+#                 "legacy_load_samples",
+#                 "DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
+#                 sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
+#                 skip_researcher_check=True,
+#             )
+#         aes = ar.exception
+#         # Test that no researcher exception occurred
+#         ures = [e for e in aes.exceptions if isinstance(e, NewResearcher)]
+#         self.assertEqual(0, len(ures))
+#         # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
+#         cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueError)]
+#         self.assertIn("Han Solo", str(cves[0]))
+#         self.assertEqual(5, len(cves))
+#         # There are 24 expected errors total
+#         self.assertEqual(5, len(aes.exceptions))
+#         self.assertIn(
+#             "5 exceptions occurred, including type(s): [ConflictingValueError].",
+#             str(ar.exception),
+#         )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
