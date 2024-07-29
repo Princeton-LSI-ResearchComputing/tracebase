@@ -1219,12 +1219,15 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             if self.msrun_sample_dict[uss]["seen"] is False
         ]
         if len(unexpected_samples) > 0:
-            self.aggregated_errors_object.buffer_warning(
+            self.aggregated_errors_object.buffer_error(
                 UnexpectedSamples(
                     unexpected_samples,
-                    suggestion=(
-                        f"Make sure that the {self.headers.SAMPLEHEADER}s whose peak annotation file is "
-                        f"'{self.friendly_file}' in the {self.msrunsloader.DataSheetName} sheet/file is correct."
+                    file=self.friendly_file,
+                    rel_file=self.msrunsloader.friendly_file,
+                    rel_sheet=self.msrunsloader.DataSheetName,
+                    rel_column=(
+                        f"{self.msrunsloader.DataHeaders.SAMPLEHEADER} "
+                        f"and {self.msrunsloader.DataHeaders.ANNOTNAME}"
                     ),
                 )
             )
