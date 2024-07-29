@@ -42,7 +42,7 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValues,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 
 
 class MSRunsLoader(TableLoader):
@@ -1178,7 +1178,7 @@ class MSRunsLoader(TableLoader):
                     date_str,
                 ) = MSRunSequence.parse_sequence_name(name)
 
-                date = string_to_datetime(
+                date = string_to_date(
                     date_str,
                     # The following arguments are for error reporting
                     file=error_source,
@@ -1239,7 +1239,7 @@ class MSRunsLoader(TableLoader):
                     missing_defaults.append(SequencesLoader.DataHeaders.INSTRUMENT)
 
                 if self.date_default is not None:
-                    query_dict["date"] = string_to_datetime(
+                    query_dict["date"] = string_to_date(
                         self.date_default,
                         # The following arguments are for error reporting
                         file=error_source,
@@ -1699,7 +1699,7 @@ class MSRunsLoader(TableLoader):
 
         Args:
             mzxml_bamename (string): The basename of an mzXML file (or accucor/isocorr sample header.
-            suffix_patterns (list of regular expression strings)
+            suffix_patterns (list of regular expression strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: E.g. "_pos".
             add_patterns (boolean): Whether to add the supplied patterns to the defaults or replace them.
         Exceptions:
             None

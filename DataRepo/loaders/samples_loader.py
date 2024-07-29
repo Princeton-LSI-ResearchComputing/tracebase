@@ -22,7 +22,8 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import datetime_to_string, string_to_date
+from DataRepo.utils.text_utils import is_number
 
 
 class SamplesLoader(TableLoader):
@@ -109,6 +110,7 @@ class SamplesLoader(TableLoader):
     FieldToDataValueConverter = {
         Sample.__name__: {
             "time_collected": lambda val: val.total_seconds() // 60,
+            "date": lambda val: datetime_to_string(val),
         },
     }
 
@@ -275,6 +277,7 @@ class SamplesLoader(TableLoader):
             self.aggregated_errors_object.buffer_warning(
                 NewResearcher(
                     researcher,
+                    known=self.known_researchers,
                     file=self.friendly_file,
                     sheet=self.sheet,
                     rownum=self.rownum,
@@ -288,7 +291,7 @@ class SamplesLoader(TableLoader):
         try:
             # A None value will cause a skip (at the is_skip_row check) below, since the field is required
             if date_str is not None:
-                date = string_to_datetime(date_str)
+                date = string_to_date(date_str)
         except DateParseError as dpe:
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
@@ -315,26 +318,33 @@ class SamplesLoader(TableLoader):
                 ve,
                 column=self.headers.DATE,
                 suggestion=(
-                    f"Setting a placeholder value of {date}, for now.  Note, this could cause a "
-                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DATE} conflicts."
+                    f"Setting a default value of {date}.  If this causes a ConflictingValueError in the "
+                    f"'{self.headers.DATE}' column, but you're OK with the default, you can ignore it."
                 ),
             )
 
-        time_collected_str = self.get_row_val(row, self.headers.DAYS_INFUSED)
+        time_collected_str = str(self.get_row_val(row, self.headers.DAYS_INFUSED))
         try:
+            time_collected = None
             # A None value will cause a skip (at the is_skip_row check) below, since the field is required
-            if time_collected_str is not None:
-                time_collected = timedelta(minutes=time_collected_str)
+            if time_collected_str not in self.none_vals:
+                if is_number(time_collected_str):
+                    time_collected = timedelta(minutes=float(time_collected_str))
+                else:
+                    raise ValueError(
+                        f"Invalid time_collected: '{time_collected_str}'.  Must be numeric."
+                    )
         except Exception as e:
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
-            time_collected = timedelta(minutes=0)
+            phv = 0
+            time_collected = timedelta(minutes=phv)
             self.buffer_infile_exception(
                 e,
                 column=self.headers.DAYS_INFUSED,
                 suggestion=(
-                    f"Setting a placeholder value of {time_collected}, for now.  Note, this could cause a "
-                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DAYS_INFUSED} conflicts."
+                    f"Setting a default value of {phv} minutes.  If this causes a ConflictingValueError in the "
+                    f"'{self.headers.DAYS_INFUSED}' column, but you're OK with the default, you can ignore it."
                 ),
             )
 

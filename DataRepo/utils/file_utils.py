@@ -1,6 +1,7 @@
 import pathlib
 from collections import defaultdict
 from datetime import datetime
+from typing import Optional
 from zipfile import BadZipFile
 
 import dateutil
@@ -612,7 +613,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     return dupe_dict, all_row_idxs_with_dupes
 
 
-def string_to_datetime(
+def string_to_date(
     date_in, format_str=None, file=None, sheet=None, rownum=None, column=None
 ):
     date_str = str(date_in)
@@ -624,7 +625,7 @@ def string_to_datetime(
         date_str = date_str.replace(" 00:00:00", "")
 
     try:
-        dt = datetime.strptime(date_str.strip(), format_str)
+        dt = datetime.strptime(date_str.strip(), format_str).date()
     except ValueError as ve:
         try:
             # Fallback to try dateutil
@@ -646,3 +647,8 @@ def string_to_datetime(
                     )
                 raise ve
     return dt
+
+
+def datetime_to_string(date_in: datetime, format_str: Optional[str] = None):
+    format = "%Y-%m-%d" if format_str is None else format_str
+    return date_in.strftime(format)
