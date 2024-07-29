@@ -288,6 +288,8 @@ class ConvertedTableLoader(TableLoader, ABC):
         # Check the results for validity
         self.check_output_dataframe(outdf)
 
+        self.df = outdf
+
         return outdf
 
     def check_output_dataframe(self, outdf):
@@ -695,7 +697,7 @@ class ConvertedTableLoader(TableLoader, ABC):
         return list(cls.OrigDataRequiredHeaders.keys())
 
     @classmethod
-    def get_required_headers(cls, sheet):
+    def get_required_headers(cls, sheet=None):
         """Returns a list of required original headers in the supplied required sheet.  Returns headers from all
         required sheets if the supplied sheet is None.
 
@@ -952,7 +954,9 @@ class ConvertedTableLoader(TableLoader, ABC):
                     commits anything, but it also raises warnings as fatal (so they can be reported through the web
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
-                None
+                df (Optional[pandas dataframe|Dict[str, pandas dataframe]]): This constructor intercepts the
+                    TableLoader's df argument, modifying it if a dict of dataframes is supplied, so that it can convert
+                    it to a pandas dataframe.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -962,14 +966,30 @@ class ConvertedTableLoader(TableLoader, ABC):
             None
         """
         # Preserve the original df
-        self.orig_df = kwargs.get("df")
+        self.orig_df = kwargs.pop("df", None)
+
+        # TODO: Add support for df being a dict to TableLoader (having it obtain the df using the DataSheetName).  Then
+        # remove this code that modifies the df (so that the TableLoader code that obtains column header (when there are
+        # user defaults) will work).
+        if self.orig_df is not None:
+            # This simulates a pandas dataframe where the sheet names are the "headers" and the columns are empty.  We
+            # are only doing this because the TableLoader constructor retrieves the df.columns when initializing user
+            # defaults.  And, the new StudyLoader class overloads this for that prupose.  The TODO item above is to
+            # formally codify this as a supported use-case in TableLoader.
+            tmp_df_dict = {}
+            if isinstance(self.orig_df, dict):
+                for sheetname in self.orig_df.keys():
+                    tmp_df_dict[sheetname] = {}
+                kwargs["df"] = pd.DataFrame.from_dict(tmp_df_dict)
+
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
         TableLoader.__init__(self, *args, **kwargs)
-        # Overwrite what the superclass saved with a converted version.  The constructor does noting with the df, and
+        # Overwrite what the superclass saved with a converted version.  The constructor does nothing with the df, and
         # convert_df() makes a deep copy, so this is OK.
         if self.orig_df is not None:
             try:
-                self.df = self.convert_df()
+                # Overwrites self.df
+                self.convert_df()
             except AggregatedErrors:
                 raise
             except Exception as e:
