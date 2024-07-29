@@ -1376,7 +1376,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertTrue(exceptions[afkey][1]["is_error"])
 
         # All samples in sample table combined error
-        groupkey = "No Files are Missing All Samples"
+        groupkey = "Peak Annotation Files Check"
         self.assertTrue(groupkey in results)
         self.assertEqual("FAILED", results[groupkey])
 

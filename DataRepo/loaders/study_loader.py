@@ -712,37 +712,37 @@ class StudyLoader(ConvertedTableLoader, ABC):
             (
                 AllMissingStudies,
                 self.missing_study_record_exceptions,
-                "All Studies Exist in the Database",
+                "Studies Check",
                 False,
             ),
             (
                 AllMissingSamples,
                 self.missing_sample_record_exceptions,
-                "All Samples Exist in the Database",
+                "Samples Check",
                 False,
             ),
             (
                 AllMissingSamples,
                 self.no_sample_record_exceptions,
-                "No Files are Missing All Samples",
+                "Peak Annotation Files Check",
                 True,
             ),
             (
                 AllMissingTissues,
                 self.missing_tissue_record_exceptions,
-                "All Tissues Exist in the Database",
+                "Tissues Check",
                 False,
             ),
             (
                 AllMissingTreatments,
                 self.missing_treatment_record_exceptions,
-                "All Treatments Exist in the Database",
+                "Treatments Check",
                 False,
             ),
             (
                 AllMissingCompounds,
                 self.missing_compound_record_exceptions,
-                "All Compounds Exist in the Database",
+                "Compounds Check",
                 False,
             ),
         ]:
@@ -929,7 +929,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
 class StudyV3Loader(StudyLoader):
     version_number = "3.0"
 
-    ConversionHeading = f"Study Doc v{version_number} Conversion Check"
+    ConversionHeading = f"Study Doc Version Check v{version_number}"
 
     # These are actually sheet names, not headers
     OrigDataTableHeaders = StudyLoader.DataTableHeaders
@@ -1063,7 +1063,7 @@ class StudyV3Loader(StudyLoader):
 class StudyV2Loader(StudyLoader):
     version_number = "2.0"
 
-    ConversionHeading = f"Study Doc v{version_number} Conversion Check"
+    ConversionHeading = f"Study Doc Version Check v{version_number}"
 
     # These are actually for sheet names, not headers
     OrigDataTableHeaders = namedtuple(

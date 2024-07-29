@@ -196,29 +196,21 @@ class StudyLoaderTests(TracebaseTestCase):
 
         self.assertEqual(
             1,
-            len(
-                aess.aggregated_errors_dict[
-                    "All Tissues Exist in the Database"
-                ].exceptions
-            ),
+            len(aess.aggregated_errors_dict["Tissues Check"].exceptions),
         )
         self.assertTrue(
-            aess.aggregated_errors_dict[
-                "All Tissues Exist in the Database"
-            ].exception_type_exists(AllMissingTissues)
+            aess.aggregated_errors_dict["Tissues Check"].exception_type_exists(
+                AllMissingTissues
+            )
         )
 
         self.assertEqual(
             1,
-            len(
-                aess.aggregated_errors_dict[
-                    "No Files are Missing All Samples"
-                ].exceptions
-            ),
+            len(aess.aggregated_errors_dict["Peak Annotation Files Check"].exceptions),
         )
         self.assertTrue(
             aess.aggregated_errors_dict[
-                "No Files are Missing All Samples"
+                "Peak Annotation Files Check"
             ].exception_type_exists(AllMissingSamples)
         )
 
@@ -242,12 +234,8 @@ class StudyLoaderTests(TracebaseTestCase):
             len(sl.load_statuses.statuses.keys()),
             msg=f"Load status keys: {list(sl.load_statuses.statuses.keys())}",
         )
-        self.assertIn(
-            "All Samples Exist in the Database", sl.load_statuses.statuses.keys()
-        )
-        self.assertIn(
-            "All Compounds Exist in the Database", sl.load_statuses.statuses.keys()
-        )
+        self.assertIn("Samples Check", sl.load_statuses.statuses.keys())
+        self.assertIn("Compounds Check", sl.load_statuses.statuses.keys())
         self.assertIn("study_missing_data.xlsx", sl.load_statuses.statuses.keys())
 
     def test_get_loader_instances(self):
