@@ -20,16 +20,12 @@ from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Protocol, Tissue
-from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
-from DataRepo.models.lc_method import LCMethod
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     UncleanBufferError,
 )
-from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.models.sample import Sample
-from DataRepo.models.study import Study
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
 from DataRepo.utils.exceptions import (
@@ -40,7 +36,6 @@ from DataRepo.utils.exceptions import (
     NonUniqueSampleDataHeader,
     RecordDoesNotExist,
 )
-from DataRepo.utils.file_utils import string_to_datetime
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.views.upload.validation import DataValidationView
 
@@ -552,24 +547,33 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         vo.extract_autofill_from_exceptions()
 
         self.assertEqual(
-            1, len(vo.extracted_exceptions[AllMissingSamples.__name__]["errors"])
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            0,
+            len(vo.extracted_exceptions[AllMissingSamples.__name__]["errors"]),
         )
         self.assertEqual(
-            2, len(vo.extracted_exceptions[AllMissingSamples.__name__]["warnings"])
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            3,
+            len(vo.extracted_exceptions[AllMissingSamples.__name__]["warnings"]),
         )
         self.assertEqual(
-            1, len(vo.extracted_exceptions[AllMissingTissues.__name__]["errors"])
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            0,
+            len(vo.extracted_exceptions[AllMissingTissues.__name__]["errors"]),
         )
         self.assertEqual(
-            2,
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            3,
             len(vo.extracted_exceptions[AllMissingTissues.__name__]["warnings"]),
         )
         self.assertEqual(
-            1,
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            0,
             len(vo.extracted_exceptions[AllMissingTreatments.__name__]["errors"]),
         )
         self.assertEqual(
-            2,
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            3,
             len(vo.extracted_exceptions[AllMissingTreatments.__name__]["warnings"]),
         )
         self.assertDictEqual(
@@ -595,16 +599,16 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertIn("All Tissues present", vo.load_status_data.statuses.keys())
         self.assertIn("All Treatments present", vo.load_status_data.statuses.keys())
         self.assertEqual(
-            "PASSED", vo.load_status_data.statuses["All Samples present"]["state"]
+            "WARNING", vo.load_status_data.statuses["All Samples present"]["state"]
         )
         self.assertEqual(
-            "PASSED", vo.load_status_data.statuses["All Tissues present"]["state"]
+            "WARNING", vo.load_status_data.statuses["All Tissues present"]["state"]
         )
         self.assertEqual(
-            "PASSED", vo.load_status_data.statuses["All Treatments present"]["state"]
+            "WARNING", vo.load_status_data.statuses["All Treatments present"]["state"]
         )
-        self.assertEqual("PASSED", vo.load_status_data.statuses["file1.xlsx"]["state"])
-        self.assertEqual("PASSED", vo.load_status_data.statuses["file2.xlsx"]["state"])
+        self.assertEqual("WARNING", vo.load_status_data.statuses["file1.xlsx"]["state"])
+        self.assertEqual("WARNING", vo.load_status_data.statuses["file2.xlsx"]["state"])
 
     def test_extract_all_missing_samples(self):
         vo = DataValidationView()
@@ -1014,7 +1018,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
-        call_command("loaddata", "data_types", "data_formats")
+        call_command("loaddata", "lc_methods", "data_types", "data_formats")
         call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -1313,32 +1317,19 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertTemplateUsed(response, "validation_disabled.html")
 
     def test_accucor_validation_error(self):
-        # self.clear_database()
-        # self.initialize_databases()
+        self.clear_database()
+        self.initialize_databases()
 
-        # TODO: Add the missing Sheet to the data (then remove these loads)
-        Study.objects.create(name="Small OBOB")
-        Compound.objects.create(
-            name="lysine", formula="C6H14N2O2", hmdb_id="HMDB0000182"
-        )
-        Compound.objects.create(
-            name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
-        )
-        Compound.objects.create(name="lactate", formula="C3H6O3", hmdb_id="HMDB0000190")
+        # No infusates sheet included, so creating the infusate
         Infusate.objects.get_or_create_infusate(
             parse_infusate_name_with_concs("lysine-[13C6][23.2]")
         )
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        MSRunSequence.objects.create(
-            researcher="Xianfeng Zeng",
-            date=string_to_datetime("1972-11-24"),
-            instrument="unknown",
-            lc_method=lcm,
-        )
 
+        # The study doc has 12 samples
         sample_file = (
             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
+        # The accucor file intentionally has 1 sample that's not in the study doc
         accucor_files = [
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
         ]
@@ -1352,7 +1343,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
             num_warnings,
         ] = self.validate_some_files(sample_file, accucor_files)
 
-        # Sample file
+        # Sample file should be OK.  It's loaded first.
         self.assertTrue(sfkey in results)
         self.assertEqual(
             "PASSED",
@@ -1364,20 +1355,28 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertEqual(0, num_errors[sfkey])
         self.assertEqual(0, num_warnings[sfkey])
 
-        # Accucor file
+        # Accucor file will have an error about a missing sample that will have been converted into a warning (because
+        # it would have been converted to an AllMissingSamples error in an exception group), but it will also have an
+        # error about headers that the Peak AnnotationDetails sheet says are in this file, but they were not found.
+        # That will remain an error.
         self.assertTrue(afkey in results)
-        self.assertEqual("WARNING", results[afkey])
+        self.assertEqual("FAILED", results[afkey])
 
         self.assertTrue(
             afkey in exceptions,
             msg=f"{afkey} should be a key in the exceptions dict.  Its keys are: {exceptions.keys()}",
         )
-        self.assertEqual(0, num_errors[afkey])
+        self.assertEqual(1, num_errors[afkey])
+        self.assertEqual(
+            1, num_warnings[afkey], msg=f"All exceptions: {exceptions[afkey]}"
+        )
         self.assertEqual("NoSamples", exceptions[afkey][0]["type"])
-        self.assertEqual(1, num_warnings[afkey])
+        self.assertFalse(exceptions[afkey][0]["is_error"])
+        self.assertEqual("UnexpectedSamples", exceptions[afkey][1]["type"])
+        self.assertTrue(exceptions[afkey][1]["is_error"])
 
         # All samples in sample table combined error
-        groupkey = "No Files are Missing All Samples"
+        groupkey = "Peak Annotation Files Check"
         self.assertTrue(groupkey in results)
         self.assertEqual("FAILED", results[groupkey])
 
@@ -1388,6 +1387,13 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertEqual(1, num_errors[groupkey])
         self.assertEqual("AllMissingSamples", exceptions[groupkey][0]["type"])
         self.assertEqual(0, num_warnings[groupkey])
+
+        self.assertEqual(8, len(results.keys()), msg=f"Keys: {results.keys()}")
+        self.assertEqual(8, len(exceptions.keys()), msg=f"Keys: {exceptions.keys()}")
+        self.assertEqual(8, len(num_errors.keys()), msg=f"Keys: {num_errors.keys()}")
+        self.assertEqual(
+            8, len(num_warnings.keys()), msg=f"Keys: {num_warnings.keys()}"
+        )
 
         self.assertFalse(valid)
 
@@ -1521,5 +1527,21 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         pass
 
     def test_extract_autofill_from_sequences_sheet(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_dropdowns(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_static_dropdowns(self):
+        # TODO: Implement test
+        pass
+
+    def test_add_formulas(self):
+        # TODO: Implement test
+        pass
+
+    def test_create_format_objects(self):
         # TODO: Implement test
         pass

@@ -15,7 +15,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredOptions,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 
 
 class LoadMSRunsCommandTests(TracebaseTestCase):
@@ -47,7 +47,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
     def test_conditionally_required_options_all_custom_opts(self):
         MSRunSequence.objects.create(
             researcher="George Santos",
-            date=string_to_datetime("2024-05-02"),
+            date=string_to_date("2024-05-02"),
             lc_method=LCMethod.objects.get(name="polar-HILIC-25-min"),
             instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
         )
@@ -67,7 +67,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
     def test_conditionally_required_options_defaults_file(self):
         MSRunSequence.objects.create(
             researcher="Xianfeng Zeng",
-            date=string_to_datetime("2020-11-01"),
+            date=string_to_date("2020-11-01"),
             lc_method=LCMethod.objects.get(name="polar-HILIC-25-min"),
             instrument="QE",
         )

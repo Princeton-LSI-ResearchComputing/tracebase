@@ -392,6 +392,7 @@ class TracersLoaderTests(TracebaseTestCase):
                 rec,
                 {
                     "tracer_name": "lysine-[14C6]",
+                    "compound_name": "lysine",
                     "rownum": 2,
                     "isotopes": [{"rownum": 2}],
                 },
@@ -400,11 +401,11 @@ class TracersLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[0]))
         self.assertIn(
-            "supplied tracer name [lysine-[14C6]]",
+            "supplied tracer name 'lysine-[14C6]'",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "generated name [lysine-[13C6]]",
+            "generated name 'lysine-[13C6]'",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
-        self.assertIn("on rows ['2']", str(tl.aggregated_errors_object.exceptions[0]))
+        self.assertIn("on row(s) ['2']", str(tl.aggregated_errors_object.exceptions[0]))
