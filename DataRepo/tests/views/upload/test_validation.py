@@ -547,24 +547,33 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         vo.extract_autofill_from_exceptions()
 
         self.assertEqual(
-            1, len(vo.extracted_exceptions[AllMissingSamples.__name__]["errors"])
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            0,
+            len(vo.extracted_exceptions[AllMissingSamples.__name__]["errors"]),
         )
         self.assertEqual(
-            2, len(vo.extracted_exceptions[AllMissingSamples.__name__]["warnings"])
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            3,
+            len(vo.extracted_exceptions[AllMissingSamples.__name__]["warnings"]),
         )
         self.assertEqual(
-            1, len(vo.extracted_exceptions[AllMissingTissues.__name__]["errors"])
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            0,
+            len(vo.extracted_exceptions[AllMissingTissues.__name__]["errors"]),
         )
         self.assertEqual(
-            2,
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            3,
             len(vo.extracted_exceptions[AllMissingTissues.__name__]["warnings"]),
         )
         self.assertEqual(
-            1,
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            0,
             len(vo.extracted_exceptions[AllMissingTreatments.__name__]["errors"]),
         )
         self.assertEqual(
-            2,
+            # The 1 error is modified to a warning because it gets fixed/autofilled
+            3,
             len(vo.extracted_exceptions[AllMissingTreatments.__name__]["warnings"]),
         )
         self.assertDictEqual(
@@ -590,16 +599,16 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertIn("All Tissues present", vo.load_status_data.statuses.keys())
         self.assertIn("All Treatments present", vo.load_status_data.statuses.keys())
         self.assertEqual(
-            "PASSED", vo.load_status_data.statuses["All Samples present"]["state"]
+            "WARNING", vo.load_status_data.statuses["All Samples present"]["state"]
         )
         self.assertEqual(
-            "PASSED", vo.load_status_data.statuses["All Tissues present"]["state"]
+            "WARNING", vo.load_status_data.statuses["All Tissues present"]["state"]
         )
         self.assertEqual(
-            "PASSED", vo.load_status_data.statuses["All Treatments present"]["state"]
+            "WARNING", vo.load_status_data.statuses["All Treatments present"]["state"]
         )
-        self.assertEqual("PASSED", vo.load_status_data.statuses["file1.xlsx"]["state"])
-        self.assertEqual("PASSED", vo.load_status_data.statuses["file2.xlsx"]["state"])
+        self.assertEqual("WARNING", vo.load_status_data.statuses["file1.xlsx"]["state"])
+        self.assertEqual("WARNING", vo.load_status_data.statuses["file2.xlsx"]["state"])
 
     def test_extract_all_missing_samples(self):
         vo = DataValidationView()
@@ -1379,10 +1388,12 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertEqual("AllMissingSamples", exceptions[groupkey][0]["type"])
         self.assertEqual(0, num_warnings[groupkey])
 
-        self.assertEqual(3, len(results.keys()))
-        self.assertEqual(3, len(exceptions.keys()))
-        self.assertEqual(3, len(num_errors.keys()))
-        self.assertEqual(3, len(num_warnings.keys()))
+        self.assertEqual(8, len(results.keys()), msg=f"Keys: {results.keys()}")
+        self.assertEqual(8, len(exceptions.keys()), msg=f"Keys: {exceptions.keys()}")
+        self.assertEqual(8, len(num_errors.keys()), msg=f"Keys: {num_errors.keys()}")
+        self.assertEqual(
+            8, len(num_warnings.keys()), msg=f"Keys: {num_warnings.keys()}"
+        )
 
         self.assertFalse(valid)
 

@@ -18,7 +18,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 
 
 class SequencesLoader(TableLoader):
@@ -309,7 +309,7 @@ class SequencesLoader(TableLoader):
 
         try:
             date_str = self.get_row_val(row, self.headers.DATE)
-            date = string_to_datetime(
+            date = string_to_date(
                 date_str,
                 file=self.friendly_file,
                 sheet=self.sheet,

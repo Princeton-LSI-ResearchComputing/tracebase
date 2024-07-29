@@ -188,10 +188,12 @@ class Infusate(MaintainedModel, HierCachedModel):
     @classmethod
     def name_from_data(self, infusate_data: InfusateData):
         """Build an infusate name (not in the database) from an InfusateData object."""
+        from DataRepo.models.tracer import Tracer
+
         name = self.TRACER_DELIMETER.join(
             sorted(
                 map(
-                    lambda o: o["tracer"]["unparsed_string"]
+                    lambda o: Tracer.name_from_data(o["tracer"])
                     + f"[{o['concentration']:.{self.CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
                     infusate_data["tracers"],
                 )
@@ -225,6 +227,7 @@ class Infusate(MaintainedModel, HierCachedModel):
         Returns:
             equal (boolean): Whether the supplied name and concentration are equivalent to the record.
         """
+        from DataRepo.models.compound import Compound
         from DataRepo.utils.infusate_name_parser import (
             InfusateParsingError,
             TracerParsingError,
@@ -250,6 +253,15 @@ class Infusate(MaintainedModel, HierCachedModel):
                 return False
             raise ipe
 
+        # Change all the compound names in the supplied data with the primary compound name, so that we're comparing
+        # apples to apples
+        for item in sup_data["tracers"]:
+            item["tracer"]["compound_name"] = (
+                Compound.compound_matching_name_or_synonym(
+                    item["tracer"]["compound_name"]
+                ).name
+            )
+
         if rec_data["infusate_name"] != sup_data["infusate_name"] or len(
             rec_data["tracers"]
         ) != len(sup_data["tracers"]):
@@ -264,10 +276,13 @@ class Infusate(MaintainedModel, HierCachedModel):
         )
 
         for i, _ in enumerate(rec_tracers_data_sorted_by_compound):
-            if not math.isclose(
-                rec_tracers_data_sorted_by_compound[i]["concentration"],
-                sup_tracers_data_sorted_by_compound[i]["concentration"],
-            ):
+            rec_conc_sigdig = float(
+                f"{rec_tracers_data_sorted_by_compound[i]['concentration']:.{self.CONCENTRATION_SIGNIFICANT_FIGURES}g}"
+            )
+            sup_conc_sigdig = float(
+                f"{sup_tracers_data_sorted_by_compound[i]['concentration']:.{self.CONCENTRATION_SIGNIFICANT_FIGURES}g}"
+            )
+            if not math.isclose(rec_conc_sigdig, sup_conc_sigdig):
                 return False
             elif (
                 rec_tracers_data_sorted_by_compound[i]["tracer"]["compound_name"]

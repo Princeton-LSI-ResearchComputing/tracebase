@@ -49,7 +49,10 @@ from DataRepo.utils.exceptions import (
     AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
+    BlankRemoved,
+    BlanksRemoved,
     ConditionallyRequiredArgs,
+    InfileError,
     InvalidStudyDocVersion,
     MissingCompounds,
     MissingModelRecordsByFile,
@@ -66,7 +69,12 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     UnknownStudyDocVersion,
 )
-from DataRepo.utils.file_utils import is_excel, read_from_file
+from DataRepo.utils.file_utils import (
+    datetime_to_string,
+    is_excel,
+    read_from_file,
+    string_to_date,
+)
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_concentrations,
@@ -80,6 +88,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
     @abstractmethod
     def version_number(self) -> str:
         """The version of the study doc"""
+        pass
+
+    @property
+    @abstractmethod
+    def ConversionHeading(self) -> str:
+        """Category name under which conversion errors and warnings will be found.  (str)"""
         pass
 
     LatestLoaderName = "StudyV3Loader"
@@ -732,6 +746,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 False,
             ),
         ]:
+            # Add this load key (if not already present anong the load keys).
+            # This is what causes passes green status checks on the validation status report.
+            self.load_statuses.update_load(load_key)
 
             # Collect all the missing samples in 1 error to add to the animal sample table file
             if len(exc_lst) > 0:
@@ -778,6 +795,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     # comes from.
                 )
                 common_sheets = list(expected_sheets.intersection(supplied_sheets))
+                # TODO: This debug data should be tracked and be used/[resented when there is no version match.  For
+                # now, keep it as a debug print.
+                print(
+                    f"V{study_loader_subcls.version_number} EXPECTED SHEETS: {expected_sheets} SUPPLIED SHEETS: "
+                    f"{supplied_sheets}"
+                )
                 match = False
                 if len(common_sheets) > 0:
                     common_data[study_loader_subcls.__name__]["sheets"] = common_sheets
@@ -788,7 +811,16 @@ class StudyLoader(ConvertedTableLoader, ABC):
                             study_loader_subcls.get_required_headers(sheet)
                         )
                         supplied_headers = set(list(df_dict[sheet].columns))
+                        # TODO: This debug data should be tracked and be used/[resented when there is no version match.
+                        # For now, keep it as a debug print.
+                        print(
+                            f"V{study_loader_subcls.version_number} SHEET {sheet} REQUIRED HEADERS: {expected_headers} "
+                            f"SUPPLIED HEADERS: {supplied_headers}"
+                        )
                         if not expected_headers <= supplied_headers:
+                            # TODO: This debug data should be tracked and be used/[resented when there is no version
+                            # match. For now, keep it as a debug print.
+                            print(f"NOT {study_loader_subcls.version_number}")
                             match = False
                             break
 
@@ -896,6 +928,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
 class StudyV3Loader(StudyLoader):
     version_number = "3.0"
+
+    ConversionHeading = f"Study Doc v{version_number} Conversion Check"
 
     # These are actually sheet names, not headers
     OrigDataTableHeaders = StudyLoader.DataTableHeaders
@@ -1017,6 +1051,8 @@ class StudyV3Loader(StudyLoader):
     merged_drop_columns_list = None
 
     def convert_df(self):
+        # Explicitly NOT adding the ConversionHeading as a load key.
+
         # self.orig_df is created by the ConvertedTableLoader constructor
         self.df_dict = self.orig_df
         # The ConvertedTableLoader constructor also creates an empty df for the sheets (to treat them as headers).  This
@@ -1026,6 +1062,8 @@ class StudyV3Loader(StudyLoader):
 
 class StudyV2Loader(StudyLoader):
     version_number = "2.0"
+
+    ConversionHeading = f"Study Doc v{version_number} Conversion Check"
 
     # These are actually for sheet names, not headers
     OrigDataTableHeaders = namedtuple(
@@ -1070,8 +1108,8 @@ class StudyV2Loader(StudyLoader):
             "Infusion Rate",
             "Study Name",
             "Study Description",
-            "Animal Body Weight",
-            "Age",
+            # "Animal Body Weight",  # Not in 122221_highglycine_13Cgly_sucrosewater_MM
+            # "Age",  # Not in serine-glycine-free-glucose-infusion
             "Sex",
             "Animal Genotype",
             "Feeding Status",
@@ -1120,6 +1158,10 @@ class StudyV2Loader(StudyLoader):
                 "Must be a dict of pandas dataframes."
             )
 
+        # Add the conversion check heading to the load statuses (even though version 2 will always be added as a
+        # warning).  This defines where the placeholder added and blanks removed warnings will be presented.
+        self.load_statuses.update_load(self.ConversionHeading)
+
         indf_dict = deepcopy(self.orig_df)
 
         # 1. Prepare all sheets
@@ -1140,12 +1182,14 @@ class StudyV2Loader(StudyLoader):
         }
 
         # Add missing sheets (Note, there are none that need renamed)
+        sheets_supplied = []
         for hk in StudyLoader.DataHeaders._fields:
             if getattr(StudyLoader.Loaders, hk) is None:
                 continue
             sheet = getattr(StudyLoader.DataHeaders, hk)
             if sheet in indf_dict.keys():
                 dfs_dict[sheet] = indf_dict[sheet].to_dict()
+                sheets_supplied.append(sheet)
             else:
                 dfs_dict[sheet] = loaders[hk].get_dataframe_template(
                     populate=sheet in populate_sheets,
@@ -1157,196 +1201,304 @@ class StudyV2Loader(StudyLoader):
         # Animals sheet mods
         sheet = AnimalsLoader.DataSheetName
 
-        # Rename Animal Genotype -> Genotype
-        old_header = "Animal Genotype"
-        new_header = loaders["ANIMALS"].DataHeaders.GENOTYPE
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+        if sheet in sheets_supplied:
+            # Rename Animal Genotype -> Genotype
+            old_header = "Animal Genotype"
+            new_header = loaders["ANIMALS"].DataHeaders.GENOTYPE
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
-        # Rename Animal Body Weight -> Weight
-        old_header = "Animal Body Weight"
-        new_header = loaders["ANIMALS"].DataHeaders.WEIGHT
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+            # Rename Animal Body Weight -> Weight
+            old_header = "Animal Body Weight"
+            new_header = loaders["ANIMALS"].DataHeaders.WEIGHT
+            weight_col = dfs_dict[sheet].pop(old_header, None)
+            if weight_col is not None:
+                dfs_dict[sheet][new_header] = weight_col
 
-        # Rename Animal Treatment -> Treatment
-        old_header = "Animal Treatment"
-        new_header = loaders["ANIMALS"].DataHeaders.TREATMENT
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+            # Rename Animal Treatment -> Treatment
+            old_header = "Animal Treatment"
+            new_header = loaders["ANIMALS"].DataHeaders.TREATMENT
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
-        # Rename Study Name -> Study
-        old_header = "Study Name"
-        new_header = loaders["ANIMALS"].DataHeaders.STUDY
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+            # Rename Study Name -> Study
+            old_header = "Study Name"
+            new_header = loaders["ANIMALS"].DataHeaders.STUDY
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
-        # Rename Animal ID -> Animal Name
-        old_header = "Animal ID"
-        new_header = loaders["ANIMALS"].DataHeaders.NAME
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+            # Rename Animal ID -> Animal Name
+            old_header = "Animal ID"
+            new_header = loaders["ANIMALS"].DataHeaders.NAME
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
-        # 3. Study sheet
+            # 3. Study sheet
 
-        # Copy Study name and description to study sheet
-        animals_study_name_header = loaders["ANIMALS"].DataHeaders.STUDY
-        animals_study_desc_header = "Study Description"
+            # Copy Study name and description to study sheet
+            animals_study_name_header = loaders["ANIMALS"].DataHeaders.STUDY
+            animals_study_desc_header = "Study Description"
 
-        study_study_code_header = loaders["STUDY"].DataHeaders.CODE
-        study_study_name_header = loaders["STUDY"].DataHeaders.NAME
-        study_study_desc_header = loaders["STUDY"].DataHeaders.DESCRIPTION
+            study_study_code_header = loaders["STUDY"].DataHeaders.CODE
+            study_study_name_header = loaders["STUDY"].DataHeaders.NAME
+            study_study_desc_header = loaders["STUDY"].DataHeaders.DESCRIPTION
 
-        study_dict = {
-            study_study_code_header: {},
-            study_study_name_header: {},
-            study_study_desc_header: {},
-        }
-        new_i = 0
-        seen = {}
+            study_dict = {
+                study_study_code_header: {},
+                study_study_name_header: {},
+                study_study_desc_header: {},
+            }
+            new_i = 0
+            seen = {}
 
-        for i in dfs_dict[sheet][animals_study_name_header].keys():
-            name = dfs_dict[sheet][animals_study_name_header][i]
-            desc = dfs_dict[sheet][animals_study_desc_header][i]
-            key = f"{name},{str(desc)}"
-            if key not in seen.keys():
-                study_dict[study_study_code_header][new_i] = None
-                study_dict[study_study_name_header][new_i] = name
-                study_dict[study_study_desc_header][new_i] = desc
-                seen[key] = 0
-                new_i += 1
+            for i in dfs_dict[sheet][animals_study_name_header].keys():
+                name = dfs_dict[sheet][animals_study_name_header][i]
+                desc = dfs_dict[sheet][animals_study_desc_header][i]
+                key = f"{name},{str(desc)}"
+                if key not in seen.keys():
+                    study_dict[study_study_code_header][new_i] = None
+                    study_dict[study_study_name_header][new_i] = name
+                    study_dict[study_study_desc_header][new_i] = desc
+                    seen[key] = 0
+                    new_i += 1
 
-        dfs_dict[StudiesLoader.DataSheetName] = study_dict
+            dfs_dict[StudiesLoader.DataSheetName] = study_dict
 
-        # Delete Study description column from the Animals sheet
-        dfs_dict[sheet].pop(animals_study_desc_header)
+            # Delete Study description column from the Animals sheet
+            dfs_dict[sheet].pop(animals_study_desc_header)
 
-        # 4. Infusates and Tracers sheets
+            # 4. Infusates and Tracers sheets
 
-        # Modify the Infusate column to include the tracer concentrations in the name
-        animals_infusate_header = loaders["ANIMALS"].DataHeaders.INFUSATE
-        animals_concentrations_header = "Tracer Concentrations"
+            # Modify the Infusate column to include the tracer concentrations in the name
+            animals_infusate_header = loaders["ANIMALS"].DataHeaders.INFUSATE
+            animals_concentrations_header = "Tracer Concentrations"
 
-        infusates_groupnum_header = loaders["INFUSATES"].DataHeaders.ID
-        infusates_groupname_header = loaders["INFUSATES"].DataHeaders.TRACERGROUP
-        infusates_trcr_header = loaders["INFUSATES"].DataHeaders.TRACERNAME
-        infusates_conc_header = loaders["INFUSATES"].DataHeaders.TRACERCONC
-        infusates_name_header = loaders["INFUSATES"].DataHeaders.NAME
+            infusates_groupnum_header = loaders["INFUSATES"].DataHeaders.ID
+            infusates_groupname_header = loaders["INFUSATES"].DataHeaders.TRACERGROUP
+            infusates_trcr_header = loaders["INFUSATES"].DataHeaders.TRACERNAME
+            infusates_conc_header = loaders["INFUSATES"].DataHeaders.TRACERCONC
+            infusates_name_header = loaders["INFUSATES"].DataHeaders.NAME
 
-        tracers_groupnum_header = loaders["TRACERS"].DataHeaders.ID
-        tracers_cmpd_header = loaders["TRACERS"].DataHeaders.COMPOUND
-        tracers_mass_header = loaders["TRACERS"].DataHeaders.MASSNUMBER
-        tracers_elem_header = loaders["TRACERS"].DataHeaders.ELEMENT
-        tracers_count_header = loaders["TRACERS"].DataHeaders.LABELCOUNT
-        tracers_poss_header = loaders["TRACERS"].DataHeaders.LABELPOSITIONS
-        tracers_name_header = loaders["TRACERS"].DataHeaders.NAME
+            tracers_groupnum_header = loaders["TRACERS"].DataHeaders.ID
+            tracers_cmpd_header = loaders["TRACERS"].DataHeaders.COMPOUND
+            tracers_mass_header = loaders["TRACERS"].DataHeaders.MASSNUMBER
+            tracers_elem_header = loaders["TRACERS"].DataHeaders.ELEMENT
+            tracers_count_header = loaders["TRACERS"].DataHeaders.LABELCOUNT
+            tracers_poss_header = loaders["TRACERS"].DataHeaders.LABELPOSITIONS
+            tracers_name_header = loaders["TRACERS"].DataHeaders.NAME
 
-        infusates = {}
-        tracers = {}
+            infusates = {}
+            tracers = {}
 
-        for i, infname in dfs_dict[sheet][animals_infusate_header].items():
-            concs_str = dfs_dict[sheet][animals_concentrations_header][i]
+            # Build the infusates and tracers dicts
+            for i, infname in dfs_dict[sheet][animals_infusate_header].items():
+                concs_str = str(dfs_dict[sheet][animals_concentrations_header][i])
 
-            concentrations = parse_tracer_concentrations(concs_str)
-            infusate_data = parse_infusate_name(infname, concentrations)
-            infusate_name_with_concs = Infusate.name_from_data(infusate_data)
+                # Skip empties
+                if str(infname) in self.none_vals and str(concs_str) in self.none_vals:
+                    continue
 
-            dfs_dict[sheet][animals_infusate_header][i] = infusate_name_with_concs
+                try:
+                    concentrations = parse_tracer_concentrations(concs_str.strip())
+                    infusate_data = parse_infusate_name(infname.strip(), concentrations)
+                    infusate_name_with_concs = Infusate.name_from_data(infusate_data)
+                except Exception as e:
+                    sug = (
+                        f"Unable to parse infusate name '{infname}' and concentrations '{concs_str}' while building a "
+                        "dict of infusates and tracers for populating the Infusates and Tracers sheets from version 2 "
+                        "to version 3.  Ignoring."
+                    )
 
-            if infusate_name_with_concs not in infusates.keys():
-                infusates[infusate_name_with_concs] = infusate_data
+                    ie = InfileError(
+                        f"{type(e).__name__}: {str(e)}",
+                        file=self.friendly_file,
+                        sheet=sheet,
+                        column=f"{animals_infusate_header} and {animals_concentrations_header}",
+                        rownum=i + 2,
+                        suggestion=sug,
+                    )
 
-                for tracer_link in infusate_data["tracers"]:
-                    tracer_name = tracer_link["tracer"]["unparsed_string"]
+                    # TODO: Right now, this error doesn't get in front of the user on the validation page.  I'm using
+                    # load_statuses.set_load_exception below to do that and I'm buffering here to be able to see the
+                    # trace in the console.  I should fix this so that buffered errors from the comnversion get their
+                    # own load_key and get in front of the user.
+                    self.aggregated_errors_object.buffer_error(ie, orig_exception=e)
 
-                    if tracer_name not in tracers.keys():
-                        tracers[tracer_name] = tracer_link["tracer"]
+                    self.load_statuses.set_load_exception(
+                        ie,
+                        self.ConversionHeading,
+                        top=True,
+                    )
+                    continue
 
-        # Add the Infusates and Tracers to their respective sheets (name only)
-        new_i = 0
-        inf_n = 1
-        for infname, infdata in infusates.items():
-            for tracer_link in infdata["tracers"]:
-                dfs_dict[InfusatesLoader.DataSheetName][infusates_groupnum_header][
-                    new_i
-                ] = inf_n
-                dfs_dict[InfusatesLoader.DataSheetName][infusates_groupname_header][
-                    new_i
-                ] = infdata["infusate_name"]
-                dfs_dict[InfusatesLoader.DataSheetName][infusates_name_header][
-                    new_i
-                ] = infname
+                dfs_dict[sheet][animals_infusate_header][i] = infusate_name_with_concs
 
-                dfs_dict[InfusatesLoader.DataSheetName][infusates_trcr_header][
-                    new_i
-                ] = tracer_link["tracer"]["unparsed_string"]
-                dfs_dict[InfusatesLoader.DataSheetName][infusates_conc_header][
-                    new_i
-                ] = tracer_link["concentration"]
-                new_i += 1
-            inf_n += 1
+                if infusate_name_with_concs not in infusates.keys():
+                    infusates[infusate_name_with_concs] = infusate_data
 
-        new_i = 0
-        trc_n = 1
-        pdelim = TracersLoader.POSITIONS_DELIMITER
-        for tracer_name, tracer_data in tracers.items():
-            for isotope in tracer_data["isotopes"]:
-                dfs_dict[TracersLoader.DataSheetName][tracers_groupnum_header][
-                    new_i
-                ] = trc_n
-                dfs_dict[TracersLoader.DataSheetName][tracers_cmpd_header][new_i] = (
-                    tracer_data["compound_name"]
-                )
-                dfs_dict[TracersLoader.DataSheetName][tracers_mass_header][new_i] = (
-                    isotope["mass_number"]
-                )
-                dfs_dict[TracersLoader.DataSheetName][tracers_elem_header][new_i] = (
-                    isotope["element"]
-                )
-                dfs_dict[TracersLoader.DataSheetName][tracers_count_header][new_i] = (
-                    isotope["count"]
-                )
-                if isotope["positions"] is None:
-                    dfs_dict[TracersLoader.DataSheetName][tracers_poss_header][
+                    for tracer_link in infusate_data["tracers"]:
+                        tracer_name = tracer_link["tracer"]["unparsed_string"]
+
+                        if tracer_name not in tracers.keys():
+                            tracers[tracer_name] = tracer_link["tracer"]
+
+            # Add the Infusates and Tracers to their respective sheets (name only)
+            new_i = 0
+            inf_n = 1
+            for infname, infdata in infusates.items():
+                for tracer_link in infdata["tracers"]:
+                    dfs_dict[InfusatesLoader.DataSheetName][infusates_groupnum_header][
                         new_i
-                    ] = None
-                else:
-                    dfs_dict[TracersLoader.DataSheetName][tracers_poss_header][
+                    ] = inf_n
+                    dfs_dict[InfusatesLoader.DataSheetName][infusates_groupname_header][
                         new_i
-                    ] = pdelim.join([str(p) for p in sorted(isotope["positions"])])
-                dfs_dict[TracersLoader.DataSheetName][tracers_name_header][
-                    new_i
-                ] = tracer_name
-                new_i += 1
-            trc_n += 1
+                    ] = infdata["infusate_name"]
+                    dfs_dict[InfusatesLoader.DataSheetName][infusates_name_header][
+                        new_i
+                    ] = infname
 
-        # Delete tracer concentrations
-        dfs_dict[sheet].pop(animals_concentrations_header)
+                    dfs_dict[InfusatesLoader.DataSheetName][infusates_trcr_header][
+                        new_i
+                    ] = tracer_link["tracer"]["unparsed_string"]
+                    dfs_dict[InfusatesLoader.DataSheetName][infusates_conc_header][
+                        new_i
+                    ] = tracer_link["concentration"]
+                    new_i += 1
+                inf_n += 1
+
+            new_i = 0
+            trc_n = 1
+            pdelim = TracersLoader.POSITIONS_DELIMITER
+            for tracer_name, tracer_data in tracers.items():
+                for isotope in tracer_data["isotopes"]:
+                    dfs_dict[TracersLoader.DataSheetName][tracers_groupnum_header][
+                        new_i
+                    ] = trc_n
+                    dfs_dict[TracersLoader.DataSheetName][tracers_cmpd_header][
+                        new_i
+                    ] = tracer_data["compound_name"]
+                    dfs_dict[TracersLoader.DataSheetName][tracers_mass_header][
+                        new_i
+                    ] = isotope["mass_number"]
+                    dfs_dict[TracersLoader.DataSheetName][tracers_elem_header][
+                        new_i
+                    ] = isotope["element"]
+                    dfs_dict[TracersLoader.DataSheetName][tracers_count_header][
+                        new_i
+                    ] = isotope["count"]
+                    if isotope["positions"] is None:
+                        dfs_dict[TracersLoader.DataSheetName][tracers_poss_header][
+                            new_i
+                        ] = None
+                    else:
+                        dfs_dict[TracersLoader.DataSheetName][tracers_poss_header][
+                            new_i
+                        ] = pdelim.join([str(p) for p in sorted(isotope["positions"])])
+                    dfs_dict[TracersLoader.DataSheetName][tracers_name_header][
+                        new_i
+                    ] = tracer_name
+                    new_i += 1
+                trc_n += 1
+
+            # Delete tracer concentrations
+            dfs_dict[sheet].pop(animals_concentrations_header)
 
         # 5. Samples sheet
 
         # Samples sheet mods
         sheet = SamplesLoader.DataSheetName
 
-        # Rename Sample Name -> Sample
-        old_header = "Sample Name"
-        new_header = loaders["SAMPLES"].DataHeaders.SAMPLE
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+        if sheet in sheets_supplied:
+            # Rename Sample Name -> Sample
+            old_header = "Sample Name"
+            new_header = loaders["SAMPLES"].DataHeaders.SAMPLE
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
-        # Rename Animal ID -> Animal
-        old_header = "Animal ID"
-        new_header = loaders["SAMPLES"].DataHeaders.ANIMAL
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+            # V2 included blank samples in the Samples sheet.  V3 does not.  It puts them in the Peak Annotation Details
+            # sheet (which is handled later and is based on the names of the sample headers in the peak annotation
+            # files). We need to remove rows with blank samples.  V2 identified blanks to skip by excluding rows that do
+            # not have a tissue, so...
+            sample_header = loaders["SAMPLES"].DataHeaders.SAMPLE
+            tissue_header = loaders["SAMPLES"].DataHeaders.TISSUE
+            # Get rows that are missing tissue values (which is what determines "blanks", but also check the sample name
+            blank_row_idxs = [
+                idx
+                for idx, tiss in dfs_dict[sheet][tissue_header].items()
+                if (
+                    # In v2, the tissue column being empty was to indicate a blank
+                    str(tiss) in self.none_vals
+                    # Sometimes the researcher literally puts "blank" in the tissue column
+                    or Sample.is_a_blank(str(tiss))
+                    # But let's also look for "blank" in the sample name too
+                    or Sample.is_a_blank(dfs_dict[sheet][sample_header][idx])
+                )
+            ]
+            samples_removed = []
 
-        # Rename Researcher Name -> Researcher
-        old_header = "Researcher Name"
-        new_header = loaders["SAMPLES"].DataHeaders.HANDLER
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+            # Assume it's an empty row if the sample name is undefined
+            blanks_exceptions = []
+            for blank_row_idx in blank_row_idxs:
+                if dfs_dict[sheet][sample_header][blank_row_idx] in self.none_vals:
+                    continue
+                samples_removed.append(dfs_dict[sheet][sample_header][blank_row_idx])
+                blanks_exceptions.append(
+                    BlankRemoved(
+                        dfs_dict[sheet][sample_header][blank_row_idx],
+                        MSRunsLoader.DataSheetName,
+                        self.version_number,
+                        self.derived_loaders[self.LatestLoaderName].version_number,
+                        file=self.friendly_file,
+                        sheet=sheet,
+                        rownum=blank_row_idx + 2,
+                    )
+                )
+                # Keep the row present, but blank it out.  We can later add comments to cells on this row explaining why
+                # it's blank
+                for header in dfs_dict[sheet].keys():
+                    dfs_dict[sheet][header][blank_row_idx] = None
+
+            if len(samples_removed) > 0:
+                self.load_statuses.set_load_exception(
+                    BlanksRemoved(
+                        blanks_exceptions,
+                        MSRunsLoader.DataSheetName,
+                        self.version_number,
+                        self.derived_loaders[self.LatestLoaderName].version_number,
+                        file=self.friendly_file,
+                        sheet=sheet,
+                    ),
+                    self.ConversionHeading,
+                    top=True,
+                    default_is_error=not self.validate,  # Warning for researchers, error for curators
+                    default_is_fatal=self.validate,  # Fatal in validate mode in order to pass the exc to the template
+                )
+
+            # Date Collected (dates are detected by pandas, but written out in a long format, so this makes them nice)
+            date_header = loaders["SAMPLES"].DataHeaders.DATE
+            for idx, date_str in dfs_dict[sheet][date_header].items():
+                if idx in blank_row_idxs or date_str in self.none_vals:
+                    continue
+                # Ensure what we get is a string, then convert it to a date (not a datetime)
+                dfs_dict[sheet][date_header][idx] = datetime_to_string(
+                    string_to_date(str(date_str))
+                )
+
+            # Rename Animal ID -> Animal
+            old_header = "Animal ID"
+            new_header = loaders["SAMPLES"].DataHeaders.ANIMAL
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+
+            # Rename Researcher Name -> Researcher
+            old_header = "Researcher Name"
+            new_header = loaders["SAMPLES"].DataHeaders.HANDLER
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
         # 6. Tissues sheet
 
         # Tissues sheet mods
         sheet = TissuesLoader.DataSheetName
 
-        # Rename TraceBase Tissue Name -> Tissue
-        old_header = "TraceBase Tissue Name"
-        new_header = loaders["TISSUES"].DataHeaders.NAME
-        dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
+        if sheet in sheets_supplied:
+            # Rename TraceBase Tissue Name -> Tissue
+            old_header = "TraceBase Tissue Name"
+            new_header = loaders["TISSUES"].DataHeaders.NAME
+            dfs_dict[sheet][new_header] = dfs_dict[sheet].pop(old_header)
 
         # 7. Treatments sheet (nothing to do)
         # 8. Compounds sheet (we do not have this data - it wasn't in the original v2 format)
@@ -1389,8 +1541,14 @@ class StudyV2Loader(StudyLoader):
             )
 
         self.load_statuses.set_load_exception(
-            PlaceholdersAdded(paes),
-            "Study Doc Version Check",
+            PlaceholdersAdded(
+                self.version_number,
+                self.derived_loaders[self.LatestLoaderName].version_number,
+                paes,
+                file=self.friendly_file,
+                sheet=sheet,
+            ),
+            self.ConversionHeading,
             top=True,
             default_is_error=not self.validate,  # Warning for researchers, error for curators
             default_is_fatal=self.validate,  # Fatal in validate mode in order to pass the exception to the template
@@ -1491,8 +1649,8 @@ class StudyV2Loader(StudyLoader):
 
         # TableLoader checks the dataframe (df) against the StudyLoader class attributes.  In the case of this class,
         # that means it's checking the sheets (as if they were headers), so we need to modify the simulated df that
-        # ConvertedTableLoader created to represent the sheets as empty columns.  This should also be addressed int he
-        # TODO above.
+        # ConvertedTableLoader created to represent the sheets as empty columns.  This should also be addressed in the
+        # above TODO.
         tmp_df_dict = dict((sheet, {}) for sheet in dfs_dict.keys())
         self.df = pd.DataFrame.from_dict(tmp_df_dict)
 

@@ -193,7 +193,7 @@ class TableLoader(ABC):
     DefaultsRequiredValues = ["SHEET_NAME", "COLUMN_NAME"]
 
     # For handling empty "cells".  Any value to be converted to None, when evaluated as a string.
-    none_vals = ["", "nan", "None"]
+    none_vals = ["", "nan", "None", "dummy", "NaT"]
 
     def __init__(
         self,
@@ -1611,10 +1611,6 @@ class TableLoader(ABC):
             headers = self.headers
             reqd_values = self.reqd_values
 
-        # Do we need to do anything?
-        if reqd_values is None or len(reqd_values) == 0:
-            return passed
-
         # Is there data to check?
         if df is None:
             if (
@@ -1639,6 +1635,16 @@ class TableLoader(ABC):
         self.set_row_index(None)
 
         for _, row in df.iterrows():
+
+            # Check if the row is empty
+            if self.is_row_empty(row):
+                self.add_skip_row_index(row.name)
+                continue
+
+            # Do we need to do anything else?
+            if reqd_values is None or len(reqd_values) == 0:
+                continue
+
             missing_reqd_vals, all_reqd = self.get_missing_values(
                 row, reqd_values=reqd_values, headers=headers
             )
@@ -1771,6 +1777,19 @@ class TableLoader(ABC):
             skip_row_indexes (list of integers)
         """
         return self.skip_row_indexes
+
+    @classmethod
+    def is_row_empty(cls, row):
+        """Use this to test if a row is empty.
+
+        Args:
+            row (pandas.Series)
+        Exceptions:
+            None
+        Returns:
+            (bool)
+        """
+        return row.apply(lambda cv: str(cv) in cls.none_vals).all()
 
     def get_row_val(self, row, header, strip=True, reading_defaults=False):
         """Returns value from the row (presumably from df) and column (identified by header).

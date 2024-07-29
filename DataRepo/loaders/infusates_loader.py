@@ -8,8 +8,10 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
+from DataRepo.models.compound import Compound
 from DataRepo.utils.exceptions import (
     InfileError,
+    TracerCompoundNameInconsistent,
     TracerParsingError,
     summarize_int_list,
 )
@@ -687,7 +689,12 @@ class InfusatesLoader(TableLoader):
                 all_match = True
                 for table_tracer in table_infusate["tracers"]:
                     table_tracer_name = table_tracer["tracer_name"]
-                    table_tracer_conc = table_tracer["tracer_concentration"]
+                    table_tracer_conc_tmp = table_tracer["tracer_concentration"]
+
+                    # Adjust the concentration for the same significant digits that are used in the name
+                    table_tracer_conc = float(
+                        f"{table_tracer_conc_tmp:.{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES}g}"
+                    )
 
                     if table_tracer_name is None or table_tracer_conc is None:
                         fill_in_tracer_data = True
@@ -1246,7 +1253,7 @@ class InfusatesLoader(TableLoader):
                 )
             )
 
-    def check_infusate_name_consistent(self, rec, infusate_dict):
+    def check_infusate_name_consistent(self, rec: Infusate, infusate_dict):
         """Checks for consistency between a dynamically generated infusate name and the one supplied in the file.
 
         Note the following:
@@ -1272,7 +1279,11 @@ class InfusatesLoader(TableLoader):
         """
         supplied_name = infusate_dict["infusate_name"]
         supplied_concentrations = [
-            tracer["tracer_concentration"] for tracer in infusate_dict["tracers"]
+            # Adjust the concentration for the same significant digits that are used in the name
+            float(
+                f"{tracer['tracer_concentration']:.{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES}g}"
+            )
+            for tracer in infusate_dict["tracers"]
         ]
 
         if supplied_name is None:
@@ -1301,7 +1312,47 @@ class InfusatesLoader(TableLoader):
             raise exc
 
         trownums = [te["rownum"] for te in infusate_dict["tracers"]]
-        tnames = [te["tracer_name"] for te in infusate_dict["tracers"]]
+
+        # Get the tracer name using the primary compound (so we will be comparing apples to apples)
+        tnames = []
+        for tcr in infusate_dict["tracers"]:
+            tmptn = tcr["tracer_name"]
+
+            # Parse the name that we got from the name column (which may have been manually entered or modified by the
+            # user)
+            tmptndata = parse_tracer_string(tmptn)
+            tmp_compound_name = tmptndata["compound_name"]
+
+            # See if we can find the compound record using the parsed compound name
+            compound = Compound.compound_matching_name_or_synonym(tmp_compound_name)
+
+            # If we got a compound, and the parsed name from the tracer does not match, it must be a synonym
+            if (
+                compound is not None
+                and compound.name.lower() != tmp_compound_name.lower()
+            ):
+                # Warn the user that we're going to change the compound name in the tracer to the primary compound name
+                self.buffer_infile_exception(
+                    TracerCompoundNameInconsistent(
+                        tmptn,
+                        compound.name,
+                        tmp_compound_name,
+                    ),
+                    is_error=False,
+                    is_fatal=self.validate,
+                    suggestion="Changing the tracer's compound name for consistency and searchability.",
+                )
+
+                # Change the name in the data object
+                tmptndata["compound_name"] = compound.name
+
+                # Rebuild the name from the data with just this change
+                tcr["tracer_name"] = Tracer.name_from_data(tmptndata)
+
+                # Append the modified name to our list of file-derived tracer names
+                tnames.append(tcr["tracer_name"])
+        # TODO: Remove this commented line of code once the above is vetted
+        # tnames = [te["tracer_name"] for te in infusate_dict["tracers"]]
         tconcs = [
             f"{te['tracer_name']}: {te['tracer_concentration']}"
             for te in infusate_dict["tracers"]
@@ -1316,7 +1367,7 @@ class InfusatesLoader(TableLoader):
 
             file_conc = None
             for te in infusate_dict["tracers"]:
-                if te["tracer_name"] == db_tracer_name:
+                if te["tracer_name"].lower() == db_tracer_name.lower():
                     file_conc = te["tracer_concentration"]
 
             if file_conc is None:

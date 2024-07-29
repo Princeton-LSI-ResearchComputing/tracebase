@@ -110,6 +110,27 @@ class TracerLabel(MaintainedModel, ElementLabel):
             )
         return f"{positions_string}{self.mass_number}{self.element}{self.count}"
 
+    @classmethod
+    def name_from_data(cls, isotope_data: IsotopeData):
+        """Build a tracer label name (not in the database) from an IsotopeData object.
+
+        Args:
+            isotope_data (IsotopeData)
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        positions_string = ""
+        if isotope_data["positions"] is not None and len(isotope_data["positions"]) > 0:
+            positions_string = (
+                cls.POSITIONS_DELIMITER.join(
+                    [str(p) for p in sorted(isotope_data["positions"])]
+                )
+                + cls.POSITIONS_DIVIDER
+            )
+        return f"{positions_string}{isotope_data['mass_number']}{isotope_data['element']}{isotope_data['count']}"
+
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)
 

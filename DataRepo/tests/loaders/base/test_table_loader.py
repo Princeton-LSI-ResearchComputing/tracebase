@@ -1484,7 +1484,9 @@ class TableLoaderTests(TracebaseTestCase):
             {
                 "Sheet Name": [None],  # Required
                 "Column Header": [None],  # Required
-                "Default Value": [None],  # Optional
+                "Default Value": [
+                    1
+                ],  # Optional - we need at least 1 value, otherwise the empty row is skipped
             },
         )
         tl.check_dataframe_values(reading_defaults=True)

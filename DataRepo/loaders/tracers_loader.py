@@ -1134,7 +1134,7 @@ class TracersLoader(TableLoader):
 
         # We have to generate it instead of simply access it in the model object, because this is a maintained field,
         # and if the record was created, auto-update will not happen until the load is complete
-        generated_name = rec._name()
+        generated_name = rec.name_with_synonym(tracer_dict["compound_name"])
 
         if supplied_name != generated_name:
             data_rownums = summarize_int_list(
@@ -1142,8 +1142,8 @@ class TracersLoader(TableLoader):
             )
             exc = InfileError(
                 (
-                    f"The supplied tracer name [{supplied_name}] from row %s does not match the automatically "
-                    f"generated name [{generated_name}] using the data on rows {data_rownums}."
+                    f"The supplied tracer name '{supplied_name}' from %s does not match the automatically generated "
+                    f"name '{generated_name}' using the data on row(s) {data_rownums}."
                 ),
                 file=self.friendly_file,
                 sheet=self.sheet,

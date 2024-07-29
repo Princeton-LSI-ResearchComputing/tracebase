@@ -49,6 +49,7 @@ from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
 from DataRepo.models.tracer import Tracer
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AllMissingCompounds,
     AllMissingSamples,
     AllMissingStudies,
@@ -399,9 +400,16 @@ class DataValidationView(FormView):
                     filename=self.study_filename,
                 )
                 for _, row in pafl.df.iterrows():
+                    if pafl.is_row_empty(row):
+                        continue
+
                     # "actual" means not the original file from the form submission, but the nonsense filename created
                     # by the browser
                     user_filename, _, user_format_code = pafl.get_file_and_format(row)
+
+                    if pafl.is_skip_row():
+                        continue
+
                     supported = PeakAnnotationsLoader.get_supported_formats()
 
                     if user_format_code is not None and user_format_code in supported:
@@ -641,7 +649,13 @@ class DataValidationView(FormView):
         # TODO: Instead of doing this none_vals strategy, dynamically create a dataframe out of the dfs_dict and then
         # use get_row_val and check if the result is None
         # TODO: I should probably alter this strategy and check if all required columns have values on every row?
-        none_vals = ["", "nan", "None"]
+        none_vals = [
+            "",  # Empty string is inferred to be None.  You cannot search for empty strings in the DB anyway.
+            "nan",  # Derived from numpy
+            "None",  # none_vals is(/should be) evaluated with the value inside str() to handle weird types
+            "dummy",  # Some studies used this on rows for blank samples
+            "NaT",  # This happens when a dfs_dict entry is changed to None (e.g. when replacing a "dummy" value)
+        ]
 
         loader: TableLoader
         for loader in [
@@ -972,6 +986,9 @@ class DataValidationView(FormView):
         inf_sheet_cols = self.dfs_dict[InfusatesLoader.DataSheetName]
 
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             infusate_name = loader.get_row_val(row, loader.headers.INFUSATE)
             if (
                 infusate_name is not None
@@ -1146,6 +1163,9 @@ class DataValidationView(FormView):
             "animals": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             tissue_name = loader.get_row_val(row, loader.headers.TISSUE)
             if tissue_name is not None and tissue_name not in seen["tissues"].keys():
                 self.autofill_dict[TissuesLoader.DataSheetName][tissue_name] = {
@@ -1183,6 +1203,9 @@ class DataValidationView(FormView):
             "lcprotocols": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
             self.extract_autofill_from_sequence_name(seq_name, seen)
 
@@ -1212,6 +1235,9 @@ class DataValidationView(FormView):
             "lcprotocols": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
             self.extract_autofill_from_sequence_name(seq_name, seen)
 
@@ -1274,6 +1300,9 @@ class DataValidationView(FormView):
             "compounds": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             tracer_name = loader.get_row_val(row, loader.headers.TRACERNAME)
             if (
                 tracer_name is not None
@@ -1305,6 +1334,9 @@ class DataValidationView(FormView):
         )
         seen = {"compounds": defaultdict(dict)}
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             compound_name = loader.get_row_val(row, loader.headers.COMPOUND)
             self.extract_autofill_from_compound_name(compound_name, seen)
 
@@ -1328,6 +1360,9 @@ class DataValidationView(FormView):
         )
         seen = {"lcprotocols": defaultdict(dict)}
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             lc_protocol_name = loader.get_row_val(row, loader.headers.LCNAME)
             self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
 
@@ -1359,6 +1394,9 @@ class DataValidationView(FormView):
 
             # Extracting samples and compounds
             for _, row in peak_annot_loader.df.iterrows():
+                if peak_annot_loader.is_row_empty(row):
+                    continue
+
                 print(str(row.name), end="\r")
                 sample_header = peak_annot_loader.get_row_val(
                     row, peak_annot_loader.headers.SAMPLEHEADER
@@ -1502,42 +1540,50 @@ class DataValidationView(FormView):
         ]:
             # For each exception class we want to extract from the AggregatedErrors object (in order to both "fix" the
             # data and to remove related errors that those fixes address)
-            for exc_class, sheet, header in [
+            for exc_class, sheet, header, message in [
                 (
                     AllMissingCompounds,
                     CompoundsLoader.DataSheetName,
                     CompoundsLoader.DataHeaders.NAME,
+                    f"FIXED: Missing compounds have been added to the {CompoundsLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingSamples,
                     SamplesLoader.DataSheetName,
                     SamplesLoader.DataHeaders.SAMPLE,
+                    f"FIXED: Missing samples have been added to the {SamplesLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingStudies,
                     StudiesLoader.DataSheetName,
                     StudiesLoader.DataHeaders.NAME,
+                    f"FIXED: Missing studies have been added to the {StudiesLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingTissues,
                     TissuesLoader.DataSheetName,
                     TissuesLoader.DataHeaders.NAME,
+                    f"FIXED: Missing tissues have been added to the {TissuesLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingTreatments,
                     ProtocolsLoader.DataSheetName,
                     ProtocolsLoader.DataHeadersExcel.NAME,
+                    f"FIXED: Missing treatments have been added to the {ProtocolsLoader.DataSheetName} sheet",
                 ),
                 (
                     NoSamples,
                     SamplesLoader.DataSheetName,
                     SamplesLoader.DataHeaders.SAMPLE,
+                    f"FIXED: Missing samples have been added to the {SamplesLoader.DataSheetName} sheet",
                 ),
             ]:
 
-                # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
-                for exc in self.load_status_data.remove_exception_type(
-                    load_key, exc_class, modify=False
+                # Modify exceptions of exc_class in the AggregatedErrors object because they are going to be fixed, and
+                # the user will be confused if they see a missing Tissues warning associated with a file and then see a
+                # passed status of "All tissues are in the database".
+                for exc in self.load_status_data.modify_exception_type(
+                    load_key, exc_class, status_message=message, is_error=False
                 ):
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
@@ -1545,13 +1591,12 @@ class DataValidationView(FormView):
                             self.extracted_exceptions[exc_class.__name__][
                                 "errors"
                             ].append(exc)
-
-                        self.extract_all_missing_values(exc, sheet, header)
-
                     elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
+
+                    self.extract_all_missing_values(exc, sheet, header)
 
     def extract_all_missing_values(self, exc, sheet, header):
         """Extracts autofill data from supplied AllMissing* exception and puts it in self.autofill_dict.
@@ -2422,6 +2467,7 @@ class DataValidationView(FormView):
             # Get the AggregatedErrors object
             aes = self.load_status_data.statuses[load_key]["aggregated_errors"]
             # aes is None if there were no exceptions
+            aes: AggregatedErrors
             if aes is not None:
                 for exc in aes.exceptions:
                     exc_str = aes.get_buffered_exception_summary_string(
@@ -2432,6 +2478,13 @@ class DataValidationView(FormView):
                             "message": exc_str,
                             "is_error": exc.is_error,
                             "type": type(exc).__name__,
+                            # TODO: The conditional was added as a precaution (to be safe/fast). Remove it and just
+                            # assume aes_status_message is present, when I have time to check it.
+                            "fixed": (
+                                exc.aes_status_message
+                                if hasattr(exc, "aes_status_message")
+                                else None
+                            ),
                         }
                     )
 

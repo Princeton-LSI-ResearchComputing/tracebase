@@ -238,7 +238,7 @@ class StudyLoaderTests(TracebaseTestCase):
         ]
         sl.create_grouped_exceptions()
         self.assertEqual(
-            3,
+            7,
             len(sl.load_statuses.statuses.keys()),
             msg=f"Load status keys: {list(sl.load_statuses.statuses.keys())}",
         )

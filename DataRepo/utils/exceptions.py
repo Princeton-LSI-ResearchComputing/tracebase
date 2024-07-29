@@ -195,16 +195,21 @@ class InfileError(Exception):
 
         if order is not None:
             missing_loc_arg_placeholders = []
+            sup_phs = []
             for locarg in self.location_args:
                 if getattr(self, locarg) is not None and locarg not in order:
                     missing_loc_arg_placeholders.append(locarg)
+                elif getattr(self, locarg) is not None:
+                    sup_phs.append(locarg)
             if "loc" not in order and len(order) != len(self.location_args):
+                nphs = message.count("%s")
                 order.append("loc")
                 if message.count("%s") != len(order):
                     raise ProgrammingError(
-                        f"You must either provide all location arguments in your order list: {self.location_args} or "
-                        "provide an extra '%s' in your message for the leftover location information "
-                        f"({missing_loc_arg_placeholders})."
+                        f"The error message string does not contain the same number of placeholders ('%s': {nphs}) as "
+                        f"the number of location values supplied {sup_phs}.  You must either provide all location "
+                        f"arguments in your order list: {self.location_args} or provide an extra '%s' in your message "
+                        f"for each part of the leftover location information ({missing_loc_arg_placeholders})."
                     )
             # Save the arguments in a dict
             vdict = {
@@ -1495,6 +1500,27 @@ class MultiLoadStatus(Exception):
                 f"Invalid load_key type: {type(load_key).__name__}.  Only str & list are accepted."
             )
 
+    def update_load(self, load_key):
+        if isinstance(load_key, str):
+            if load_key not in self.statuses.keys():
+                self.statuses[load_key] = {
+                    "aggregated_errors": None,
+                    "state": "PASSED",
+                    "top": True,  # Passing files will appear first
+                }
+        elif isinstance(load_key, list):
+            for lk in load_key:
+                if lk not in self.statuses.keys():
+                    self.statuses[lk] = {
+                        "aggregated_errors": None,
+                        "state": "PASSED",
+                        "top": True,  # Passing files will appear first
+                    }
+        else:
+            raise ProgrammingError(
+                f"Invalid load_key type: {type(load_key).__name__}.  Only str & list are accepted."
+            )
+
     def set_load_exception(
         self,
         exception,
@@ -1681,10 +1707,8 @@ class MultiLoadStatus(Exception):
                 exception_class (Exception): Required.  See AggregatedErrors.remove_exception_type().
             kwargs (dict): Keyword arguments to the AggregatedErrors.remove_exception_type() method.
                 modify (boolean): See AggregatedErrors.remove_exception_type().
-
         Exceptions:
-            ValueError
-
+            None
         Returns:
             removed_exceptions (list of Exception): The return of AggregatedErrors.remove_exception_type()
         """
@@ -1697,6 +1721,31 @@ class MultiLoadStatus(Exception):
                 self.statuses[load_key]["aggregated_errors"] = None
         self.update_state(load_key)
         return removed_exceptions
+
+    def modify_exception_type(self, load_key, *args, **kwargs):
+        """An interface to AggregatedErrors.modify_exception_type that keeps the "state" of the load_key in the statuses
+        member up-to-date.  Call this instead of calling
+        obj.statuses[load_key]["aggregated_errors"].modify_exception_type().  If you do that, you must manually handle
+        keeping obj.statuses[load_key]["state"] up to date.
+
+        Args:
+            load_key (string): Key into self.statuses dict where each aggregated errors object is stored.
+            args (list): Positional arguments to the AggregatedErrors.modify_exception_type() method.
+                exception_class (Exception): Required.  See AggregatedErrors.modify_exception_type().
+            kwargs (dict): Keyword arguments to the AggregatedErrors.modify_exception_type() method.
+                modify (boolean): See AggregatedErrors.modify_exception_type().
+        Exceptions:
+            None
+        Returns:
+            modified_exceptions (list of Exception): The return of AggregatedErrors.modify_exception_type()
+        """
+        modified_exceptions = []
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            modified_exceptions = self.statuses[load_key][
+                "aggregated_errors"
+            ].modify_exception_type(*args, **kwargs)
+        self.update_state(load_key)
+        return modified_exceptions
 
     def update_state(self, load_key):
         """Set the state of an individual load key on the fly to simplify determination given the new features
@@ -2066,6 +2115,7 @@ class AggregatedErrors(Exception):
         exception_class,
         is_fatal=None,
         is_error=None,
+        status_message=None,
         attr_name=None,
         attr_val=None,
     ):
@@ -2095,6 +2145,8 @@ class AggregatedErrors(Exception):
                 if is_fatal is not None:
                     exception.is_fatal = is_fatal
                 matched_exceptions.append(exception)
+                if status_message is not None:
+                    exception.aes_status_message = status_message
             if exception.is_error:
                 num_errors += 1
             else:
@@ -2103,6 +2155,11 @@ class AggregatedErrors(Exception):
                 master_is_fatal = True
             if exception.is_error:
                 master_is_error = True
+            if not hasattr(exception, "aes_status_message"):
+                # TODO: This was added as a safety precaution, to ensure it's present for the validate_submission
+                # template.  This should be handled via the buffer_exception and via the constructor that takes a list
+                # of exceptions
+                exception.aes_status_message = None
 
         self.num_errors = num_errors
         self.num_warnings = num_warnings
@@ -2176,10 +2233,15 @@ class AggregatedErrors(Exception):
 
     @classmethod
     def ammend_buffered_exception(
-        self, exception, exc_no, is_error=True, is_fatal=None, buffered_tb_str=None
+        self,
+        exception,
+        exc_no,
+        is_error=True,
+        is_fatal=None,
+        buffered_tb_str=None,
+        status_message=None,
     ):
-        """
-        This takes an exception that is going to be buffered and adds a few data memebers to it: buffered_tb_str (a
+        """This takes an exception that is or will be buffered and adds a few data memebers to it: buffered_tb_str (a
         traceback string), is_error (e.g. whether it's a warning or an exception), and a string that is used to
         classify it as a warning or an error.  The exception is returned for convenience.  The buffered_tb_str is not
         generated here because is can be called out of the context of the exception (see the constructor).
@@ -2197,6 +2259,7 @@ class AggregatedErrors(Exception):
         if is_error:
             exception.exc_type_str = "Error"
         exception.exc_no = exc_no
+        exception.aes_status_message = status_message
         return exception
 
     def get_buffered_exception_summary_string(
@@ -3803,27 +3866,35 @@ class NoLoadData(Exception):
     pass
 
 
-class PlaceholdersAdded(Exception):
-    def __init__(self, pa_list: list[PlaceholderAdded]):
+class StudyDocConversionException(InfileError):
+    def __init__(self, from_version: str, to_version: str, message: str, **kwargs):
+        message = (
+            f"The conversion of the input study doc from version {from_version} to version {to_version} "
+            "resulted in the following notable issue(s)...\n\n"
+        ) + message
+        super().__init__(message, **kwargs)
+        self.from_version = from_version
+        self.to_version = to_version
+
+
+class PlaceholdersAdded(StudyDocConversionException):
+    def __init__(
+        self, from_version, to_version, pa_list: list[PlaceholderAdded], **kwargs
+    ):
         pae_dict: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(object)))
-        from_version = None
-        to_version = None
         for pae in pa_list:
             filesheet = generate_file_location_string(file=pae.file, sheet=pae.sheet)
             row = pae.rownum if pae.rownum is not None else "all rows"
             column = pae.column if pae.column is not None else "all columns"
             pae_dict[filesheet][row][column] = pae
-            from_version = pae.from_version
-            to_version = pae.to_version
         sum_dict: dict = defaultdict(lambda: defaultdict(list))
         for filesheet in pae_dict.keys():
             for row in pae_dict[filesheet].keys():
                 cols = ", ".join(sorted(pae_dict[filesheet][row].keys()))
                 sum_dict[filesheet][cols].append(row)
         message = (
-            f"The conversion of the input study doc from from version {from_version} to version {to_version} "
-            "resulted in placeholder values being added due to unconsolidated/missing data in the older version.\n"
-            "Please edit the placeholder values described below:\n"
+            "Placeholder values were added due to unconsolidated/missing data in the older version.\n"
+            "Please edit the placeholder values in %s described below:\n"
         )
         for filesheet in sum_dict.keys():
             if len(sum_dict[filesheet].keys()) == 1:
@@ -3839,27 +3910,55 @@ class PlaceholdersAdded(Exception):
                     + ", ".join(summarize_int_list(sum_dict[filesheet][cols]))
                     + f"]{postpend_str}\n"
                 )
-        super().__init__(message)
+        super().__init__(from_version, to_version, message, **kwargs)
         self.pa_list = pa_list
 
 
-class PlaceholderAdded(SummarizableError, InfileError):
-    SummarizerExceptionClass = PlaceholdersAdded
-
-    def __init__(
-        self, from_version, to_version, message=None, suggestion=None, **kwargs
-    ):
+class PlaceholderAdded(StudyDocConversionException):
+    def __init__(self, from_version, to_version, message=None, **kwargs):
         if message is None:
             message = (
                 f"The conversion of the input study doc from from version {from_version} to version {to_version} "
                 "resulted in placeholder values being added due to unconsolidated/missing data in the older version.\n"
                 "Please update the placeholder value(s) added to %s."
             )
-        if suggestion is not None:
-            message += f"  {suggestion}"
-        super().__init__(message, **kwargs)
-        self.from_version = from_version
-        self.to_version = to_version
+        super().__init__(from_version, to_version, message, **kwargs)
+
+
+class BlanksRemoved(StudyDocConversionException):
+    def __init__(
+        self,
+        blanks_exceptions,
+        new_loc,
+        from_version,
+        to_version,
+        message=None,
+        **kwargs,
+    ):
+        if message is None:
+            message = (
+                "The following sample's rows in %s were inferred to be blanks (due to the tissue column being empty) "
+                "and removed:\n\t"
+            )
+            message += "\n\t".join([be.sample_name for be in blanks_exceptions])
+            message += f"\nBlanks are now recorded in '{new_loc}'."
+        super().__init__(from_version, to_version, message, **kwargs)
+        self.blanks_exceptions = blanks_exceptions
+        self.new_loc = new_loc
+
+
+class BlankRemoved(StudyDocConversionException):
+    def __init__(
+        self, sample_name, new_loc, from_version, to_version, message=None, **kwargs
+    ):
+        if message is None:
+            message = (
+                f"Sample row for sample {sample_name} has been removed (the sample was inferred to be a blank by the "
+                f"fact that the tissue column was empty) from %s.  Blanks are now recorded in '{new_loc}'."
+            )
+        super().__init__(from_version, to_version, message, **kwargs)
+        self.sample_name = sample_name
+        self.new_loc = new_loc
 
 
 class PlaceholderDetected(InfileError):
@@ -3965,6 +4064,23 @@ class TracerGroupsInconsistent(ValidationError):
         self.new_infusate = new_infusate
         self.dupe_infusates = dupe_infusates
         self.group_name_mismatches = group_name_mismatches
+
+
+class TracerCompoundNameInconsistent(InfileError):
+    def __init__(
+        self,
+        tracer_name,
+        primary_compound_name,
+        compound_synonym,
+        message=None,
+        **kwargs,
+    ):
+        if message is None:
+            message = (
+                f"Tracer names '{tracer_name}' should use the primary compound name '{primary_compound_name}' (for "
+                f"consistent tracer name search results), but a synonym '{compound_synonym}' was found on %s."
+            )
+        super().__init__(message, **kwargs)
 
 
 class InvalidStudyDocVersion(Exception):

@@ -42,7 +42,7 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValues,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 
 
 class MSRunsLoader(TableLoader):
@@ -1178,7 +1178,7 @@ class MSRunsLoader(TableLoader):
                     date_str,
                 ) = MSRunSequence.parse_sequence_name(name)
 
-                date = string_to_datetime(
+                date = string_to_date(
                     date_str,
                     # The following arguments are for error reporting
                     file=error_source,
@@ -1239,7 +1239,7 @@ class MSRunsLoader(TableLoader):
                     missing_defaults.append(SequencesLoader.DataHeaders.INSTRUMENT)
 
                 if self.date_default is not None:
-                    query_dict["date"] = string_to_datetime(
+                    query_dict["date"] = string_to_date(
                         self.date_default,
                         # The following arguments are for error reporting
                         file=error_source,

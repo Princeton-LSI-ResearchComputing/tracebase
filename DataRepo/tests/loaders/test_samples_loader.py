@@ -17,7 +17,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
@@ -85,7 +85,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         Sample.objects.get(
             name="s1",
             researcher="Ralph",
-            date=string_to_datetime("2024-6-15"),
+            date=string_to_date("2024-6-15"),
             time_collected=timedelta(minutes=90),
             animal=self.anml1,
             tissue=self.tiss1,
@@ -119,7 +119,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         Sample.objects.create(
             name="s1",
             researcher="Ralph",
-            date=string_to_datetime("2024-6-15"),
+            date=string_to_date("2024-6-15"),
             time_collected=timedelta(days=90),
             animal=self.anml1,
             tissue=self.tiss1,
@@ -184,7 +184,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         )
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[2], InfileError)
         self.assertIn(
-            "unsupported type for timedelta",
+            "Must be numeric.",
             str(sl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIsInstance(
@@ -300,7 +300,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         sample = Sample.objects.create(
             name="s1",
             researcher="Ralph",
-            date=string_to_datetime("2024-6-15"),
+            date=string_to_date("2024-6-15"),
             time_collected=timedelta(minutes=90),
             animal=self.anml1,
             tissue=self.tiss1,
