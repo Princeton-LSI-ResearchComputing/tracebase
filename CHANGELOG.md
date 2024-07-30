@@ -6,15 +6,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [3.0.2-beta] - 2024-07-30
 
 ### Fixed
 
+- Caught a situation where the last serum sample can be invalid due to manual data manipulation and added an error status on the FCirc advanced search results page explaining the problem and prescribed fix.
+
 ### Added
+
+- A number of load scripts and classes were added behind the scenes, but are not yet employed in actual loading or validation.
+  - This includes as-yet unused IsoAutocorr support.
+- Added the ability to load mzXML files at any point before, during, or after a study load.
 
 ### Changed
 
-## [3.0.0-beta] - 2024-04-08
+- MSRunSample records now enforce only a single placeholder record for any sequence and sample combo.
+
+## [3.0.1-beta] - 2024-04-08
 
 ### Added
 
