@@ -129,8 +129,10 @@ class SequencesLoader(TableLoader):
             ),
         ),
         OPERATOR=TableColumn.init_flat(
+            field=MSRunSequence.researcher,
             name=DataHeaders.OPERATOR,
             help_text="Researcher who operated the Mass Spec instrument.",
+            current_choices=True,
         ),
         DATE=TableColumn.init_flat(
             name=DataHeaders.DATE,

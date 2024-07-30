@@ -150,6 +150,7 @@ class InfusatesLoader(TableLoader):
             name=DataHeaders.TRACERGROUP,
             field=Infusate.tracer_group_name,
             type=str,
+            current_choices=True,
         ),
         TRACERNAME=TableColumn.init_flat(
             name=DataHeaders.TRACERNAME,
