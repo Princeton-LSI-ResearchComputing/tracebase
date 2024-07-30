@@ -199,7 +199,7 @@ def parse_infusate_name_with_concs(infusate_string: str) -> InfusateData:
 
 
 def split_encoded_tracers_string(tracers_string: str) -> List[str]:
-    tracers = tracers_string.split(TRACERS_ENCODING_JOIN)
+    tracers = [ts.strip() for ts in tracers_string.split(TRACERS_ENCODING_JOIN)]
     return tracers
 
 
