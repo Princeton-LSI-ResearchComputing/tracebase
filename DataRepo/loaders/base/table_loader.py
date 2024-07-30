@@ -1200,15 +1200,31 @@ class TableLoader(ABC):
 
     def get_header_metadata(self):
         """Returns a dict keyed on the current header, whose values are ColumnHeader objects.
+
         Args:
             None
         Exceptions:
             None
         Returns:
-            None
+            (Dict[str, ColumnHeader])
         """
         return dict(
             (getattr(self.headers, hk), v.header)
+            for hk, v in self.DataColumnMetadata._asdict().items()
+        )
+
+    def get_value_metadata(self):
+        """Returns a dict keyed on the current header, whose values are ColumnValue objects.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (Dict[str, ColumnValue])
+        """
+        return dict(
+            (getattr(self.headers, hk), v.value)
             for hk, v in self.DataColumnMetadata._asdict().items()
         )
 

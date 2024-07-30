@@ -147,7 +147,7 @@ class AnimalsLoader(TableLoader):
             format="Units: ul/min/g (microliters/min/gram)",
         ),
         GENOTYPE=TableColumn.init_flat(
-            name=DataHeaders.GENOTYPE, field=Animal.genotype
+            name=DataHeaders.GENOTYPE, field=Animal.genotype, current_choices=True
         ),
         WEIGHT=TableColumn.init_flat(
             name=DataHeaders.WEIGHT,

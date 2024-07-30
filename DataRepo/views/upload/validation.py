@@ -1,11 +1,13 @@
 import base64
 import os.path
+import warnings
 from collections import defaultdict
 from io import BytesIO
 from typing import Dict, Optional, Type
 
 import pandas as pd
 import xlsxwriter
+import xlsxwriter.worksheet
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.utils import ProgrammingError
@@ -208,6 +210,9 @@ class DataValidationView(FormView):
         self.study_file_sheets = []
         self.peak_annot_files = None
         self.peak_annot_filenames = []
+
+        # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
+        self.validation_offset = 50
 
     def set_files(
         self,
@@ -473,11 +478,11 @@ class DataValidationView(FormView):
 
         study_stream = BytesIO()
 
-        xlsxwriter = self.create_study_file_writer(study_stream)
+        xlsx_writer = self.create_study_file_writer(study_stream)
 
-        self.annotate_study_excel(xlsxwriter)
+        self.annotate_study_excel(xlsx_writer)
 
-        xlsxwriter.close()
+        xlsx_writer.close()
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
         study_stream.seek(0)
 
@@ -587,19 +592,19 @@ class DataValidationView(FormView):
         self.autofill_only_mode = True
         return not self.autofill_only_mode
 
-    def annotate_study_excel(self, xlsxwriter):
+    def annotate_study_excel(self, xlsx_writer):
         """Add annotations, formulas, colors (indicating errors/warning/required-values/read-only-values/etc).
 
         Also performs some formatting, such as setting the column width.
 
         Args:
-            xlsxwriter (xlsxwriter): A study doc in an xlsx writer object.
+            xlsx_writer (xlsxwriter): A study doc in an xlsx writer object.
         Exceptions:
             None
         Returns:
             None
         """
-        # TODO: Use the xlsxwriter to decorate the excel sheets with errors/warnings as cell comments, colors to
+        # TODO: Use the xlsx_writer to decorate the excel sheets with errors/warnings as cell comments, colors to
         # indicate errors/warning/required-values/read-only-values, and formulas for inter-sheet population of
         # dropdowns.
         column_metadata = {
@@ -622,7 +627,7 @@ class DataValidationView(FormView):
                 # Skipping unsupported sheets
                 continue
 
-            worksheet = xlsxwriter.sheets[sheet]
+            worksheet = xlsx_writer.sheets[sheet]
             headers = order_spec[1]
 
             # Add comments to header cells
@@ -645,7 +650,85 @@ class DataValidationView(FormView):
                             "width": nchars * font_width,
                         },
                     )
-            xlsxwriter.sheets[sheet].autofit()
+            xlsx_writer.sheets[sheet].autofit()
+
+        self.add_dropdowns(xlsx_writer)
+
+    def add_dropdowns(self, xlsx_writer):
+        self.add_static_dropdowns(xlsx_writer)
+
+    def add_static_dropdowns(self, xlsx_writer):
+        column_metadata = {
+            StudyTableLoader.DataSheetName: self.studies_loader.get_value_metadata(),
+            AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
+            SamplesLoader.DataSheetName: self.samples_loader.get_value_metadata(),
+            TissuesLoader.DataSheetName: self.tissues_loader.get_value_metadata(),
+            ProtocolsLoader.DataSheetName: self.treatments_loader.get_value_metadata(),
+            CompoundsLoader.DataSheetName: self.compounds_loader.get_value_metadata(),
+            TracersLoader.DataSheetName: self.tracers_loader.get_value_metadata(),
+            InfusatesLoader.DataSheetName: self.infusates_loader.get_value_metadata(),
+            LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_value_metadata(),
+            SequencesLoader.DataSheetName: self.sequences_loader.get_value_metadata(),
+            MSRunsLoader.DataSheetName: self.msruns_loader.get_value_metadata(),
+            PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_value_metadata(),
+        }
+        for order_spec in StudyLoader.get_study_sheet_column_display_order():
+            sheet = order_spec[0]
+            if sheet not in self.build_sheets:
+                # Skipping unsupported sheets
+                continue
+
+            last_validation_index = (
+                self.get_next_row_index(sheet) + self.validation_offset
+            )
+            worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
+            headers = order_spec[1]
+
+            # Add comments to header cells
+            for header in headers:
+                # static_choices can be set automatically via the field, manually, or via "current_choices" (e.g. a
+                # distinct database query)
+                static_choices = column_metadata[sheet][header].static_choices
+                current_choices = column_metadata[sheet][header].current_choices
+
+                # Novel values are allowed for static choices when static choices are populated by a distinct database
+                # query
+                show_error = current_choices is not None
+
+                if static_choices is not None:
+                    # Get the cell's letter designation as it will be in excel
+                    cell = self.header_to_cell(
+                        sheet=sheet, header=header, letter_only=True
+                    )
+                    cell_range = f"{cell}2:{cell}{last_validation_index}"
+
+                    values_list = sorted(
+                        [
+                            tpl[0]
+                            for tpl in static_choices
+                            if tpl is not None and tpl[0] is not None
+                        ]
+                    )
+
+                    if len(values_list) > 255:
+                        # Excel limits dropdown lists to 255 items
+                        warnings.warn(
+                            f"The dropdown list for sheet {sheet}, column {header} exceeds Excel's limit of 255 "
+                            "items.  The list has been truncated.  Please consider changing the DataColumnMetadata "
+                            "settings for the associated loader class."
+                        )
+                        values_list = [*values_list[0:253], "..."]
+
+                    # Add a dropdown menu for all cells in this column (except the header) to the last_validation_index
+                    worksheet.data_validation(
+                        cell_range,
+                        {
+                            "validate": "list",
+                            "source": values_list,
+                            "show_error": show_error,
+                            "dropdown": True,
+                        },
+                    )
 
     def extract_autofill_from_files(self):
         """Calls methods for extracting autofill data from the submitted files."""
@@ -2219,14 +2302,14 @@ class DataValidationView(FormView):
         Exceptions:
             None
         Returns:
-            xlsxwriter (xlsxwriter)
+            xlsx_writer (xlsxwriter)
         """
         if not self.dfs_dict_is_valid():
             raise ValueError(
                 "Cannot call create_study_file_writer when dfs_dict is not valid/created."
             )
 
-        xlsxwriter = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
+        xlsx_writer = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
             stream_obj, engine="xlsxwriter"
         )
 
@@ -2254,12 +2337,15 @@ class DataValidationView(FormView):
                         f"self.dfs_dict[{sheet}]: {missing_headers}"
                     )
 
-            # Create a dataframe and add it as an excel object to an xlsxwriter sheet
+            # Create a dataframe and add it as an excel object to an xlsx_writer sheet
             pd.DataFrame.from_dict(self.dfs_dict[sheet]).to_excel(
-                excel_writer=xlsxwriter, sheet_name=sheet, columns=columns, index=False
+                excel_writer=xlsx_writer,
+                sheet_name=sheet,
+                columns=columns,
+                index=False,
             )
 
-        return xlsxwriter
+        return xlsx_writer
 
     def dfs_dict_is_valid(self):
         """This determines whether self.dfs_dict is correctly structured (not populated), e.g. all required headers are

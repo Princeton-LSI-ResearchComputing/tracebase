@@ -1,5 +1,5 @@
 import sys
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from django.db.models import Field
 
@@ -247,6 +247,7 @@ class ColumnValue:
         static_choices: Optional[List[tuple]] = None,
         dynamic_choices: Optional[ColumnReference] = None,
         current_choices: bool = False,
+        current_choices_converter: Optional[Callable] = None,
         unique: Optional[bool] = None,
         formula: Optional[str] = None,
     ):
@@ -264,6 +265,7 @@ class ColumnValue:
                 column in another sheet.  Overrides static_choices.
             current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
                 Requires field to be supplied.
+            current_choices_converter (function): A converter function for use by current_choices.
             unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
                 overridden.
             formula (string): Excel formula to use to populate the column.
@@ -322,6 +324,7 @@ class ColumnValue:
         self._static_choices = static_choices
         self.dynamic_choices = dynamic_choices
         self.current_choices = current_choices
+        self.current_choices_converter = current_choices_converter
         self.type = type
         self.unique = unique
         self.formula = formula
@@ -345,12 +348,20 @@ class ColumnValue:
         if self.current_choices:
             fldnm = self.field.name
             choices = [
-                (fs, fs)
+                (
+                    (fs, fs)
+                    if self.current_choices_converter is None
+                    else (
+                        self.current_choices_converter(fs),
+                        self.current_choices_converter(fs),
+                    )
+                )
                 for fs in list(
                     self.model.objects.order_by(fldnm)
                     .values_list(fldnm, flat=True)
                     .distinct(fldnm)
                 )
+                if fs is not None
             ]
             if len(choices) == 0:
                 choices = None
@@ -420,6 +431,7 @@ class TableColumn:
         value_required: Optional[bool] = None,
         static_choices: Optional[List[tuple]] = None,
         current_choices: bool = False,
+        current_choices_converter: Optional[Callable] = None,
     ):
         """Alternate TableColumn constructor.  (This is the pythonic was to implement multiple constructors.)
         Args:
@@ -439,6 +451,7 @@ class TableColumn:
             value_required (bool): Whether every cell must have a value (derived from field).
             static_choices (list of tuples): Possible values in the column (derived from field).
             current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
+            current_choices_converter (function): A converter function for use by current_choices.
         Exceptions:
             None
         Returns:
@@ -469,6 +482,7 @@ class TableColumn:
                 required=value_required,
                 static_choices=static_choices,
                 current_choices=current_choices,
+                current_choices_converter=current_choices_converter,
             ),
             readonly=readonly,
         )
