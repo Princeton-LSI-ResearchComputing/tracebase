@@ -110,9 +110,6 @@ class StudyLoader(TableLoader):
         SEQUENCES_SHEET,
         HEADERS_SHEET,
         FILES_SHEET,
-        # TODO: Add Infusates and Tracers
-        # INFUSATES_SHEET,
-        # TRACERS_SHEET,
     ]
 
     # These are unused...

@@ -101,6 +101,7 @@ class MSRunsLoader(TableLoader):
             SAMPLEHEADER_KEY,
             MZXMLNAME_KEY,
         ],
+        # Annot name is optional (assuming identical headers indicate the same sample)
         SEQNAME_KEY,
     ]
 
@@ -162,8 +163,8 @@ class MSRunsLoader(TableLoader):
         MZXMLNAME=TableColumn.init_flat(
             name=DataHeaders.MZXMLNAME,
             field=MSRunSample.ms_data_file,
-            header_required=False,
-            value_required=False,
+            header_required=False,  # Assuming can be derived from SAMPLEHEADER
+            value_required=False,  # There will be an error if multiple files have the same name
         ),
         ANNOTNAME=TableColumn.init_flat(
             name=DataHeaders.ANNOTNAME,
@@ -207,6 +208,8 @@ class MSRunsLoader(TableLoader):
                 loader_class=SequencesLoader,
                 loader_header_key=SequencesLoader.SEQNAME_KEY,
             ),
+            header_required=False,  # Assuming default set in the Peak Annotation Files sheet
+            value_required=False,  # Assuming default set in the Peak Annotation Files sheet
         ),
         SKIP=TableColumn.init_flat(
             name=DataHeaders.SKIP,

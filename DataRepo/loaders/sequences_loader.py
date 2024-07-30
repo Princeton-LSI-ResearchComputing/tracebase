@@ -99,7 +99,9 @@ class SequencesLoader(TableLoader):
     DataColumnMetadata = DataTableHeaders(
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
+            readonly=True,
             help_text=(
+                "Read-only. (Calculated by formula).\n\n"
                 "A unique sequence identifier.\n\nNote that a sequence record is unique to a researcher, protocol, "
                 "instrument model, and date.  If a researcher performs multiple such Mass Spec runs on the same day, "
                 "this sequence record will represent multiple runs."

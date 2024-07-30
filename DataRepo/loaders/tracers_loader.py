@@ -184,6 +184,7 @@ class TracersLoader(TableLoader):
         NAME=TableColumn.init_flat(
             name=DataHeaders.NAME,
             field=Tracer.name,
+            readonly=True,  # This is a "soft" read-only.  Users can enter values, but use of the formula is encouraged.
             # TODO: Replace "Infusates" and "Tracer Name" below with a reference to its loader's DataSheetName and the
             # corresponding column, respectively
             # Cannot reference the InfusatesLoader here (to include the name of its sheet and its tracer name column)
