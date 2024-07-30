@@ -119,6 +119,7 @@ class LoadTableCommand(ABC, BaseCommand):
             ),
             "headers": opt_defaults.get("headers", None),
             "dry_run": opt_defaults.get("dry_run", False),
+            "defer_rollback": opt_defaults.get("defer_rollback", False),
         }
 
         # Use this for classes that you plan to initialize inside the handle() method, e.g. to determine the loader
@@ -206,17 +207,17 @@ class LoadTableCommand(ABC, BaseCommand):
             kwargs["dry_run"] = self.options["dry_run"]
             kwargs["defer_rollback"] = self.options["defer_rollback"]
 
-            # Intermediate loader state (needed before calling get_dataframe)
+            # Intermediate loader state (needed before calling get_dataframe, because it performs checks on the sheet,
+            # and the sheet's headers can be changed by the constructor based on the type of input file)
             self.loader: TableLoader = self.loader_class(*args, **kwargs)
 
             # Now we can parse the dataframe using the user-customized dtype dict
             kwargs["df"] = self.get_dataframe()
 
-            # Re-initialize associated data
-            self.loader: TableLoader = self.loader_class(*args, **kwargs)
-        else:
-            # Before handle() has been called (with options), just initialize the loader with all supplied arguments
-            self.loader: TableLoader = self.loader_class(*args, **kwargs)
+        # Before handle() has been called (with options), just initialize the loader with all supplied arguments.
+        # Note that the derived class MUST have a defined value for the class attribute `loader_class`, so if the
+        # derived class is an abstract class as well, you must set a default loader_class.
+        self.loader: TableLoader = self.loader_class(*args, **kwargs)
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.
@@ -317,6 +318,7 @@ class LoadTableCommand(ABC, BaseCommand):
         parser.add_argument(
             "--defer-rollback",  # DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
             action="store_true",
+            default=self.opt_defaults.get("defer_rollback"),
             help=argparse.SUPPRESS,
         )
 
@@ -533,17 +535,21 @@ class LoadTableCommand(ABC, BaseCommand):
         """
         if self.options is None:
             raise OptionsNotAvailable()
+
         file = self.get_infile()
+        if file is None:
+            # The derived class can decide to handle the load completely without an input file (e.g. using all defaults
+            # and/or custom options
+            return None
+
         sheet = self.options["data_sheet"]
+
         dtypes = None
         # This method is used in some calls to determine the loader class, in which case, there is no instantiated
         # loader and it doesn't need the dtypes - it just needs the sheet and column names.
         if typing and hasattr(self, "loader"):
             dtypes = self.loader.get_column_types()
-        if file is None:
-            # The derived class can decide to handle the load completely without an input file (e.g. using all defaults
-            # and/or custom options
-            return None
+
         df = None
         if dtypes is None:
             df = read_from_file(file, sheet=sheet)
@@ -556,6 +562,7 @@ class LoadTableCommand(ABC, BaseCommand):
             df = read_from_file(
                 file, dtype=dtypes, sheet=sheet, keep_default_na=keep_default_na
             )
+
         return df
 
     def get_headers(self):

@@ -63,7 +63,11 @@ def could_be_variant_researcher(
     """
     if known_researchers is None:
         known_researchers = get_researchers()
-    return len(known_researchers) > 0 and researcher not in known_researchers
+    return (
+        len(known_researchers) > 0
+        and researcher not in known_researchers
+        and researcher.lower() != "anonymous"
+    )
 
 
 class Researcher:
