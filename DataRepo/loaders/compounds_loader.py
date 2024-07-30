@@ -84,11 +84,12 @@ class CompoundsLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(field=Compound.name),
-        HMDB_ID=TableColumn.init_flat(field=Compound.hmdb_id),
-        FORMULA=TableColumn.init_flat(field=Compound.formula),
+        NAME=TableColumn.init_flat(field=Compound.name, name=DataHeaders.NAME),
+        HMDB_ID=TableColumn.init_flat(field=Compound.hmdb_id, name=DataHeaders.HMDB_ID),
+        FORMULA=TableColumn.init_flat(field=Compound.formula, name=DataHeaders.FORMULA),
         SYNONYMS=TableColumn.init_flat(
             field=CompoundSynonym.name,
+            name=DataHeaders.SYNONYMS,
             header_required=True,
             value_required=False,
             format="Semicolon-delimited list of synonym names.",

@@ -80,9 +80,11 @@ class ProtocolsLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(field=Protocol.name),
+        NAME=TableColumn.init_flat(field=Protocol.name, name=DataHeadersExcel.NAME),
         CATEGORY=TableColumn.init_flat(field=Protocol.category),
-        DESCRIPTION=TableColumn.init_flat(field=Protocol.description),
+        DESCRIPTION=TableColumn.init_flat(
+            field=Protocol.description, name=DataHeadersExcel.DESCRIPTION
+        ),
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling

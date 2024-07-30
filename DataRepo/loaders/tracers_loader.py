@@ -196,30 +196,73 @@ class TracersLoader(TableLoader):
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
             # current row.  The header keys will be replaced by the excel column letters.
-            # Example:
+            # Simplified example:
             # =CONCATENATE(
-            #   B2,
+            #   INDIRECT("B" & ROW()),
             #   "-[",
             #   TEXTJOIN(",",TRUE,
             #     BYROW(
-            #       FILTER(C:E,A:A=A2,""),
+            #       FILTER(C:E,A:A=INDIRECT("A" & ROW()),""),
             #       LAMBDA(row, CONCAT(row))
             #     )
             #   ),
             #   "]"
             # )
+            # NOTE: The inclusion of function prefixes like `_xlpm.` is documented as necessary for the LAMBDA variables
+            # in xlsxwriter.  If not included, the export of the excel document will corrupt the formulas.
+            # Other errors however occur without other prefixes.  The process used to discover the prefixes necessary is
+            # documented here: https://xlsxwriter.readthedocs.io/working_with_formulas.html#dealing-with-formula-errors
+            # But basically:
+            # 1. Manually paste the (unprefixed) formula into an exported sheet (which should fix the formula, unless
+            #    you have a syntax error).
+            # 2. Save the file.
+            # 3. unzip myfile.xlsx -d myfile
+            # 4. xmllint --format myfile/xl/worksheets/sheet8.xml | grep '</f>'
+            # 5. Update the prefixes in the formula below to match the prefixes in the working formula that was manually
+            #    fixed.
             formula=(
-                "=CONCATENATE("
-                f"{{{COMPOUND_KEY}}},"
+                # If all columns are empty, return an empty string
+                "=IF("
+                "AND("
+                f'ISBLANK(INDIRECT("{{{COMPOUND_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{MASSNUMBER_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{ELEMENT_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{LABELCOUNT_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{LABELPOSITIONS_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{ID_KEY}}}" & ROW()))'
+                '),"",'
+                # Otherwise, build the tracer name
+                "CONCATENATE("
+                # Start with the compound
+                f'INDIRECT("{{{COMPOUND_KEY}}}" & ROW()),'
+                # Wrap the labels in "-[]"
                 '"-[",'
-                'TEXTJOIN(",",TRUE,'
-                "BYROW("
-                f"FILTER({{{MASSNUMBER_KEY}}}:{{{LABELCOUNT_KEY}}},"
+                # Join all the label strings with ","
+                '_xlfn.TEXTJOIN(",",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
+                # Include mass number from every row for this group
+                f"_xlfn._xlws.FILTER({{{MASSNUMBER_KEY}}}:{{{MASSNUMBER_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
-                "LAMBDA(row, CONCAT(row))"
-                ")),"
+                # Include element from every row for this group
+                f"_xlfn._xlws.FILTER({{{ELEMENT_KEY}}}:{{{ELEMENT_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Include count from every row for this group
+                f"_xlfn._xlws.FILTER({{{LABELCOUNT_KEY}}}:{{{LABELCOUNT_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Include positions from every row for this group
+                f"_xlfn._xlws.FILTER({{{LABELPOSITIONS_KEY}}}:{{{LABELPOSITIONS_KEY}}},"
+                f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
+                # Build each label string using a lambda
+                "_xlfn._xlws.LAMBDA(_xlpm.mass, _xlpm.elem, _xlpm.cnt, _xlpm.poss, "
+                # Concatenate the label elements
+                "CONCATENATE("
+                # If the positions string is empty, return an empty string, otherwise, return the positions string
+                'IF(ISBLANK(_xlpm.poss),"",_xlpm.poss), IF(ISBLANK(_xlpm.poss),"","-"), '
+                # And just straight-up join the other columns as-is
+                "_xlpm.mass, _xlpm.elem, _xlpm.cnt))"
+                "))),"
+                # Close off the square bracket in the encompassing "-[]"
                 '"]"'
-                ")"
+                "))"
             ),
         ),
     )

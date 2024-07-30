@@ -17,6 +17,7 @@ from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
+from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
@@ -212,7 +213,7 @@ class DataValidationView(FormView):
         self.peak_annot_filenames = []
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
-        self.validation_offset = 50
+        self.validation_offset = 10
 
     def set_files(
         self,
@@ -653,11 +654,9 @@ class DataValidationView(FormView):
             xlsx_writer.sheets[sheet].autofit()
 
         self.add_dropdowns(xlsx_writer)
+        self.add_formulas(xlsx_writer)
 
     def add_dropdowns(self, xlsx_writer):
-        self.add_static_dropdowns(xlsx_writer)
-
-    def add_static_dropdowns(self, xlsx_writer):
         column_metadata = {
             StudyTableLoader.DataSheetName: self.studies_loader.get_value_metadata(),
             AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
@@ -684,23 +683,28 @@ class DataValidationView(FormView):
             worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
             headers = order_spec[1]
 
-            # Add comments to header cells
             for header in headers:
                 # static_choices can be set automatically via the field, manually, or via "current_choices" (e.g. a
                 # distinct database query)
                 static_choices = column_metadata[sheet][header].static_choices
                 current_choices = column_metadata[sheet][header].current_choices
+                dynamic_choices: ColumnReference = column_metadata[sheet][
+                    header
+                ].dynamic_choices
 
-                # Novel values are allowed for static choices when static choices are populated by a distinct database
-                # query
-                show_error = current_choices is not None
+                if static_choices is None and dynamic_choices is None:
+                    continue
+
+                # Get the cell's letter designation as it will be in excel
+                col_letter = self.header_to_cell(
+                    sheet=sheet, header=header, letter_only=True
+                )
+                cell_range = f"{col_letter}2:{col_letter}{last_validation_index}"
 
                 if static_choices is not None:
-                    # Get the cell's letter designation as it will be in excel
-                    cell = self.header_to_cell(
-                        sheet=sheet, header=header, letter_only=True
-                    )
-                    cell_range = f"{cell}2:{cell}{last_validation_index}"
+                    # Novel values are allowed for static choices when static choices are populated by a distinct
+                    # database query
+                    show_error = current_choices is False
 
                     values_list = sorted(
                         [
@@ -710,13 +714,15 @@ class DataValidationView(FormView):
                         ]
                     )
 
-                    if len(values_list) > 255:
+                    if len(str(values_list)) > 255:
                         # Excel limits dropdown lists to 255 items
                         warnings.warn(
                             f"The dropdown list for sheet {sheet}, column {header} exceeds Excel's limit of 255 "
-                            "items.  The list has been truncated.  Please consider changing the DataColumnMetadata "
-                            "settings for the associated loader class."
+                            "characters.  The list has been truncated.  Please consider changing the "
+                            "DataColumnMetadata settings for the associated loader class."
                         )
+                        while len(str(values_list)) > 252:
+                            values_list.pop()
                         values_list = [*values_list[0:253], "..."]
 
                     # Add a dropdown menu for all cells in this column (except the header) to the last_validation_index
@@ -729,6 +735,100 @@ class DataValidationView(FormView):
                             "dropdown": True,
                         },
                     )
+                elif dynamic_choices is not None:
+                    next_ref_index = self.get_next_row_index(dynamic_choices.sheet)
+                    last_ref_validation_index = next_ref_index + self.validation_offset
+                    ref_col_letter = self.header_to_cell(
+                        sheet=dynamic_choices.sheet,
+                        header=dynamic_choices.header,
+                        letter_only=True,
+                    )
+                    ref_cell_range = ""
+                    if sheet != dynamic_choices.sheet:
+                        ref_cell_range += f"'{dynamic_choices.sheet}'!"
+                    ref_cell_range += f"${ref_col_letter}$2:${ref_col_letter}${last_ref_validation_index}"
+
+                    print(
+                        f"ADDING DYNAMIC CHOICES TO SHEET {sheet}, COLUMN {header}: {ref_cell_range}"
+                    )
+                    # Add a dropdown menu for all cells in this column (except the header) to the last_validation_index
+                    worksheet.data_validation(
+                        cell_range,
+                        {
+                            "validate": "list",
+                            "source": ref_cell_range,
+                            "show_error": False,
+                            "dropdown": True,
+                        },
+                    )
+
+    def add_formulas(self, xlsx_writer):
+        loader: TableLoader
+        for loader in [
+            self.studies_loader,
+            self.animals_loader,
+            self.samples_loader,
+            self.tissues_loader,
+            self.treatments_loader,
+            self.compounds_loader,
+            self.tracers_loader,
+            self.infusates_loader,
+            self.lcprotocols_loader,
+            self.sequences_loader,
+            self.msruns_loader,
+            self.peakannotfiles_loader,
+        ]:
+            sheet = loader.DataSheetName
+            if sheet not in self.build_sheets:
+                # Skipping unsupported sheets
+                continue
+
+            last_validation_index = (
+                self.get_next_row_index(sheet) + self.validation_offset
+            )
+            worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
+
+            # Create a dict of header keys to excel column letter for all headers
+            headers_dict = loader.get_headers()._asdict()
+            header_letters_dict = {}
+            for header_key, header in headers_dict.items():
+                if header in self.dfs_dict[sheet].keys():
+                    header_letters_dict[header_key] = self.header_to_cell(
+                        sheet=sheet, header=header, letter_only=True
+                    )
+
+            column_metadata = loader.get_value_metadata()
+
+            for header_key, header in headers_dict.items():
+                if header not in self.dfs_dict[sheet].keys():
+                    continue
+
+                formula_template = column_metadata[header].formula
+
+                if formula_template is None:
+                    continue
+
+                col_letter = header_letters_dict[header_key]
+
+                # This substitutes instances of "{NAME}" (where "NAME" is a TableLoader.DataHeaders namedtuple
+                # attribute) with the column letter for each header that occurs in the formula
+                formula = formula_template.format(**header_letters_dict)
+
+                for index in range(last_validation_index):
+                    # Indexes start from 0.  Any value at index zero ends up in what excel labels as row 2 (because row
+                    # numbers start at 1 and row 1 is the header).
+                    rownum = index + 2
+
+                    # Only fill in a formula if the cell doesn't already have a value.
+                    # (Because custom-entered values from the user trump formulas).
+                    if self.dfs_dict[sheet][header].get(index) is None:
+                        print(
+                            f"INSERTING FORMULA FOR SHEET {sheet}, COLUMN {header}, INDEX {index}, "
+                            f"LOCATION {col_letter}{rownum}: {formula}"
+                        )
+                        worksheet.write_formula(
+                            f"{col_letter}{rownum}", formula, None, ""
+                        )
 
     def extract_autofill_from_files(self):
         """Calls methods for extracting autofill data from the submitted files."""

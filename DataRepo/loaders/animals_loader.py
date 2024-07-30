@@ -161,7 +161,9 @@ class AnimalsLoader(TableLoader):
             format="Units: weeks (integer or decimal).",
         ),
         SEX=TableColumn.init_flat(name=DataHeaders.SEX, field=Animal.sex),
-        DIET=TableColumn.init_flat(name=DataHeaders.DIET, field=Animal.diet),
+        DIET=TableColumn.init_flat(
+            name=DataHeaders.DIET, field=Animal.diet, current_choices=True
+        ),
         FEEDINGSTATUS=TableColumn.init_flat(
             name=DataHeaders.FEEDINGSTATUS,
             field=Animal.feeding_status,
@@ -195,13 +197,9 @@ class AnimalsLoader(TableLoader):
         STUDY=TableColumn.init_flat(
             name=DataHeaders.STUDY,
             field=Animal.studies,
-            guidance=(
-                f"Select a {DataHeaders.STUDY} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {StudyTableLoader.DataHeaders.NAME} column in the {StudyTableLoader.DataSheetName} sheet."
-            ),
             format=(
                 "Note that an animal can belong to multiple studies.  As such, this is delimited field.  Multiple "
-                f"{DataHeaders.STUDY} can be entered using the delimiter: [{StudyDelimiter}], but you only need to "
+                f"{DataHeaders.STUDY}s can be entered using the delimiter: [{StudyDelimiter}], but you only need to "
                 "add the study relevant to this submission."
             ),
             type=str,
@@ -221,9 +219,7 @@ class AnimalsLoader(TableLoader):
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=ProtocolsLoader,
-                loader_header_key=ProtocolsLoader.NAME_KEY,
-                # TODO: This ColumnReference ends up calling the Animal Treatment header "Protocol Name".  Figure out
-                # how to fix that.  See test: test_animals_loader_repackage_exceptions
+                header=ProtocolsLoader.DataHeadersExcel.NAME,
             ),
         ),
     )

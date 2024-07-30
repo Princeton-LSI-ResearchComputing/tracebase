@@ -83,27 +83,42 @@ class LCProtocolsLoader(TableLoader):
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(
             field=LCMethod.name,
+            name=DataHeaders.NAME,
             type=str,
             readonly=True,
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates f"{type}-{run_length}-min" using the spreadsheet columns on the current row
-            # The header keys will be replaced by the excel column letters:
+            # The header keys will be replaced by the excel column letters.  Simplified example:
             # E.g. 'CONCATENATE(INDIRECT("B" & ROW()), "-", INDIRECT("C" & ROW()), "-min")'
             formula=(
-                f'=CONCATENATE(INDIRECT("{{{TYPE_KEY}}}" & ROW()), "-", INDIRECT("{{{RUNLEN_KEY}}}" & ROW()), '
-                '"-min")'
+                # If either the type of runlen is blank, return an empty string
+                "=IF("
+                "OR("
+                f'ISBLANK(INDIRECT("{{{TYPE_KEY}}}" & ROW())),'
+                f'ISBLANK(INDIRECT("{{{RUNLEN_KEY}}}" & ROW()))'
+                '),"",'
+                # Otherwise, construct the protocol name, using concatenation
+                f"CONCATENATE("
+                f'INDIRECT("{{{TYPE_KEY}}}" & ROW()),'
+                '"-",'
+                f'INDIRECT("{{{RUNLEN_KEY}}}" & ROW()),'
+                '"-min"'
+                "))"
             ),
         ),
-        TYPE=TableColumn.init_flat(field=LCMethod.type, current_choices=True),
+        TYPE=TableColumn.init_flat(
+            field=LCMethod.type, name=DataHeaders.TYPE, current_choices=True
+        ),
         RUNLEN=TableColumn.init_flat(
             field=LCMethod.run_length,
+            name=DataHeaders.RUNLEN,
             format="Units: minutes.",
             current_choices=True,
             current_choices_converter=FieldToDataValueConverter[LCMethod.__name__][
                 "run_length"
             ],
         ),
-        DESC=TableColumn.init_flat(field=LCMethod.description),
+        DESC=TableColumn.init_flat(field=LCMethod.description, name=DataHeaders.DESC),
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling.

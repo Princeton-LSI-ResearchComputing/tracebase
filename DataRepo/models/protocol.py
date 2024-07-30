@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Upper
 
 
 class Protocol(models.Model):
@@ -28,7 +29,7 @@ class Protocol(models.Model):
     class Meta:
         verbose_name = "protocol"
         verbose_name_plural = "protocols"
-        ordering = ["name"]
+        ordering = [Upper("name")]
 
     def __str__(self):
         return str(self.name)

@@ -211,18 +211,24 @@ class ColumnHeader:
             if comment != "":
                 comment += "\n\n"
             comment += f"Must match a value in column '{self.reference.header}' in sheet: {self.reference.sheet}."
+        # TODO: Add a note about static_choices (and current_choices)
         if self.dynamic_choices is not None:
             if comment != "":
                 comment += "\n\n"
             comment += (
                 f"Select a '{self.name}' from the dropdowns in this column.  The dropdowns are populated by the "
-                f"'{self.dynamic_choices.header}' column in the {self.dynamic_choices.sheet} sheet."
+                f"'{self.dynamic_choices.header}' column in the '{self.dynamic_choices.sheet}' sheet, so if the "
+                f"dropdowns are empty, add rows to the '{self.dynamic_choices.sheet}' sheet."
             )
         if self.unique is not None and self.unique:
             if comment != "":
                 comment += "\n\n"
             comment += "Must be unique."
-        if not self.required:
+        if self.required:
+            if comment != "":
+                comment += "\n\n"
+            comment += "Required."
+        else:
             if comment != "":
                 comment += "\n\n"
             comment += "Optional."

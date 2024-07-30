@@ -68,9 +68,11 @@ class StudyTableLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        CODE=TableColumn.init_flat(field=Study.code),
-        NAME=TableColumn.init_flat(field=Study.name),
-        DESCRIPTION=TableColumn.init_flat(field=Study.description),
+        CODE=TableColumn.init_flat(field=Study.code, name=DataHeaders.CODE),
+        NAME=TableColumn.init_flat(field=Study.name, name=DataHeaders.NAME),
+        DESCRIPTION=TableColumn.init_flat(
+            field=Study.description, name=DataHeaders.DESCRIPTION
+        ),
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
