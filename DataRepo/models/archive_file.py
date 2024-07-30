@@ -116,8 +116,8 @@ class ArchiveFileQuerySet(models.QuerySet):
         Args:
             kwargs (dict): The field names (keys) and values.
                 file_location (str|Path|File): Required.
-                filename (str): Optional.  Can be derived from file_location.
-                checksum (str): Optional.  Can be derived from file_location
+                filename (Optional[str]): Can be derived from file_location.
+                checksum (Optional[str]): Can be derived from file_location.
                 data_type (str|DataType): Required.
                 data_format (str|DataFormat): Required.
             is_binary (boolean): An optional way to indicate if the file is binary or not, overriding the automatic
@@ -149,11 +149,11 @@ class ArchiveFileQuerySet(models.QuerySet):
             )
 
         # Compute the filename if not provided, but allow it to differ from the name of the file_location
-        if path_obj.is_file():
-            if kwargs.get("filename") is None:
-                kwargs["filename"] = path_obj.name
-        else:
+        if not path_obj.is_file():
             raise FileNotFoundError(f"No such file: {str(path_obj)}")
+
+        if kwargs.get("filename") is None:
+            kwargs["filename"] = path_obj.name
 
         # Compute and/or check the checksum.
         supplied_checksum = kwargs.get("checksum", None)
@@ -192,7 +192,7 @@ class ArchiveFileQuerySet(models.QuerySet):
             ):
                 mode = "rb"
             with path_obj.open(mode=mode) as file_handle:
-                tmp_file_location = File(file_handle, name=path_obj.name)
+                tmp_file_location = File(file_handle, name=kwargs["filename"])
 
                 if created:
                     archivefile_rec.file_location = tmp_file_location
@@ -211,7 +211,7 @@ class ArchiveFileQuerySet(models.QuerySet):
 class ArchiveFile(models.Model):
     """Store the file location, checksum, datatype, and format of files."""
 
-    objects = ArchiveFileQuerySet().as_manager()
+    objects: ArchiveFileQuerySet = ArchiveFileQuerySet().as_manager()
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)

@@ -94,6 +94,8 @@ class SequencesLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
@@ -219,14 +221,17 @@ class SequencesLoader(TableLoader):
                     query_obj=query_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
-                    file=self.file,
+                    file=self.friendly_file,
                 )
             )
         except Exception as e:
             # Package other errors with file-location metadata
             self.aggregated_errors_object.buffer_error(
                 InfileError(
-                    str(e), rownum=self.rownum, sheet=self.sheet, file=self.file
+                    str(e),
+                    rownum=self.rownum,
+                    sheet=self.sheet,
+                    file=self.friendly_file,
                 )
             )
         return rec
@@ -257,7 +262,7 @@ class SequencesLoader(TableLoader):
             date_str = self.get_row_val(row, self.headers.DATE)
             date = string_to_datetime(
                 date_str,
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 rownum=self.rownum,
                 column=self.headers.DATE,

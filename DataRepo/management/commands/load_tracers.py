@@ -1,12 +1,15 @@
+from typing import Type
+
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 
 class Command(LoadTableCommand):
-    """Command to load the Tracer model from a table-like file."""
+    """Command to load the Tracer and TracerLabel model from a table-like file."""
 
     help = "Loads data from a tracer table into the database"
-    loader_class = TracersLoader
+    loader_class: Type[TableLoader] = TracersLoader
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass

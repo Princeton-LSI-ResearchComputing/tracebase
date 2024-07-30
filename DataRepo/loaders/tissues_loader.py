@@ -1,6 +1,8 @@
 from collections import namedtuple
 from typing import Dict
 
+from django.db import transaction
+
 from DataRepo.loaders.base.table_column import TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Tissue
@@ -57,6 +59,8 @@ class TissuesLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(field=Tissue.name),
         DESCRIPTION=TableColumn.init_flat(field=Tissue.description),
@@ -85,6 +89,7 @@ class TissuesLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
+    @transaction.atomic
     def get_or_create_tissue(self, row):
         """Get or create a tissue record and buffer exceptions before raising.
         Args:

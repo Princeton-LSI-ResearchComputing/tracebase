@@ -34,8 +34,8 @@ from DataRepo.utils import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AllMissingTissues,
-    AllMissingTreatments,
+    AllMissingTissuesErrors,
+    AllMissingTreatmentsErrors,
     ConflictingValueError,
     DryRun,
     DuplicateValues,
@@ -327,7 +327,7 @@ class SampleTableLoader:
         )
         if len(missing_tissue_errors) > 0:
             self.aggregated_errors_object.buffer_error(
-                AllMissingTissues(missing_tissue_errors)
+                AllMissingTissuesErrors(missing_tissue_errors)
             )
 
         missing_treatment_errors = self.aggregated_errors_object.remove_exception_type(
@@ -335,7 +335,7 @@ class SampleTableLoader:
         )
         if len(missing_treatment_errors) > 0:
             self.aggregated_errors_object.buffer_error(
-                AllMissingTreatments(missing_treatment_errors)
+                AllMissingTreatmentsErrors(missing_treatment_errors)
             )
 
         if len(self.missing_values.keys()) > 0:

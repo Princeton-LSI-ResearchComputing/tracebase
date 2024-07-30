@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from zipfile import BadZipFile
 
+import dateutil
 import pandas as pd
 import yaml
 from django.core.files.uploadedfile import TemporaryUploadedFile
@@ -225,6 +226,9 @@ def _read_from_xlsx(
             dtype_n = None
             if isinstance(dtype, dict):
                 dtype_n = dtype.get(sheet_n, None)
+                if dtype_n is not None and not isinstance(dtype_n, dict):
+                    # Assume one big dict of column types for all sheets
+                    dtype_n = dtype
 
             # Recursive calls
             df_dict[sheet_n] = read_from_file(
@@ -273,6 +277,7 @@ def _read_from_xlsx(
     if dtype is not None:
         kwargs["dtype"] = dtype
     if na_values is not None:
+        # None is the pandas default
         kwargs["na_values"] = na_values
 
     df = pd.read_excel(filepath, **kwargs)
@@ -608,14 +613,9 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
 
 
 def string_to_datetime(
-    date_str, format_str=None, file=None, sheet=None, rownum=None, column=None
+    date_in, format_str=None, file=None, sheet=None, rownum=None, column=None
 ):
-    if not isinstance(date_str, str):
-        # Raise a programming error immediately
-        raise TypeError(
-            f"date_str {date_str} must be a string, but got {type(date_str)}"
-        )
-
+    date_str = str(date_in)
     if format_str is None:
         # This format assumes that the date_str is from an excel column with converted dates
         format_str = "%Y-%m-%d"
@@ -626,15 +626,23 @@ def string_to_datetime(
     try:
         dt = datetime.strptime(date_str.strip(), format_str)
     except ValueError as ve:
-        if "unconverted data remains" in str(ve):
-            raise DateParseError(
-                date_str,
-                ve,
-                format=format_str,
-                file=file,
-                sheet=sheet,
-                rownum=rownum,
-                column=column,
-            )
-        raise ve
+        try:
+            # Fallback to try dateutil
+            dt = dateutil.parser.parse(date_str).date()
+        except TypeError:
+            try:
+                # Fallback to the possibility pandas detected and assigned a datetime-like type
+                dt = date_in.date()
+            except Exception:
+                if "unconverted data remains" in str(ve):
+                    raise DateParseError(
+                        date_str,
+                        ve,
+                        format=format_str,
+                        file=file,
+                        sheet=sheet,
+                        rownum=rownum,
+                        column=column,
+                    )
+                raise ve
     return dt

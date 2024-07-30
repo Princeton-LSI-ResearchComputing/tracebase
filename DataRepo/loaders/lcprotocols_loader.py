@@ -74,6 +74,12 @@ class LCProtocolsLoader(TableLoader):
         },
     }
 
+    FieldToDataValueConverter = {
+        LCMethod.__name__: {
+            "run_length": lambda val: val.total_seconds() // 60,
+        },
+    }
+
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(
             field=LCMethod.name,
@@ -104,10 +110,8 @@ class LCProtocolsLoader(TableLoader):
 
         Args:
             None
-
-        Raises:
+        Exceptions:
             None
-
         Returns:
             None
         """
@@ -172,7 +176,7 @@ class LCProtocolsLoader(TableLoader):
                         },
                         rownum=self.rownum,
                         sheet=self.sheet,
-                        file=self.file,
+                        file=self.friendly_file,
                     )
                 )
                 self.warned(LCMethod.__name__)

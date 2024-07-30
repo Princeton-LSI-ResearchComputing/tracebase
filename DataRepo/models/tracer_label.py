@@ -25,7 +25,10 @@ class TracerLabelQuerySet(models.QuerySet):
 
 
 class TracerLabel(MaintainedModel, ElementLabel):
-    objects = TracerLabelQuerySet().as_manager()
+    objects: TracerLabelQuerySet = TracerLabelQuerySet().as_manager()
+
+    POSITIONS_DELIMITER = ","
+    POSITIONS_DIVIDER = "-"
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -98,10 +101,13 @@ class TracerLabel(MaintainedModel, ElementLabel):
         update_label="name",
     )
     def _name(self):
-        # format: `position,position,... - weight element count` (but no spaces) positions optional
+        # format: `position,position,...-MassNumberElementCount`, e.g. 1,2,3-13C3, positions optional (e.g. 13C3)
         positions_string = ""
         if self.positions and len(self.positions) > 0:
-            positions_string = ",".join([str(p) for p in sorted(self.positions)]) + "-"
+            positions_string = (
+                self.POSITIONS_DELIMITER.join([str(p) for p in sorted(self.positions)])
+                + self.POSITIONS_DIVIDER
+            )
         return f"{positions_string}{self.mass_number}{self.element}{self.count}"
 
     def clean(self, *args, **kwargs):

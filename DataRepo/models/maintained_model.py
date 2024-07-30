@@ -1215,6 +1215,15 @@ class MaintainedModel(Model):
                             disable_opt_name in kwargs.keys()
                             and kwargs[disable_opt_name]
                         ):
+                            # This is if the option is in kwargs
+                            mode = "disabled"
+                            break
+                        elif (
+                            len(args) > 0
+                            and hasattr(args[0], disable_opt_name)
+                            and getattr(args[0], disable_opt_name)
+                        ):
+                            # This is if the option is an attribute in "self"
                             mode = "disabled"
                             break
 

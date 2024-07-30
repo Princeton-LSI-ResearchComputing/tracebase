@@ -3,18 +3,22 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AllMissingTreatments,
+    AllMissingTreatmentsErrors,
     CompoundDoesNotExist,
     DateParseError,
     DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
+    EmptyColumns,
     ExcelSheetNotFound,
     ExcelSheetsNotFound,
     InfileError,
     InvalidDtypeDict,
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
+    IsotopeStringDupe,
+    MissingColumnGroup,
+    MissingCompounds,
     MissingDataAdded,
     MissingRecords,
     MissingSamples,
@@ -29,6 +33,8 @@ from DataRepo.utils.exceptions import (
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
     NoSamples,
+    NoTracerLabeledElements,
+    ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
     RecordDoesNotExist,
     RequiredArgument,
@@ -41,7 +47,10 @@ from DataRepo.utils.exceptions import (
     RequiredValueError,
     RequiredValueErrors,
     ResearcherNotNew,
+    SheetMergeError,
+    UnequalColumnGroups,
     UnexpectedIsotopes,
+    UnexpectedLabels,
     UnexpectedSamples,
     UnitsWrong,
     UnknownHeaderError,
@@ -1050,7 +1059,7 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_AllMissingTreatments(self):
-        amt = AllMissingTreatments(
+        amt = AllMissingTreatmentsErrors(
             [
                 MissingTreatment(
                     treatment_name="sphincter",
@@ -1093,6 +1102,22 @@ class ExceptionTests(TracebaseTestCase):
         ro = RequiredOptions(["infile"])
         self.assertEqual("Missing required options: ['infile'].", str(ro))
 
+    def test_MissingColumnGroup(self):
+        mcg = MissingColumnGroup("Sample")
+        self.assertIn("No Sample columns found", str(mcg))
+
+    def test_UnequalColumnGroups(self):
+        exc = UnequalColumnGroups("Sample", {"orig": ["A", "B"], "corr": ["A", "C"]})
+        self.assertIn("sheets ['orig', 'corr'] differ", str(exc))
+        self.assertIn(
+            "'orig' sheet has 2 out of 3 total unique Sample columns, and is missing:\n\tC",
+            str(exc),
+        )
+        self.assertIn(
+            "'corr' sheet has 2 out of 3 total unique Sample columns, and is missing:\n\tB",
+            str(exc),
+        )
+
     def test_UnknownHeaderError(self):
         exc = UnknownHeaderError("C", ["A", "B"])
         self.assertEqual(
@@ -1117,6 +1142,21 @@ class ExceptionTests(TracebaseTestCase):
             "do_stuff requires a non-None value for argument 'val'.", str(exc)
         )
 
+    def test_EmptyColumns(self):
+        exc = EmptyColumns(
+            "Sample",
+            ["A", "B"],
+            ["Unnamed: jwbc", "Unnamed: wale"],
+            ["A", "B", "sample1", "sample2", "Unnamed: jwbc", "Unnamed: wale"],
+            addendum="They will be skipped.",
+        )
+        self.assertIn("[Sample] columns are expected", str(exc))
+        self.assertIn("2 expected constant columns", str(exc))
+        self.assertIn("6 columns total", str(exc))
+        self.assertIn("4 potential Sample columns", str(exc))
+        self.assertIn("2 were unnamed.", str(exc))
+        self.assertIn("They will be skipped.", str(exc))
+
     def test_DuplicateCompoundIsotope(self):
         dvs = [
             DuplicateValues({"1": [1, 2]}, ["A", "B", "C"]),
@@ -1127,15 +1167,77 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("1 (rows*: 3-4)", str(exc))
         self.assertIn("2 (rows*: 8, 11)", str(exc))
 
+    def test_SheetMergeError(self):
+        exc = SheetMergeError([100, 102])
+        self.assertIn("missing an Animal Name", str(exc))
+        self.assertIn("empty rows: [100, 102]", str(exc))
+
+    def test_IsotopeStringDupe(self):
+        exc = IsotopeStringDupe("C13N15C13-label-2-1-1", "C")
+        self.assertIn(
+            " match tracer labeled element (C) in the measured labeled element string: [C13N15C13-label-2-1-1]",
+            str(exc),
+        )
+
+    def test_ObservedIsotopeUnbalancedError(self):
+        exc = ObservedIsotopeUnbalancedError(
+            ["C", "N"], [13, 15], [1, 2, 1], "13C15N-1-2-1"
+        )
+        self.assertIn(
+            "elements (2), mass numbers (2), and counts (3) from isotope label: [13C15N-1-2-1]",
+            str(exc),
+        )
+
+    def test_UnexpectedLabels(self):
+        exc = UnexpectedLabels(["D"], ["C", "N"])
+        self.assertIn(
+            "label(s) ['D'] were not among the expected labels ['C', 'N']", str(exc)
+        )
+
     def test_MzxmlSampleHeaderMismatch(self):
         exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
         self.assertIn("mzXML file [location/sample_neg.mzXML]", str(exc))
         self.assertIn("Sample header:       [sample]", str(exc))
         self.assertIn("mzXML Base Filename: [sample_neg]", str(exc))
 
+    # NOTE: MultiplePeakGroupRepresentations is tested in the peak group tests, because it needs records
+
     def test_RequiredHeadersError(self):
         exc = RequiredHeadersError(["A"])
         self.assertIn("header(s) missing: ['A']", str(exc))
+
+    def test_NoTracerLabeledElements(self):
+        exc = NoTracerLabeledElements()
+        self.assertIn("No tracer_labeled_elements.", str(exc))
+
+    def test_MissingCompounds(self):
+        from DataRepo.models import Compound
+
+        excs = [
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("lysine"),
+                column="compound",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=5,
+            ),
+            RecordDoesNotExist(
+                Compound,
+                Compound.get_name_query_expression("vibranium"),
+                column="compound",
+                file="accucor.xlsx",
+                sheet="Corrected",
+                rownum=19,
+            ),
+        ]
+        mcs = MissingCompounds(excs)
+        self.assertIn("2 Compounds", str(mcs))
+        self.assertIn(
+            "in column [compound] of sheet [Corrected] in accucor.xlsx", str(mcs)
+        )
+        self.assertIn("'lysine' from row(s): [5]", str(mcs))
+        self.assertIn("'vibranium' from row(s): [19]", str(mcs))
 
     def test_MissingRecords(self):
         from DataRepo.models import Compound, MSRunSample
@@ -1198,10 +1300,9 @@ class ExceptionTests(TracebaseTestCase):
 
     def test_MissingSamples(self):
         mss = MissingSamples(self.get_sample_dnes())
-        self.assertIn("2 Sample records", str(mss))
-        self.assertIn("sample1 from row(s): ['5']", str(mss))
-        self.assertIn("sample2 from row(s): ['19']", str(mss))
-        self.assertIn("using search field(s): name", str(mss))
+        self.assertIn("2 Samples", str(mss))
+        self.assertIn("'sample1' from row(s): [5]", str(mss))
+        self.assertIn("'sample2' from row(s): [19]", str(mss))
         self.assertIn("column [Sample] of sheet [Corrected] in accucor.xlsx", str(mss))
 
     def test_UnskippedBlanks(self):

@@ -3,18 +3,28 @@ from django.test import tag
 
 from DataRepo.models import Compound, CompoundSynonym, Infusate, Tracer
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import (
+    IsotopeStringDupe,
+    ObservedIsotopeParsingError,
+    ObservedIsotopeUnbalancedError,
+    UnexpectedLabels,
+)
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
-    InfusateTracer,
+    InfusateTracerData,
     IsotopeData,
     IsotopeParsingError,
+    ObservedIsotopeData,
     TracerData,
     TracerParsingError,
     parse_infusate_name,
+    parse_infusate_name_with_concs,
+    parse_isotope_label,
     parse_isotope_string,
     parse_tracer_concentrations,
     parse_tracer_string,
+    parse_tracer_with_conc_string,
 )
 
 
@@ -61,7 +71,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="L-Leucine-[1,2-13C2]",
             infusate_name=None,
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=cls.tracer_data_l_leucine,
                     concentration=cls.infusate_concentrations_leucine[0],
                 )
@@ -72,7 +82,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="leucine {L-Leucine-[1,2-13C2]}",
             infusate_name="leucine",
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=cls.tracer_data_l_leucine,
                     concentration=cls.infusate_concentrations_leucine[0],
                 )
@@ -83,7 +93,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="leucine {L-Leucine-[1,2-13C2]}",
             infusate_name="leucine",
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=cls.tracer_data_l_leucine,
                     concentration=cls.infusate_concentrations_leucine[1],
                 )
@@ -106,7 +116,7 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}",
             infusate_name="BCAAs",
             tracers=[
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=TracerData(
                         unparsed_string="isoleucine-[13C6,15N1]",
                         compound_name="isoleucine",
@@ -114,7 +124,7 @@ class InfusateTest(TracebaseTestCase):
                     ),
                     concentration=cls.infusate_concentrations_bcaas[0],
                 ),
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=TracerData(
                         unparsed_string="leucine-[13C6,15N1]",
                         compound_name="leucine",
@@ -122,7 +132,7 @@ class InfusateTest(TracebaseTestCase):
                     ),
                     concentration=cls.infusate_concentrations_bcaas[1],
                 ),
-                InfusateTracer(
+                InfusateTracerData(
                     tracer=TracerData(
                         unparsed_string="valine-[13C5,15N1]",
                         compound_name="valine",
@@ -231,21 +241,9 @@ class InfusateParsingTests(InfusateTest):
         ):
             _ = parse_infusate_name(name, [1.0, 2.0])
 
-    def test_malformed_tracer_parsing_multiple_isotopic_definitions(self):
-        """Test back-to-back occurrences of square bracket expressions"""
-        name = "lysine-[13C5]-[19O2]"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
-
     def test_malformed_tracer_parsing_with_new_line(self):
         """Test multiple labeled compounds delimited by hard return"""
         name = "lysine-[13C5]\nlysine-[19O2]"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
-
-    def test_malformed_tracer_parsing_with_improper_delimiter(self):
-        """Test bad tracer delimiter (',' instead of ';')"""
-        name = "lysine-[13C5],glucose-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_tracer_string(name)
 
@@ -287,6 +285,22 @@ class InfusateParsingTests(InfusateTest):
         self.assertAlmostEqual(
             [10.0, 20.0, 30.0], parse_tracer_concentrations("10; 20;30")
         )
+
+    def test_parse_infusate_name_with_concs(self):
+        inf_data = parse_infusate_name_with_concs("lactate-[13C3][148.88]")
+        self.assertEqual("lactate-[13C3][148.88]", inf_data["unparsed_string"])
+        self.assertIsNone(inf_data["infusate_name"])
+        self.assertEqual(1, len(inf_data["tracers"]))
+        self.assertIsNotNone(inf_data["tracers"][0])
+
+    def test_parse_tracer_with_conc_string(self):
+        tcr_data, conc = parse_tracer_with_conc_string("lactate-[13C3][148.88]")
+        self.assertEqual("lactate-[13C3]", tcr_data["unparsed_string"])
+        self.assertEqual(148.88, conc)
+        self.assertEqual("lactate", tcr_data["compound_name"])
+        self.assertEqual(1, len(tcr_data["isotopes"]))
+        self.assertIsNotNone(tcr_data["isotopes"][0])
+        self.assertEqual(148.88, conc)
 
 
 class InfusateValidationTests(InfusateTest):
@@ -423,3 +437,108 @@ class InfusateValidationTests(InfusateTest):
             self.infusate_data_leucine_named_2
         )
         self.assertIsNone(infusate_found)
+
+    def test_parse_isotope_label_success(self):
+        label = "C13N15-label-3-1"
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label)
+        self.assertEqual(expected, obs)
+
+        possible_obs = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=5,
+                parent=True,
+            ),
+        ]
+        label = "C12 PARENT"
+        expected = []
+        obs = parse_isotope_label(label, possible_obs)
+        self.assertEqual(expected, obs)
+
+        label = "C13-label-3"
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label, possible_obs)
+        self.assertEqual(expected, obs)
+
+    def test_parse_isotope_label_adds_possible_zero_counts(self):
+        label = "C13-label-3"
+        possible_obs = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=5,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=1,
+                parent=False,
+            ),
+        ]
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=3,
+                parent=False,
+            ),
+            ObservedIsotopeData(
+                element="N",
+                mass_number=15,
+                count=0,
+                parent=False,
+            ),
+        ]
+        obs = parse_isotope_label(label, possible_obs)
+        self.assertEqual(expected, obs)
+
+    def test_parse_isotope_label_ObservedIsotopeUnbalancedError(self):
+        label = "C13N15-label-3-1-5"
+        with self.assertRaises(ObservedIsotopeUnbalancedError):
+            parse_isotope_label(label)
+
+    def test_parse_isotope_label_UnexpectedLabels(self):
+        label = "C13N15-label-3-1"
+        possible_obs = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=5,
+                parent=True,
+            ),
+        ]
+        with self.assertRaises(UnexpectedLabels):
+            parse_isotope_label(label, possible_obs)
+
+    def test_parse_isotope_label_IsotopeStringDupe(self):
+        label = "C13N15C13-label-3-1-5"
+        with self.assertRaises(IsotopeStringDupe):
+            parse_isotope_label(label)
+
+    def test_parse_isotope_label_ObservedIsotopeParsingError(self):
+        label = "nonsense"
+        with self.assertRaises(ObservedIsotopeParsingError):
+            parse_isotope_label(label)

@@ -25,50 +25,6 @@ class Protocol(models.Model):
         help_text="Classification of the protocol, " "e.g. an animal treatment.",
     )
 
-    @classmethod
-    def retrieve_or_create_protocol(
-        cls,
-        protocol_input,
-        category=None,
-        provisional_description=None,
-    ):
-        """
-        retrieve or create a protocol, based on input.
-        protocol_input can either be a name or an integer (protocol_id)
-        """
-
-        if protocol_input is None:
-            raise ValueError("protocol_input cannot be None.")
-
-        created = False
-
-        try:
-            protocol = Protocol.objects.get(id=protocol_input)
-        except ValueError:
-            # protocol_input must not be an integer; try the name
-            try:
-                protocol, created = Protocol.objects.get_or_create(
-                    name=protocol_input,
-                    category=category,
-                )
-                if created:
-                    # add the provisional description
-                    if provisional_description is not None:
-                        protocol.description = provisional_description
-                        protocol.full_clean()
-                        protocol.save()
-
-            except Protocol.DoesNotExist as e:
-                raise Protocol.DoesNotExist(
-                    f"Protocol ID {protocol_input} does not exist."
-                ) from e
-
-        except Protocol.DoesNotExist as e:
-            # protocol_input was an integer, but was not found
-            print(f"Protocol ID {protocol_input} does not exist.")
-            raise e
-        return (protocol, created)
-
     class Meta:
         verbose_name = "protocol"
         verbose_name_plural = "protocols"

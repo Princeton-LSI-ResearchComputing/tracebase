@@ -77,6 +77,8 @@ class ProtocolsLoader(TableLoader):
         },
     }
 
+    # No FieldToDataValueConverter needed
+
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(field=Protocol.name),
         CATEGORY=TableColumn.init_flat(field=Protocol.category),

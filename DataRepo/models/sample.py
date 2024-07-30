@@ -55,8 +55,14 @@ class Sample(MaintainedModel, HierCachedModel):
         null=True,
         blank=True,
         validators=[
-            MinValueValidator(MINIMUM_VALID_TIME_COLLECTED),
-            MaxValueValidator(MAXIMUM_VALID_TIME_COLLECTED),
+            MinValueValidator(
+                MINIMUM_VALID_TIME_COLLECTED,
+                message=f"Sample.time_collected must be greater than or equal to {MINIMUM_VALID_TIME_COLLECTED}.",
+            ),
+            MaxValueValidator(
+                MAXIMUM_VALID_TIME_COLLECTED,
+                message=f"Sample.time_collected must be less than or equal to {MAXIMUM_VALID_TIME_COLLECTED}.",
+            ),
         ],
         help_text="The time, relative to an infusion timepoint, "
         "that a sample was extracted from an animal.",
@@ -125,6 +131,10 @@ class Sample(MaintainedModel, HierCachedModel):
 
     def __str__(self):
         return str(self.name)
+
+    @classmethod
+    def is_a_blank(cls, sample_name):
+        return "blank" in sample_name.lower()
 
 
 class InvalidArgument(ValueError):

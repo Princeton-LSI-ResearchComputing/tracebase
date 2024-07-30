@@ -1,6 +1,6 @@
 import argparse
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Type
 
 from django.core.management import BaseCommand, CommandError
 
@@ -61,7 +61,7 @@ class LoadTableCommand(ABC, BaseCommand):
     # See load_tissues.Command for a concrete example.
     @property
     @abstractmethod
-    def loader_class(self):  # type[TableLoader]
+    def loader_class(self) -> Type[TableLoader]:
         pass
 
     def __init__(
@@ -207,16 +207,16 @@ class LoadTableCommand(ABC, BaseCommand):
             kwargs["defer_rollback"] = self.options["defer_rollback"]
 
             # Intermediate loader state (needed before calling get_dataframe)
-            self.loader = self.loader_class(*args, **kwargs)
+            self.loader: TableLoader = self.loader_class(*args, **kwargs)
 
             # Now we can parse the dataframe using the user-customized dtype dict
             kwargs["df"] = self.get_dataframe()
 
             # Re-initialize associated data
-            self.loader = self.loader_class(*args, **kwargs)
+            self.loader: TableLoader = self.loader_class(*args, **kwargs)
         else:
             # Before handle() has been called (with options), just initialize the loader with all supplied arguments
-            self.loader = self.loader_class(*args, **kwargs)
+            self.loader: TableLoader = self.loader_class(*args, **kwargs)
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.
@@ -422,9 +422,6 @@ class LoadTableCommand(ABC, BaseCommand):
                 self.saved_aes.print_summary()
                 raise self.saved_aes
 
-            if self.dry_run_exception is not None:
-                raise self.dry_run_exception
-
             return retval
 
         return handle_wrapper
@@ -551,7 +548,14 @@ class LoadTableCommand(ABC, BaseCommand):
         if dtypes is None:
             df = read_from_file(file, sheet=sheet)
         else:
-            df = read_from_file(file, dtype=dtypes, sheet=sheet)
+            keep_default_na = False
+            if len([val for val in dtypes.values() if not isinstance(val, str)]) > 0:
+                # pandas will throw an error on empty cells if it cannot convert an empty string into a specified type,
+                # so setting keep_default_na to True will allow them to just be null.
+                keep_default_na = True
+            df = read_from_file(
+                file, dtype=dtypes, sheet=sheet, keep_default_na=keep_default_na
+            )
         return df
 
     def get_headers(self):

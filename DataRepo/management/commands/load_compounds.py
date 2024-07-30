@@ -1,3 +1,6 @@
+from typing import Type
+
+from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.compounds_loader import CompoundsLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
@@ -6,7 +9,7 @@ class Command(LoadTableCommand):
     """Command to load the Compound and CompoundSynonym models from a table-like file."""
 
     help = "Loads data from a compound table into the database"
-    loader_class = CompoundsLoader
+    loader_class: Type[TableLoader] = CompoundsLoader
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass

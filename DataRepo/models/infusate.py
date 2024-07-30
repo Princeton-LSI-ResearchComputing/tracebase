@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Optional
 
 from django.core.exceptions import ValidationError
@@ -11,12 +12,6 @@ from DataRepo.models.utilities import get_model_by_name
 
 if TYPE_CHECKING:
     from DataRepo.utils.infusate_name_parser import InfusateData
-
-
-CONCENTRATION_SIGNIFICANT_FIGURES = 3
-TRACER_DELIMETER = ";"
-TRACERS_LEFT_BRACKET = "{"
-TRACERS_RIGHT_BRACKET = "}"
 
 
 class InfusateQuerySet(models.QuerySet):
@@ -33,8 +28,6 @@ class InfusateQuerySet(models.QuerySet):
 
         # Matching record not found, create new record
         if infusate is None:
-            print(f"Inserting infusate {infusate_data['unparsed_string']}")
-
             # create infusate
             infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
@@ -66,6 +59,12 @@ class InfusateQuerySet(models.QuerySet):
         infusates = Infusate.objects.annotate(
             num_tracers=models.Count("tracers")
         ).filter(
+            # TODO: Consider removing the tracer group name from the query.  All infusates with the same assortment of
+            # tracers SHOULD have the same tracer group name, and with the addition of the load_infusates script, this
+            # is an error-checked/enforced requirement (add a group name if missing or remove if a dupe without one pre-
+            # exists), so removing the name from the search would allow duplicates (with or without group name
+            # inconsistencies) to be more readily identified.  Besides, it's the same infusate regardless of the group
+            # name.
             tracer_group_name=infusate_data["infusate_name"],
             num_tracers=len(infusate_data["tracers"]),
         )
@@ -83,7 +82,12 @@ class InfusateQuerySet(models.QuerySet):
 
 
 class Infusate(MaintainedModel, HierCachedModel):
-    objects = InfusateQuerySet().as_manager()
+    objects: InfusateQuerySet = InfusateQuerySet().as_manager()
+
+    CONCENTRATION_SIGNIFICANT_FIGURES = 3
+    TRACER_DELIMETER = ";"
+    TRACERS_LEFT_BRACKET = "{"
+    TRACERS_RIGHT_BRACKET = "}"
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -120,7 +124,7 @@ class Infusate(MaintainedModel, HierCachedModel):
 
     @MaintainedModel.setter(generation=0, update_field_name="name", update_label="name")
     def _name(self):
-        # Format: `tracer_group_name{tracername;tracername}`
+        # Format: `tracer_group_name {tracername[concentration];tracername[concentration]}`
 
         # Need to check self.id to see if the record exists yet or not, because if it does not yet exist, we cannot use
         # the reverse self.tracers reference until it exists (besides, another update will trigger when the
@@ -132,20 +136,163 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
 
-        name = TRACER_DELIMETER.join(
+        name = self.TRACER_DELIMETER.join(
             sorted(
                 map(
                     lambda o: o.tracer._name()
-                    + f"[{o.concentration:.{CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
+                    + f"[{o.concentration:.{self.CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
                     link_recs.all(),
                 )
             )
         )
 
         if self.tracer_group_name is not None:
-            name = f"{self.tracer_group_name} {TRACERS_LEFT_BRACKET}{name}{TRACERS_RIGHT_BRACKET}"
+            name = f"{self.tracer_group_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
 
         return name
+
+    def name_and_concentrations(self):
+        """Create an infusate name without concentrations and return that name and a list of concentrations in the
+        corresponding tracer order.
+
+        Args:
+            None:
+
+        Exceptions:
+            None
+
+        Returns:
+            name (string): Same as returned from _name(), but without the concentrations
+            concentrations (list of floats): Concentrations in the order of the names (not significant digits)
+        """
+        if self.id is None or self.tracers is None or self.tracers.count() == 0:
+            return self.tracer_group_name
+
+        link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
+
+        tracer_names_and_concentrations = sorted(
+            [[o.tracer._name(), o.concentration] for o in link_recs.all()],
+            key=lambda item: item[0],
+        )
+
+        name = self.TRACER_DELIMETER.join(
+            [item[0] for item in tracer_names_and_concentrations]
+        )
+        if self.tracer_group_name is not None:
+            name = f"{self.tracer_group_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
+
+        concentrations = [item[1] for item in tracer_names_and_concentrations]
+
+        return name, concentrations
+
+    def infusate_name_equal(self, supplied_name, supplied_concs):
+        """Determines if a supplied infusate name and concentrations are the same as the record.
+
+        Note, the reason for this is that the sorting of the tracers and isotopes in a valid name can differ.  The
+        number of allowed spaces between the tracer group name and list of tracers can differ.  Also, equating floats
+        (i.e. concentrations) is not reliable.  This method ignores those differences and compares the corresponding
+        data to return True or False.
+
+        Comparing a supplied name and concentrations could either be accomplished by converting the arguments to a
+        record or converting both the record and the arguments into TypedDicts using the parser.  This strategy uses the
+        latter so that the database is unaffected.
+
+        Args:
+            supplied_name (string)
+            supplied_concs (list of floats)
+
+        Exceptions:
+            None
+
+        Returns:
+            equal (boolean): Whether the supplied name and concentration are equivalent to the record.
+        """
+        from DataRepo.utils.infusate_name_parser import (
+            InfusateParsingError,
+            TracerParsingError,
+            parse_infusate_name,
+            parse_infusate_name_with_concs,
+        )
+
+        # Any infusate name string (e.g. as supplied from a file) may not have the tracers in the same order
+        rec_name, rec_concentrations = self.name_and_concentrations()
+
+        rec_data = parse_infusate_name(rec_name, rec_concentrations)
+        try:
+            sup_data = parse_infusate_name(supplied_name, supplied_concs)
+        except TracerParsingError:
+            sup_data = parse_infusate_name_with_concs(supplied_name)
+        except InfusateParsingError as ipe:
+            # If the name and concs is invalid due to unmatching numbers of tracers and concentrations, return False
+            if (
+                "Unable to match" in str(ipe)
+                and "tracers to" in str(ipe)
+                and "concentration values" in str(ipe)
+            ):
+                return False
+            raise ipe
+
+        if rec_data["infusate_name"] != sup_data["infusate_name"] or len(
+            rec_data["tracers"]
+        ) != len(sup_data["tracers"]):
+            return False
+
+        # This assumes that compounds in an infusate are unique
+        rec_tracers_data_sorted_by_compound = sorted(
+            rec_data["tracers"], key=lambda item: item["tracer"]["compound_name"]
+        )
+        sup_tracers_data_sorted_by_compound = sorted(
+            sup_data["tracers"], key=lambda item: item["tracer"]["compound_name"]
+        )
+
+        for i, _ in enumerate(rec_tracers_data_sorted_by_compound):
+            if not math.isclose(
+                rec_tracers_data_sorted_by_compound[i]["concentration"],
+                sup_tracers_data_sorted_by_compound[i]["concentration"],
+            ):
+                return False
+            elif (
+                rec_tracers_data_sorted_by_compound[i]["tracer"]["compound_name"]
+                != sup_tracers_data_sorted_by_compound[i]["tracer"]["compound_name"]
+            ):
+                return False
+            elif (
+                # At this point, we can equate the dicts, bec. their contents are not fragile to order or type
+                rec_tracers_data_sorted_by_compound[i]["tracer"]["isotopes"]
+                != sup_tracers_data_sorted_by_compound[i]["tracer"]["isotopes"]
+            ):
+                return False
+
+        return True
+
+    def get_tracer_group_infusates(self):
+        """Get other infusates with the same assortment of tracers (i.e. the same tracer group), but in different
+        concentrations, or potentially different group names (in order to catch group name inconsistencies).
+
+        Args:
+            None
+
+        Exceptions:
+            None
+
+        Returns:
+            infusates (QuerySet): Infusates with the same assortment of tracers
+        """
+        if self.id is None:
+            # Cannot traverse reverse relation until the id field is defined
+            return Infusate.objects.none()
+        # Check for infusates with the same number of tracers
+        infusates = Infusate.objects.annotate(
+            num_tracers=models.Count("tracers")
+        ).filter(
+            num_tracers=self.tracers.count(),
+        )
+        # Check that the tracers match
+        for tracer in self.tracers.all():
+            infusates = infusates.filter(
+                tracer_links__tracer=tracer,
+            )
+        return infusates.exclude(pk=self.pk)
 
     @property
     def pretty_name(self):
@@ -156,13 +303,13 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         if display_name:
             display_name = display_name.replace(
-                TRACER_DELIMETER, f"{TRACER_DELIMETER}\n"
+                self.TRACER_DELIMETER, f"{self.TRACER_DELIMETER}\n"
             )
             display_name = display_name.replace(
-                TRACERS_LEFT_BRACKET, f"{TRACERS_LEFT_BRACKET}\n"
+                self.TRACERS_LEFT_BRACKET, f"{self.TRACERS_LEFT_BRACKET}\n"
             )
             display_name = display_name.replace(
-                TRACERS_RIGHT_BRACKET, f"\n{TRACERS_RIGHT_BRACKET}"
+                self.TRACERS_RIGHT_BRACKET, f"\n{self.TRACERS_RIGHT_BRACKET}"
             )
 
         return display_name
@@ -193,7 +340,44 @@ class Infusate(MaintainedModel, HierCachedModel):
         This is an override of clean to validate the tracer_group_name of new records
         """
         self.validate_tracer_group_names(name=self.tracer_group_name)
+        self.validate_tracer_groups()
         super().clean(*args, **kwargs)
+
+    def validate_tracer_groups(self):
+        """
+        Validation method that raises and exception if two infusate records have the same assortment of tracers, but
+        whose group names do not match.  And, it will raise an exception if there exists 2 infusates with the same
+        tracers at the same concentrations (i.e. a duplicate).
+        """
+        # This is here to avoid circular import
+        from DataRepo.utils.exceptions import TracerGroupsInconsistent
+
+        dupes = []
+        group_names_differ = []
+        for infusate in self.get_tracer_group_infusates():
+            # Same tracers, but different tracer group names:
+            if infusate.tracer_group_name != self.tracer_group_name:
+                group_names_differ.append(infusate)
+
+            # Same tracers and same concentrations:
+            concs_same = True
+            for infusate_tracer in self.tracer_links.all():
+                if (
+                    infusate.tracer_links.filter(
+                        tracer=infusate_tracer.tracer,
+                        concentration=infusate_tracer.concentration,
+                    ).count()
+                    != 1
+                ):
+                    concs_same = False
+                    break
+
+            if concs_same:
+                dupes.append(infusate)
+
+        # If any issues
+        if len(dupes) > 0 or len(group_names_differ) > 0:
+            raise TracerGroupsInconsistent(self, dupes, group_names_differ)
 
     @classmethod
     def validate_tracer_group_names(cls, name=None):
@@ -226,7 +410,7 @@ class Infusate(MaintainedModel, HierCachedModel):
                 group_map_dict[grp_name][tracer_key] = []
             group_map_dict[grp_name][tracer_key].append(group_rec.id)
 
-        # For each tracer_group name, if it refers to multiple groups of tracers, append an error message to the
+        # For each tracer_group_name, if it refers to multiple groups of tracers, append an error message to the
         # problems array that identifies the ambiguous tracer_group_names, the number of different groupings of
         # tracers, a description of the different sets of tracers, and a single example list of the infusate record IDs
         # with the problematic tracer_group_names.

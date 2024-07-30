@@ -44,17 +44,16 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
-    AllMissingCompounds,
+    AllMissingCompoundsErrors,
     AllMissingSamplesError,
-    AllMissingTissues,
+    AllMissingTissuesErrors,
     ConflictingValueError,
-    DryRun,
     DupeCompoundIsotopeCombos,
-    IsotopeObservationParsingError,
     IsotopeParsingError,
-    MissingCompounds,
+    MissingCompoundsError,
     MissingSamplesError,
     MissingTissue,
+    ObservedIsotopeParsingError,
     RequiredSampleValuesError,
     SheetMergeError,
     get_column_dupes,
@@ -62,6 +61,7 @@ from DataRepo.utils import (
     parse_infusate_name,
     parse_tracer_concentrations,
 )
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
 class ExampleDataConsumer:
@@ -764,7 +764,7 @@ class DataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(
-            isinstance(aes.exceptions[0], MissingCompounds),
+            isinstance(aes.exceptions[0], MissingCompoundsError),
             msg=f"Exception [{type(aes.exceptions[0]).__name__}: {aes.exceptions[0]}] is MissingCompounds?",
         )
         exp_str = "1 compounds were not found in the database:\n\ttable sugar"
@@ -1061,7 +1061,7 @@ class PropertyTests(TracebaseTestCase):
                 "element C (from the tracers in the infusate [methionine-(15N1)[200]])."
             ),
         ):
-            pg.labels.first().enrichment_fraction
+            pg.labels.first().enrichment_fraction  # pylint: disable=no-member
 
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
@@ -2027,14 +2027,32 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         ANIMALS_COUNT = 1
         STUDIES_COUNT = 1
 
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
         call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
+            "load_animals",
+            infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            dry_run=False,
         )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        # call_command(
+        #     "load_animals_and_samples",
+        #     animal_and_sample_table_filename=(
+        #         "DataRepo/data/tests/small_obob/"
+        #         "small_obob_animal_and_sample_table.xlsx"
+        #     ),
+        #     dry_run=False,
+        # )
 
         self.assertEqual(Sample.objects.all().count(), SAMPLES_COUNT)
         self.assertEqual(Animal.objects.all().count(), ANIMALS_COUNT)
@@ -2043,52 +2061,53 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
-    def test_animal_and_sample_load_in_dry_run(self):
-        # Load some data to ensure that none of it changes during the actual test
-        call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx"
-            ),
-            skip_researcher_check=True,
-        )
+    # TODO: Obsolete, delete
+    # def test_animal_and_sample_load_in_dry_run(self):
+    #     # Load some data to ensure that none of it changes during the actual test
+    #     call_command(
+    #         "load_animals_and_samples",
+    #         animal_and_sample_table_filename=(
+    #             "DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx"
+    #         ),
+    #         skip_researcher_check=True,
+    #     )
 
-        pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
-            "DataRepo.models"
-        )
-        self.assertGreater(
-            len(pre_load_maintained_values.keys()),
-            0,
-            msg="Ensure there is data in the database before the test",
-        )
-        self.assert_coordinator_state_is_initialized()
+    #     pre_load_counts = self.get_record_counts()
+    #     pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+    #         "DataRepo.models"
+    #     )
+    #     self.assertGreater(
+    #         len(pre_load_maintained_values.keys()),
+    #         0,
+    #         msg="Ensure there is data in the database before the test",
+    #     )
+    #     self.assert_coordinator_state_is_initialized()
 
-        with self.assertRaises(DryRun):
-            call_command(
-                "load_animals_and_samples",
-                animal_and_sample_table_filename=(
-                    "DataRepo/data/tests/small_obob/"
-                    "small_obob_animal_and_sample_table.xlsx"
-                ),
-                dry_run=True,
-            )
+    #     with self.assertRaises(DryRun):
+    #         call_command(
+    #             "load_animals_and_samples",
+    #             animal_and_sample_table_filename=(
+    #                 "DataRepo/data/tests/small_obob/"
+    #                 "small_obob_animal_and_sample_table.xlsx"
+    #             ),
+    #             dry_run=True,
+    #         )
 
-        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
-            "DataRepo.models"
-        )
-        post_load_counts = self.get_record_counts()
+    #     post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+    #         "DataRepo.models"
+    #     )
+    #     post_load_counts = self.get_record_counts()
 
-        self.assertEqual(
-            pre_load_counts,
-            post_load_counts,
-            msg="DryRun mode doesn't change any table's record count.",
-        )
-        self.assertEqual(
-            pre_load_maintained_values,
-            post_load_maintained_values,
-            msg="DryRun mode doesn't autoupdate.",
-        )
+    #     self.assertEqual(
+    #         pre_load_counts,
+    #         post_load_counts,
+    #         msg="DryRun mode doesn't change any table's record count.",
+    #     )
+    #     self.assertEqual(
+    #         pre_load_maintained_values,
+    #         post_load_maintained_values,
+    #         msg="DryRun mode doesn't autoupdate.",
+    #     )
 
     def test_get_column_dupes(self):
         col_keys = ["Sample Name", "Study Name"]
@@ -2282,9 +2301,45 @@ class StudyLoadingTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
-            "load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
+            "load_compounds",
+            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
+        call_command(
+            "load_protocols",
+            infile="DataRepo/data/tests/small_obob/small_obob_protocols.tsv",
+        )
+        Study.objects.create(name="Small OBOB")
+        Infusate.objects.get_or_create_infusate(
+            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        )
+        call_command(
+            "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_sample_table",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            skip_samples=("blank"),
+        )
+        # call_command(
+        #     "load_study",
+        #     "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
+        # )
         cls.COMPOUNDS_COUNT = 2
         cls.SAMPLES_COUNT = 14
         cls.PEAKDATA_ROWS = 11
@@ -2348,13 +2403,13 @@ class StudyLoadingTests(TracebaseTestCase):
         """
         lsc = LoadStudyCommand()
         exceptions = [
-            AllMissingTissues(
+            AllMissingTissuesErrors(
                 [
                     MissingTissue(tissue_name="spleen", column="Tissue", rownum=1),
                     MissingTissue(tissue_name="spleen", column="Tissue", rownum=2),
                 ]
             ),
-            MissingCompounds({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
+            MissingCompoundsError({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
             MissingSamplesError(["a", "b"]),
         ]
         aes = AggregatedErrors(exceptions=exceptions)
@@ -2537,7 +2592,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["All Tissues Exist in the Database"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingTissues,
+                AllMissingTissuesErrors,
             ),
         )
         self.assertTrue(
@@ -2545,7 +2600,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["All Compounds Exist in the Database"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingCompounds,
+                AllMissingCompoundsErrors,
             ),
         )
         self.assertTrue(
@@ -2553,7 +2608,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[0],
-                AllMissingTissues,
+                AllMissingTissuesErrors,
             ),
         )
         self.assertTrue(
@@ -2561,7 +2616,7 @@ class StudyLoadingTests(TracebaseTestCase):
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
                 ].exceptions[1],
-                MissingCompounds,
+                MissingCompoundsError,
             ),
         )
         self.assertTrue(
@@ -2647,7 +2702,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_isotope_label_bad(self):
         tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(IsotopeObservationParsingError):
+        with self.assertRaises(ObservedIsotopeParsingError):
             AccuCorDataLoader.parse_isotope_string(
                 "label-5",
                 tracer_labeled_elements,
@@ -2655,7 +2710,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_isotope_label_empty(self):
         tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(IsotopeObservationParsingError):
+        with self.assertRaises(ObservedIsotopeParsingError):
             AccuCorDataLoader.parse_isotope_string(
                 "",
                 tracer_labeled_elements,

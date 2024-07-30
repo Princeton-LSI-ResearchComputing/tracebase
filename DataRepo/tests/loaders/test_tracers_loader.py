@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 import pandas as pd
 
 from DataRepo.loaders.tracers_loader import TracersLoader
@@ -27,7 +25,7 @@ class TracersLoaderTests(TracebaseTestCase):
 
     LYSINE_TRACER_DATAFRAME = pd.DataFrame.from_dict(
         {
-            "Tracer Number": [1],
+            "Tracer Row Group": [1],
             "Compound Name": ["lysine"],
             "Element": ["C"],
             "Mass Number": [13],
@@ -68,21 +66,7 @@ class TracersLoaderTests(TracebaseTestCase):
 
         tl.init_load()
 
-        self.assertTrue(hasattr(tl, "tracer_dict"))
-        self.assertTrue(hasattr(tl, "tracer_name_to_number"))
-        self.assertTrue(hasattr(tl, "valid_tracers"))
-        self.assertTrue(hasattr(tl, "inconsistent_compounds"))
-        self.assertTrue(hasattr(tl, "inconsistent_names"))
-        self.assertTrue(hasattr(tl, "inconsistent_numbers"))
-
-        self.assertEqual(defaultdict, type(tl.tracer_dict))
-        self.assertEqual(defaultdict, type(tl.tracer_name_to_number))
-        self.assertEqual(dict, type(tl.valid_tracers))
-        self.assertEqual(defaultdict, type(tl.inconsistent_compounds))
-        self.assertEqual(defaultdict, type(tl.inconsistent_names))
-        self.assertEqual(defaultdict, type(tl.inconsistent_numbers))
-
-        self.assertEqual(0, len(tl.tracer_dict.keys()))
+        self.assertEqual(0, len(tl.tracers_dict.keys()))
         self.assertEqual(0, len(tl.tracer_name_to_number.keys()))
         self.assertEqual(0, len(tl.valid_tracers.keys()))
         self.assertEqual(0, len(tl.inconsistent_compounds.keys()))
@@ -100,21 +84,21 @@ class TracersLoaderTests(TracebaseTestCase):
         self.assertEqual(1, TracerLabel.objects.count())
         self.assertIsNotNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
 
-    def test_build_tracer_dict(self):
+    def test_build_tracers_dict(self):
         tl = TracersLoader(df=self.LYSINE_TRACER_DATAFRAME)
-        tl.build_tracer_dict()
+        tl.build_tracers_dict()
         self.assertDictEqual(
             self.TRACER_DICT,
-            tl.tracer_dict,
+            tl.tracers_dict,
         )
 
-    def test_load_tracer_dict(self):
+    def test_load_tracers_dict(self):
         # Establish that the tracer does not exist at first
         self.assertIsNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
 
         tl = TracersLoader(df=self.LYSINE_TRACER_DATAFRAME)
-        tl.build_tracer_dict()
-        tl.load_tracer_dict()
+        tl.build_tracers_dict()
+        tl.load_tracers_dict()
 
         self.assertIsNotNone(Tracer.objects.get_tracer(self.LYSINE_TRACER_DATA))
 
@@ -145,7 +129,7 @@ class TracersLoaderTests(TracebaseTestCase):
     def test_check_extract_name_data(self):
         tl = TracersLoader(df=self.LYSINE_TRACER_DATAFRAME)
         tl.init_load()
-        tl.tracer_dict = {
+        tl.tracers_dict = {
             1: {
                 "compound_name": None,
                 "isotopes": [],
@@ -155,7 +139,7 @@ class TracersLoaderTests(TracebaseTestCase):
             },
         }
         tl.check_extract_name_data()
-        self.assertDictEqual(self.TRACER_DICT, tl.tracer_dict)
+        self.assertDictEqual(self.TRACER_DICT, tl.tracers_dict)
 
     def test_tracer_loader_get_or_create_tracer(self):
         # Establish that the tracer does not exist at first
@@ -213,7 +197,7 @@ class TracersLoaderTests(TracebaseTestCase):
 
         tl = TracersLoader()
         tl.init_load()
-        tl.tracer_dict = {
+        tl.tracers_dict = {
             1: {
                 "compound_name": "lysine",
                 "isotopes": [
@@ -339,14 +323,14 @@ class TracersLoaderTests(TracebaseTestCase):
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[2]))
 
         self.assertIn(
-            "Tracer Number and Compound Name",
+            "Tracer Row Group and Compound Name",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
-            "Tracer Number 1 ", str(tl.aggregated_errors_object.exceptions[0])
+            "Tracer Row Group 1 ", str(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertIn(
-            "one Compound Name is allowed per Tracer Number",
+            "one Compound Name is allowed per Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
@@ -357,14 +341,14 @@ class TracersLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Tracer Name and Tracer Number",
+            "Tracer Name and Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
-            "Tracer Number 2 ", str(tl.aggregated_errors_object.exceptions[1])
+            "Tracer Row Group 2 ", str(tl.aggregated_errors_object.exceptions[1])
         )
         self.assertIn(
-            "one Tracer Name is allowed per Tracer Number",
+            "one Tracer Name is allowed per Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIn(
@@ -377,7 +361,7 @@ class TracersLoaderTests(TracebaseTestCase):
         )
 
         self.assertIn(
-            "Tracer Number and Tracer Name",
+            "Tracer Row Group and Tracer Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
@@ -385,7 +369,7 @@ class TracersLoaderTests(TracebaseTestCase):
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(
-            "one Tracer Number is allowed per Tracer Name",
+            "one Tracer Row Group is allowed per Tracer Name",
             str(tl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIn(

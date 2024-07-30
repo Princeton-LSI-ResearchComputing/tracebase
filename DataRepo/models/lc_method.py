@@ -57,7 +57,7 @@ class LCMethod(models.Model):
         ],
         help_text=(
             "Time duration to complete a sample run "
-            "through the liquid chromatography method.",
+            "through the liquid chromatography method."
         ),
     )
 
@@ -123,3 +123,15 @@ class LCMethod(models.Model):
             raise ValidationError(
                 f"Invalid name: {self.name}.  The name must match the type and run length, e.g.: {self.get_name()}"
             )
+
+    @classmethod
+    def parse_lc_protocol_name(cls, name: str):
+        """Parse a given LC Protocol name string and return the type and run_length."""
+        try:
+            vals = name.split("-")
+            vals.pop()  # "min"
+            runlen = vals.pop()
+            typ = "-".join(vals)
+        except ValueError as ve:
+            raise ValueError(f"{ve} from input: {name}")
+        return typ, int(runlen)

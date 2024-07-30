@@ -68,3 +68,7 @@ class SampleTests(TracebaseTestCase):
 
         # Assert that the new serum sample's is_serum_sample is autoupdated to True
         self.assertTrue(nlss.is_serum_sample)
+
+    def test_is_a_blank(self):
+        self.assertTrue(Sample.is_a_blank("a Blank sample"))
+        self.assertFalse(Sample.is_a_blank("sample1"))

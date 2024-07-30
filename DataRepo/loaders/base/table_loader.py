@@ -1,17 +1,24 @@
+import os
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable
 from typing import Dict, Optional, Type
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    MultipleObjectsReturned,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
 from django.db.utils import ProgrammingError
 
+from DataRepo.models.maintained_model import AutoUpdateFailed
 from DataRepo.models.utilities import get_model_fields
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AggregatedErrorsSet,
     ConflictingValueError,
     DryRun,
     DuplicateHeaders,
@@ -20,7 +27,9 @@ from DataRepo.utils.exceptions import (
     InfileDatabaseError,
     InfileError,
     InvalidHeaderCrossReferenceError,
+    MultiLoadStatus,
     NoLoadData,
+    RecordDoesNotExist,
     RequiredColumnValue,
     RequiredHeadersError,
     RequiredValueError,
@@ -136,20 +145,29 @@ class TableLoader(ABC):
         """Derived classes must implement a load_data method that does the work of the load.
         Args:
             None
-        Raises:
-            TBD by the derived class
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         pass
 
     # DataDefaultValues is populated automatically (with Nones)
+    # TODO: It would be nice if the default values could be a function that takes the entire row so that a default value
+    #       could be imputed.  The unique column constraints of the infusates loader had to be modified due to the
+    #       inability to fill in column values parsed from the infusate name
     DataDefaultValues: Optional[tuple] = None  # namedtuple
 
     # DataColumnTypes is optional unless read_from_file needs a dtype argument
     # (converted to by-header-name in get_column_types)
     # dict of types by header key
     DataColumnTypes: Optional[Dict[str, Type[str]]] = None
+
+    # FieldToDataValueConverter is a dict of (lambda) functions keyed on model and field names
+    # Use this for exporting the database field values to the value in the column
+    # For example: Animal.age is read in in weeks, stored as a timedelta, which defaults to output in days, thus the
+    # converter can be used to output in weeks
+    FieldToDataValueConverter: Optional[Dict[str, dict]] = None
 
     # For the defaults sheet...
     DefaultsSheetName = "Defaults"
@@ -174,6 +192,9 @@ class TableLoader(ABC):
     # DEFAULT_VALUE is not required (allow user to selete the value) - but note that all the headers are required
     DefaultsRequiredValues = ["SHEET_NAME", "COLUMN_NAME"]
 
+    # For handling empty "cells".  Any value to be converted to None, when evaluated as a string.
+    none_vals = ["", "nan"]
+
     def __init__(
         self,
         *args,
@@ -181,6 +202,7 @@ class TableLoader(ABC):
         dry_run=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
         file=None,
+        filename=None,  # In case file is a temp file with a nonsense name
         data_sheet=None,
         defaults_df=None,
         defaults_sheet=None,
@@ -200,12 +222,13 @@ class TableLoader(ABC):
             dry_run (Optional[boolean]) [False]: Dry run mode.
             defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
                 HANDLE THE ROLLBACK.
-            data_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            defaults_sheet (Optional[str]) [None]: Sheet name (for error reporting).
-            file (Optional[str]) [None]: File name (for error reporting).
+            data_sheet (Optional[str]): Sheet name (for error reporting).
+            defaults_sheet (Optional[str]): Sheet name (for error reporting).
+            file (Optional[str]): File path.
+            filename (Optional[str]): Filename (for error reporting).
             user_headers (Optional[dict]): Header names by header key.
             defaults_df (Optional[pandas dataframe]): Default values data from a table-like file.
-            defaults_file (Optional[str]) [None]: Defaults file name (None if the same as infile).
+            defaults_file (Optional[str]): Defaults file name (None if the same as infile).
             headers (Optional[DefaultsTableHeaders namedtuple]): headers by header key.
             defaults (Optional[DefaultsTableHeaders namedtuple]): default values by header key.
             extra_headers (Optional[List[str]]): Use for dynamic headers (different in every file).  To allow any
@@ -214,12 +237,10 @@ class TableLoader(ABC):
                 intended for use by the web validation interface.  It's similar to dry-run mode, in that it never
                 commits anything, but it also raises warnings as fatal (so they can be reported through the web
                 interface and seen by researchers, among other behaviors specific to non-privileged users).
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         if len(args) > 0:
             raise AggregatedErrors().buffer_error(
@@ -253,12 +274,24 @@ class TableLoader(ABC):
         self.validate = _validate
 
         # For error reporting
-        self.file = file
+        self.file = file  # Also used for type checking
         self.sheet = data_sheet
         self.defaults_file = defaults_file
         self.defaults_sheet = defaults_sheet
         self.row_index = None
         self.rownum = None
+        self.friendly_file = (
+            file  # In case the file is a temp file with a nonsense name
+        )
+        if filename is not None and self.file is not None:
+            # In case a path was provided
+            friendly_path, friendly_name = os.path.split(filename)
+            if friendly_path is None or str(friendly_path) == "":
+                friendly_path, _ = os.path.split(file)
+                self.friendly_file = os.path.join(friendly_path, friendly_name)
+            else:
+                self.friendly_file = filename
+        # TODO: Add a self.friendly_defaults_file instance attribute (low priority, as we will not often use this)
 
         # This is for preserving derived class headers and defaults
         self.headers = headers
@@ -270,6 +303,23 @@ class TableLoader(ABC):
         # Metadata
         self.initialize_metadata()
 
+    def get_friendly_filename(self):
+        """Returns the friendly name of self.file (if it is defined).  "Friendly" means the name the user gave it (in
+        case self.file is a tempo file with a nonsense name).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Retruns:
+            friendly_filename (Optional[str])
+        """
+        if self.friendly_file is not None:
+            return os.path.basename(self.friendly_file)
+        if self.file is None:
+            return None
+        return os.path.basename(self.file)
+
     def apply_loader_wrapper(self):
         """This applies a decorator to the derived class's load_data method.
 
@@ -279,12 +329,10 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         # Apply the _loader decorator to the load_data method in the derived class
         decorated_derived_class_method = self._loader()(getattr(self, "load_data"))
@@ -298,12 +346,10 @@ class TableLoader(ABC):
 
         Args:
             index (int)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.row_index = index
         if index is None:
@@ -322,10 +368,8 @@ class TableLoader(ABC):
 
         Args:
             index (Optional[int]): A manually supplied row index
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             boolean: Whether the row should be skipped or not
         """
@@ -337,10 +381,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             headers (namedtuple of DataTableHeaders)
         """
@@ -369,12 +411,10 @@ class TableLoader(ABC):
 
         Args:
             custom_headers (dict): Header names by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.headers = self._merge_headers(custom_headers)
 
@@ -427,12 +467,12 @@ class TableLoader(ABC):
 
         Args:
             custom_headers (dict): Header names by header key
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
                 ValueError
-
         Returns:
             headers (namedtuple of DataTableHeaders)
         """
@@ -459,7 +499,10 @@ class TableLoader(ABC):
                 if hk in new_dh_dict.keys():
                     # If None was sent in as a value, fall back to the default so that errors about this header (e.g.
                     # default values of required headers) reference *something*.
-                    if custom_headers[hk] is not None:
+                    if (
+                        custom_headers[hk] is not None
+                        and custom_headers[hk].strip() != ""
+                    ):
                         new_dh_dict[hk] = custom_headers[hk]
                 else:
                     extras.append(hk)
@@ -481,7 +524,11 @@ class TableLoader(ABC):
             # To support incomplete headers dicts
             for hk in self.user_headers.keys():
                 if hk in new_uh_dict.keys():
-                    new_uh_dict[hk] = self.user_headers[hk]
+                    if (
+                        self.user_headers[hk] is not None
+                        and self.user_headers[hk].strip() != ""
+                    ):
+                        new_uh_dict[hk] = self.user_headers[hk]
                 else:
                     extras.append(hk)
 
@@ -524,10 +571,8 @@ class TableLoader(ABC):
                 must supply headers.
             all_reqd (boolean) [True]: Whether the first dimension of reqd_spec is all required or not (1 of any
                 required)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             pretty_headers (string)
         """
@@ -589,10 +634,8 @@ class TableLoader(ABC):
             _anded (boolean) [True]: Private.  Whether all or 1 of the header items in this dimension are required
             markers (boolean) [True]: Whether to include "all required" annotations appended to items (*) and
                 parenthases around the outer group.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             pretty_headers (string)
         """
@@ -613,9 +656,12 @@ class TableLoader(ABC):
                 )
                 pretty_headers += ")"
 
-                if markers:
-                    # The sub-group is the opposite of "anded"
-                    pretty_headers += "^" if _anded else "*"
+                # The sub-group is the opposite of "anded"
+                if _anded:
+                    pretty_headers += "^"
+                elif markers:
+                    # Asterisks are only added if markers is True (up-carets are always added)
+                    pretty_headers += "*"
             else:
                 pretty_headers += hdr_item
 
@@ -623,7 +669,7 @@ class TableLoader(ABC):
                 if _first_dim and (_anded or len(reqd_headers) == 1) and markers:
                     pretty_headers += "*"
 
-        if _first_dim and not _anded and len(reqd_headers) != 1 and markers:
+        if _first_dim and not _anded and len(reqd_headers) != 1:
             pretty_headers = f"({pretty_headers})^"
 
         return pretty_headers
@@ -637,10 +683,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             keys (list of strings)
         """
@@ -657,10 +701,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
         """
@@ -678,12 +720,10 @@ class TableLoader(ABC):
 
         Args:
             custom_defaults (dict): Default values by header key
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.defaults = self._merge_defaults(custom_defaults)
 
@@ -695,12 +735,12 @@ class TableLoader(ABC):
 
         Args:
             custom_defaults (dict): Default values by header key
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
                 InfileError
-
         Returns:
             defaults (Optional[namedtuple of DataTableHeaders])
         """
@@ -785,14 +825,14 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 ValueError
                 TypeError
-
         Returns:
-            Nothing
+            None
         """
         # We create an aggregated errors object in class methods because we may not have an instance with one
         aes = AggregatedErrors()
@@ -927,10 +967,7 @@ class TableLoader(ABC):
                     f"{type(cls.DefaultsHeaders)} set"
                 )
 
-            if cls.Models is None or len(cls.Models) == 0:
-                # Raise programming-related errors immediately
-                typeerrs.append("Models is required to have at least 1 Model class")
-            else:
+            if cls.Models is not None and len(cls.Models) > 0:
                 mdlerrs = []
                 for mdl in cls.Models:
                     if not issubclass(mdl, Model):
@@ -975,13 +1012,13 @@ class TableLoader(ABC):
         Args:
             headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
             defaults (DataTableHeaders namedtuple of objects): Customized default values by header key.
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
-
         Returns:
-            Nothing
+            None
         """
         typeerrs = []
 
@@ -1035,10 +1072,8 @@ class TableLoader(ABC):
 
         Args:
             obj (object): Any object.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             boolean
         """
@@ -1056,10 +1091,8 @@ class TableLoader(ABC):
 
         Args:
             obj (object): Any object.
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             boolean
         """
@@ -1069,13 +1102,15 @@ class TableLoader(ABC):
             and hasattr(obj, "_fields")
         )
 
-    def get_column_types(self):
+    def get_column_types(self, optional_mode=False):
         """Returns a dict of column types by header name (not header key).
 
         Args:
+            optional_mode (bool): Only include types that do not raise pandas exceptions when empty (because they are
+                optional).  Currently, this means it will only include string types, e.g. so that animal names that are
+                only numbers stay as strings.
+        Exceptions:
             None
-        Raises:
-            Nothing
         Returns:
             dtypes (dict): Types by header name (instead of by header key)
         """
@@ -1083,14 +1118,42 @@ class TableLoader(ABC):
             return None
 
         if hasattr(self, "headers") and self.headers is not None:
-            headers = self.headers
-        else:
+            return self._get_column_types(self.headers, optional_mode=optional_mode)
+
+        return self._get_column_types(optional_mode=optional_mode)
+
+    @classmethod
+    def _get_column_types(self, headers=None, optional_mode=False):
+        """Returns a dict of column types by header name (not header key).
+
+        Args:
+            headers (namedtuple)
+            optional_mode (bool): Only include types that do not raise pandas exceptions when empty (because they are
+                optional).  Currently, this means it will only include string types, e.g. so that animal names that are
+                only numbers stay as strings.
+        Exceptions:
+            None
+        Returns:
+            dtypes (dict): Types by header name (instead of by header key)
+        """
+        # TODO: Make optional mode have the ability to consider the required state for the column
+        if self.DataColumnTypes is None:
+            return None
+
+        if headers is None:
             headers = self.DataHeaders
 
         dtypes = {}
         for key in self.DataColumnTypes.keys():
+            if optional_mode and self.DataColumnTypes[key] != str:
+                continue
             hdr = getattr(headers, key)
-            dtypes[hdr] = self.DataColumnTypes[key]
+            if hdr is None:
+                # This is in case the custom-supplied headers are incomplete (they should not be if they came from the
+                # instance - only if this is called externally)
+                dtypes[getattr(self.DataHeaders, key)] = self.DataColumnTypes[key]
+            else:
+                dtypes[hdr] = self.DataColumnTypes[key]
 
         return dtypes
 
@@ -1104,11 +1167,11 @@ class TableLoader(ABC):
         Args:
             indict (dict of objects): Any objects by header key
             headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
-
-        Raises:
-            AggregatedErrors
+        Exceptions:
+            Raises:
+                AggregatedErrors
+            Buffers:
                 TypeError
-
         Returns:
             outdict (dict): objects by header name (instead of by header key)
         """
@@ -1156,13 +1219,11 @@ class TableLoader(ABC):
 
         Args:
             indict (dict of objects): Any objects by header key
-
         Exceptions:
             Raises:
                 KeyError
             Buffers:
                 None
-
         Returns:
             outdict (dict): objects by header name (instead of by header key)
         """
@@ -1187,23 +1248,24 @@ class TableLoader(ABC):
 
         return outdict
 
-    def check_dataframe_headers(self, reading_defaults=False):
+    def check_dataframe_headers(self, reading_defaults=False, error=True):
         """Error-checks the headers in the dataframe.
 
         Args:
             reading_defaults (boolean) [False]: Whether defaults data is being read or not
-
+            error (bool) [True]: Buffers/raises errors is True
         Exceptions:
             Raises:
                 AggregatedErrors
-                    RequiredHeadersError
                 ValueError
             Buffers:
                 UnknownHeadersError
-
+                RequiredHeadersError
         Returns:
-            Nothing
+            passed (bool)
         """
+        passed = True
+
         if reading_defaults:
             df = self.defaults_df
             all_headers = list(self.DefaultsHeaders._asdict().values())
@@ -1224,11 +1286,15 @@ class TableLoader(ABC):
             )
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+                and error
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
-            return
+            return len(self.Models) == 0
 
         missing_headers = None
         if reqd_headers is not None:
@@ -1236,16 +1302,20 @@ class TableLoader(ABC):
                 df.columns, reqd_headers=reqd_headers
             )
             if missing_headers is not None:
-                pretty_missing_headers = self.get_pretty_headers(
-                    reqd_spec=missing_headers,
-                    all_reqd=all_reqd,
-                    reqd_only=True,
-                    legend=False,
-                    markers=False,
-                )
-                self.aggregated_errors_object.buffer_error(
-                    RequiredHeadersError(pretty_missing_headers, file=file, sheet=sheet)
-                )
+                if error:
+                    pretty_missing_headers = self.get_pretty_headers(
+                        reqd_spec=missing_headers,
+                        all_reqd=all_reqd,
+                        reqd_only=True,
+                        legend=False,
+                        markers=False,
+                    )
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredHeadersError(
+                            pretty_missing_headers, file=file, sheet=sheet
+                        )
+                    )
+                passed = False
 
         if all_headers is not None and not any_header_allowed:
             unknown_headers = []
@@ -1254,12 +1324,16 @@ class TableLoader(ABC):
                     unknown_headers.append(file_header)
             if len(unknown_headers) > 0:
                 if not reading_defaults or missing_headers is not None:
-                    self.aggregated_errors_object.buffer_error(
-                        UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
-                    )
+                    if error:
+                        self.aggregated_errors_object.buffer_error(
+                            UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
+                        )
+                    passed = False
 
-        if missing_headers is not None:
+        if missing_headers is not None and error:
             raise self.aggregated_errors_object
+
+        return passed
 
     def get_missing_headers(
         self, supd_headers, reqd_headers=None, _anded=True, _first=True
@@ -1298,10 +1372,8 @@ class TableLoader(ABC):
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
             _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
                 recursion.  Do not supply.
-
         Exceptions:
             None
-
         Returns:
             missing (list of strings and lists): an N-dimensional list of missing headers where every dimension deeper
                 alternates between all required and 1 of any required
@@ -1332,9 +1404,12 @@ class TableLoader(ABC):
                 if not _anded:
                     return None, _anded
             elif isinstance(missing_header_item, list) and sublist_anded == _anded:
-                # If the sublist and outer list are both "anded" or both "ored", merge them
-                missing.extend(missing_header_item)
-            else:
+                # If the sublist and outer list are both "anded" or both "ored", merge them, excluding ones that are
+                # already present (e.g. if the same one was in 2 lists)
+                for item in missing_header_item:
+                    if item not in missing:
+                        missing.append(item)
+            elif missing_header_item not in missing:
                 missing.append(missing_header_item)
 
         if len(missing) == 0:
@@ -1353,10 +1428,8 @@ class TableLoader(ABC):
         Args:
             ndim_header_keys (list of strings and lists): N-dimensional list of header keys.  See get_missing_headers.
             headers (Optional[namedtuple of TableHeaders]) [self.get_headers()]: header names by key
-
         Exceptions:
             None
-
         Returns
             ndim_header_names (list of strings and lists): N-dimensional list of header keys.  See get_missing_headers.
         """
@@ -1376,10 +1449,8 @@ class TableLoader(ABC):
 
         Args:
             ndim_strings (list of strings and lists)
-
         Exceptions:
             None
-
         Returns
             invalid_types (list of strings): Names of all invalid types contained in any dimension od ndim_strings
         """
@@ -1401,13 +1472,10 @@ class TableLoader(ABC):
         Example:
             input = [a, [b, c], [[c, d], [a, e]]]
             output = [a, b, c, d, e]
-
         Args:
             ndim_strings (list of strings and lists)
-
         Exceptions:
             None
-
         Returns
             flat_uniques (list of strings): a unique flat list of all items in ndim_strings
         """
@@ -1433,15 +1501,13 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
-        Exceptions Buffered:
-            DuplicateValues
-
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                DuplicateValues
         Returns:
-            Nothing
+            None
         """
         if self.unique_constraints is None:
             return
@@ -1450,7 +1516,10 @@ class TableLoader(ABC):
             df = self.df
 
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+            ):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
@@ -1466,28 +1535,31 @@ class TableLoader(ABC):
             if len(dupes) > 0:
                 self.aggregated_errors_object.buffer_error(
                     DuplicateValues(
-                        dupes, unique_combo, sheet=self.sheet, file=self.file
+                        dupes, unique_combo, sheet=self.sheet, file=self.friendly_file
                     )
                 )
 
-    def check_dataframe_values(self, reading_defaults=False):
+    def check_dataframe_values(self, reading_defaults=False, error=True):
         """Preprocesses the dataframe to ensure that required values are satisfied.
 
         If there are missing required values, a RequiredColumnValue exception is buffered and the row is marked to be
         skipped.
 
         Args:
-            df (pandas dataframe) [self.df]
-
+            reading_defaults (bool): Whether we should be reading the df or defaults_df
+            error (bool): If True, exceptions are buffered/raised. If False, only returns the passed status, no error.
         Exceptions:
             Raises:
-                None
+                ProgrammingError
             Buffers:
                 RequiredColumnValue
-
+                NoLoadData
         Returns:
-            None
+            passed (bool): False if the data fails the check, True if it passes.
         """
+        passed = True
+        # TODO: Add a check of the types and of enums here (in addition to read_from_file).  See:
+        # DataRepo.tests.loaders.test_animals_loader.AnimalsLoaderTests.test_animals_loader_load_data_invalid
         if reading_defaults:
             df = self.defaults_df
             file = self.defaults_file
@@ -1501,24 +1573,21 @@ class TableLoader(ABC):
             headers = self.headers
             reqd_values = self.reqd_values
 
-        if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
-                self.aggregated_errors_object.buffer_warning(
-                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
-                )
-            return
-
         # Do we need to do anything?
         if reqd_values is None or len(reqd_values) == 0:
-            return
+            return passed
 
         # Is there data to check?
         if df is None:
-            if not self.aggregated_errors_object.exception_type_exists(NoLoadData):
+            if (
+                not self.aggregated_errors_object.exception_type_exists(NoLoadData)
+                and len(self.Models) > 0
+                and error
+            ):
                 self.aggregated_errors_object.buffer_warning(
-                    NoLoadData("No dataframe [df] provided.  Nothing to load.")
+                    NoLoadData("No dataframe provided.  Nothing to load.")
                 )
-            return
+            return len(self.Models) == 0
 
         # Are we in the proper initialized state?
         if hasattr(self, "row_index") and self.row_index is not None:
@@ -1528,32 +1597,40 @@ class TableLoader(ABC):
                 "before check_dataframe_values is called (e.g. from the load_data wrapper.)"
             )
 
+        save_row_index = self.row_index
+        self.set_row_index(None)
+
         for _, row in df.iterrows():
             missing_reqd_vals, all_reqd = self.get_missing_values(
                 row, reqd_values=reqd_values, headers=headers
             )
 
             if missing_reqd_vals is not None:
-                pretty_missing_reqd_vals = self.get_pretty_headers(
-                    reqd_spec=missing_reqd_vals,
-                    all_reqd=all_reqd,
-                    reqd_only=True,
-                    legend=False,
-                    markers=False,
-                )
-                self.aggregated_errors_object.buffer_error(
-                    RequiredColumnValue(
-                        pretty_missing_reqd_vals,
-                        file=file,
-                        sheet=sheet,
-                        rownum=row.name + 2,
+                if error:
+                    pretty_missing_reqd_vals = self.get_pretty_headers(
+                        reqd_spec=missing_reqd_vals,
+                        all_reqd=all_reqd,
+                        reqd_only=True,
+                        legend=False,
+                        markers=False,
                     )
-                )
-                if not reading_defaults:
-                    self.add_skip_row_index(row.name)
+                    # TODO: Figure out a way to skip entirely empty rows and not report required missing column values
+                    self.aggregated_errors_object.buffer_error(
+                        RequiredColumnValue(
+                            pretty_missing_reqd_vals,
+                            file=file,
+                            sheet=sheet,
+                            rownum=row.name + 2,
+                        )
+                    )
+                    if not reading_defaults:
+                        self.add_skip_row_index(row.name)
+                passed = False
 
         # Reset the row index (which was altered by get_row_val inside get_missing_values)
-        self.set_row_index(None)
+        self.set_row_index(save_row_index)
+
+        return passed
 
     def get_missing_values(
         self,
@@ -1583,10 +1660,8 @@ class TableLoader(ABC):
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
             _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
                 recursion.  Do not supply.
-
         Exceptions:
             None
-
         Returns:
             missing (list of strings and lists): an N-dimensional list of headers that have missing required values on
                 the row where every dimension deeper alternates between all required and 1 of any required
@@ -1624,12 +1699,13 @@ class TableLoader(ABC):
         Args:
             index (int): Row index.  Mutually exclusive with index_list.  Required if index_list is None.
             index_list (list of ints)L Row indexes.  Mutually exclusive with index.  Required if index is None.
-
-        Raises:
-            ValueError
-
+        Exceptions:
+            Raises:
+                ValueError
+            Buffers:
+                None
         Returns:
-            Nothing
+            None
         """
         if index is None and index_list is None:
             if not hasattr(self, "row_index") and self.row_index is None:
@@ -1651,10 +1727,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             skip_row_indexes (list of integers)
         """
@@ -1671,11 +1745,12 @@ class TableLoader(ABC):
             strip (boolean) [True]: Whether to strip leading and trailing spaces.
             reading_defaults (boolean) [False]: Whether defaults data is currently being read.  Only 2 different files
                 or sheets are supported, the ones for the data being loaded and the defaults.
-
-        Raises:
-            ValueError
-            RequiredColumnValue
-
+        Exceptions:
+            Raises:
+                ValueError
+                RequiredColumnValue
+            Buffers:
+                None
         Returns:
             val (object): Data from the row at the column (header)
         """
@@ -1684,14 +1759,13 @@ class TableLoader(ABC):
             # By setting the current row index in get_row_val, the derived class never needs to explicitly do it
             self.set_row_index(row.name)
 
-        none_vals = ["", "nan"]
         val = None
 
         if header in row:
             val = row[header]
             if isinstance(val, str) and strip is True:
                 val = val.strip()
-            if val in none_vals:
+            if str(val) in self.none_vals:
                 val = None
         elif (
             not reading_defaults
@@ -1703,7 +1777,7 @@ class TableLoader(ABC):
             raise UnknownHeaderError(
                 header,
                 self.all_headers,
-                file=self.file,
+                file=self.friendly_file,
                 sheet=self.sheet,
                 message=(
                     f"Header [{header}] supplied to get_row_val while processing %s is not configured in either the "
@@ -1717,7 +1791,9 @@ class TableLoader(ABC):
                 header,
                 list(self.DefaultsHeaders._asdict().values()),
                 file=(
-                    self.defaults_file if self.defaults_file is not None else self.file
+                    self.defaults_file
+                    if self.defaults_file is not None
+                    else self.friendly_file
                 ),
                 sheet=self.defaults_sheet,
                 message=(
@@ -1741,15 +1817,13 @@ class TableLoader(ABC):
 
         Args:
             None
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 ExcelSheetsNotFound
                 InvalidHeaderCrossReferenceError
                 TypeError
-
         Returns:
             user_defaults (dict): Default values by header name
         """
@@ -1878,7 +1952,7 @@ class TableLoader(ABC):
                     source_sheet=self.defaults_sheet,
                     column=self.DefaultsHeaders.COLUMN_NAME,
                     unknown_headers=unknown_headers,
-                    target_file=self.file,
+                    target_file=self.friendly_file,
                     target_sheet=self.sheet,
                     target_headers=infile_headers,
                 )
@@ -1904,13 +1978,11 @@ class TableLoader(ABC):
 
         Args:
             intuple (DataTableHeaders namedtuple): objects by header key
-
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 TypeError
-
         Returns:
             defdict (Optional[dict of objects]): objects by header name
         """
@@ -1932,10 +2004,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             defdict (dict of objects): default values by header name
         """
@@ -1947,10 +2017,8 @@ class TableLoader(ABC):
 
         Args:
             cls (TableLoader)
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             load_decorator (function)
         """
@@ -1960,29 +2028,26 @@ class TableLoader(ABC):
 
             Args:
                 cls (TableLoader)
-
-            Raises:
-                Nothing
-
+            Exceptions:
+                None
             Returns:
                 apply_wrapper (function)
             """
 
-            def load_wrapper(self, *args, **kwargs):
+            def load_wrapper(self: TableLoader, *args, **kwargs):
                 """Wraps the load_data() method in the derived class.
 
                 Checks the file data and handles atomic transactions, running modes, exceptions, and load stats.
 
                 Args:
                     None
-
-                Raises:
-                    TBD by derived class
-
+                Exceptions:
+                    None
                 Returns:
                     What's returned by the wrapped method
                 """
                 retval = None
+                aes_set = None
                 with transaction.atomic():
                     try:
                         self.check_dataframe_headers()
@@ -1991,6 +2056,27 @@ class TableLoader(ABC):
 
                         retval = fn(*args, **kwargs)
 
+                    except MultiLoadStatus:
+                        # In the event that a MultiLoadStatus exception is raised, there is nothing left to do.  All
+                        # summarizable exceptions will have been summarized already by the called loaders.  Unwanted
+                        # exceptions have been removed and we're not in DryRun mode.  There will not have been any
+                        # autoupdates of maintained fields.  Rollback is intended as part and parcel with the raising of
+                        # this exception.  So, raise
+                        raise
+                    except AggregatedErrorsSet as aess:
+                        # If an AggregatedErrorsSet exception is being raised by a TableLoader class, there are 2
+                        # possibilities:
+                        # 1. A file was being loader by this instance we're in right now, but it also called other child
+                        #    loaders, in which case the exceptions raised in this class need to be summarized (and the
+                        #    sub-loaders would already have been summarized).
+                        # 2. The loader was only running sub-loaders and there is no file that was being loaded to
+                        #    reference as a key in the AggregatedErrorsSet's dict of AggregatedErrors objects.  There
+                        #    can also be nothing to summarize, because it wasn't iterating over a file.
+                        # In either case, we need to process the aggregated_errors_object associated with this loader
+                        # and then raise the AggregatedErrorsSet exception.
+                        # The self.aggregated_errors_object by be contained in aess.  If it is not, we add it, and if it
+                        # is, the operations on it below will be updated in the set object as well.
+                        aes_set = aess
                     except AggregatedErrors as aes:
                         if aes != self.aggregated_errors_object:
                             self.aggregated_errors_object.merge_aggregated_errors_object(
@@ -2017,17 +2103,113 @@ class TableLoader(ABC):
                     # Summarize multiple types of exceptions that are subclasses of SummarizableError
                     for exc_cls in self.aggregated_errors_object.get_exception_types():
                         if issubclass(exc_cls, SummarizableError):
+                            # TODO: Change this behavior to always leave exceptions unmodified, so that their
+                            # application to Excel shows their unchanged severity
+
+                            # Get the exceptions with their original attributes
+                            orig_excs = (
+                                self.aggregated_errors_object.get_exception_type(
+                                    exc_cls, modify=False
+                                )
+                            )
+                            # Determine the severity of the summarized exception
+                            is_fatal = False
+                            is_error = False
+                            for exc in orig_excs:
+                                if exc.is_error:
+                                    is_error = True
+                                if exc.is_fatal:
+                                    is_fatal = True
+                                if is_error and is_fatal:
+                                    break
+                            # Remove the exceptions (this modifies them to warnings (to de-emphasize them))
                             excs = self.aggregated_errors_object.remove_exception_type(
                                 exc_cls
                             )
-                            self.aggregated_errors_object.buffer_error(
-                                exc_cls.SummarizerExceptionClass(excs)
+                            # Buffer the summarized exception
+                            self.aggregated_errors_object.buffer_exception(
+                                exc_cls.SummarizerExceptionClass(excs),
+                                is_error=is_error,
+                                is_fatal=is_fatal,
                             )
+
+                    if aes_set is not None:
+                        # Right now, individual loader classes set the load key manually to the friendly filename.  This
+                        # assumes that is the case with every loader that does this (which is currently only the
+                        # PeakAnnotationFilesLoader)
+                        load_key = self.get_friendly_filename()
+                        if load_key is None:
+                            # If there is no load file, use the loader class's name
+                            load_key = type(self).__name__
+
+                        # If self.aggregated_errors_object is not in the aggregated_errors_set_object, we need to add it
+                        if (
+                            self.aggregated_errors_object
+                            not in aes_set.aggregated_errors_dict.values()
+                        ):
+                            if (
+                                # If there are exceptions in this class's AES obj and either are fatal
+                                len(self.aggregated_errors_object.exceptions) > 0
+                                and (
+                                    self.aggregated_errors_object.should_raise()
+                                    or aes_set.should_raise()
+                                )
+                            ):
+                                # We need to incorporate the objects into 1 AggregatedErrorsSet object
+
+                                # Could have raised a separate object (assumes self.filename is the load_key key)
+                                if load_key in aes_set.aggregated_errors_dict.keys():
+                                    aes_set.aggregated_errors_dict[
+                                        load_key
+                                    ].merge_aggregated_errors_object(
+                                        self.aggregated_errors_object
+                                    )
+                                else:
+                                    aes_set.aggregated_errors_dict[load_key] = (
+                                        self.aggregated_errors_object
+                                    )
+
+                                # Preserve any custom message
+                                msg = (
+                                    aes_set.message if aes_set.custom_message else None
+                                )
+                                new_aes_set = AggregatedErrorsSet(
+                                    aes_set.aggregated_errors_dict, message=msg
+                                )
+
+                                # Raise the updated AggregatedErrorsSet exception
+                                if new_aes_set.should_raise():
+                                    raise new_aes_set
+
+                        # Raise the AggregatedErrorsSet object we received
+                        if aes_set.should_raise():
+                            raise aes_set
 
                     if (
                         self.aggregated_errors_object.should_raise()
                         and not self.defer_rollback
                     ):
+                        num_autoupdate_failures = len(
+                            self.aggregated_errors_object.get_exception_type(
+                                AutoUpdateFailed
+                            )
+                        )
+                        if (
+                            num_autoupdate_failures
+                            < self.aggregated_errors_object.num_errors
+                        ):
+                            # Assume that the "other" exception type caused a rollback which caused the AutoUpdateFailed
+                            # exception and remove them.  (Added due to extra exception in
+                            # test_infusate_loader_load_data before that test's original issue was fixed)
+                            # TODO: There probably exists a better way to do this, but there does not exist a rollback
+                            # hook in django's atomic transaction architecture.  What *should* happen is that the
+                            # autoupdate buffer should be cleared upon any exception that causes a rollback.  I have a
+                            # few ideas, such as the fact that the decorators could probably be applied in places that
+                            # would avoid this, but this bandaid will suffice for now.
+                            self.aggregated_errors_object.remove_exception_type(
+                                AutoUpdateFailed
+                            )
+
                         # Raise here to cause a rollback
                         raise self.aggregated_errors_object
 
@@ -2053,10 +2235,11 @@ class TableLoader(ABC):
 
         Args:
             model_name (str)
-
-        Raises:
-            ValueError
-
+        Exceptions:
+            Raises:
+                ValueError
+            Buffers:
+                None
         Returns:
             model_name (str)
         """
@@ -2077,10 +2260,8 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             models (list of model classes)
         """
@@ -2092,12 +2273,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["created"] += num
 
@@ -2106,12 +2285,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["updated"] += num
 
@@ -2120,12 +2297,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["existed"] += num
 
@@ -2134,12 +2309,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["skipped"] += num
 
@@ -2150,12 +2323,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["errored"] += num
 
@@ -2166,12 +2337,10 @@ class TableLoader(ABC):
 
         Args:
             model_name (Optional[str])
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         self.record_counts[self._get_model_name(model_name)]["warned"] += num
 
@@ -2180,16 +2349,21 @@ class TableLoader(ABC):
 
         Args:
             None
-
-        Raises:
-            Nothing
-
+        Exceptions:
+            None
         Returns:
             record_counts (dict of dicts of ints): Counts by model and status
         """
         return self.record_counts
 
-    def check_for_inconsistencies(self, rec, rec_dict, orig_exception=None):
+    def check_for_inconsistencies(
+        self,
+        rec,
+        rec_dict,
+        orig_exception=None,
+        is_error=True,
+        is_fatal=True,
+    ):
         """Generate ConflictingValueError exceptions based on differences between a supplied record and dict.
 
         This function compares the supplied database model record with the dict that was used to (get or) create a
@@ -2217,9 +2391,11 @@ class TableLoader(ABC):
             rec (Model object)
             rec_dict (dict of objects): A dict (e.g., as supplied to get_or_create() or create())
             orig_exception (Optional[Exception]): The exception that preceded the call to this method, if any
+            is_error (bool)
+            is_fatal (bool)
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 ConflictingValueError
         Returns:
@@ -2236,25 +2412,65 @@ class TableLoader(ABC):
                 }
         if len(differences.keys()) > 0:
             found_errors = True
-            self.aggregated_errors_object.buffer_error(
+            self.aggregated_errors_object.buffer_exception(
                 ConflictingValueError(
                     rec,
                     differences,
                     rec_dict=rec_dict,
                     rownum=self.rownum,
                     sheet=self.sheet,
-                    file=self.file,
+                    file=self.friendly_file,
                 ),
                 orig_exception=orig_exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
             )
         return found_errors
+
+    def buffer_infile_exception(
+        self, exception, is_error=True, is_fatal=True, column=None, suggestion=None
+    ):
+        """Convenience method to keep the loading code succinct.  Buffers an exception (default: as fatal error) as an
+        InfileError.  Use this to provide file context to any non-database related exception.  The file name, sheet, and
+        rownum are automatically applied.
+
+        Args:
+            exception (Exception)
+            is_error (bool) [True]
+            is_fatal (bool) [True]
+            column (str|int) [None]: Name of the column or columns that is the source of the erroneous data.
+            suggestion (Optional[str])
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                InfileError
+        Returns:
+            None
+        """
+        self.aggregated_errors_object.buffer_exception(
+            InfileError(
+                str(exception),
+                file=self.friendly_file,
+                sheet=self.sheet,
+                column=column,
+                rownum=self.rownum,
+                suggestion=suggestion,
+            ),
+            is_error=is_error,
+            is_fatal=is_fatal,
+            orig_exception=exception,
+        )
 
     def handle_load_db_errors(
         self,
         exception,
         model,
         rec_dict,
+        columns=None,
         handle_all=True,
+        is_error=True,
+        is_fatal=True,
     ):
         """Handles IntegrityErrors and ValidationErrors raised during database loading.  Put in `except` block.
 
@@ -2270,25 +2486,30 @@ class TableLoader(ABC):
             exception (Exception): Exception, e.g. obtained from `except` block
             model (Model): Model being loaded when the exception occurred
             rec_dict (dict): Fields and their values that were passed to either `create` or `get_or_create`
-            sheet (str): Name of the Excel sheet that was being loaded when the exception occurred.
-            file (str): Name (path optional) of the file that was being loaded when the exception occurred.
-
+            columns (object): Column or columns that were being processed when the exception occurred.
+            handle_all (bool) [True]: Whether to handle exceptions unrelated to specifically supported db exceptions.
+            is_error (bool)
+            is_fatal (bool)
         Exceptions:
             Raises:
-                Nothing
+                None
             Buffers:
                 ValueError
                 InfileDatabaseError
                 ConflictingValueError
                 RequiredValueError
-
         Returns:
             boolean indicating whether an error was handled(/buffered).
         """
         # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
         estr = str(exception)
         exc = InfileDatabaseError(
-            exception, rec_dict, rownum=self.rownum, sheet=self.sheet, file=self.file
+            exception,
+            rec_dict,
+            rownum=self.rownum,
+            sheet=self.sheet,
+            file=self.friendly_file,
+            column=columns,
         )
 
         if isinstance(exception, IntegrityError):
@@ -2322,7 +2543,11 @@ class TableLoader(ABC):
                     if qs.count() == 1:
                         rec = qs.first()
                         errs_found = self.check_for_inconsistencies(
-                            rec, rec_dict, orig_exception=exception
+                            rec,
+                            rec_dict,
+                            orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
                         )
                         if errs_found:
                             return True
@@ -2340,16 +2565,21 @@ class TableLoader(ABC):
                         and colname in self.FieldToHeader[model.__name__].keys()
                     ):
                         colname = self.FieldToHeader[model.__name__][fldname]
-                    self.aggregated_errors_object.buffer_error(
+                    elif columns is not None:
+                        colname += f" ({columns})"
+                    self.aggregated_errors_object.buffer_exception(
                         RequiredValueError(
                             column=colname,
                             rownum=self.rownum,
                             model_name=model.__name__,
                             field_name=fldname,
                             sheet=self.sheet,
-                            file=self.file,
+                            file=self.friendly_file,
                             rec_dict=rec_dict,
-                        )
+                        ),
+                        orig_exception=exception,
+                        is_error=is_error,
+                        is_fatal=is_fatal,
                     )
                     return True
 
@@ -2386,9 +2616,11 @@ class TableLoader(ABC):
                             if not self.aggregated_errors_object.exception_type_exists(
                                 InfileDatabaseError
                             ):
-                                self.aggregated_errors_object.buffer_error(
+                                self.aggregated_errors_object.buffer_exception(
                                     exc,
                                     orig_exception=orig_exception,
+                                    is_error=is_error,
+                                    is_fatal=is_fatal,
                                 )
                             else:
                                 if "Value '" in orig_estr:
@@ -2415,9 +2647,11 @@ class TableLoader(ABC):
                                     if val in str(existing_exc.exception):
                                         already_buffered = True
                                 if not already_buffered:
-                                    self.aggregated_errors_object.buffer_error(
+                                    self.aggregated_errors_object.buffer_exception(
                                         exc,
                                         orig_exception=exception,
+                                        is_error=is_error,
+                                        is_fatal=is_fatal,
                                     )
                             # Whether we buffered or not, the error was identified and handled (by either buffering or
                             # ignoring a duplicate)
@@ -2434,30 +2668,76 @@ class TableLoader(ABC):
                         # we can assume that it's worthwhile doing so, because since it is a custom class, we infer it
                         # to contain sufficient debugging information (aside from the file context, which we are adding
                         # here).  Django core exceptions do not.
-                        self.aggregated_errors_object.buffer_error(
+                        self.aggregated_errors_object.buffer_exception(
                             InfileError(
                                 f"{type(orig_exception).__name__}: {orig_sub_exception}",
-                                file=self.file,
+                                file=self.friendly_file,
                                 sheet=self.sheet,
                                 rownum=self.rownum,
                             ),
                             orig_exception=exception,
+                            is_error=is_error,
+                            is_fatal=is_fatal,
                         )
                     return True
 
         elif isinstance(exception, RequiredColumnValue):
             # This "catch" was added to force the developer to not continue the loop if they failed to call this method
-            self.aggregated_errors_object.buffer_error(exception)
+            self.aggregated_errors_object.buffer_exception(
+                exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
+            )
+            return True
+
+        elif isinstance(exception, ObjectDoesNotExist):
+            self.aggregated_errors_object.buffer_exception(
+                RecordDoesNotExist(
+                    model,
+                    rec_dict,
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                    column=columns,
+                    rownum=self.rownum,
+                ),
+                orig_exception=exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
+            )
+            # No skip for queries. The (foreign key) field may not be required.  Proceed (to find more errors).
+            return True
+
+        elif isinstance(exception, MultipleObjectsReturned):
+            self.aggregated_errors_object.buffer_exception(
+                RecordDoesNotExist(
+                    model,
+                    rec_dict,
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                    column=columns,
+                    rownum=self.rownum,
+                ),
+                orig_exception=exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
+            )
+            # No skip for queries. The (foreign key) field may not be required.  Proceed (to find more errors).
             return True
 
         if handle_all:
             if rec_dict is not None and len(rec_dict.keys()) > 0:
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     exc,
                     orig_exception=exception,
+                    is_error=is_error,
+                    is_fatal=is_fatal,
                 )
             else:
-                self.aggregated_errors_object.buffer_error(exception)
+                self.aggregated_errors_object.buffer_exception(
+                    exception,
+                    is_error=is_error,
+                    is_fatal=is_fatal,
+                )
             return True
 
         # If we get here, we did not identify the error as one we knew what to do with
@@ -2471,10 +2751,11 @@ class TableLoader(ABC):
             data (DataFrame or list of dicts): The table data parsed from a file.
             unique_col_keys (list of column name strings): Column names whose combination must be unique.
             ignore_row_idxs (list of integers): Rows to ignore.
-
-        Raises:
-            UnknownHeadersError
-
+        Exceptions:
+            Raises:
+                UnknownHeadersError
+            Buffers:
+                None
         Returns:
             1. A dict keyed on duplicate values and the value is a list of integers for the rows where it occurs.
             2. A list of all row indexes containing duplicate data.
@@ -2486,7 +2767,9 @@ class TableLoader(ABC):
 
         for rowidx, row in enumerate(dict_list):
             # Ignore rows where the animal name is empty
-            if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
+            if (ignore_row_idxs is not None and rowidx in ignore_row_idxs) or str(
+                row[col_key]
+            ) in cls.none_vals:
                 continue
             try:
                 vals_dict[row[col_key]].append(rowidx)
@@ -2505,8 +2788,8 @@ class TableLoader(ABC):
         """Returns a list of lists of names of fields involved in UniqueConstraints in a given model.
         Args:
             model (Model)
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             uflds (List of model fields)
         """
@@ -2526,8 +2809,8 @@ class TableLoader(ABC):
         Args:
             model (Model)
             fields (Optional[list of Model Fields])
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             fields (list of strings): field names
         """
@@ -2548,8 +2831,8 @@ class TableLoader(ABC):
         Args:
             model (Model)
             fields (Optional[list of Model Fields])
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             fields (list of strings): field names
         """
@@ -2566,8 +2849,8 @@ class TableLoader(ABC):
         """Retrieves all non-auto-fields from the supplied model and returns as a list of actual fields.
         Args:
             model (Model)
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             uflds (List of model fields)
         """
@@ -2585,8 +2868,8 @@ class TableLoader(ABC):
         Args:
             fld (Model Field)
             fld_names (list of strings): field names
-        Raises:
-            Nothing
+        Exceptions:
+            None
         Returns:
             boolean: Whether the fld is in fld_names
         """
@@ -2607,10 +2890,8 @@ class TableLoader(ABC):
             all (boolean) [False]: Whether to include all headers (that are mapped to a field).
             populate (boolean) [False]: Whether to add all of the database data to the dataframe.
             filter (dict): A dict of field names and values to filter on.
-
         Exceptions:
             NotImplementedError
-
         Returns:
             converted_out_dict (dict of dicts): This is intended to match pandas' version of a dict of lists, where the
                 lists are actually dicts indexed by integers
@@ -2638,7 +2919,21 @@ class TableLoader(ABC):
                         if fld in self.FieldToHeader[model_class.__name__].keys():
                             header = self.FieldToHeader[model_class.__name__][fld]
                             if header in display_headers:
-                                out_dict[header].append(getattr(rec, fld))
+                                val = getattr(rec, fld)
+                                if (
+                                    val is not None
+                                    and self.FieldToDataValueConverter is not None
+                                    and model_class.__name__
+                                    in self.FieldToDataValueConverter.keys()
+                                    and fld
+                                    in self.FieldToDataValueConverter[
+                                        model_class.__name__
+                                    ]
+                                ):
+                                    val = self.FieldToDataValueConverter[
+                                        model_class.__name__
+                                    ][fld](val)
+                                out_dict[header].append(val)
 
                 for hdr in display_headers:
                     if hdr not in out_dict.keys():
@@ -2670,10 +2965,8 @@ class TableLoader(ABC):
 
         Args:
             all (boolean) [False]: Whether to return all ordered current headers (or just those without class defaults)
-
         Exceptions:
             None
-
         Returns:
             header names (list of strings): Current header names (not keys) in the order in which they were defined in
                 DataTableHeaders
