@@ -1626,6 +1626,9 @@ class AccucorLoader(PeakAnnotationsLoader):
             "uncondensed_columns": [
                 "Compound",
                 "C_Label",
+                # The adductName column only ends up in this sheet due to earlier versions of Accucor not being aware
+                # that El Maven added it in later versions.
+                "adductName",
             ],
         },
     }
@@ -1635,6 +1638,7 @@ class AccucorLoader(PeakAnnotationsLoader):
     merge_dict = {
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
+            # Note, if adductName is erroneously in both sheets, merging will duplicate it with _x and _y suffixes
             "on": ["Compound", "C_Label", "Sample Header"],
             "left_columns": None,  # all
             "right_sheet": "Original",
@@ -1671,7 +1675,9 @@ class AccucorLoader(PeakAnnotationsLoader):
 
     merged_drop_columns_list = [
         "compound",
-        "adductName",
+        "adductName",  # In case only (correctly) present in the Original sheet (depending on El Maven version)
+        "adductName_x",  # In case present in both Original and Corrected sheets (depending on El Maven/Accucor version)
+        "adductName_y",  # In case present in both Original and Corrected sheets (depending on El Maven/Accucor version)
         "label",
         "metaGroupId",
         "groupId",

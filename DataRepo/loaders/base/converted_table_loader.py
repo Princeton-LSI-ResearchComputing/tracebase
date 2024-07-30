@@ -53,13 +53,14 @@ class ConvertedTableLoader(TableLoader, ABC):
     @property
     @abstractmethod
     def OrigDataTableHeaders(self):
-        # namedtuple spec
+        # namedtuple spec that accounts for ALL headers from ALL sheets.  Needed for OrigData* attributes.
         pass
 
     @property
     @abstractmethod
     def OrigDataHeaders(self):
-        # namedtuple of strings - should include headers from ALL sheets that will be merged
+        # namedtuple of strings - should include headers from ALL sheets that will be merged.  Needed for evaluating
+        # suitability of input data and reverting new to old versions.
         pass
 
     @property
@@ -815,6 +816,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             right=right_df,
             on=on_columns,
             how=_merge_dict["how"],
+            suffixes=("_x", "_y"),  # Explicit defaults
         )
 
         # Since we did a left join, rows missing in the right dataframe will end up with NaNs.  If their type is
