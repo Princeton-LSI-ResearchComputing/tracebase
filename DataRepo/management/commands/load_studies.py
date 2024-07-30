@@ -1,16 +1,15 @@
 from typing import Type
 
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.samples_loader import SamplesLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
 
 
-# TODO: Rename this file to "load_samples.py" after the old one is deleted
 class Command(LoadTableCommand):
-    """Command to load the Sample model from a table-like file."""
+    """Command to load the Study model (i.e. not an entire study doc) from a table-like file."""
 
-    help = "Loads samples from a table-like file into the database"
-    loader_class: Type[TableLoader] = SamplesLoader
+    help = "Loads data from a study table (e.g. study code, name, and description) into the database."
+    loader_class: Type[TableLoader] = StudiesLoader
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -26,10 +25,12 @@ class Command(LoadTableCommand):
                 - Unique file constraints
 
         Args:
-            options (dict): Values provided on the command line.
-        Exceptions:
-            None
+            options (dict of strings): String values provided on the command line by option name.
+
+        Raises:
+            Nothing (See LoadTableCommand._handler for exceptions in the wrapper)
+
         Returns:
-            None
+            Nothing
         """
         self.load_data()

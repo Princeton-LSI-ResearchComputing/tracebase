@@ -8,7 +8,7 @@ from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.infusates_loader import InfusatesLoader
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
-from DataRepo.loaders.study_table_loader import StudyTableLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.models import (
     Animal,
     AnimalLabel,
@@ -204,8 +204,8 @@ class AnimalsLoader(TableLoader):
             ),
             type=str,
             dynamic_choices=ColumnReference(
-                loader_class=StudyTableLoader,
-                loader_header_key=StudyTableLoader.NAME_KEY,
+                loader_class=StudiesLoader,
+                loader_header_key=StudiesLoader.NAME_KEY,
                 # TODO: See if an option can be supplied to auto-fill combinations with a delimiter
             ),
         ),

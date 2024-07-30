@@ -17,7 +17,7 @@ from DataRepo.loaders.peak_annotation_files_loader import (
 )
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
-from DataRepo.loaders.study_table_loader import StudyTableLoader
+from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Protocol, Tissue
 from DataRepo.models.compound import Compound
@@ -630,7 +630,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             ProtocolsLoader.DataSheetName: {},
             TissuesLoader.DataSheetName: {},
             CompoundsLoader.DataSheetName: {},
-            StudyTableLoader.DataSheetName: {},
+            StudiesLoader.DataSheetName: {},
             AnimalsLoader.DataSheetName: {},
             TracersLoader.DataSheetName: {},
             InfusatesLoader.DataSheetName: {},
@@ -661,7 +661,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "elbow pit": {TissuesLoader.DataHeaders.NAME: "elbow pit"},
                 "earlobe": {TissuesLoader.DataHeaders.NAME: "earlobe"},
             },
-            StudyTableLoader.DataSheetName: {},
+            StudiesLoader.DataSheetName: {},
             AnimalsLoader.DataSheetName: {},
             TracersLoader.DataSheetName: {},
             InfusatesLoader.DataSheetName: {},
@@ -694,7 +694,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 },
             },
             TissuesLoader.DataSheetName: {},
-            StudyTableLoader.DataSheetName: {},
+            StudiesLoader.DataSheetName: {},
             AnimalsLoader.DataSheetName: {},
             TracersLoader.DataSheetName: {},
             InfusatesLoader.DataSheetName: {},
@@ -1015,7 +1015,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         assert_coordinator_state_is_initialized()
 
         call_command("loaddata", "data_types", "data_formats")
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
+        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
             infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
@@ -1127,13 +1127,13 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
     #     # not be raised if there are no researchers loaded in the database)
     #     call_command("loaddata", "lc_methods")
     #     call_command(
-    #         "load_samples",
+    #         "legacy_load_samples",
     #         "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
     #         sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
     #         validate=True,
     #     )
     #     call_command(
-    #         "load_accucor_msruns",
+    #         "legacy_load_accucor_msruns",
     #         lc_protocol_name="polar-HILIC-25-min",
     #         instrument="unknown",
     #         accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",

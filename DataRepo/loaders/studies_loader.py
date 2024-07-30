@@ -9,7 +9,12 @@ from DataRepo.models import Study
 from DataRepo.utils.exceptions import RollbackException
 
 
-class StudyTableLoader(TableLoader):
+class StudiesLoader(TableLoader):
+    """Loads the Study Model from a dataframe (obtained from a table-like file).
+
+    NOTE: This DOES NOT load an entire study (or multiple entire studies).
+    """
+
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     CODE_KEY = "CODE"
     NAME_KEY = "NAME"

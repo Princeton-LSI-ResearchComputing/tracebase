@@ -27,8 +27,8 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
-# TODO: Swap out all of the calls to load_animals_and_samples and load_samples once those loaders are refactored to
-# inherit from TableLoader.
+# TODO: Swap out all of the calls to legacy_load_animals_and_samples and legacy_load_samples once those loaders are
+# refactored to inherit from TableLoader.
 
 
 def create_test_sequence(researcher, date):
@@ -48,7 +48,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         Study.objects.create(name="Small OBOB")
@@ -63,14 +63,14 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             ),
         )
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
         # call_command(
-        #     "load_animals_and_samples",
+        #     "legacy_load_animals_and_samples",
         #     animal_and_sample_table_filename=(
         #         "DataRepo/data/tests/small_obob/"
         #         "small_obob_animal_and_sample_table.xlsx"
@@ -277,7 +277,7 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT = 0
 
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
             animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
             table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
@@ -291,7 +291,7 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT += 1
 
         call_command(
-            "load_samples",
+            "legacy_load_samples",
             "DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv",
             sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
             skip_researcher_check=True,
@@ -335,11 +335,11 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             animal_and_sample_table_filename=(
                 "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
             ),
@@ -394,12 +394,12 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/protocols/loading.yaml",
             verbosity=2,
         )
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/tissues/loading.yaml",
             verbosity=2,
         )
@@ -410,7 +410,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         )
 
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             animal_and_sample_table_filename=(
                 "DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx"
             ),
@@ -443,7 +443,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def load_multitracer_data(self):
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
             skip_researcher_check=True,
         )
@@ -492,7 +492,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def load_multilabel_data(self):
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             animal_and_sample_table_filename=(
                 "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),
@@ -631,7 +631,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         ) = self.get_model_counts()
 
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
             skip_researcher_check=True,
         )
@@ -780,7 +780,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         ) = self.get_model_counts()
 
         call_command(
-            "load_animals_and_samples",
+            "legacy_load_animals_and_samples",
             animal_and_sample_table_filename=(
                 "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),

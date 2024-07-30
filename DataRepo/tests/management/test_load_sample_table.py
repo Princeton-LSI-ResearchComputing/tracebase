@@ -65,7 +65,7 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
             headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
         )
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile="DataRepo/data/tests/small_obob2/samples_table.tsv",
             headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
         )
@@ -76,7 +76,7 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
             headers="DataRepo/data/tests/small_obob2/animal_headers.yaml",
         )
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_new.tsv",
             headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
         )
@@ -128,7 +128,7 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
         exp_err = "check the existing researchers:\n\tMichael Neinast\n\tXianfeng Zeng"
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_sample_table",
+                "load_samples",
                 infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo_new.tsv",
                 headers="DataRepo/data/tests/small_obob2/sample_headers.yaml",
             )
@@ -146,7 +146,7 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
     def test_ls_new_researcher_confirmed(self):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_samples",
+                "legacy_load_samples",
                 "DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
                 sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
                 skip_researcher_check=True,
@@ -174,7 +174,7 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "load_study",
+            "legacy_load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         Study.objects.create(name="Small OBOB")
@@ -190,7 +190,7 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def test_animal_and_sample_load_xlsx(self):
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile="DataRepo/data/tests/small_obob/study.xlsx",
         )
         self.assertEqual(16, Sample.objects.all().count())
@@ -218,7 +218,7 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
             infile="DataRepo/data/tests/small_multitracer/study.xlsx",
         )
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile="DataRepo/data/tests/small_multitracer/study.xlsx",
         )
 
@@ -233,7 +233,7 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
         )
 
         call_command(
-            "load_sample_table",
+            "load_samples",
             infile="DataRepo/data/tests/small_obob/study.xlsx",
             dry_run=True,
         )
@@ -263,7 +263,7 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
         # loader merged the sheets and counted all of the missing animal columns for animal 972.
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "load_sample_table",
+                "load_samples",
                 infile="DataRepo/data/tests/small_obob/study_missing_rqd_vals.xlsx",
             )
         aes = ar.exception

@@ -30,18 +30,18 @@ class AnimalTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
+        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
             infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         call_command(
-            "load_samples",
+            "legacy_load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
@@ -50,7 +50,7 @@ class AnimalTests(TracebaseTestCase):
             new_researcher=True,
         )
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",

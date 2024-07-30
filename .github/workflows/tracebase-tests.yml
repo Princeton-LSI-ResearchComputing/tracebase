@@ -62,7 +62,7 @@ jobs:
           "DataRepo/fixtures/lc_methods.yaml"
       - name: Load initial tissue records
         run: |
-          python manage.py load_study \
+          python manage.py legacy_load_study \
           "DataRepo/data/tests/tissues/loading.yaml"
       - name: Load example compounds
         run: |
@@ -71,5 +71,5 @@ jobs:
           "DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv"
       - name: Load example sample table
         run: |
-          python manage.py load_samples \
+          python manage.py legacy_load_samples \
           "DataRepo/data/tests/small_obob2/obob_animal_sample_table.tsv"

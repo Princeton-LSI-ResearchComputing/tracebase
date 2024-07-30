@@ -46,7 +46,7 @@ class ViewTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
-        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
+        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
         call_command(
@@ -61,7 +61,7 @@ class ViewTests(TracebaseTestCase):
             assert_coordinator_state_is_initialized()
 
         call_command(
-            "load_samples",
+            "legacy_load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
@@ -71,7 +71,7 @@ class ViewTests(TracebaseTestCase):
         cls.ALL_ANIMALS_COUNT = 1
 
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
@@ -85,7 +85,7 @@ class ViewTests(TracebaseTestCase):
         cls.INF_PEAKGROUP_COUNT = cls.INF_COMPOUNDS_COUNT * cls.INF_SAMPLES_COUNT
 
         call_command(
-            "load_accucor_msruns",
+            "legacy_load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
