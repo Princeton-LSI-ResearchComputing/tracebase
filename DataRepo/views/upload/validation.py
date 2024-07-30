@@ -49,6 +49,7 @@ from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
 from DataRepo.models.tracer import Tracer
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AllMissingCompounds,
     AllMissingSamples,
     AllMissingStudies,
@@ -71,9 +72,6 @@ class DataValidationView(FormView):
     template_name = "DataRepo/validate_submission.html"
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
-    # Study doc version (default and supported list)
-    default_version = "3"
-    supported_versions = [default_version]
     row_key_delim = "__DELIM__"
 
     # TODO: Until all sheets are supported, this variable will be used to filter the sheets obtained from StudyLoader
@@ -223,6 +221,7 @@ class DataValidationView(FormView):
         self.study_file = None
         self.study_filename = None
         self.study_file_sheets = []
+        self.annot_files_dict: Dict[str, str] = {}
         self.peak_annot_files = None
         self.peak_annot_filenames = []
 
@@ -338,6 +337,35 @@ class DataValidationView(FormView):
                 f"number of peak annotation files [{peak_annot_files}]."
             )
 
+        # Initializing a few variables before the same loop below that processes the files using the sheet loaders
+        # We need an initialized self.annot_files_dict in order for get_or_create_dfs_dict to be able to convert a v2
+        # study doc to a fleshed v3 study doc.
+        # While we're at it, we'll also initialize self.peak_annot_filenames and self.peak_annotations_loaders.
+        self.annot_files_dict.clear()
+        self.peak_annot_filenames = []
+        self.peak_annotations_loaders = []
+        user_file_formats: Dict[str, str] = {}
+        error_messages = []
+
+        if peak_annot_files is not None and len(peak_annot_files) > 0:
+            for index, peak_annot_file in enumerate(peak_annot_files):
+                # Save the user's file name (different from the actual nonsense filename from the web form)
+                peak_annot_filename = peak_annot_filenames[index]
+                self.all_infile_names.append(peak_annot_filename)
+                self.peak_annot_filenames.append(peak_annot_filename)
+                if (
+                    peak_annot_filename in self.annot_files_dict.keys()
+                    and self.annot_files_dict[peak_annot_filename] != peak_annot_file
+                ):
+                    error_messages.append(
+                        f"Peak annotation filenames must be unique.  Filename {peak_annot_filename} was "
+                        "encountered multiple times."
+                    )
+                    continue
+
+                # Map the user's filename to the web form file path
+                self.annot_files_dict[peak_annot_filename] = peak_annot_file
+
         # Get an initial dfs_dict (a dict representation of the output study doc, either created or as obtained from the
         # user)
         self.dfs_dict = self.get_or_create_dfs_dict()
@@ -346,9 +374,6 @@ class DataValidationView(FormView):
         # Now that self.animal_sample_file, self.peak_annotation_files, and self.dfs_dict have been set, determine
         # validation readiness
         self.determine_study_file_validation_readiness()
-
-        user_file_formats: Dict[str, str] = {}
-        error_messages = []
 
         if self.study_file is not None:
             # The purpose of this block is to allow the user to specify the peak annotation file format (incase it's
@@ -375,9 +400,16 @@ class DataValidationView(FormView):
                     filename=self.study_filename,
                 )
                 for _, row in pafl.df.iterrows():
+                    if pafl.is_row_empty(row):
+                        continue
+
                     # "actual" means not the original file from the form submission, but the nonsense filename created
                     # by the browser
                     user_filename, _, user_format_code = pafl.get_file_and_format(row)
+
+                    if pafl.is_skip_row():
+                        continue
+
                     supported = PeakAnnotationsLoader.get_supported_formats()
 
                     if user_format_code is not None and user_format_code in supported:
@@ -390,29 +422,11 @@ class DataValidationView(FormView):
 
         # Now we will sort through the peak annotation files that were supplied and create loader objects for them to
         # extract autofill data
-        self.annot_files_dict: Dict[str, str] = {}
-        self.peak_annot_filenames = []
-        self.peak_annotations_loaders = []
         peak_annot_loader_class: Type[PeakAnnotationsLoader]
 
         if peak_annot_files is not None and len(peak_annot_files) > 0:
             for index, peak_annot_file in enumerate(peak_annot_files):
-                # Save the user's file name (different from the actual nonsense filename from the web form)
                 peak_annot_filename = peak_annot_filenames[index]
-                self.all_infile_names.append(peak_annot_filename)
-                self.peak_annot_filenames.append(peak_annot_filename)
-                if (
-                    peak_annot_filename in self.annot_files_dict.keys()
-                    and self.annot_files_dict[peak_annot_filename] != peak_annot_file
-                ):
-                    error_messages.append(
-                        f"Peak annotation filenames must be unique.  Filename {peak_annot_filename} was "
-                        "encountered multiple times."
-                    )
-                    continue
-
-                # Map the user's filename to the web form file path
-                self.annot_files_dict[peak_annot_filename] = peak_annot_file
 
                 # Now we will determine the format to decide which loader to create.
                 # We will defer to the user's supplied format (if any)
@@ -587,6 +601,7 @@ class DataValidationView(FormView):
             for i in self.dfs_dict[InfusatesLoader.DataSheetName][
                 InfusatesLoader.DataHeaders.ID
             ].values()
+            if i is not None
         ]
         self.next_infusate_row_group_num = 1
         if len(inf_row_group_nums) > 0:
@@ -598,6 +613,7 @@ class DataValidationView(FormView):
             for i in self.dfs_dict[TracersLoader.DataSheetName][
                 TracersLoader.DataHeaders.ID
             ].values()
+            if i is not None
         ]
         self.next_tracer_row_group_num = 1
         if len(trcr_row_group_nums) > 0:
@@ -633,7 +649,13 @@ class DataValidationView(FormView):
         # TODO: Instead of doing this none_vals strategy, dynamically create a dataframe out of the dfs_dict and then
         # use get_row_val and check if the result is None
         # TODO: I should probably alter this strategy and check if all required columns have values on every row?
-        none_vals = ["", "nan"]
+        none_vals = [
+            "",  # Empty string is inferred to be None.  You cannot search for empty strings in the DB anyway.
+            "nan",  # Derived from numpy
+            "None",  # none_vals is(/should be) evaluated with the value inside str() to handle weird types
+            "dummy",  # Some studies used this on rows for blank samples
+            "NaT",  # This happens when a dfs_dict entry is changed to None (e.g. when replacing a "dummy" value)
+        ]
 
         loader: TableLoader
         for loader in [
@@ -964,6 +986,9 @@ class DataValidationView(FormView):
         inf_sheet_cols = self.dfs_dict[InfusatesLoader.DataSheetName]
 
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             infusate_name = loader.get_row_val(row, loader.headers.INFUSATE)
             if (
                 infusate_name is not None
@@ -1138,6 +1163,9 @@ class DataValidationView(FormView):
             "animals": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             tissue_name = loader.get_row_val(row, loader.headers.TISSUE)
             if tissue_name is not None and tissue_name not in seen["tissues"].keys():
                 self.autofill_dict[TissuesLoader.DataSheetName][tissue_name] = {
@@ -1175,6 +1203,9 @@ class DataValidationView(FormView):
             "lcprotocols": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
             self.extract_autofill_from_sequence_name(seq_name, seen)
 
@@ -1204,6 +1235,9 @@ class DataValidationView(FormView):
             "lcprotocols": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
             self.extract_autofill_from_sequence_name(seq_name, seen)
 
@@ -1266,6 +1300,9 @@ class DataValidationView(FormView):
             "compounds": defaultdict(dict),
         }
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             tracer_name = loader.get_row_val(row, loader.headers.TRACERNAME)
             if (
                 tracer_name is not None
@@ -1297,6 +1334,9 @@ class DataValidationView(FormView):
         )
         seen = {"compounds": defaultdict(dict)}
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             compound_name = loader.get_row_val(row, loader.headers.COMPOUND)
             self.extract_autofill_from_compound_name(compound_name, seen)
 
@@ -1320,6 +1360,9 @@ class DataValidationView(FormView):
         )
         seen = {"lcprotocols": defaultdict(dict)}
         for _, row in loader.df.iterrows():
+            if loader.is_row_empty(row):
+                continue
+
             lc_protocol_name = loader.get_row_val(row, loader.headers.LCNAME)
             self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
 
@@ -1351,6 +1394,9 @@ class DataValidationView(FormView):
 
             # Extracting samples and compounds
             for _, row in peak_annot_loader.df.iterrows():
+                if peak_annot_loader.is_row_empty(row):
+                    continue
+
                 print(str(row.name), end="\r")
                 sample_header = peak_annot_loader.get_row_val(
                     row, peak_annot_loader.headers.SAMPLEHEADER
@@ -1494,42 +1540,50 @@ class DataValidationView(FormView):
         ]:
             # For each exception class we want to extract from the AggregatedErrors object (in order to both "fix" the
             # data and to remove related errors that those fixes address)
-            for exc_class, sheet, header in [
+            for exc_class, sheet, header, message in [
                 (
                     AllMissingCompounds,
                     CompoundsLoader.DataSheetName,
                     CompoundsLoader.DataHeaders.NAME,
+                    f"FIXED: Missing compounds have been added to the {CompoundsLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingSamples,
                     SamplesLoader.DataSheetName,
                     SamplesLoader.DataHeaders.SAMPLE,
+                    f"FIXED: Missing samples have been added to the {SamplesLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingStudies,
                     StudiesLoader.DataSheetName,
                     StudiesLoader.DataHeaders.NAME,
+                    f"FIXED: Missing studies have been added to the {StudiesLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingTissues,
                     TissuesLoader.DataSheetName,
                     TissuesLoader.DataHeaders.NAME,
+                    f"FIXED: Missing tissues have been added to the {TissuesLoader.DataSheetName} sheet",
                 ),
                 (
                     AllMissingTreatments,
                     ProtocolsLoader.DataSheetName,
                     ProtocolsLoader.DataHeadersExcel.NAME,
+                    f"FIXED: Missing treatments have been added to the {ProtocolsLoader.DataSheetName} sheet",
                 ),
                 (
                     NoSamples,
                     SamplesLoader.DataSheetName,
                     SamplesLoader.DataHeaders.SAMPLE,
+                    f"FIXED: Missing samples have been added to the {SamplesLoader.DataSheetName} sheet",
                 ),
             ]:
 
-                # Remove exceptions of exc_class from the AggregatedErrors object (without modifying them)
-                for exc in self.load_status_data.remove_exception_type(
-                    load_key, exc_class, modify=False
+                # Modify exceptions of exc_class in the AggregatedErrors object because they are going to be fixed, and
+                # the user will be confused if they see a missing Tissues warning associated with a file and then see a
+                # passed status of "All tissues are in the database".
+                for exc in self.load_status_data.modify_exception_type(
+                    load_key, exc_class, status_message=message, is_error=False
                 ):
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
@@ -1537,13 +1591,12 @@ class DataValidationView(FormView):
                             self.extracted_exceptions[exc_class.__name__][
                                 "errors"
                             ].append(exc)
-
-                        self.extract_all_missing_values(exc, sheet, header)
-
                     elif retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
+
+                    self.extract_all_missing_values(exc, sheet, header)
 
     def extract_all_missing_values(self, exc, sheet, header):
         """Extracts autofill data from supplied AllMissing* exception and puts it in self.autofill_dict.
@@ -2066,7 +2119,7 @@ class DataValidationView(FormView):
             return max(self.dfs_dict[sheet][hdr].keys()) + 1
         return 0
 
-    def get_or_create_dfs_dict(self, version=default_version):
+    def get_or_create_dfs_dict(self):
         """Get or create dataframes dict templates for each sheet in self.animal_sample_file as a dict keyed on sheet.
 
         Generate a dict for the returned study doc (based on either the study doc supplied or create a fresh one).
@@ -2078,19 +2131,17 @@ class DataValidationView(FormView):
         of this method.
 
         Args:
-            version (string) [3]: tracebase study doc version number
+            None
         Exceptions:
             None
         Returns:
             dict of dicts: dataframes-style dicts dict keyed on sheet name
         """
         if self.study_file is None:
-            return self.create_study_dfs_dict(version=version)
-        return self.get_study_dfs_dict(version=version)
+            return self.create_study_dfs_dict()
+        return self.get_study_dfs_dict()
 
-    def create_study_dfs_dict(
-        self, dfs_dict: Optional[Dict[str, dict]] = None, version=default_version
-    ):
+    def create_study_dfs_dict(self, dfs_dict: Optional[Dict[str, dict]] = None):
         """Create dataframe template dicts for each sheet in self.animal_sample_file as a dict keyed on sheet.
 
         Treatments and tissues dataframes are populated using all of the data in the database for their models.
@@ -2101,188 +2152,180 @@ class DataValidationView(FormView):
 
         Args:
             dfs_dict (dict of dicts): Supply this if you want to "fill in" missing sheets only.
-            version (string) [3]: Tracebase study doc version number.
         Exceptions:
-            NotImplementedError
+            None
         Returns:
             dfs_dict (dict of dicts): pandas' style list-dicts keyed on sheet name
         """
-        if version == self.default_version or version.startswith(
-            f"{self.default_version}."
+        if dfs_dict is None:
+            # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
+            return {
+                StudiesLoader.DataSheetName: self.studies_loader.get_dataframe_template(),
+                AnimalsLoader.DataSheetName: self.animals_loader.get_dataframe_template(),
+                SamplesLoader.DataSheetName: self.samples_loader.get_dataframe_template(),
+                ProtocolsLoader.DataSheetName: self.treatments_loader.get_dataframe_template(
+                    populate=True,
+                    filter={"category": Protocol.ANIMAL_TREATMENT},
+                ),
+                TissuesLoader.DataSheetName: self.tissues_loader.get_dataframe_template(
+                    populate=True
+                ),
+                CompoundsLoader.DataSheetName: self.compounds_loader.get_dataframe_template(),
+                TracersLoader.DataSheetName: self.tracers_loader.get_dataframe_template(),
+                InfusatesLoader.DataSheetName: self.infusates_loader.get_dataframe_template(),
+                LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_dataframe_template(
+                    populate=True
+                ),
+                SequencesLoader.DataSheetName: self.sequences_loader.get_dataframe_template(),
+                MSRunsLoader.DataSheetName: self.msruns_loader.get_dataframe_template(),
+                PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_dataframe_template(),
+            }
+
+        if (
+            StudiesLoader.DataSheetName in dfs_dict.keys()
+            and len(dfs_dict[StudiesLoader.DataSheetName].keys()) > 0
         ):
-            if dfs_dict is None:
-                # Setting sheet to None reads all sheets and returns a dict keyed on sheet name
-                return {
-                    StudiesLoader.DataSheetName: self.studies_loader.get_dataframe_template(),
-                    AnimalsLoader.DataSheetName: self.animals_loader.get_dataframe_template(),
-                    SamplesLoader.DataSheetName: self.samples_loader.get_dataframe_template(),
-                    ProtocolsLoader.DataSheetName: self.treatments_loader.get_dataframe_template(
-                        populate=True,
-                        filter={"category": Protocol.ANIMAL_TREATMENT},
-                    ),
-                    TissuesLoader.DataSheetName: self.tissues_loader.get_dataframe_template(
-                        populate=True
-                    ),
-                    CompoundsLoader.DataSheetName: self.compounds_loader.get_dataframe_template(),
-                    TracersLoader.DataSheetName: self.tracers_loader.get_dataframe_template(),
-                    InfusatesLoader.DataSheetName: self.infusates_loader.get_dataframe_template(),
-                    LCProtocolsLoader.DataSheetName: self.lcprotocols_loader.get_dataframe_template(
-                        populate=True
-                    ),
-                    SequencesLoader.DataSheetName: self.sequences_loader.get_dataframe_template(),
-                    MSRunsLoader.DataSheetName: self.msruns_loader.get_dataframe_template(),
-                    PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_dataframe_template(),
-                }
+            self.fill_in_missing_columns(
+                dfs_dict,
+                StudiesLoader.DataSheetName,
+                self.studies_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[StudiesLoader.DataSheetName] = (
+                self.studies_loader.get_dataframe_template()
+            )
 
-            if (
-                StudiesLoader.DataSheetName in dfs_dict.keys()
-                and len(dfs_dict[StudiesLoader.DataSheetName].keys()) > 0
-            ):
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    StudiesLoader.DataSheetName,
-                    self.studies_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[StudiesLoader.DataSheetName] = (
-                    self.studies_loader.get_dataframe_template()
-                )
+        if (
+            AnimalsLoader.DataSheetName in dfs_dict.keys()
+            and len(dfs_dict[AnimalsLoader.DataSheetName].keys()) > 0
+        ):
+            self.fill_in_missing_columns(
+                dfs_dict,
+                AnimalsLoader.DataSheetName,
+                self.animals_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[AnimalsLoader.DataSheetName] = (
+                self.animals_loader.get_dataframe_template()
+            )
 
-            if (
-                AnimalsLoader.DataSheetName in dfs_dict.keys()
-                and len(dfs_dict[AnimalsLoader.DataSheetName].keys()) > 0
-            ):
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    AnimalsLoader.DataSheetName,
-                    self.animals_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[AnimalsLoader.DataSheetName] = (
-                    self.animals_loader.get_dataframe_template()
-                )
+        if (
+            SamplesLoader.DataSheetName in dfs_dict.keys()
+            and len(dfs_dict[SamplesLoader.DataSheetName].keys()) > 0
+        ):
+            self.fill_in_missing_columns(
+                dfs_dict,
+                SamplesLoader.DataSheetName,
+                self.samples_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[SamplesLoader.DataSheetName] = (
+                self.samples_loader.get_dataframe_template()
+            )
 
-            if (
-                SamplesLoader.DataSheetName in dfs_dict.keys()
-                and len(dfs_dict[SamplesLoader.DataSheetName].keys()) > 0
-            ):
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    SamplesLoader.DataSheetName,
-                    self.samples_loader.get_dataframe_template(),
+        if ProtocolsLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                ProtocolsLoader.DataSheetName,
+                self.treatments_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[ProtocolsLoader.DataSheetName] = (
+                self.treatments_loader.get_dataframe_template(
+                    populate=True,
+                    filter={"category": Protocol.ANIMAL_TREATMENT},
                 )
-            else:
-                dfs_dict[SamplesLoader.DataSheetName] = (
-                    self.samples_loader.get_dataframe_template()
-                )
+            )
 
-            if ProtocolsLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    ProtocolsLoader.DataSheetName,
-                    self.treatments_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[ProtocolsLoader.DataSheetName] = (
-                    self.treatments_loader.get_dataframe_template(
-                        populate=True,
-                        filter={"category": Protocol.ANIMAL_TREATMENT},
-                    )
-                )
+        if TissuesLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                TissuesLoader.DataSheetName,
+                self.tissues_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[TissuesLoader.DataSheetName] = (
+                self.tissues_loader.get_dataframe_template(populate=True)
+            )
 
-            if TissuesLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    TissuesLoader.DataSheetName,
-                    self.tissues_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[TissuesLoader.DataSheetName] = (
-                    self.tissues_loader.get_dataframe_template(populate=True)
-                )
+        if CompoundsLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                CompoundsLoader.DataSheetName,
+                self.compounds_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[CompoundsLoader.DataSheetName] = (
+                self.compounds_loader.get_dataframe_template()
+            )
 
-            if CompoundsLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    CompoundsLoader.DataSheetName,
-                    self.compounds_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[CompoundsLoader.DataSheetName] = (
-                    self.compounds_loader.get_dataframe_template()
-                )
+        if TracersLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                TracersLoader.DataSheetName,
+                self.tracers_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[TracersLoader.DataSheetName] = (
+                self.tracers_loader.get_dataframe_template()
+            )
 
-            if TracersLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    TracersLoader.DataSheetName,
-                    self.tracers_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[TracersLoader.DataSheetName] = (
-                    self.tracers_loader.get_dataframe_template()
-                )
+        if InfusatesLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                InfusatesLoader.DataSheetName,
+                self.infusates_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[InfusatesLoader.DataSheetName] = (
+                self.infusates_loader.get_dataframe_template()
+            )
 
-            if InfusatesLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    InfusatesLoader.DataSheetName,
-                    self.infusates_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[InfusatesLoader.DataSheetName] = (
-                    self.infusates_loader.get_dataframe_template()
-                )
+        if LCProtocolsLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                LCProtocolsLoader.DataSheetName,
+                self.lcprotocols_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[LCProtocolsLoader.DataSheetName] = (
+                self.lcprotocols_loader.get_dataframe_template(populate=True)
+            )
 
-            if LCProtocolsLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    LCProtocolsLoader.DataSheetName,
-                    self.lcprotocols_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[LCProtocolsLoader.DataSheetName] = (
-                    self.lcprotocols_loader.get_dataframe_template(populate=True)
-                )
+        if SequencesLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                SequencesLoader.DataSheetName,
+                self.sequences_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[SequencesLoader.DataSheetName] = (
+                self.sequences_loader.get_dataframe_template()
+            )
 
-            if SequencesLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    SequencesLoader.DataSheetName,
-                    self.sequences_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[SequencesLoader.DataSheetName] = (
-                    self.sequences_loader.get_dataframe_template()
-                )
+        if MSRunsLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                MSRunsLoader.DataSheetName,
+                self.msruns_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[MSRunsLoader.DataSheetName] = (
+                self.msruns_loader.get_dataframe_template()
+            )
 
-            if MSRunsLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    MSRunsLoader.DataSheetName,
-                    self.msruns_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[MSRunsLoader.DataSheetName] = (
-                    self.msruns_loader.get_dataframe_template()
-                )
+        if PeakAnnotationFilesLoader.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                PeakAnnotationFilesLoader.DataSheetName,
+                self.peakannotfiles_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[PeakAnnotationFilesLoader.DataSheetName] = (
+                self.peakannotfiles_loader.get_dataframe_template()
+            )
 
-            if PeakAnnotationFilesLoader.DataSheetName in dfs_dict.keys():
-                self.fill_in_missing_columns(
-                    dfs_dict,
-                    PeakAnnotationFilesLoader.DataSheetName,
-                    self.peakannotfiles_loader.get_dataframe_template(),
-                )
-            else:
-                dfs_dict[PeakAnnotationFilesLoader.DataSheetName] = (
-                    self.peakannotfiles_loader.get_dataframe_template()
-                )
-
-            return dfs_dict
-
-        raise NotImplementedError(
-            f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
-        )
+        return dfs_dict
 
     @classmethod
     def fill_in_missing_columns(cls, dfs_dict, sheet, template):
@@ -2316,89 +2359,82 @@ class DataValidationView(FormView):
             # No need to change anything if nothing was missing
             dfs_dict[sheet] = sheet_dict
 
-    def get_study_dfs_dict(self, version=default_version):
+    def get_study_dfs_dict(self):
         """Read in each sheet in self.study_file as a dict of dicts keyed on sheet (filling in any missing sheets and
         columns).
 
         Args:
-            version (string) [3]: tracebase study doc version number
+            None
         Exceptions:
-            NotImplementedError
+            None
         Returns:
             dfs_dict (dict of dicts): pandas-style dicts dict keyed on sheet name
         """
-        if version == self.default_version or version.startswith(
-            f"{self.default_version}."
-        ):
-            # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet how
-            # to address a type error from pandas when it encounters empty cells.  I have a comment in other code that
-            # says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think about it.  But
-            # not setting types works for now.  I might need to explicitly set str in some places to avoid accidental
-            # int types...
-            dict_of_dataframes = read_from_file(
-                self.study_file,
-                sheet=None,
-                dtype=self.get_study_dtypes_dict(),
-            )
-
-            # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
-            # data
-            dfs_dict = {}
-            for k, v in dict_of_dataframes.items():
-                dfs_dict[k] = v.to_dict()
-
-            # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
-            self.create_study_dfs_dict(dfs_dict=dfs_dict)
-
-            return dfs_dict
-
-        raise NotImplementedError(
-            f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet how
+        # to address a type error from pandas when it encounters empty cells.  I have a comment in other code that
+        # says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think about it.  But
+        # not setting types works for now.  I might need to explicitly set str in some places to avoid accidental
+        # int types...
+        dfd = read_from_file(
+            self.study_file,
+            sheet=None,
+            dtype=self.get_study_dtypes_dict(),
         )
 
-    def get_study_dtypes_dict(self, version=default_version):
-        """Retrieve the dtype data for each sheet.
+        # This creates a version 3 dict of dataframes
+        loader_class: Type[StudyLoader] = StudyLoader.get_loader_class(dfd)
+        sl: StudyLoader = loader_class(
+            df=dfd,
+            file=self.study_file,
+            filename=self.study_filename,
+            annot_files_dict=self.annot_files_dict,
+        )
+        dict_of_dataframes = sl.df_dict
+
+        # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
+        # data
+        dfs_dict = {}
+        for k, v in dict_of_dataframes.items():
+            dfs_dict[k] = v.to_dict()
+
+        # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
+        self.create_study_dfs_dict(dfs_dict=dfs_dict)
+
+        return dfs_dict
+
+    def get_study_dtypes_dict(self):
+        """Retrieve the dtype data for every sheet in one 2-dimensional dict (keyed on sheet and header).
 
         NOTE: The returned dict is not what the pandas' read methods take directly.  The returned 2D dict can only be
         used by read_from_file, which reads each sheet individually and retrieves each sheet's specific dtype dict from
         what is returned here.
 
         Args:
-            version (string) [3]: tracebase study doc version number
+            None
         Exceptions:
-            Raises:
-                NotImplementedError
-            Buffers:
-                None
+            None
         Returns:
             dtypes (Dict[str, Dict[str, type]]): dtype dicts keyed by sheet name
         """
-        if version == self.default_version or version.startswith(
-            f"{self.default_version}."
-        ):
-            ldr_types = {}
-            ldr: TableLoader
-            for ldr in [
-                self.studies_loader,
-                self.animals_loader,
-                self.samples_loader,
-                self.treatments_loader,
-                self.tissues_loader,
-                self.compounds_loader,
-                self.tracers_loader,
-                self.infusates_loader,
-                self.lcprotocols_loader,
-                self.sequences_loader,
-                self.msruns_loader,
-                self.peakannotfiles_loader,
-            ]:
-                ldr_types[ldr.DataSheetName] = ldr.get_column_types(optional_mode=True)
+        ldr_types = {}
+        ldr: TableLoader
+        for ldr in [
+            self.studies_loader,
+            self.animals_loader,
+            self.samples_loader,
+            self.treatments_loader,
+            self.tissues_loader,
+            self.compounds_loader,
+            self.tracers_loader,
+            self.infusates_loader,
+            self.lcprotocols_loader,
+            self.sequences_loader,
+            self.msruns_loader,
+            self.peakannotfiles_loader,
+        ]:
+            ldr_types[ldr.DataSheetName] = ldr.get_column_types(optional_mode=True)
 
-            return ldr_types
-
-        raise NotImplementedError(
-            f"Version {version} is not yet supported.  Supported versions: {self.supported_versions}"
-        )
+        return ldr_types
 
     def format_results_for_template(self):
         """This populates:
@@ -2431,6 +2467,7 @@ class DataValidationView(FormView):
             # Get the AggregatedErrors object
             aes = self.load_status_data.statuses[load_key]["aggregated_errors"]
             # aes is None if there were no exceptions
+            aes: AggregatedErrors
             if aes is not None:
                 for exc in aes.exceptions:
                     exc_str = aes.get_buffered_exception_summary_string(
@@ -2441,6 +2478,13 @@ class DataValidationView(FormView):
                             "message": exc_str,
                             "is_error": exc.is_error,
                             "type": type(exc).__name__,
+                            # TODO: The conditional was added as a precaution (to be safe/fast). Remove it and just
+                            # assume aes_status_message is present, when I have time to check it.
+                            "fixed": (
+                                exc.aes_status_message
+                                if hasattr(exc, "aes_status_message")
+                                else None
+                            ),
                         }
                     )
 
@@ -2455,12 +2499,17 @@ class DataValidationView(FormView):
         load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
         try:
-            StudyLoader(
+            # Get the StudyLoader for the version of the input file
+            df_dict = read_from_file(self.study_file, sheet=None)
+            loader_class = StudyLoader.get_loader_class(df_dict)
+            sl: StudyLoader = loader_class(
+                df=df_dict,
                 file=self.study_file,
                 filename=self.study_filename,
                 _validate=True,
                 annot_files_dict=self.annot_files_dict,
-            ).load_data()
+            )
+            sl.load_data()
         except MultiLoadStatus as mls:
             load_status_data = mls
 
