@@ -257,14 +257,14 @@ class StudyLoaderTests(TracebaseTestCase):
         df = read_from_file(
             "DataRepo/data/tests/study_doc_versions/study_v2.xlsx", sheet=None
         )
-        version_list = StudyLoader.determine_matching_versions(df)
+        version_list, _ = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["2.0"], version_list)
 
     def test_determine_matching_versions_v3(self):
         df = read_from_file(
             "DataRepo/data/tests/study_doc_versions/study_v3.xlsx", sheet=None
         )
-        version_list = StudyLoader.determine_matching_versions(df)
+        version_list, _ = StudyLoader.determine_matching_versions(df)
         self.assertEqual(["3.0"], version_list)
 
 

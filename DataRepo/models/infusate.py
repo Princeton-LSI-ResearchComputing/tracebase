@@ -53,8 +53,6 @@ class InfusateQuerySet(models.QuerySet):
 
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
         """Get Infusate matching the infusate_data"""
-        matching_infusate = None
-
         # Check for infusates with the same name and same number of tracers
         infusates = Infusate.objects.annotate(
             num_tracers=models.Count("tracers")
@@ -77,8 +75,47 @@ class InfusateQuerySet(models.QuerySet):
                 tracer_links__concentration=infusate_tracer["concentration"],
             )
         if infusates.count() == 1:
-            matching_infusate = infusates.first()
-        return matching_infusate
+            return infusates.first()
+        # Fall back to searching by name
+        return self._get_infusate_by_name(infusate_data)
+
+    # TODO: This method should be eliminated once issue #1053 is implemented
+    def _get_infusate_by_name(self, infusate_data: InfusateData) -> Optional[Infusate]:
+        """Infusate names limit significant digits, so if searching by data derived from parsing a name fails, we can
+        search by name (without relying on the saved name, in case the name has not been generated yet).
+
+        NOTE: Since the name may not yet exist (because it will be created by deferred autoupdate), it's technically
+        possible (though unlikely), that there could be multiple matches if the infusate or infusates being created have
+        the same (but slightly different tracer concentrations), meaning that we are arbitrarily returning the first
+        match.  This is not a serious concern, because the name will be autoupdated and is required to be unique.  If
+        there are infusates that collide, an exception will be raised during autoupdate, in which case, it doesn't
+        matter if we returned the wrong one.
+        """
+        # Check for infusates with the same name and same number of tracers
+        infusates = Infusate.objects.annotate(
+            num_tracers=models.Count("tracers")
+        ).filter(
+            tracer_group_name=infusate_data["infusate_name"],
+            num_tracers=len(infusate_data["tracers"]),
+        )
+        # Limit to the infusates that have the right tracers
+        for infusate_tracer in infusate_data["tracers"]:
+            Tracer = get_model_by_name("Tracer")
+            tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
+            infusates = infusates.filter(
+                tracer_links__tracer=tracer,
+            )
+
+        # Generate the name from the data
+        data_name = Infusate.name_from_data(infusate_data)
+        for infusate in infusates.all():
+            # Generate the database version of the name
+            db_name = infusate._name()
+            # If the database version equals the data version, we found it.
+            if db_name == data_name:
+                return infusate
+
+        return None
 
 
 class Infusate(MaintainedModel, HierCachedModel):
