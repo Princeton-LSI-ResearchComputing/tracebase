@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Optional
 
 from django.forms import (
@@ -20,7 +21,6 @@ from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.loaders.legacy.accucor_data_loader import AccuCorDataLoader
 from DataRepo.utils.file_utils import is_excel
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
@@ -346,19 +346,19 @@ class DataSubmissionValidationForm(Form):
     )
 
     def clean(self):
-        """Ensure that at least a sample or peak annotation file is supplied, that the peak annotation files are
-        either accucor or isocorr excel files, and that the study file is an excel file.
+        """Ensure that at least a sample or peak annotation file is supplied and that the study doc is an excel file and
+        the peak annotation files are excel, csv, or tsv.
 
         Args:
             None
-
         Exceptions:
             ValidationError
-
         Returns:
             self.cleaned_data (dict)
         """
         super().clean()
+
+        allowed_delimited_exts = ["csv", "tsv"]
 
         study_doc = self.cleaned_data.get("animal_sample_table", None)
         peak_annotation_files = self.cleaned_data.get("peak_annotation_files", None)
@@ -379,32 +379,31 @@ class DataSubmissionValidationForm(Form):
             self.add_error(
                 "animal_sample_table",
                 ValidationError(
-                    (
-                        f"The Animal/Sample Table file must be an excel file.  The file type: {study_doc} could "
-                        "not be validated."
-                    ),
+                    f"The Study doc must be an excel file.  The file type of file: {study_doc} could not be validated.",
                     code="InvalidStudyFile",
                 ),
             )
 
         if num_peak_annot_files > 0:
-            not_peak_annot_files = []
+            not_table_like_files = []
 
             for peak_annot_file in peak_annotation_files:
                 peak_annot_filepath = peak_annot_file.temporary_file_path()
                 peak_annotation_filename = str(peak_annot_file)
-                if not AccuCorDataLoader.is_accucor(
-                    peak_annot_filepath
-                ) and not AccuCorDataLoader.is_isocorr(peak_annot_filepath):
-                    not_peak_annot_files.append(peak_annotation_filename)
+                if not is_excel(peak_annot_filepath):
+                    # Excel files do not need a specific extension, but delimited files do...
+                    _, ext = os.path.splitext(peak_annot_file)
+                    if ext not in allowed_delimited_exts:
+                        not_table_like_files.append(peak_annotation_filename)
 
-            if len(not_peak_annot_files) > 0:
+            if len(not_table_like_files) > 0:
                 self.add_error(
                     "peak_annotation_files",
                     ValidationError(
                         (
-                            "Peak annotation files must be either Accucor or Isocorr excel files.  The file type "
-                            f"of the following supplied files: {not_peak_annot_files} could not be validated."
+                            "Peak annotation files must be excel files or must have one of the following extensions "
+                            f"(indicating comma- or tab-delimited text files): {allowed_delimited_exts}.  The file "
+                            f"type of the following supplied files: {not_table_like_files} could not be validated."
                         ),
                         code="InvalidPeakAnnotFiles",
                     ),
