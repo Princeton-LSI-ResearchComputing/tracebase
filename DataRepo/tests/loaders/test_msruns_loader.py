@@ -254,21 +254,25 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def test_guess_sample_name_default(self):
+    def test_guess_sample_name_default_end(self):
         samplename = MSRunsLoader.guess_sample_name("mysample_neg_pos_scan2")
         self.assertEqual("mysample", samplename)
+
+    def test_guess_sample_name_default_middle(self):
+        samplename = MSRunsLoader.guess_sample_name("His-pos-M3-T08-small-intes")
+        self.assertEqual("His-M3-T08-small-intes", samplename)
 
     def test_guess_sample_name_add_custom(self):
         samplename = MSRunsLoader.guess_sample_name(
             "mysample_pos_blah_scan1",
-            suffix_patterns=[r"_blah"],
+            scan_patterns=[r"_blah"],
         )
         self.assertEqual("mysample", samplename)
 
     def test_guess_sample_name_just_custom(self):
         samplename = MSRunsLoader.guess_sample_name(
             "mysample_pos_blah",
-            suffix_patterns=[r"_blah"],
+            scan_patterns=[r"_blah"],
             add_patterns=False,
         )
         self.assertEqual("mysample_pos", samplename)
