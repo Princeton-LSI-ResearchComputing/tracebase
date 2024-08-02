@@ -265,14 +265,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
     def test_guess_sample_name_add_custom(self):
         samplename = MSRunsLoader.guess_sample_name(
             "mysample_pos_blah_scan1",
-            scan_patterns=[r"_blah"],
+            scan_patterns=[r"blah"],
         )
         self.assertEqual("mysample", samplename)
 
     def test_guess_sample_name_just_custom(self):
         samplename = MSRunsLoader.guess_sample_name(
             "mysample_pos_blah",
-            scan_patterns=[r"_blah"],
+            scan_patterns=[r"blah"],
             add_patterns=False,
         )
         self.assertEqual("mysample_pos", samplename)
