@@ -353,6 +353,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 file=self.peak_annotation_details_file,
             )
 
+        # Compound_lookup is slow and compounds are repeatedly looked up, so this will buffer the results
+        self.compound_lookup = {}
+
         # Suggestions about failed header lookups depend on the supplied inputs.
         # TODO: Replace the sample sheet/column strings in the values below with a sheet/column reference from the
         # sample loader once the sample loader inherits from TableLoader
@@ -569,23 +572,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         for name_str in names:
             name = name_str.strip()
-            try:
-                recs.append(Compound.compound_matching_name_or_synonym(name))
-            except (ValidationError, ObjectDoesNotExist) as cmpderr:
-                self.aggregated_errors_object.buffer_error(
-                    RecordDoesNotExist(
-                        Compound,
-                        Compound.get_name_query_expression(name),
-                        file=self.friendly_file,
-                        sheet=self.sheet,
-                        column=self.headers.COMPOUND,
-                        rownum=self.rownum,
-                    ),
-                    orig_exception=cmpderr,
-                )
-                # Appending so that not only the skip count can be updated, but so the build-a-submission interface can
-                # associate a delimited name with whether the record was found of not
-                recs.append(None)
+            recs.append(self.get_compound(name))
 
         pgname = None
         if len(recs) > 0:
@@ -599,6 +586,49 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 pgname = self.CompoundNamesDelimiter.join([r.name for r in recs])
 
         return pgname, recs
+
+    def get_compound(self, name):
+        """Cached compound lookups.  Loading of a study was profiled and Compound.compound_matching_name_or_synonym was
+        found to be a bottleneck, so this method utilizes a "cache" in the form of the self.compound_lookup dict, which
+        saves the result of every lookup.
+
+        Args:
+            name (str): Compound name or synonym.
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                RecordDoesNotExist
+        Returns:
+            rec (Compound)
+        """
+        if name in self.compound_lookup.keys():
+            rec, exc, query = self.compound_lookup[name]
+        else:
+            exc = None
+            query = None
+            try:
+                rec = Compound.compound_matching_name_or_synonym(name)
+            except (ValidationError, ObjectDoesNotExist) as cmpderr:
+                exc = cmpderr
+                query = Compound.get_name_query_expression(name)
+
+        if rec is None:
+            self.aggregated_errors_object.buffer_error(
+                RecordDoesNotExist(
+                    Compound,
+                    query,
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                    column=self.headers.COMPOUND,
+                    rownum=self.rownum,
+                ),
+                orig_exception=exc,
+            )
+        else:
+            self.compound_lookup[name] = rec, exc, query
+
+        return rec
 
     @transaction.atomic
     def get_or_create_peak_group(self, row, peak_annot_file, pgname):
