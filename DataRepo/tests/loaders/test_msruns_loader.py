@@ -218,7 +218,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                     }
                 ],
             },
-            "Br-xz971": {
+            "Br_xz971": {
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls": [
                     {
                         "added": True,
@@ -234,7 +234,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
                     }
                 ],
             },
-            "BAT-xz971": {
+            "BAT_xz971": {
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls": [
                     {
                         "added": False,
@@ -287,7 +287,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        msrl.mzxml_dict["BAT-xz971"][
+        msrl.mzxml_dict["BAT_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]["added"] = True
         self.assertFalse(msrl.leftover_mzxml_files_exist())
@@ -430,12 +430,12 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        expected = self.MOCK_MZXML_DICT["Br-xz971"][
+        expected = self.MOCK_MZXML_DICT["Br_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         mzxml_metadata = msrl.get_matching_mzxml_metadata(
             "mysample",  # Sample name - does not match
-            "Br-xz971",  # Sample header - does match
+            "Br_xz971",  # Sample header - does match
             "Br-xz971.mzXML",  # file name or path
         )
         self.assertDictEqual(expected, mzxml_metadata)
@@ -535,7 +535,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # Copy the metadata, because the method will modify it
         mzxml_metadata = deepcopy(
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
@@ -552,7 +552,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Test get
         # Copy the metadata again
         mzxml_metadata2 = deepcopy(
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
@@ -568,7 +568,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrun_sequence = self.msr.msrun_sequence
         # Copy the metadata, because the method will modify it
         mzxml_metadata = deepcopy(
-            self.MOCK_MZXML_DICT["Br-xz971"][
+            self.MOCK_MZXML_DICT["Br_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
@@ -754,7 +754,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the existing placeholder now has the mzXML
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -812,7 +812,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the record has the mzXML
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -867,7 +867,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -899,7 +899,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.pg2.save()
 
         # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
-        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT-xz971"][
+        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         empty_concrete_rec_dict = {
@@ -943,7 +943,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -975,7 +975,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         #                 else:
 
         # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
-        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT-xz971"][
+        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         concrete_rec_dict = {
@@ -1035,7 +1035,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(concrete_rec.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -1097,7 +1097,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertNotEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -1135,7 +1135,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.pg2.save()
 
         # Create a concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
-        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT-xz971"][
+        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         concrete_rec_dict = {
@@ -1178,7 +1178,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertNotEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -1235,7 +1235,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertNotEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
@@ -1276,7 +1276,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
 
         # Create a concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
-        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT-xz971"][
+        concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
         concrete_rec_dict = {
@@ -1315,7 +1315,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertNotEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
-            self.MOCK_MZXML_DICT["BAT-xz971"][
+            self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
