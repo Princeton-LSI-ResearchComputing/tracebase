@@ -602,11 +602,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             rec (Compound)
         """
+        rec = None
+        exc = None
+        query = None
         if name in self.compound_lookup.keys():
             rec, exc, query = self.compound_lookup[name]
         else:
-            exc = None
-            query = None
             try:
                 rec = Compound.compound_matching_name_or_synonym(name)
             except (ValidationError, ObjectDoesNotExist) as cmpderr:
