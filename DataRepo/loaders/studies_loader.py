@@ -16,7 +16,6 @@ class StudiesLoader(TableLoader):
     """
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
-    CODE_KEY = "CODE"
     NAME_KEY = "NAME"
     DESC_KEY = "DESCRIPTION"
 
@@ -26,7 +25,6 @@ class StudiesLoader(TableLoader):
     DataTableHeaders = namedtuple(
         "DataTableHeaders",
         [
-            "CODE",
             "NAME",
             "DESCRIPTION",
         ],
@@ -34,7 +32,6 @@ class StudiesLoader(TableLoader):
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        CODE="Study ID",
         NAME="Name",
         DESCRIPTION="Description",
     )
@@ -54,18 +51,16 @@ class StudiesLoader(TableLoader):
 
     # The type of data in each column (used by pandas to not, for example, turn "1" into an integer then str is set)
     DataColumnTypes: Dict[str, type] = {
-        CODE_KEY: str,
         NAME_KEY: str,
         DESC_KEY: str,
     }
 
     # Combinations of columns whose values must be unique in the file
-    DataUniqueColumnConstraints = [[NAME_KEY], [CODE_KEY]]
+    DataUniqueColumnConstraints = [[NAME_KEY]]
 
     # A mapping of database field to column.  Only set when the mapping is 1:1.  Omit others.
     FieldToDataHeaderKey = {
         Study.__name__: {
-            "code": CODE_KEY,
             "name": NAME_KEY,
             "description": DESC_KEY,
         },
@@ -74,7 +69,6 @@ class StudiesLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        CODE=TableColumn.init_flat(field=Study.code, name=DataHeaders.CODE),
         NAME=TableColumn.init_flat(field=Study.name, name=DataHeaders.NAME),
         DESCRIPTION=TableColumn.init_flat(
             field=Study.description, name=DataHeaders.DESCRIPTION
@@ -117,7 +111,6 @@ class StudiesLoader(TableLoader):
         rec_dict = None
 
         try:
-            code = self.get_row_val(row, self.headers.CODE)
             name = self.get_row_val(row, self.headers.NAME)
             description = self.get_row_val(row, self.headers.DESCRIPTION)
 
@@ -128,7 +121,6 @@ class StudiesLoader(TableLoader):
                 return
 
             rec_dict = {
-                "code": code,
                 "name": name,
                 "description": description,
             }

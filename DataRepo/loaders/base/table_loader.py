@@ -2954,8 +2954,9 @@ class TableLoader(ABC):
     def get_dataframe_template(
         self, all=False, populate=False, filter: Optional[dict] = None
     ):
-        """Generate a pandas dataframe either populated with all database records or not.  Note, only loader classes
-        with a single model are supported.  Override this method to generate a dataframe with data from multiple models.
+        """Generate a pandas dataframe either populated with all database records or not.  Note, 'populate' is only
+        supported for loader classes that have a single model.  Override this method to generate a populated dataframe
+        with data from multiple models.
 
         Args:
             all (boolean) [False]: Whether to include all headers (that are mapped to a field).
@@ -3020,10 +3021,14 @@ class TableLoader(ABC):
 
     def get_ordered_display_headers(self, all=False):
         """This returns current header names in the order in which the headers were defined in DataTableHeaders and
-        whose DataDefaultValues is None.
+        whose class-defined DataDefaultValues is None.  (If a header has a default, we exclude it to not clutter up the
+        doc.
 
-        The reason it excludes headers that have defaults is for consistency in the assortment of headers returned.
-        We don't want user-defined defaults to change the columns in the output display.
+        TODO: Make the display headers explicitly defined instead of inferred by class default.
+
+        The reason it excludes headers that are defined in the class only (i.e. not user-defined) as having a default
+        value is for consistency in the assortment of headers returned.  We don't want user-defined defaults to change
+        the columns in the output display.
 
         This choice to exclude columns with class defaults was arbitrary, because it fit the current need.  If you want
         a different behavior, just override this method in the derived class and return whichever headers you want in

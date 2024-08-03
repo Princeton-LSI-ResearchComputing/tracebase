@@ -9,6 +9,7 @@ class Study(models.Model):
     atleast2chars = MinLengthValidator(2)
 
     id = models.AutoField(primary_key=True)
+    # TODO: Remove the code field
     code = models.CharField(
         max_length=6,
         blank=True,
