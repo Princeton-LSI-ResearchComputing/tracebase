@@ -76,6 +76,13 @@ class DataValidationView(FormView):
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
     row_key_delim = "__DELIM__"
+    none_vals = [
+        "",  # Empty string is inferred to be None.  You cannot search for empty strings in the DB anyway.
+        "nan",  # Derived from numpy
+        "None",  # none_vals is(/should be) evaluated with the value inside str() to handle weird types
+        "dummy",  # Some studies used this on rows for blank samples
+        "NaT",  # This happens when a dfs_dict entry is changed to None (e.g. when replacing a "dummy" value)
+    ]
 
     # TODO: Until all sheets are supported, this variable will be used to filter the sheets obtained from StudyLoader
     build_sheets = [
@@ -434,14 +441,16 @@ class DataValidationView(FormView):
                 # Now we will determine the format to decide which loader to create.
                 # We will defer to the user's supplied format (if any)
                 matching_formats = []
+                print("Reading peak annotations file")
+                # Do not enforce column types when we don't know what columns exist yet
+                df = read_from_file(peak_annot_file, sheet=None)
                 if peak_annot_filename in user_file_formats.keys():
                     user_format_code = user_file_formats[peak_annot_filename]
                     matching_formats = [user_format_code]
                 else:
                     print("Determining format of peak annotation file")
                     matching_formats = PeakAnnotationsLoader.determine_matching_formats(
-                        # Do not enforce column types when we don't know what columns exist yet
-                        read_from_file(peak_annot_file, sheet=None)
+                        df
                     )
 
                 if len(matching_formats) == 1:
@@ -463,7 +472,7 @@ class DataValidationView(FormView):
                     self.peak_annotations_loaders.append(
                         peak_annot_loader_class(
                             # These are the essential arguments
-                            df=read_from_file(peak_annot_file, sheet=None),
+                            df=df,
                             file=peak_annot_file,
                             # We don't need the default sequence info - we only want to read the file
                         )
@@ -656,17 +665,6 @@ class DataValidationView(FormView):
             self.autofill_only_mode = True
             return not self.autofill_only_mode
 
-        # TODO: Instead of doing this none_vals strategy, dynamically create a dataframe out of the dfs_dict and then
-        # use get_row_val and check if the result is None
-        # TODO: I should probably alter this strategy and check if all required columns have values on every row?
-        none_vals = [
-            "",  # Empty string is inferred to be None.  You cannot search for empty strings in the DB anyway.
-            "nan",  # Derived from numpy
-            "None",  # none_vals is(/should be) evaluated with the value inside str() to handle weird types
-            "dummy",  # Some studies used this on rows for blank samples
-            "NaT",  # This happens when a dfs_dict entry is changed to None (e.g. when replacing a "dummy" value)
-        ]
-
         loader: TableLoader
         for loader in [
             # Loaders that aren't completely autofilled
@@ -689,7 +687,11 @@ class DataValidationView(FormView):
                     continue
 
                 for val in self.dfs_dict[loader.DataSheetName][header].values():
-                    if val is not None and str(val) not in none_vals:
+                    # TODO: Instead of doing this none_vals strategy, dynamically create a dataframe out of the dfs_dict
+                    # and then use get_row_val and check if the result is None
+                    # TODO: I should probably alter this strategy and check if all required columns have values on every
+                    # row?
+                    if val is not None and str(val) not in self.none_vals:
                         print(
                             f"GOING INTO VALIDATION MODE BECAUSE {loader.DataSheetName} has a value in column {header}"
                         )
@@ -1388,7 +1390,6 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        seen = defaultdict(dict)
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
             peak_annot_loader: PeakAnnotationsLoader = self.peak_annotations_loaders[i]
@@ -1402,37 +1403,31 @@ class DataValidationView(FormView):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: peak_annot_loader.format_code,
             }
 
-            # Extracting samples and compounds
-            for _, row in peak_annot_loader.df.iterrows():
-                if peak_annot_loader.is_row_empty(row):
+            # Extracting samples - using vectorized access of the dataframe because it's faster and we don't need error
+            # tracking per line of the input file.
+            print("EXTRACTING SAMPLES")
+            sample_headers = peak_annot_loader.df[
+                peak_annot_loader.headers.SAMPLEHEADER
+            ].unique()
+            for sample_header in sample_headers:
+                if str(sample_header) in self.none_vals:
                     continue
 
-                print(str(row.name), end="\r")
-                sample_header = peak_annot_loader.get_row_val(
-                    row, peak_annot_loader.headers.SAMPLEHEADER
-                )
+                sample_name = MSRunsLoader.guess_sample_name(sample_header)
 
-                if (
-                    sample_header
-                    not in seen[peak_annot_loader.headers.SAMPLEHEADER].keys()
-                ):
-                    seen[peak_annot_loader.headers.SAMPLEHEADER][sample_header] = 0
-
-                    sample_name = MSRunsLoader.guess_sample_name(sample_header)
-
-                    # TODO: This should use parsing of the Peak Annotation Details sheet to decide on blanks/skips
-                    # instead of only guessing
-                    if not Sample.is_a_blank(sample_name):
-                        print(f"FOUND SAMPLE {sample_name}")
-                        self.autofill_dict[SamplesLoader.DataSheetName][sample_name] = {
-                            SamplesLoader.DataHeaders.SAMPLE: sample_name
-                        }
-
+                # TODO: This should use parsing of the Peak Annotation Details sheet to decide on blanks/skips
+                # instead of only guessing
                 skip = None
                 if Sample.is_a_blank(sample_name) is True:
                     # Automatically skip samples that appear to be blanks
                     # Leave as None if False - It will make the column easier for the user to read
                     skip = MSRunsLoader.SKIP_STRINGS[0]
+
+                if skip is None:
+                    print(f"FOUND SAMPLE {sample_name}")
+                    self.autofill_dict[SamplesLoader.DataSheetName][sample_name] = {
+                        SamplesLoader.DataHeaders.SAMPLE: sample_name
+                    }
 
                 # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
                 unique_annot_deets_key = self.row_key_delim.join(
@@ -1450,39 +1445,56 @@ class DataValidationView(FormView):
                     # Not going to fill in a SEQNAME - will rely on the default in the Peak Annotation Files sheet
                 }
 
-                formula = peak_annot_loader.get_row_val(
-                    row, peak_annot_loader.headers.FORMULA
-                )
-                if formula not in seen[peak_annot_loader.headers.FORMULA].keys():
-                    seen[peak_annot_loader.headers.FORMULA][formula] = 0
+            # Extracting compounds - using vectorized access of the dataframe because it's faster and we don't need
+            # error tracking per line of the input file.
+            print("EXTRACTING COMPOUNDS")
+            formulas = peak_annot_loader.df[peak_annot_loader.headers.FORMULA].to_list()
+            compounds_strs = peak_annot_loader.df[
+                peak_annot_loader.headers.COMPOUND
+            ].to_list()
+            seen = {}
+            for index in range(len(compounds_strs)):
+                formula = formulas[index]
+                compound_names_str = compounds_strs[index]
 
-                    # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in
-                    # the peak_annot_loader if any compounds are not in the database
-                    delimited_compound_names, compound_recs = (
-                        peak_annot_loader.get_peak_group_name_and_compounds(row)
+                seen_key = f"{str(compound_names_str)},{str(formula)}"
+
+                # We don't need all of the exception information that comes from a validation.  We only want the missing
+                # compound information
+                if compound_names_str in self.none_vals or seen_key in seen.keys():
+                    continue
+                seen[seen_key] = 0
+
+                # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in the
+                # peak_annot_loader if any compounds are not in the database.  We don't need that here, because we're
+                # not validating, so we supply buffer_error=False
+                delimited_compound_names, compound_recs = (
+                    peak_annot_loader.get_peak_group_name_and_compounds(
+                        names_str=compound_names_str, buffer_errors=False
                     )
+                )
 
-                    for index, compound_string in enumerate(
-                        delimited_compound_names.split(
-                            PeakAnnotationsLoader.CompoundNamesDelimiter
-                        )
-                    ):
-                        compound_rec = compound_recs[index]
-                        if compound_rec is not None:
-                            compound_name = compound_rec.name
-                            # We could override the formula here with what we get from the database, but the job of this
-                            # method is to represent what's in the file.  If there's a discrepancy, it should be handled
-                            # in the load.
-                        else:
-                            compound_name = compound_string.strip()
+                for index2, compound_string in enumerate(
+                    delimited_compound_names.split(
+                        PeakAnnotationsLoader.CompoundNamesDelimiter
+                    )
+                ):
+                    compound_rec = compound_recs[index2]
+                    if compound_rec is not None:
+                        compound_name = compound_rec.name
+                        # We could override the formula here with what we get from the database, but the job of this
+                        # method is to represent what's in the file.  If there's a discrepancy, it should be handled
+                        # in the load.
+                    else:
+                        compound_name = compound_string.strip()
 
-                        # If there are any discrepancies with the database, they will be caught by the load attempt.
-                        self.autofill_dict[CompoundsLoader.DataSheetName][
-                            compound_name
-                        ] = {
-                            CompoundsLoader.DataHeaders.NAME: compound_name,
-                            CompoundsLoader.DataHeaders.FORMULA: formula,
-                        }
+                    print(f"FOUND COMPOUND {compound_name} {formula}")
+
+                    # If there are any discrepancies with the database, they will be caught by the load attempt.
+                    self.autofill_dict[CompoundsLoader.DataSheetName][compound_name] = {
+                        CompoundsLoader.DataHeaders.NAME: compound_name,
+                        CompoundsLoader.DataHeaders.FORMULA: formula,
+                    }
 
     def extract_autofill_from_exceptions(self, retain_as_warnings=True):
         """Remove exceptions related to references to missing underlying data and extract their data.
