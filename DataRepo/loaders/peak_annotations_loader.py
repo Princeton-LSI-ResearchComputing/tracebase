@@ -450,7 +450,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             pdrec = None
 
             # Get compounds
-            pgname, cmpd_recs = self.get_peak_group_name_and_compounds(row)
+            pgname, cmpd_recs = self.get_peak_group_name_and_compounds(row=row)
 
             # Get or create PeakGroups
             try:
@@ -555,24 +555,37 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         return rec, created
 
-    def get_peak_group_name_and_compounds(self, row):
+    def get_peak_group_name_and_compounds(
+        self, row=None, names_str=None, buffer_errors=True
+    ):
         """Retrieve the peak group name and compound records.
 
         Args:
-            row (pandas.Series)
+            row (Optional[pandas.Series])
+            names_str (Optional[str]): Delimited compound names and/or synonyms.  Use this if you are calling this
+                method from outside of a load process and do not have a row.
+            buffer_errors (bool): Set this to False if you do not need errors to attach to cells of the excel
+                spreadsheet, because skipping error buffering is faster.
         Exceptions:
             None
         Returns:
             pgname (str)
             recs (List[Compound])
         """
-        names_str = self.get_row_val(row, self.headers.COMPOUND)
+        if (row is None) == (names_str is None):
+            raise ProgrammingError(
+                "row and names_str are mutually exclusive and 1 is required."
+            )
+
+        if names_str is None:
+            names_str = self.get_row_val(row, self.headers.COMPOUND)
+
         names = names_str.split(self.CompoundNamesDelimiter)
         recs = []
 
         for name_str in names:
             name = name_str.strip()
-            recs.append(self.get_compound(name))
+            recs.append(self.get_compound(name, buffer_errors=buffer_errors))
 
         pgname = None
         if len(recs) > 0:
@@ -587,13 +600,16 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         return pgname, recs
 
-    def get_compound(self, name):
+    def get_compound(self, name, buffer_errors=True):
         """Cached compound lookups.  Loading of a study was profiled and Compound.compound_matching_name_or_synonym was
-        found to be a bottleneck, so this method utilizes a "cache" in the form of the self.compound_lookup dict, which
-        saves the result of every lookup.
+        found to be a bottleneck (particularly when there are repeated lookups of compunds that don't exist in the
+        database), so this method utilizes a "cache" in the form of the self.compound_lookup dict, which saves the
+        result of every lookup to return the cached results, if they exist.
 
         Args:
             name (str): Compound name or synonym.
+            buffer_errors (bool): Set this to False if you do not need errors to attach to cells of the excel
+                spreadsheet, because skipping error buffering is faster.
         Exceptions:
             Raises:
                 None
@@ -614,7 +630,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 exc = cmpderr
                 query = Compound.get_name_query_expression(name)
 
-        if rec is None:
+        if rec is None and buffer_errors:
             self.aggregated_errors_object.buffer_error(
                 RecordDoesNotExist(
                     Compound,
@@ -626,8 +642,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 ),
                 orig_exception=exc,
             )
-        else:
-            self.compound_lookup[name] = rec, exc, query
+
+        self.compound_lookup[name] = rec, exc, query
 
         return rec
 

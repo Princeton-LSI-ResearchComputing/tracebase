@@ -392,7 +392,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
         row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate"})
         al = AccucorLoader()
-        pgname, recs = al.get_peak_group_name_and_compounds(row)
+        pgname, recs = al.get_peak_group_name_and_compounds(row=row)
         self.assertEqual("citrate/isocitrate", pgname)
         self.assertEqual([cit, iso], recs)
 
@@ -401,7 +401,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         CompoundSynonym.objects.create(name="ser", compound=self.SERINE)
         row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser"})
         al = AccucorLoader()
-        pgname, recs = al.get_peak_group_name_and_compounds(row)
+        pgname, recs = al.get_peak_group_name_and_compounds(row=row)
         self.assertEqual("Serine", pgname)
         self.assertEqual([self.SERINE], recs)
 
