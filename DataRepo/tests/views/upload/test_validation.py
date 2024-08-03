@@ -127,7 +127,6 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             "Study": {
                 "Description": {},
                 "Name": {},
-                "Study ID": {},
             },
             "Tracers": {
                 "Compound Name": {},
@@ -327,7 +326,6 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             "Study": {
                 "Description": {},
                 "Name": {},
-                "Study ID": {},
             },
             "Tracers": {
                 "Compound Name": {},
@@ -434,7 +432,6 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             "Study": {
                 "Description": str,
                 "Name": str,
-                "Study ID": str,
             },
             "Compounds": {
                 "Compound": str,
@@ -750,7 +747,6 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             "Study": {
                 "Description": {},
                 "Name": {},
-                "Study ID": {},
             },
             "Tracers": {
                 "Compound Name": {},

@@ -1283,12 +1283,10 @@ class StudyV2Loader(StudyLoader):
             animals_study_name_header = loaders["ANIMALS"].DataHeaders.STUDY
             animals_study_desc_header = "Study Description"
 
-            study_study_code_header = loaders["STUDY"].DataHeaders.CODE
             study_study_name_header = loaders["STUDY"].DataHeaders.NAME
             study_study_desc_header = loaders["STUDY"].DataHeaders.DESCRIPTION
 
             study_dict = {
-                study_study_code_header: {},
                 study_study_name_header: {},
                 study_study_desc_header: {},
             }
@@ -1300,7 +1298,6 @@ class StudyV2Loader(StudyLoader):
                 desc = dfs_dict[sheet][animals_study_desc_header][i]
                 key = f"{name},{str(desc)}"
                 if key not in seen.keys():
-                    study_dict[study_study_code_header][new_i] = None
                     study_dict[study_study_name_header][new_i] = name
                     study_dict[study_study_desc_header][new_i] = desc
                     seen[key] = 0

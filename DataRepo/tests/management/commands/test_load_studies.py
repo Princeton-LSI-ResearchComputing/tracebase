@@ -13,7 +13,6 @@ class LoadStudiesTests(TracebaseTestCase):
         )
         self.assertEqual(Study.objects.count(), 1)
         rec = Study.objects.first()
-        self.assertEqual("obf", rec.code)
         self.assertEqual("ob/ob Fasted", rec.name)
         self.assertEqual(
             "ob/ob and wildtype littermates were fasted 7 hours and infused with tracers",
