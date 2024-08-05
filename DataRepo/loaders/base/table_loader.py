@@ -193,7 +193,7 @@ class TableLoader(ABC):
     DefaultsRequiredValues = ["SHEET_NAME", "COLUMN_NAME"]
 
     # For handling empty "cells".  Any value to be converted to None, when evaluated as a string.
-    none_vals = ["", "nan"]
+    none_vals = ["", "nan", "None", "dummy", "NaT"]
 
     def __init__(
         self,
@@ -280,18 +280,25 @@ class TableLoader(ABC):
         self.defaults_sheet = defaults_sheet
         self.row_index = None
         self.rownum = None
-        self.friendly_file = (
-            file  # In case the file is a temp file with a nonsense name
-        )
+        # In case the file is a temp file with a nonsense name
+        self.friendly_file = file
         if filename is not None and self.file is not None:
+            _, real_name = os.path.split(file)
             # In case a path was provided
             friendly_path, friendly_name = os.path.split(filename)
             if friendly_path is None or str(friendly_path) == "":
-                friendly_path, _ = os.path.split(file)
-                self.friendly_file = os.path.join(friendly_path, friendly_name)
+                if real_name == friendly_name:
+                    # If the file name is what the user gave it (i.e. this was run from the command line, instead of a
+                    # web form), have errors refer to the actual path of the file.
+                    self.friendly_file = self.file
+                else:
+                    # Otherwise, for previty for the user (because there is no user-recognized path), just use the file
+                    # name the user is familiar with.
+                    self.friendly_file = filename
             else:
                 self.friendly_file = filename
-        # TODO: Add a self.friendly_defaults_file instance attribute (low priority, as we will not often use this)
+        # TODO: Add a self.friendly_defaults_file instance attribute (low priority, as we will not often(/ever?) use
+        # this)
 
         # This is for preserving derived class headers and defaults
         self.headers = headers
@@ -305,7 +312,7 @@ class TableLoader(ABC):
 
     def get_friendly_filename(self):
         """Returns the friendly name of self.file (if it is defined).  "Friendly" means the name the user gave it (in
-        case self.file is a tempo file with a nonsense name).
+        case self.file is a temp file with a nonsense name).
 
         Args:
             None
@@ -1308,7 +1315,7 @@ class TableLoader(ABC):
         else:
             df = self.df
             all_headers = self.all_headers
-            file = self.file
+            file = self.friendly_file
             sheet = self.sheet
             reqd_headers = self.reqd_headers
             extra_headers = self.extra_headers if self.extra_headers is not None else []
@@ -1599,14 +1606,10 @@ class TableLoader(ABC):
             reqd_values = [getattr(headers, k) for k in self.DefaultsRequiredValues]
         else:
             df = self.df
-            file = self.file
+            file = self.friendly_file
             sheet = self.sheet
             headers = self.headers
             reqd_values = self.reqd_values
-
-        # Do we need to do anything?
-        if reqd_values is None or len(reqd_values) == 0:
-            return passed
 
         # Is there data to check?
         if df is None:
@@ -1632,6 +1635,16 @@ class TableLoader(ABC):
         self.set_row_index(None)
 
         for _, row in df.iterrows():
+
+            # Check if the row is empty
+            if self.is_row_empty(row):
+                self.add_skip_row_index(row.name)
+                continue
+
+            # Do we need to do anything else?
+            if reqd_values is None or len(reqd_values) == 0:
+                continue
+
             missing_reqd_vals, all_reqd = self.get_missing_values(
                 row, reqd_values=reqd_values, headers=headers
             )
@@ -1764,6 +1777,19 @@ class TableLoader(ABC):
             skip_row_indexes (list of integers)
         """
         return self.skip_row_indexes
+
+    @classmethod
+    def is_row_empty(cls, row):
+        """Use this to test if a row is empty.
+
+        Args:
+            row (pandas.Series)
+        Exceptions:
+            None
+        Returns:
+            (bool)
+        """
+        return row.apply(lambda cv: str(cv) in cls.none_vals).all()
 
     def get_row_val(self, row, header, strip=True, reading_defaults=False):
         """Returns value from the row (presumably from df) and column (identified by header).
@@ -2479,19 +2505,33 @@ class TableLoader(ABC):
         Returns:
             None
         """
-        self.aggregated_errors_object.buffer_exception(
-            InfileError(
-                str(exception),
+        if isinstance(exception, InfileError):
+            exception.set_formatted_message(
                 file=self.friendly_file,
                 sheet=self.sheet,
                 column=column,
                 rownum=self.rownum,
                 suggestion=suggestion,
-            ),
-            is_error=is_error,
-            is_fatal=is_fatal,
-            orig_exception=exception,
-        )
+            )
+            self.aggregated_errors_object.buffer_exception(
+                exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
+            )
+        else:
+            self.aggregated_errors_object.buffer_exception(
+                InfileError(
+                    str(exception),
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                    column=column,
+                    rownum=self.rownum,
+                    suggestion=suggestion,
+                ),
+                is_error=is_error,
+                is_fatal=is_fatal,
+                orig_exception=exception,
+            )
 
     def handle_load_db_errors(
         self,
