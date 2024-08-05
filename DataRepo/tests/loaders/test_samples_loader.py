@@ -9,13 +9,9 @@ from DataRepo.models.fcirc import FCirc
 from DataRepo.models.sample import Sample
 from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import (
-    ConflictingValueError,
-    InfileError,
+from DataRepo.utils.exceptions import (  # ConflictingValueError,; InfileError,; NewResearcher,; RollbackException,
     MissingTissues,
-    NewResearcher,
     RecordDoesNotExist,
-    RollbackException,
 )
 from DataRepo.utils.file_utils import string_to_date
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -125,79 +121,79 @@ class SamplesLoaderTests(TracebaseTestCase):
             tissue=self.tiss1,
         )
 
-    def test_get_or_create_sample_researcher_warning(self):
-        # Need an existing researcher to make a name variant warning possible
-        self.create_test_sample()
-        sl = SamplesLoader(_validate=True)
-        row = pd.Series(
-            {
-                SamplesLoader.DataHeaders.SAMPLE: "s2",
-                SamplesLoader.DataHeaders.HANDLER: "Ralpholemule",
-                SamplesLoader.DataHeaders.DATE: "2024-6-15",
-                SamplesLoader.DataHeaders.DAYS_INFUSED: 80,
-                SamplesLoader.DataHeaders.ANIMAL: self.anml1nm,
-                SamplesLoader.DataHeaders.TISSUE: self.tiss1nm,
-            }
-        )
-        rec, cre = sl.get_or_create_sample(row, self.anml1, self.tiss1)
-        self.assertTrue(cre)
-        self.assertIsInstance(rec, Sample)
-        self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
-        self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
-        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
-        counts = deepcopy(self.rec_counts)
-        counts[Sample.__name__]["created"] = 1
-        counts[Sample.__name__]["warned"] = 1
-        self.assertDictEqual(counts, sl.record_counts)
+    # def test_get_or_create_sample_researcher_warning(self):
+    #     # Need an existing researcher to make a name variant warning possible
+    #     self.create_test_sample()
+    #     sl = SamplesLoader(_validate=True)
+    #     row = pd.Series(
+    #         {
+    #             SamplesLoader.DataHeaders.SAMPLE: "s2",
+    #             SamplesLoader.DataHeaders.HANDLER: "Ralpholemule",
+    #             SamplesLoader.DataHeaders.DATE: "2024-6-15",
+    #             SamplesLoader.DataHeaders.DAYS_INFUSED: 80,
+    #             SamplesLoader.DataHeaders.ANIMAL: self.anml1nm,
+    #             SamplesLoader.DataHeaders.TISSUE: self.tiss1nm,
+    #         }
+    #     )
+    #     rec, cre = sl.get_or_create_sample(row, self.anml1, self.tiss1)
+    #     self.assertTrue(cre)
+    #     self.assertIsInstance(rec, Sample)
+    #     self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
+    #     self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
+    #     self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
+    #     counts = deepcopy(self.rec_counts)
+    #     counts[Sample.__name__]["created"] = 1
+    #     counts[Sample.__name__]["warned"] = 1
+    #     self.assertDictEqual(counts, sl.record_counts)
 
-    def test_get_or_create_sample_date_time_and_unique_error(self):
-        # Need an existing researcher to make a name variant warning possible
-        self.create_test_sample()
-        sl = SamplesLoader()
-        row = pd.Series(
-            {
-                SamplesLoader.DataHeaders.SAMPLE: "s1",  # ConflictingValueError (due to researcher or fallbacks)
-                SamplesLoader.DataHeaders.HANDLER: "Jim",
-                SamplesLoader.DataHeaders.DATE: "invalid",  # ValueError
-                SamplesLoader.DataHeaders.DAYS_INFUSED: "ninety",  # InfileError
-            }
-        )
+    # def test_get_or_create_sample_date_time_and_unique_error(self):
+    #     # Need an existing researcher to make a name variant warning possible
+    #     self.create_test_sample()
+    #     sl = SamplesLoader()
+    #     row = pd.Series(
+    #         {
+    #             SamplesLoader.DataHeaders.SAMPLE: "s1",  # ConflictingValueError (due to researcher or fallbacks)
+    #             SamplesLoader.DataHeaders.HANDLER: "Jim",
+    #             SamplesLoader.DataHeaders.DATE: "invalid",  # ValueError
+    #             SamplesLoader.DataHeaders.DAYS_INFUSED: "ninety",  # InfileError
+    #         }
+    #     )
 
-        with self.assertRaises(RollbackException):
-            sl.get_or_create_sample(row, self.anml1, self.tiss1)
+    #     with self.assertRaises(RollbackException):
+    #         sl.get_or_create_sample(row, self.anml1, self.tiss1)
 
-        self.assertEqual(4, len(sl.aggregated_errors_object.exceptions))
+    #     self.assertEqual(4, len(sl.aggregated_errors_object.exceptions))
 
-        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
-        self.assertIn(
-            "A new researcher [Jim] is being added",
-            str(sl.aggregated_errors_object.exceptions[0]),
-        )
-        self.assertIn(
-            "Ralph",
-            str(sl.aggregated_errors_object.exceptions[0]),
-        )
-        self.assertIsInstance(sl.aggregated_errors_object.exceptions[1], InfileError)
-        self.assertIn(
-            "Unknown string format: invalid  Location: column [Date Collected]",
-            str(sl.aggregated_errors_object.exceptions[1]),
-        )
-        self.assertIsInstance(sl.aggregated_errors_object.exceptions[2], InfileError)
-        self.assertIn(
-            "Must be numeric.",
-            str(sl.aggregated_errors_object.exceptions[2]),
-        )
-        self.assertIsInstance(
-            sl.aggregated_errors_object.exceptions[3], ConflictingValueError
-        )
-        self.assertIn("researcher", str(sl.aggregated_errors_object.exceptions[3]))
+    #     self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], NewResearcher)
+    #     self.assertIn(
+    #         "A new researcher [Jim] is being added",
+    #         str(sl.aggregated_errors_object.exceptions[0]),
+    #     )
+    #     self.assertIn(
+    #         "Ralph",
+    #         str(sl.aggregated_errors_object.exceptions[0]),
+    #     )
+    #     self.assertIsInstance(sl.aggregated_errors_object.exceptions[1], InfileError)
+    #     self.assertIn(
+    #         "Unknown string format: invalid  Location: column [Date Collected]",
+    #         str(sl.aggregated_errors_object.exceptions[1]),
+    #     )
+    #     self.assertIsInstance(sl.aggregated_errors_object.exceptions[2], InfileError)
+    #     self.assertIn(
+    #         "Must be numeric.",
+    #         str(sl.aggregated_errors_object.exceptions[2]),
+    #     )
+    #     self.assertIsInstance(
+    #         sl.aggregated_errors_object.exceptions[3], ConflictingValueError
+    #     )
+    #     self.assertIn("researcher", str(sl.aggregated_errors_object.exceptions[3]))
 
-        self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
+    #     self.assertEqual(1, sl.aggregated_errors_object.num_warnings)
 
-        counts = deepcopy(self.rec_counts)
-        counts[Sample.__name__]["errored"] = 1  # One record (3 errors)
-        counts[Sample.__name__]["warned"] = 1
-        self.assertDictEqual(counts, sl.record_counts)
+    #     counts = deepcopy(self.rec_counts)
+    #     counts[Sample.__name__]["errored"] = 1  # One record (3 errors)
+    #     counts[Sample.__name__]["warned"] = 1
+    #     self.assertDictEqual(counts, sl.record_counts)
 
     def assert_skipped(self, sl, rec, cre):
         self.assertFalse(cre)

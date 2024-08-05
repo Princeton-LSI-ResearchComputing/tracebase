@@ -50,7 +50,7 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
     generate_file_location_string,
 )
-from DataRepo.utils.file_utils import is_excel, string_to_datetime
+from DataRepo.utils.file_utils import is_excel, string_to_date
 from DataRepo.utils.infusate_name_parser import (
     ObservedIsotopeData,
     parse_isotope_label,
@@ -410,7 +410,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Set the MSRunSequence defaults as a fallback in case a peak annotation details file was not provided
         self.operator_default = self.msrunsloader.operator_default
         if self.msrunsloader.date_default is not None:
-            self.date_default = string_to_datetime(self.msrunsloader.date_default)
+            self.date_default = string_to_date(self.msrunsloader.date_default)
         self.lc_protocol_name_default = self.msrunsloader.lc_protocol_name_default
         self.instrument_default = self.msrunsloader.instrument_default
 

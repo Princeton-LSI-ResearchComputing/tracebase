@@ -13,7 +13,7 @@ from django.core.files import File
 from django.db import IntegrityError, transaction
 from django.db.utils import ProgrammingError
 
-from DataRepo.loaders.msruns_loader import MSRunsLoader
+# from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -526,75 +526,75 @@ class AccuCorDataLoader:
             polarity = self.lcms_defaults["polarity"]
             mz_min = self.lcms_defaults["mz_min"]
             mz_max = self.lcms_defaults["mz_max"]
-            if (
-                self.mzxml_files_dict is not None
-                and sample_header in self.mzxml_files_dict.keys()
-            ):
-                parsed_polarity = None
-                parsed_mz_min = None
-                parsed_mz_max = None
-                path_obj = Path(str(self.mzxml_files_dict[sample_header]["path"]))
-                if path_obj.is_file():
-                    self.mzxml_data[sample_header], errs = MSRunsLoader.parse_mzxml(
-                        path_obj
-                    )
-                    if len(errs.exceptions) > 0:
-                        self.aggregated_errors_object.merge_aggregated_errors_object(
-                            errs
-                        )
-                    parsed_polarity = self.mzxml_data[sample_header]["polarity"]
-                    if (
-                        sample_header in self.lcms_metadata.keys()
-                        and parsed_polarity is not None
-                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
-                        and self.lcms_metadata[sample_header]["polarity"] is not None
-                        and parsed_polarity
-                        != self.lcms_metadata[sample_header]["polarity"]
-                    ):
-                        # Add a polarity conflict
-                        self.conflicting_mzxml_values[str(path_obj)]["polarity"] = {
-                            "sample_header": sample_header,
-                            "lcms_value": self.lcms_metadata[sample_header]["polarity"],
-                            "mzxml_value": parsed_polarity,
-                        }
-                    parsed_mz_min = self.mzxml_data[sample_header]["mz_min"]
-                    if (
-                        sample_header in self.lcms_metadata.keys()
-                        and parsed_mz_min is not None
-                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
-                        and self.lcms_metadata[sample_header]["mz_min"] is not None
-                        and parsed_mz_min != self.lcms_metadata[sample_header]["mz_min"]
-                    ):
-                        # Add a mz_min conflict
-                        self.conflicting_mzxml_values[str(path_obj)]["mz_min"] = {
-                            "sample_header": sample_header,
-                            "lcms_value": self.lcms_metadata[sample_header]["mz_min"],
-                            "mzxml_value": parsed_mz_min,
-                        }
-                    parsed_mz_max = self.mzxml_data[sample_header]["mz_max"]
-                    if (
-                        sample_header in self.lcms_metadata.keys()
-                        and parsed_mz_max is not None
-                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
-                        and self.lcms_metadata[sample_header]["mz_max"] is not None
-                        and parsed_mz_max != self.lcms_metadata[sample_header]["mz_max"]
-                    ):
-                        # Add a mz_max conflict
-                        self.conflicting_mzxml_values[str(path_obj)]["mz_max"] = {
-                            "sample_header": sample_header,
-                            "lcms_value": self.lcms_metadata[sample_header]["mz_max"],
-                            "mzxml_value": parsed_mz_max,
-                        }
-                else:
-                    self.aggregated_errors_object.buffer_error(
-                        ValueError(f"mzxml file does not exist: {str(path_obj)}")
-                    )
-                if parsed_polarity is not None:
-                    polarity = parsed_polarity
-                if parsed_mz_min is not None:
-                    mz_min = parsed_mz_min
-                if parsed_mz_max is not None:
-                    mz_max = parsed_mz_max
+            # if (
+            #     self.mzxml_files_dict is not None
+            #     and sample_header in self.mzxml_files_dict.keys()
+            # ):
+            #     parsed_polarity = None
+            #     parsed_mz_min = None
+            #     parsed_mz_max = None
+            #     path_obj = Path(str(self.mzxml_files_dict[sample_header]["path"]))
+            #     if path_obj.is_file():
+            #         self.mzxml_data[sample_header], errs = MSRunsLoader.parse_mzxml(
+            #             path_obj
+            #         )
+            #         if len(errs.exceptions) > 0:
+            #             self.aggregated_errors_object.merge_aggregated_errors_object(
+            #                 errs
+            #             )
+            #         parsed_polarity = self.mzxml_data[sample_header]["polarity"]
+            #         if (
+            #             sample_header in self.lcms_metadata.keys()
+            #             and parsed_polarity is not None
+            #             # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+            #             and self.lcms_metadata[sample_header]["polarity"] is not None
+            #             and parsed_polarity
+            #             != self.lcms_metadata[sample_header]["polarity"]
+            #         ):
+            #             # Add a polarity conflict
+            #             self.conflicting_mzxml_values[str(path_obj)]["polarity"] = {
+            #                 "sample_header": sample_header,
+            #                 "lcms_value": self.lcms_metadata[sample_header]["polarity"],
+            #                 "mzxml_value": parsed_polarity,
+            #             }
+            #         parsed_mz_min = self.mzxml_data[sample_header]["mz_min"]
+            #         if (
+            #             sample_header in self.lcms_metadata.keys()
+            #             and parsed_mz_min is not None
+            #             # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+            #             and self.lcms_metadata[sample_header]["mz_min"] is not None
+            #             and parsed_mz_min != self.lcms_metadata[sample_header]["mz_min"]
+            #         ):
+            #             # Add a mz_min conflict
+            #             self.conflicting_mzxml_values[str(path_obj)]["mz_min"] = {
+            #                 "sample_header": sample_header,
+            #                 "lcms_value": self.lcms_metadata[sample_header]["mz_min"],
+            #                 "mzxml_value": parsed_mz_min,
+            #             }
+            #         parsed_mz_max = self.mzxml_data[sample_header]["mz_max"]
+            #         if (
+            #             sample_header in self.lcms_metadata.keys()
+            #             and parsed_mz_max is not None
+            #             # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+            #             and self.lcms_metadata[sample_header]["mz_max"] is not None
+            #             and parsed_mz_max != self.lcms_metadata[sample_header]["mz_max"]
+            #         ):
+            #             # Add a mz_max conflict
+            #             self.conflicting_mzxml_values[str(path_obj)]["mz_max"] = {
+            #                 "sample_header": sample_header,
+            #                 "lcms_value": self.lcms_metadata[sample_header]["mz_max"],
+            #                 "mzxml_value": parsed_mz_max,
+            #             }
+            #     else:
+            #         self.aggregated_errors_object.buffer_error(
+            #             ValueError(f"mzxml file does not exist: {str(path_obj)}")
+            #         )
+            #     if parsed_polarity is not None:
+            #         polarity = parsed_polarity
+            #     if parsed_mz_min is not None:
+            #         mz_min = parsed_mz_min
+            #     if parsed_mz_max is not None:
+            #         mz_max = parsed_mz_max
 
             # A default file name is constructed (if missing in the LCMS metadata file, associated with a sample data
             # header).  It is used to match against the supplied bolus of mzXML files that are separately supplied.

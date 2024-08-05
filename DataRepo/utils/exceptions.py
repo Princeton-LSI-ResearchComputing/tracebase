@@ -3747,6 +3747,15 @@ class NoLoadData(Exception):
     pass
 
 
+class PlaceholderDetected(InfileError):
+    def __init__(self, message=None, suggestion=None, **kwargs):
+        if message is None:
+            message = "Placeholder values detected on %s.  Skipping load of the corresponding record(s)."
+        if suggestion is not None:
+            message += f"  {suggestion}"
+        super().__init__(message, **kwargs)
+
+
 class NotATableLoader(TypeError):
     def __init__(self, command_inst):
         here = f"{type(command_inst).__module__}.{type(command_inst).__name__}"
