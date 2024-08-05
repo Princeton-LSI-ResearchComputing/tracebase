@@ -1484,7 +1484,9 @@ class TableLoaderTests(TracebaseTestCase):
             {
                 "Sheet Name": [None],  # Required
                 "Column Header": [None],  # Required
-                "Default Value": [None],  # Optional
+                "Default Value": [
+                    1
+                ],  # Optional - we need at least 1 value, otherwise the empty row is skipped
             },
         )
         tl.check_dataframe_values(reading_defaults=True)
@@ -1603,6 +1605,14 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertIn(
             "expects 0 positional arguments, but got: 1", str(aes.exceptions[0])
         )
+
+    def test_get_value_metadata(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_column_metadata(self):
+        # TODO: Implement test
+        pass
 
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):
