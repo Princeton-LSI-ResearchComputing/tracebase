@@ -101,17 +101,57 @@ class Tracer(MaintainedModel, ElementLabel):
         update_label="name",
     )
     def _name(self):
+        return self.name_with_synonym()
+
+    def name_with_synonym(self, synonym=None):
+        """This will create the same name that _name does, but it will use the supplied compound synonym instead (after
+        checking that it is a valid synonym)."""
+        if (
+            synonym is not None
+            and self.compound.synonyms.filter(name__iexact=synonym).count() > 0
+        ):
+            name = synonym
+        else:
+            name = self.compound.name
         # format: `compound-[labelname,labelname,...]`, e.g. lysine-[13C6,15N2]
         if (
             self.id is None
             or self.labels is None  # pylint: disable=no-member
             or self.labels.count() == 0
         ):
-            return self.compound.name
+            return name
         labels_string = self.LABELS_DELIMITER.join(
             [str(label) for label in self.labels.all()]
         )
         return (
-            f"{self.compound.name}{self.COMPOUND_DELIMITER}"
+            f"{name}{self.COMPOUND_DELIMITER}"
             f"{self.LABELS_LEFT_BRACKET}{labels_string}{self.LABELS_RIGHT_BRACKET}"
+        )
+
+    @classmethod
+    def name_from_data(cls, tracer_data: TracerData):
+        """Build a tracer name (not in the database) from a TracerData object.
+
+        Assumptions:
+            sorted() sorts the same way the TracerLabel records are sorted WRT alphanumeric characters
+        Args:
+            tracer_data (TracerData)
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        from DataRepo.models.tracer_label import TracerLabel
+
+        labels_string = cls.LABELS_DELIMITER.join(
+            sorted(
+                map(
+                    lambda iso_data: TracerLabel.name_from_data(iso_data),
+                    tracer_data["isotopes"],
+                )
+            )
+        )
+        return (
+            f"{tracer_data['compound_name']}{cls.COMPOUND_DELIMITER}"
+            f"{cls.LABELS_LEFT_BRACKET}{labels_string}{cls.LABELS_RIGHT_BRACKET}"
         )
