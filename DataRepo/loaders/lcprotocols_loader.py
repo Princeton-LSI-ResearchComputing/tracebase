@@ -47,7 +47,11 @@ class LCProtocolsLoader(TableLoader):
     ]
 
     # List of header keys for columns that require a value
-    DataRequiredValues = DataRequiredHeaders
+    DataRequiredValues = [
+        NAME_KEY,
+        TYPE_KEY,
+        DESC_KEY,
+    ]
 
     # No DataDefaultValues needed
 
@@ -166,6 +170,7 @@ class LCProtocolsLoader(TableLoader):
             name = self.get_row_val(row, self.headers.NAME)
             type = self.get_row_val(row, self.headers.TYPE)
             raw_run_length = self.get_row_val(row, self.headers.RUNLEN)
+            run_length = None
             description = self.get_row_val(row, self.headers.DESC)
 
             # This row is added to skip_row_indexes (by get_row_val) when run_length is None, because it's a required
@@ -175,7 +180,8 @@ class LCProtocolsLoader(TableLoader):
                 self.errored(LCMethod.__name__)
                 return rec, created
 
-            run_length = timedelta(minutes=raw_run_length)
+            if raw_run_length is not None:
+                run_length = timedelta(minutes=raw_run_length)
 
             computed_name = LCMethod.create_name(type=type, run_length=run_length)
 

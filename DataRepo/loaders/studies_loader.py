@@ -41,13 +41,14 @@ class StudiesLoader(TableLoader):
 
     # List of required header keys
     DataRequiredHeaders = [
-        CODE_KEY,
         NAME_KEY,
         DESC_KEY,
     ]
 
     # List of header keys for columns that require a value
-    DataRequiredValues = DataRequiredHeaders
+    DataRequiredValues = [
+        NAME_KEY,
+    ]
 
     # No DataDefaultValues needed
 
