@@ -78,6 +78,16 @@ class Command(LoadTableCommand):
             ),
             required=False,
         )
+        parser.add_argument(
+            "--exact-mode",
+            action="store_true",
+            default=False,
+            help=(
+                f"When the {MSRunsLoader.DataHeaders.MZXMLNAME} column is empty, consider underscores and dashes to be "
+                "equivalent when matching mzXML files with peak annotation file sample headers.  When true, only allow "
+                "exact matches."
+            ),
+        )
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -135,5 +145,6 @@ class Command(LoadTableCommand):
             date=options.get("date"),
             lc_protocol_name=options.get("lc_protocol_name"),
             instrument=options.get("instrument"),
+            exact_mode=options.get("exact_mode"),
         )
         self.load_data()
