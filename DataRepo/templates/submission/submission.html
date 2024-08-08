@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block head_extras %}
+    {{ block.super }}
+
+    <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+    <link href="{% static 'css/tabbar.css' %}" rel="stylesheet">
+    <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
+    <script src="{% static 'js/file_list_drop_area.js' %}"></script>
+    <script src="{% static 'js/browser_download.js' %}"></script>
+    <script src="{% static 'js/submission.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+
+    <div>
+        <ul class="tabbar tabbar-pills justify-content-center">
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Start' or page is None %}active{% endif %}" href="{% url 'submission' %}?page=Start">Start</a>
+            </li>
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Fill In' %}active{% endif %}" href="{% url 'submission' %}?page=Fill%20In">Fill In</a>
+            </li>
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Validate' %}active{% endif %}" href="{% url 'submission' %}?page=Validate">Validate</a>
+            </li>
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Submit' %}active{% endif %}" href="{% url 'submission' %}?page=Submit">Submit</a>
+            </li>
+        </ul>
+    </div>
+
+    {% if page == 'Start' or page is None %}
+        {% include "submission/includes/1_start.html" %}
+    {% elif page == 'Fill In' %}
+        {% include "submission/includes/2_fill_in.html" %}
+    {% elif page == 'Validate' %}
+        {% include "submission/includes/3_validate.html" %}
+    {% elif page == 'Submit' %}
+        {% include "submission/includes/4_submit.html" %}
+    {% endif %}
+
+{% endblock %}

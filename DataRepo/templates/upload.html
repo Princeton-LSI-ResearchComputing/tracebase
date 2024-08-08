@@ -344,7 +344,7 @@
         <br>
     </small>
     <ol>
-        <h5><li><a href="{% url 'submission' %}">Download a Submission Template</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#build-submission"><img id="build-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <h5><li><a href="{% url 'submission' %}?page=Start">Download a Submission Template</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#build-submission"><img id="build-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
         <div id="build-submission" class="major-li collapse">
             <ol>
                 <li>
@@ -623,7 +623,7 @@
                 </li>
             </ol>
         </div>
-        <h5><li><a href="{% url 'submission' %}">Check for errors</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#validate-submission"><img id="validate-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <h5><li><a href="{% url 'submission' %}?page=Validate">Check for errors</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#validate-submission"><img id="validate-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
         <div id="validate-submission" class="major-li collapse">
             <ol>
                 <li>

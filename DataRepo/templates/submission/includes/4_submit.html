@@ -1,0 +1,65 @@
+{% load customtags %}
+{% load static %}
+
+<div>
+    <h3>Build a TraceBase Submission</h3>
+    <span class="small text-muted">Upload multiple accucor and/or isocorr files (and an optional existing Animal/Sample sheet) and get back an animal and sample sheet with sample names automatically added.</span><br><br>
+    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <label for="peak_annotation_files" class="tight-form-label">
+            Peak Annotation Files:
+            <span class="small"><span class="small text-muted">(AccuCor/IsoCorr <span class="fst-italic">excel</span>)</span></span>
+        </label>
+        {{ form.peak_annotation_files }}
+        <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
+        <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
+
+        <label for="animal_sample_table" class="tight-form-label">
+            Output Animal and Sample File:
+            <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
+        </label>
+        {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
+        <!-- Errors, if they exist, add an extra like which makes the spacing off -->
+        {% if not form.animal_sample_table.errors %}<br>{% endif %}
+
+        <span class="text-danger">{{ form.non_field_errors }}</span>
+        <button type="submit" class="btn btn-primary" id="validate">Download</button>
+        <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);">Clear</button>
+        {{ form.management_form }}
+    </form>
+</div>
+
+
+{% if results %}
+    {% if not quiet_mode %}
+        <br>
+        <br>
+        {% if valid %}
+            <h5 class="text-success">Your data looks good! You may proceed to the <a href="{{ submission_url }}">submission form</a> if you are ready to add this data to TraceBase.</h5>
+        {% endif %}
+    {% endif %}
+    {% if not valid or not quiet_mode %}
+        <hr>
+        <h5>Status Report <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-report">expand</a></h5>
+        <div id="study-submission-report" class="collapse">
+            <ul class="ul-nopadding">
+                {% for key in ordered_keys %}
+                    {% with status=results|index:key status_class=results|index:key|getClass err_status="ERROR" wrn_status="WARNING" %}
+                        <li class="{{ status_class }}">
+                            <u><b>{{ status }}: {{ key }}</b></u>
+                            {% if exceptions|index:key %}
+                                <ul class="ul-nopadding">
+                                    {% for exception in exceptions|index:key %}
+                                        <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b>{% if exception|index:"fixed" != None %} <b>({{ exception|index:"fixed" }})</b>{% endif %}<br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </li>
+                    {% endwith %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    <pre class="d-none" id="output_study_file">{{study_data}}</pre>
+{% endif %}

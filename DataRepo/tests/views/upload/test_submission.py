@@ -1055,7 +1055,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         """
         response = self.client.get(reverse("submission"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/submission.html")
+        self.assertTemplateUsed(response, "submission/submission.html")
 
     # TODO: Add this test back in once the peak annotation details sheet is included.
     # def test_validate_files_good(self):
