@@ -4087,12 +4087,163 @@ class InvalidStudyDocVersion(Exception):
     pass
 
 
-class UnknownStudyDocVersion(Exception):
-    pass
+class StudyDocVersionException(Exception):
+    def __init__(self, message, match_data, matches=None):
+        """StudyDocVersionException constructor: appends match details to derived class exception messages.
+
+        Args:
+            message (str)
+            match_data (dict): Data describing the extend of the match of the supplied data and the exoected data in
+                each version.
+
+                Example:
+
+                {
+                    "supplied": {sheet name: [supplied column names]},
+                    "versions": {
+                        version number: {
+                            "match": bool,
+                            "expected": {sheet: [required headers]},
+                            "missing_sheets": []
+                            "unknown_sheets": []
+                            "matching": {sheet: {"matching": [headers], "missing": [headers], "unknown": [headers]}},
+                        },
+                    },
+                }
+            matches (Optional[List[str]]): List of version numbers that match, when there are multiuple matches.  This
+                limits the report to only the details of the matching versions.
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
+        guess, nheaders, nsheets = self.guess_version(match_data)
+        if guess is not None:
+            message += (
+                f"\n\nSuggestion: It looks like, with {nheaders} missing required headers and {nsheets} matching "
+                f"sheets overall, study doc version {guess} appears to be the likely match.  Look over the missing "
+                "required headers for that version in the matching data below and edit the headers in your study doc "
+                "to match."
+            )
+        message += "\n\nCompared to each supported version, the following differences prevented a version match:\n"
+        for version in match_data["versions"].keys():
+            if matches is not None and version in matches:
+                # Limit the report to just the multiple matching versions
+                continue
+            message += f"\tVersion {version}\n"
+            if len(match_data["versions"][version]["matching"].keys()) > 0:
+                for sheet, mdict in match_data["versions"][version]["matching"].items():
+                    message += f"\t\tSheet '{sheet}' has"
+                    if len(mdict["missing"]) > 0 or len(mdict["unknown"]) > 0:
+                        message += (
+                            f"\n\t\t\t{len(mdict['matching'])} matching headers\n"
+                        )
+                        if len(mdict["missing"]) > 0:
+                            message += (
+                                f"\t\t\t**{len(mdict['missing'])} missing required headers: "
+                                f"{mdict['missing']}**\n"
+                            )
+                        if len(mdict["unknown"]) > 0:
+                            message += f"\t\t\t{len(mdict['unknown'])} unknown (ignored) headers: {mdict['unknown']}\n"
+                    else:
+                        message += f" all {len(mdict['matching'])} matching headers.\n"
+                if len(match_data["versions"][version]["unknown_sheets"]) > 0:
+                    message += (
+                        "\t\tThe following sheet names were not recognized: "
+                        f"{match_data['versions'][version]['unknown_sheets']}.\n"
+                    )
+                    if len(match_data["versions"][version]["missing_sheets"]) > 0:
+                        message += (
+                            "\t\t\tIn addition, the following sheets were not found, and could potentially be a "
+                            "match if the unknown (ignored) sheet(s) were renamed: "
+                            f"{match_data['versions'][version]['missing_sheets']}\n"
+                        )
+            elif len(match_data["versions"][version]["missing_sheets"]) > 0:
+                message += (
+                    f"\t\tNone of the expected sheet names: {match_data['versions'][version]['missing_sheets']}\n"
+                    f"\t\twere found among the supplied sheets: {list(match_data['supplied'].keys())}\n"
+                )
+        super().__init__(message)
+        self.match_data = match_data
+
+    @classmethod
+    def guess_version(cls, match_data):
+        """Returns the version with the fewest missing headers.  If there is a tie in missing header count, it returns
+        the one with the most matching sheets.  Otherwise, it returns None.  Also returns the count of matching headers
+        and sheet names."""
+        counts = defaultdict(lambda: {"sheets": 0, "missing headers": 0})
+        for version in match_data["versions"].keys():
+            if len(match_data["versions"][version]["matching"].keys()) > 0:
+                counts[version]["sheets"] += len(
+                    match_data["versions"][version]["matching"].keys()
+                )
+                for mdict in match_data["versions"][version]["matching"].values():
+                    counts[version]["missing headers"] += len(mdict["missing"])
+        min_missing_headers = None
+        max_sheets = 0
+        best_versions = []
+        for version, count_dict in counts.items():
+            if (
+                min_missing_headers is None
+                or count_dict["missing headers"] < min_missing_headers
+            ):
+                min_missing_headers = count_dict["missing headers"]
+                max_sheets = count_dict["sheets"]
+                best_versions = [version]
+            elif count_dict["missing headers"] == min_missing_headers:
+                if count_dict["sheets"] > max_sheets:
+                    min_missing_headers = count_dict["missing headers"]
+                    max_sheets = count_dict["sheets"]
+                    best_versions = [version]
+                elif count_dict["sheets"] == max_sheets:
+                    best_versions.append(version)
+        if len(best_versions) == 1:
+            return best_versions[0], min_missing_headers, max_sheets
+        return None, None, None
 
 
-class MultipleStudyDocVersions(Exception):
-    pass
+class UnknownStudyDocVersion(StudyDocVersionException):
+    def __init__(self, supported_versions: list, match_data, message=None):
+        """UnknownStudyDocVersion constructor: use when there is no version match.
+
+        Args:
+            supported_versions (List[str]): List of supported study doc version numbers
+            match_data (dict): See StudyDocVersionException.__init__()
+            message (Optional[str])
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
+        if message is None:
+            message = (
+                "Unable to determine study doc version.  Please supply one of the supported formats: "
+                f"{supported_versions}."
+            )
+        super().__init__(message, match_data)
+        self.supported_versions = supported_versions
+
+
+class MultipleStudyDocVersions(StudyDocVersionException):
+    def __init__(self, matching_version_numbers: list, match_data, message=None):
+        """MultipleStudyDocVersions constructor: use when there are multiple matches.
+
+        Args:
+            supported_versions (List[str]): List of supported study doc version numbers
+            match_data (dict): See StudyDocVersionException.__init__()
+            message (Optional[str])
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
+        if message is None:
+            message = (
+                "Unable to identify study doc version.  Please supply one of these multiple matching version numbers: "
+                f"{matching_version_numbers}."
+            )
+        super().__init__(message, match_data, matching_version_numbers)
+        self.matching_version_numbers = matching_version_numbers
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

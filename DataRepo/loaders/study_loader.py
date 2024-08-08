@@ -1,3 +1,15 @@
+# mypy: disable-error-code="index"
+
+# The above ignore has to do with ConvertedTableLoader's @property/@abstractmethod functions that are overridden using
+# class attributes.  Normally, mypy doesn't complain about this (it doesn't complain about all references to that
+# attribute, treating it as a dict, or about any of the other attributes, similarly treated), but it was having a
+# problem detecting that OrigDataRequiredHeaders in the derived classes were dicts.  Probably it's due to the fact that
+# StudyLoader is abtract as well, and it references OrigDataRequiredHeaders via __subclasses__(), and mypy only knows
+# about the abstractmethod at that point (not the derived classes that define the type).  (Also note the `type: ignore
+# [attr-defined]` below.)
+
+# TODO: Figure out a better way to simulate abstract class attributes (see above comment))
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -90,11 +102,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         """The version of the study doc"""
         pass
 
-    @property
-    @abstractmethod
-    def ConversionHeading(self) -> str:
-        """Category name under which conversion errors and warnings will be found.  (str)"""
-        pass
+    ConversionHeading = "Study Doc Version Check"
 
     LatestLoaderName = "StudyV3Loader"
 
@@ -759,7 +767,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 )
 
     @classmethod
-    def determine_matching_versions(cls, df_dict) -> List[str]:
+    def determine_matching_versions(cls, df_dict):
         """Given a dict of dataframes, return a list of the version numbers of the matching versions.
 
         Args:
@@ -768,33 +776,85 @@ class StudyLoader(ConvertedTableLoader, ABC):
             None
         Returns:
             matching_version_numbers (List[str]): Version numbers of the matching study doc versions.
+            version_match_data (dict): Details of the sheets and headers that do and don't match every study doc version
+                Example: {
+                    "supplied": {sheet name: [supplied column names]},
+                    "versions": {
+                        version number: {
+                            "match": bool,
+                            "expected": {sheet: [required headers]},
+                            "missing_sheets": []
+                            "unknown_sheets": []
+                            "matching": {sheet: {"matching": [headers], "missing": [headers], "unknown": [headers]}},
+                        },
+                    },
+                }
         """
         matching_version_numbers: List[str] = []
         CurrentStudyLoader: Optional[Type[StudyLoader]] = None
+
+        # In order to provide useful feeback on why there was no (or multiple) matches...
+        # version_match_data Example: {
+        #     "supplied": {sheet name: [supplied column names]},
+        #     "versions": {
+        #         version number: {
+        #             "match": bool,
+        #             "expected": {sheet: [required headers]},
+        #             "missing_sheets": []
+        #             "unknown_sheets": []
+        #             "matching": {sheet: {"matching": [headers], "missing": [headers], "unknown": [headers]}},
+        #         },
+        #     },
+        # }
+        version_match_data = {
+            "supplied": defaultdict(list),
+            "versions": defaultdict(  # {version number: ...}
+                lambda: {
+                    "match": False,
+                    "expected": defaultdict(list),  # {sheet: [required headers]}
+                    "missing_sheets": [],
+                    "unknown_sheets": [],
+                    "matching": defaultdict(  # {sheet: {"matching": [], "missing": [headers], "unknown": [headers]}}
+                        lambda: {
+                            "matching": [],
+                            "missing": [],
+                            "unknown": [],
+                        }
+                    ),
+                }
+            ),
+        }
+
+        version_match_data["supplied"] = dict(
+            (sheet, list(df.columns)) for sheet, df in df_dict.items()
+        )
         supplied_sheets = set(list(df_dict.keys()))
 
-        common_data: dict = defaultdict(lambda: defaultdict(list))
-
         for study_loader_subcls in cls.__subclasses__():
-            common_data[study_loader_subcls.__name__]["loaders"].append(
-                study_loader_subcls
+            subclass_name = study_loader_subcls.__name__
+            version_number = study_loader_subcls.version_number
+            version_match_data["versions"][version_number][
+                "expected"
+            ] = study_loader_subcls.OrigDataRequiredHeaders.copy()  # type: ignore [attr-defined]
+            expected_sheets = set(
+                version_match_data["versions"][version_number]["expected"].keys()
             )
 
             # Sanity check to ensure that the CurrentStudyLoader is valid
-            if study_loader_subcls.__name__ == cls.LatestLoaderName:
+            if subclass_name == cls.LatestLoaderName:
                 # This is the latest version, which is handled below
                 CurrentStudyLoader = study_loader_subcls
 
             if isinstance(df_dict, dict):
                 # "headers" (from TableLoader) are "sheets" in this loader, because it is overloaded.  This loader has
                 # no column headers of its own.  It just defines all the sheets and their individual loaders.
-                expected_sheets = set(
-                    study_loader_subcls.OrigDataHeaders._asdict().values()  # type: ignore[attr-defined]
-                    # Not sure how to satisfy mypy here.  OrigDataHeaders is a namedtuple and has an _asdict
-                    # attribute/method.  This strategy is an override of the superclass, which is where the attribute
-                    # comes from.
-                )
                 common_sheets = list(expected_sheets.intersection(supplied_sheets))
+                version_match_data["versions"][version_number]["missing_sheets"] = list(
+                    expected_sheets.difference(supplied_sheets)
+                )
+                version_match_data["versions"][version_number]["unknown_sheets"] = list(
+                    supplied_sheets.difference(expected_sheets)
+                )
                 # TODO: This debug data should be tracked and be used/[resented when there is no version match.  For
                 # now, keep it as a debug print.
                 print(
@@ -803,45 +863,98 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 )
                 match = False
                 if len(common_sheets) > 0:
-                    common_data[study_loader_subcls.__name__]["sheets"] = common_sheets
                     # So far so good.  Let's assume it's a match unless the headers in each sheet say otherwise...
                     match = True
                     for sheet in common_sheets:
-                        expected_headers = set(
+                        required_headers = set(
                             study_loader_subcls.get_required_headers(sheet)
                         )
                         supplied_headers = set(list(df_dict[sheet].columns))
+                        version_match_data["versions"][version_number]["matching"][
+                            sheet
+                        ]["matching"] = list(
+                            required_headers.intersection(supplied_headers)
+                        )
+                        version_match_data["versions"][version_number]["matching"][
+                            sheet
+                        ]["missing"] = list(
+                            required_headers.difference(supplied_headers)
+                        )
+                        version_match_data["versions"][version_number]["matching"][
+                            sheet
+                        ]["unknown"] = list(
+                            supplied_headers.difference(required_headers)
+                        )
                         # TODO: This debug data should be tracked and be used/[resented when there is no version match.
                         # For now, keep it as a debug print.
                         print(
-                            f"V{study_loader_subcls.version_number} SHEET {sheet} REQUIRED HEADERS: {expected_headers} "
+                            f"V{study_loader_subcls.version_number} SHEET {sheet} REQUIRED HEADERS: {required_headers} "
                             f"SUPPLIED HEADERS: {supplied_headers}"
                         )
-                        if not expected_headers <= supplied_headers:
+                        if not required_headers <= supplied_headers:
                             # TODO: This debug data should be tracked and be used/[resented when there is no version
                             # match. For now, keep it as a debug print.
                             print(f"NOT {study_loader_subcls.version_number}")
                             match = False
-                            break
 
                 if match:
                     matching_version_numbers.append(
                         str(study_loader_subcls.version_number)
                     )
+                    version_match_data["versions"][version_number]["match"] = True
 
             else:  # pd.DataFrame
-                # All we can do here (currently) is check that the headers in the dataframe are a subset of the
-                # flattened original headers (from all the sheets).  It would be possible to do the determination by
-                # specific sheet header contents if the class attributes were populated differently, but that can be
-                # done via a refactor.
+                # Check to see if the supplied sheet matches any of the sheets in this version.  If so, it's a match
+                match = False
                 supplied_headers = set(list(df_dict.columns))
-                expected_headers = set(
-                    study_loader_subcls.get_required_headers(sheet=None)
-                )
-                if expected_headers <= supplied_headers:
-                    matching_version_numbers.append(
-                        str(study_loader_subcls.version_number)
+                version_match_data["versions"][version_number]["missing_sheets"] = []
+                for expected_sheet in expected_sheets:
+                    required_headers = set(
+                        study_loader_subcls.get_required_headers(sheet=expected_sheet)
                     )
+                    version_match_data["versions"][version_number]["matching"][
+                        expected_sheet
+                    ]["matching"] = list(
+                        required_headers.intersection(supplied_headers)
+                    )
+
+                    # If there is any overlap
+                    if (
+                        len(
+                            version_match_data["versions"][version_number]["matching"][
+                                expected_sheet
+                            ]["matching"]
+                        )
+                        > 0
+                    ):
+                        version_match_data["versions"][version_number]["matching"][
+                            expected_sheet
+                        ]["matching"] = list(
+                            required_headers.intersection(supplied_headers)
+                        )
+                        version_match_data["versions"][version_number]["matching"][
+                            expected_sheet
+                        ]["missing"] = list(
+                            required_headers.difference(supplied_headers)
+                        )
+                        version_match_data["versions"][version_number]["matching"][
+                            expected_sheet
+                        ]["unknown"] = list(
+                            supplied_headers.difference(required_headers)
+                        )
+                        # If the required headers are a subset of the supplied headers
+                        if required_headers <= supplied_headers:
+                            matching_version_numbers.append(
+                                str(study_loader_subcls.version_number)
+                            )
+                            match = True
+                            version_match_data["versions"][version_number][
+                                "match"
+                            ] = True
+                    else:
+                        version_match_data["versions"][version_number][
+                            "missing_sheets"
+                        ].append(expected_sheet)
 
         # This just checks to make sure that a valid derived class was set as the cls.LatestLoaderName
         if CurrentStudyLoader is None:
@@ -856,7 +969,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 f"{dclss}"
             )
 
-        return matching_version_numbers
+        return matching_version_numbers, version_match_data
 
     @classmethod
     def get_supported_versions(cls) -> List[str]:
@@ -868,29 +981,27 @@ class StudyLoader(ConvertedTableLoader, ABC):
         loader_class: TableLoader
 
         if version is not None:
-            version_numbers = [version]
+            matching_version_numbers = [version]
         else:
-            version_numbers = StudyLoader.determine_matching_versions(df_dict)
+            matching_version_numbers, match_data = (
+                StudyLoader.determine_matching_versions(df_dict)
+            )
 
-        if len(version_numbers) == 1:
-            if version_numbers[0] == StudyV2Loader.version_number:
+        if len(matching_version_numbers) == 1:
+            if matching_version_numbers[0] == StudyV2Loader.version_number:
                 loader_class = StudyV2Loader
-            elif version_numbers[0] == StudyV3Loader.version_number:
+            elif matching_version_numbers[0] == StudyV3Loader.version_number:
                 loader_class = StudyV3Loader
             else:
                 raise InvalidStudyDocVersion(
-                    f"Unrecognized version number: {version_numbers}."
+                    f"Unrecognized version number: {matching_version_numbers}."
                 )
-        elif len(version_numbers) == 0:
+        elif len(matching_version_numbers) == 0:
             raise UnknownStudyDocVersion(
-                "Unable to determine study doc version.  Please supply one of the supported formats: "
-                f"{StudyLoader.get_supported_versions()}."
+                StudyLoader.get_supported_versions(), match_data
             )
         else:
-            raise MultipleStudyDocVersions(
-                "Unable to identify study doc version.  Please supply one of these multiple matching formats: "
-                f"{version_numbers}."
-            )
+            raise MultipleStudyDocVersions(matching_version_numbers, match_data)
 
         return loader_class
 
@@ -929,8 +1040,6 @@ class StudyLoader(ConvertedTableLoader, ABC):
 class StudyV3Loader(StudyLoader):
     version_number = "3.0"
 
-    ConversionHeading = f"Study Doc Version Check v{version_number}"
-
     # These are actually sheet names, not headers
     OrigDataTableHeaders = StudyLoader.DataTableHeaders
     OrigDataHeaders = StudyLoader.DataHeaders
@@ -953,84 +1062,25 @@ class StudyV3Loader(StudyLoader):
     # puts those headers directly in this class attribute.  And we're not going to use it as "required" sheets, only
     # headers.
     OrigDataRequiredHeaders = {
-        StudiesLoader.DataSheetName: [
-            getattr(StudiesLoader.DataHeaders, hk)
-            for hk in StudiesLoader.flatten_ndim_strings(
-                StudiesLoader.DataRequiredHeaders
+        **dict(
+            (
+                loader.DataSheetName,
+                [
+                    (
+                        getattr(loader.DataHeaders, hk)
+                        # TODO: Figure out how to eliminate ProtocolsLoader.DataHeaderExcel
+                        if not hasattr(loader, "DataHeadersExcel")
+                        else getattr(loader.DataHeadersExcel, hk)
+                    )
+                    for hk in loader.flatten_ndim_strings(loader.DataRequiredHeaders)
+                ],
             )
-        ],
-        AnimalsLoader.DataSheetName: [
-            getattr(AnimalsLoader.DataHeaders, hk)
-            for hk in AnimalsLoader.flatten_ndim_strings(
-                AnimalsLoader.DataRequiredHeaders
-            )
-        ],
-        SamplesLoader.DataSheetName: [
-            getattr(SamplesLoader.DataHeaders, hk)
-            for hk in SamplesLoader.flatten_ndim_strings(
-                SamplesLoader.DataRequiredHeaders
-            )
-        ],
-        SequencesLoader.DataSheetName: [
-            getattr(SequencesLoader.DataHeaders, hk)
-            for hk in SequencesLoader.flatten_ndim_strings(
-                SequencesLoader.DataRequiredHeaders
-            )
-        ],
-        MSRunsLoader.DataSheetName: [
-            getattr(MSRunsLoader.DataHeaders, hk)
-            for hk in MSRunsLoader.flatten_ndim_strings(
-                MSRunsLoader.DataRequiredHeaders
-            )
-        ],
-        PeakAnnotationFilesLoader.DataSheetName: [
-            getattr(PeakAnnotationFilesLoader.DataHeaders, hk)
-            for hk in PeakAnnotationFilesLoader.flatten_ndim_strings(
-                PeakAnnotationFilesLoader.DataRequiredHeaders
-            )
-        ],
-        ProtocolsLoader.DataSheetName: [
-            getattr(ProtocolsLoader.DataHeadersExcel, hk)
-            for hk in ProtocolsLoader.flatten_ndim_strings(
-                ProtocolsLoader.DataRequiredHeaders
-            )
-        ],
-        TissuesLoader.DataSheetName: [
-            getattr(TissuesLoader.DataHeaders, hk)
-            for hk in TissuesLoader.flatten_ndim_strings(
-                TissuesLoader.DataRequiredHeaders
-            )
-        ],
-        InfusatesLoader.DataSheetName: [
-            getattr(InfusatesLoader.DataHeaders, hk)
-            for hk in InfusatesLoader.flatten_ndim_strings(
-                InfusatesLoader.DataRequiredHeaders
-            )
-        ],
-        TracersLoader.DataSheetName: [
-            getattr(TracersLoader.DataHeaders, hk)
-            for hk in TracersLoader.flatten_ndim_strings(
-                TracersLoader.DataRequiredHeaders
-            )
-        ],
-        CompoundsLoader.DataSheetName: [
-            getattr(CompoundsLoader.DataHeaders, hk)
-            for hk in CompoundsLoader.flatten_ndim_strings(
-                CompoundsLoader.DataRequiredHeaders
-            )
-        ],
-        LCProtocolsLoader.DataSheetName: [
-            getattr(LCProtocolsLoader.DataHeaders, hk)
-            for hk in LCProtocolsLoader.flatten_ndim_strings(
-                LCProtocolsLoader.DataRequiredHeaders
-            )
-        ],
-        StudyLoader.DataSheetName: [  # "Defaults"
-            getattr(StudyLoader.DefaultsHeaders, hk)
-            for hk in StudyLoader.flatten_ndim_strings(
-                StudyLoader.DefaultsRequiredValues
-            )
-        ],
+            for loader in StudyLoader.Loaders._asdict().values()
+            if not isinstance(loader, list) and loader is not None
+        ),
+        TableLoader.DefaultsSheetName: list(
+            TableLoader.DefaultsHeaders._asdict().values()
+        ),
         "Errors": [],
     }
 
@@ -1062,8 +1112,6 @@ class StudyV3Loader(StudyLoader):
 
 class StudyV2Loader(StudyLoader):
     version_number = "2.0"
-
-    ConversionHeading = f"Study Doc Version Check v{version_number}"
 
     # These are actually for sheet names, not headers
     OrigDataTableHeaders = namedtuple(
