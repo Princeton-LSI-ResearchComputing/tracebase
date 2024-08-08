@@ -4,7 +4,7 @@ from typing import Optional
 
 from django.core.management import BaseCommand
 
-from DataRepo.views.upload.validation import DataValidationView
+from DataRepo.views.upload.submission import DataValidationView
 
 
 def profile(study_doc, peak_annot_files: Optional[list] = None):

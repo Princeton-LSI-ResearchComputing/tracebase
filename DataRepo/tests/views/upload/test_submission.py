@@ -37,7 +37,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
-from DataRepo.views.upload.validation import DataValidationView
+from DataRepo.views.upload.submission import DataValidationView
 
 
 class DataValidationViewTests1(TracebaseTransactionTestCase):
