@@ -2454,15 +2454,15 @@ class DataValidationView(FormView):
     def validate_study(self):
         load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
-        try:
-            StudyLoader(
-                file=self.study_file,
-                filename=self.study_filename,
-                _validate=True,
-                annot_files_dict=self.annot_files_dict,
-            ).load_data()
-        except MultiLoadStatus as mls:
-            load_status_data = mls
+        # try:
+        #     StudyLoader(
+        #         file=self.study_file,
+        #         filename=self.study_filename,
+        #         _validate=True,
+        #         annot_files_dict=self.annot_files_dict,
+        #     ).load_data()
+        # except MultiLoadStatus as mls:
+        #     load_status_data = mls
 
         self.load_status_data = load_status_data
 
