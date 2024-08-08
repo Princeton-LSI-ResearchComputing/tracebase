@@ -1053,9 +1053,9 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         """
         Do a simple validation view test
         """
-        response = self.client.get(reverse("validate"))
+        response = self.client.get(reverse("submission"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
+        self.assertTemplateUsed(response, "DataRepo/submission.html")
 
     # TODO: Add this test back in once the peak annotation details sheet is included.
     # def test_validate_files_good(self):
@@ -1300,7 +1300,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         """
         Do a simple validation view test when validation is disabled
         """
-        response = self.client.get(reverse("validate"))
+        response = self.client.get(reverse("submission"))
         self.assertEqual(
             response.status_code, 302, msg="Make sure the view is redirected"
         )
@@ -1310,7 +1310,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         """
         Do a simple validation view test when validation is disabled
         """
-        response = self.client.get(reverse("validate"), follow=True)
+        response = self.client.get(reverse("submission"), follow=True)
         self.assertTemplateUsed(response, "validation_disabled.html")
 
     def test_accucor_validation_error(self):
