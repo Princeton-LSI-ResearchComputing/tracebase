@@ -185,8 +185,8 @@ STORAGES = DEFAULT_STORAGES
 
 # File storage handling for tests
 # https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
-# Added to make the validate_submission.html form work.  Could not figure out how to specify this handler for
-# individual fields.  This avoids files using the InMemoryUploadedFile, which the load script complains about.
+# Added to make the submission.html form work.  Could not figure out how to specify this handler for individual fields.
+# This avoids files using the InMemoryUploadedFile, which the load script complains about.
 FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
 
 # Custom URLs and content

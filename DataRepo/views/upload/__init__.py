@@ -1,5 +1,5 @@
-from .submission import upload
-from .validation import DataValidationView, validation_disabled
+from .submission import DataValidationView, validation_disabled
+from .upload import upload
 
 __all__ = [
     "upload",

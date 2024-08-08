@@ -2156,9 +2156,8 @@ class AggregatedErrors(Exception):
             if exception.is_error:
                 master_is_error = True
             if not hasattr(exception, "aes_status_message"):
-                # TODO: This was added as a safety precaution, to ensure it's present for the validate_submission
-                # template.  This should be handled via the buffer_exception and via the constructor that takes a list
-                # of exceptions
+                # TODO: This was added as a safety precaution, to ensure it's present for the submission template.
+                # This should be handled via buffer_exception and the constructor that takes a list of exceptions.
                 exception.aes_status_message = None
 
         self.num_errors = num_errors
