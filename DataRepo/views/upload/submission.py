@@ -72,7 +72,7 @@ from DataRepo.utils.text_utils import autowrap
 
 class DataValidationView(FormView):
     form_class = DataSubmissionValidationForm
-    template_name = "DataRepo/submission.html"
+    template_name = "submission/submission.html"
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
     row_key_delim = "__DELIM__"
