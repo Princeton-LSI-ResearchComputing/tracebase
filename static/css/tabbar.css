@@ -1,9 +1,10 @@
 .tabbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-bottom: 0;
   list-style: none;
   padding: 2rem;
+  white-space: nowrap;
 }
 
 .tabbar-link {
@@ -34,38 +35,20 @@
   cursor: default;
 }
 
-.tabbar-tabs {
-  border-bottom: 1px solid #dee2e6;
+.tabbar-item {
+  display: flex;
+  flex-grow: auto;
+  flex-basis: 20%;
+  justify-content: space-around;
 }
 
-.tabbar-tabs .tabbar-link {
-  margin-bottom: -1px;
-  background: none;
-  border: 1px solid transparent;
-  border-top-left-radius: 0.25rem;
-  border-top-right-radius: 0.25rem;
-}
-
-.tabbar-pills .tabbar-link {
+.tabbar-pills .tabbar-item .tabbar-link {
   background: none;
   background-color: #dbf4e4;
   border: 2px solid #4d7697;
   border-radius: 0.25rem;
-  padding-left: 5rem;
-  padding-right: 5rem;
-}
-
-.tabbar-fill > .tabbar-link,
-.tabbar-fill .tabbar-item {
-  flex: 1 1 auto;
   text-align: center;
-}
-
-.tabbar-justified > .tabbar-link,
-.tabbar-justified .tabbar-item {
-  flex-basis: 0;
-  flex-grow: 1;
-  text-align: center;
+  width: 100%;
 }
 
 .tabbar-pills .tabbar-link:hover {
@@ -76,35 +59,4 @@
 .tabbar-pills .show > .tabbar-link {
   color: #fff;
   background-color: #6dc4ac;
-  padding-left: 5rem;
-  padding-right: 5rem;
-}
-
-.tabbar-fill .tabbar-item .tabbar-link,
-.tabbar-justified .tabbar-item .tabbar-link {
-  width: 100%;
-}
-
-.tabbar-tabs .tabbar-link:hover, .tabbar-tabs .tabbar-link:focus {
-  border-color: #e9ecef #e9ecef #dee2e6;
-  isolation: isolate;
-}
-
-.tabbar-tabs .tabbar-link.disabled {
-  color: #6c757d;
-  background-color: transparent;
-  border-color: transparent;
-}
-
-.tabbar-tabs .tabbar-link.active,
-.tabbar-tabs .tabbar-item.show .tabbar-link {
-  color: #495057;
-  background-color: #fff;
-  border-color: #dee2e6 #dee2e6 #fff;
-}
-
-.tabbar-tabs .dropdown-menu {
-  margin-top: -1px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
 }
