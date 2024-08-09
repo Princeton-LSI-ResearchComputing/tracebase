@@ -2,31 +2,35 @@
 {% load static %}
 
 <div>
-    <h3>Build a TraceBase Submission</h3>
-    <span class="small text-muted">Upload multiple accucor and/or isocorr files (and an optional existing Animal/Sample sheet) and get back an animal and sample sheet with sample names automatically added.</span><br><br>
+    <h3>Start a Submission</h3>
+    <span class="small text-muted">Upload multiple peak annotation files (e.g. AccuCor files) and get back a Study doc with automatically populated sample names, compounds, etc.</span><br><br>
     <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
         {% csrf_token %}
 
         <label for="peak_annotation_files" class="tight-form-label">
             Peak Annotation Files:
-            <span class="small"><span class="small text-muted">(AccuCor/IsoCorr <span class="fst-italic">excel</span>)</span></span>
+            <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span>
         </label>
         {{ form.peak_annotation_files }}
         <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
         <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
 
-        <label for="animal_sample_table" class="tight-form-label">
-            Output Animal and Sample File:
-            <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
-        </label>
-        {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
-        <!-- Errors, if they exist, add an extra like which makes the spacing off -->
-        {% if not form.animal_sample_table.errors %}<br>{% endif %}
+        <div style="display: none;">
+            <label for="animal_sample_table" class="tight-form-label">
+                Output Animal and Sample File:
+                <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
+            </label>
+            {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
+            <!-- Errors, if they exist, add an extra like which makes the spacing off -->
+            {% if not form.animal_sample_table.errors %}<br>{% endif %}
+        </div>
 
         <span class="text-danger">{{ form.non_field_errors }}</span>
-        <button type="submit" class="btn btn-primary" id="validate">Download</button>
+        <button type="submit" class="btn btn-primary" id="validate">Download Template</button>
         <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);">Clear</button>
-        <a class="btn btn-secondary" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
+        {% if results %}
+            <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
+        {% endif %}
         {{ form.management_form }}
     </form>
 </div>
