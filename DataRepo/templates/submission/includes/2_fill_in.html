@@ -1,66 +1,258 @@
-{% load customtags %}
 {% load static %}
 
-<div>
-    <h3>Build a TraceBase Submission</h3>
-    <span class="small text-muted">Upload multiple accucor and/or isocorr files (and an optional existing Animal/Sample sheet) and get back an animal and sample sheet with sample names automatically added.</span><br><br>
-    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
-        {% csrf_token %}
-
-        <label for="peak_annotation_files" class="tight-form-label">
-            Peak Annotation Files:
-            <span class="small"><span class="small text-muted">(AccuCor/IsoCorr <span class="fst-italic">excel</span>)</span></span>
-        </label>
-        {{ form.peak_annotation_files }}
-        <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
-        <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
-
-        <label for="animal_sample_table" class="tight-form-label">
-            Output Animal and Sample File:
-            <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
-        </label>
-        {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
-        <!-- Errors, if they exist, add an extra like which makes the spacing off -->
-        {% if not form.animal_sample_table.errors %}<br>{% endif %}
-
-        <span class="text-danger">{{ form.non_field_errors }}</span>
-        <button type="submit" class="btn btn-primary" id="validate">Download</button>
-        <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);">Clear</button>
-        <a class="btn btn-secondary" href="{% url 'submission' %}?page=Validate" role="button" style="float: right;">Next</a>
-        {{ form.management_form }}
-    </form>
-</div>
-
-
-{% if results %}
-    {% if not quiet_mode %}
-        <br>
-        <br>
-        {% if valid %}
-            <h5 class="text-success">Your data looks good! You may proceed to the <a href="{{ submission_url }}">submission form</a> if you are ready to add this data to TraceBase.</h5>
-        {% endif %}
-    {% endif %}
-    {% if not valid or not quiet_mode %}
-        <hr>
-        <h5>Status Report <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-report">expand</a></h5>
-        <div id="study-submission-report" class="collapse">
-            <ul class="ul-nopadding">
-                {% for key in ordered_keys %}
-                    {% with status=results|index:key status_class=results|index:key|getClass err_status="ERROR" wrn_status="WARNING" %}
-                        <li class="{{ status_class }}">
-                            <u><b>{{ status }}: {{ key }}</b></u>
-                            {% if exceptions|index:key %}
-                                <ul class="ul-nopadding">
-                                    {% for exception in exceptions|index:key %}
-                                        <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b>{% if exception|index:"fixed" != None %} <b>({{ exception|index:"fixed" }})</b>{% endif %}<br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
-                                    {% endfor %}
-                                </ul>
-                            {% endif %}
+{% block content %}
+    <div>
+        <ul style="list-style-type: none;margin: 0;padding: 0;">
+            <li>
+                <h3>Fill in the following sheets in the downloaded template</h3>
+                Overview
+                <ul class="small text-muted">
+                    <li>
+                        There are tips and info in each column header.
+                    </li>
+                    <li>
+                        Blue columns are required.
+                    </li>
+                    <li>
+                        Gray columns are filled in by excel formula (but you can optionally overrule them).
+                    </li>
+                    <li>
+                        Filling out the sheets in the order below ensures drop-down lists are populated.
+                    </li>
+                    <li>
+                        Regarding Treatments, Tissues, Compounds, and LC Protocols sheets
+                        <ul>
+                            <li>
+                                These sheets auto-populated from the database.
+                            </li>
+                            <li>
+                                If you have novel entries for any of these sheets, you have the option to add them yourself or leave them for the curator do it.
+                            </li>
+                            <li>
+                                Any new entries will be validated manually by a curator.
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <hr>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#study-details"><img id="study-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Study
+                </h4>
+                <div id="study-details" class="collapse">
+                    <ul>
+                        <li>
+                            Name your study.
                         </li>
-                    {% endwith %}
-                {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-    <pre class="d-none" id="output_study_file">{{study_data}}</pre>
-{% endif %}
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#tracers-details"><img id="tracers-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Tracers
+                </h4>
+                <div id="tracers-details" class="collapse">
+                    <ul>
+                        <li>
+                            Add any missing tracers.
+                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#add-tracers-details"><img id="add-tracers-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                            <div id="add-tracers-details" class="collapse">
+                                <ul>
+                                    <li>
+                                        If you are familiar with the Tracer Name format, you can enter just the name, and move on to the next sheet.
+                                    </li>
+                                    <li>
+                                        Alternatively, you can enter values in all the other columns and the tracer name column will be automatically filled via an excel formula.
+                                        &nbsp;<a data-bs-toggle="collapse" data-bs-target="#manual-add-tracers-details"><img id="manual-add-tracers-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                        <div id="manual-add-tracers-details" class="collapse">
+                                            <ul>
+                                                <li>
+                                                    A tracer with 2 labels is defined on 2 rows (one for each labeled element).
+                                                </li>
+                                                <li>
+                                                    Both rows in a 2-label tracer must have the same (arbitrary) "Tracer Row Group" number. <span class="small text-muted">Without this number, the excel formula will not populate the Tracer Name column.</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#infusates-details"><img id="infusates-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Infusates
+                </h4>
+                <div id="infusates-details" class="collapse">
+                    <ul>
+                        <li>
+                            Feel free to remove or edit infusates that are not used in your study.
+                        </li>
+                        <li>
+                            Add any missing infusates.
+                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#add-infusates-details"><img id="add-infusates-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                            <div id="add-infusates-details" class="collapse">
+                                <ul>
+                                    <li>
+                                        Add by name only or...
+                                    </li>
+                                    <li>
+                                        Alternatively, you can enter values in all the other columns and the infusate name column will be automatically filled via an excel formula.
+                                        &nbsp;<a data-bs-toggle="collapse" data-bs-target="#manual-add-infusates-details"><img id="manual-add-infusates-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                        <div id="manual-add-infusates-details" class="collapse">
+                                            <ul>
+                                                <li>
+                                                    An infusate with 2 tracers is defined on 2 rows.
+                                                    <ul>
+                                                        <li>
+                                                            Both rows in a 2-tracer infusate must have the same (arbitrary) "Infusate Row Group" number. <span class="small text-muted">Without this number, the excel formula will not populate the Infusate Name column.</span>
+                                                        </li>
+                                                        <li>
+                                                            Select the Tracer using the drop-downs.  If your desired tracer is not there, enter it in the Tracers sheet (see step 2).
+                                                        </li>
+                                                    </ul>
+                                                </li>
+                                                <li>
+                                                    Note that Infusate names include each tracer's concentration in square brackets immediately after each tracer name.  E.g. <code>BCAAs (VLI) {valine-[13C5,15N1][20]; leucine-[13C6,15N1][24]; isoleucine-[13C6,15N1][12]}</code>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#animals-details"><img id="animals-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Animals
+                </h4>
+                <div id="animals-details" class="collapse">
+                    <ul>
+                        <li>
+                            Name each mouse.
+                        </li>
+                        <li>
+                            Use drop-downs for the following columns.  <span class="small text-muted">If data is missing, enter it in the corresponding sheet.</span>
+                            <ul>
+                                <li>
+                                    Infusate
+                                </li>
+                                <li>
+                                    Treatment
+                                </li>
+                                <li>
+                                    Study
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#samples-details"><img id="samples-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Samples
+                </h4>
+                <div id="samples-details" class="collapse">
+                    <ul>
+                        <li>
+                            Editing sample names
+                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#sample-names-details"><img id="sample-names-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                            <div id="sample-names-details" class="collapse">
+                                <ul>
+                                    <li>
+                                        Note that scan labels (like "_pos") will have been removed automatically.
+                                    </li>
+                                    <li>
+                                        Samples containing "blank" will not have been automatically added.
+                                    </li>
+                                    <li>
+                                        The samples sheet should not contain blanks, so remove any rows that were autofilled, and...
+                                    </li>
+                                    <li>
+                                        Don't forget to mark any blanks in the Peak Annotation Details sheet with "skip" in the Skip column.
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li>
+                            Use drop-downs for the following columns.  <span class="small text-muted">If data is missing, enter it in the corresponding sheet.</span>
+                            <ul>
+                                <li>
+                                    Animal
+                                </li>
+                                <li>
+                                    Tissue
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#sequences-details"><img id="sequences-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Sequences
+                </h4>
+                <div id="sequences-details" class="collapse">
+                    <ul>
+                        <li>
+                            Create a row for each time you ran a mass spec instrument.
+                        </li>
+                        <li>
+                            <span class="small text-muted">Note the sequence name is automatically created via excel formula.  You will be selecting this name for each sequence associated with a peak annotations file in the next sheet.</span>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#files-details"><img id="files-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Peak Annotation Files
+                </h4>
+                <div id="files-details" class="collapse">
+                    <ul>
+                        <li>
+                            Each peak annotation file and its file format will have been filled in automatically.
+                        </li>
+                        <li>
+                            Select the sequence associated with each file using the drop-downs in the Default Sequence Name column.
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li>
+                <h4>
+                    <a data-bs-toggle="collapse" data-bs-target="#injections-details"><img id="injections-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Peak Annotation Details
+                </h4>
+                <div id="injections-details" class="collapse">
+                    <ul>
+                        <li>
+                            The purpose of this sheet is to associate the headers in each peak annotation file (and mzXML files) with TraceBase samples.  They are usually identical and often 1:1, but can have scan labels and can be 1:many.
+                        </li>
+                        <li>
+                            Optional columns do not need to be filled in unless they differ, or you encounter an error during validation.
+                        </li>
+                        <li>
+                            If there were any blank samples you had to remove from the samples sheet, you will need to put "skip" in the Skip column for those blank samples.
+                        </li>
+                        <li>
+                            The sequence name will default to the name associated with the default for the peak annotation file in the Peak Annotation Files sheet.
+                        </li>
+                    </ul>
+                </div>
+            </li>
+        </ul>
+    </div>
+    <a class="btn btn-secondary" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
+{% endblock %}
