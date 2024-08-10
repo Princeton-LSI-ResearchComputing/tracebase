@@ -511,17 +511,25 @@ class DataValidationView(FormView):
 
         # "page" may have been added to the context by the posted form, in which case, it won't be in the GET data
         if "page" not in context.keys():
-            context["page"] = self.request.GET.get("page", None)
+            page = self.request.GET.get("page", None)
+            context["page"] = page
+        else:
+            page = context["page"]
 
         # Set the submission mode in the form based on the page
         # Mode on the start page is autofill
-        if context["page"] is None or context["page"] == "Start":
+        mode = None
+        if page is None or page == "Start":
             mode = "autofill"
-        elif context["page"] == "Validate":
+        elif page == "Validate":
             mode = "validate"
-        elif context["page"] in ["Fill In", "Submit"]:
-            mode = None
-        else:
+        elif page == "Submit":
+            context["submission_feedback_url"] = settings.FEEDBACK_URL
+            context["submission_form_url"] = settings.SUBMISSION_FORM_URL
+            context["submission_drive_doc_url"] = settings.SUBMISSION_DRIVE_DOC_URL
+            context["submission_drive_type"] = settings.SUBMISSION_DRIVE_TYPE
+            context["submission_drive_folder"] = settings.SUBMISSION_DRIVE_FOLDER
+        elif page != "Fill In":
             raise ProgrammingError(f"Invalid page: {context['page']}")
 
         form_class = self.get_form_class()
