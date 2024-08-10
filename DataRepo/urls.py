@@ -4,7 +4,6 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
-    path("upload", views.upload, name="upload"),
     path("submission", views.DataValidationView.as_view(), name="submission"),
     path("validatedown", views.validation_disabled, name="validatedown"),
     path(
