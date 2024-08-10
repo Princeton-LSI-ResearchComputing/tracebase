@@ -508,7 +508,28 @@ class DataValidationView(FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["page"] = self.request.GET.get("page", None)
+
+        # "page" may have been added to the context by the posted form, in which case, it won't be in the GET data
+        if "page" not in context.keys():
+            context["page"] = self.request.GET.get("page", None)
+
+        # Set the submission mode in the form based on the page
+        # Mode on the start page is autofill
+        if context["page"] is None or context["page"] == "Start":
+            mode = "autofill"
+        elif context["page"] == "Validate":
+            mode = "validate"
+        elif context["page"] in ["Fill In", "Submit"]:
+            mode = None
+        else:
+            raise ProgrammingError(f"Invalid page: {context['page']}")
+
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        form.fields["mode"].initial = mode
+
+        context["form"] = form
+
         return context
 
     def dispatch(self, request, *args, **kwargs):
@@ -557,6 +578,15 @@ class DataValidationView(FormView):
 
         study_data = self.get_download_data()
 
+        # Determine the page based on the mode submitted in the form (validate or autofill)
+        mode = form.cleaned_data["mode"]
+        if mode == "autofill":
+            page = "Start"
+        elif mode == "validate":
+            page = "Validate"
+        else:
+            raise ProgrammingError(f"Invalid mode: {mode}")
+
         return self.render_to_response(
             self.get_context_data(
                 results=self.results,
@@ -564,6 +594,7 @@ class DataValidationView(FormView):
                 valid=self.valid,
                 state=self.state,
                 form=form,
+                page=page,
                 exceptions=self.exceptions,
                 submission_url=self.submission_url,
                 ordered_keys=self.ordered_keys,
