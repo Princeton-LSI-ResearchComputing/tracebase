@@ -1495,44 +1495,43 @@ class DataValidationView(FormView):
             # error tracking per line of the input file.
             print("EXTRACTING COMPOUNDS")
             formulas = peak_annot_loader.df[peak_annot_loader.headers.FORMULA].to_list()
-            compounds_strs = peak_annot_loader.df[
+            pgname_strs = peak_annot_loader.df[
                 peak_annot_loader.headers.COMPOUND
             ].to_list()
             seen = {}
-            for index in range(len(compounds_strs)):
+            for index in range(len(pgname_strs)):
                 formula = formulas[index]
-                compound_names_str = compounds_strs[index]
+                compound_synonyms_str = str(pgname_strs[index])
 
-                seen_key = f"{str(compound_names_str)},{str(formula)}"
-
-                # We don't need all of the exception information that comes from a validation.  We only want the missing
-                # compound information
-                if compound_names_str in self.none_vals or seen_key in seen.keys():
+                # If we've seen this combo before, continue
+                seen_key = f"{compound_synonyms_str},{str(formula)}"
+                if seen_key in seen.keys():
                     continue
                 seen[seen_key] = 0
+
+                # We don't need all of the exception information that would come from missing required values.  We only
+                # want the missing compound information, so continue if the compound is missing.  (We don't care if the
+                # formula is None, because formulas are not unique in the compound model.)
+                if compound_synonyms_str in self.none_vals:
+                    continue
 
                 # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in the
                 # peak_annot_loader if any compounds are not in the database.  We don't need that here, because we're
                 # not validating, so we supply buffer_error=False
-                delimited_compound_names, compound_recs = (
-                    peak_annot_loader.get_peak_group_name_and_compounds(
-                        names_str=compound_names_str, buffer_errors=False
-                    )
+                compound_recs_dict = peak_annot_loader.get_peak_group_compounds_dict(
+                    names_str=compound_synonyms_str, buffer_errors=False
                 )
 
-                for index2, compound_string in enumerate(
-                    delimited_compound_names.split(
-                        PeakAnnotationsLoader.CompoundNamesDelimiter
-                    )
-                ):
-                    compound_rec = compound_recs[index2]
+                # Report compounds by primary name (if found) or by the provided synonym (if not found).
+                # And populate the autofill_dict.
+                for compound_synonym, compound_rec in compound_recs_dict.items():
                     if compound_rec is not None:
-                        compound_name = compound_rec.name
                         # We could override the formula here with what we get from the database, but the job of this
                         # method is to represent what's in the file.  If there's a discrepancy, it should be handled
                         # in the load.
+                        compound_name = compound_rec.name
                     else:
-                        compound_name = compound_string.strip()
+                        compound_name = compound_synonym.strip()
 
                     print(f"FOUND COMPOUND {compound_name} {formula}")
 

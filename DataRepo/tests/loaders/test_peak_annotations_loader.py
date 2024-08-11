@@ -392,18 +392,18 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
         row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "isocitrate/citrate"})
         al = AccucorLoader()
-        pgname, recs = al.get_peak_group_name_and_compounds(row=row)
-        self.assertEqual("citrate/isocitrate", pgname)
-        self.assertEqual([cit, iso], recs)
+        recs = al.get_peak_group_compounds_dict(row=row)
+        self.assertDictEqual({"citrate": cit, "isocitrate": iso}, recs)
 
     def test_get_peak_group_name_and_compounds_synonym(self):
-        """Tests that peak groups are always named using the compound's primary name"""
+        """Tests that peak groups are always named using the provided compound synonym (because it could be a
+        stereoisomer, which could be significant and we have no way of knowing if it's just a true synonym or a name
+        that connotes an actual structural difference)."""
         CompoundSynonym.objects.create(name="ser", compound=self.SERINE)
         row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser"})
         al = AccucorLoader()
-        pgname, recs = al.get_peak_group_name_and_compounds(row=row)
-        self.assertEqual("Serine", pgname)
-        self.assertEqual([self.SERINE], recs)
+        recs = al.get_peak_group_compounds_dict(row=row)
+        self.assertDictEqual({"ser": self.SERINE}, recs)
 
     def test_get_or_create_peak_group_rec(self):
         row = pd.Series(
@@ -419,10 +419,10 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         }
         paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
         al = AccucorLoader()
-        _, created1 = al.get_or_create_peak_group(row, paf, "serine")
+        _, created1 = al.get_or_create_peak_group(row, paf, ["serine"])
         self.assertTrue(created1)
         self.assertEqual(1, PeakGroup.objects.count())
-        _, created2 = al.get_or_create_peak_group(row, paf, "serine")
+        _, created2 = al.get_or_create_peak_group(row, paf, ["serine"])
         self.assertFalse(created2)
 
     def test_get_msrun_sample_no_annot_details_df(self):

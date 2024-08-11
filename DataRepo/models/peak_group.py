@@ -18,12 +18,18 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     parent_related_key_name = "msrun_sample"
     child_related_key_names = ["labels"]
 
+    NAME_DELIM = "/"
+
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
         null=False,
         blank=False,
-        help_text='The compound or isomer group name (e.g. "citrate/isocitrate", "glucose").',
+        help_text=(
+            f"Peak group name, composed of 1 or more compound synonyms, delimited by '{NAME_DELIM}', e.g. 'citrate"
+            f"{NAME_DELIM}isocitrate'.  (Note, synonym(s) may confer information about the compound that is not "
+            "recorded in the compound record, such as a specific stereoisomer.)"
+        ),
     )
     formula = models.CharField(
         max_length=256,

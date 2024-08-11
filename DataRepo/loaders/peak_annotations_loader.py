@@ -228,8 +228,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         PeakGroupCompound,
     ]
 
-    CompoundNamesDelimiter = "/"
-
     def __init__(self, *args, **kwargs):
         """Constructor.
 
@@ -450,18 +448,20 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             pdrec = None
 
             # Get compounds
-            pgname, cmpd_recs = self.get_peak_group_name_and_compounds(row=row)
+            cmpdrecs_dict = self.get_peak_group_compounds_dict(row=row)
 
             # Get or create PeakGroups
             try:
-                pgrec, _ = self.get_or_create_peak_group(row, annot_file_rec, pgname)
+                pgrec, _ = self.get_or_create_peak_group(
+                    row, annot_file_rec, list(cmpdrecs_dict.keys())
+                )
             except RollbackException:
                 pass
 
             # Get or create a linking table record between pgrec and each cmpd_rec (compounds with the same formula)
-            for cmpd_rec in cmpd_recs:
+            for cmpdrec in cmpdrecs_dict.values():
                 try:
-                    self.get_or_create_peak_group_compound_link(pgrec, cmpd_rec)
+                    self.get_or_create_peak_group_compound_link(pgrec, cmpdrec)
                 except RollbackException:
                     pass
 
@@ -555,9 +555,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         return rec, created
 
-    def get_peak_group_name_and_compounds(
+    def get_peak_group_compounds_dict(
         self, row=None, names_str=None, buffer_errors=True
-    ):
+    ) -> Dict[str, Optional[Compound]]:
         """Retrieve the peak group name and compound records.
 
         Args:
@@ -569,36 +569,33 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Exceptions:
             None
         Returns:
-            pgname (str)
-            recs (List[Compound])
+            recs (Dict[str, Optional[Compound]]): A dict of compound records keyed on the compound synonyms parsed from
+                the peakgroup name
         """
         if (row is None) == (names_str is None):
             raise ProgrammingError(
                 "row and names_str are mutually exclusive and 1 is required."
             )
 
+        recs: Dict[str, Optional[Compound]] = {}
+
         if names_str is None:
             names_str = self.get_row_val(row, self.headers.COMPOUND)
 
-        names = names_str.split(self.CompoundNamesDelimiter)
-        recs = []
+        # If the names_str is still None
+        if names_str is None:
+            # An error about required missing values would have already been buffered, so just return an empty dict to
+            # avoid an exception from the code below, which assumes non-None
+            return recs
 
-        for name_str in names:
-            name = name_str.strip()
-            recs.append(self.get_compound(name, buffer_errors=buffer_errors))
+        pgnames = [ns.strip() for ns in names_str.split(PeakGroup.NAME_DELIM)]
 
-        pgname = None
-        if len(recs) > 0:
-            if None in recs:
-                # Cannot set the name based on the records when they contain a None value.  There will be an error
-                # anyway, so just set the name from the column.
-                pgname = self.CompoundNamesDelimiter.join(sorted(names))
-            else:
-                recs = sorted(recs, key=lambda rec: rec.name)
-                # Set the peak group name to the sorted primary compound names, delimited by "/"
-                pgname = self.CompoundNamesDelimiter.join([r.name for r in recs])
+        for compound_synonym in pgnames:
+            recs[compound_synonym] = self.get_compound(
+                compound_synonym, buffer_errors=buffer_errors
+            )
 
-        return pgname, recs
+        return recs
 
     def get_compound(self, name, buffer_errors=True):
         """Cached compound lookups.  Loading of a study was profiled and Compound.compound_matching_name_or_synonym was
@@ -648,13 +645,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return rec
 
     @transaction.atomic
-    def get_or_create_peak_group(self, row, peak_annot_file, pgname):
+    def get_or_create_peak_group(self, row, peak_annot_file, compound_synonyms):
         """Get or create a PeakGroup Record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
             row (pandas.Series)
             peak_annot_file (Optional[ArchiveFile]): The ArchiveFile record for self.file
-            pgname (Optional[str]): A slash-delimited string of sorted primary compound names.
+            compound_synonyms (List[str]): Compound synonyms parsed from the supplied peak group name.
         Exceptions:
             Buffers:
                 None
@@ -671,12 +668,17 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         if (
             msrun_sample is None
-            or pgname is None
+            or len(compound_synonyms) == 0
             or peak_annot_file is None
             or self.is_skip_row()
         ):
             self.skipped(PeakGroup.__name__)
             return None, False
+
+        # We use the synonym provided (via the keys in the dict) because each synonym may represent a significant
+        # difference from the primary compound name, e.g. it could be a specific stereoisomer.  However, we order the
+        # names for consistency and searchability.
+        pgname = PeakGroup.NAME_DELIM.join(sorted(compound_synonyms))
 
         rec_dict = {
             "msrun_sample": msrun_sample,
@@ -905,7 +907,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     @transaction.atomic
     def get_or_create_peak_group_compound_link(
-        self, pgrec: Optional[PeakGroup], cmpd_rec: Compound
+        self, pgrec: Optional[PeakGroup], cmpd_rec: Optional[Compound]
     ):
         """Get or create a peakgroup_compound record.  Handles exceptions, updates stats, and triggers a rollback.
 
