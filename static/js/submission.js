@@ -4,11 +4,15 @@ document.addEventListener('DOMContentLoaded', function () {
   const peakAnnotInput = document.getElementById('peak_annotation_files_field')
   const peakAnnotList = document.getElementById('pending_peak_annot_files')
   const studyFileContentTag = document.getElementById('output_study_file')
+  const studyFileNameTag = document.getElementById('output_study_file_name')
   let currentPeakAnnotFiles = null
 
   // If there is a study file that was produced
   if (typeof studyFileContentTag !== 'undefined' && studyFileContentTag) {
-    browserDownloadExcel('{{ study_filename }}', studyFileContentTag.innerHTML) // eslint-disable-line no-undef
+    browserDownloadExcel( // eslint-disable-line no-undef
+      studyFileNameTag.innerHTML,
+      studyFileContentTag.innerHTML
+    )
   }
 
   // Note that the reset button does not trigger a change event, so see its onclick code
