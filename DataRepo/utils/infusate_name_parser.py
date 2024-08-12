@@ -303,7 +303,11 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
             )
         )
 
-    if parsed_string != isotopes_string:
+    # Ignoring whitespace and case differences
+    if (
+        str(parsed_string).replace(" ", "").lower()
+        != str(isotopes_string).replace(" ", "").lower()
+    ):
         raise IsotopeParsingError(
             f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
             f"parsed: [{parsed_string}]."

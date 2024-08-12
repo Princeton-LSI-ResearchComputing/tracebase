@@ -1136,7 +1136,11 @@ class TracersLoader(TableLoader):
         # and if the record was created, auto-update will not happen until the load is complete
         generated_name = rec.name_with_synonym(tracer_dict["compound_name"])
 
-        if supplied_name != generated_name:
+        # Ignoring differences in whitespace and case differences
+        if (
+            supplied_name.replace(" ", "").lower()
+            != generated_name.replace(" ", "").lower()
+        ):
             data_rownums = summarize_int_list(
                 [rd["rownum"] for rd in tracer_dict["isotopes"]]
             )
