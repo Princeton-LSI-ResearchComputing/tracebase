@@ -1369,6 +1369,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             matching_format_codes (List[str]): Format codes of the matching DataFormats.
         """
+        # TODO: Gather information for the user sufficient for them to fix the file format problem, like the way this
+        # was done in the analogous method in StudyLoader
         matching_format_codes: List[str] = []
         for subcls in PeakAnnotationsLoader.__subclasses__():
             if subcls == UnicorrLoader:
