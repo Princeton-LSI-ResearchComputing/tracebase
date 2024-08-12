@@ -540,6 +540,26 @@ class DataValidationView(FormView):
 
         debug = f"sf: {self.study_file} num pafs: {len(self.peak_annot_files)}"
 
+        study_data = self.get_download_data()
+
+        return self.render_to_response(
+            self.get_context_data(
+                results=self.results,
+                debug=debug,
+                valid=self.valid,
+                form=form,
+                exceptions=self.exceptions,
+                submission_url=self.submission_url,
+                ordered_keys=self.ordered_keys,
+                study_data=study_data,
+                study_filename=self.output_study_filename,
+                quiet_mode=self.autofill_only_mode,
+            ),
+        )
+
+    def get_download_data(self):
+        """This does all the processing of the submission after set_files() has been called."""
+
         # Initialize a status object for the results for each input file
         # TODO: Make the MultiLoadStatus class more of a "status" class for multuple "categories" of things that
         # must succeed (as opposed to just load-related things)
@@ -582,20 +602,7 @@ class DataValidationView(FormView):
 
         study_data = base64.b64encode(study_stream.read()).decode("utf-8")
 
-        return self.render_to_response(
-            self.get_context_data(
-                results=self.results,
-                debug=debug,
-                valid=self.valid,
-                form=form,
-                exceptions=self.exceptions,
-                submission_url=self.submission_url,
-                ordered_keys=self.ordered_keys,
-                study_data=study_data,
-                study_filename=self.output_study_filename,
-                quiet_mode=self.autofill_only_mode,
-            ),
-        )
+        return study_data
 
     def init_row_group_nums(self):
         # We need to get the next available infusates sheet row group number
