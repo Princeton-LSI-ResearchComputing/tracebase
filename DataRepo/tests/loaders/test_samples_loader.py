@@ -1,6 +1,5 @@
 from copy import deepcopy
 from datetime import timedelta
-from unittest import skip
 
 import pandas as pd
 
@@ -18,7 +17,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
@@ -86,7 +85,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         Sample.objects.get(
             name="s1",
             researcher="Ralph",
-            date=string_to_datetime("2024-6-15"),
+            date=string_to_date("2024-6-15"),
             time_collected=timedelta(minutes=90),
             animal=self.anml1,
             tissue=self.tiss1,
@@ -120,7 +119,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         Sample.objects.create(
             name="s1",
             researcher="Ralph",
-            date=string_to_datetime("2024-6-15"),
+            date=string_to_date("2024-6-15"),
             time_collected=timedelta(days=90),
             animal=self.anml1,
             tissue=self.tiss1,
@@ -151,7 +150,6 @@ class SamplesLoaderTests(TracebaseTestCase):
         counts[Sample.__name__]["warned"] = 1
         self.assertDictEqual(counts, sl.record_counts)
 
-    @skip("temporaryskip")
     def test_get_or_create_sample_date_time_and_unique_error(self):
         # Need an existing researcher to make a name variant warning possible
         self.create_test_sample()
@@ -302,7 +300,7 @@ class SamplesLoaderTests(TracebaseTestCase):
         sample = Sample.objects.create(
             name="s1",
             researcher="Ralph",
-            date=string_to_datetime("2024-6-15"),
+            date=string_to_date("2024-6-15"),
             time_collected=timedelta(minutes=90),
             animal=self.anml1,
             tissue=self.tiss1,

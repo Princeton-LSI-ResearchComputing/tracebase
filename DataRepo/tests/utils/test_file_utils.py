@@ -7,7 +7,7 @@ from DataRepo.utils.file_utils import (
     _read_from_xlsx,
     get_column_dupes,
     read_headers_from_file,
-    string_to_datetime,
+    string_to_date,
 )
 
 
@@ -70,8 +70,8 @@ class FileUtilsTests(TracebaseTestCase):
             _get_file_type("DataRepo/data/tests/load_table/test.weird", "excel"),
         )
 
-    def test_string_to_datetime(self):
-        date = string_to_datetime("2022-1-22 00:10:00")
+    def test_string_to_date(self):
+        date = string_to_date("2022-1-22 00:10:00")
         self.assertEqual("2022-01-22", str(date))
 
     def test_read_from_xlsx_multiple_sheets_with_dtypes(self):

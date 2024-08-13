@@ -1,5 +1,4 @@
 from datetime import timedelta
-from unittest import skip
 
 from django.conf import settings
 from django.core.management import call_command
@@ -255,7 +254,6 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
             msg="DryRun mode doesn't autoupdate.",
         )
 
-    @skip
     @MaintainedModel.no_autoupdates()
     def test_samples_loader_check_required_values(self):
         """Check that missing required vals are raised as errors"""
