@@ -22,6 +22,51 @@
             let shown = getCookie("build-submission-shown")
             if (shown === "true") {buildsubdeetsbtn.click();}
 
+            var nostudydocdeets = document.getElementById("nostudydoc-details")
+            var nostudydocdeetsbtn = document.getElementById("nostudydoc-details-button")
+            nostudydocdeets.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                nostudydocdeetsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("nostudydoc-details-shown", "false");
+            })
+            nostudydocdeets.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                nostudydocdeetsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("nostudydoc-details-shown", "true");
+            })
+            let shown = getCookie("nostudydoc-details-shown")
+            if (shown === "true") {nostudydocdeetsbtn.click();}
+
+            var validatesubdeets = document.getElementById("validate-submission")
+            var validatesubdeetsbtn = document.getElementById("validate-submission-button")
+            validatesubdeets.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                validatesubdeetsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("validate-submission-shown", "false");
+            })
+            validatesubdeets.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                validatesubdeetsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("validate-submission-shown", "true");
+            })
+            let shown = getCookie("validate-submission-shown")
+            if (shown === "true") {validatesubdeetsbtn.click();}
+
+            var nopeakannotsdeets = document.getElementById("nopeakannots-details")
+            var nopeakannotsdeetsbtn = document.getElementById("nopeakannots-details-button")
+            nopeakannotsdeets.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                nopeakannotsdeetsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("nopeakannots-details-shown", "false");
+            })
+            nopeakannotsdeets.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                nopeakannotsdeetsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("nopeakannots-details-shown", "true");
+            })
+            let shown = getCookie("nopeakannots-details-shown")
+            if (shown === "true") {nopeakannotsdeetsbtn.click();}
+
             var fleshsubdeets = document.getElementById("flesh-submission")
             var fleshsubdeetsbtn = document.getElementById("flesh-submission-button")
             fleshsubdeets.addEventListener("hide.bs.collapse", function (e) {
@@ -36,6 +81,126 @@
             })
             shown = getCookie("flesh-submission-shown")
             if (shown === "true") {fleshsubdeetsbtn.click();}
+
+            var autofilldetails = document.getElementById("autofill-details")
+            var autofilldetailsbtn = document.getElementById("autofill-details-button")
+            autofilldetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                autofilldetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("autofill-details-shown", "false");
+            })
+            autofilldetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                autofilldetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("autofill-details-shown", "true");
+            })
+            shown = getCookie("autofill-details-shown")
+            if (shown === "true") {autofilldetailsbtn.click();}
+
+            var studydetails = document.getElementById("study-details")
+            var studydetailsbtn = document.getElementById("study-details-button")
+            studydetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                studydetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("study-details-shown", "false");
+            })
+            studydetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                studydetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("study-details-shown", "true");
+            })
+            shown = getCookie("study-details-shown")
+            if (shown === "true") {studydetailsbtn.click();}
+
+            var tracersdetails = document.getElementById("tracers-details")
+            var tracersdetailsbtn = document.getElementById("tracers-details-button")
+            tracersdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                tracersdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("tracers-details-shown", "false");
+            })
+            tracersdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                tracersdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("tracers-details-shown", "true");
+            })
+            shown = getCookie("tracers-details-shown")
+            if (shown === "true") {tracersdetailsbtn.click();}
+
+            var addtracersdetails = document.getElementById("add-tracers-details")
+            var addtracersdetailsbtn = document.getElementById("add-tracers-details-button")
+            addtracersdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                addtracersdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("add-tracers-details-shown", "false");
+            })
+            addtracersdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                addtracersdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("add-tracers-details-shown", "true");
+            })
+            shown = getCookie("add-tracers-details-shown")
+            if (shown === "true") {addtracersdetailsbtn.click();}
+
+            var manualaddtracersdetails = document.getElementById("manual-add-tracers-details")
+            var manualaddtracersdetailsbtn = document.getElementById("manual-add-tracers-details-button")
+            manualaddtracersdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                manualaddtracersdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("manual-add-tracers-details-shown", "false");
+            })
+            manualaddtracersdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                manualaddtracersdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("manual-add-tracers-details-shown", "true");
+            })
+            shown = getCookie("manual-add-tracers-details-shown")
+            if (shown === "true") {manualaddtracersdetailsbtn.click();}
+
+            var infusatesdetails = document.getElementById("infusates-details")
+            var infusatesdetailsbtn = document.getElementById("infusates-details-button")
+            infusatesdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                infusatesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("infusates-details-shown", "false");
+            })
+            infusatesdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                infusatesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("infusates-details-shown", "true");
+            })
+            shown = getCookie("infusates-details-shown")
+            if (shown === "true") {infusatesdetailsbtn.click();}
+
+            var addinfusatesdetails = document.getElementById("add-infusates-details")
+            var addinfusatesdetailsbtn = document.getElementById("add-infusates-details-button")
+            addinfusatesdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                addinfusatesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("add-infusates-details-shown", "false");
+            })
+            addinfusatesdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                addinfusatesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("add-infusates-details-shown", "true");
+            })
+            shown = getCookie("add-infusates-details-shown")
+            if (shown === "true") {addinfusatesdetailsbtn.click();}
+
+            var manualaddinfusatesdetails = document.getElementById("manual-add-infusates-details")
+            var manualaddinfusatesdetailsbtn = document.getElementById("manual-add-infusates-details-button")
+            manualaddinfusatesdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                manualaddinfusatesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("manual-add-infusates-details-shown", "false");
+            })
+            manualaddinfusatesdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                manualaddinfusatesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("manual-add-infusates-details-shown", "true");
+            })
+            shown = getCookie("manual-add-infusates-details-shown")
+            if (shown === "true") {manualaddinfusatesdetailsbtn.click();}
 
             var animalsdetails = document.getElementById("animals-details")
             var animalsdetailsbtn = document.getElementById("animals-details-button")
@@ -67,20 +232,80 @@
             shown = getCookie("samples-details-shown")
             if (shown === "true") {samplesdetailsbtn.click();}
 
-            var treatmentsdetails = document.getElementById("treatments-details")
-            var treatmentsdetailsbtn = document.getElementById("treatments-details-button")
-            treatmentsdetails.addEventListener("hide.bs.collapse", function (e) {
+            var samplenamesdetails = document.getElementById("sample-names-details")
+            var samplenamesdetailsbtn = document.getElementById("sample-names-details-button")
+            samplenamesdetails.addEventListener("hide.bs.collapse", function (e) {
                 e.stopPropagation();
-                treatmentsdetailsbtn.src = "{% static 'images/plus.png' %}";
-                setCookie("treatments-details-shown", "false");
+                samplenamesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("sample-names-details-shown", "false");
             })
-            treatmentsdetails.addEventListener("show.bs.collapse", function (e) {
+            samplenamesdetails.addEventListener("show.bs.collapse", function (e) {
                 e.stopPropagation();
-                treatmentsdetailsbtn.src = "{% static 'images/minus.png' %}";
-                setCookie("treatments-details-shown", "true");
+                samplenamesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("sample-names-details-shown", "true");
             })
-            shown = getCookie("treatments-details-shown")
-            if (shown === "true") {treatmentsdetailsbtn.click();}
+            shown = getCookie("sample-names-details-shown")
+            if (shown === "true") {samplenamesdetailsbtn.click();}
+
+            var sequencesdetails = document.getElementById("sequences-details")
+            var sequencesdetailsbtn = document.getElementById("sequences-details-button")
+            sequencesdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                sequencesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("sequences-details-shown", "false");
+            })
+            sequencesdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                sequencesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("sequences-details-shown", "true");
+            })
+            shown = getCookie("sequences-details-shown")
+            if (shown === "true") {sequencesdetailsbtn.click();}
+
+            var sequencecolumns = document.getElementById("sequence-columns-details")
+            var sequencecolumnsbtn = document.getElementById("sequence-columns-details-button")
+            sequencecolumns.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                sequencecolumnsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("sequence-columns-details-shown", "false");
+            })
+            sequencecolumns.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                sequencecolumnsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("sequence-columns-details-shown", "true");
+            })
+            shown = getCookie("sequence-columns-details-shown")
+            if (shown === "true") {sequencecolumnsbtn.click();}
+
+            var filesdetails = document.getElementById("files-details")
+            var filesdetailsbtn = document.getElementById("files-details-button")
+            filesdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                filesdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("files-details-shown", "false");
+            })
+            filesdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                filesdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("files-details-shown", "true");
+            })
+            shown = getCookie("files-details-shown")
+            if (shown === "true") {filesdetailsbtn.click();}
+
+            var injectionsdetails = document.getElementById("injections-details")
+            var injectionsdetailsbtn = document.getElementById("injections-details-button")
+            injectionsdetails.addEventListener("hide.bs.collapse", function (e) {
+                e.stopPropagation();
+                injectionsdetailsbtn.src = "{% static 'images/plus.png' %}";
+                setCookie("injections-details-shown", "false");
+            })
+            injectionsdetails.addEventListener("show.bs.collapse", function (e) {
+                e.stopPropagation();
+                injectionsdetailsbtn.src = "{% static 'images/minus.png' %}";
+                setCookie("injections-details-shown", "true");
+            })
+            shown = getCookie("injections-details-shown")
+            if (shown === "true") {injectionsdetailsbtn.click();}
 
             var sendsubmission = document.getElementById("send-submission")
             var sendsubmissionbtn = document.getElementById("send-submission-button")
@@ -115,85 +340,333 @@
     <hr />
     <small class="text-muted">
         Feel free to submit data as you generate it.  Your study does not have to be complete for submission.  You can
-        iteratively submit accucor/isocorr files with their metadata described in the study doc (aka animal/sample
-        sheet), as you finish them.  Each one can be an additional separate submission to the same study.<br>
+        iteratively submit <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span> with their metadata described in the <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>, as you finish them.  Each one can be an additional separate submission to the same study.<br>
         <br>
     </small>
     <ol>
-        <h5><li><a href="{% url 'validate' %}">Build a TraceBase Submission</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#build-submission"><img id="build-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <h5><li><a href="{% url 'validate' %}">Download a Submission Template</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#build-submission"><img id="build-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
         <div id="build-submission" class="major-li collapse">
             <ol>
                 <li>
-                    Go to the
-                    <a href="{% url 'validate' %}">Build a TraceBase Submission</a>
-                    page and enter
-                    <span class="tooltip-hint" text-tooltip="AccuCor/IsoCorr excel files">peak annotation files</span>
-                    into the peak annotation files field.
+                    Go to the <a href="{% url 'validate' %}">Build a TraceBase Submission</a>
+                    page and download an auto-filled template based on your
+                    <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span>.
+                    <ul>
+                        <li>
+                            Select all the <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span> you <em>currently</em> want to include in your submission.
+                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#autofill-details"><img id="autofill-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                            <div id="autofill-details" class="collapse">
+                                <ul>
+                                    <li>
+                                        Note, you can submit a partial study now and add to a previously submitted study later.
+                                    </li>
+                                    <li>
+                                        You may include:
+                                        <ul>
+                                            <li>Accucor <em>(excel or the Corrected sheet as tsv or csv)</em></li>
+                                            <li>Isocorr <em>(excel)</em></li>
+                                            <li>Isoautocorr <em>(excel)</em></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        <li>
+                            Generally, <em>do not</em> select any existing <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>.
+                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#nostudydoc-details"><img id="nostudydoc-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                            <div id="nostudydoc-details" class="collapse">
+                                <ul>
+                                    <li>You can submit an existing <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> to add samples to it from the supplied <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span>, but <em>only</em> if it has not been manually edited.  Otherwise, you would likely encounter a gateway timeout error, as this functionality is currently under development.</li>
+                                    <li><em>Supplying peak annotations and a <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> together is currently under development.</em></li>
+                                </ul>
+                            </div>
+                        </li>
+                    </ul>
                 </li>
                 <li>
-                    <em>OPTIONAL</em>: Enter an existing
-                    <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>.
-                </li>
-                <li>
-                    You will get back a new (or updated) study doc copy that is automatically downloaded.  If any issues
+                    You will get back a new (or updated) <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> copy that is automatically downloaded.  If any issues
                     are detected, a status report will be added to the page.
                 </li>
                 <li>
-                    Move on to the next section, but note that after you flesh out your study doc, you can at any point,
-                    come back to this page and submit your study file and peak annotation files to automatically
+                    Move on to the next section, but note that after you flesh out your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>, you can at any point,
+                    come back to this page and submit your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> and <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span> to automatically
                     add more samples, get a status report detailing any issues uncovered in your data, and also
                     automatically fix some issues.
                 </li>
             </ol>
         </div>
-        <h5><li>Fill in Animal/Sample details &nbsp;<a data-bs-toggle="collapse" data-bs-target="#flesh-submission"><img id="flesh-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <h5><li>Fill in the <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> details &nbsp;<a data-bs-toggle="collapse" data-bs-target="#flesh-submission"><img id="flesh-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
         <div id="flesh-submission" class="major-li collapse">
+            In every sheet, you can consult the column header comments for tips and guidance.  Blue column headers indicate required columns.  To take full advantage of dynamically populated drop-downs, fill out the sheets in the following order.  (Note, Treatments, Tissues, Compounds, and LC Protocols sheets are auto-populated from the database, but if you have novel entries for any of those sheets, fill those in first.)
             <ol>
                 <li>
-                    Fill in the Animals sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#animals-details"><img id="animals-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Study sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#study-details"><img id="study-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    <div id="study-details" class="collapse">
+                        <ul>
+                            <li>
+                                Come up with a name for your study (you can change this later) and add it to the "Name" column.
+                            </li>
+                            <li>
+                                Any entered study name will be selectable in the Study column of the Animals sheet.
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                <li>
+                    Tracers sheet
+                    &nbsp;<a data-bs-toggle="collapse" data-bs-target="#tracers-details"><img id="tracers-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    <div id="tracers-details" class="collapse">
+                        <ul>
+                            <li>
+                                The tracers sheet is auto-filled with existing tracers from TraceBase that match measured compounds in your <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span>.
+                            </li>
+                            <li>
+                                Inspect the tracers to ensure the tracers you used in your experiments are there.  If any are missing, add them.
+                                &nbsp;<a data-bs-toggle="collapse" data-bs-target="#add-tracers-details"><img id="add-tracers-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                <div id="add-tracers-details" class="collapse">
+                                    <ul>
+                                        <li>
+                                            If you are familiar with the Tracer Name format, you can enter just the name, and move on to the next sheet.
+                                        </li>
+                                        <li>
+                                            Alternatively, you can enter values in all the other columns and the tracer name column will be automatically filled via an excel formula.
+                                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#manual-add-tracers-details"><img id="manual-add-tracers-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                            <div id="manual-add-tracers-details" class="collapse">
+                                                <ul>
+                                                    <li>
+                                                        A single tracer that has multiple element labels is defined on multiple rows (one for each labeled element).
+                                                        <ul>
+                                                            <li>
+                                                                The rows belonging to 1 multi-row tracer are associated by an arbitrary "Tracer Row Group" number.  Without this number, the Tracer Name excel formula will not populate the Tracer Name column.
+                                                            </li>
+                                                        </ul>
+                                                    </li>
+                                                    <li>
+                                                        It is recommended you use the primary compound name by selecting it from the dropdown.  If any compound is not listed, you can add that compound to the Compounds sheet, or enter it manually in the tracers sheet.
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                <li>
+                    Infusates sheet
+                    &nbsp;<a data-bs-toggle="collapse" data-bs-target="#infusates-details"><img id="infusates-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    <div id="infusates-details" class="collapse">
+                        <ul>
+                            <li>
+                                Much like the tracers sheet, the Infusates sheet is auto-filled with existing infusates from TraceBase that match the assortment of measured compounds in your <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span>.
+                            </li>
+                            <li>
+                                Inspect the infusates to see if the infusates you used in your experiments are there.<br>
+                                <em>If the only difference is the concentrations, you can edit the concentrations in the existing rows (just make sure they all have the same "Infusate Row Group" number).</em>
+                            </li>
+                            <li>
+                                Feel free to remove infusates that are not used in your study.
+                            </li>
+                            <li>
+                                If any are missing, add them.
+                                &nbsp;<a data-bs-toggle="collapse" data-bs-target="#add-infusates-details"><img id="add-infusates-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                <div id="add-infusates-details" class="collapse">
+                                    <ul>
+                                        <li>
+                                            If you are familiar with the Infusate Name format, you can enter just the name, and move on to the next sheet.
+                                        </li>
+                                        <li>
+                                            Alternatively, you can enter values in all the other columns and the infusate name column will be automatically filled via an excel formula.
+                                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#manual-add-infusates-details"><img id="manual-add-infusates-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                            <div id="manual-add-infusates-details" class="collapse">
+                                                <ul>
+                                                    <li>
+                                                        A single infusate that has multiple tracers is defined on multiple rows (one for each tracer).
+                                                        <ul>
+                                                            <li>
+                                                                The rows belonging to 1 multi-row infusate are associated by an arbitrary "Infusate Row Group" number.  Without this number, the Infusate Name excel formula will not populate the Infusate Name column.
+                                                            </li>
+                                                            <li>
+                                                                Select the "Tracer Name" using the drop-downs.  If your desired tracer is not there, enter it in the Tracers sheet (see step 2).
+                                                            </li>
+                                                        </ul>
+                                                    </li>
+                                                    <li>
+                                                        Note that Infusate names include each tracer's concentration in square brackets immediately after each tracer name.  E.g. <code>BCAAs (VLI) {valine-[13C5,15N1][20]; leucine-[13C6,15N1][24]; isoleucine-[13C6,15N1][12]}</code>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                <li>
+                    Animals sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#animals-details"><img id="animals-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
                     <div id="animals-details" class="collapse">
                         <ul>
                             <li>
-                                Provide a unique identifier for each  mouse in your study.
+                                Provide a unique identifier for each mouse in your study.
+                            </li>
+                            <li>
+                                Select infusates in the Infusate column via drop-down.<br>
+                                <em>If your infusate is not there, enter it in the Infusates sheet (see step 3.)</em>
+                            </li>
+                            <li>
+                                Select treatments in the Treatment column via drop-down.<br>
+                                <em>If your treatment is not there, enter it in the Treatments sheet.</em>
                             </li>
                             <li>
                                 Fill in additional details about each of the mice in your study.
                             </li>
                             <li>
-                                Take note of column header comments for tips and guidance.
+                                Be sure to select the study
                             </li>
                         </ul>
                     </div>
                 </li>
                 <li>
-                    Fill in the Samples sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#samples-details"><img id="samples-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    Samples sheet
+                    &nbsp;<a data-bs-toggle="collapse" data-bs-target="#samples-details"><img id="samples-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
                     <div id="samples-details" class="collapse">
                         <ul>
                             <li>
-                                <em>IMPORTANT</em>: Ensure that the Sample Name column is consistent with the sample
-                                names in your AccuCor/IsoCorr files.
+                                Sample names will have been autofilled in the Sample column.
+                                &nbsp;<a data-bs-toggle="collapse" data-bs-target="#sample-names-details"><img id="sample-names-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                <div id="sample-names-details" class="collapse">
+                                    <ul>
+                                        <li>
+                                            Note that scan labels (like "_pos") will have been removed from sample names automatically.
+                                        </li>
+                                        <li>
+                                            Samples containing "blank" in their name will not have been automatically added.
+                                        </li>
+                                        <li>
+                                            The samples sheet should not contain blank samples, so remove any rows that were autofilled, and...
+                                        </li>
+                                        <li>
+                                            Don't forget to mark any blank sample rows in the Peak Annotation Details sheet with "skip" in the Skip column.
+                                        </li>
+                                    </ul>
+                                </div>
                             </li>
                             <li>
-                                Fill in additional sample details, making sure that cross-sheet reference values, like
-                                Tissue, Treatment, and particularly: Animal IDs in the Samples sheet, match the values
-                                in their respective sheets.
+                                Select the animal the sample came from in the Animal column via drop-down.<br>
+                                <em>If your animal is not there, enter it in the Animals sheet.</em>
+                            </li>
+                            <li>
+                                Select tissues in the Tissues column via drop-down.<br>
+                                <em>If your tissue is not there, enter it in the Tissues sheet.</em>
                             </li>
                         </ul>
                     </div>
                 </li>
                 <li>
-                    Fill in Treatments sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#treatments-details"><img id="treatments-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
-                    <div id="treatments-details" class="collapse">
+                    Sequences sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#sequences-details"><img id="sequences-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    <div id="sequences-details" class="collapse">
                         <ul>
                             <li>
-                                Treatment options used in previously loaded datasets will have been pre-filled, choose
-                                from these if they are appropriate to maintain consistency.
+                                Create a row for each time you ran a mass spec instrument.
+                                &nbsp;<a data-bs-toggle="collapse" data-bs-target="#sequence-columns-details"><img id="sequence-columns-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                                <div id="sequence-columns-details" class="collapse">
+                                    <ul>
+                                        <li>
+                                            Select who operated the instrument (via drop-down).
+                                        </li>
+                                        <li>
+                                            Select the LC protocol used (via drop-down).
+                                        </li>
+                                            Select the instrument used (via drop-down).
+                                        <li>
+                                            Enter a date for the run (YYYY-MM-DD).
+                                        </li>
+                                    </ul>
+                                </div>
                             </li>
                             <li>
-                                If there are any novel treatments in your study, add a name and description for each.
+                                Note the sequence name is automatically created via excel formula.  You will be selecting this name for each sequence associated with a peak annotations file in the next sheet.
                             </li>
                         </ul>
                     </div>
+                </li>
+                <li>
+                    Peak Annotation Files sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#files-details"><img id="files-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    <div id="files-details" class="collapse">
+                        <ul>
+                            <li>
+                                Each peak annotation file and its file format will have been filled in automatically.
+                            </li>
+                            <li>
+                                Select the sequence associated with each file using the drop-downs in the Default Sequence Name column.
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                <li>
+                    Peak Annotation Details sheet &nbsp;<a data-bs-toggle="collapse" data-bs-target="#injections-details"><img id="injections-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                    <div id="injections-details" class="collapse">
+                        <ul>
+                            <li>
+                                This sheet is almost fully automated.  Its purpose is to associate the headers in each peak annotation file (and mzXML files) with TraceBase samples.  They are usually identical, but can have scan labels.  The optional columns do not need to be filled in unless they differ, or you encounter an error.
+                            </li>
+                            <li>
+                                If there were any blank samples you had to remove from the samples sheet, you will need to put "skip" in the Skip column for those blank samples.
+                            </li>
+                            <li>
+                                The sequence name will default to the name associated with the default for the peak annotation file in the Peak Annotation Files sheet.
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+            </ol>
+        </div>
+        <h5><li><a href="{% url 'validate' %}">Check for errors</a> &nbsp;<a data-bs-toggle="collapse" data-bs-target="#validate-submission"><img id="validate-submission-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a></li></h5>
+        <div id="validate-submission" class="major-li collapse">
+            <ol>
+                <li>
+                    Go to the <a href="{% url 'validate' %}">Build a TraceBase Submission</a> and submit just your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> for validation.<br>
+                    <em>While this step is optional, resolving any simple errors on your own can greatly speed up the loading of your submission.</em>
+                    <ul>
+                        <li>
+                            Select your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> and click download.
+                        </li>
+                        <li>
+                            Generally, <em>do not</em> select any <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span>.
+                            &nbsp;<a data-bs-toggle="collapse" data-bs-target="#nopeakannots-details"><img id="nopeakannots-details-button" src="{% static 'images/plus.png' %}" alt="more" width="18"></a>
+                            <div id="nopeakannots-details" class="collapse">
+                                <ul>
+                                    <li>
+                                        Note, supplying peak annotations and a <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> together is under development.
+                                    </li>
+                                    <li>
+                                        Currently, if you submit peak annotations and a <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> together, you would likely encounter a gateway timeout error, as validating <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span> can take too much time if the <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> has any unresolved issues.
+                                    </li>
+                                    <li>
+                                        The page will fix a few minor issues and a new version of your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> with minor fixes will be downloaded.
+                                    </li>
+                                    <li>
+                                        Open the status report on the page and try to fix what issues you can, then try validating again.
+                                    </li>
+                                    <li>
+                                        You do not have to resolve any or all issues.  At any point, you can proceed to submission and a curator will work to resolve any outstanding errors.
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    You will get back a new (or updated) <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> copy that is automatically downloaded.  If any issues
+                    are detected, a status report will be added to the page.
+                </li>
+                <li>
+                    Move on to the next section, but note that after you flesh out your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>, you can at any point,
+                    come back to this page and submit your <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span> and <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span> to automatically
+                    add more samples, get a status report detailing any issues uncovered in your data, and also
+                    automatically fix some issues.
                 </li>
             </ol>
         </div>
