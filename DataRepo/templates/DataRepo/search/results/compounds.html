@@ -1,0 +1,163 @@
+{% load customtags %}
+{% block head_extras %}
+
+    <script>
+        // Correct the row count to account for M:M related tables
+        document.addEventListener("DOMContentLoaded", function(){
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onAll: function() {
+                    updateColumnGroups()
+                    {% if mode != 'view' %}
+                        updateColumnSortControls()
+                    {% endif %}
+                    updateAllColumnSwitchingCookies()
+                }
+                // I did have an onColumnSwitch here to set cookies, but it doesn't handle the "Toggle All" control, so I added a call to updateAllColumnSwitchingCookies in onAll
+            })
+
+            function updateColumnGroups() {
+                var identdata_cnt = 0
+                var datadata_cnt = 0
+                var metadata_cnt = 0
+                $("#advsrchres th").each(function() {
+                    if ($(this).is(":visible")) {
+                        if ($(this).hasClass("idgrp")) {
+                            identdata_cnt = identdata_cnt + 1
+                        } else if ($(this).hasClass("datagrp")) {
+                            datadata_cnt = datadata_cnt + 1
+                        } else if ($(this).hasClass("metagrp")) {
+                            metadata_cnt = metadata_cnt + 1
+                        }
+                    }
+                })
+                $("#advsrchres .identdata").attr("span", identdata_cnt)
+                $("#advsrchres .datadata").attr("span", datadata_cnt)
+                $("#advsrchres .metadata").attr("span", metadata_cnt)
+            }
+        })
+    </script>
+    <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
+
+{% endblock %}
+{% block content %}
+    <div style="float: right; {% if mode == 'view' %}margin-right: 1rem;margin-bottom: 1rem;{% else %}margin-right: 1rem;{% endif %}" class="buttons-toolbar"></div>
+    <table class="table table-hover table-striped table-bordered"
+        id="advsrchres"
+        data-toggle="table"
+        data-buttons-toolbar=".buttons-toolbar"
+        data-buttons-class="primary"
+        data-buttons-align="right"
+        data-filter-control="false"
+        data-search="false"
+        data-show-search-clear-button="false"
+        data-show-multi-sort="{% if mode == 'view' %}true{% else %}false{% endif %}"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="false"
+        data-show-export="false"
+        data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
+
+        <thead>
+            <tr>
+                {% with "Compound" as colhead %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="name">{{ colhead }}</div>
+                        {% endif %}
+                    </th>
+                {% endwith %}
+                {% with "Formula" as colhead %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="formula">{{ colhead }}</div>
+                        {% endif %}
+                    </th>
+                {% endwith %}
+                {% with "HMDB ID" as colhead %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="hmdb_id">{{ colhead }}</div>
+                        {% endif %}
+                    </th>
+                {% endwith %}
+                {% with "Synonym(s)" as colhead %}
+                    <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="synonyms__name">{{ colhead }}</div>
+                        {% endif %}
+                    </th>
+                {% endwith %}
+                {% with "Tracers" as colhead %}
+                    <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
+                        {{ colhead }}
+                    </th>
+                {% endwith %}
+                {% with "Animals (with Tracers)" as colhead %}
+                    <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
+                        {{ colhead }}
+                    </th>
+                {% endwith %}
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for rec in res.all %}
+
+                <tr>
+                    <!-- Compound -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ rec.name }}</div>
+                        <a href="{% url 'compound_detail' rec.id %}">
+                            {{ rec.name }}
+                        </a>
+                    </td>
+
+                    <!-- Formula -->
+                    <td>
+                        {{ rec.formula }}
+                    </td>
+
+                    <!-- HMDB ID -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ rec.hmdb_id }}</div>
+                        {% if rec.hmdb_id %}
+                            <a href="{{ rec.hmdb_id|hmdb_id_url }}">{{ rec.hmdb_id }}</a>
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+
+                    <!-- Synonym(s) -->
+                    <td class="text-end">
+                        {% get_case_insensitive_synonyms rec.synonyms as syns %}
+                        {% for syn in syns %}{% if not forloop.first %}; {% endif %}{{ syn }}{% endfor %}
+                    </td>
+
+                    <!-- Tracers -->
+                    <td>
+                        {% if rec.tracers.count %}
+                            {{ rec.tracers.count }}
+                        {% else %}
+                            0
+                        {% endif %}
+                    </td>
+
+                    <!-- Animals (with Tracers) -->
+                    <td>
+                        {% if rec.tracers.infusates.animals.count %}
+                            {{ rec.tracers.infusates.animals.count }}
+                        {% else %}
+                            0
+                        {% endif %}
+                    </td>
+
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

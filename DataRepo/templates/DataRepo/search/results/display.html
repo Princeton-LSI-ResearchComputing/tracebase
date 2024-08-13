@@ -49,6 +49,8 @@
                 {% define "PeakData" as fmt_title %}
             {% elif selfmt == "fctemplate" %}
                 {% define "FCirc" as fmt_title %}
+            {% elif selfmt == "cptemplate" %}
+                {% define "Compounds" as fmt_title %}
             {% endif %}
         {% else %}
             {% define True as valid_search %}
@@ -108,6 +110,8 @@
                     {% include "DataRepo/search/results/peakdata.html" with selfmt=selfmt %}
                 {% elif selfmt == "fctemplate" %}
                     {% include "DataRepo/search/results/fcirc.html" with selfmt=selfmt %}
+                {% elif selfmt == "cptemplate" %}
+                    {% include "DataRepo/search/results/compounds.html" with selfmt=selfmt %}
                 {% endif %}
             {% endif %}
 

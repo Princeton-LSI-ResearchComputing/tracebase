@@ -15,6 +15,7 @@ from django.forms import (
     formset_factory,
 )
 
+from DataRepo.formats.compounds_dataformat import CompoundsFormat
 from DataRepo.formats.dataformat import Format
 from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
@@ -126,6 +127,14 @@ class AdvSearchFluxCircForm(BaseAdvSearchForm):
     format_class = FluxCircFormat()
 
 
+class AdvSearchCompoundsForm(BaseAdvSearchForm):
+    """
+    Advanced search form for the compounds output format that will be used inside a formset.
+    """
+
+    format_class = CompoundsFormat()
+
+
 class AdvSearchForm:
     """
     A group of advanced search form classes
@@ -136,13 +145,9 @@ class AdvSearchForm:
     format_select_list_name = "fmt"
 
     def __init__(self, *args, **kwargs):
-        for form_class in (
-            AdvSearchPeakGroupsForm(),
-            AdvSearchPeakDataForm(),
-            AdvSearchFluxCircForm(),
-        ):
+        for form_class in BaseAdvSearchForm.__subclasses__():
             id = form_class.format_class.id
-            self.form_classes[id] = formset_factory(form_class.__class__)
+            self.form_classes[id] = formset_factory(form_class)
 
 
 class AdvSearchDownloadForm(Form):
