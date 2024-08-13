@@ -48,16 +48,17 @@ from DataRepo.utils.file_utils import string_to_date
 class MSRunsLoader(TableLoader):
     """Class to load the MSRunSample table."""
 
-    # These are common suffixes repeatedly appended to accucor/isocorr sample names.  Researchers tend to do this in
-    # order make the file names unique enough to collect them together in a single directory.  They tend to do that by
-    # appending a string with a delimiting underscore that indicates polarities and/or scan ranges.  This is not
-    # perfect.  The full pattern into which these patterns are included can be used to strip out these suffixes even if
-    # they have been chained together (e.g. _pos_scan1).
-    DEFAULT_SAMPLE_HEADER_SUFFIXES = [
-        r"_pos",
-        r"_neg",
-        r"_scan[0-9]+",
+    # These are common labels repeatedly appended to peak annotation sample names to differentiate which mzXML file the
+    # peaks came from.  Researchers tend to include these in order make the file names unique enough to collect them
+    # together in a single directory.  They tend to do that by appending a string with a delimiting underscore (or dash)
+    # that indicates polarities and/or scan ranges.  This is not perfect.  The full pattern into which these patterns
+    # are included can be used to strip out these substrings even if they have been chained together (e.g. _pos_scan1).
+    DEFAULT_SCAN_LABEL_PATTERNS = [
+        r"pos",
+        r"neg",
+        r"scan[0-9]+",
     ]
+    DEFAULT_SCAN_DELIM_PATTERN = r"[\-_]"
     SKIP_STRINGS = ["skip", "true", "t", "yes", "y"]
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
@@ -1696,29 +1697,45 @@ class MSRunsLoader(TableLoader):
         return False
 
     @classmethod
-    def get_suffix_pattern(cls, suffix_patterns=None, add_patterns=True):
-        """Create a regular expression that can be used to strip chained suffixes from a sample header.
+    def get_scan_pattern(cls, scan_patterns=None, add_patterns=True):
+        r"""Create a regular expression that can be used to strip scan identifiers from a sample header.
+
+        NOTE: Each pattern is prepended and appended with:
+            r"[\-_]"  # dash or underscore (also removed)
+            r"(?=[\-_]|$)"  # followed by dash or underscore or end of string (not removed)
+
         Args:
-            suffix_patterns (list of regular expression strings)
+            scan_patterns (list of regular expression strings)
             add_patterns (boolean): Whether to add the supplied patterns to the defaults or replace them.
         Exceptions:
             None
         Returns:
             pattern (compiled re)
         """
-        suffixes = cls.DEFAULT_SAMPLE_HEADER_SUFFIXES
-        if suffix_patterns is not None:
+        delim = cls.DEFAULT_SCAN_DELIM_PATTERN
+        scan_labels = cls.DEFAULT_SCAN_LABEL_PATTERNS
+
+        pre_pat = delim
+        post_pat = r"(?=" + delim + r"|$)"
+
+        if scan_patterns is not None:
             if add_patterns:
-                suffixes.extend(suffix_patterns)
+                scan_labels.extend(scan_patterns)
             else:
-                suffixes = suffix_patterns
-        return re.compile(r"(" + "|".join(suffixes) + r")+$")
+                scan_labels = scan_patterns
+
+        # Examples, if scan_patterns = ["pos", "neg", "scan[0-9]+"]:
+        #   "sample3_pos_scan25" -> "sample3"
+        #   "sample5-neg-mouse2" -> "sample5-mouse2"
+        return re.compile(
+            r"(" + "|".join([pre_pat + pat + post_pat for pat in scan_labels]) + r")+"
+        )
 
     @classmethod
-    def guess_sample_name(cls, mzxml_basename, suffix_patterns=None, add_patterns=True):
-        """Strips suffixes from an accucor/isocorr sample header (or mzXML file basename) using
-        self.DEFAULT_SAMPLE_HEADER_SUFFIXES and/or the supplied suffixes.  The result is usually the name of the sample
-        as it appears in the database.
+    def guess_sample_name(cls, mzxml_basename, scan_patterns=None, add_patterns=True):
+        """Strips scan labels from an accucor/isocorr sample header (or mzXML file basename) using
+        self.DEFAULT_SAMPLE_HEADER_SUFFIXES and/or the supplied scan labels.  The result is usually the name of the
+        sample as it appears in the database.
 
         Use caution.  This doesn't guarantee the resulting sample name is accurate.  If the resulting sample name is not
         unique, you may end up with conflict errors at some later point in the processing of a study submission.  To
@@ -1727,15 +1744,15 @@ class MSRunsLoader(TableLoader):
 
         Args:
             mzxml_bamename (string): The basename of an mzXML file (or accucor/isocorr sample header).
-            suffix_patterns (list of regular expression strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: E.g. "_pos".
+            scan_patterns (list of regular expression strings) [cls.DEFAULT_SAMPLE_HEADER_SUFFIXES]: E.g. "_pos".
             add_patterns (boolean): Whether to add the supplied patterns to the defaults or replace them.
         Exceptions:
             None
         Returns:
             guessed_sample_name (string)
         """
-        pattern = cls.get_suffix_pattern(
-            suffix_patterns=suffix_patterns, add_patterns=add_patterns
+        pattern = cls.get_scan_pattern(
+            scan_patterns=scan_patterns, add_patterns=add_patterns
         )
         return re.sub(pattern, "", mzxml_basename)
 
