@@ -14,13 +14,19 @@ from DataRepo.models.researcher import (
 from DataRepo.utils.exceptions import (
     InfileError,
     NewResearcher,
+    PlaceholderDetected,
     RecordDoesNotExist,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_datetime
+from DataRepo.utils.file_utils import string_to_date
 
 
 class SequencesLoader(TableLoader):
+    # For the conversion of study doc version 2 to the current version, v2 has no sequence data, so this note is set in
+    # the notes field.  If we see this value, the load of that record will be skipped.  The records will have to be
+    # addressed before any of the peak annotation files can be loaded.
+    V2_PLACEHOLDER_NOTE = "This is a temporary placeholder record.  Edit it."
+
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     SEQNAME_KEY = "SEQNAME"
     OPERATOR_KEY = "OPERATOR"
@@ -194,6 +200,21 @@ class SequencesLoader(TableLoader):
         known_researchers = get_researchers()
 
         for _, row in self.df.iterrows():
+            note = self.get_row_val(row, self.headers.NOTES)
+
+            if note == self.V2_PLACEHOLDER_NOTE:
+                if not self.validate:
+                    self.buffer_infile_exception(
+                        PlaceholderDetected(),
+                        is_error=False,
+                        is_fatal=False,
+                        suggestion=(
+                            f"The {self.DataSheetName} sheet row will have to be updated before associated peak "
+                            "annotation files can be loaded."
+                        ),
+                    )
+                    self.add_skip_row_index()
+
             try:
                 lc_rec = self.get_lc_method(self.get_row_val(row, self.headers.LCNAME))
             except Exception:
@@ -209,7 +230,8 @@ class SequencesLoader(TableLoader):
             ):
                 # Raised if in validate mode (so the web user will see it).  Just printed otherwise.
                 self.aggregated_errors_object.buffer_warning(
-                    NewResearcher(operator), is_fatal=self.validate
+                    NewResearcher(operator, known=known_researchers),
+                    is_fatal=self.validate,
                 )
                 self.warned(MSRunSequence.__name__)
 
@@ -218,7 +240,7 @@ class SequencesLoader(TableLoader):
                 continue
 
             try:
-                self.get_or_create_sequence(row, lc_rec, operator)
+                self.get_or_create_sequence(row, lc_rec, operator, note)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -263,7 +285,7 @@ class SequencesLoader(TableLoader):
         return rec
 
     @transaction.atomic
-    def get_or_create_sequence(self, row, lc_rec, researcher):
+    def get_or_create_sequence(self, row, lc_rec, researcher, notes):
         """Gets or creates an MSRunSequence record from the supplied row, LCMethod record, and operator/researcher.
 
         This method is decorated with transaction.atomic so that any specific record creation that causes an exception
@@ -274,6 +296,7 @@ class SequencesLoader(TableLoader):
             row (pandas dataframe row)
             lc_rec (LCMethod)
             operator (str)
+            notes (str)
         Raises:
             RollbackException
         Returns:
@@ -286,7 +309,7 @@ class SequencesLoader(TableLoader):
 
         try:
             date_str = self.get_row_val(row, self.headers.DATE)
-            date = string_to_datetime(
+            date = string_to_date(
                 date_str,
                 file=self.friendly_file,
                 sheet=self.sheet,
@@ -294,7 +317,6 @@ class SequencesLoader(TableLoader):
                 column=self.headers.DATE,
             )
             instrument = self.get_row_val(row, self.headers.INSTRUMENT)
-            notes = self.get_row_val(row, self.headers.NOTES)
 
             # get_row_val can add to skip_row_indexes when there is a missing required value
             if self.is_skip_row():

@@ -107,7 +107,7 @@
                                 {% if exceptions|index:key %}
                                     <ul class="ul-nopadding">
                                         {% for exception in exceptions|index:key %}
-                                            <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b><br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
+                                            <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b>{% if exception|index:"fixed" != None %} <b>({{ exception|index:"fixed" }})</b>{% endif %}<br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
                                         {% endfor %}
                                     </ul>
                                 {% endif %}

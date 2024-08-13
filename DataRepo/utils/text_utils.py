@@ -48,3 +48,11 @@ def autowrap(text: str, default_width: int = 80, **kwargs):
             wrapped += f"{wrappedline}\n"
 
     return wrapped[:-1], nlines, max_width
+
+
+def is_number(val):
+    try:
+        float(str(val))
+    except Exception:
+        return False
+    return True
