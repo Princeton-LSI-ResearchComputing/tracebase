@@ -55,9 +55,12 @@ from DataRepo.utils.exceptions import (
     AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
+    InvalidStudyDocVersion,
     MissingDataAdded,
     MultiLoadStatus,
+    MultipleStudyDocVersions,
     NoSamples,
+    UnknownStudyDocVersion,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 from DataRepo.utils.infusate_name_parser import (
@@ -2139,7 +2142,12 @@ class DataValidationView(FormView):
         """
         if self.study_file is None:
             return self.create_study_dfs_dict()
-        return self.get_study_dfs_dict()
+        dfs_dict = self.get_study_dfs_dict()
+        # If there was a conversion issue, the dfs_dict will be empty
+        if dfs_dict is None or len(dfs_dict.keys()) == 0:
+            # There will have been an exception buffered, so let's just fall back to a default template for them to use
+            return self.create_study_dfs_dict()
+        return dfs_dict
 
     def create_study_dfs_dict(self, dfs_dict: Optional[Dict[str, dict]] = None):
         """Create dataframe template dicts for each sheet in self.animal_sample_file as a dict keyed on sheet.
@@ -2381,24 +2389,43 @@ class DataValidationView(FormView):
             dtype=self.get_study_dtypes_dict(),
         )
 
-        # This creates a version 3 dict of dataframes
-        loader_class: Type[StudyLoader] = StudyLoader.get_loader_class(dfd)
-        sl: StudyLoader = loader_class(
-            df=dfd,
-            file=self.study_file,
-            filename=self.study_filename,
-            annot_files_dict=self.annot_files_dict,
-        )
-        dict_of_dataframes = sl.df_dict
+        dfs_dict = None
 
-        # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
-        # data
-        dfs_dict = {}
-        for k, v in dict_of_dataframes.items():
-            dfs_dict[k] = v.to_dict()
+        load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
-        # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
-        self.create_study_dfs_dict(dfs_dict=dfs_dict)
+        try:
+            # This creates the current version StudyLoader.
+            loader_class: Type[StudyLoader] = StudyLoader.get_loader_class(dfd)
+            sl: StudyLoader = loader_class(
+                df=dfd,
+                file=self.study_file,
+                filename=self.study_filename,
+                annot_files_dict=self.annot_files_dict,
+            )
+            dict_of_dataframes = sl.df_dict
+
+            # We're not ready yet for actual dataframes.  It will be easier to move forward with dicts to be able to add
+            # data
+            dfs_dict = {}
+            for k, v in dict_of_dataframes.items():
+                dfs_dict[k] = v.to_dict()
+
+            # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
+            self.create_study_dfs_dict(dfs_dict=dfs_dict)
+        except (
+            InvalidStudyDocVersion,
+            UnknownStudyDocVersion,
+            MultipleStudyDocVersions,
+        ) as sve:
+            load_status_data.set_load_exception(
+                sve,
+                StudyLoader.ConversionHeading,
+                top=True,
+            )
+        except MultiLoadStatus as mls:
+            load_status_data = mls
+
+        self.load_status_data = load_status_data
 
         return dfs_dict
 
@@ -2510,6 +2537,16 @@ class DataValidationView(FormView):
                 annot_files_dict=self.annot_files_dict,
             )
             sl.load_data()
+        except (
+            InvalidStudyDocVersion,
+            UnknownStudyDocVersion,
+            MultipleStudyDocVersions,
+        ) as sve:
+            load_status_data.set_load_exception(
+                sve,
+                StudyLoader.ConversionHeading,
+                top=True,
+            )
         except MultiLoadStatus as mls:
             load_status_data = mls
 

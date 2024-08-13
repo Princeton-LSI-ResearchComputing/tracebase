@@ -358,7 +358,7 @@ class InfusatesLoader(TableLoader):
 
         for _, row in self.df.iterrows():
             try:
-                # missing required values update the skip_row_indexes before load_data is even called, and get_row_val
+                # Missing required values update the skip_row_indexes before load_data is even called, and get_row_val
                 # sets the current row index
                 if self.is_skip_row(row.name):
                     self.errored(Infusate.__name__)
@@ -910,7 +910,10 @@ class InfusatesLoader(TableLoader):
             )
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
-            self.aggregated_errors_object.buffer_error(exc)
+            self.aggregated_errors_object.buffer_error(
+                exc,
+                orig_exception=e,
+            )
             # Now that the exception has been handled, trigger a rollback of this record load attempt
             raise e
 

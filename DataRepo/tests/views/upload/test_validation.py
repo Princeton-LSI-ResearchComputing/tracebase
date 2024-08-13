@@ -198,6 +198,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         dvv.study_file = (
             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
+        dvv.all_infile_names = ["small_obob_animal_and_sample_table.xlsx"]
 
         dfs_dict = dvv.get_or_create_dfs_dict()
         expected = {
