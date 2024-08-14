@@ -94,7 +94,7 @@
                         {{ colhead }}
                     </th>
                 {% endwith %}
-                {% with "Animals (with Tracers)" as colhead %}
+                {% with "Animals (with Tracer)" as colhead %}
                     <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt colhead|add:'-data-visible' 'true' %}" data-field="{{ colhead }}" class="idgrp">
                         {{ colhead }}
                     </th>
@@ -147,10 +147,10 @@
                         {% endif %}
                     </td>
 
-                    <!-- Animals (with Tracers) -->
+                    <!-- Animals (with Tracer) -->
                     <td>
-                        {% if rec.tracers.infusates.animals.count %}
-                            {{ rec.tracers.infusates.animals.count }}
+                        {% if rec.tracers.count %}
+                            {% tracers_to_animal_count rec.tracers.all %}
                         {% else %}
                             0
                         {% endif %}

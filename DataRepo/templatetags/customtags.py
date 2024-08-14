@@ -7,6 +7,7 @@ from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.models.tracer import Tracer
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 register = template.Library()
@@ -355,6 +356,26 @@ def display_filter(filter):
     ncmp = filter["queryGroup"][0]["ncmp"]
     val = filter["queryGroup"][0]["val"]
     return f"{ncmp} {val}"
+
+
+@register.simple_tag
+def tracers_to_animal_count(tracers_qs):
+    """Given a queryset of Tracer records, return a count of all animals infused with any of the tracers."""
+    animals_dict = {}
+    tracer: Tracer
+    for tracer in tracers_qs.all():
+        for infusate in tracer.infusates.all():
+            for animal in infusate.animals.all():
+                animals_dict[animal.id] = 0
+    return len(animals_dict.keys())
+
+
+@register.filter
+def debug(obj):
+    """Convenience method for inspecting a template variable.
+    Example {{ my_variable|debug}}
+    """
+    return f"type: {type(obj).__name__} dir: {dir(obj)}"
 
 
 class NotYetImplemented(Exception):

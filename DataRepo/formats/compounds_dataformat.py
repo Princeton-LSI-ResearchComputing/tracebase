@@ -18,9 +18,7 @@ class CompoundsFormat(Format):
         },
         {
             "displayname": "Tracers",
-            "distincts": [
-                "tracers__id"
-            ],
+            "distincts": ["tracers__id"],
             "filter": None,
         },
         {
@@ -49,7 +47,7 @@ class CompoundsFormat(Format):
                     "type": "number",
                 },
                 "name": {
-                    "displayname": "Compound",
+                    "displayname": "Compound (Primary Name)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -80,14 +78,14 @@ class CompoundsFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Compound Synonym (Measured) Index",
+                    "displayname": "(Internal) Compound Synonym Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "name": {
-                    "displayname": "Compound (Measured) (Any Synonym)",
+                    "displayname": "Compound (Any Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -103,6 +101,13 @@ class CompoundsFormat(Format):
                 "manytomany": False,
                 "through": False,
                 "split_rows": False,
+                # Adds a field named "tracer" to the root rec as an annotation with the value of the tracer record's
+                # primary key.  When there are multiple tracers for this compound, the root compound record is
+                # essentially duplicated, and each duplicate gets a different tracer associated with it, like a real SQL
+                # left join.  In the template, you use the template tag "get_many_related" tag and supply it the
+                # queryset of tracers and the tracer ID by supplying this field, e.g.
+                # {% get_many_related rec.tracers.all rec.tracer %}
+                "root_annot_fld": "tracer",
             },
             "fields": {
                 "id": {
@@ -120,6 +125,33 @@ class CompoundsFormat(Format):
                 },
             },
         },
+        "Infusate": {
+            "model": "Infusate",
+            "path": "tracers__infusates",
+            "reverse_path": "tracers__compound",
+            "manyrelated": {
+                "is": True,
+                "manytomany": True,
+                "through": False,
+                "split_rows": False,
+                "root_annot_fld": "infusate",
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Infusate Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Infusate",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
         "Animal": {
             "model": "Animal",
             "path": "tracers__infusates__animals",
@@ -129,8 +161,10 @@ class CompoundsFormat(Format):
                 "through": False,
                 "manytomany": True,
                 "split_rows": False,
-                # TODO: If root_annot_fld is missing when manytomany is True and split_rows is False, you end up with more rows than is reported in the pagination, and with apparent duplicate rows, so I think that this should be caught and an error generated that explains what to do.
-                "root_annot_fld": "animalwithtracers",  # Added to see if it tamps down the number of rows (which is too many, with repeated compounds, when there exist tracers with the compound)
+                # TODO: If root_annot_fld is missing when manytomany is True and split_rows is False, you end up with
+                # more rows than is reported in the pagination, and with apparent duplicate rows, so I think that this
+                # should be caught and an error generated that explains what to do.
+                "root_annot_fld": "animalwithtracers",
             },
             "fields": {
                 "id": {
