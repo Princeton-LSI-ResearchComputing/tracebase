@@ -13,17 +13,17 @@ class CompoundsFormat(Format):
     stats = [
         {
             "displayname": "Animals with these Tracers",
-            "distincts": ["tracers__infusates__animals__id"],
+            "distincts": ["tracers__infusates__animals__name"],
             "filter": None,
         },
         {
             "displayname": "Tracers",
-            "distincts": ["tracers__id"],
+            "distincts": ["tracers__name"],
             "filter": None,
         },
         {
             "displayname": "Studies with these Tracers",
-            "distincts": ["tracers__infusates__animals__study__id"],
+            "distincts": ["tracers__infusates__animals__studies__name"],
             "filter": None,
         },
     ]
