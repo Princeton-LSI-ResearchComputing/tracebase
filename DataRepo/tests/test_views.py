@@ -423,7 +423,7 @@ class ViewTests(TracebaseTestCase):
     def get_advanced_search_inputs(self):
         asform = {
             "fmt": "pgtemplate",
-            "form-TOTAL_FORMS": "3",
+            "form-TOTAL_FORMS": "4",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "pgtemplate-PeakGroups-selected.0-all-False.0",
             "form-0-fld": "msrun_sample__sample__tissue__name",
@@ -438,6 +438,10 @@ class ViewTests(TracebaseTestCase):
             "form-2-fld": "msrun_sample__sample__animal__name",
             "form-2-ncmp": "iexact",
             "form-2-units": "identity",
+            "form-3-pos": "cptemplate-Compounds.0-all-False.0",
+            "form-3-fld": "name",
+            "form-3-ncmp": "iexact",
+            "form-3-units": "identity",
         }
         qry = self.get_advanced_qry()
         dlform = {
@@ -514,6 +518,26 @@ class ViewTests(TracebaseTestCase):
                     },
                     "name": "FCirc",
                 },
+                "cptemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "name",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "",
+                                "units": "identity",
+                            }
+                        ],
+                    },
+                    "name": "Compounds",
+                },
             },
         }
 
@@ -524,7 +548,7 @@ class ViewTests(TracebaseTestCase):
         qs = PeakGroup.objects.filter(
             msrun_sample__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun_sample__sample__animal__studies")
-        [filledform, qry, ignore] = self.get_advanced_search_inputs()
+        [filledform, qry, _] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
@@ -535,7 +559,7 @@ class ViewTests(TracebaseTestCase):
         """
         Do a simple advanced search and make sure the results are correct
         """
-        [invalidform, qry, ignore] = self.get_advanced_search_inputs()
+        [invalidform, qry, _] = self.get_advanced_search_inputs()
         # Make the form invalid
         invalidform.pop("form-0-val", None)
         # Expected response difference:
@@ -550,11 +574,11 @@ class ViewTests(TracebaseTestCase):
         """
         Download a simple advanced search and make sure the results are correct
         """
-        [filledform, qry, dlform] = self.get_advanced_search_inputs()
+        [_, _, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
         # Response content settings
-        self.assertEqual(response.get("Content-Type"), "application/text")
+        self.assertEqual("application/text", response.get("Content-Type"))
         self.assertEqual(response.status_code, 200)
         # Cannot use assertContains here for non-http response - it will complain about a missing status_code
         contentdisp = response.get("Content-Disposition")

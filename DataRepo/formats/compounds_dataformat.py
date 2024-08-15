@@ -182,4 +182,31 @@ class CompoundsFormat(Format):
                 },
             },
         },
+        "Study": {
+            "model": "Study",
+            "path": "tracers__infusates__animals__studies",
+            "reverse_path": "animals__infusate__tracers__compound",
+            "manyrelated": {
+                "is": True,
+                "through": False,
+                "manytomany": True,
+                "split_rows": False,
+                "root_annot_fld": "studywithtracers",
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Study Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
     }

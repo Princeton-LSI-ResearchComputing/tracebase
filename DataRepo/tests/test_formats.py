@@ -272,6 +272,18 @@ class FormatsTests(TracebaseTestCase):
             ("serum_sample__animal__treatment__name", "Treatment"),
         )
 
+    def getCptemplateChoicesTuple(self):
+        return (
+            ("tracers__infusates__animals__name", "Animal"),
+            ("synonyms__name", "Compound (Any Synonym)"),
+            ("name", "Compound (Primary Name)"),
+            ("formula", "Formula"),
+            ("hmdb_id", "HMDB ID"),
+            ("tracers__infusates__name", "Infusate"),
+            ("tracers__infusates__animals__studies__name", "Study"),
+            ("tracers__name", "Tracer"),
+        )
+
     def assertIsAFcUnitsLookupDict(self, fld_units_lookup):
         self.assertEqual(31, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
@@ -418,6 +430,7 @@ class FormatsTests(TracebaseTestCase):
             "fctemplate": self.getFctemplateChoicesTuple(),
             "pdtemplate": self.getPdtemplateChoicesTuple(),
             "pgtemplate": self.getPgtemplateChoicesTuple(),
+            "cptemplate": self.getCptemplateChoicesTuple(),
         }
         self.assertDictEqual(sfcd_expected, sfcd)
 
@@ -428,9 +441,16 @@ class FormatsTests(TracebaseTestCase):
         sfct_expected += tuple(
             tuple(x)
             for x in self.getPdtemplateChoicesTuple()
+            # Eliminate duplicate items
             if x != ("labels__element", "Labeled Element")
         )
         sfct_expected += self.getFctemplateChoicesTuple()
+        sfct_expected += tuple(
+            tuple(x)
+            for x in self.getCptemplateChoicesTuple()
+            # Eliminate duplicate items
+            if x[0] not in ["formula", "name"]
+        )
         self.assertTupleEqual(sfct_expected, sfct)
 
     def test_extractFldPaths(self):
@@ -841,6 +861,7 @@ class FormatsTests(TracebaseTestCase):
                 },
                 "pdtemplate": {"name": "PeakData", "tree": empty_tree},
                 "fctemplate": {"name": "Fcirc", "tree": empty_tree},
+                "cptemplate": {"name": "Compounds", "tree": empty_tree},
             },
         }
         return tval, qry
@@ -944,6 +965,26 @@ class FormatsTests(TracebaseTestCase):
                         ],
                     },
                     "name": "FCirc",
+                },
+                "cptemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "name",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "",
+                                "units": "identity",
+                            }
+                        ],
+                    },
+                    "name": "Compounds",
                 },
             },
         }
@@ -1327,8 +1368,9 @@ class FormatsTests(TracebaseTestCase):
             "pgtemplate": "PeakGroups",
             "pdtemplate": "PeakData",
             "fctemplate": "Fcirc",
+            "cptemplate": "Compounds",
         }
-        self.assertEqual(fnd, res)
+        self.assertDictEqual(fnd, res)
 
     def test_cv_formatNameOrKeyToKey(self):
         """
@@ -1469,7 +1511,7 @@ class FormatsTests(TracebaseTestCase):
         """
         sg = SearchGroup()
         fld_units_dict = sg.getFieldUnitsDict()
-        self.assertEqual(3, len(fld_units_dict.keys()))
+        self.assertEqual(4, len(fld_units_dict.keys()))
         expected_element_dict = {
             "choices": (("identity", "identity"),),
             "default": "identity",
