@@ -1,12 +1,49 @@
 {% extends "base.html" %}
 {% load customtags %}
 
+{% block head_extras %}
+    <!-- This adds a custom download button to the bootstrap-table toolbar.  It uses the custom_download form in the template below.  It is based on:
+        https://live.bootstrap-table.com/code/UtechtDustin/4195
+        https://github.com/wenzhixin/bootstrap-table/pull/5227
+        https://github.com/wenzhixin/bootstrap-table/issues/5208
+    And is a solution for:
+        https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1038
+    -->
+    <script>
+        function buttonsFunction() {
+            return {
+                btnCustomDownload: {
+                    'text': 'btnCustomDownload',
+                    'icon': 'bi-download',
+                    'event': function customDownloadButton () {
+                        var myform = document.getElementById("custom_download")
+                        myform.submit();
+                    },
+                    'attributes': {
+                        "title": "All Compound Data",
+                        "data-test": "btnCustomDownload"
+                    }
+                }
+            }
+        }
+    </script>
+{% endblock %}
+
 {% block title %}Compounds{% endblock %}
 
 {% block content %}
 <div>
     <h4>List of Compounds</h4>
     {% if df %}
+    <!-- This renders a download button that always downloads all compound data (regardless of what is displayed in the table from the search) -->
+    <div style="float: right;">
+        {% getDownloadQry "cptemplate" as qry %}
+        <form action="/DataRepo/search_advanced_tsv/" id="custom_download" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="qryjson" value="{{ qry.json }}">
+            <button type="submit" style="display: none;"></button>
+        </form>
+    </div>
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="comp_tracer_list"
         data-toggle="table"
@@ -20,8 +57,7 @@
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
-        data-show-export="true"
-        data-export-types="['csv', 'txt', 'excel']"
+        data-buttons="buttonsFunction"
         data-height="1200"
         data-virtual-scroll="true"
         data-pagination="true"

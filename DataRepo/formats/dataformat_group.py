@@ -774,6 +774,15 @@ class FormatGroup:
             )
         return qry_list
 
+    def getDownloadQry(self, format):
+        """Returns a dict where the keys are name and json and the values are the format name and the json-stringified
+        qry object with the target format selected.
+        """
+        root_group = self.getRootGroup(format)
+        name = root_group["searches"][format]["name"]
+        qry = {"name": name, "json": json.dumps(root_group)}
+        return qry
+
     def createNewBasicQuery(
         self, mdl, fld, cmp, val, fmt, units="identity", search_again=True
     ):

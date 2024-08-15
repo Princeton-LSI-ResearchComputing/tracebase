@@ -113,6 +113,12 @@ def getDownloadQrys():
 
 
 @register.simple_tag
+def getDownloadQry(format):
+    basv = SearchGroup()
+    return basv.getDownloadQry(format)
+
+
+@register.simple_tag
 def obj_hyperlink(id_name_list, obj, newline=False):
     """
     returns a comma-separated list of hyperlinks.
