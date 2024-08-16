@@ -1790,6 +1790,7 @@ class MSRunsLoader(TableLoader):
 
             try:
                 os.remove(rec.file_location.path)
+                print(f"DELETED (due to rollback): {rec.file_location.path}")
                 deleted += 1
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
