@@ -14,7 +14,7 @@
             <th>Peak Group</th>
             <th>Formula</th>
             <th>Sample</th>
-            <th>MS Run</th>
+            <th>MS Run Sample</th>
             <th>Peak Annotation Filename</th>
             </tr>
             {% for peakgroup in peakgroup_list %}
@@ -26,7 +26,7 @@
                     {{ peakgroup.msrun_sample.sample.name }}
                 </a>
             </td>
-            <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.researcher }}, {{ peakgroup.msrun_sample.date }}</a></td>
+            <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample }}</a></td>
             <td>
                 {% if peakgroup.peak_annotation_file %}
                 <a href="{% url 'archive_file_detail' peakgroup.peak_annotation_file.id %}">
