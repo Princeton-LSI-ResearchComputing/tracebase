@@ -13,6 +13,19 @@ from DataRepo.models import (
 )
 
 
+def flatten(S):
+    """Flatten method to apply to a pandas column of lists of elements.
+
+    Resolves issue https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/894
+    Source: https://stackoverflow.com/a/60400703/2057516
+    """
+    if S == []:
+        return S
+    if isinstance(S[0], list):
+        return flatten(S[0]) + flatten(S[1:])
+    return S[:1] + flatten(S[1:])
+
+
 class QuerysetToPandasDataFrame:
     """
     convert several querysets to Pandas DataFrames, then create additional
@@ -242,9 +255,8 @@ class QuerysetToPandasDataFrame:
             + "||"
             + infusate_gb_df1["tracer_name"].astype(str)
         )
-        # convert array to str before grouping
-        infusate_gb_df1["elements_as_str"] = infusate_gb_df1["labeled_elements"].apply(
-            ",".join
+        infusate_gb_df1["labeled_elements_lists"] = infusate_gb_df1["labeled_elements"].apply(
+            list
         )
 
         # groupby infusate
@@ -253,7 +265,7 @@ class QuerysetToPandasDataFrame:
             .agg(
                 tracers=("tracer_name", list),
                 concentrations=("tracer_concentration", list),
-                labeled_elements=("elements_as_str", "unique"),
+                labeled_elements_lists=("labeled_elements_lists", list),
                 compounds=("compound_name", list),
                 compound_id_name_list=("compound_id_name", list),
                 tracer_id_name_list=("tracer_id_name", list),
@@ -277,8 +289,8 @@ class QuerysetToPandasDataFrame:
             lambda x: np.array(x)
         )
         infusate_list_df2["labeled_elements"] = infusate_list_df2[
-            "labeled_elements"
-        ].apply(lambda x: np.array(x))
+            "labeled_elements_lists"
+        ].apply(flatten).apply(lambda x: np.unique(x)).apply(",".join)
         infusate_list_df2["concentrations"] = infusate_list_df2["concentrations"].apply(
             lambda x: np.array(x)
         )
@@ -583,7 +595,7 @@ class QuerysetToPandasDataFrame:
         try:
             all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
                 "labeled_elements"
-            ].apply(";".join)
+            ].apply(lambda x: np.unique(x)).apply(";".join)
         except TypeError:
             # When labeled_elements is empty, a TypeError is raised
             all_stud_msrun_df["elements_as_str"] = cls.null_rpl_str
