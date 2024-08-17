@@ -71,7 +71,9 @@ class BaseAdvSearchForm(Form):
     ncmp = ChoiceField(required=True, widget=Select())
 
     # Note: the placeholder attribute solves issue #135
-    val = CharField(widget=TextInput(attrs={"placeholder": "search term"}))
+    # Note that required=True had originally been removed because the form replication leaves the inactive forms
+    # invalid.  The forms are generated via javascript, so having `required=True` is actually ignored.
+    val = CharField(required=True, widget=TextInput(attrs={"placeholder": "search term"}))
 
     # This can be used to indicate the units or format of the term supplied to val, e.g. "minutes" for a DurationField
     units = ChoiceField(required=True, widget=Select())

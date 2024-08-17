@@ -63,9 +63,31 @@
                 initializeRootSearchQuery(allforms)
 
                 var myform = document.getElementById("hierarchical-search-form")
-                myform.addEventListener("submit", function () {
+                myform.addEventListener("submit", function (event) {
+                    // Stop form from submitting normally
+                    event.preventDefault();
                     saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
-                    myform.submit();
+
+                    // Check validity
+                    var allElem = myform.querySelectorAll('input');
+                    console.log(allElem);
+                    var valid = true
+                    for( var i = 0; i < allElem.length; i++ ) {
+                        /////// THIS WORKS TO PREVENT FORM SUBMISSION, BUT THERE ARE MULTIPLE FORMS, ONLY 1 OF WHICH IS NOT HIDDEN/ACTIVE.  I NEED TO FIGURE OUT HOW TO TELL WHICH ONE NEEDS VALIDATED. I ALSO NEED TO FIGURE OUT HOW TO TELL THE BROWSER WHAT FIELD TO DECORATE.
+                        if( allElem[i].value === 'undefined' || !allElem[i].value || allElem[i].value === '' ) {
+                            alert(allElem[i].name + " is invalid item: " + i + ": " + allElem[i]);
+                            allElem[i].classList.append('has-error');
+                            valid = false
+                        } else {
+                            allElem[i].classList.remove('has-error');
+                        }
+                    }
+                    if (!valid) {
+                        alert("Form Invalid");
+                    } else {
+                        alert("Form Valid");
+                        myform.submit();
+                    }
                 })
 
                 {% if res %}

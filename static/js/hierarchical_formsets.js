@@ -190,14 +190,20 @@ function addSearchFieldForm (myDiv, query, templateId) {
     if (keyname === 'fld') {
       fldInitVal = clones[i].value
       fldClone = clones[i]
+      // This does not seem to add "required" as an attribute in the HTML
+      // fldClone.required = true
     } else if (keyname === 'ncmp') {
       ncmpInitVal = clones[i].value
       ncmpClone = clones[i]
+      // This does not seem to add "required" as an attribute in the HTML
+      // ncmpClone.required = true
     } else if (keyname === 'units') {
       // For initial blank forms, clones[i].value for units is based on valClone.value, which has not been set yet in
       // the loop, but its initial value automatically defaults to the *first* item in the select list
       unitsInitVal = clones[i].value
       unitsClone = clones[i]
+      // This does not seem to add "required" as an attribute in the HTML
+      // unitsClone.required = true
     } else if (keyname === 'val') {
       if (clones[i].value === '') {
         isBlankForm = true
@@ -205,6 +211,8 @@ function addSearchFieldForm (myDiv, query, templateId) {
       valClone = clones[i]
       // Hide the val text field
       clones[i].style = 'display:none;'
+      // This does not seem to add "required" as an attribute in the HTML
+      // valClone.required = true
     }
 
     // If the query is static (as defined in the Format class), disable its input element
