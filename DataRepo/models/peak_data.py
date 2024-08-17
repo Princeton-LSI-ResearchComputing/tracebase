@@ -43,14 +43,17 @@ class PeakData(models.Model):
     # @cached_function is *slower* than uncached
     @cached_property
     def fraction(self):
-        """
-        The corrected abundance of the labeled element in this PeakData as a
-        fraction of the total abundance of the labeled element in this
-        PeakGroup.
+        """The corrected abundance of this isotopomer in this PeakData as a fraction of the PeakGroup's total abundance.
 
-        Accucor calculates this as "Normalized", but TraceBase renames it to
-        "fraction" to avoid confusion with other variables like "normalized
-        labeling".
+        Accucor calculates this as "Normalized", but TraceBase renames it to "fraction" to avoid confusion with other
+        variables like "normalized labeling".
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            fraction (Optional[float])
         """
         try:
             fraction = self.corrected_abundance / self.peak_group.total_abundance
