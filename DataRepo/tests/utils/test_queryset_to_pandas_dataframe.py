@@ -106,7 +106,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
                 "valine-[13C5,15N1]",
             ],
             "concentrations": [12, 24, 20],
-            "labeled_elements": ["C,N"],
+            "labeled_elements": ["C", "N"],
         }
 
         super().setUpTestData()
@@ -249,7 +249,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         inf1_columns = list(inf1_dict.keys())
         out1_df = inf1_df[inf1_columns]
         inf1_out_dict = qs2df.df_to_list_of_dict(out1_df)[0]
-        self.assertEqual(inf1_out_dict, inf1_dict)
+        self.assertEqual(inf1_dict, inf1_out_dict)
         # infusate 2
         inf2_dict = self.infusate2_dict
         inf2_df = infusate_list_df[
@@ -258,7 +258,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         set2_columns = list(inf2_dict.keys())
         out2_df = inf2_df[set2_columns]
         inf2_out_dict = qs2df.df_to_list_of_dict(out2_df)[0]
-        self.assertEqual(inf2_out_dict, inf2_dict)
+        self.assertEqual(inf2_dict, inf2_out_dict)
 
     def test_treatment_null(self):
         """

@@ -13,17 +13,17 @@ from DataRepo.models import (
 )
 
 
-def flatten(S):
-    """Flatten method to apply to a pandas column of lists of elements.
+def flatten(value):
+    """Flatten method to apply to a pandas column of lists of lists of elements.  Returns a column of lists of elements.
 
     Resolves issue https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/894
     Source: https://stackoverflow.com/a/60400703/2057516
     """
-    if S == []:
-        return S
-    if isinstance(S[0], list):
-        return flatten(S[0]) + flatten(S[1:])
-    return S[:1] + flatten(S[1:])
+    if value == []:
+        return value
+    if isinstance(value[0], list):
+        return flatten(value[0]) + flatten(value[1:])
+    return value[:1] + flatten(value[1:])
 
 
 class QuerysetToPandasDataFrame:
@@ -255,9 +255,9 @@ class QuerysetToPandasDataFrame:
             + "||"
             + infusate_gb_df1["tracer_name"].astype(str)
         )
-        infusate_gb_df1["labeled_elements_lists"] = infusate_gb_df1["labeled_elements"].apply(
-            list
-        )
+        infusate_gb_df1["labeled_elements_lists"] = infusate_gb_df1[
+            "labeled_elements"
+        ].apply(list)
 
         # groupby infusate
         infusate_list_df1 = (
@@ -288,9 +288,11 @@ class QuerysetToPandasDataFrame:
         infusate_list_df2["tracers"] = infusate_list_df2["tracers"].apply(
             lambda x: np.array(x)
         )
-        infusate_list_df2["labeled_elements"] = infusate_list_df2[
-            "labeled_elements_lists"
-        ].apply(flatten).apply(lambda x: np.unique(x)).apply(",".join)
+        infusate_list_df2["labeled_elements"] = (
+            infusate_list_df2["labeled_elements_lists"]
+            .apply(flatten)
+            .apply(lambda x: np.unique(x))
+        )
         infusate_list_df2["concentrations"] = infusate_list_df2["concentrations"].apply(
             lambda x: np.array(x)
         )
@@ -595,7 +597,7 @@ class QuerysetToPandasDataFrame:
         try:
             all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
                 "labeled_elements"
-            ].apply(lambda x: np.unique(x)).apply(";".join)
+            ].apply(lambda x: ", ".join(sorted(np.unique(x))))
         except TypeError:
             # When labeled_elements is empty, a TypeError is raised
             all_stud_msrun_df["elements_as_str"] = cls.null_rpl_str
@@ -651,14 +653,6 @@ class QuerysetToPandasDataFrame:
             stud_gb_df1["compound_id_name_list"]
             .str.join(";")
             .str.split(";")
-            .map(np.unique)
-            .map(np.sort)
-        )
-        # get unique list of elements from nested lists
-        stud_gb_df1["labeled_elements"] = (
-            stud_gb_df1["labeled_elements"]
-            .str.join(",")
-            .str.split(",")
             .map(np.unique)
             .map(np.sort)
         )
