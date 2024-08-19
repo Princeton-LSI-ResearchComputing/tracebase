@@ -149,6 +149,7 @@ class Command(BaseCommand):
 
             if (
                 msrs_giver is not None
+                and msrs_giver.ms_data_file is not None
                 and "Dupe" in msrs_giver.ms_data_file.checksum
                 and "Dupe" in msrs_giver.ms_data_file.filename
             ):
@@ -156,6 +157,7 @@ class Command(BaseCommand):
                 # If the neighbor MSRunSample record also has a fake mzXML, migrate the PeakGroups
                 if (
                     msrs_taker is not None
+                    and msrs_taker.ms_data_file is not None
                     and "Dupe" in msrs_taker.ms_data_file.checksum
                     and "Dupe" in msrs_taker.ms_data_file.filename
                 ):
@@ -191,7 +193,7 @@ class Command(BaseCommand):
                         f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n"
                     )
                     fake_mzxml.delete()
-            elif msrs_giver is not None:
+            elif msrs_giver is not None and msrs_giver.ms_data_file is not None:
                 # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
                 # Added these checks due to the dry-run output showing real mzXML files.
                 print(
@@ -202,6 +204,7 @@ class Command(BaseCommand):
             # If the taker MSRunSample record has a fake mzXML file, remove it.
             if (
                 msrs_taker is not None
+                and msrs_taker.ms_data_file is not None
                 and "Dupe" in msrs_taker.ms_data_file.checksum
                 and "Dupe" in msrs_taker.ms_data_file.filename
             ):
@@ -217,7 +220,7 @@ class Command(BaseCommand):
 
                 print(f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n")
                 fake_mzxml.delete()
-            elif msrs_taker is not None:
+            elif msrs_taker is not None and msrs_taker.ms_data_file is not None:
                 # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
                 # Added these checks due to the dry-run output showing real mzXML files.
                 print(
