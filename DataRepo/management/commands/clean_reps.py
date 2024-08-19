@@ -146,33 +146,80 @@ class Command(BaseCommand):
             msrs_giver = MSRunSample.objects.get(id=msrs_giver_id)
             msrs_taker = MSRunSample.objects.get(id=msrs_taker_id)
 
-            pg: PeakGroup
-            for pg in msrs_giver.peak_groups.all():
+            if (
+                "Dupe" in msrs_giver.ms_data_file.checksum
+                and "Dupe" in msrs_giver.ms_data_file.filename
+            ):
+
+                # If the neighbor MSRunSample record also has a fake mzXML, migrate the PeakGroups
+                if (
+                    "Dupe" in msrs_taker.ms_data_file.checksum
+                    and "Dupe" in msrs_taker.ms_data_file.filename
+                ):
+                    pg: PeakGroup
+                    for pg in msrs_giver.peak_groups.all():
+                        print(
+                            f"Moving remaining PeakGroup:\n\t{model_to_dict(pg)}\n"
+                            f"to MSRunSample Placeholder:\n\t{model_to_dict(msrs_taker)}\n"
+                        )
+                        # Moving PeakGroup to new Placeholder MSRunSample
+                        pg.msrun_sample = msrs_taker
+                        pg.save()
+
+                    print(
+                        f"Deleting duplicate MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
+                    )
+                    msrs_giver.delete()
+                else:
+                    # Otherwise, just remove the fake mzXML and keep the peak groups where they are
+
+                    # Save the ArchiveFile record (because it won't delete when the record is referenced from
+                    # MSRunSample)
+                    fake_mzxml = msrs_giver.ms_data_file
+
+                    print(
+                        f"Saving representative MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
+                    )
+                    # Remove fake mzXML from MSRunSample record
+                    msrs_giver.ms_data_file = None
+                    msrs_giver.save()
+
+                    print(
+                        f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n"
+                    )
+                    fake_mzxml.delete()
+            else:
+                # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
+                # Added these checks due to the dry-run output showing real mzXML files.
                 print(
-                    f"Moving remaining PeakGroup:\n\t{model_to_dict(pg)}\n"
-                    f"to MSRunSample Placeholder:\n\t{model_to_dict(msrs_taker)}\n"
+                    "Keeping MSRunSample and not moving its PeakGroups because it has a real mzXML file:\n"
+                    f"\t{model_to_dict(msrs_giver)}\n"
                 )
-                # Moving PeakGroup to new Placeholder MSRunSample
-                pg.msrun_sample = msrs_taker
-                pg.save()
 
-            print(
-                f"Deleting duplicate MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
-            )
-            msrs_giver.delete()
+            # If the taker MSRunSample record has a fake mzXML file, remove it.
+            if (
+                "Dupe" in msrs_taker.ms_data_file.checksum
+                and "Dupe" in msrs_taker.ms_data_file.filename
+            ):
+                # Save the ArchiveFile record (because it won't delete when the record is referenced from MSRunSample)
+                fake_mzxml = msrs_taker.ms_data_file
 
-            # Save the ArchiveFile record (because it won't delete when the record is referenced from MSRunSample)
-            fake_mzxml = msrs_taker.ms_data_file
+                print(
+                    f"Saving representative MSRunSample Placeholder:\n\t{model_to_dict(msrs_taker)}\n"
+                )
+                # Remove fake mzXML from MSRunSample record
+                msrs_taker.ms_data_file = None
+                msrs_taker.save()
 
-            print(
-                f"Saving 1 representative MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
-            )
-            # Remove fake mzXML from MSRunSample record
-            msrs_taker.ms_data_file = None
-            msrs_taker.save()
-
-            print(f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n")
-            fake_mzxml.delete()
+                print(f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n")
+                fake_mzxml.delete()
+            else:
+                # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
+                # Added these checks due to the dry-run output showing real mzXML files.
+                print(
+                    "Keeping MSRunSample and not taking the other's PeakGroups because this MSRunSample has a real "
+                    f"mzXML file:\n\t{model_to_dict(msrs_taker)}\n"
+                )
 
     def check_fake_mzxmls(self):
         """Raise if there are any overlooked Fake mzXML files.  Fake files contain the substring "Dupe"."""
