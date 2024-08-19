@@ -154,6 +154,10 @@ class Command(BaseCommand):
                 and "Dupe" in msrs_giver.ms_data_file.filename
             ):
 
+                # Save the ArchiveFile record (because it won't delete when the record is referenced from
+                # MSRunSample)
+                fake_mzxml = msrs_giver.ms_data_file
+
                 # If the neighbor MSRunSample record also has a fake mzXML, migrate the PeakGroups
                 if (
                     msrs_taker is not None
@@ -178,10 +182,6 @@ class Command(BaseCommand):
                 else:
                     # Otherwise, just remove the fake mzXML and keep the peak groups where they are
 
-                    # Save the ArchiveFile record (because it won't delete when the record is referenced from
-                    # MSRunSample)
-                    fake_mzxml = msrs_giver.ms_data_file
-
                     print(
                         f"Saving representative MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
                     )
@@ -189,10 +189,9 @@ class Command(BaseCommand):
                     msrs_giver.ms_data_file = None
                     msrs_giver.save()
 
-                    print(
-                        f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n"
-                    )
-                    fake_mzxml.delete()
+                print(f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n")
+                fake_mzxml.delete()
+
             elif msrs_giver is not None and msrs_giver.ms_data_file is not None:
                 # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
                 # Added these checks due to the dry-run output showing real mzXML files.
@@ -237,7 +236,7 @@ class Command(BaseCommand):
 
         fake_mzxmls = ArchiveFile.objects.filter(filename__icontains="Dupe")
         msg += (
-            f"{fake_mzxmls.count()} ArchiveFile records with fake mzXML files remain."
+            f"{fake_mzxmls.count()} ArchiveFile records with fake mzXML files remain.\n"
         )
         for mzxml in fake_mzxmls.all():
             msg += f"\t{model_to_dict(mzxml)}\n"
