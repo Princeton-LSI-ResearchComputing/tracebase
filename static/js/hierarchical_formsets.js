@@ -190,20 +190,14 @@ function addSearchFieldForm (myDiv, query, templateId) {
     if (keyname === 'fld') {
       fldInitVal = clones[i].value
       fldClone = clones[i]
-      // This does not seem to add "required" as an attribute in the HTML
-      // fldClone.required = true
     } else if (keyname === 'ncmp') {
       ncmpInitVal = clones[i].value
       ncmpClone = clones[i]
-      // This does not seem to add "required" as an attribute in the HTML
-      // ncmpClone.required = true
     } else if (keyname === 'units') {
       // For initial blank forms, clones[i].value for units is based on valClone.value, which has not been set yet in
       // the loop, but its initial value automatically defaults to the *first* item in the select list
       unitsInitVal = clones[i].value
       unitsClone = clones[i]
-      // This does not seem to add "required" as an attribute in the HTML
-      // unitsClone.required = true
     } else if (keyname === 'val') {
       if (clones[i].value === '') {
         isBlankForm = true
@@ -211,8 +205,6 @@ function addSearchFieldForm (myDiv, query, templateId) {
       valClone = clones[i]
       // Hide the val text field
       clones[i].style = 'display:none;'
-      // This does not seem to add "required" as an attribute in the HTML
-      // valClone.required = true
     }
 
     // If the query is static (as defined in the Format class), disable its input element
@@ -274,7 +266,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   attachInfoTooltip(unitsInfoImg, tooltipSpan)
 
   // Initialize the val field(s)
-  const valFields = updateValFields(fldInitVal, ncmpInitVal, unitsClone, valClone, templateId)
+  const valFields = updateValFields(fldInitVal, ncmpInitVal, unitsClone, valClone, templateId, templateId === rootGroup.selectedtemplate)
 
   // Keep the ncmp select list choices updated to reflect the fld value
   fldClone.addEventListener('change', function (event) {
@@ -282,12 +274,12 @@ function addSearchFieldForm (myDiv, query, templateId) {
     updateUnitsChoices(event.target.value, ncmpClone.value, '', unitsClone, rootGroup.selectedtemplate)
     attachInfoTooltip(unitsInfoImg, tooltipSpan)
     updateUnitsAboutInfo(unitsClone.value, fldClone.value, ncmpClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
-    updateValFields(event.target.value, ncmpClone.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
+    updateValFields(event.target.value, ncmpClone.value, unitsClone, valClone, rootGroup.selectedtemplate, true, valFields)
   })
 
   // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
   ncmpClone.addEventListener('change', function (event) {
-    updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
+    updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, true, valFields)
     updateUnitsChoices(fldClone.value, event.target.value, '', unitsClone, rootGroup.selectedtemplate)
     updateUnitsAboutInfo(unitsClone.value, fldClone.value, ncmpClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
   })
@@ -295,7 +287,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
   unitsClone.addEventListener('change', function (event) {
     // This is to update the placeholder in the valFields
-    updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
+    updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, true, valFields)
     attachInfoTooltip(unitsInfoImg, tooltipSpan)
     updateUnitsAboutInfo(event.target.value, fldClone.value, ncmpClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
   })
@@ -328,14 +320,40 @@ function createSearchFieldFormDiv (templateId, query, parentGroup) {
 }
 
 /**
+ * This method cycles through all hierarchical-search-form elements (that have a name attribute whose first dash-
+ * delimited value is the template ID) and adds or removes the "required" attribute based on whether it is the currently
+ * selected template format.  The purpose is to enable browser form validation, so that a form cannot be submitted if
+ * required form fields are empty.  It assumes that any form input element with an ID is required when that template is
+ * selected.
+ */
+function updateAllRequiredValFields() {
+  const selectedTemplateID = rootGroup.selectedtemplate;
+  const validTemplateIDs = Object.keys(rootGroup.searches);
+  const allforms = document.getElementById('hierarchical-search-form');
+  const formElems = allforms.querySelectorAll('input,select,textarea');
+  formElems.forEach(function (elem) {
+    if (elem.hasAttribute("name")) {
+      templateID = '' + elem.name.split('-').shift();
+      if (templateID === selectedTemplateID) {
+        elem.setAttribute("required", true);
+      } else if (validTemplateIDs.includes(templateID)) {
+        elem.removeAttribute("required");
+      } else {
+        console.log(elem)
+      }
+    }
+  })
+}
+
+/**
  * This function coordinates the update of all val form widgets, showing and hiding based on fld type and ncmp selection
  */
-function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templateId, valFields) {
-  const dbFieldType = getDBFieldType(templateId, fldInitVal)
-  const dbFieldChoices = getDBEnumFieldChoices(templateId, fldInitVal)
+function updateValFields (fldVal, ncmpVal, unitsClone, valClone, templateId, templateSelected, valFields) {
+  const dbFieldType = getDBFieldType(templateId, fldVal)
+  const dbFieldChoices = getDBEnumFieldChoices(templateId, fldVal)
 
   const unitsVal = unitsClone.value
-  let placeholder = fldUnits[templateId][fldInitVal].metadata[unitsVal].example
+  let placeholder = fldUnits[templateId][fldVal].metadata[unitsVal].example
   if (typeof placeholder === 'undefined' || !placeholder || placeholder === '') {
     if (dbFieldType === 'string') {
       placeholder = 'search term'
@@ -354,6 +372,10 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
 
     // For string and number fld types when ncmp is not (isnull or not_isnull)
     valFields.valTextBox = document.createElement('input')
+    // We need a name for "form-control" to work, and that name must be unique.  Here, we're including template and type
+    // for debugging, and a UUID for uniqueness.
+    // Reference: https://sentry.io/answers/generate-random-string-characters-in-javascript/
+    valFields.valTextBox.name = templateId + "-valTextBox-" + crypto.randomUUID()
     valFields.valTextBox.placeholder = placeholder
     valFields.valTextBox.value = valClone.value
 
@@ -366,6 +388,10 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
 
     // For enumeration fld types when ncmp is not (isnull or not_isnull)
     valFields.valSelectList = document.createElement('select')
+    // We need a name for "form-control" to work, and that name must be unique.  Here, we're including template and type
+    // for debugging, and a UUID for uniqueness.
+    // Reference: https://sentry.io/answers/generate-random-string-characters-in-javascript/
+    valFields.valSelectList.name = templateId + "-valSelectList-" + crypto.randomUUID()
     updateValEnumSelectList(valFields.valSelectList, dbFieldChoices)
 
     valFields.valTextBox.addEventListener('change', function (event) {
@@ -376,10 +402,18 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
     })
   }
 
-  if (ncmpInitVal === 'isnull' || ncmpInitVal === 'not_isnull') {
+  if (ncmpVal === 'isnull' || ncmpVal === 'not_isnull') {
     valClone.value = valFields.valHiddenBox.value
+
     valFields.valTextBox.style = 'display:none;'
+    valFields.valTextBox.removeAttribute("required");
+    // valFields.valTextBox.title = "";
+    // valFields.valTextBox.setAttribute("data-original-title", "Required");
+
     valFields.valSelectList.style = 'display:none;'
+    valFields.valSelectList.removeAttribute("required");
+    // valFields.valSelectList.title = "";
+    // valFields.valSelectList.setAttribute("data-original-title", "Required");
   } else if (dbFieldType === 'string' || dbFieldType === 'number') {
     // If the initval was 'dummy' empty it out (note, this will fail if the user actually wants to search for 'dummy')
     if (valFields.valTextBox.value === 'dummy') {
@@ -388,8 +422,20 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
     } else {
       valClone.value = valFields.valTextBox.value
     }
+
     valFields.valTextBox.style = ''
+    if (templateSelected) {
+      valFields.valTextBox.setAttribute("required", true);
+    } else {
+      valFields.valTextBox.removeAttribute("required");
+    }
+    // valFields.valTextBox.title = "Required";
+    // valFields.valTextBox.setAttribute("data-original-title", "Required");
+
     valFields.valSelectList.style = 'display:none;'
+    valFields.valSelectList.removeAttribute("required");
+    // valFields.valSelectList.title = "";
+    // valFields.valSelectList.setAttribute("data-original-title", "Required");
     if (dbFieldType === 'string') {
       valFields.valTextBox.placeholder = placeholder
     } else {
@@ -400,12 +446,32 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
     // The valClone.value may change if the field was changed from its initial value, because it is a different select
     // list, which defaults to the first option
     valClone.value = valFields.valSelectList.value
+
     valFields.valTextBox.style = 'display:none;'
+    valFields.valTextBox.removeAttribute("required");
+    // valFields.valTextBox.title = "";
+    // valFields.valTextBox.setAttribute("data-original-title", "Required");
+
     valFields.valSelectList.style = ''
+    if (templateSelected) {
+      valFields.valSelectList.setAttribute("required", true);
+    } else {
+      valFields.valSelectList.removeAttribute("required");
+    }
+    // valFields.valSelectList.title = "Required";
+    // valFields.valSelectList.setAttribute("data-original-title", "Required");
   } else {
-    console.error('Undetermined database field type for template/field-path:', templateId, fldInitVal, 'Unable to determine val form field type.')
+    console.error('Undetermined database field type for template/field-path:', templateId, fldVal, 'Unable to determine val form field type.')
+
     valFields.valTextBox.style = ''
+    valFields.valTextBox.removeAttribute("required");
+    // valFields.valTextBox.title = "";
+    // valFields.valTextBox.setAttribute("data-original-title", "Required");
+
     valFields.valSelectList.style = ''
+    valFields.valSelectList.removeAttribute("required");
+    // valFields.valSelectList.title = "";
+    // valFields.valSelectList.setAttribute("data-original-title", "Required");
   }
 
   if (isAddMode) {
@@ -494,14 +560,16 @@ function isValEnumSelectListTheSame (valSelectList, dbFieldChoices) {
 }
 
 /**
- * This function uses the fldTypes global to return the type of a DB field's form type (string, number, or enumeration) that is used to show/hide the correct val form widget.
+ * This function uses the fldTypes global to return the type of a DB field's form type (string, number, or enumeration)
+ * that is used to show/hide the correct val form widget.
  */
 function getDBFieldType (templateId, fldVal) {
   return fldTypes[templateId][fldVal].type
 }
 
 /**
- * For fields of type "enumeration", this function uses the fldTypes global to return the 2D choices array that can be used to populate a "val" select list
+ * For fields of type "enumeration", this function uses the fldTypes global to return the 2D choices array that can be
+ * used to populate a "val" select list
  */
 function getDBEnumFieldChoices (templateId, fldVal) {
   return fldTypes[templateId][fldVal].choices
@@ -705,6 +773,7 @@ function addFormatSelectList (parentDiv, rootQueryObject) {
     rootQueryObject.selectedtemplate = event.target.value
     showOutputFormatSearch(rootQueryObject.selectedtemplate)
     updateBrowseLink(rootQueryObject.selectedtemplate)
+    updateAllRequiredValFields()
   })
 
   // Put descriptive text in front of the select list
