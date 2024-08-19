@@ -142,18 +142,21 @@ class Command(BaseCommand):
 
         for msrs_giver_id, msrs_taker_id in msrs_peakgroup_migrations.items():
 
-            # Get the MSRunSample records involved
-            msrs_giver = MSRunSample.objects.get(id=msrs_giver_id)
-            msrs_taker = MSRunSample.objects.get(id=msrs_taker_id)
+            # Get the MSRunSample records involved.  note, an earlier iteration could have already handled this and
+            # deleted the one due for deletion.
+            msrs_giver = MSRunSample.objects.filter(id=msrs_giver_id).first()
+            msrs_taker = MSRunSample.objects.filter(id=msrs_taker_id).first()
 
             if (
-                "Dupe" in msrs_giver.ms_data_file.checksum
+                msrs_giver is not None
+                and "Dupe" in msrs_giver.ms_data_file.checksum
                 and "Dupe" in msrs_giver.ms_data_file.filename
             ):
 
                 # If the neighbor MSRunSample record also has a fake mzXML, migrate the PeakGroups
                 if (
-                    "Dupe" in msrs_taker.ms_data_file.checksum
+                    msrs_taker is not None
+                    and "Dupe" in msrs_taker.ms_data_file.checksum
                     and "Dupe" in msrs_taker.ms_data_file.filename
                 ):
                     pg: PeakGroup
@@ -188,7 +191,7 @@ class Command(BaseCommand):
                         f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n"
                     )
                     fake_mzxml.delete()
-            else:
+            elif msrs_giver is not None:
                 # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
                 # Added these checks due to the dry-run output showing real mzXML files.
                 print(
@@ -198,7 +201,8 @@ class Command(BaseCommand):
 
             # If the taker MSRunSample record has a fake mzXML file, remove it.
             if (
-                "Dupe" in msrs_taker.ms_data_file.checksum
+                msrs_taker is not None
+                and "Dupe" in msrs_taker.ms_data_file.checksum
                 and "Dupe" in msrs_taker.ms_data_file.filename
             ):
                 # Save the ArchiveFile record (because it won't delete when the record is referenced from MSRunSample)
@@ -213,7 +217,7 @@ class Command(BaseCommand):
 
                 print(f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n")
                 fake_mzxml.delete()
-            else:
+            elif msrs_taker is not None:
                 # The mzXML file was probably added after-the-fact, recently.  Lance DID add some.
                 # Added these checks due to the dry-run output showing real mzXML files.
                 print(
