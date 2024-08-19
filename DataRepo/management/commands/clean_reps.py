@@ -152,28 +152,27 @@ class Command(BaseCommand):
                     f"Moving remaining PeakGroup:\n\t{model_to_dict(pg)}\n"
                     f"to MSRunSample Placeholder:\n\t{model_to_dict(msrs_taker)}\n"
                 )
-                pg.msrun_sample = (
-                    msrs_taker  # Moving PeakGroup to new Placeholder MSRunSample
-                )
+                # Moving PeakGroup to new Placeholder MSRunSample
+                pg.msrun_sample = msrs_taker
                 pg.save()
 
             print(
                 f"Deleting duplicate MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
             )
-            msrs_giver.delete()  # Deleting MSRunSample record that was emptied of PeakGroups
+            msrs_giver.delete()
 
-            print(
-                f"Deleting Fake ArchiveFile:\n\t{model_to_dict(msrs_taker.ms_data_file)}\n"
-            )
-            msrs_taker.ms_data_file.delete()  # Deleting fake mzXML ArchiveFile record
+            # Save the ArchiveFile record (because it won't delete when the record is referenced from MSRunSample)
+            fake_mzxml = msrs_taker.ms_data_file
 
             print(
                 f"Saving 1 representative MSRunSample Placeholder:\n\t{model_to_dict(msrs_giver)}\n"
             )
-            msrs_taker.ms_data_file = (
-                None  # Deleting fake mzXML from MSRunSample record
-            )
+            # Remove fake mzXML from MSRunSample record
+            msrs_taker.ms_data_file = None
             msrs_taker.save()
+
+            print(f"Deleting Fake ArchiveFile:\n\t{model_to_dict(fake_mzxml)}\n")
+            fake_mzxml.delete()
 
     def check_fake_mzxmls(self):
         """Raise if there are any overlooked Fake mzXML files.  Fake files contain the substring "Dupe"."""
