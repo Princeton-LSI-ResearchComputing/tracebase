@@ -5,6 +5,7 @@ from collections import defaultdict
 from io import BytesIO
 from typing import Dict, Optional, Type
 
+import numpy as np
 import pandas as pd
 import xlsxwriter
 import xlsxwriter.worksheet
@@ -1567,6 +1568,25 @@ class DataValidationView(FormView):
                         CompoundsLoader.DataHeaders.NAME: compound_name,
                         CompoundsLoader.DataHeaders.FORMULA: formula,
                     }
+
+            print("EXTRACTING AND INCLUDING ALL COMPOUNDS WITH MATCHING FORMULAS")
+            for formula in np.unique(formulas):
+                if formula in self.none_vals:
+                    continue
+                for compound_rec in Compound.objects.filter(formula__iexact=formula):
+                    if (
+                        compound_rec.name
+                        not in self.autofill_dict[CompoundsLoader.DataSheetName].keys()
+                    ):
+                        print(
+                            f"ADDING COMPOUND (BY FORMULA) {compound_rec.name} {compound_rec.formula}"
+                        )
+                        self.autofill_dict[CompoundsLoader.DataSheetName][
+                            compound_rec.name
+                        ] = {
+                            CompoundsLoader.DataHeaders.NAME: compound_rec.name,
+                            CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
+                        }
 
     def extract_autofill_from_exceptions(self, retain_as_warnings=True):
         """Remove exceptions related to references to missing underlying data and extract their data.
