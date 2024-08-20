@@ -171,7 +171,6 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
         rec = Study.objects.first()
         rec_dict = {
-            "code": "obf",
             "name": "ob/ob Fasted",
             "description": "Inconsistent description",
         }
@@ -199,7 +198,6 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
         conflicts = []
         rec_dict = {
-            "code": "obf",
             "name": "ob/ob Fasted",
             "description": "Inconsistent description",
         }
@@ -230,7 +228,6 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         Tests handle_load_db_errors's handling of other IntegrityErrors.
         """
         rec_dict = {
-            "code": "obf",
             "name": "ob/ob Fasted",
             "description": "Inconsistent description",
         }

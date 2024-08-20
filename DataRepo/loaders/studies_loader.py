@@ -83,10 +83,8 @@ class StudiesLoader(TableLoader):
 
         Args:
             None
-
         Raises:
             Nothing (explicitly)
-
         Returns:
             Nothing
         """

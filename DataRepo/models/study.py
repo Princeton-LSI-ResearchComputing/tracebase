@@ -1,26 +1,8 @@
-from django.core.validators import MinLengthValidator, RegexValidator
 from django.db import models
 
 
 class Study(models.Model):
-    alphanumeric = RegexValidator(
-        r"^[0-9a-zA-Z]+$", "Only alphanumeric characters are allowed."
-    )
-    atleast2chars = MinLengthValidator(2)
-
     id = models.AutoField(primary_key=True)
-    # TODO: Remove the code field
-    code = models.CharField(
-        max_length=6,
-        blank=True,
-        null=True,
-        unique=True,
-        help_text=(
-            "A 2 to 6 character unique readable alphanumeric code for the study, to be used as a prefix for animal "
-            "names, sample names, etc if necessary, to make them unique."
-        ),
-        validators=[atleast2chars, alphanumeric],
-    )
     name = models.CharField(
         max_length=256,
         blank=False,
