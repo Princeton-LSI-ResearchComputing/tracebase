@@ -12,7 +12,6 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.utils import ProgrammingError
 from django.forms import ValidationError
-from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
@@ -541,11 +540,7 @@ class DataValidationView(FormView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-        # check if there is some video onsite
-        if not settings.VALIDATION_ENABLED:
-            return redirect("validatedown")
-        else:
-            return super(DataValidationView, self).dispatch(request, *args, **kwargs)
+        return super(DataValidationView, self).dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
@@ -2796,7 +2791,3 @@ class DataValidationView(FormView):
                 )
             ).check_dataframe_headers()
         )
-
-
-def validation_disabled(request):
-    return render(request, "validation_disabled.html")
