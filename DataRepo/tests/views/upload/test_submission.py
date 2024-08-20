@@ -3,7 +3,6 @@ import os
 from io import BytesIO
 
 from django.core.management import call_command
-from django.test import override_settings
 from django.urls import reverse
 
 from DataRepo.loaders import ProtocolsLoader, TissuesLoader
@@ -1294,24 +1293,6 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
 
     #     self.assertListEqual(tb_init_counts, tb_post_counts)
     #     self.assertEqual(pre_load_maintained_values, post_load_maintained_values)
-
-    @override_settings(VALIDATION_ENABLED=False)
-    def test_validate_view_disabled_redirect(self):
-        """
-        Do a simple validation view test when validation is disabled
-        """
-        response = self.client.get(reverse("submission"))
-        self.assertEqual(
-            response.status_code, 302, msg="Make sure the view is redirected"
-        )
-
-    @override_settings(VALIDATION_ENABLED=False)
-    def test_validate_view_disabled_template(self):
-        """
-        Do a simple validation view test when validation is disabled
-        """
-        response = self.client.get(reverse("submission"), follow=True)
-        self.assertTemplateUsed(response, "validation_disabled.html")
 
     def test_accucor_validation_error(self):
         self.clear_database()

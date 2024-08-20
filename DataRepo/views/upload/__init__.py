@@ -1,6 +1,5 @@
-from .submission import DataValidationView, validation_disabled
+from .submission import DataValidationView
 
 __all__ = [
     "DataValidationView",
-    "validation_disabled",
 ]

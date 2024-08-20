@@ -5,7 +5,6 @@ from . import views
 urlpatterns = [
     path("", views.home, name="home"),
     path("submission", views.DataValidationView.as_view(), name="submission"),
-    path("validatedown", views.validation_disabled, name="validatedown"),
     path(
         "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
         views.search_basic,
