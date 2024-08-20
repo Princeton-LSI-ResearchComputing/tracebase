@@ -797,7 +797,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         # Obtain a DataValidationView object containing errors
         vo = self.get_data_validation_object_with_errors()
         # Create the dfs_dict (to which data will be added)
-        vo.dfs_dict = vo.create_study_dfs_dict()
+        vo.dfs_dict = vo.create_or_repair_study_dfs_dict()
         # Extract the errors into the autofill_dict (in the object)
         vo.extract_autofill_from_exceptions()
 
@@ -1354,7 +1354,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertTrue(exceptions[afkey][1]["is_error"])
 
         # All samples in sample table combined error
-        groupkey = "Peak Annotation Files Check"
+        groupkey = "Peak Annotation Samples Check"
         self.assertTrue(groupkey in results)
         self.assertEqual("FAILED", results[groupkey])
 

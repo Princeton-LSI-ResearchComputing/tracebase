@@ -773,6 +773,10 @@ class MSRunsLoader(TableLoader):
                 else False
             )
 
+            if self.is_skip_row():
+                self.skipped(MSRunSample.__name__)
+                return rec, created, updated
+
             if skip is True:
                 self.skipped(MSRunSample.__name__)
                 mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
@@ -801,7 +805,7 @@ class MSRunsLoader(TableLoader):
                     )
                     self.warned(MSRunSample.__name__)
 
-            if sample is None or msrun_sequence is None or self.is_skip_row():
+            if sample is None or msrun_sequence is None:
                 self.skipped(MSRunSample.__name__)
                 return rec, created, updated
 

@@ -231,7 +231,7 @@ class DataValidationView(FormView):
 
         self.output_study_filename = "study.xlsx"
         self.autofill_only_mode = True
-        self.dfs_dict = self.create_study_dfs_dict()
+        self.dfs_dict = self.create_or_repair_study_dfs_dict()
         self.init_row_group_nums()
         self.study_file = None
         self.study_filename = None
@@ -2232,22 +2232,24 @@ class DataValidationView(FormView):
             dict of dicts: dataframes-style dicts dict keyed on sheet name
         """
         if self.study_file is None:
-            return self.create_study_dfs_dict()
+            return self.create_or_repair_study_dfs_dict()
         dfs_dict = self.get_study_dfs_dict()
         # If there was a conversion issue, the dfs_dict will be empty
         if dfs_dict is None or len(dfs_dict.keys()) == 0:
             # There will have been an exception buffered, so let's just fall back to a default template for them to use
-            return self.create_study_dfs_dict()
-        return dfs_dict
+            return self.create_or_repair_study_dfs_dict()
+        # This fills in missing sheets and columns
+        return self.create_or_repair_study_dfs_dict(dfs_dict)
 
-    def create_study_dfs_dict(self, dfs_dict: Optional[Dict[str, dict]] = None):
+    def create_or_repair_study_dfs_dict(
+        self, dfs_dict: Optional[Dict[str, dict]] = None
+    ):
         """Create dataframe template dicts for each sheet in self.animal_sample_file as a dict keyed on sheet.
 
         Treatments and tissues dataframes are populated using all of the data in the database for their models.
         Animals and Samples dataframes are not populated.
 
-        In neither case, is missing data attempted to be auto-filled by this method.  Nor are unrecognized sheets or
-        columns removed.
+        Missing data is not attempted to be auto-filled by this method.  Nor are unrecognized sheets or columns removed.
 
         Args:
             dfs_dict (dict of dicts): Supply this if you want to "fill in" missing sheets only.
@@ -2501,8 +2503,9 @@ class DataValidationView(FormView):
             for k, v in dict_of_dataframes.items():
                 dfs_dict[k] = v.to_dict()
 
-            # create_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty row values
-            self.create_study_dfs_dict(dfs_dict=dfs_dict)
+            # create_or_repair_study_dfs_dict, if given a dict, will fill in any missing sheets and columns with empty
+            # row values
+            self.create_or_repair_study_dfs_dict(dfs_dict=dfs_dict)
         except (
             InvalidStudyDocVersion,
             UnknownStudyDocVersion,
@@ -2663,11 +2666,6 @@ class DataValidationView(FormView):
         Returns:
             xlsx_writer (xlsxwriter)
         """
-        if not self.dfs_dict_is_valid():
-            raise ValueError(
-                "Cannot call create_study_file_writer when dfs_dict is not valid/created."
-            )
-
         xlsx_writer = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
             stream_obj, engine="xlsxwriter"
         )
@@ -2775,13 +2773,12 @@ class DataValidationView(FormView):
         Returns:
             valid (boolean)
         """
-        if self.dfs_dict is None or set(
-            [
-                s[0]
-                for s in StudyLoader.get_study_sheet_column_display_order()
-                if s[0] in self.dfs_dict.keys()
-            ]
-        ) < set(self.build_sheets):
+        existing_sheets = [
+            s[0]
+            for s in StudyLoader.get_study_sheet_column_display_order()
+            if s[0] in self.dfs_dict.keys()
+        ]
+        if self.dfs_dict is None or set(existing_sheets) < set(self.build_sheets):
             return False
 
         return (

@@ -732,7 +732,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             (
                 AllMissingSamples,
                 self.no_sample_record_exceptions,
-                "Peak Annotation Files Check",
+                "Peak Annotation Samples Check",
                 True,
             ),
             (
