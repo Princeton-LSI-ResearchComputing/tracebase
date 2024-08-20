@@ -3,7 +3,7 @@
 
 <div>
     <h3>Start a Submission</h3>
-    <span class="small text-muted">Upload multiple peak annotation files (e.g. AccuCor files) and get back a Study doc with automatically populated sample names, compounds, etc.</span><br><br>
+    <span class="small text-muted">Generate a Study Submission Template with auto-filled samples and compounds extracted from your peak annotation files (e.g. AccuCor) along with other supporting data from the database.</span><br><br>
     <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
         {% csrf_token %}
 
