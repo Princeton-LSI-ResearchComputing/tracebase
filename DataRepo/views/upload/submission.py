@@ -699,7 +699,7 @@ class DataValidationView(FormView):
             for i in self.dfs_dict[TracersLoader.DataSheetName][
                 TracersLoader.DataHeaders.ID
             ].values()
-            if i is not None
+            if str(i) not in self.none_vals
         ]
         self.next_tracer_row_group_num = 1
         if len(trcr_row_group_nums) > 0:
