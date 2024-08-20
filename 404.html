@@ -8,14 +8,13 @@
     <title>TraceBase Documentation</title>
     <link rel="stylesheet" href="/tracebase/css/theme.css" />
     <link rel="stylesheet" href="/tracebase/css/theme_extra.css" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
-    <script src="/tracebase/js/jquery-3.6.0.min.js" defer></script>
     <!--[if lt IE 9]>
       <script src="/tracebase/js/html5shiv.min.js"></script>
     <![endif]-->
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
-      <script>hljs.initHighlightingOnLoad();</script> 
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
 </head>
 
 <body class="wy-body-for-nav" role="document">
@@ -27,7 +26,7 @@
           <a href="/tracebase/." class="icon icon-home"> TraceBase Documentation
         </a><div role="search">
   <form id ="rtd-search-form" class="wy-form" action="/tracebase//search.html" method="get">
-      <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
   </form>
 </div>
       </div>
@@ -37,13 +36,31 @@
                 <li class="toctree-l1"><a class="reference internal" href="/tracebase/.">TraceBase</a>
                 </li>
               </ul>
+              <p class="caption"><span class="caption-text">Contributing</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Contributing/Report%20a%20bug%20or%20request%20a%20feature%20on%20github/">Report a bug or request a feature</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Download</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Download/Example_compare%20isotopomer%20labeling%20from%20glucose%20across%20studies/">Example_compare isotopomer labeling from glucose across studies</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Download/Example_compare%20normalized%20labeling%20from%20glucose%20across%20studies/">Example_compare normalized labeling from glucose across studies</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Download/Format%20of%20Downloaded%20Data/">Format of Downloaded Data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Download/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/">How do I analyze data downloaded from TraceBase?</a>
+                  </li>
+              </ul>
               <p class="caption"><span class="caption-text">Overview</span></p>
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="/tracebase/Overview/Navigating%20TraceBase/">Navigating TraceBase</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="/tracebase/Overview/People%20Who%20Contributed%20to%20TraceBase%20Development/">People Who Contributed to TraceBase Development</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Overview/Structure%20of%20TraceBase%20for%20the%20Researcher/">Structure of TraceBase for the Researcher</a>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Overview/Structure%20of%20TraceBase%20for%20the%20Researcher/">Type of Information</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Overview/TraceBase%20Terms%20and%20Definitions/">TraceBase Terms and Definitions</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Types of Data Output</span></p>
@@ -61,11 +78,17 @@
               </ul>
               <p class="caption"><span class="caption-text">Upload</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/How%20to%20Upload/">How to Upload</a>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/How%20to%20Upload/">Uploading Data to TraceBase</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/How%20to%20label%20Mass%20Spec%20Run%20Information/">How to label Mass Spec Run Information</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/How%20to%20label%20sample%20information/">How to label sample information</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/Input%20Data%20for%20TraceBase%20Upload/">Input Data for TraceBase</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/Labeling%20and%20Organizing%20Data/">Labeling and Organizing Data</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/Recommended%20Practices%20for%20Organizing%20Data/">Recommended Practices for Organizing Data</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="/tracebase/Upload/Sample%20Information%20Sheet/">Sample Information Sheet</a>
                   </li>
@@ -102,7 +125,7 @@
       <div class="wy-nav-content">
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
-    <li><a href="/tracebase/." class="icon icon-home" alt="Docs"></a> &raquo;</li>
+    <li><a href="/tracebase/." class="icon icon-home" aria-label="Docs"></a></li>
     <li class="wy-breadcrumbs-aside">
     </li>
   </ul>
@@ -143,14 +166,15 @@
     
   </span>
 </div>
-    <script>var base_url = '/tracebase/';</script>
-    <script src="/tracebase/js/theme_extra.js" defer></script>
-    <script src="/tracebase/js/theme.js" defer></script>
-      <script src="/tracebase/search/main.js" defer></script>
-    <script defer>
-        window.onload = function () {
+    <script src="/tracebase/js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "/tracebase/";</script>
+    <script src="/tracebase/js/theme_extra.js"></script>
+    <script src="/tracebase/js/theme.js"></script>
+      <script src="/tracebase/search/main.js"></script>
+    <script>
+        jQuery(function () {
             SphinxRtdTheme.Navigation.enable(true);
-        };
+        });
     </script>
 
 </body>

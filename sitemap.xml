@@ -2,107 +2,152 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Contributing/Report%20a%20bug%20or%20request%20a%20feature%20on%20github/</loc>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Download/Example_compare%20isotopomer%20labeling%20from%20glucose%20across%20studies/</loc>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Download/Example_compare%20normalized%20labeling%20from%20glucose%20across%20studies/</loc>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Download/Format%20of%20Downloaded%20Data/</loc>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Download/How%20to%20analyze%20data%20downloaded%20from%20TraceBase/</loc>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Overview/Navigating%20TraceBase/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Overview/People%20Who%20Contributed%20to%20TraceBase%20Development/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Overview/Structure%20of%20TraceBase%20for%20the%20Researcher/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Overview/TraceBase%20Terms%20and%20Definitions/</loc>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Types%20of%20Data%20Output/Downloaded%20Data%20Formats/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Types%20of%20Data%20Output/Fcirc/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Types%20of%20Data%20Output/How%20to%20Download/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Types%20of%20Data%20Output/PeakData/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Types%20of%20Data%20Output/PeakGroups/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/How%20to%20Upload/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/How%20to%20label%20Mass%20Spec%20Run%20Information/</loc>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/How%20to%20label%20sample%20information/</loc>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/Input%20Data%20for%20TraceBase%20Upload/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/Labeling%20and%20Organizing%20Data/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/Recommended%20Practices%20for%20Organizing%20Data/</loc>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/Sample%20Information%20Sheet/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Corrected%20Abundance/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Enrichment%20Abundance/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Enrichment/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Example%20of%20Enrichment%20Fraction%20and%20Abundance%20Calculation/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Fraction/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Glossary%20of%20Calculated%20Values/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Normalized%20Labeling/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>http://Princeton-LSI-ResearchComputing.github.io/tracebase/Values/Total%20Abundance/</loc>
-         <lastmod>2023-02-09</lastmod>
+         <lastmod>2024-08-20</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>

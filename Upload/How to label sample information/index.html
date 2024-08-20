@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/Input%20Data%20for%20TraceBase%20Upload/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="http://Princeton-LSI-ResearchComputing.github.io/tracebase/Upload/How%20to%20label%20sample%20information/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Input Data for TraceBase - TraceBase Documentation</title>
+    <title>How to label sample information - TraceBase Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Input Data for TraceBase";
-        var mkdocs_page_input_path = "Upload/Input Data for TraceBase Upload.md";
-        var mkdocs_page_url = "/tracebase/Upload/Input%20Data%20for%20TraceBase%20Upload/";
+        var mkdocs_page_name = "How to label sample information";
+        var mkdocs_page_input_path = "Upload/How to label sample information.md";
+        var mkdocs_page_url = "/tracebase/Upload/How%20to%20label%20sample%20information/";
       </script>
     
     <!--[if lt IE 9]>
@@ -89,11 +89,19 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../How%20to%20label%20Mass%20Spec%20Run%20Information/">How to label Mass Spec Run Information</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../How%20to%20label%20sample%20information/">How to label sample information</a>
-                  </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Input Data for TraceBase</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">How to label sample information</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#animals-sheet">Animals Sheet</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#samples-sheet">Samples Sheet</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#treatments-sheet">Treatments Sheet</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#tissues-sheet">Tissues Sheet</a>
+    </li>
     </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../Input%20Data%20for%20TraceBase%20Upload/">Input Data for TraceBase</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../Labeling%20and%20Organizing%20Data/">Labeling and Organizing Data</a>
                   </li>
@@ -136,7 +144,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
           <li class="breadcrumb-item">Upload</li>
-      <li class="breadcrumb-item active">Input Data for TraceBase</li>
+      <li class="breadcrumb-item active">How to label sample information</li>
     <li class="wy-breadcrumbs-aside">
     </li>
   </ul>
@@ -145,31 +153,100 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="input-data-for-tracebase">Input Data for TraceBase</h1>
-<p>TraceBase accepts mass spectrometry data that has been corrected for the
-natural abundance of isotopomers.</p>
-<p>Specifically, tracebase supports the output from two popular tools for natural
-abundance correction: <a href="https://github.com/lparsons/accucor">Accucor</a>
-(<a href="https://doi.org/10.1021/acs.analchem.7b00396">https://doi.org/10.1021/acs.analchem.7b00396</a>)
-and <a href="https://github.com/xxing9703/isocorr13C15N">isocorr13C15N</a>.</p>
-<p><img alt="Diagram showing the file types that can be uploaded to TraceBase" src="../../Attachments/Input%20Formats%20Sketch.png" /></p>
-<p>Therefore, a typical workflow to put data on TraceBase could be:</p>
-<ol>
-<li>Select peaks from a set of <code>.mzXML</code> files using
-   <a href="http://maven.princeton.edu/index.php">Maven</a> or
-   <a href="https://www.elucidata.io/el-maven">El-Maven</a>.</li>
-<li>Correct for natural abundance using Accucor or isocorr13C15N.</li>
-<li>Upload data to TraceBase.</li>
-</ol>
-<p>TraceBase uses the <a href="../Sample%20Information%20Sheet/">Sample Information Sheet</a>
-to label and organize this data, and produces three types of <a href="../../Types%20of%20Data%20Output/Downloaded%20Data%20Formats/">output
-formats</a>.</p>
+                <h1 id="how-to-label-sample-information">How to label sample information</h1>
+<p>Sample information in TraceBase is kept consistent with existing data in TraceBase.  This document describes in detail where sample information should be stored and how it should be formatted.  It also describes what happens if you have new sample information (ie new Diet, Compound, etc).</p>
+<p>See also <a href="../../Overview/TraceBase%20Terms%20and%20Definitions/">../Overview/TraceBase Terms and Definitions</a>.</p>
+<p>If you are unsure of how to label something, write whatever you think fits and upload anyway.  Indicate what you are unsure about in the upload form or on the information sheet.  The developer team will check the data and help you label it properly.</p>
+<h2 id="animals-sheet">Animals Sheet</h2>
+<p>Animal ID
+- a unique identifier for the animal.  See recommendations for how to label Animal ID in <a href="../Recommended%20Practices%20for%20Organizing%20Data/">Recommended Practices for Organizing Data</a>.</p>
+<p>Age
+- age in weeks when the infusion started</p>
+<p>Sex
+- "male" or "female"</p>
+<p>Animal Genotype
+- most specific genotype possible.  Check existing data on TraceBase for common genotypes.  If necessary, indicate genotype as "unknown" (e.g. if the animal is a mixed background wildtype).</p>
+<p>Animal Body Weight - weight in grams at time of infusion</p>
+<p>Infusate
+- A description of the infusion solution (aka cocktail) given to this animal.
+- Individual tracer compounds will be formatted: <strong>compound_name-[weight element count,weight element count]</strong>
+  - Examples:
+    - <strong>valine-[13C5,15N1]</strong>
+    - <strong>leucine-[13C6,15N1]</strong>
+    - <strong>isoleucine-[13C6,15N1]</strong>
+- If a tracer is not fully labeled for a given element, the positions of the that element must be included: <strong>compound_name-[position,position-weight element count]</strong>
+  - Example:
+    - <strong>L-Leucine-[1,2-13C2]</strong>
+- Mixtures of compounds are formatted: <strong>tracer_mix_name {tracer; tracer}</strong>
+  - <strong>tracer_mix_name</strong> is optional
+  - Example:
+  - BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}</p>
+<p>Tracer Concentrations
+- Concentration(s) of infusate in this infusion solution (in mM)
+- For multiple tracer compounds, list concentrations in the same order as in "infusate" separated by semicolons
+- Example:
+  - 5; 6; 9</p>
+<p>Infusion Rate
+- Volume of infusate solution infused (microliters (ul) per minute per gram of mouse body weight)</p>
+<p>Diet
+- Description of animal diet used.  Include the manufacturer identification and short description where possible.  Check data on TraceBase for commonly used diets.</p>
+<p>Feeding Status
+- "fasted", "fed", or "refed"
+- Indicate the length of fasting/feeding in "treatment description" or in "study description"</p>
+<p>Animal Treatment
+- Short, unique identifier for animal treatment protocol.  Details are provided in the "Treatment Description" field on the "Treatments" sheet
+- Example:  "T3 in drinking water"
+- Default animal treatment is "no treatment"
+- Note that unique diets and feeding status are indicated elsewhere, and not considered as "animal treatments"</p>
+<p>Study Name
+- An identifier for the "experiment" or collection of animals that this animal belongs to.  See <a href="../Recommended%20Practices%20for%20Organizing%20Data/">Recommended Practices for Organizing Data</a></p>
+<p>Study Description
+- A long form description of the study
+- Describe here experimental design, citations if the data is published, or any other relevant information that a researcher might need to consider when looking at the data from this study</p>
+<h2 id="samples-sheet">Samples Sheet</h2>
+<p>Sample Name
+- Unique identifier for the biological sample
+- Must match the name of a sample in Accucor or Isocorr data
+- See <a href="../Recommended%20Practices%20for%20Organizing%20Data/">Recommended Practices for Organizing Data</a> for suggestions on how to name samples</p>
+<p>Date collected
+- Date sample was collected (YYY-MM-DD)</p>
+<p>Researcher Name
+- Researcher primarily responsible for collection of this sample
+- FIRST LAST</p>
+<p>Tissue
+- Type of tissue, matching the reference list of tissues
+- See "Tissues" tab for reference list of tissues
+- If you have a tissue that is not listed in "Tissues" reference, add your new tissue to the "Tissues" tab</p>
+<p>Collection Time
+- Minutes after the start of the infusion that the tissue was collected
+- Collection Time for samples collected before the infusion should be &lt;= 0</p>
+<p>Animal ID
+- Matches to the Animal ID that this sample was collected from</p>
+<h2 id="treatments-sheet">Treatments Sheet</h2>
+<p>Animal Treatment
+- Short, unique identifier for animal treatment protocol.  Matches to the same value in "Samples" sheet.</p>
+<p>Treatment Description
+- A thorough description of an animal treatment protocol. This will be useful for searching and filtering, so use standard terms and be as complete as possible.
+- Any difference in Treatment should be indicated by a new Animal Treatment
+  - Example:  different doses of T3 in drinking water are indicated by different Animal Treatments
+  - | <strong>Animal Treatment</strong>            | <strong>Treatment Description</strong>                                                                                |
+    |---------------------------------|----------------------------------------------------------------------------------------------------------|
+    | no treatment                    | No treatment was applied to the animal. Animal was housed at room temperature with a normal light cycle. |
+    | T3 in drinking water            | T3 was provided in drinking water at 0.5 mg/L for two weeks prior to the start of infusion.              |
+    | T3 in drinking water (1.5 mg/L) | T3 was provided in drinking water at 1.5 mg/L for two weeks prior to the start of infusion.              |</p>
+<h2 id="tissues-sheet">Tissues Sheet</h2>
+<p>TraceBase Tissue Name
+- Short identifier used by TraceBase
+- Use the most specific identifier applicable to your samples
+- If your data contains a tissue not already listed here, create a new TraceBase Tissue Name and Description here.</p>
+<p>Description
+- Long form description of TraceBase tissue</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../How%20to%20label%20sample%20information/" class="btn btn-neutral float-left" title="How to label sample information"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../Labeling%20and%20Organizing%20Data/" class="btn btn-neutral float-right" title="Labeling and Organizing Data">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../How%20to%20label%20Mass%20Spec%20Run%20Information/" class="btn btn-neutral float-left" title="How to label Mass Spec Run Information"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../Input%20Data%20for%20TraceBase%20Upload/" class="btn btn-neutral float-right" title="Input Data for TraceBase">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -192,10 +269,10 @@ formats</a>.</p>
   <span class="rst-current-version" data-toggle="rst-current-version">
     
     
-      <span><a href="../How%20to%20label%20sample%20information/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../How%20to%20label%20Mass%20Spec%20Run%20Information/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../Labeling%20and%20Organizing%20Data/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../Input%20Data%20for%20TraceBase%20Upload/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
