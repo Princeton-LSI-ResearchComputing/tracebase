@@ -713,7 +713,9 @@ class InfusatesLoader(TableLoader):
                             if math.isclose(
                                 parsed_concentration, float(table_tracer_conc)
                             ) and (
-                                parsed_tracer_name == table_tracer_name
+                                # Ignoring whitespace and case differences
+                                parsed_tracer_name.replace(" ", "").lower()
+                                == str(table_tracer_name).replace(" ", "").lower()
                                 or table_tracer_name is None
                             ):
                                 match = True
@@ -1370,7 +1372,11 @@ class InfusatesLoader(TableLoader):
 
             file_conc = None
             for te in infusate_dict["tracers"]:
-                if te["tracer_name"].lower() == db_tracer_name.lower():
+                # Ignoring whitespace and case differences
+                if (
+                    te["tracer_name"].replace(" ", "").lower()
+                    == db_tracer_name.replace(" ", "").lower()
+                ):
                     file_conc = te["tracer_concentration"]
 
             if file_conc is None:
