@@ -62,21 +62,21 @@
     <div>
         <ul class="tabbar tabbar-pills justify-content-center">
             <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Start' or page is None %}active{% endif %}" href="{% url 'validate' %}?page=Start">Start</a>
+                <a class="tabbar-link {% if page == 'Start' or page is None %}active{% endif %}" href="{% url 'submission' %}?page=Start">Start</a>
             </li>
             <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Fill In' %}active{% endif %}" href="{% url 'validate' %}?page=Fill%20In">Fill In</a>
+                <a class="tabbar-link {% if page == 'Fill In' %}active{% endif %}" href="{% url 'submission' %}?page=Fill%20In">Fill In</a>
             </li>
             <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Validate' %}active{% endif %}" href="{% url 'validate' %}?page=Validate">Validate</a>
+                <a class="tabbar-link {% if page == 'Validate' %}active{% endif %}" href="{% url 'submission' %}?page=Validate">Validate</a>
             </li>
             <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Submit' %}active{% endif %}" href="{% url 'validate' %}?page=Submit">Submit</a>
+                <a class="tabbar-link {% if page == 'Submit' %}active{% endif %}" href="{% url 'submission' %}?page=Submit">Submit</a>
             </li>
         </ul>
         <h3>Build a TraceBase Submission</h3>
         <span class="small text-muted">Upload multiple accucor and/or isocorr files (and an optional existing Animal/Sample sheet) and get back an animal and sample sheet with sample names automatically added.</span><br><br>
-        <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
+        <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
 
             <label for="peak_annotation_files" class="tight-form-label">
