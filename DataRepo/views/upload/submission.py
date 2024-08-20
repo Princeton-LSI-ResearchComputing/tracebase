@@ -54,11 +54,15 @@ from DataRepo.utils.exceptions import (
     AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
+    DuplicatePeakAnnotationFileName,
+    InvalidPeakAnnotationFileFormat,
     InvalidStudyDocVersion,
     MissingDataAdded,
     MultiLoadStatus,
+    MultiplePeakAnnotationFileFormats,
     MultipleStudyDocVersions,
     NoSamples,
+    UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
@@ -192,7 +196,7 @@ class DataValidationView(FormView):
         self.results = {}
         self.exceptions = {}
         self.ordered_keys = []
-        self.load_status_data: Optional[MultiLoadStatus] = None
+        self.load_status_data = MultiLoadStatus()
 
         self.studies_loader = StudiesLoader()
         self.animals_loader = AnimalsLoader()
@@ -355,7 +359,6 @@ class DataValidationView(FormView):
         self.peak_annot_filenames = []
         self.peak_annotations_loaders = []
         user_file_formats: Dict[str, str] = {}
-        error_messages = []
 
         if peak_annot_files is not None and len(peak_annot_files) > 0:
             for index, peak_annot_file in enumerate(peak_annot_files):
@@ -367,9 +370,10 @@ class DataValidationView(FormView):
                     peak_annot_filename in self.annot_files_dict.keys()
                     and self.annot_files_dict[peak_annot_filename] != peak_annot_file
                 ):
-                    error_messages.append(
-                        f"Peak annotation filenames must be unique.  Filename {peak_annot_filename} was "
-                        "encountered multiple times."
+                    self.load_status_data.set_load_exception(
+                        DuplicatePeakAnnotationFileName(peak_annot_filename),
+                        peak_annot_filename,
+                        top=False,
                     )
                     continue
 
@@ -425,9 +429,27 @@ class DataValidationView(FormView):
                     if user_format_code is not None and user_format_code in supported:
                         user_file_formats[user_filename] = user_format_code
                     elif user_format_code is not None:
-                        error_messages.append(
-                            f"Unrecognized format code: {user_format_code} from {self.study_file}, sheet "
-                            f"'{PeakAnnotationFilesLoader.DataSheetName}', row {row.name + 2}."
+                        _, user_filename_only = os.path.split(user_filename)
+                        self.load_status_data.set_load_exception(
+                            InvalidPeakAnnotationFileFormat(
+                                user_format_code,
+                                supported,
+                                annot_file=user_filename_only,
+                                file=self.study_file,
+                                sheet=PeakAnnotationFilesLoader.DataSheetName,
+                                column=PeakAnnotationFilesLoader.DataHeaders.FORMAT,
+                                rownum=row.name + 2,
+                                suggestion=(
+                                    f"Please enter the correct '{PeakAnnotationFilesLoader.DataHeaders.FORMAT}' for "
+                                    f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' '{user_filename_only}' in the "
+                                    f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet of '{self.study_filename}'.  "
+                                    "Note that format determination is made using sheet names and column headers.  If "
+                                    "a csv or tsv was supplied, the determination can be ambiguous due to common "
+                                    "header names."
+                                ),
+                            ),
+                            user_filename_only,
+                            top=False,
                         )
 
         # Now we will sort through the peak annotation files that were supplied and create loader objects for them to
@@ -477,33 +499,34 @@ class DataValidationView(FormView):
                             # We don't need the default sequence info - we only want to read the file
                         )
                     )
-
-                elif len(matching_formats) == 0:
-                    error_messages.append(
-                        f"No matching formats for peak annotation file: {peak_annot_filenames[index]}.  Must be one of "
-                        f"{PeakAnnotationsLoader.get_supported_formats()}.  Please enter the correct "
-                        f"'{PeakAnnotationFilesLoader.DataHeaders.FORMAT}' for "
-                        f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' in the "
-                        f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet of '{self.study_filename}'."
-                    )
                 else:
-                    error_messages.append(
-                        f"Multiple matching formats: {matching_formats} for peak annotation file: "
-                        f"{peak_annot_filenames[index]}.  Please enter the correct "
-                        f"'{PeakAnnotationFilesLoader.DataHeaders.FORMAT}' for "
-                        f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' in the "
-                        f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet of '{self.study_filename}'."
+                    suggestion = (
+                        "Unable to process the file.  Note that format determination is made using sheet names and "
+                        "column headers.  If a csv or tsv was supplied, the determination can be ambiguous due to "
+                        "common header names."
                     )
 
-        if len(error_messages) > 0:
-            msg = "\n\t".join(error_messages)
-            # TODO: Instead of raising an exception, this should be gracefully handled
-            raise ValidationError(
-                f"Could not identify the type of the peak annotation files for the reasons shown below:\n\t{msg}\n"
-                f"Supported formats: {PeakAnnotationsLoader.get_supported_formats()}.  Note that format determination "
-                "is made using sheet names and column headers.  If a csv or tsv was supplied, the determination can be "
-                "ambiguous due to common header names."
-            )
+                    exc: Exception
+                    if len(matching_formats) == 0:
+                        self.peak_annotations_loaders.append(None)
+                        exc = UnknownPeakAnnotationFileFormat(
+                            PeakAnnotationsLoader.get_supported_formats(),
+                            file=peak_annot_filenames[index],
+                            suggestion=suggestion,
+                        )
+                    else:
+                        self.peak_annotations_loaders.append(None)
+                        exc = MultiplePeakAnnotationFileFormats(
+                            matching_formats,
+                            file=peak_annot_filenames[index],
+                            suggestion=suggestion,
+                        )
+
+                    self.load_status_data.set_load_exception(
+                        exc,
+                        peak_annot_filenames[index],
+                        top=False,
+                    )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -563,6 +586,8 @@ class DataValidationView(FormView):
             # Ignore missing accucor files (allow user to validate just the sample file)
             peak_annotation_files = []
 
+        self.load_status_data.clear_load()
+
         self.set_files(
             tmp_study_file,
             study_filename=str(sample_file) if sample_file is not None else None,
@@ -613,7 +638,7 @@ class DataValidationView(FormView):
         # Initialize a status object for the results for each input file
         # TODO: Make the MultiLoadStatus class more of a "status" class for multuple "categories" of things that
         # must succeed (as opposed to just load-related things)
-        self.load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
+        self.load_status_data.update_load(load_key=self.all_infile_names)
 
         if self.autofill_only_mode:
             # autofill_only_mode means that there was no study file submitted.  (The form validation guarantees that
@@ -1433,6 +1458,12 @@ class DataValidationView(FormView):
         """
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
+
+            # If the file format could not be determined, the loader will be None
+            if self.peak_annotations_loaders[i] is None:
+                print(f"SKIPPING UNKNOWN FORMAT FILE: {peak_annot_filename}")
+                continue
+
             peak_annot_loader: PeakAnnotationsLoader = self.peak_annotations_loaders[i]
 
             self.autofill_dict[PeakAnnotationFilesLoader.DataSheetName][
