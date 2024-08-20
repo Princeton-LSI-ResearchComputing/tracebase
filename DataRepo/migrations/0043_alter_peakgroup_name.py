@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("DataRepo", "0041_alter_protocol_options"),
+        ("DataRepo", "0042_remove_study_code"),
     ]
 
     operations = [
