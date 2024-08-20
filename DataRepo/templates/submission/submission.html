@@ -28,32 +28,44 @@
 {% endblock %}
 
 {% block content %}
+    <div style="min-height: 90vh;display: flex;flex-direction: column;margin: 0;">
+        <div style="flex: 1 0 auto;">
+            <div>
+                <ul class="tabbar tabbar-pills justify-content-center">
+                    <li class="tabbar-item">
+                        <a class="tabbar-link {% if page == 'Start' or page is None %}active{% endif %}" href="{% url 'submission' %}?page=Start">Start</a>
+                    </li>
+                    <li class="tabbar-item">
+                        <a class="tabbar-link {% if page == 'Fill In' %}active{% endif %}" href="{% url 'submission' %}?page=Fill%20In">Fill In</a>
+                    </li>
+                    <li class="tabbar-item">
+                        <a class="tabbar-link {% if page == 'Validate' %}active{% endif %}" href="{% url 'submission' %}?page=Validate">Validate</a>
+                    </li>
+                    <li class="tabbar-item">
+                        <a class="tabbar-link {% if page == 'Submit' %}active{% endif %}" href="{% url 'submission' %}?page=Submit">Submit</a>
+                    </li>
+                </ul>
+            </div>
 
-    <div>
-        <ul class="tabbar tabbar-pills justify-content-center">
-            <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Start' or page is None %}active{% endif %}" href="{% url 'submission' %}?page=Start">Start</a>
-            </li>
-            <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Fill In' %}active{% endif %}" href="{% url 'submission' %}?page=Fill%20In">Fill In</a>
-            </li>
-            <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Validate' %}active{% endif %}" href="{% url 'submission' %}?page=Validate">Validate</a>
-            </li>
-            <li class="tabbar-item">
-                <a class="tabbar-link {% if page == 'Submit' %}active{% endif %}" href="{% url 'submission' %}?page=Submit">Submit</a>
-            </li>
-        </ul>
+            {% if page == 'Start' or page is None %}
+                {% include "submission/includes/1_start.html" %}
+            {% elif page == 'Fill In' %}
+                {% include "submission/includes/2_fill_in.html" %}
+            {% elif page == 'Validate' %}
+                {% include "submission/includes/3_validate.html" %}
+            {% elif page == 'Submit' %}
+                {% include "submission/includes/4_submit.html" %}
+            {% endif %}
+        </div>
+
+        <small class="text-muted">
+            <br>
+            <hr>
+            Feel free to submit data as you generate it.  Your study does not have to be complete for submission.  You can
+            iteratively submit <span class="tooltip-hint" text-tooltip="E.g. AccuCor excel file">peak annotation files</span>
+            with their metadata described in the <span class="tooltip-hint" text-tooltip="Animal/Sample excel file">study doc</span>,
+            as you finish them.  Each one can be an additional separate submission to the same study.
+        </small>
     </div>
-
-    {% if page == 'Start' or page is None %}
-        {% include "submission/includes/1_start.html" %}
-    {% elif page == 'Fill In' %}
-        {% include "submission/includes/2_fill_in.html" %}
-    {% elif page == 'Validate' %}
-        {% include "submission/includes/3_validate.html" %}
-    {% elif page == 'Submit' %}
-        {% include "submission/includes/4_submit.html" %}
-    {% endif %}
 
 {% endblock %}
