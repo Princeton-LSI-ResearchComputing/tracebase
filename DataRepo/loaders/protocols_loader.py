@@ -51,7 +51,7 @@ class ProtocolsLoader(TableLoader):
         CAT_KEY,  # Required by the model field, but effectively not reqd, bec. it's defaulted
     ]
 
-    # Default values to use when a row in the given column doesn;t have a value in it
+    # Default values to use when a row in the given column doesn't have a value in it
     DataDefaultValues = DataTableHeaders(
         NAME=None,
         CATEGORY=Protocol.ANIMAL_TREATMENT,
