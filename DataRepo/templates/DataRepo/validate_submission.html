@@ -6,6 +6,7 @@
     {{ block.super }}
 
     <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+    <link href="{% static 'css/tabbar.css' %}" rel="stylesheet">
     <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
     <script src="{% static 'js/file_list_drop_area.js' %}"></script>
     <script src="{% static 'js/browser_download.js' %}"></script>
@@ -59,6 +60,20 @@
 
 {% block content %}
     <div>
+        <ul class="tabbar tabbar-pills justify-content-center">
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Start' or page is None %}active{% endif %}" href="{% url 'validate' %}?page=Start">Start</a>
+            </li>
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Fill In' %}active{% endif %}" href="{% url 'validate' %}?page=Fill%20In">Fill In</a>
+            </li>
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Validate' %}active{% endif %}" href="{% url 'validate' %}?page=Validate">Validate</a>
+            </li>
+            <li class="tabbar-item">
+                <a class="tabbar-link {% if page == 'Submit' %}active{% endif %}" href="{% url 'validate' %}?page=Submit">Submit</a>
+            </li>
+        </ul>
         <h3>Build a TraceBase Submission</h3>
         <span class="small text-muted">Upload multiple accucor and/or isocorr files (and an optional existing Animal/Sample sheet) and get back an animal and sample sheet with sample names automatically added.</span><br><br>
         <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">

@@ -505,6 +505,11 @@ class DataValidationView(FormView):
                 "ambiguous due to common header names."
             )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["page"] = self.request.GET.get("page", None)
+        return context
+
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
         if not settings.VALIDATION_ENABLED:
