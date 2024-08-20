@@ -189,6 +189,7 @@ class DataValidationView(FormView):
 
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
         self.valid = None
+        self.state = None
         self.results = {}
         self.exceptions = {}
         self.ordered_keys = []
@@ -561,6 +562,7 @@ class DataValidationView(FormView):
                 results=self.results,
                 debug=debug,
                 valid=self.valid,
+                state=self.state,
                 form=form,
                 exceptions=self.exceptions,
                 submission_url=self.submission_url,
@@ -2502,7 +2504,6 @@ class DataValidationView(FormView):
         Returns:
             None
         """
-        valid = self.load_status_data.is_valid
         results = {}
         exceptions = {}
         ordered_keys = []
@@ -2539,7 +2540,8 @@ class DataValidationView(FormView):
                         }
                     )
 
-        self.valid = valid
+        self.valid = self.load_status_data.is_valid
+        self.state = self.load_status_data.state
         self.results = results
         self.exceptions = exceptions
         self.ordered_keys = ordered_keys
