@@ -55,6 +55,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTissues,
     AllMissingTreatments,
     DuplicatePeakAnnotationFileName,
+    FileFromInputNotFound,
     InvalidPeakAnnotationFileFormat,
     InvalidStudyDocVersion,
     MissingDataAdded,
@@ -2639,6 +2640,12 @@ class DataValidationView(FormView):
             )
         except MultiLoadStatus as mls:
             load_status_data = mls
+
+        # Remove exceptions about missing peak annotation files when the peak annotation files were not submitted
+        if len(self.annot_files_dict.keys()) == 0:
+            load_status_data.remove_exception_type(
+                self.study_filename, FileFromInputNotFound
+            )
 
         self.load_status_data = load_status_data
 
