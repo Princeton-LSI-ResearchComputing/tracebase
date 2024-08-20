@@ -8,7 +8,9 @@ from DataRepo.management.commands.load_table import LoadTableCommand
 class Command(LoadTableCommand):
     """Command to load the Study model (i.e. not an entire study doc) from a table-like file."""
 
-    help = "Loads data from a study table (e.g. name and description) into the database."
+    help = (
+        "Loads data from a study table (e.g. name and description) into the database."
+    )
     loader_class: Type[TableLoader] = StudiesLoader
 
     def handle(self, *args, **options):
