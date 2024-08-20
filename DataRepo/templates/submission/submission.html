@@ -4,19 +4,27 @@
 {% block head_extras %}
     {{ block.super }}
 
-    <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
     <link href="{% static 'css/tabbar.css' %}" rel="stylesheet">
-    <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
-    <link href="{% static 'css/file_tree.css' %}" rel="stylesheet">
-    <script src="{% static 'js/submission_fillin.js' %}"></script>
-    <script src="{% static 'js/file_list_drop_area.js' %}"></script>
-    <script src="{% static 'js/browser_download.js' %}"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function(){
-            initListeners("{% static 'images/minus.png' %}", "{% static 'images/plus.png' %}")
-        })
-    </script>
-    <script src="{% static 'js/submission.js' %}"></script>
+    {% if page == 'Start' or page is None %}
+        <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+        <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
+        <script src="{% static 'js/browser_download.js' %}"></script>
+        <script src="{% static 'js/file_list_drop_area.js' %}"></script>
+        <script src="{% static 'js/submission.js' %}"></script>
+    {% elif page == 'Fill In' %}
+        <script src="{% static 'js/submission_fillin.js' %}"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function(){
+                initListeners("{% static 'images/minus.png' %}", "{% static 'images/plus.png' %}")
+            })
+        </script>
+    {% elif page == 'Validate' %}
+        <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+        <script src="{% static 'js/browser_download.js' %}"></script>
+        <script src="{% static 'js/submission.js' %}"></script>
+    {% elif page == 'Submit' %}
+        <link href="{% static 'css/file_tree.css' %}" rel="stylesheet">
+    {% endif %}
 {% endblock %}
 
 {% block content %}

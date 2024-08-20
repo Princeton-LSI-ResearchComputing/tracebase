@@ -186,9 +186,8 @@ class AdvSearchPageForm(Form):
     page = CharField(widget=HiddenInput())
     order_by = CharField(widget=HiddenInput())
     order_direction = CharField(widget=HiddenInput())
-    paging = CharField(
-        widget=HiddenInput()
-    )  # This field's name ("paging") is used to distinguish pager form submissions from other form submissions
+    # This field's name ("paging") is used to distinguish pager form submissions from other form submissions
+    paging = CharField(widget=HiddenInput())
     show_stats = BooleanField(widget=HiddenInput())
     stats = JSONField(widget=HiddenInput())
 
@@ -344,6 +343,8 @@ class DataSubmissionValidationForm(Form):
             attrs={"multiple": True, "id": "peak_annotation_files_field"}
         ),
     )
+    # mode is "autofill" or "validate"
+    mode = CharField(widget=HiddenInput())
 
     def clean(self):
         """Ensure that at least a sample or peak annotation file is supplied and that the study doc is an excel file and
