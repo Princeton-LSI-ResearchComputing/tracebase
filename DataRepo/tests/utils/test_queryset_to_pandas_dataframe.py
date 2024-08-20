@@ -106,7 +106,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
                 "valine-[13C5,15N1]",
             ],
             "concentrations": [12, 24, 20],
-            "labeled_elements": ["C,N"],
+            "labeled_elements": ["C+N"],
         }
 
         super().setUpTestData()

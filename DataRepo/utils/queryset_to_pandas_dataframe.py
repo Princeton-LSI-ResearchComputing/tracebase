@@ -244,7 +244,7 @@ class QuerysetToPandasDataFrame:
         )
         # convert array to str before grouping
         infusate_gb_df1["elements_as_str"] = infusate_gb_df1["labeled_elements"].apply(
-            ",".join
+            "+".join
         )
 
         # groupby infusate
@@ -583,7 +583,7 @@ class QuerysetToPandasDataFrame:
         try:
             all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
                 "labeled_elements"
-            ].apply(";".join)
+            ].apply(",".join)
         except TypeError:
             # When labeled_elements is empty, a TypeError is raised
             all_stud_msrun_df["elements_as_str"] = cls.null_rpl_str
