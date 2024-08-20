@@ -13,47 +13,27 @@ you initially submit for upload.
 
 ## Step-by-step instructions
 
-1. Create a Sample Sheet (see also [How to label sample
-   information](How%20to%20label%20Mass%20Spec%20Run%20Information.md))
-[Copy](https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy?copyComments=true)
-the TraceBase Animal and Sample Table Template.
-   1. Fill in the `Animals` sheet. Give each mouse in your study a unique ID.
-   2. Fill in the `Samples` sheet.
-      - Ensure that each `Sample Name` uniquely represents a true biological
-        sample. If a sample name does not match the sample headers in your
-        AccuCor/Isocorr files (e.g. a sample tube was injected multiple times),
-        you must add those non-matching samples to an
-        [LCMS-metadata file](https://docs.google.com/spreadsheets/d/1rfKOGqms8LPeqORO5gyTXLXDU2lvz-CG2aCEwmu8xHw/copy)
-      - If you have a Tissue that is not included in the existing list, please
-        label it as you would like to in the `Tissues` sheet and inidcate
-        that you are submitting a new Tissue Type in the "Special Instructions"
-        section of the form.
-   3. Fill in Treatments sheet (optional) with any treatments not captured by
-      other columns (ie `Diet`).  Use `no treatment` if applicable. Provide a
-      list of treatments used in the study, along with a description of each.
+1. Download a submission template (a.k.a. a "Study doc")
+    - Click the "Upload" tab at the top of any page of TraceBase.
+    - You can upload your peak annotation files (e.g. "AccuCor"), and the your
+      samples and compounds will be extracted and added to the template to give
+      you a head start.
 
-      Note: In general, you should NOT edit your AccuCor files. It's simplest
-      and often best to resolve issues by editing your animal and sample table
-      file.
+2. Fill in the template with your data
+    - Follow the directions under the "Fill In" tab to flesh out your study doc
+      with all the details of your study.
 
-2. Upload your data on Google Drive
-   1. Create a folder for your study in the [TraceBase Study Submission
-      folder](https://drive.google.com/drive/folders/1cBy3eezfr_0vmaz8RGodga6A8n3hkm1m?usp=sharing)
-      on Google Drive
-   2. Create a folder with your name (if it doesn't already exist).
-   3. Create a new folder for this study.
-   4. Add the Animal and Sample spread sheet, AccuCor/IsoCorr files, and the
-      conditionally required LCMS-metadata file to the study folder
+3. Validate your Study doc
+    - Under the "Validate" tab, submit your filled-in study doc to download a
+      version containing some minor repairs and an error report.
+    - You can either proceed to submission or try and fix any of the reported
+      errors and re-validate.
 
-3. Submit the [TraceBase Study Submission form](https://forms.gle/vEfJEfhPbCbkybpE7)
-   Complete the following:
-   1. Study Name
-   2. Link to Google Drive folder with study submission.
-   3. Mass Spectrometry Details (see [[How to label Mass Spec Run
-      Information]]).  Note, the LCMS-metadata file can be used to denote
-      multiple different operators, dates, methods, etc. The values entered into
-      the submission form are used as defaults for any samples that are not
-      included in the file.
+4. Submit your data
+    - Under the "Submit" tab, follow the directions on where to deposit your
+      data.
+    - Click the "Submission Form" button and fill out the resulting form to let
+      the curators know that your submission is done.
 
 What happens next?
 
