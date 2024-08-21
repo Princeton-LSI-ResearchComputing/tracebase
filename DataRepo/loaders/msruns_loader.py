@@ -1763,7 +1763,6 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             Buffers:
                 NotImplementedError
-                ProgrammingError
                 OSError
             Raises:
                 None
