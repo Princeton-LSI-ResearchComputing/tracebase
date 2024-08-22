@@ -467,22 +467,20 @@ class LoadTableCommand(ABC, BaseCommand):
             msg = "Dry-run complete.  The following would occur during a real load:\n"
 
         load_stats = self.loader.get_load_stats()
-        for mdl in self.loader_class.get_models():
-            mdl_name = mdl.__name__
-            if mdl_name in load_stats.keys():
-                msg += (
-                    "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], errored: [%i], and warned: "
-                    "[%i].\n"
-                    % (
-                        mdl_name,
-                        load_stats[mdl_name]["created"],
-                        load_stats[mdl_name]["existed"],
-                        load_stats[mdl_name]["updated"],
-                        load_stats[mdl_name]["skipped"],
-                        load_stats[mdl_name]["errored"],
-                        load_stats[mdl_name]["warned"],
-                    )
+        for mdl_name in load_stats.keys():
+            msg += (
+                "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], errored: [%i], and warned: "
+                "[%i].\n"
+                % (
+                    mdl_name,
+                    load_stats[mdl_name]["created"],
+                    load_stats[mdl_name]["existed"],
+                    load_stats[mdl_name]["updated"],
+                    load_stats[mdl_name]["skipped"],
+                    load_stats[mdl_name]["errored"],
+                    load_stats[mdl_name]["warned"],
                 )
+            )
 
         if self.saved_aes is not None and self.saved_aes.get_num_errors() > 0:
             status = self.style.ERROR(msg)

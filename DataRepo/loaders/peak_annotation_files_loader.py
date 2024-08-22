@@ -488,3 +488,5 @@ class PeakAnnotationFilesLoader(TableLoader):
         except AggregatedErrors as aes:
             # Log the peak annot loader's exceptions by file
             self.aggregated_errors_dict[filename] = aes
+        finally:
+            self.update_load_stats(peak_annot_loader.get_load_stats())

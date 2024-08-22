@@ -1614,6 +1614,10 @@ class TableLoaderTests(TracebaseTestCase):
         # TODO: Implement test
         pass
 
+    def test_update_load_stats(self):
+        # TODO: Implement test
+        pass
+
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):
     def test_flatten(self):

@@ -420,6 +420,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 loader.load_data()
             except Exception as e:
                 self.package_group_exceptions(e)
+            finally:
+                self.update_load_stats(loader.get_load_stats())
 
         enable_caching_updates()
 
