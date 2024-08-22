@@ -95,18 +95,26 @@ class MSRunSequence(Model):
             instrument (Optional[str])
             date (Optional[str])
         """
+        from DataRepo.utils.exceptions import InvalidSequenceName
+
         operator = None
         date = None
         lc_protocol_name = None
         instrument = None
 
         if sequence_name is not None:
-            (
-                operator,
-                lc_protocol_name,
-                instrument,
-                date,
-            ) = sequence_name.split(cls.SEQNAME_DELIMITER)
+            try:
+                (
+                    operator,
+                    lc_protocol_name,
+                    instrument,
+                    date,
+                ) = sequence_name.split(cls.SEQNAME_DELIMITER)
+            except ValueError as ve:
+                raise InvalidSequenceName(
+                    f"Unable to parse sequence name '{sequence_name}'.  Must be 4 comman-delimited values of "
+                    "[Operator, LC Protocol, Instrument, and Date]."
+                ).with_traceback(ve.__traceback__)
 
             if operator is not None:
                 operator = operator.strip()

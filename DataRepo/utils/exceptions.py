@@ -3469,6 +3469,10 @@ class DateParseError(InfileError):
         self.format = format
 
 
+class InvalidSequenceName(InfileError):
+    pass
+
+
 class MissingRequiredLCMSValues(Exception):
     def __init__(self, header_rownums_dict):
         head_rows_str = ""
