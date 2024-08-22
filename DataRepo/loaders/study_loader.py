@@ -283,7 +283,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             None
         """
         # NOTE: self.load_data() requires the file argument to have been provided to this constructor.
-        if kwargs.get("defer_rollback") is False:
+        if kwargs.get("defer_rollback") is True:
             raise ProgrammingError(
                 "Modifying the following superclass constructor arguments is prohibited by StudyLoader: "
                 "[defer_rollback]."

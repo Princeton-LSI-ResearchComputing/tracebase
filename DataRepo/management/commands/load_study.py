@@ -31,7 +31,6 @@ class Command(LoadTableCommand):
         # Don't require any options (i.e. don't require the --infile option)
         super().__init__(
             *args,
-            opt_defaults={"defer_rollback": True},
             custom_loader_init=True,
             **kwargs,
         )
