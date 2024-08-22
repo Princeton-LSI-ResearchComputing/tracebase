@@ -32,6 +32,7 @@ from DataRepo.models.utilities import exists_in_db, update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
+    InvalidSequenceName,
     MixedPolarityErrors,
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
@@ -1196,7 +1197,7 @@ class MSRunsLoader(TableLoader):
                 origin = "infile"
                 error_source = self.friendly_file
                 sheet = self.sheet
-                column = self.DefaultsHeaders.DEFAULT_VALUE
+                column = self.DataHeaders.SEQNAME
                 rownum = self.rownum
 
                 (
@@ -1324,6 +1325,15 @@ class MSRunsLoader(TableLoader):
                     ),
                     orig_exception=mor,
                 )
+        except InvalidSequenceName as isn:
+            self.aggregated_errors_object.buffer_error(
+                isn.set_formatted_message(
+                    file=error_source,
+                    sheet=sheet,
+                    column=column,
+                    rownum=rownum,
+                )
+            )
         except InfileError as ie:
             self.aggregated_errors_object.buffer_error(ie)
         except Exception as e:

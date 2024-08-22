@@ -112,7 +112,7 @@ class MSRunSequence(Model):
                 ) = sequence_name.split(cls.SEQNAME_DELIMITER)
             except ValueError as ve:
                 raise InvalidSequenceName(
-                    f"Unable to parse sequence name '{sequence_name}'.  Must be 4 comman-delimited values of "
+                    f"Unable to parse sequence name '{sequence_name}'.  Must be 4 comma-delimited values of "
                     "[Operator, LC Protocol, Instrument, and Date]."
                 ).with_traceback(ve.__traceback__)
 
