@@ -11,6 +11,7 @@ from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
 from DataRepo.models.compound import Compound
 from DataRepo.utils.exceptions import (
     InfileError,
+    RollbackException,
     TracerCompoundNameInconsistent,
     TracerParsingError,
     summarize_int_list,
@@ -482,9 +483,12 @@ class InfusatesLoader(TableLoader):
                             self.skipped(InfusateTracer.__name__)
                             continue
 
-                        self.get_or_create_infusate_tracer(
-                            infusate_tracer_dict, infusate_rec
-                        )
+                        try:
+                            self.get_or_create_infusate_tracer(
+                                infusate_tracer_dict, infusate_rec
+                            )
+                        except RollbackException:
+                            pass
 
                     if infusate_created:
                         try:
@@ -950,7 +954,7 @@ class InfusatesLoader(TableLoader):
 
         return rec
 
-    # The overridden Infusate.objects.get_or_create has an atomic transaction decorator
+    @transaction.atomic
     def get_or_create_infusate_tracer(self, tracer_dict, infusate_rec):
         """Get or create an InfusateTracer record.
 
@@ -977,6 +981,7 @@ class InfusatesLoader(TableLoader):
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Tracer, query_dict)
+            # Nothing to roll back
             return rec, created
 
         try:
@@ -998,7 +1003,7 @@ class InfusatesLoader(TableLoader):
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, InfusateTracer, rec_dict)
             # Now that the exception has been handled, trigger a rollback of this record load attempt
-            raise e
+            raise RollbackException()
 
         return rec, created
 
