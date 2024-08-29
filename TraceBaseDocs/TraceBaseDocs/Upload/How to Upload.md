@@ -23,7 +23,7 @@ you initially submit for upload.
     - Follow the directions under the "Fill In" tab to flesh out your study doc
       with all the details of your study.
 
-3. Validate your Study doc
+3. Check your Study doc for errors
     - Under the "Validate" tab, submit your filled-in study doc to download a
       version containing some minor repairs and an error report.
     - You can either proceed to submission or try and fix any of the reported
