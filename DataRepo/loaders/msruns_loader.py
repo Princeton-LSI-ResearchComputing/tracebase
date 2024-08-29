@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import xmltodict
-from django.db import ProgrammingError, transaction
+from django.db import transaction
 from django.db.models import Max, Min, Q
-from django.forms import model_to_dict
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -28,7 +27,7 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.utilities import exists_in_db, update_rec
+from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
@@ -1764,7 +1763,6 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             Buffers:
                 NotImplementedError
-                ProgrammingError
                 OSError
             Raises:
                 None
@@ -1789,27 +1787,19 @@ class MSRunsLoader(TableLoader):
                 skipped += 1
                 continue
 
-            # To be extra safe, we will confirm that the record does not exist in the database before deleting
-            if exists_in_db(rec):
+            try:
+                os.remove(rec.file_location.path)
+                print(f"DELETED (due to rollback): {rec.file_location.path}")
+                deleted += 1
+            except Exception as e:
                 self.aggregated_errors_object.buffer_error(
-                    ProgrammingError(
-                        f"Cannot delete a file [{rec.file_location.path}] from the os that is associated with "
-                        f"existing {ArchiveFile.__name__} database record: {model_to_dict(rec)}."
-                    )
+                    OSError(
+                        f"Unable to delete created mzXML archive file: [{rec.file_location.path}] during "
+                        f"rollback due to {type(e).__name__}: {e}"
+                    ),
+                    orig_exception=e,
                 )
-            else:
-                try:
-                    os.remove(rec.file_location.path)
-                    deleted += 1
-                except Exception as e:
-                    self.aggregated_errors_object.buffer_error(
-                        OSError(
-                            f"Unable to delete created mzXML archive file: [{rec.file_location.path}] during "
-                            f"rollback due to {type(e).__name__}: {e}"
-                        ),
-                        orig_exception=e,
-                    )
-                    failures += 1
+                failures += 1
 
         print(
             f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "
