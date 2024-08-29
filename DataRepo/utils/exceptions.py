@@ -173,7 +173,7 @@ class InfileError(Exception):
             Buffers:
                 None
         Returns:
-            None
+            self
         """
         self.rownum = rownum
         self.sheet = sheet
@@ -243,6 +243,8 @@ class InfileError(Exception):
                 message += f"\n{suggestion}"
 
         self.message = message
+
+        return self
 
     def __str__(self):
         return self.message
@@ -3467,6 +3469,10 @@ class DateParseError(InfileError):
         self.string = string
         self.ve_exc = ve_exc
         self.format = format
+
+
+class InvalidSequenceName(InfileError):
+    pass
 
 
 class MissingRequiredLCMSValues(Exception):

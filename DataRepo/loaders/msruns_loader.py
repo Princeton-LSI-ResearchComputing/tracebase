@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import xmltodict
-from django.db import ProgrammingError, transaction
+from django.db import transaction
 from django.db.models import Max, Min, Q
-from django.forms import model_to_dict
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -28,10 +27,11 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.utilities import exists_in_db, update_rec
+from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
+    InvalidSequenceName,
     MixedPolarityErrors,
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
@@ -773,11 +773,22 @@ class MSRunsLoader(TableLoader):
                 else False
             )
 
+            if self.is_skip_row():
+                self.skipped(MSRunSample.__name__)
+                return rec, created, updated
+
             if skip is True:
                 self.skipped(MSRunSample.__name__)
-                mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-                self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] = True
+                if mzxml_path is not None:
+                    mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
+                    mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
+                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] = True
+                else:
+                    # If there happen to be mzXMLs supplied, but not in the mzXML column, add the sample header to cause
+                    # the skip (fingers crossed, there's not some difference - but we can't necessarily know that).
+                    # TODO: Account for the dash/underscore issue here.  Isocorr changes dashes in the mzXML name to
+                    # underscores, and we haven't accounted for that here...
+                    self.skip_msrunsample_by_mzxml[sample_header][""] = True
                 return rec, created, updated
 
             sample = self.get_sample_by_name(sample_name)
@@ -801,7 +812,7 @@ class MSRunsLoader(TableLoader):
                     )
                     self.warned(MSRunSample.__name__)
 
-            if sample is None or msrun_sequence is None or self.is_skip_row():
+            if sample is None or msrun_sequence is None:
                 self.skipped(MSRunSample.__name__)
                 return rec, created, updated
 
@@ -1196,7 +1207,7 @@ class MSRunsLoader(TableLoader):
                 origin = "infile"
                 error_source = self.friendly_file
                 sheet = self.sheet
-                column = self.DefaultsHeaders.DEFAULT_VALUE
+                column = self.DataHeaders.SEQNAME
                 rownum = self.rownum
 
                 (
@@ -1324,6 +1335,15 @@ class MSRunsLoader(TableLoader):
                     ),
                     orig_exception=mor,
                 )
+        except InvalidSequenceName as isn:
+            self.aggregated_errors_object.buffer_error(
+                isn.set_formatted_message(
+                    file=error_source,
+                    sheet=sheet,
+                    column=column,
+                    rownum=rownum,
+                )
+            )
         except InfileError as ie:
             self.aggregated_errors_object.buffer_error(ie)
         except Exception as e:
@@ -1764,7 +1784,6 @@ class MSRunsLoader(TableLoader):
         Exceptions:
             Buffers:
                 NotImplementedError
-                ProgrammingError
                 OSError
             Raises:
                 None
@@ -1789,27 +1808,19 @@ class MSRunsLoader(TableLoader):
                 skipped += 1
                 continue
 
-            # To be extra safe, we will confirm that the record does not exist in the database before deleting
-            if exists_in_db(rec):
+            try:
+                os.remove(rec.file_location.path)
+                print(f"DELETED (due to rollback): {rec.file_location.path}")
+                deleted += 1
+            except Exception as e:
                 self.aggregated_errors_object.buffer_error(
-                    ProgrammingError(
-                        f"Cannot delete a file [{rec.file_location.path}] from the os that is associated with "
-                        f"existing {ArchiveFile.__name__} database record: {model_to_dict(rec)}."
-                    )
+                    OSError(
+                        f"Unable to delete created mzXML archive file: [{rec.file_location.path}] during "
+                        f"rollback due to {type(e).__name__}: {e}"
+                    ),
+                    orig_exception=e,
                 )
-            else:
-                try:
-                    os.remove(rec.file_location.path)
-                    deleted += 1
-                except Exception as e:
-                    self.aggregated_errors_object.buffer_error(
-                        OSError(
-                            f"Unable to delete created mzXML archive file: [{rec.file_location.path}] during "
-                            f"rollback due to {type(e).__name__}: {e}"
-                        ),
-                        orig_exception=e,
-                    )
-                    failures += 1
+                failures += 1
 
         print(
             f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "

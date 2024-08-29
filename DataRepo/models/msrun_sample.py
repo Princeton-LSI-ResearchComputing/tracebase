@@ -144,15 +144,13 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                     "polarity": self.polarity,
                     "mz min": self.mz_min,
                     "mz max": self.mz_max,
-                    "RAW file": self.ms_raw_file,
-                    "mzXML": self.ms_data_file,
                 }.items()
                 if i is not None
             ]
         )
-        if details == "":
-            details = "using default parameters"
-        return f"MS run of sample {self.sample} ({details}) in {self.msrun_sequence}"
+        if details != "":
+            details = f" ({details})"
+        return f"{self.sample} run by {self.msrun_sequence.researcher} on {self.msrun_sequence.date}{details}"
 
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)
