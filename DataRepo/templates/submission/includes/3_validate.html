@@ -2,10 +2,10 @@
 {% load static %}
 
 <div>
-    <h3>Check your Submission</h3>
+    <h3>Check and Make Corrections to Your Submission</h3>
     <span class="small text-muted">
-        Upload your filled-in Study doc to check from problems.<br>
-        This form will download a copy of your study doc with fixes for some simple issues and generate a status report for issues that you may elect to try to fix on your own.
+        Download a copy of your Study doc with a few automated corrections, and generate a status report for issues that you may elect to try and fix on your own.<br>
+        You can repeat this process until your submission is error-free, or proceed to submission and we can work with you to resolve any remaining errors.
     </span>
     <br>
     <br>
@@ -33,7 +33,7 @@
         {% if not form.animal_sample_table.errors %}<br>{% endif %}
 
         <span class="text-danger">{{ form.non_field_errors }}</span>
-        <button type="submit" class="btn btn-primary" id="validate">Validate</button>
+        <button type="submit" class="btn btn-primary" id="validate">Validate &amp; Repair</button>
         <!-- "Clear" is only needed for -->
         <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);" style="display:none;">Clear</button>
         <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
