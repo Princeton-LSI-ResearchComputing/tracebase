@@ -772,11 +772,22 @@ class MSRunsLoader(TableLoader):
                 else False
             )
 
+            if self.is_skip_row():
+                self.skipped(MSRunSample.__name__)
+                return rec, created, updated
+
             if skip is True:
                 self.skipped(MSRunSample.__name__)
-                mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
-                mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-                self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] = True
+                if mzxml_path is not None:
+                    mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
+                    mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
+                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] = True
+                else:
+                    # If there happen to be mzXMLs supplied, but not in the mzXML column, add the sample header to cause
+                    # the skip (fingers crossed, there's not some difference - but we can't necessarily know that).
+                    # TODO: Account for the dash/underscore issue here.  Isocorr changes dashes in the mzXML name to
+                    # underscores, and we haven't accounted for that here...
+                    self.skip_msrunsample_by_mzxml[sample_header][""] = True
                 return rec, created, updated
 
             sample = self.get_sample_by_name(sample_name)
@@ -800,7 +811,7 @@ class MSRunsLoader(TableLoader):
                     )
                     self.warned(MSRunSample.__name__)
 
-            if sample is None or msrun_sequence is None or self.is_skip_row():
+            if sample is None or msrun_sequence is None:
                 self.skipped(MSRunSample.__name__)
                 return rec, created, updated
 

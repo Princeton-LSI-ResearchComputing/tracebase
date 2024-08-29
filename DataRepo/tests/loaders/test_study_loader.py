@@ -206,11 +206,13 @@ class StudyLoaderTests(TracebaseTestCase):
 
         self.assertEqual(
             1,
-            len(aess.aggregated_errors_dict["Peak Annotation Files Check"].exceptions),
+            len(
+                aess.aggregated_errors_dict["Peak Annotation Samples Check"].exceptions
+            ),
         )
         self.assertTrue(
             aess.aggregated_errors_dict[
-                "Peak Annotation Files Check"
+                "Peak Annotation Samples Check"
             ].exception_type_exists(AllMissingSamples)
         )
 
