@@ -15,9 +15,9 @@ you initially submit for upload.
 
 1. Create a submission template (a.k.a. a "Study doc")
     - Click the "Upload" tab at the top of any page of TraceBase.
-    - You can upload your peak annotation files (e.g. "AccuCor"), and the your
-      samples and compounds will be extracted and added to the template to give
-      you a head start.
+    - Upload your peak annotation files (e.g. "AccuCor") to generate a template.
+      The samples and compounds will be extracted and added to the template to
+      give you a head start.
 
 2. Fill in the template with data about your samples
     - Follow the directions under the "Fill In" tab to flesh out your study doc
