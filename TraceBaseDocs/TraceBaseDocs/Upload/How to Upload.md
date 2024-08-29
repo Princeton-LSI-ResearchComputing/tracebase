@@ -19,7 +19,7 @@ you initially submit for upload.
       samples and compounds will be extracted and added to the template to give
       you a head start.
 
-2. Fill in the template with your data
+2. Fill in the template with data about your samples
     - Follow the directions under the "Fill In" tab to flesh out your study doc
       with all the details of your study.
 
