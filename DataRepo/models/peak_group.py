@@ -157,10 +157,27 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             .order_by("element")
             .distinct("element")
         )
-        for compound_rec in self.compounds.all():
+        if self.compounds.count() > 0:
+            for compound_rec in self.compounds.all():
+                for tracer_label in tracer_labels:
+                    if (
+                        compound_rec.atom_count(tracer_label.element) > 0
+                        and tracer_label not in possible_observations
+                    ):
+                        possible_observations.append(
+                            ObservedIsotopeData(
+                                element=tracer_label.element,
+                                mass_number=tracer_label.mass_number,
+                                count=0,
+                                parent=True,
+                            )
+                        )
+        else:
+            # If no compounds have yet been linked, fall back to the peak group formula (which note, could differ from
+            # the compound formula (but only due to ionization))
             for tracer_label in tracer_labels:
                 if (
-                    compound_rec.atom_count(tracer_label.element) > 0
+                    atom_count_in_formula(self.formula, tracer_label.element) > 0
                     and tracer_label not in possible_observations
                 ):
                     possible_observations.append(
@@ -173,11 +190,27 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                     )
         return possible_observations
 
-    def clean(self, *args, **kwargs):
+    def save(self, *args, **kwargs):
+        """This is an override of Model.save().  Multiple representations must be checked BEFORE saving or else they
+        won't be caught and will cryptically manifest as a unique constraint-related IntegrityError about the peak
+        annotation file (ArchiveFile) conflicting.  So putting this in the clean method does nothing, because it never
+        executes when there ARE multiple representations."""
+        self.check_for_multiple_representations()
+        return super().save(*args, **kwargs)
+
+    def check_for_multiple_representations(self):
+        """This checks the PeakGroup record (self) to see if its compound was already measured for this sample/sequence
+        in a different peak annotation file and raises an exception if it was.
+
+        Args:
+            None
+        Exceptions:
+            MultiplePeakGroupRepresentations
+        Returns:
+            None
+        """
         from DataRepo.models.utilities import exists_in_db
         from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
-
-        super().clean(*args, **kwargs)
 
         conflicts = PeakGroup.objects.filter(
             name=self.name,
@@ -185,12 +218,33 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             msrun_sample__msrun_sequence__pk=self.msrun_sample.msrun_sequence.pk,
         )
 
-        # If the record already exists (e.g. doing an update), exclude self
+        # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):
             conflicts = conflicts.exclude(pk=self.pk)
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentations(self, conflicts)
+
+    def clean(self, *args, **kwargs):
+        """This checks to ensure that the compound(s) associated with the PeakGroup HAVE an element that is labeled
+        among the tracers.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        from DataRepo.utils.exceptions import NoTracerLabeledElements
+
+        if len(self.peak_labeled_elements) == 0:
+            raise NoTracerLabeledElements(
+                self.name,
+                self.tracer_labeled_elements,
+            )
+
+        return super().clean(*args, **kwargs)
 
     def get_or_create_compound_link(self, cmpd_rec):
         """Get or create a peakgroup_compound record (so that it can be used in record creation stats).

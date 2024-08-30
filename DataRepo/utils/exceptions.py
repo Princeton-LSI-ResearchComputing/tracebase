@@ -3741,7 +3741,7 @@ class AmbiguousMSRuns(Exception):
         self.infile = infile
 
 
-class MultiplePeakGroupRepresentations(ValidationError):
+class MultiplePeakGroupRepresentations(Exception):
     def __init__(self, new_rec, existing_recs):
         """MultiplePeakGroupRepresentations constructor.
 
@@ -3749,20 +3749,20 @@ class MultiplePeakGroupRepresentations(ValidationError):
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
-        leader = "Existing: "
         from_files = [r.peak_annotation_file.filename for r in existing_recs.all()]
-        from_str = f"\n\t{leader}".join(from_files)
+        from_str = "\n\t".join(from_files)
         message = (
             f"Multiple representations of this peak group were encountered:\n"
             f"\tcompound: {new_rec.name}\n"
             f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
             f"\tSample: {new_rec.msrun_sample.sample}\n"
             "Each peak group originated from:\n"
-            f"\tProposed: {new_rec.peak_annotation_file.filename}\n"
-            f"\t{leader}{from_str}\n"
-            "Only 1 representation of a compound per sequence and sample is allowed.  "
+            f"\t{new_rec.peak_annotation_file.filename} (already loaded)\n"
+            f"\t{from_str}\n"
+            "Only 1 representation of a compound per sequence and sample is allowed.  Please remove this compound from "
+            "all but one of the above files, or check to make sure the correct sequence is assigned to each file."
         )
-        super().__init__(message, code="MultiplePeakGroupRepresentations")
+        super().__init__(message)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
 

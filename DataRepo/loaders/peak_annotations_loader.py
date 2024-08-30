@@ -38,6 +38,7 @@ from DataRepo.utils.exceptions import (
     IsotopeStringDupe,
     MissingCompounds,
     MissingSamples,
+    MultiplePeakGroupRepresentations,
     NoSamples,
     NoTracerLabeledElements,
     NoTracers,
@@ -694,6 +695,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 self.created(PeakGroup.__name__)
             else:
                 self.existed(PeakGroup.__name__)
+        except MultiplePeakGroupRepresentations as mpgr:
+            self.aggregated_errors_object.buffer_error(mpgr)
+            self.errored(PeakGroup.__name__)
+            raise RollbackException()
         except Exception as e:
             self.handle_load_db_errors(e, PeakGroup, rec_dict)
             self.errored(PeakGroup.__name__)
@@ -941,8 +946,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 sheet=self.sheet,
                 column=self.headers.COMPOUND,
                 rownum=self.rownum,
+                suggestion="This compound / peak group link will be skipped.",
             )
-            self.aggregated_errors_object.buffer_error(ntle)
+            self.aggregated_errors_object.buffer_warning(ntle)
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
             self.errored(PeakGroupCompound.__name__)
@@ -1049,15 +1055,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         num_possible_isotope_observations = 1
         if pgrec is not None:
             if pgrec.compounds.count() == 0:
-                self.aggregated_errors_object.buffer_error(
-                    ProgrammingError(
-                        "PeakGroup record has no linked compounds.  A peak group must have associated compounds in "
-                        "order to confirm label observations."
+                # There had to have been errors when trying to retrieve compounds to link, which means that this error
+                # is unnecessary (i.e. fixing the previous error would make this error go away), but just to be safe,
+                # error if there have been no errors buffered.
+                if self.aggregated_errors_object.num_errors == 0:
+                    self.aggregated_errors_object.buffer_error(
+                        ProgrammingError(
+                            "PeakGroup record has no linked compounds.  A peak group must have associated compounds in "
+                            "order to confirm label observations."
+                        )
                     )
-                )
-            else:
-                possible_isotope_observations = pgrec.possible_isotope_observations
-                num_possible_isotope_observations = len(possible_isotope_observations)
+            possible_isotope_observations = pgrec.possible_isotope_observations
+            num_possible_isotope_observations = len(possible_isotope_observations)
 
         # For the exceptions below (for convenience)
         infile_err_args = {
