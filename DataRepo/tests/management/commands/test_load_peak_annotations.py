@@ -22,8 +22,8 @@ from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    ConflictingValueErrors,
     DuplicateFileHeaders,
+    MultiplePeakGroupRepresentations,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
@@ -246,10 +246,10 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
-        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
         # 1 compounds, 2 samples -> 2 PeakGroups
         # This error occurs on each of 7 rows, twice (once for each sample)
-        self.assertEqual(14, len(aes.exceptions[0].conflicting_value_errors))
+        self.assertEqual(14, len(aes.exceptions[0].mpgr_errors))
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):

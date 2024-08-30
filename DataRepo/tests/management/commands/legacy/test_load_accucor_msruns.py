@@ -30,8 +30,6 @@ from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
-    AmbiguousMSRuns,
-    ConflictingValueError,
     DryRun,
     NoSamplesError,
     TracerLabeledElementNotFound,
@@ -39,8 +37,8 @@ from DataRepo.utils import (
     read_from_file,
 )
 from DataRepo.utils.exceptions import (
-    ConflictingValueErrors,
     DuplicatePeakGroup,
+    MultiplePeakGroupRepresentation,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
@@ -291,10 +289,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
 
         aes = ar.exception
-        self.assertEqual(1, aes.num_errors)
-        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        # This legacy loader doesn't summarize MultiplePeakGroupRepresentation exceptions
         # 1 compounds, 2 samples -> 2 PeakGroups
-        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+        self.assertEqual(2, aes.num_errors)
+        self.assertEqual(MultiplePeakGroupRepresentation, type(aes.exceptions[0]))
 
     @tag("multi-msrun")
     def test_duplicate_peak_group(self):
@@ -376,7 +374,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             "compounds": peak_group.compounds,
         }
 
-        with self.assertRaises(ConflictingValueError):
+        with self.assertRaises(MultiplePeakGroupRepresentation):
             adl.insert_peak_group(
                 peak_group_attrs,
                 msrun_sample=peak_group.msrun_sample,
@@ -507,8 +505,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
         # Check second file failed (duplicate compound)
         aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
+        # This legacy loader doesn't summarize MultiplePeakGroupRepresentation exceptions
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], MultiplePeakGroupRepresentation))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

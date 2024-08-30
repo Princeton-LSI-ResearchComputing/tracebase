@@ -212,6 +212,13 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         from DataRepo.models.utilities import exists_in_db
         from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
 
+        if (
+            not hasattr(self, "peak_annotation_file")
+            or self.peak_annotation_file is None
+        ):
+            # This cannot be a multiple representation issue if no peak annotation file is provided
+            return None
+
         conflicts = PeakGroup.objects.filter(
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,
@@ -236,7 +243,13 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Returns:
             None
         """
-        from DataRepo.utils.exceptions import NoTracerLabeledElements
+        from DataRepo.utils.exceptions import (
+            NoTracerLabeledElements,
+            NoTracers,
+        )
+
+        if len(self.tracer_labeled_elements) == 0:
+            raise NoTracers(self.animal)
 
         if len(self.peak_labeled_elements) == 0:
             raise NoTracerLabeledElements(
