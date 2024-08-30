@@ -241,7 +241,7 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertIn("study_missing_data.xlsx", sl.load_statuses.statuses.keys())
 
     def test_get_loader_instances(self):
-        sl = StudyV3Loader(dry_run=True)
+        sl = StudyV3Loader(_validate=True)
         loaders: Dict[str, TableLoader] = sl.get_loader_instances()
         self.assertIsInstance(loaders, dict)
         self.assertEqual(
@@ -249,7 +249,7 @@ class StudyLoaderTests(TracebaseTestCase):
             set(list(loaders.keys()) + ["DEFAULTS", "ERRORS"]),
         )
         # Make sure that the loaders were instantiated using the common args
-        self.assertTrue(loaders["STUDY"].dry_run)
+        self.assertTrue(loaders["STUDY"].validate)
         # Make sure that the loaders were instantiated using the custom args
         self.assertEqual(
             ProtocolsLoader.DataHeadersExcel, loaders["TREATMENTS"].get_headers()

@@ -53,8 +53,6 @@ def get_cache(rec, cache_func_name):
         if result is uncached:
             result = None
             good_cache = False
-        if settings.DEBUG:
-            print(f"Getting cache {cachekey}")
     except Exception as e:
         # Allow tracebase to still work, just without caching
         print(e)

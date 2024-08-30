@@ -28,6 +28,7 @@ from DataRepo.utils.exceptions import (
     InfileError,
     InvalidHeaderCrossReferenceError,
     MultiLoadStatus,
+    MutuallyExclusiveArgs,
     NoLoadData,
     RecordDoesNotExist,
     RequiredColumnValue,
@@ -265,6 +266,14 @@ class TableLoader(ABC):
         # Running Modes
         self.dry_run = dry_run
         self.defer_rollback = defer_rollback
+
+        if dry_run and defer_rollback:
+            raise MutuallyExclusiveArgs(
+                "dry_run and defer_rollback are mutually exclusive.  A DryRun exception will be raised for rollback if "
+                "supplied, but defer_rollback is intended to not raise an exception for rollback.  defer_rollback "
+                "should only be used in a loader that calls other loaders, in which case, it should not also pass "
+                "along the dry_run value."
+            )
 
         # Error tracking
         self.skip_row_indexes = []

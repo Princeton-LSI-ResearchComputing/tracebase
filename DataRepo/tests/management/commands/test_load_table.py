@@ -254,7 +254,7 @@ class LoadTableCommandTests(TracebaseTestCase):
         tc.init_loader(
             df=None,
             dry_run=True,  # Diff from default False
-            defer_rollback=True,  # Diff from default False
+            defer_rollback=False,  # Same as default (mutex with dry_run)
             file="DataRepo/data/tests/load_table/test.xlsx",  # Diff from default None
             data_sheet="Test",  # Diff from default None
             defaults_df=None,
@@ -277,7 +277,7 @@ class LoadTableCommandTests(TracebaseTestCase):
 
         # Assert that the loader has the custom values we set
         self.assertTrue(tc.loader.dry_run)
-        self.assertTrue(tc.loader.defer_rollback)
+        self.assertFalse(tc.loader.defer_rollback)
         self.assertEqual("DataRepo/data/tests/load_table/test.xlsx", tc.loader.file)
         self.assertEqual("Test", tc.loader.sheet)
 

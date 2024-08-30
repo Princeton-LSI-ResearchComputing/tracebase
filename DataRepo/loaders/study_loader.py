@@ -283,7 +283,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             None
         """
         # NOTE: self.load_data() requires the file argument to have been provided to this constructor.
-        if kwargs.get("defer_rollback") is False:
+        if kwargs.get("defer_rollback") is True:
             raise ProgrammingError(
                 "Modifying the following superclass constructor arguments is prohibited by StudyLoader: "
                 "[defer_rollback]."
@@ -461,7 +461,10 @@ class StudyLoader(ConvertedTableLoader, ABC):
         sheets_present = [] if self.file is None else list(self.df_dict.keys())
 
         common_args = {
-            "dry_run": self.dry_run,
+            # Do not pass dry-run.  That raises FOR rollback.  It should only be raised from THIS loader, not the
+            # loaders it calls.  If you want to run in dry-run mode, that's fine.  Just don't pass that argument to the
+            # child loaders.
+            # "dry_run": self.dry_run,
             "defer_rollback": True,
             "defaults_sheet": self.defaults_sheet,
             "file": self.file,
