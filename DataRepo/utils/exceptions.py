@@ -3806,7 +3806,9 @@ class MultiplePeakGroupRepresentations(Exception):
                     mpgr.compound
                 )
             if mpgr.sample not in mpgr_dict[str(mpgr.sequence)][files_str]["samples"]:
-                mpgr_dict[str(mpgr.sequence)][files_str]["samples"].append(mpgr.sample)
+                mpgr_dict[str(mpgr.sequence)][files_str]["samples"].append(
+                    mpgr.sample.name
+                )
             mpgr_dict[str(mpgr.sequence)][files_str]["exceptions"].append(mpgr)
 
         message = (
@@ -3826,7 +3828,9 @@ class MultiplePeakGroupRepresentations(Exception):
                     files = mpgr_dict[sequence][files_set]["files"]
                     message += "\n\t\tFiles:\n\t\t\t" + "\n\t\t\t".join(sorted(files))
                     compounds = mpgr_dict[sequence][files_set]["compounds"]
-                    message += "\n\t\tFiles:\n\t\t\t" + "\n\t\t\t".join(sorted(files))
+                    message += "\n\t\tCompounds:\n\t\t\t" + "\n\t\t\t".join(
+                        sorted(compounds)
+                    )
             else:
                 files = list(mpgr_dict[sequence].values())[0]["files"]
                 message += "\n\t\tFiles:\n\t\t\t" + "\n\t\t\t".join(sorted(files))
