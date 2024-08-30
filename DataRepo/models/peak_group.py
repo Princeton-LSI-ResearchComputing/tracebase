@@ -210,7 +210,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             None
         """
         from DataRepo.models.utilities import exists_in_db
-        from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
+        from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
 
         conflicts = PeakGroup.objects.filter(
             name=self.name,
@@ -223,7 +223,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             conflicts = conflicts.exclude(pk=self.pk)
 
         if conflicts.count() > 0:
-            raise MultiplePeakGroupRepresentations(self, conflicts)
+            raise MultiplePeakGroupRepresentation(self, conflicts)
 
     def clean(self, *args, **kwargs):
         """This checks to ensure that the compound(s) associated with the PeakGroup HAVE an element that is labeled

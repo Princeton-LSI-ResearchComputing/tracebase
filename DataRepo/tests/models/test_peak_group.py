@@ -20,7 +20,7 @@ from DataRepo.models import (
 )
 from DataRepo.models.compound import Compound
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
+from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
 from DataRepo.utils.infusate_name_parser import parse_infusate_name
 
 
@@ -173,7 +173,7 @@ class PeakGroupTests(TracebaseTestCase):
         self.assertTrue(
             isinstance(
                 ar.exception.error_dict["__all__"][0],
-                MultiplePeakGroupRepresentations,
+                MultiplePeakGroupRepresentation,
             ),
         )
 

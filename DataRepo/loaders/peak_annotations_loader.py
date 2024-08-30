@@ -38,7 +38,7 @@ from DataRepo.utils.exceptions import (
     IsotopeStringDupe,
     MissingCompounds,
     MissingSamples,
-    MultiplePeakGroupRepresentations,
+    MultiplePeakGroupRepresentation,
     NoSamples,
     NoTracerLabeledElements,
     NoTracers,
@@ -352,7 +352,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 file=self.peak_annotation_details_file,
             )
 
-        # Compound_lookup is slow and compounds are repeatedly looked up, so this will buffer the results
+        # Compound lookup is slow and compounds are repeatedly looked up, so this will buffer the results
         self.compound_lookup = {}
 
         # Suggestions about failed header lookups depend on the supplied inputs.
@@ -695,8 +695,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 self.created(PeakGroup.__name__)
             else:
                 self.existed(PeakGroup.__name__)
-        except MultiplePeakGroupRepresentations as mpgr:
+        except MultiplePeakGroupRepresentation as mpgr:
             self.aggregated_errors_object.buffer_error(mpgr)
+            self.errored(PeakGroup.__name__)
+            raise RollbackException()
+        except NoTracerLabeledElements as ntle:
+            self.buffer_infile_exception(
+                ntle,
+                is_error=False,
+                is_fatal=self.validate,
+                column=self.headers.COMPOUND,
+                suggestion=f"The load of peak group '{pgname}' for sample {msrun_sample.sample.name} will be skipped.",
+            )
             self.errored(PeakGroup.__name__)
             raise RollbackException()
         except Exception as e:
@@ -948,7 +958,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 rownum=self.rownum,
                 suggestion="This compound / peak group link will be skipped.",
             )
-            self.aggregated_errors_object.buffer_warning(ntle)
+            self.aggregated_errors_object.buffer_exception(
+                ntle,
+                is_error=False,
+                is_fatal=self.validate,
+            )
             # Subsequent record creations from this row should be skipped.
             self.add_skip_row_index()
             self.errored(PeakGroupCompound.__name__)

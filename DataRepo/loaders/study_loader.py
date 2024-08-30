@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from copy import deepcopy
@@ -90,6 +91,12 @@ from DataRepo.utils.file_utils import (
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_concentrations,
+)
+
+# See: https://stackoverflow.com/q/9134795/2057516 and https://stackoverflow.com/q/53965596/2057516
+# This is just warning us that it doesn't read in the data validation formulas, but we don't need them anyway.
+warnings.filterwarnings(
+    "ignore", message="Data Validation extension is not supported and will be removed"
 )
 
 
