@@ -772,13 +772,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 AllMissingCompounds,
                 self.missing_compound_record_exceptions,
                 "Compounds Check",
-                False,
+                True,
             ),
             (
                 AllMultiplePeakGroupRepresentations,
                 self.multiple_pg_reps_exceptions,
                 "Peak Groups Check",
-                False,
+                True,
             ),
         ]:
             # Add this load key (if not already present anong the load keys).

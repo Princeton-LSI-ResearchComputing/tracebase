@@ -891,10 +891,12 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                 self.ModelName
             ].items():
                 summary += "\n\t"
+                summary += f"{terms}{nltt}"
                 if succinct:
-                    summary += "\n\t".join(loc_dict.keys())
+                    # Every exception is from the same file, given the loc_dict key is the file location
+                    files = [exc_lst[0].file for exc_lst in loc_dict.values()]
+                    summary += nltt.join(files)
                 else:
-                    summary += f"{terms}\n\t\t"
                     summary += nltt.join(
                         [
                             f"{loc}, row(s): ["
@@ -906,7 +908,10 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                         ]
                     )
             if succinct:
-                message = f"{len(exceptions)} {self.ModelName}s missing in the database:{summary}\nwhile processing %s."
+                message = (
+                    f"{len(exceptions)} {self.ModelName} records missing in the database:{summary}\nwhile processing "
+                    "%s."
+                )
             else:
                 message = (
                     f"{len(exceptions)} {self.ModelName}s matching the following values were not found in the "
@@ -3825,8 +3830,15 @@ class AllMultiplePeakGroupRepresentations(Exception):
                         message += "\n\t\t\tFiles:\n\t\t\t\t"
                         message += "\n\t\t\t\t".join(sorted(files))
             else:
-                files = list(mpgr_dict[compound].values())[0]["files"]
-                message += "\n\t\t" + "\n\t\t".join(sorted(files))
+                if succinct:
+                    files = list(mpgr_dict[compound].values())[0]["files"]
+                    message += "\n\t\t" + "\n\t\t".join(sorted(files))
+                else:
+                    samples = list(mpgr_dict[compound].values())[0]["samples"]
+                    message += "\n\t\tSamples:\n\t\t\t"
+                    message += "\n\t\t\t".join(sorted(samples))
+                    message += "\n\t\tFiles:\n\t\t\t\t"
+                    message += "\n\t\t\t".join(sorted(files))
         message += (
             "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
             "(row) from all but one of the listed files."
