@@ -887,24 +887,30 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
         if message is None:
             nltt = "\n\t\t"
             summary = ""
-            for terms, loc_dict in self.exceptions_by_model_query_and_loc[
-                self.ModelName
-            ].items():
+            for terms in sorted(
+                self.exceptions_by_model_query_and_loc[self.ModelName].keys()
+            ):
+                loc_dict = self.exceptions_by_model_query_and_loc[self.ModelName][terms]
                 summary += "\n\t"
                 summary += f"{terms}{nltt}"
                 if succinct:
                     # Every exception is from the same file, given the loc_dict key is the file location
-                    files = [exc_lst[0].file for exc_lst in loc_dict.values()]
-                    summary += nltt.join(files)
+                    files = [
+                        (os.path.split(exc_lst[0].file))[1]
+                        for exc_lst in loc_dict.values()
+                    ]
+                    summary += nltt.join(sorted(files))
                 else:
                     summary += nltt.join(
                         [
                             f"{loc}, row(s): ["
                             + ", ".join(
-                                summarize_int_list([exc.rownum for exc in excs])
+                                summarize_int_list(
+                                    [exc.rownum for exc in loc_dict[loc]]
+                                )
                             )
                             + "]"
-                            for loc, excs in loc_dict.items()
+                            for loc in sorted(loc_dict.keys())
                         ]
                     )
             if succinct:
@@ -2091,6 +2097,7 @@ class AggregatedErrors(Exception):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
+                    exception.exc_type_str = "Warning"
                     exception.is_fatal = False
                 matched_exceptions.append(exception)
             else:
@@ -2150,6 +2157,7 @@ class AggregatedErrors(Exception):
             ):
                 if is_error is not None:
                     exception.is_error = is_error
+                    exception.exc_type_str = "Error" if is_error else "Warning"
                 if is_fatal is not None:
                     exception.is_fatal = is_fatal
                 matched_exceptions.append(exception)
@@ -3813,10 +3821,10 @@ class AllMultiplePeakGroupRepresentations(Exception):
             "The following compounds are present in multiple peak annotation files (derived from the same sequence for "
             "the same samples)."
         )
-        for compound in mpgr_dict.keys():
+        for compound in sorted(mpgr_dict.keys()):
             message += f"\n\t{compound}"
             if len(mpgr_dict[compound].keys()) > 1:
-                for sequence in mpgr_dict[compound].keys():
+                for sequence in sorted(mpgr_dict[compound].keys()):
                     files = mpgr_dict[compound][sequence]["files"]
                     if succinct:
                         message += f"\n\t\t{sequence} ({len(mpgr_dict[compound][sequence]['samples'])} samples)\n\t\t\t"
