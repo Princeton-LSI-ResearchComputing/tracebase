@@ -888,7 +888,8 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
             nltt = "\n\t\t"
             summary = ""
             for terms in sorted(
-                self.exceptions_by_model_query_and_loc[self.ModelName].keys()
+                self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
+                key=str.casefold,
             ):
                 loc_dict = self.exceptions_by_model_query_and_loc[self.ModelName][terms]
                 summary += "\n\t"
@@ -896,10 +897,14 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                 if succinct:
                     # Every exception is from the same file, given the loc_dict key is the file location
                     files = [
-                        (os.path.split(exc_lst[0].file))[1]
+                        (
+                            (os.path.split(exc_lst[0].file))[1]
+                            if exc_lst[0].file is not None
+                            else None
+                        )
                         for exc_lst in loc_dict.values()
                     ]
-                    summary += nltt.join(sorted(files))
+                    summary += nltt.join(sorted(files, key=str.casefold))
                 else:
                     summary += nltt.join(
                         [
@@ -910,7 +915,7 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                                 )
                             )
                             + "]"
-                            for loc in sorted(loc_dict.keys())
+                            for loc in sorted(loc_dict.keys(), key=str.casefold)
                         ]
                     )
             if succinct:
@@ -3821,32 +3826,35 @@ class AllMultiplePeakGroupRepresentations(Exception):
             "The following compounds are present in multiple peak annotation files (derived from the same sequence for "
             "the same samples)."
         )
-        for compound in sorted(mpgr_dict.keys()):
+        for compound in sorted(mpgr_dict.keys(), key=str.casefold):
             message += f"\n\t{compound}"
             if len(mpgr_dict[compound].keys()) > 1:
-                for sequence in sorted(mpgr_dict[compound].keys()):
+                for sequence in sorted(mpgr_dict[compound].keys(), key=str.casefold):
                     files = mpgr_dict[compound][sequence]["files"]
                     if succinct:
                         message += f"\n\t\t{sequence} ({len(mpgr_dict[compound][sequence]['samples'])} samples)\n\t\t\t"
-                        message += "\n\t\t\t".join(sorted(files))
+                        message += "\n\t\t\t".join(sorted(files, key=str.casefold))
                     else:
                         message += f"\n\t\t{sequence}"
                         message += "\n\t\t\tSamples:\n\t\t\t\t"
                         message += "\n\t\t\t\t".join(
-                            sorted(mpgr_dict[compound][sequence]["samples"])
+                            sorted(
+                                mpgr_dict[compound][sequence]["samples"],
+                                key=str.casefold,
+                            )
                         )
                         message += "\n\t\t\tFiles:\n\t\t\t\t"
-                        message += "\n\t\t\t\t".join(sorted(files))
+                        message += "\n\t\t\t\t".join(sorted(files, key=str.casefold))
             else:
                 if succinct:
                     files = list(mpgr_dict[compound].values())[0]["files"]
-                    message += "\n\t\t" + "\n\t\t".join(sorted(files))
+                    message += "\n\t\t" + "\n\t\t".join(sorted(files, key=str.casefold))
                 else:
                     samples = list(mpgr_dict[compound].values())[0]["samples"]
                     message += "\n\t\tSamples:\n\t\t\t"
-                    message += "\n\t\t\t".join(sorted(samples))
+                    message += "\n\t\t\t".join(sorted(samples, key=str.casefold))
                     message += "\n\t\tFiles:\n\t\t\t\t"
-                    message += "\n\t\t\t".join(sorted(files))
+                    message += "\n\t\t\t".join(sorted(files, key=str.casefold))
         message += (
             "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
             "(row) from all but one of the listed files."
