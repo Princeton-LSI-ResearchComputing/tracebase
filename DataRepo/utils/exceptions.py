@@ -900,10 +900,11 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                         (
                             (os.path.split(exc_lst[0].file))[1]
                             if exc_lst[0].file is not None
-                            else None
+                            else ""
                         )
                         for exc_lst in loc_dict.values()
                     ]
+                    # Cannot use casefold when a file can be None
                     summary += nltt.join(sorted(files, key=str.casefold))
                 else:
                     summary += nltt.join(
@@ -3830,7 +3831,10 @@ class AllMultiplePeakGroupRepresentations(Exception):
             message += f"\n\t{compound}"
             if len(mpgr_dict[compound].keys()) > 1:
                 for sequence in sorted(mpgr_dict[compound].keys(), key=str.casefold):
-                    files = mpgr_dict[compound][sequence]["files"]
+                    files = [
+                        f if f is not None else ""
+                        for f in mpgr_dict[compound][sequence]["files"]
+                    ]
                     if succinct:
                         message += f"\n\t\t{sequence} ({len(mpgr_dict[compound][sequence]['samples'])} samples)\n\t\t\t"
                         message += "\n\t\t\t".join(sorted(files, key=str.casefold))
@@ -3847,9 +3851,16 @@ class AllMultiplePeakGroupRepresentations(Exception):
                         message += "\n\t\t\t\t".join(sorted(files, key=str.casefold))
             else:
                 if succinct:
-                    files = list(mpgr_dict[compound].values())[0]["files"]
+                    files = [
+                        f if f is not None else ""
+                        for f in list(mpgr_dict[compound].values())[0]["files"]
+                    ]
                     message += "\n\t\t" + "\n\t\t".join(sorted(files, key=str.casefold))
                 else:
+                    files = [
+                        f if f is not None else ""
+                        for f in list(mpgr_dict[compound].values())[0]["files"]
+                    ]
                     samples = list(mpgr_dict[compound].values())[0]["samples"]
                     message += "\n\t\tSamples:\n\t\t\t"
                     message += "\n\t\t\t".join(sorted(samples, key=str.casefold))
