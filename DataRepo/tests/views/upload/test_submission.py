@@ -1366,11 +1366,11 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
         self.assertEqual("AllMissingSamples", exceptions[groupkey][0]["type"])
         self.assertEqual(0, num_warnings[groupkey])
 
-        self.assertEqual(8, len(results.keys()), msg=f"Keys: {results.keys()}")
-        self.assertEqual(8, len(exceptions.keys()), msg=f"Keys: {exceptions.keys()}")
-        self.assertEqual(8, len(num_errors.keys()), msg=f"Keys: {num_errors.keys()}")
+        self.assertEqual(9, len(results.keys()), msg=f"Keys: {results.keys()}")
+        self.assertEqual(9, len(exceptions.keys()), msg=f"Keys: {exceptions.keys()}")
+        self.assertEqual(9, len(num_errors.keys()), msg=f"Keys: {num_errors.keys()}")
         self.assertEqual(
-            8, len(num_warnings.keys()), msg=f"Keys: {num_warnings.keys()}"
+            9, len(num_warnings.keys()), msg=f"Keys: {num_warnings.keys()}"
         )
 
         self.assertFalse(valid)

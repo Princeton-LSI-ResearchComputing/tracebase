@@ -62,6 +62,7 @@ from DataRepo.utils.exceptions import (
     AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
+    AllMultiplePeakGroupRepresentations,
     BlankRemoved,
     BlanksRemoved,
     ConditionallyRequiredArgs,
@@ -75,6 +76,7 @@ from DataRepo.utils.exceptions import (
     MissingTissues,
     MissingTreatments,
     MultiLoadStatus,
+    MultiplePeakGroupRepresentations,
     MultipleStudyDocVersions,
     NoSamples,
     PlaceholderAdded,
@@ -314,6 +316,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.missing_tissue_record_exceptions = []
         self.missing_treatment_record_exceptions = []
         self.missing_compound_record_exceptions = []
+        self.multiple_pg_reps_exceptions = []
         self.load_statuses = MultiLoadStatus()
 
         self.derived_loaders = {}
@@ -685,6 +688,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
+        # Missing record exceptions
         for exc_cls, buffer in [
             (MissingStudies, self.missing_study_record_exceptions),
             (MissingSamples, self.missing_sample_record_exceptions),
@@ -694,6 +698,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
             (MissingCompounds, self.missing_compound_record_exceptions),
         ]:
             self.extract_missing_records_exception(aes, exc_cls, buffer)
+
+        # Multiple Peak Group Representation exceptions
+        mpgr_excs = aes.modify_exception_type(
+            MultiplePeakGroupRepresentations, is_fatal=False, is_error=False
+        )
+        for mpgr_exc in mpgr_excs:
+            self.multiple_pg_reps_exceptions.extend(mpgr_exc.exceptions)
 
     def extract_missing_records_exception(
         self,
@@ -761,6 +772,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 AllMissingCompounds,
                 self.missing_compound_record_exceptions,
                 "Compounds Check",
+                False,
+            ),
+            (
+                AllMultiplePeakGroupRepresentations,
+                self.multiple_pg_reps_exceptions,
+                "Peak Groups Check",
                 False,
             ),
         ]:

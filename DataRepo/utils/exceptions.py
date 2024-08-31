@@ -3780,21 +3780,76 @@ class AmbiguousMSRuns(Exception):
         self.infile = infile
 
 
-class MultiplePeakGroupRepresentations(Exception):
-    """Summary of all MultiplePeakGroupRepresentation errors
+class AllMultiplePeakGroupRepresentations(Exception):
+    """Summary of MultiplePeakGroupRepresentations errors across multiple loads.
 
     Attributes:
-        mpgr_errors: A list of MultiplePeakGroupRepresentation exceptions
+        exceptions: A list of MultiplePeakGroupRepresentation exceptions
     """
 
     def __init__(
         self,
-        mpgr_errors: list[MultiplePeakGroupRepresentation],
+        exceptions: list[MultiplePeakGroupRepresentation],
+        succinct=False,
     ):
         mpgr_dict: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
         )
-        for mpgr in mpgr_errors:
+        for mpgr in exceptions:
+            seq_key = str(mpgr.sequence)
+            for file in mpgr.files:
+                if file not in mpgr_dict[mpgr.compound][seq_key]["files"]:
+                    mpgr_dict[mpgr.compound][seq_key]["files"].append(file)
+            if mpgr.sample.name not in mpgr_dict[mpgr.compound][seq_key]["samples"]:
+                mpgr_dict[mpgr.compound][seq_key]["samples"].append(mpgr.sample.name)
+            mpgr_dict[mpgr.compound][seq_key]["exceptions"].append(mpgr)
+
+        message = (
+            "The following compounds are present in multiple peak annotation files (derived from the same sequence for "
+            "the same samples)."
+        )
+        for compound in mpgr_dict.keys():
+            message += f"\n\t{compound}"
+            if len(mpgr_dict[compound].keys()) > 1:
+                for sequence in mpgr_dict[compound].keys():
+                    files = mpgr_dict[compound][sequence]["files"]
+                    if succinct:
+                        message += f"\n\t\t{sequence} ({len(mpgr_dict[compound][sequence]['samples'])} samples)\n\t\t\t"
+                        message += "\n\t\t\t".join(sorted(files))
+                    else:
+                        message += f"\n\t\t{sequence}"
+                        message += "\n\t\t\tSamples:\n\t\t\t\t"
+                        message += "\n\t\t\t\t".join(
+                            sorted(mpgr_dict[compound][sequence]["samples"])
+                        )
+                        message += "\n\t\t\tFiles:\n\t\t\t\t"
+                        message += "\n\t\t\t\t".join(sorted(files))
+            else:
+                files = list(mpgr_dict[compound].values())[0]["files"]
+                message += "\n\t\t" + "\n\t\t".join(sorted(files))
+        message += (
+            "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
+            "(row) from all but one of the listed files."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MultiplePeakGroupRepresentations(Exception):
+    """Summary of all MultiplePeakGroupRepresentation errors
+
+    Attributes:
+        exceptions: A list of MultiplePeakGroupRepresentation exceptions
+    """
+
+    def __init__(
+        self,
+        exceptions: list[MultiplePeakGroupRepresentation],
+    ):
+        mpgr_dict: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for mpgr in exceptions:
             files_str = ", ".join(sorted(mpgr.files))
             if files_str not in mpgr_dict[str(mpgr.sequence)].keys():
                 mpgr_dict[str(mpgr.sequence)][files_str]["files"] = mpgr.files
@@ -3843,7 +3898,7 @@ class MultiplePeakGroupRepresentations(Exception):
             "(row) from all but one of the listed files."
         )
         super().__init__(message)
-        self.mpgr_errors = mpgr_errors
+        self.exceptions = exceptions
 
 
 class MultiplePeakGroupRepresentation(SummarizableError):

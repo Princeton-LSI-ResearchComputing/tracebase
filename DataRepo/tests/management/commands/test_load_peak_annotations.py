@@ -249,7 +249,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
         # 1 compounds, 2 samples -> 2 PeakGroups
         # This error occurs on each of 7 rows, twice (once for each sample)
-        self.assertEqual(14, len(aes.exceptions[0].mpgr_errors))
+        self.assertEqual(14, len(aes.exceptions[0].exceptions))
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
