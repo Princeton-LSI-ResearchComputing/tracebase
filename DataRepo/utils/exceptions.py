@@ -3899,7 +3899,10 @@ class MultiplePeakGroupRepresentations(Exception):
                 mpgr_dict[str(mpgr.sequence)][files_str]["compounds"].append(
                     mpgr.compound
                 )
-            if mpgr.sample not in mpgr_dict[str(mpgr.sequence)][files_str]["samples"]:
+            if (
+                mpgr.sample.name
+                not in mpgr_dict[str(mpgr.sequence)][files_str]["samples"]
+            ):
                 mpgr_dict[str(mpgr.sequence)][files_str]["samples"].append(
                     mpgr.sample.name
                 )
