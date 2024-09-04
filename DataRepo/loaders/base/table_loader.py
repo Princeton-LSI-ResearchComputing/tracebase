@@ -1073,12 +1073,18 @@ class TableLoader(ABC):
 
         self.record_counts = defaultdict(lambda: defaultdict(int))
         for mdl in self.Models:
-            self.record_counts[mdl.__name__]["created"] = 0
-            self.record_counts[mdl.__name__]["existed"] = 0
-            self.record_counts[mdl.__name__]["updated"] = 0
-            self.record_counts[mdl.__name__]["skipped"] = 0
-            self.record_counts[mdl.__name__]["errored"] = 0
-            self.record_counts[mdl.__name__]["warned"] = 0
+            self.record_counts[mdl.__name__] = self.initial_counts
+
+    @property
+    def initial_counts(self):
+        return {
+            "created": 0,
+            "existed": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errored": 0,
+            "warned": 0,
+        }
 
     @staticmethod
     def isnamedtuple(obj) -> bool:
@@ -2420,6 +2426,27 @@ class TableLoader(ABC):
         Returns:
             record_counts (dict of dicts of ints): Counts by model and status
         """
+        return self.record_counts
+
+    def update_load_stats(self, record_counts):
+        """Adds model record status counts to existing counts.
+
+        This is intended for loaders that call multiple other loaders.
+
+        Args:
+            record_counts (Dict[str, Dict[str, int]]): A dict of counts keyed on model name and count type.
+        Exceptions:
+            None
+        Returns:
+            record_counts (dict of dicts of ints): Counts by model and status
+        """
+        for model_name in record_counts.keys():
+            if model_name not in self.record_counts.keys():
+                self.record_counts[model_name] = self.initial_counts
+            for stat_name in record_counts[model_name].keys():
+                self.record_counts[model_name][stat_name] += record_counts[model_name][
+                    stat_name
+                ]
         return self.record_counts
 
     def check_for_inconsistencies(
