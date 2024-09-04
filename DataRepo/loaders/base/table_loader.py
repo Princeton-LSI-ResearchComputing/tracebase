@@ -2425,7 +2425,7 @@ class TableLoader(ABC):
         This is intended for loaders that call multiple other loaders.
 
         Args:
-            None
+            record_counts (Dict[str, Dict[str, int]]): A dict of counts keyed on model name and count type.
         Exceptions:
             None
         Returns:

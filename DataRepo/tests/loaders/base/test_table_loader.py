@@ -1615,8 +1615,73 @@ class TableLoaderTests(TracebaseTestCase):
         pass
 
     def test_update_load_stats(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        counts = {
+            "UndocumentedModel": {  # Adding a model that's not in tl.Models (to support child loaders)
+                "created": 10,
+                "existed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "TestModel": {
+                "created": 0,
+                "existed": 5,
+                "updated": 1,
+                "skipped": 2,
+                "errored": 3,
+                "warned": 4,
+            },
+        }
+        tl.update_load_stats(counts)
+        self.assertDictEqual(counts, tl.record_counts)
+        new_counts = {
+            "NewUndocumentedModel": {  # Adding a new model
+                "created": 10,
+                "existed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "TestModel": {
+                "created": 1,
+                "existed": 2,
+                "updated": 3,
+                "skipped": 4,
+                "errored": 5,
+                "warned": 0,
+            },
+        }
+        tl.update_load_stats(new_counts)
+        expected = {
+            "UndocumentedModel": {
+                "created": 10,
+                "existed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "NewUndocumentedModel": {
+                "created": 10,
+                "existed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "TestModel": {
+                "created": 1,
+                "existed": 7,
+                "updated": 4,
+                "skipped": 6,
+                "errored": 8,
+                "warned": 4,
+            },
+        }
+        self.assertDictEqual(expected, tl.record_counts)
 
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):
