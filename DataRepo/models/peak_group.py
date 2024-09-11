@@ -301,3 +301,16 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         rec = PeakGroupCompound.objects.get(**rec_dict)
 
         return rec, created
+
+    @classmethod
+    def compound_synonyms_to_peak_group_name(cls, synonyms):
+        """Takes a list of strings (assumed to be valid compound synonyms) and returns the peak group name.
+
+        Args:
+            synonyms (List[str]): List of compound synonyms
+        Exceptions:
+            None
+        Returns:
+            pgname (str)
+        """
+        return cls.NAME_DELIM.join(sorted(synonyms, key=str.casefold))

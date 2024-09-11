@@ -203,13 +203,8 @@ class PeakGroupConflicts(TableLoader):
 
             # NOTE: This does not check validity of the peak group name (i.e. it does not check if the delimited
             # compound synonyms exist in the database)
-            pgname = PeakGroup.NAME_DELIM.join(
-                sorted(
-                    [
-                        ns.strip().lower()
-                        for ns in pgname_str.split(PeakGroup.NAME_DELIM)
-                    ]
-                )
+            pgname = PeakGroup.compound_synonyms_to_peak_group_name(
+                [ns.strip().lower() for ns in pgname_str.split(PeakGroup.NAME_DELIM)]
             )
             annot_file = list(os.path.split(annot_file_str))[1]
 
