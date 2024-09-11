@@ -342,7 +342,7 @@ def parse_isotope_label(
 
     The isotope label string only includes elements observed in the peak reported on the row and a row only exists
     if at least 1 isotope was detected.  However, when an isotope is present, we want to report 0 counts for
-    elements present (as labeled) in the tracers when the compound being recorded on has an element that is labeled
+    elements present (as labeled) in the tracers when the compound being recorded has an element that is labeled
     in the tracers, so to include these 0 counts, supply possible_observations.
 
     NOTE: The isotope label string only includes elements whose label count is greater than 0.  If the tracers

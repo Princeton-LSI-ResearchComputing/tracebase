@@ -889,26 +889,43 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
         if message is None:
             nltt = "\n\t\t"
             summary = ""
-            for terms, loc_dict in self.exceptions_by_model_query_and_loc[
-                self.ModelName
-            ].items():
+            for terms in sorted(
+                self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
+                key=str.casefold,
+            ):
+                loc_dict = self.exceptions_by_model_query_and_loc[self.ModelName][terms]
                 summary += "\n\t"
+                summary += f"{terms}{nltt}"
                 if succinct:
-                    summary += "\n\t".join(loc_dict.keys())
+                    # Every exception is from the same file, given the loc_dict key is the file location
+                    files = [
+                        (
+                            (os.path.split(exc_lst[0].file))[1]
+                            if exc_lst[0].file is not None
+                            else ""
+                        )
+                        for exc_lst in loc_dict.values()
+                    ]
+                    # Cannot use casefold when a file can be None
+                    summary += nltt.join(sorted(files, key=str.casefold))
                 else:
-                    summary += f"{terms}\n\t\t"
                     summary += nltt.join(
                         [
                             f"{loc}, row(s): ["
                             + ", ".join(
-                                summarize_int_list([exc.rownum for exc in excs])
+                                summarize_int_list(
+                                    [exc.rownum for exc in loc_dict[loc]]
+                                )
                             )
                             + "]"
-                            for loc, excs in loc_dict.items()
+                            for loc in sorted(loc_dict.keys(), key=str.casefold)
                         ]
                     )
             if succinct:
-                message = f"{len(exceptions)} {self.ModelName}s missing in the database:{summary}\nwhile processing %s."
+                message = (
+                    f"{len(exceptions)} {self.ModelName} records missing in the database:{summary}\nwhile processing "
+                    "%s."
+                )
             else:
                 message = (
                     f"{len(exceptions)} {self.ModelName}s matching the following values were not found in the "
@@ -2088,6 +2105,7 @@ class AggregatedErrors(Exception):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
+                    exception.exc_type_str = "Warning"
                     exception.is_fatal = False
                 matched_exceptions.append(exception)
             else:
@@ -2147,6 +2165,7 @@ class AggregatedErrors(Exception):
             ):
                 if is_error is not None:
                     exception.is_error = is_error
+                    exception.exc_type_str = "Error" if is_error else "Warning"
                 if is_fatal is not None:
                     exception.is_fatal = is_fatal
                 matched_exceptions.append(exception)
@@ -2804,7 +2823,44 @@ class SheetMergeError(Exception):
         self.animal_col_name = merge_col_name
 
 
-class NoTracerLabeledElements(InfileError):
+class NoTracerLabeledElementsError(Exception):
+    def __init__(self, ntle_errors: List[NoTracerLabeledElements]):
+        ntle_dict: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for ntle in ntle_errors:
+            loc = generate_file_location_string(
+                file=ntle.file, sheet=ntle.sheet, column=ntle.column
+            )
+            compound = "unreported"
+            if ntle.compound is not None:
+                compound = ntle.compound
+            elems = "unreported"
+            if ntle.elements is not None and len(ntle.elements) > 0:
+                elems = ", ".join(sorted(ntle.elements))
+            ntle_dict[loc][elems][compound].append(ntle)
+        message = (
+            "The following files contain PeakGroup compounds that have none of the labeled elements in the "
+            "tracers:\n"
+        )
+        for loc in ntle_dict.keys():
+            message += f"\t{loc}\n"
+            for elems in ntle_dict[loc].keys():
+                message += f"\t\tTracer labeled elements [{elems}]:\n"
+                message += (
+                    "\t\t\t"
+                    + "\n\t\t\t".join(sorted(ntle_dict[loc][elems].keys()))
+                    + "\n"
+                )
+        message += "PeakGroups for these compounds will be skipped."
+        super().__init__(message)
+        self.ntle_errors = ntle_errors
+        self.ntle_dict = ntle_dict
+
+
+class NoTracerLabeledElements(InfileError, SummarizableError):
+    SummarizerExceptionClass = NoTracerLabeledElementsError
+
     def __init__(
         self, compound: Optional[str] = None, elements: Optional[list] = None, **kwargs
     ):
@@ -2816,6 +2872,8 @@ class NoTracerLabeledElements(InfileError):
         else:
             message = f"No tracer_labeled_elements{tcrstr}."
         super().__init__(message, **kwargs)
+        self.compound = compound
+        self.elements = elements
 
 
 class NoTracers(InfileError):
@@ -3747,7 +3805,153 @@ class AmbiguousMSRuns(Exception):
         self.infile = infile
 
 
-class MultiplePeakGroupRepresentations(ValidationError):
+class AllMultiplePeakGroupRepresentations(Exception):
+    """Summary of MultiplePeakGroupRepresentations errors across multiple loads.
+
+    Attributes:
+        exceptions: A list of MultiplePeakGroupRepresentation exceptions
+    """
+
+    def __init__(
+        self,
+        exceptions: list[MultiplePeakGroupRepresentation],
+        succinct=False,
+    ):
+        mpgr_dict: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for mpgr in exceptions:
+            seq_key = str(mpgr.sequence)
+            for file in mpgr.files:
+                if file not in mpgr_dict[mpgr.compound][seq_key]["files"]:
+                    mpgr_dict[mpgr.compound][seq_key]["files"].append(file)
+            if mpgr.sample.name not in mpgr_dict[mpgr.compound][seq_key]["samples"]:
+                mpgr_dict[mpgr.compound][seq_key]["samples"].append(mpgr.sample.name)
+            mpgr_dict[mpgr.compound][seq_key]["exceptions"].append(mpgr)
+
+        message = (
+            "The following compounds are present in multiple peak annotation files (derived from the same sequence for "
+            "the same samples)."
+        )
+        for compound in sorted(mpgr_dict.keys(), key=str.casefold):
+            message += f"\n\t{compound}"
+            if len(mpgr_dict[compound].keys()) > 1:
+                for sequence in sorted(mpgr_dict[compound].keys(), key=str.casefold):
+                    files = [
+                        f if f is not None else ""
+                        for f in mpgr_dict[compound][sequence]["files"]
+                    ]
+                    if succinct:
+                        message += f"\n\t\t{sequence} ({len(mpgr_dict[compound][sequence]['samples'])} samples)\n\t\t\t"
+                        message += "\n\t\t\t".join(sorted(files, key=str.casefold))
+                    else:
+                        message += f"\n\t\t{sequence}"
+                        message += "\n\t\t\tSamples:\n\t\t\t\t"
+                        message += "\n\t\t\t\t".join(
+                            sorted(
+                                mpgr_dict[compound][sequence]["samples"],
+                                key=str.casefold,
+                            )
+                        )
+                        message += "\n\t\t\tFiles:\n\t\t\t\t"
+                        message += "\n\t\t\t\t".join(sorted(files, key=str.casefold))
+            else:
+                if succinct:
+                    files = [
+                        f if f is not None else ""
+                        for f in list(mpgr_dict[compound].values())[0]["files"]
+                    ]
+                    message += "\n\t\t" + "\n\t\t".join(sorted(files, key=str.casefold))
+                else:
+                    files = [
+                        f if f is not None else ""
+                        for f in list(mpgr_dict[compound].values())[0]["files"]
+                    ]
+                    samples = list(mpgr_dict[compound].values())[0]["samples"]
+                    message += "\n\t\tSamples:\n\t\t\t"
+                    message += "\n\t\t\t".join(sorted(samples, key=str.casefold))
+                    message += "\n\t\tFiles:\n\t\t\t\t"
+                    message += "\n\t\t\t".join(sorted(files, key=str.casefold))
+        message += (
+            "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
+            "(row) from all but one of the listed files."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MultiplePeakGroupRepresentations(Exception):
+    """Summary of all MultiplePeakGroupRepresentation errors
+
+    Attributes:
+        exceptions: A list of MultiplePeakGroupRepresentation exceptions
+    """
+
+    def __init__(
+        self,
+        exceptions: list[MultiplePeakGroupRepresentation],
+    ):
+        mpgr_dict: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
+        for mpgr in exceptions:
+            files_str = ", ".join(sorted(mpgr.files))
+            if files_str not in mpgr_dict[str(mpgr.sequence)].keys():
+                mpgr_dict[str(mpgr.sequence)][files_str]["files"] = mpgr.files
+            if (
+                mpgr.compound
+                not in mpgr_dict[str(mpgr.sequence)][files_str]["compounds"]
+            ):
+                mpgr_dict[str(mpgr.sequence)][files_str]["compounds"].append(
+                    mpgr.compound
+                )
+            if (
+                mpgr.sample.name
+                not in mpgr_dict[str(mpgr.sequence)][files_str]["samples"]
+            ):
+                mpgr_dict[str(mpgr.sequence)][files_str]["samples"].append(
+                    mpgr.sample.name
+                )
+            mpgr_dict[str(mpgr.sequence)][files_str]["exceptions"].append(mpgr)
+
+        message = (
+            "The following peak annotation files derived from the same sequence each contain peak groups for the same "
+            "compound.  Multiple representations of the same peak group are not allowed.\n"
+        )
+        for sequence in mpgr_dict.keys():
+            message += f"\tMS Run Sequence '{sequence}':"
+            if len(mpgr_dict[sequence].keys()) > 1:
+                # If there are multiple combinations of files, it means that there are difference complements of samples
+                # in each file
+                for files_set in mpgr_dict[sequence].keys():
+                    samples = mpgr_dict[sequence][files_set]["samples"]
+                    message += "\n\t\tSamples:\n\t\t\t" + "\n\t\t\t".join(
+                        sorted(samples)
+                    )
+                    files = mpgr_dict[sequence][files_set]["files"]
+                    message += "\n\t\tFiles:\n\t\t\t" + "\n\t\t\t".join(sorted(files))
+                    compounds = mpgr_dict[sequence][files_set]["compounds"]
+                    message += "\n\t\tCompounds:\n\t\t\t" + "\n\t\t\t".join(
+                        sorted(compounds)
+                    )
+            else:
+                files = list(mpgr_dict[sequence].values())[0]["files"]
+                message += "\n\t\tFiles:\n\t\t\t" + "\n\t\t\t".join(sorted(files))
+                compounds = list(mpgr_dict[sequence].values())[0]["compounds"]
+                message += "\n\t\tCompounds:\n\t\t\t" + "\n\t\t\t".join(
+                    sorted(compounds)
+                )
+        message += (
+            "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
+            "(row) from all but one of the listed files."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MultiplePeakGroupRepresentation(SummarizableError):
+    SummarizerExceptionClass = MultiplePeakGroupRepresentations
+
     def __init__(self, new_rec, existing_recs):
         """MultiplePeakGroupRepresentations constructor.
 
@@ -3755,22 +3959,25 @@ class MultiplePeakGroupRepresentations(ValidationError):
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
-        leader = "Existing: "
-        from_files = [r.peak_annotation_file.filename for r in existing_recs.all()]
-        from_str = f"\n\t{leader}".join(from_files)
+        files = [new_rec.peak_annotation_file.filename]
+        files.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
+        files_str = "\n\t".join(files)
         message = (
-            f"Multiple representations of this peak group were encountered:\n"
-            f"\tcompound: {new_rec.name}\n"
+            "Multiple representations of this peak group compound were encountered:\n"
+            f"\tCompound: {new_rec.name}\n"
             f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
-            f"\tSample: {new_rec.msrun_sample.sample}\n"
             "Each peak group originated from:\n"
-            f"\tProposed: {new_rec.peak_annotation_file.filename}\n"
-            f"\t{leader}{from_str}\n"
-            "Only 1 representation of a compound per sequence and sample is allowed.  "
+            f"\t{files_str}\n"
+            "Only 1 representation of a compound per sequence (and sample) is allowed.  Please remove this compound "
+            "from all but one of the above files, or check to make sure the correct sequence is assigned to each file."
         )
-        super().__init__(message, code="MultiplePeakGroupRepresentations")
+        super().__init__(message)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
+        self.files = files
+        self.compound = new_rec.name
+        self.sequence = new_rec.msrun_sample.msrun_sequence
+        self.sample = new_rec.msrun_sample.sample
 
 
 class CompoundSynonymExists(Exception):

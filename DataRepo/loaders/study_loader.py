@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from copy import deepcopy
@@ -61,6 +62,7 @@ from DataRepo.utils.exceptions import (
     AllMissingStudies,
     AllMissingTissues,
     AllMissingTreatments,
+    AllMultiplePeakGroupRepresentations,
     BlankRemoved,
     BlanksRemoved,
     ConditionallyRequiredArgs,
@@ -74,6 +76,7 @@ from DataRepo.utils.exceptions import (
     MissingTissues,
     MissingTreatments,
     MultiLoadStatus,
+    MultiplePeakGroupRepresentations,
     MultipleStudyDocVersions,
     NoSamples,
     PlaceholderAdded,
@@ -90,6 +93,12 @@ from DataRepo.utils.file_utils import (
 from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_concentrations,
+)
+
+# See: https://stackoverflow.com/q/9134795/2057516 and https://stackoverflow.com/q/53965596/2057516
+# This is just warning us that it doesn't read in the data validation formulas, but we don't need them anyway.
+warnings.filterwarnings(
+    "ignore", message="Data Validation extension is not supported and will be removed"
 )
 
 
@@ -307,6 +316,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.missing_tissue_record_exceptions = []
         self.missing_treatment_record_exceptions = []
         self.missing_compound_record_exceptions = []
+        self.multiple_pg_reps_exceptions = []
         self.load_statuses = MultiLoadStatus()
 
         self.derived_loaders = {}
@@ -680,6 +690,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
+        # Missing record exceptions
         for exc_cls, buffer in [
             (MissingStudies, self.missing_study_record_exceptions),
             (MissingSamples, self.missing_sample_record_exceptions),
@@ -689,6 +700,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
             (MissingCompounds, self.missing_compound_record_exceptions),
         ]:
             self.extract_missing_records_exception(aes, exc_cls, buffer)
+
+        # Multiple Peak Group Representation exceptions
+        mpgr_excs = aes.modify_exception_type(
+            MultiplePeakGroupRepresentations, is_fatal=False, is_error=False
+        )
+        for mpgr_exc in mpgr_excs:
+            self.multiple_pg_reps_exceptions.extend(mpgr_exc.exceptions)
 
     def extract_missing_records_exception(
         self,
@@ -756,7 +774,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 AllMissingCompounds,
                 self.missing_compound_record_exceptions,
                 "Compounds Check",
-                False,
+                True,
+            ),
+            (
+                AllMultiplePeakGroupRepresentations,
+                self.multiple_pg_reps_exceptions,
+                "Peak Groups Check",
+                True,
             ),
         ]:
             # Add this load key (if not already present anong the load keys).

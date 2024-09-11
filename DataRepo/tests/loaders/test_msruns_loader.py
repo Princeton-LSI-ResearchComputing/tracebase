@@ -21,6 +21,7 @@ from DataRepo.models import (
     Sample,
     Tissue,
 )
+from DataRepo.models.compound import Compound
 from DataRepo.tests.tracebase_test_case import (
     TracebaseArchiveTestCase,
     TracebaseTestCase,
@@ -29,11 +30,19 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
     MutuallyExclusiveArgs,
+    RollbackException,
 )
+from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
 def create_animal_and_tissue_records():
-    inf = Infusate()
+    Compound.objects.create(
+        name="gluc",
+        formula="C6H12O6",
+        hmdb_id="HMDB0000122",
+    )
+    infobj = parse_infusate_name_with_concs("gluc-[13C6][10]")
+    inf, _ = Infusate.objects.get_or_create_infusate(infobj)
     inf.save()
     anml = Animal.objects.create(
         name="test_animal",
@@ -1229,7 +1238,11 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        try:
+            rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        except RollbackException:
+            # If rollback was raised, raise the real exception that occurred and was buffered
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from django.core.exceptions import ValidationError
 from django.core.files import File
 
 from DataRepo.models import (
@@ -20,7 +19,10 @@ from DataRepo.models import (
 )
 from DataRepo.models.compound import Compound
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import MultiplePeakGroupRepresentations
+from DataRepo.utils.exceptions import (
+    MultiplePeakGroupRepresentation,
+    NoTracerLabeledElements,
+)
 from DataRepo.utils.infusate_name_parser import parse_infusate_name
 
 
@@ -128,7 +130,7 @@ class PeakGroupTests(TracebaseTestCase):
     def test_max_med_mz(self):
         self.assertEqual(4.0, self.pg.max_med_mz)
 
-    def test_clean_raises_MultiplePeakGroupRepresentations(self):
+    def prepare_peak_group_creation(self):
         rawrec = ArchiveFile.objects.create(
             filename="test.raw",
             file_location=None,
@@ -158,24 +160,32 @@ class PeakGroupTests(TracebaseTestCase):
             data_type=self.ms_peak_annotation,
             data_format=self.accucor_format,
         )
+        return msr, accucor_file
+
+    def test_save_raises_MultiplePeakGroupRepresentations(self):
+        msr, accucor_file = self.prepare_peak_group_creation()
+
+        # The save method should raise a MultiplePeakGroupRepresentation exception
+        with self.assertRaises(MultiplePeakGroupRepresentation):
+            PeakGroup.objects.create(
+                name="gluc",
+                formula="C6H12O6",
+                msrun_sample=msr,
+                peak_annotation_file=accucor_file,
+            )
+
+    def test_clean_raises_NoTracerLabeledElements(self):
+        msr, accucor_file = self.prepare_peak_group_creation()
         pg = PeakGroup.objects.create(
-            name="gluc",
-            formula="C6H12O6",
+            name="water",
+            formula="H2O",
             msrun_sample=msr,
             peak_annotation_file=accucor_file,
         )
 
-        # The clean method should raise a MultiplePeakGroupRepresentations exception (derived from ValidationError)
-        with self.assertRaises(ValidationError) as ar:
+        # The clean method should raise a NoTracerLabeledElements exception
+        with self.assertRaises(NoTracerLabeledElements):
             pg.full_clean()
-
-        # Make sure it's a MultiplePeakGroupRepresentations exception
-        self.assertTrue(
-            isinstance(
-                ar.exception.error_dict["__all__"][0],
-                MultiplePeakGroupRepresentations,
-            ),
-        )
 
     def test_get_or_create_compound_link(self):
         cmpd = Compound.objects.create(

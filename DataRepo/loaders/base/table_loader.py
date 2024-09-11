@@ -2762,6 +2762,7 @@ class TableLoader(ABC):
                                     )
                             # Whether we buffered or not, the error was identified and handled (by either buffering or
                             # ignoring a duplicate)
+                            # TODO: Handle all errors. This returns on the first one (there currently only ever is one).
                             return True
 
                 elif issubclass(
@@ -2786,6 +2787,7 @@ class TableLoader(ABC):
                             is_error=is_error,
                             is_fatal=is_fatal,
                         )
+                    # TODO: Handle all errors. This returns on the first one (there currently only ever is one).
                     return True
 
         elif isinstance(exception, RequiredColumnValue):
