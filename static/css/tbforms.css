@@ -1,0 +1,16 @@
+.tbform-control ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: #a9a9a9;
+  opacity: 1; /* Firefox */
+}
+
+input[type="text"] {
+  width: 20ch;
+}
+
+input[type="file"] {
+  width: 50ch;
+}
+
+table td {
+  vertical-align:top;
+}

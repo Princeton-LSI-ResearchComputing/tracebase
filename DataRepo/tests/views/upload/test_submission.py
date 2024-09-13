@@ -36,7 +36,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
-from DataRepo.views.upload.submission import DataValidationView
+from DataRepo.views.upload.submission import BuildSubmissionView
 
 
 class DataValidationViewTests1(TracebaseTransactionTestCase):
@@ -83,7 +83,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             name="test", category="animal_treatment", description="test description"
         )
 
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = None
 
         dfs_dict = dvv.get_or_create_dfs_dict()
@@ -192,7 +192,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
 
         This also indirectly tests get_study_dfs_dict and fill_in_missing_columns.
         """
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = (
             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
@@ -394,7 +394,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assert_dfs_dicts(expected, dfs_dict)
 
     def test_get_study_dtypes_dict(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         # TODO: Eliminate the need for a dummy file (with an xls extension).  The protocol headers change for the
         # treatments sheet if it's an excel file.  The data is not needed - just the headers.
         dvv.study_file = "dummy.xlsx"
@@ -485,7 +485,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
     def get_data_validation_object_with_errors(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.load_status_data = MultiLoadStatus(
             load_keys=[
                 "All Samples present",
@@ -608,7 +608,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertEqual("WARNING", vo.load_status_data.statuses["file2.xlsx"]["state"])
 
     def test_extract_all_missing_samples(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.extract_all_missing_values(
             AllMissingSamples(
                 [
@@ -643,7 +643,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertDictEqual(expected, vo.autofill_dict)
 
     def test_extract_all_missing_tissues(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.extract_all_missing_values(
             AllMissingTissues(
                 [
@@ -674,7 +674,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertDictEqual(expected, vo.autofill_dict)
 
     def test_extract_all_missing_treatments(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.extract_all_missing_values(
             AllMissingTreatments(
                 [
@@ -838,7 +838,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         )
 
     def test_extract_autofill_from_peak_annotation_files(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.set_files(
             peak_annot_files=["DataRepo/data/tests/data_submission/accucor1.xlsx"]
         )
@@ -898,7 +898,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         )
 
     def test_determine_study_file_readiness_no_peak_files(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.set_files(
             study_file="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
             study_filename=None,
@@ -909,7 +909,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertTrue(dvv.determine_study_file_validation_readiness())
 
     def test_determine_study_file_readiness_study_file_with_sample_names_only(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = "study.xlsx"  # Invalid, but does not matter
         dvv.peak_annot_files = ["accucor.xlsx"]  # Invalid, but does not matter
         dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
@@ -917,7 +917,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertFalse(dvv.determine_study_file_validation_readiness())
 
     def test_determine_study_file_readiness_fleshed_study_file(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = "study.xlsx"  # Invalid, but does not matter
         dvv.peak_annot_files = ["accucor.xlsx"]  # Invalid, but does not matter
         dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
@@ -928,7 +928,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
 
     def test_create_study_file_writer(self):
         # This also tests annotate_study_excel and dfs_dict_is_valid (indirectly)
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         study_stream = BytesIO()
         xlsxwriter = dvv.create_study_file_writer(study_stream)
         dvv.annotate_study_excel(xlsxwriter)
@@ -936,7 +936,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertEqual(0, len(base64.b64encode(study_stream.read()).decode("utf-8")))
 
     def test_header_to_cell(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
 
         # Get cell location success
         result = dvv.header_to_cell("Animals", "Age")
@@ -1377,7 +1377,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
 
     def validate_some_files(self, sample_file, accucor_files):
         # Test the get_validation_results function
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.set_files(study_file=sample_file, peak_annot_files=accucor_files)
         # Now try validating the load files
         vo.validate_study()

@@ -4,32 +4,54 @@
 <div>
     <h3>Start a Submission</h3>
     <span class="small text-muted">Generate a Study Submission Template with auto-filled samples and compounds extracted from your peak annotation files (e.g. AccuCor) along with other supporting data from the database.</span><br><br>
-    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
+    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data" class="tbform-control">
         {% csrf_token %}
 
         {{ form.mode }}
 
-        <label for="peak_annotation_files" class="tight-form-label">
+        <label for="peak_annotation_file" class="tight-form-label">
             Peak Annotation Files:
             <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span>
         </label>
-        {{ form.peak_annotation_files }}
-        <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
-        <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
+        <table>
+            <tr>
+                <td>
+                    {{ form.peak_annotation_file }}
+                    <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
+                </td>
+                <td>
+                    {{ form.operator }}
+                    <span class="text-danger">{{ form.operator.errors }}</span>
+                </td>
+                <td>
+                    {{ form.instrument }}
+                    <span class="text-danger">{{ form.instrument.errors }}</span>
+                </td>
+                <td>
+                    {{ form.protocol }}
+                    <span class="text-danger">{{ form.protocol.errors }}</span>
+                </td>
+                <td>
+                    {{ form.run_date }}
+                    <span class="text-danger">{{ form.run_date.errors }}</span>
+                </td>
+            </tr>
+        </table>
+        {% if not form.peak_annotation_file.errors and not form.operator.errors and not form.instrument.errors and not form.protocol.errors and not form.run_date.errors %}<br>{% endif %}
 
         <div style="display: none;">
-            <label for="animal_sample_table" class="tight-form-label">
+            <label for="study_doc" class="tight-form-label">
                 Study doc:
                 <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
             </label>
-            {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
+            {{ form.study_doc }}<span class="text-danger">{{ form.study_doc.errors }}</span>
             <!-- Errors, if they exist, add an extra like which makes the spacing off -->
-            {% if not form.animal_sample_table.errors %}<br>{% endif %}
+            {% if not form.study_doc.errors %}<br>{% endif %}
         </div>
 
         <span class="text-danger">{{ form.non_field_errors }}</span>
         <button type="submit" class="btn btn-primary" id="validate">Download Template</button>
-        <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);">Clear</button>
+        <button type="reset" class="btn btn-secondary" id="clear">Clear</button>
         {% if results %}
             <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
         {% endif %}

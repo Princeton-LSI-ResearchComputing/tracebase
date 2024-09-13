@@ -4,7 +4,7 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
-    path("submission", views.DataValidationView.as_view(), name="submission"),
+    path("submission", views.BuildSubmissionView.as_view(), name="submission"),
     path(
         "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
         views.search_basic,

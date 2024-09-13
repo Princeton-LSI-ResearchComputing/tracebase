@@ -1,5 +1,5 @@
-from .submission import DataValidationView
+from .submission import BuildSubmissionView
 
 __all__ = [
-    "DataValidationView",
+    "BuildSubmissionView",
 ]

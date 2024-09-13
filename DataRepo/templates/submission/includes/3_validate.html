@@ -14,28 +14,43 @@
 
         {{ form.mode }}
 
-        <div style="display: none;">
-            <label for="peak_annotation_files" class="tight-form-label">
-                Peak Annotation Files:
-                <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span></span>
-            </label>
-            {{ form.peak_annotation_files }}
-            <span class="text-danger">{{ form.peak_annotation_files.errors }}</span>
-            <pre id="pending_peak_annot_files" class="drop-area-list-indent"></pre>
-        </div>
+        <table style="display: none;">
+            <tr>
+                <td>
+                    {{ form.peak_annotation_file }}
+                    <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
+                </td>
+                <td>
+                    {{ form.operator }}
+                    <span class="text-danger">{{ form.operator.errors }}</span>
+                </td>
+                <td>
+                    {{ form.instrument }}
+                    <span class="text-danger">{{ form.instrument.errors }}</span>
+                </td>
+                <td>
+                    {{ form.protocol }}
+                    <span class="text-danger">{{ form.protocol.errors }}</span>
+                </td>
+                <td>
+                    {{ form.run_date }}
+                    <span class="text-danger">{{ form.run_date.errors }}</span>
+                </td>
+            </tr>
+        </table>
 
-        <label for="animal_sample_table" class="tight-form-label">
+        <label for="study_doc" class="tight-form-label">
             Study doc:
             <span class="small"><span class="small text-muted">(excel)</span></span>
         </label>
-        {{ form.animal_sample_table }}<span class="text-danger">{{ form.animal_sample_table.errors }}</span>
+        {{ form.study_doc }}<span class="text-danger">{{ form.study_doc.errors }}</span>
         <!-- Errors, if they exist, add an extra like which makes the spacing off -->
-        {% if not form.animal_sample_table.errors %}<br>{% endif %}
+        {% if not form.study_doc.errors %}<br>{% endif %}
 
         <span class="text-danger">{{ form.non_field_errors }}</span>
         <button type="submit" class="btn btn-primary" id="validate">Validate &amp; Repair</button>
         <!-- "Clear" is only needed for -->
-        <button type="reset" class="btn btn-secondary" id="clear" onclick="showPeakAnnotFiles([]);" style="display:none;">Clear</button>
+        <button type="reset" class="btn btn-secondary" id="clear" style="display:none;">Clear</button>
         <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
         {{ form.management_form }}
     </form>
