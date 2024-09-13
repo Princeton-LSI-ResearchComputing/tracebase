@@ -1,3 +1,4 @@
+import datetime
 import os
 from typing import Dict, Optional
 
@@ -21,7 +22,11 @@ from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.utils.file_utils import is_excel
+from DataRepo.models.lc_method import LCMethod
+from DataRepo.models.msrun_sequence import MSRunSequence
+from DataRepo.models.researcher import get_researchers
+from DataRepo.utils.file_utils import date_to_string, is_excel
+from DataRepo.widgets import AutoCompleteTextInput
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -324,9 +329,9 @@ class MultipleFileField(FileField):
         return result
 
 
-class DataSubmissionValidationForm(Form):
+class BuildSubmissionForm(Form):
     """
-    Form for users to validate their Animal and Sample Table with Accucor and/or Isocorr files
+    Form for users to compile and validate their study with Peak Annotation files
     """
 
     def __init__(self, *args, **kwargs):
@@ -334,21 +339,115 @@ class DataSubmissionValidationForm(Form):
         for visible in self.visible_fields():
             visible.field.widget.attrs["class"] = "form-control"
 
-    animal_sample_table = FileField(
-        required=False, widget=ClearableFileInput(attrs={"multiple": False})
-    )
-    peak_annotation_files = MultipleFileField(
-        required=False,
-        widget=MultipleFileInput(
-            attrs={"multiple": True, "id": "peak_annotation_files_field"}
-        ),
-    )
     # mode is "autofill" or "validate"
     mode = CharField(widget=HiddenInput())
 
+    # "Study doc" (hidden on the start tab)
+    study_doc = FileField(
+        required=False, widget=ClearableFileInput(attrs={"multiple": False})
+    )
+
+    # This following fields are for a single file's form, but will be replicated using javascript.  The fields above
+    # should only occur once, but all should be a part of the same form submission.
+
+    peak_annotation_file = FileField(
+        required=False,
+        widget=ClearableFileInput(attrs={"multiple": False}),
+    )
+
+    # The following fields are for specifying sequence details for each peak annotation file (and will also be
+    # replicated using javascript)
+    operator = CharField(
+        required=False,
+        widget=AutoCompleteTextInput(
+            "operators_datalist",
+            get_researchers(),
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={"placeholder": "John Doe", "autocomplete": "off"},
+        ),
+    )
+    protocol = CharField(
+        required=False,
+        widget=AutoCompleteTextInput(
+            "protocols_datalist",
+            list(LCMethod.objects.values_list("name", flat=True)),
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": MSRunSequence.get_most_used_protocol(),
+                "autocomplete": "off",
+            },
+        ),
+    )
+    instrument = CharField(
+        required=False,
+        widget=AutoCompleteTextInput(
+            "instruments_datalist",
+            list(
+                MSRunSequence.objects.order_by("instrument")
+                .distinct()
+                .values_list("instrument", flat=True)
+            ),
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": MSRunSequence.get_most_used_instrument(),
+                "autocomplete": "off",
+            },
+        ),
+    )
+    run_date = CharField(
+        required=False,
+        widget=TextInput(
+            attrs={
+                "placeholder": date_to_string(datetime.date.today()),
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+    def is_valid(self):
+        super().is_valid()
+
+        allowed_delimited_exts = ["csv", "tsv"]
+
+        # Fields (excluding mode)
+        study_doc = self.cleaned_data.get("study_doc", None)
+        peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
+        protocol = self.cleaned_data.get("protocol", None)
+        operator = self.cleaned_data.get("operator", None)
+        instrument = self.cleaned_data.get("instrument", None)
+        run_date = self.cleaned_data.get("run_date", None)
+
+        if (study_doc is None and peak_annotation_file is None) or (
+            study_doc is not None and not is_excel(study_doc)
+        ):
+            return False
+
+        if peak_annotation_file is not None:
+            peak_annot_filepath = peak_annotation_file.temporary_file_path()
+            if not is_excel(peak_annot_filepath):
+                # Excel files do not need a specific extension, but delimited files do...
+                ext = list(os.path.splitext(peak_annotation_file))[1]
+                if ext not in allowed_delimited_exts:
+                    return False
+
+            # All Sequence details are required when a peak annotation file is supplied
+            if (
+                operator is None
+                or operator.strip() == ""
+                or protocol is None
+                or protocol.strip() == ""
+                or instrument is None
+                or instrument.strip() == ""
+                or run_date is None
+                or run_date.strip() == ""
+            ):
+                return False
+
+        return True
+
     def clean(self):
-        """Ensure that at least a sample or peak annotation file is supplied and that the study doc is an excel file and
-        the peak annotation files are excel, csv, or tsv.
+        """Ensure that at least a study doc or peak annotation file is supplied and that the study doc is an excel file
+        and the peak annotation file is an excel, csv, or tsv.
 
         Args:
             None
@@ -358,56 +457,94 @@ class DataSubmissionValidationForm(Form):
             self.cleaned_data (dict)
         """
         super().clean()
-
+        print("CLEAN CALLED")
         allowed_delimited_exts = ["csv", "tsv"]
 
-        study_doc = self.cleaned_data.get("animal_sample_table", None)
-        peak_annotation_files = self.cleaned_data.get("peak_annotation_files", None)
+        # Fields (excluding mode)
+        study_doc = self.cleaned_data.get("study_doc", None)
+        peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
+        operator = self.cleaned_data.get("operator", None)
+        protocol = self.cleaned_data.get("protocol", None)
+        instrument = self.cleaned_data.get("instrument", None)
+        run_date = self.cleaned_data.get("run_date", None)
 
-        num_peak_annot_files = (
-            0 if peak_annotation_files is None else len(peak_annotation_files)
-        )
-
-        if study_doc is None and num_peak_annot_files == 0:
+        if study_doc is None and peak_annotation_file is None:
             self.add_error(
-                None,
+                "study_doc",
                 ValidationError(
-                    "Either an Animal/Sample Table or Peak Annotation file (e.g. Accucor or Isocorr) is required.",
+                    "At least 1 file is required.",
+                    code="TooFewFiles",
+                ),
+            )
+            self.add_error(
+                "peak_annotation_file",
+                ValidationError(
+                    "At least 1 file is required.",
                     code="TooFewFiles",
                 ),
             )
         elif study_doc is not None and not is_excel(study_doc):
             self.add_error(
-                "animal_sample_table",
+                "study_doc",
                 ValidationError(
                     f"The Study doc must be an excel file.  The file type of file: {study_doc} could not be validated.",
                     code="InvalidStudyFile",
                 ),
             )
 
-        if num_peak_annot_files > 0:
-            not_table_like_files = []
-
-            for peak_annot_file in peak_annotation_files:
-                peak_annot_filepath = peak_annot_file.temporary_file_path()
-                peak_annotation_filename = str(peak_annot_file)
-                if not is_excel(peak_annot_filepath):
-                    # Excel files do not need a specific extension, but delimited files do...
-                    _, ext = os.path.splitext(peak_annot_file)
-                    if ext not in allowed_delimited_exts:
-                        not_table_like_files.append(peak_annotation_filename)
-
-            if len(not_table_like_files) > 0:
-                self.add_error(
-                    "peak_annotation_files",
-                    ValidationError(
-                        (
-                            "Peak annotation files must be excel files or must have one of the following extensions "
-                            f"(indicating comma- or tab-delimited text files): {allowed_delimited_exts}.  The file "
-                            f"type of the following supplied files: {not_table_like_files} could not be validated."
+        if peak_annotation_file is not None:
+            peak_annot_filepath = peak_annotation_file.temporary_file_path()
+            if not is_excel(peak_annot_filepath):
+                # Excel files do not need a specific extension, but delimited files do...
+                _, ext = os.path.splitext(peak_annotation_file)
+                if ext not in allowed_delimited_exts:
+                    self.add_error(
+                        "peak_annotation_file",
+                        ValidationError(
+                            f"Must be excel or {allowed_delimited_exts}.",
+                            code="InvalidPeakAnnotFile",
                         ),
-                        code="InvalidPeakAnnotFiles",
+                    )
+
+            # All Sequence details are required when a peak annotation file is supplied
+            if operator is None or operator.strip() == "":
+                self.add_error(
+                    "operator",
+                    ValidationError(
+                        "required",
+                        code="MissingOperator",
                     ),
                 )
+
+            if protocol is None or protocol.strip() == "":
+                self.add_error(
+                    "protocol",
+                    ValidationError(
+                        "required",
+                        code="MissingProtocol",
+                    ),
+                )
+            # Explicitly NOT checking the lcprotocol is from the existing DB protocols, to allow for users to create new
+            # ones.
+
+            if instrument is None or instrument.strip() == "":
+                self.add_error(
+                    "instrument",
+                    ValidationError(
+                        "required",
+                        code="MissingInstrument",
+                    ),
+                )
+            # Explicitly NOT checking the instrument is from the model's list, to allow for new instrument updates.
+
+            if run_date is None or run_date.strip() == "":
+                self.add_error(
+                    "run_date",
+                    ValidationError(
+                        "required",
+                        code="MissingDate",
+                    ),
+                )
+            # Explicitly NOT checking date format.  Format is handled by validation and excel/pandas.
 
         return self.cleaned_data

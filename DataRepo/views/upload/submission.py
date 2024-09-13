@@ -15,7 +15,7 @@ from django.db.utils import ProgrammingError
 from django.forms import ValidationError
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.forms import BuildSubmissionForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -75,8 +75,8 @@ from DataRepo.utils.infusate_name_parser import (
 from DataRepo.utils.text_utils import autowrap
 
 
-class DataValidationView(FormView):
-    form_class = DataSubmissionValidationForm
+class BuildSubmissionView(FormView):
+    form_class = BuildSubmissionForm
     template_name = "submission/submission.html"
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
@@ -565,7 +565,7 @@ class DataValidationView(FormView):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-        return super(DataValidationView, self).dispatch(request, *args, **kwargs)
+        return super(BuildSubmissionView, self).dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
@@ -574,16 +574,16 @@ class DataValidationView(FormView):
         if not form.is_valid():
             return self.form_invalid(form)
 
-        if "animal_sample_table" in request.FILES:
-            sample_file = request.FILES["animal_sample_table"]
-            tmp_study_file = sample_file.temporary_file_path()
+        if "study_doc" in request.FILES:
+            study_doc = request.FILES["study_doc"]
+            tmp_study_file = study_doc.temporary_file_path()
         else:
             # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
-            sample_file = None
+            study_doc = None
             tmp_study_file = None
 
-        if "peak_annotation_files" in request.FILES:
-            peak_annotation_files = request.FILES.getlist("peak_annotation_files")
+        if "peak_annotation_file" in request.FILES:
+            peak_annotation_files = [request.FILES["peak_annotation_file"]]
         else:
             # Ignore missing accucor files (allow user to validate just the sample file)
             peak_annotation_files = []
@@ -592,7 +592,7 @@ class DataValidationView(FormView):
 
         self.set_files(
             tmp_study_file,
-            study_filename=str(sample_file) if sample_file is not None else None,
+            study_filename=str(study_doc) if study_doc is not None else None,
             peak_annot_files=[fp.temporary_file_path() for fp in peak_annotation_files],
             peak_annot_filenames=[str(fp) for fp in peak_annotation_files],
         )

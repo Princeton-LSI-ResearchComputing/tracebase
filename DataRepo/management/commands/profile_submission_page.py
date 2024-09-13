@@ -4,7 +4,7 @@ from typing import Optional
 
 from django.core.management import BaseCommand
 
-from DataRepo.views.upload.submission import DataValidationView
+from DataRepo.views.upload.submission import BuildSubmissionView
 
 
 def profile(study_doc, peak_annot_files: Optional[list] = None):
@@ -12,7 +12,7 @@ def profile(study_doc, peak_annot_files: Optional[list] = None):
     # Set up all the input files
     study_doc_name = None
     peak_annot_filenames = []
-    dvv = DataValidationView()
+    dvv = BuildSubmissionView()
     if study_doc is not None:
         _, study_doc_name = os.path.split(study_doc)
     if peak_annot_files is None:

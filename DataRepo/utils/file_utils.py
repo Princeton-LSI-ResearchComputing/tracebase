@@ -1,6 +1,6 @@
+import datetime
 import pathlib
 from collections import defaultdict
-from datetime import datetime
 from typing import Optional
 from zipfile import BadZipFile
 
@@ -19,6 +19,8 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeKeys,
     InvalidHeaders,
 )
+
+date_format = "%Y-%m-%d"
 
 
 def read_from_file(
@@ -625,7 +627,7 @@ def string_to_date(
         date_str = date_str.replace(" 00:00:00", "")
 
     try:
-        dt = datetime.strptime(date_str.strip(), format_str).date()
+        dt = datetime.datetime.strptime(date_str.strip(), format_str).date()
     except ValueError as ve:
         try:
             # Fallback to try dateutil
@@ -649,6 +651,11 @@ def string_to_date(
     return dt
 
 
-def datetime_to_string(date_in: datetime, format_str: Optional[str] = None):
-    format = "%Y-%m-%d" if format_str is None else format_str
+def datetime_to_string(date_in: datetime.datetime, format_str: Optional[str] = None):
+    format = date_format if format_str is None else format_str
     return date_in.strftime(format)
+
+
+def date_to_string(date_in: datetime.date, format_str: Optional[str] = None):
+    format = date_format if format_str is None else format_str
+    return datetime.date.strftime(date_in, format)
