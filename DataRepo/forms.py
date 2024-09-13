@@ -357,43 +357,9 @@ class BuildSubmissionForm(Form):
 
     # The following fields are for specifying sequence details for each peak annotation file (and will also be
     # replicated using javascript)
-    operator = CharField(
-        required=False,
-        widget=AutoCompleteTextInput(
-            "operators_datalist",
-            get_researchers(),
-            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-            attrs={"placeholder": "John Doe", "autocomplete": "off"},
-        ),
-    )
-    protocol = CharField(
-        required=False,
-        widget=AutoCompleteTextInput(
-            "protocols_datalist",
-            list(LCMethod.objects.values_list("name", flat=True)),
-            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-            attrs={
-                "placeholder": MSRunSequence.get_most_used_protocol(),
-                "autocomplete": "off",
-            },
-        ),
-    )
-    instrument = CharField(
-        required=False,
-        widget=AutoCompleteTextInput(
-            "instruments_datalist",
-            list(
-                MSRunSequence.objects.order_by("instrument")
-                .distinct()
-                .values_list("instrument", flat=True)
-            ),
-            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-            attrs={
-                "placeholder": MSRunSequence.get_most_used_instrument(),
-                "autocomplete": "off",
-            },
-        ),
-    )
+    operator = CharField(required=False)  # NOTE: Cannot make database calls in the class attributes, see init.
+    protocol = CharField(required=False)  # NOTE: Cannot make database calls in the class attributes, see init.
+    instrument = CharField(required=False)  # NOTE: Cannot make database calls in the class attributes, see init.
     run_date = CharField(
         required=False,
         widget=TextInput(
@@ -403,6 +369,40 @@ class BuildSubmissionForm(Form):
             }
         ),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["operator"].widget = AutoCompleteTextInput(
+            "operators_datalist",
+            get_researchers(),
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": "John Doe",
+                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
+            },
+        )
+        self.fields["protocol"].widget = AutoCompleteTextInput(
+            "protocols_datalist",
+            list(LCMethod.objects.values_list("name", flat=True)),
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": MSRunSequence.get_most_used_protocol(),
+                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
+            },
+        )
+        self.fields["instrument"].widget = AutoCompleteTextInput(
+            "instruments_datalist",
+            list(
+                MSRunSequence.objects.order_by("instrument")
+                .distinct()
+                .values_list("instrument", flat=True)
+            ),
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": MSRunSequence.get_most_used_instrument(),
+                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
+            },
+        )
 
     def is_valid(self):
         super().is_valid()
