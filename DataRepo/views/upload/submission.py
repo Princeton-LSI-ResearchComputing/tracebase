@@ -76,7 +76,6 @@ from DataRepo.utils.text_utils import autowrap
 
 
 class BuildSubmissionView(FormView):
-    form_class = create_BuildSubmissionForm()
     template_name = "submission/submission.html"
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
@@ -305,6 +304,9 @@ class BuildSubmissionView(FormView):
                 "dict": {"bg_color": "#F2F2F2"},
             },
         }
+
+    def get_form_class(self):
+        return create_BuildSubmissionForm()
 
     def set_files(
         self,
