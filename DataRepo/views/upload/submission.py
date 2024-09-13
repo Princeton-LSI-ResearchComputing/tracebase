@@ -15,7 +15,7 @@ from django.db.utils import ProgrammingError
 from django.forms import ValidationError
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import BuildSubmissionForm
+from DataRepo.forms import create_BuildSubmissionForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -76,7 +76,7 @@ from DataRepo.utils.text_utils import autowrap
 
 
 class BuildSubmissionView(FormView):
-    form_class = BuildSubmissionForm
+    form_class = create_BuildSubmissionForm()
     template_name = "submission/submission.html"
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
