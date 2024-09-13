@@ -357,9 +357,42 @@ class BuildSubmissionForm(Form):
 
     # The following fields are for specifying sequence details for each peak annotation file (and will also be
     # replicated using javascript)
-    operator = CharField(required=False)  # NOTE: Cannot make database calls in the class attributes, see init.
-    protocol = CharField(required=False)  # NOTE: Cannot make database calls in the class attributes, see init.
-    instrument = CharField(required=False)  # NOTE: Cannot make database calls in the class attributes, see init.
+    operator = CharField(
+        required=False,
+        widget=AutoCompleteTextInput(
+            "operators_datalist",
+            ["placeholder"],  # NOTE: Cannot make database calls in the class attributes, see init.
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": "John Doe",
+                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
+            },
+        ),
+    )
+    protocol = CharField(
+        required=False,
+        widget=AutoCompleteTextInput(
+            "protocols_datalist",
+            ["placeholder"],  # NOTE: Cannot make database calls in the class attributes, see init.
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": "placeholder",  # NOTE: Cannot make database calls in the class attributes, see init.
+                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
+            },
+        ),
+    )
+    instrument = CharField(
+        required=False,
+        widget=AutoCompleteTextInput(
+            "instruments_datalist",
+            ["placeholder"],  # NOTE: Cannot make database calls in the class attributes, see init.
+            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+            attrs={
+                "placeholder": "placeholder",  # NOTE: Cannot make database calls in the class attributes, see init.
+                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
+            },
+        ),
+    )
     run_date = CharField(
         required=False,
         widget=TextInput(
@@ -372,37 +405,20 @@ class BuildSubmissionForm(Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["operator"].widget = AutoCompleteTextInput(
-            "operators_datalist",
-            get_researchers(),
-            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-            attrs={
-                "placeholder": "John Doe",
-                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
-            },
+        # If these values are set inside the definition of the class attributes, then any operation on migrations will
+        # fail, complaining that the model doesn't exist, so I initialize these values here in the constructor.  I set
+        # placeholder values in the class attributes because replacing the widget messes up the CSS.
+        # See: https://stackoverflow.com/a/56878154/2057516
+        # An alternative solution would be to use a factory.
+        self.fields["operator"].widget.datalist_values = get_researchers()
+        self.fields["protocol"].widget.datalist_values = list(LCMethod.objects.values_list("name", flat=True))
+        self.fields["protocol"].widget.attrs["placeholder"] = MSRunSequence.get_most_used_protocol()
+        self.fields["instrument"].widget.datalist_values = list(
+            MSRunSequence.objects.order_by("instrument")
+            .distinct()
+            .values_list("instrument", flat=True)
         )
-        self.fields["protocol"].widget = AutoCompleteTextInput(
-            "protocols_datalist",
-            list(LCMethod.objects.values_list("name", flat=True)),
-            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-            attrs={
-                "placeholder": MSRunSequence.get_most_used_protocol(),
-                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
-            },
-        )
-        self.fields["instrument"].widget = AutoCompleteTextInput(
-            "instruments_datalist",
-            list(
-                MSRunSequence.objects.order_by("instrument")
-                .distinct()
-                .values_list("instrument", flat=True)
-            ),
-            datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-            attrs={
-                "placeholder": MSRunSequence.get_most_used_instrument(),
-                "autocomplete": "off",  # This prevents Safari from overriding the datalist element
-            },
-        )
+        self.fields["instrument"].widget.attrs["placeholder"] = MSRunSequence.get_most_used_instrument()
 
     def is_valid(self):
         super().is_valid()
