@@ -12,6 +12,15 @@
         <script src="{% static 'js/browser_download.js' %}"></script>
         <script src="{% static 'js/file_list_drop_area.js' %}"></script>
         <script src="{% static 'js/submission.js' %}"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function(){
+                console.log("Setting", document.getElementsByName("peak_annotation_file")[0])
+                initDropArea(
+                    document.getElementById('drop-area'),
+                    document.getElementsByName("peak_annotation_file")[0]
+                )
+            })
+        </script>
     {% elif page == 'Fill In' %}
         <script src="{% static 'js/submission_fillin.js' %}"></script>
         <script>

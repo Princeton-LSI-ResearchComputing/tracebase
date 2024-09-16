@@ -133,7 +133,7 @@ class MSRunSequence(Model):
         )
 
     @classmethod
-    def get_most_used_protocol(cls):
+    def get_most_used_protocol(cls, default=None):
         """Retrieves the name of the most used LCMethod in the database.
 
         Args:
@@ -144,8 +144,10 @@ class MSRunSequence(Model):
             LCMethod name (str) [LCMethod.create_name(LCMethod.DEFAULT_TYPE)]
         """
         from django.db.models import Count
-
         from DataRepo.models import LCMethod
+
+        if default is None:
+            default = LCMethod.create_name(LCMethod.DEFAULT_TYPE)
 
         max_lc_dict = (
             cls.objects.values("lc_method_id")
@@ -154,11 +156,11 @@ class MSRunSequence(Model):
             .first()
         )
         if max_lc_dict is None:
-            return LCMethod.create_name(LCMethod.DEFAULT_TYPE)
+            return default
         return LCMethod.objects.get(id=max_lc_dict["lc_method_id"]).name
 
     @classmethod
-    def get_most_used_instrument(cls):
+    def get_most_used_instrument(cls, default=None):
         """Retrieves the name of the most used instrument in the database.
 
         Args:
@@ -170,6 +172,9 @@ class MSRunSequence(Model):
         """
         from django.db.models import Count
 
+        if default is None:
+            default = cls.INSTRUMENT_DEFAULT
+
         max_instrument_dict = (
             cls.objects.values("instrument")
             .annotate(count=Count("instrument"))
@@ -177,5 +182,5 @@ class MSRunSequence(Model):
             .first()
         )
         if max_instrument_dict is None:
-            return cls.INSTRUMENT_DEFAULT
+            return default
         return max_instrument_dict["instrument"]

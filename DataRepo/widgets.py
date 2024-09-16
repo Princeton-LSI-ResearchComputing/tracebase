@@ -62,5 +62,17 @@ class AutoCompleteTextInput(TextInput):
         return html
 
     def datalist(self):
-        vals = " ".join([f"<option>{val}</option>" for val in self.datalist_values])
+        vals = ""
+        for val in self.datalist_values:
+            if vals != "":
+                vals += " "
+            if isinstance(val, str):
+                vals += f"<option>{val}</option>"
+            elif isinstance(val, tuple):
+                if val[0].lower().replace(" ", "") == val[1].lower().replace(" ", ""):
+                    vals += f"<option>{val[1]}</option>"
+                else:
+                    vals += f"<option data-value='{val[0]}'>{val[0]} ({val[1]})</option>"
+            else:
+                raise TypeError(f"datalist_values must be a str or tuple, not {type(self.datalist_values).__name__}")
         return mark_safe(f'<datalist id="{self.datalist_id}">{vals}</datalist>')
