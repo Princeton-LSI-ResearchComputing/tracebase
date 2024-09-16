@@ -367,17 +367,20 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 "operators_datalist",
                 get_researchers(),
                 datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-                attrs={"placeholder": "John Doe", "autocomplete": "off"},
+                attrs={"placeholder": "ms operator", "autocomplete": "off"},
             ),
         )
         protocol = CharField(
             required=False,
             widget=AutoCompleteTextInput(
                 "protocols_datalist",
-                list(LCMethod.objects.values_list("name", flat=True)),
+                (
+                    list(LCMethod.objects.values_list("name", flat=True)) if LCMethod.objects.count() > 0
+                    else [LCMethod.DEFAULT_TYPE]
+                ),
                 datalist_manual=False,  # TODO: Change to True when forms start to be cloned
                 attrs={
-                    "placeholder": MSRunSequence.get_most_used_protocol(),
+                    "placeholder": MSRunSequence.get_most_used_protocol(default="protocol"),
                     "autocomplete": "off",
                 },
             ),
@@ -386,14 +389,10 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=AutoCompleteTextInput(
                 "instruments_datalist",
-                list(
-                    MSRunSequence.objects.order_by("instrument")
-                    .distinct()
-                    .values_list("instrument", flat=True)
-                ),
+                MSRunSequence.INSTRUMENT_CHOICES,
                 datalist_manual=False,  # TODO: Change to True when forms start to be cloned
                 attrs={
-                    "placeholder": MSRunSequence.get_most_used_instrument(),
+                    "placeholder": MSRunSequence.get_most_used_instrument(default="instrument"),
                     "autocomplete": "off",
                 },
             ),
@@ -402,7 +401,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=TextInput(
                 attrs={
-                    "placeholder": date_to_string(datetime.date.today()),
+                    "title": "e.g. " + date_to_string(datetime.date.today()),
+                    "placeholder": "run date",
                     "autocomplete": "off",
                 }
             ),
