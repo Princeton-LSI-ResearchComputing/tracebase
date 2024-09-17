@@ -365,9 +365,13 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=AutoCompleteTextInput(
                 "operators_datalist",
-                get_researchers(),
+                get_researchers() if len(get_researchers()) > 0 else ["Anonymous"],
                 datalist_manual=True,
-                attrs={"placeholder": "ms operator", "autocomplete": "off"},
+                attrs={
+                    "title": "Mass Spec Operator, e.g. 'John Doe'",
+                    "placeholder": "ms operator",
+                    "autocomplete": "off",
+                },
             ),
         )
         protocol = CharField(
@@ -376,10 +380,14 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 "protocols_datalist",
                 (
                     list(LCMethod.objects.values_list("name", flat=True)) if LCMethod.objects.count() > 0
-                    else [LCMethod.DEFAULT_TYPE]
+                    else [LCMethod.create_name(LCMethod.DEFAULT_TYPE)]
                 ),
                 datalist_manual=True,
                 attrs={
+                    "title": (
+                        "Liquid Chromatography Protocol, e.g. '" + LCMethod.create_name(LCMethod.DEFAULT_TYPE)
+                        + "'"
+                    ),
                     "placeholder": MSRunSequence.get_most_used_protocol(default="protocol"),
                     "autocomplete": "off",
                 },
@@ -392,6 +400,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 MSRunSequence.INSTRUMENT_CHOICES,
                 datalist_manual=True,
                 attrs={
+                    "title": "MS Instrument Model, e.g. '" + MSRunSequence.INSTRUMENT_DEFAULT + "'",
                     "placeholder": MSRunSequence.get_most_used_instrument(default="instrument"),
                     "autocomplete": "off",
                 },
@@ -399,9 +408,12 @@ def create_BuildSubmissionForm() -> Type[Form]:
         )
         run_date = CharField(
             required=False,
-            widget=TextInput(
+            widget=AutoCompleteTextInput(
+                "date_datalist",
+                [date_to_string(datetime.date.today() - datetime.timedelta(days=days)) for days in range(14)],
+                datalist_manual=True,
                 attrs={
-                    "title": "e.g. " + date_to_string(datetime.date.today()),
+                    "title": "MS Run Date, e.g. '" + date_to_string(datetime.date.today()) + "'",
                     "placeholder": "run date",
                     "autocomplete": "off",
                 }
@@ -419,6 +431,10 @@ def create_BuildSubmissionForm() -> Type[Form]:
         @property
         def instrument_datalist(self):
             return self.fields["instrument"].widget.datalist()
+
+        @property
+        def run_date_datalist(self):
+            return self.fields["run_date"].widget.datalist()
 
         def is_valid(self):
             super().is_valid()
