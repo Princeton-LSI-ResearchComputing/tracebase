@@ -10,15 +10,22 @@
         <link href="{% static 'css/tbforms.css' %}" rel="stylesheet">
         <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
         <script src="{% static 'js/browser_download.js' %}"></script>
+        <script src="{% static 'js/submission_start.js' %}"></script>
         <script src="{% static 'js/file_list_drop_area.js' %}"></script>
         <script src="{% static 'js/submission.js' %}"></script>
         <script>
             document.addEventListener("DOMContentLoaded", function(){
-                console.log("Setting", document.getElementsByName("peak_annotation_file")[0])
+                console.log("Setting", document.getElementsByName("peak_annotation_file")[0]);
+                initPeakAnnotUploads(
+                    document.getElementById('drop-annot-metadata-row-template'),
+                    document.getElementById('peak-annot-forms-elem'),
+                    document.getElementById('drop-area-input')
+                );
                 initDropArea(
                     document.getElementById('drop-area'),
-                    document.getElementsByName("peak_annotation_file")[0]
-                )
+                    addPeakAnnotFileToUpload,
+                    afterAddingFiles
+                );
             })
         </script>
     {% elif page == 'Fill In' %}

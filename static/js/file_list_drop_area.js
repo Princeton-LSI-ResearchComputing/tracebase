@@ -1,30 +1,44 @@
 var dropArea = null // eslint-disable-line no-var
-var fileElem = null // eslint-disable-line no-var
+var fileFunc = null // eslint-disable-line no-var
+var postDropFunc = null // eslint-disable-line no-var
 var allFiles = []
 var newFiles = []
 
+// This code is based on the following article:
+// https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/
+
 /**
  * This initializes all of the global variables.
+ * - dropArea is the div element where files are dropped
+ * - fileFunc is a function that takes DataTransfer object containing a single file.  It will be called for every
+ *   dropped file.
+ * - postDropFunc is an optional function without arguments that is called after all the files have been processed.
  */
-function initDropArea (dropArea, fileElem) { // eslint-disable-line no-unused-vars
+function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-line no-unused-vars
   ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, preventDefaults, false)
-  })
+  });
 
   ;['dragenter', 'dragover'].forEach(eventName => {
     dropArea.addEventListener(eventName, highlight, false)
-  })
+  });
 
   ;['dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, unhighlight, false)
-  })
+  });
 
-  dropArea.addEventListener('drop', handleDrop, false)
+  dropArea.addEventListener('drop', handleDrop, false);
 
-  globalThis.dropArea = dropArea
-  globalThis.fileElem = fileElem
+  console.log("Setting dropArea to", dropArea);
+  console.log("Setting fileFunc to", fileFunc);
+  globalThis.dropArea = dropArea;
+  globalThis.fileFunc = fileFunc;
+  if (typeof postDropFunc !== 'undefined' && postDropFunc) {
+    console.log("Setting postDropFunc to", postDropFunc);
+    globalThis.postDropFunc = postDropFunc
+  }
 
-  handleFiles(null)
+  handleFiles(null);
 }
 
 function preventDefaults (e) { // eslint-disable-line no-unused-vars
@@ -47,7 +61,8 @@ function handleDrop (e) {
 }
 
 /**
- * This method initializes and maintains a global list of all and new files.
+ * This method initializes and maintains a global list of all and new files and creates a DataTransfer object for every
+ * individual dropped/picked file and calls the fileFunc that was initialized by the initDropArea function.
  * @param {*} files - An optional array of file objects.  If null, the global lists are emptied.
  */
 function handleFiles (files) { // eslint-disable-line no-unused-vars
@@ -57,32 +72,16 @@ function handleFiles (files) { // eslint-disable-line no-unused-vars
   } else {
     globalThis.newFiles = files
     for (let i = 0; i < files.length; ++i) {
-      // See: https://stackoverflow.com/questions/8006715/
-      // TODO: Change this to get the right file input element.  This is currently just a proof of concept.
-      addFilesToUpload([files.item(i)])
       globalThis.allFiles.push(files.item(i))
-      console.log("Setting the", globalThis.fileElem.name, "input element to", files.item(i).name)
+      // See: https://stackoverflow.com/questions/8006715/
+      const dT = new DataTransfer();
+      dT.items.add(files.item(i));
+      fileFunc(dT)
+    }
+    if (typeof postDropFunc !== 'undefined' && postDropFunc) {
+      postDropFunc()
     }
   }
-}
-
-function addFilesToUpload(files) { // eslint-disable-line no-unused-vars
-  // files is a regular array (or list?) of file objects
-  // FileList objects (like globalThis.fileElem.files) are read-only
-  const dT = new DataTransfer();
-  // TODO: For now, do not add previous files.  Once the form cloning is done, this can be used (but will need to be edited to use 1 file per input element)
-  // // Add previously added files to the DataTranfer object
-  // for (let i = 0; i < globalThis.fileElem.files.length; i++) {
-  //     dT.items.add(globalThis.fileElem.files[i]);
-  // }
-  // Add newly selected files to the DataTranfer object
-  for (let i = 0; i < files.length; i++) {
-      dT.items.add(files[i]);
-  }
-  // Replace the FileList object in the file input element with the combined (previously added and new) files
-  globalThis.fileElem.files = dT.files;
-  // Save the FileList object for use later when the user drops more files in
-  current_peak_annot_files = globalThis.fileElem.files;
 }
 
 function getFileNamesString (files, curstring) {
