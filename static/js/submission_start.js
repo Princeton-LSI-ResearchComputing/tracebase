@@ -22,15 +22,23 @@ function initPeakAnnotUploads(templateContainer, peakAnnotFormsTable, dropAreaIn
  * @param {*} dT [DataTransfer]: A DataTransfer object containing a single file for upload
  */
 function addPeakAnnotFileToUpload(dT, template) { // eslint-disable-line no-var
-  var newRow = createPeakAnnotFormRow(dT, template);
+  var newRow = createPeakAnnotFormRow(template);
+  makeFormModifications(dT, newRow);
   peakAnnotFormsTable.appendChild(newRow);
 }
 
-function createPeakAnnotFormRow(dT, template) {
+function createPeakAnnotFormRow(template) {
   if (typeof template === 'undefined' || !template) {
       template = templateContainer;
     }
     return template.cloneNode(true);
+}
+
+function makeFormModifications(dT, formRow) {
+  fileTd = formRow.querySelector('#fileColumn');
+  fileTd.style = null;
+  fileInput = formRow.querySelector('input[name="peak_annotation_file"]');
+  fileInput.files = dT.files;
 }
 
 /**
@@ -39,5 +47,9 @@ function createPeakAnnotFormRow(dT, template) {
  * the sequence metadata inputs for re-use upon additional drops/picks.
  */
 function afterAddingFiles() {
-    globalThis.dropAreaInput.value = null;
+  globalThis.dropAreaInput.value = null;
+}
+
+function clearPeakAnnotFiles() {
+  peakAnnotFormsTable.innerHTML = '';
 }

@@ -24,7 +24,7 @@
                 <td style="vertical-align: middle;">
                     <table>
                         <tr style="vertical-align: middle;" id="drop-annot-metadata-row-template">
-                            <td style="display: none;">
+                            <td style="display: none;" id="fileColumn">
                                 {{ form.peak_annotation_file }}
                                 <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
                             </td>
@@ -88,7 +88,7 @@
     </div>
 
     <button class="btn btn-primary" id="faux-validate" onclick="document.getElementById('submission-validation').submit();">Validate</button>
-    <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();">Clear</button>
+    <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles()">Clear</button>
 
 </div>
 
