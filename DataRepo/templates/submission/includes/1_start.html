@@ -23,7 +23,7 @@
                 </td>
                 <td style="vertical-align: middle;">
                     <table>
-                        <tr style="vertical-align: middle;">
+                        <tr style="vertical-align: middle;" id="drop-annot-metadata-row-template">
                             <td style="display: none;">
                                 {{ form.peak_annotation_file }}
                                 <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
@@ -57,29 +57,8 @@
 
             {{ form.mode }}
 
-            <table>
-                <tr>
-                    <td>
-                        {{ form.peak_annotation_file }}
-                        <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
-                    </td>
-                    <td>
-                        {{ form.operator }}
-                        <span class="text-danger">{{ form.operator.errors }}</span>
-                    </td>
-                    <td>
-                        {{ form.instrument }}
-                        <span class="text-danger">{{ form.instrument.errors }}</span>
-                    </td>
-                    <td>
-                        {{ form.protocol }}
-                        <span class="text-danger">{{ form.protocol.errors }}</span>
-                    </td>
-                    <td>
-                        {{ form.run_date }}
-                        <span class="text-danger">{{ form.run_date.errors }}</span>
-                    </td>
-                </tr>
+            <!-- Peak annotation file forms will be added to this table via javascript -->
+            <table id="peak-annot-forms-elem">
             </table>
             {% if not form.peak_annotation_file.errors and not form.operator.errors and not form.instrument.errors and not form.protocol.errors and not form.run_date.errors %}<br>{% endif %}
 
