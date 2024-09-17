@@ -11,9 +11,6 @@ var dropAreaInput = null // eslint-disable-line no-var
  * area.
  */
 function initPeakAnnotUploads(templateContainer, peakAnnotFormsTable, dropAreaInput) {
-    console.log("Setting templateContainer to", templateContainer);
-    console.log("Setting peakAnnotFormsTable to", peakAnnotFormsTable);
-    console.log("Setting dropAreaInput to", dropAreaInput);
     globalThis.templateContainer = templateContainer;
     globalThis.peakAnnotFormsTable = peakAnnotFormsTable;
     globalThis.dropAreaInput = dropAreaInput;
@@ -24,8 +21,16 @@ function initPeakAnnotUploads(templateContainer, peakAnnotFormsTable, dropAreaIn
  * form for a single file input along with sequence metadata inputs and un-hides the file input.
  * @param {*} dT [DataTransfer]: A DataTransfer object containing a single file for upload
  */
-function addPeakAnnotFileToUpload(dT) { // eslint-disable-line no-var
-  
+function addPeakAnnotFileToUpload(dT, template) { // eslint-disable-line no-var
+  var newRow = createPeakAnnotFormRow(dT, template);
+  peakAnnotFormsTable.appendChild(newRow);
+}
+
+function createPeakAnnotFormRow(dT, template) {
+  if (typeof template === 'undefined' || !template) {
+      template = templateContainer;
+    }
+    return template.cloneNode(true);
 }
 
 /**

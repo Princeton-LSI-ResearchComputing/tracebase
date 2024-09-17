@@ -29,12 +29,9 @@ function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-lin
 
   dropArea.addEventListener('drop', handleDrop, false);
 
-  console.log("Setting dropArea to", dropArea);
-  console.log("Setting fileFunc to", fileFunc);
   globalThis.dropArea = dropArea;
   globalThis.fileFunc = fileFunc;
   if (typeof postDropFunc !== 'undefined' && postDropFunc) {
-    console.log("Setting postDropFunc to", postDropFunc);
     globalThis.postDropFunc = postDropFunc
   }
 
