@@ -55,6 +55,11 @@
         <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data" class="tbform-control">
             {% csrf_token %}
 
+            <!-- Single instances of the datalists (since the form will be replicated and we don't want/need to replicate the datalists along with it) -->
+            {{ form.operator_datalist }}
+            {{ form.protocol_datalist }}
+            {{ form.instrument_datalist }}
+
             {{ form.mode }}
 
             <!-- Peak annotation file forms will be added to this table via javascript -->
