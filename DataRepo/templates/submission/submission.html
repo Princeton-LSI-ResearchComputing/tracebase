@@ -15,7 +15,6 @@
         <script src="{% static 'js/submission.js' %}"></script>
         <script>
             document.addEventListener("DOMContentLoaded", function(){
-                console.log("Setting", document.getElementsByName("peak_annotation_file")[0]);
                 initPeakAnnotUploads(
                     document.getElementById('drop-annot-metadata-row-template'),
                     document.getElementById('peak-annot-forms-elem'),
