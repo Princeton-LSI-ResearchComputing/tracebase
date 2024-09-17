@@ -78,18 +78,14 @@
             </div>
 
             <span class="text-danger">{{ form.non_field_errors }}</span>
-            <button type="submit" class="btn btn-primary" id="validate" style="display: none;">Download Template</button>
-            <button type="reset" class="btn btn-secondary" id="clear" style="display: none;">Clear</button>
+            <button type="submit" class="btn btn-primary" id="submit">Download Template</button>
+            <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
             {% if results %}
                 <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
             {% endif %}
             {{ form.management_form }}
         </form>
     </div>
-
-    <button class="btn btn-primary" id="faux-validate" onclick="document.getElementById('submission-validation').submit();">Validate</button>
-    <button class="btn btn-secondary" id="faux-clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles()">Clear</button>
-
 </div>
 
 
