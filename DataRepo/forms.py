@@ -366,7 +366,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
             widget=AutoCompleteTextInput(
                 "operators_datalist",
                 get_researchers(),
-                datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+                datalist_manual=True,
                 attrs={"placeholder": "ms operator", "autocomplete": "off"},
             ),
         )
@@ -378,7 +378,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     list(LCMethod.objects.values_list("name", flat=True)) if LCMethod.objects.count() > 0
                     else [LCMethod.DEFAULT_TYPE]
                 ),
-                datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+                datalist_manual=True,
                 attrs={
                     "placeholder": MSRunSequence.get_most_used_protocol(default="protocol"),
                     "autocomplete": "off",
@@ -390,7 +390,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
             widget=AutoCompleteTextInput(
                 "instruments_datalist",
                 MSRunSequence.INSTRUMENT_CHOICES,
-                datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+                datalist_manual=True,
                 attrs={
                     "placeholder": MSRunSequence.get_most_used_instrument(default="instrument"),
                     "autocomplete": "off",
@@ -407,6 +407,18 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 }
             ),
         )
+
+        @property
+        def operator_datalist(self):
+            return self.fields["operator"].widget.datalist()
+
+        @property
+        def protocol_datalist(self):
+            return self.fields["protocol"].widget.datalist()
+
+        @property
+        def instrument_datalist(self):
+            return self.fields["instrument"].widget.datalist()
 
         def is_valid(self):
             super().is_valid()
