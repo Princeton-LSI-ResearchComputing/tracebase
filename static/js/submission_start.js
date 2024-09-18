@@ -49,8 +49,10 @@ function createPeakAnnotFormRow(template) {
  * @param {*} formRow - The row element containing the form.
  */
 function makeFormModifications(dT, formRow) {
+  // Un-hide the file column
   fileTd = formRow.querySelector('#fileColumn');
   fileTd.style = null;
+  // Set the file for the file input
   fileInput = formRow.querySelector('input[name="peak_annotation_file"]');
   fileInput.files = dT.files;
 }
@@ -85,5 +87,9 @@ function afterAddingFiles() {
  * This function clears all of the previously added peak annotation form rows.
  */
 function clearPeakAnnotFiles() {
+  // tableElems = peakAnnotFormsTable.getElementsByTagName("*");
+  // for (let i = 0; i < tableElems.length; ++i) {
+  //   tableElems[i].remove();
+  // }
   peakAnnotFormsTable.innerHTML = '';
 }

@@ -489,7 +489,6 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 self.cleaned_data (dict)
             """
             super().clean()
-            print("CLEAN CALLED")
             allowed_delimited_exts = ["csv", "tsv"]
 
             # Fields (excluding mode)
