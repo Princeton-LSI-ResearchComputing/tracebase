@@ -558,11 +558,20 @@ class BuildSubmissionView(FormView):
         elif page != "Fill In":
             raise ProgrammingError(f"Invalid page: {context['page']}")
 
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        form.fields["mode"].initial = mode
+        if (
+            "form" not in context.keys()
+            or not hasattr(context["form"].fields["mode"], "initial")
+            or context["form"].fields["mode"].initial is None
+            or context["form"].fields["mode"].initial not in ["autofill", "validate"]
+        ):
+            if "form" not in context.keys():
+                form_class = self.get_form_class()
+                form = self.get_form(form_class)
+            else:
+                form = context["form"]
 
-        context["form"] = form
+            form.fields["mode"].initial = mode
+            context["form"] = form
 
         return context
 
@@ -570,11 +579,11 @@ class BuildSubmissionView(FormView):
         return super(BuildSubmissionView, self).dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        form_class = formset_factory(self.get_form_class())
-        form = self.get_form(form_class)
+        formset_class = formset_factory(self.get_form_class())
+        formset = self.get_form(formset_class)
 
-        if not form.is_valid():
-            return self.form_invalid(form)
+        if not formset.is_valid():
+            return self.form_invalid(formset)
 
         if "form-0-study_doc" in request.FILES:
             # We only ever want just the first one.  All others are invalid.
@@ -601,9 +610,9 @@ class BuildSubmissionView(FormView):
             peak_annot_filenames=[str(fp) for fp in peak_annotation_files],
         )
 
-        return self.form_valid(form)
+        return self.form_valid(formset)
 
-    def form_valid(self, form):
+    def form_valid(self, formset):
         """
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
@@ -634,13 +643,20 @@ class BuildSubmissionView(FormView):
         #       'run_date': '2024-09-18',
         #     },
         #   ]
-        mode = form.cleaned_data[0]["mode"]
+        mode = formset.cleaned_data[0]["mode"]
         if mode == "autofill":
             page = "Start"
         elif mode == "validate":
             page = "Validate"
         else:
             raise ProgrammingError(f"Invalid mode: {mode}")
+
+        # We need a new regular form (not a formset)
+        form_class = self.get_form_class()
+        # Cannot use the form.fields["mode"].initial trick to set the value for the hidden "mode" field here, because
+        # for some reason, we end up with a bound form here (and that method doesn't work on bound forms).  So we set
+        # the initial value using the constructor method.
+        form = form_class(initial={"mode": mode})
 
         return self.render_to_response(
             self.get_context_data(
