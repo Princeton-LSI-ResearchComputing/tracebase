@@ -55,6 +55,65 @@ function makeFormModifications(dT, formRow) {
   // Set the file for the file input
   fileInput = formRow.querySelector('input[name="peak_annotation_file"]');
   fileInput.files = dT.files;
+  // Remove the ID (which is what is used to identify the row template)
+  formRow.removeAttribute('id');
+}
+
+function onSubmit() {
+  numForms = prepareFormsetForms();
+  insertFormsetManagementInputs(numForms);
+  console.log(dataSubmissionForm.innerHTML)
+}
+
+function prepareFormsetForms() {
+  formRows = getFormRows();
+  for (let r = 0; r < formRows.length; r++) {
+    formRow = formRows[r];
+    inputElems = formRow.querySelectorAll('input');
+    // Prepend attributes 'id', 'name', and 'for' with "form-0-", as is what django expects from a formset
+    const prefix = 'form-' + r.toString() + '-';
+    for (let i = 0; i < inputElems.length; i++) {
+      inputElem = inputElems[i];
+      // If this input element contains the form-control class (i.e. we're using the presence of the form-control class
+      // to infer that the element is an explicitly added input element (not some shadow element)
+      if (inputElem.classList.contains('form-control')) {
+        if (inputElem.for) {
+          inputElem.for = prefix + inputElem.for;
+        }
+        if (inputElem.id) {
+          inputElem.id = prefix + inputElem.id;
+        }
+        if (inputElem.name) {
+          inputElem.name = prefix + inputElem.name;
+        }
+      }
+    }
+  }
+  return formRows.length;
+}
+
+function insertFormsetManagementInputs(numForms) {
+  // dataSubmissionForm.innerHTML += '<input type="hidden" name="form-TOTAL_FORMS" ';
+  // dataSubmissionForm.innerHTML += 'value="' + numForms.toString() + '" id="id_form-TOTAL_FORMS">';
+  const totalInput = document.createElement('input');
+  totalInput.setAttribute("type", "hidden");
+  totalInput.setAttribute("name", "form-TOTAL_FORMS");
+  totalInput.setAttribute("value", numForms.toString());
+  totalInput.setAttribute("id", "id_form-TOTAL_FORMS");
+  dataSubmissionForm.appendChild(totalInput);
+
+  // dataSubmissionForm.innerHTML += '<input type="hidden" name="form-INITIAL_FORMS" value="0" ';
+  // dataSubmissionForm.innerHTML += 'id="id_form-INITIAL_FORMS">';
+  const initialInput = document.createElement('input');
+  initialInput.setAttribute("type", "hidden");
+  initialInput.setAttribute("name", "form-INITIAL_FORMS");
+  initialInput.setAttribute("value", "0");
+  initialInput.setAttribute("id", "id_form-INITIAL_FORMS");
+  dataSubmissionForm.appendChild(initialInput);
+}
+
+function getFormRows() {
+  return peakAnnotFormsTable.querySelectorAll('tr[name="drop-annot-metadata-row"]');
 }
 
 /**
