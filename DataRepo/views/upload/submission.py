@@ -15,7 +15,7 @@ from django.db.utils import ProgrammingError
 from django.forms import ValidationError, formset_factory
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import EmptyInitialFormSet, create_BuildSubmissionForm
+from DataRepo.forms import create_BuildSubmissionForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -570,15 +570,12 @@ class BuildSubmissionView(FormView):
         return super(BuildSubmissionView, self).dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        print(f"POST:\n{request.POST}")
         form_class = formset_factory(self.get_form_class())
         form = self.get_form(form_class)
 
-        print(f"FORM:\n{form}")
         if not form.is_valid():
             return self.form_invalid(form)
 
-        print(f"FILES:\n{request.FILES}")
         if "form-0-study_doc" in request.FILES:
             # We only ever want just the first one.  All others are invalid.
             study_doc = request.FILES["form-0-study_doc"]
@@ -593,7 +590,6 @@ class BuildSubmissionView(FormView):
             peak_annotation_files = []
             for key in request.FILES:
                 if "peak_annotation_file" in key:
-                    print(f"ADDING {key}: {request.FILES[key]}")
                     peak_annotation_files.append(request.FILES[key])
 
         self.load_status_data.clear_load()
@@ -617,8 +613,27 @@ class BuildSubmissionView(FormView):
         study_data = self.get_download_data()
 
         # Determine the page based on the mode submitted in the form (validate or autofill)
-        print(f"form.cleaned_data {form.cleaned_data}")
-        ##### [{'study_doc': None, 'peak_annotation_file': <TemporaryUploadedFile: col013a_negative_cor.xlsx (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)>, 'operator': 'Anonymous', 'protocol': 'unknown', 'instrument': 'QE (Q Exactive)', 'run_date': '2024-09-18'}, {'study_doc': None, 'peak_annotation_file': <TemporaryUploadedFile: col013a_pos-highmz_cor.xlsx (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)>, 'operator': 'Anonymous', 'protocol': 'unknown', 'instrument': 'QE (Q Exactive)', 'run_date': '2024-09-18'}]
+        # Example of cleaned_data:
+        #   [
+        #     {
+        #       'study_doc': None,
+        #       'peak_annotation_file': <TemporaryUploadedFile: col013a_negative_cor.xlsx
+        #         (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)>,
+        #       'operator': 'Anonymous',
+        #       'protocol': 'unknown',
+        #       'instrument': 'QE (Q Exactive)',
+        #       'run_date': '2024-09-18',
+        #     },
+        #     {
+        #       'study_doc': None,
+        #       'peak_annotation_file': <TemporaryUploadedFile: col013a_pos-highmz_cor.xlsx
+        #         (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)>,
+        #       'operator': 'Anonymous',
+        #       'protocol': 'unknown',
+        #       'instrument': 'QE (Q Exactive)',
+        #       'run_date': '2024-09-18',
+        #     },
+        #   ]
         mode = form.cleaned_data[0]["mode"]
         if mode == "autofill":
             page = "Start"

@@ -1,41 +1,42 @@
 var dropArea = null // eslint-disable-line no-var
 var fileFunc = null // eslint-disable-line no-var
 var postDropFunc = null // eslint-disable-line no-var
-var allFiles = []
-var newFiles = []
+const allFiles = [] // eslint-disable-line no-unused-vars
+const newFiles = [] // eslint-disable-line no-unused-vars
 
 // This code is based on the following article:
 // https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/
 
 /**
  * This initializes all of the global variables.
- * - dropArea is the div element where files are dropped
- * - fileFunc is a function that takes DataTransfer object containing a single file.  It will be called for every
- *   dropped file.
- * - postDropFunc is an optional function without arguments that is called after all the files have been processed.
+ * @param {*} dropArea is the div element where files are dropped
+ * @param {*} fileFunc is a function that takes DataTransfer object containing a single file.  It will be called for
+ *   every dropped file.
+ * @param {*} postDropFunc is an optional function without arguments that is called after all the files have been
+ *   processed.
  */
 function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-line no-unused-vars
   ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, preventDefaults, false)
-  });
+  })
 
   ;['dragenter', 'dragover'].forEach(eventName => {
     dropArea.addEventListener(eventName, highlight, false)
-  });
+  })
 
   ;['dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, unhighlight, false)
-  });
+  })
 
-  dropArea.addEventListener('drop', handleDrop, false);
+  dropArea.addEventListener('drop', handleDrop, false)
 
-  globalThis.dropArea = dropArea;
-  globalThis.fileFunc = fileFunc;
+  globalThis.dropArea = dropArea
+  globalThis.fileFunc = fileFunc
   if (typeof postDropFunc !== 'undefined' && postDropFunc) {
     globalThis.postDropFunc = postDropFunc
   }
 
-  handleFiles(null);
+  handleFiles(null)
 }
 
 function preventDefaults (e) { // eslint-disable-line no-unused-vars
@@ -71,8 +72,8 @@ function handleFiles (files) { // eslint-disable-line no-unused-vars
     for (let i = 0; i < files.length; ++i) {
       globalThis.allFiles.push(files.item(i))
       // See: https://stackoverflow.com/questions/8006715/
-      const dT = new DataTransfer();
-      dT.items.add(files.item(i));
+      const dT = new DataTransfer() // eslint-disable-line no-undef
+      dT.items.add(files.item(i))
       fileFunc(dT)
     }
     if (typeof postDropFunc !== 'undefined' && postDropFunc) {
@@ -81,7 +82,13 @@ function handleFiles (files) { // eslint-disable-line no-unused-vars
   }
 }
 
-function getFileNamesString (files, curstring) {
+/**
+ * This takes a FileList object and creates a string of all the file names for display.
+ * @param {*} files [FileList]
+ * @param {*} curstring [string]
+ * @returns fileNamesString [string]
+ */
+function getFileNamesString (files, curstring) { // eslint-disable-line no-unused-vars
   let fileNamesString = ''
   let cumulativeFileList = []
   // If the current string is populated and we're not clearing the file list

@@ -3,7 +3,6 @@ import os
 from typing import Dict, Optional, Type
 
 from django.forms import (
-    BaseFormSet,
     BooleanField,
     CharField,
     ChoiceField,
@@ -332,37 +331,6 @@ class MultipleFileField(FileField):
         return result
 
 
-# TODO: Delete this once I'm sure we're not going to use it.  This would have worked great, but for whatever reason, it
-# appears that the "form-__prefix__-" in the input name makes autocomplete="off" stop preventing Safari from trying to
-# put contact card data in the fields and messing up the datalists' functioning.
-class EmptyInitialFormSet(BaseFormSet):
-    """This formset extends BaseFormSet to be able to set initial values for BaseFormSet.empty_form so that every
-    replicated form has whatever initial value you set when you replicate an empty form.
-
-    Based on:
-        https://stackoverflow.com/a/73145095
-
-    Example:
-        MyFormSetClass = formset_factory(MyForm, formset=EmptyInitialFormSet)
-        initial = {"myfield": "default value"}
-        MyFormSet = MyFormSetClass(empty_initial=initial)
-    """
-
-    def __init__(self, *args, **kwargs):
-        if "empty_initial" in kwargs:
-            self._empty_initial = kwargs.pop("empty_initial")
-        super().__init__(*args, **kwargs)
-
-    def get_form_kwargs(self, index):
-        """Extends BaseFormSet.get_form_kwargs() to return the empty initial data when the index is None,
-        which is the case when creating empty_form.
-        """
-        kwargs = super().get_form_kwargs(index)
-        if index is None and hasattr(self, "_empty_initial") and self._empty_initial is not None:
-            kwargs["initial"] = self._empty_initial
-        return kwargs
-
-
 def create_BuildSubmissionForm() -> Type[Form]:
     """This class works around a problem that raises an exception when migrations are created or checked and there exist
     database calls at the class level.  See: https://stackoverflow.com/a/56878154"""
@@ -374,6 +342,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            # The form-control class is used to identify form fields among cloned form instances
             for visible in self.visible_fields():
                 visible.field.widget.attrs["class"] = "form-control"
             for hidden in self.hidden_fields():
@@ -415,16 +384,20 @@ def create_BuildSubmissionForm() -> Type[Form]:
             widget=AutoCompleteTextInput(
                 "protocols_datalist",
                 (
-                    list(LCMethod.objects.values_list("name", flat=True)) if LCMethod.objects.count() > 0
+                    list(LCMethod.objects.values_list("name", flat=True))
+                    if LCMethod.objects.count() > 0
                     else [LCMethod.create_name(LCMethod.DEFAULT_TYPE)]
                 ),
                 datalist_manual=True,
                 attrs={
                     "title": (
-                        "Liquid Chromatography Protocol, e.g. '" + LCMethod.create_name(LCMethod.DEFAULT_TYPE)
+                        "Liquid Chromatography Protocol, e.g. '"
+                        + LCMethod.create_name(LCMethod.DEFAULT_TYPE)
                         + "'"
                     ),
-                    "placeholder": MSRunSequence.get_most_used_protocol(default="protocol"),
+                    "placeholder": MSRunSequence.get_most_used_protocol(
+                        default="protocol"
+                    ),
                     "autocomplete": "off",
                 },
             ),
@@ -436,8 +409,12 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 MSRunSequence.INSTRUMENT_CHOICES,
                 datalist_manual=True,
                 attrs={
-                    "title": "MS Instrument Model, e.g. '" + MSRunSequence.INSTRUMENT_DEFAULT + "'",
-                    "placeholder": MSRunSequence.get_most_used_instrument(default="instrument"),
+                    "title": "MS Instrument Model, e.g. '"
+                    + MSRunSequence.INSTRUMENT_DEFAULT
+                    + "'",
+                    "placeholder": MSRunSequence.get_most_used_instrument(
+                        default="instrument"
+                    ),
                     "autocomplete": "off",
                 },
             ),
@@ -446,13 +423,20 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=AutoCompleteTextInput(
                 "date_datalist",
-                [date_to_string(datetime.date.today() - datetime.timedelta(days=days)) for days in range(14)],
+                [
+                    date_to_string(
+                        datetime.date.today() - datetime.timedelta(days=days)
+                    )
+                    for days in range(14)
+                ],
                 datalist_manual=True,
                 attrs={
-                    "title": "MS Run Date, e.g. '" + date_to_string(datetime.date.today()) + "'",
+                    "title": "MS Run Date, e.g. '"
+                    + date_to_string(datetime.date.today())
+                    + "'",
                     "placeholder": "run date",
                     "autocomplete": "off",
-                }
+                },
             ),
         )
 
