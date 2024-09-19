@@ -3,6 +3,7 @@ import os
 from typing import Dict, Optional, Type
 
 from django.forms import (
+    BaseFormSet,
     BooleanField,
     CharField,
     ChoiceField,
@@ -142,6 +143,8 @@ class AdvSearchForm:
 
     def __init__(self, *args, **kwargs):
         for form_class in (
+            # TODO: These should not be creating instances.  `format_class` is a class attribute.  Remove the parens and
+            # __class__ below
             AdvSearchPeakGroupsForm(),
             AdvSearchPeakDataForm(),
             AdvSearchFluxCircForm(),
@@ -329,6 +332,37 @@ class MultipleFileField(FileField):
         return result
 
 
+# TODO: Delete this once I'm sure we're not going to use it.  This would have worked great, but for whatever reason, it
+# appears that the "form-__prefix__-" in the input name makes autocomplete="off" stop preventing Safari from trying to
+# put contact card data in the fields and messing up the datalists' functioning.
+class EmptyInitialFormSet(BaseFormSet):
+    """This formset extends BaseFormSet to be able to set initial values for BaseFormSet.empty_form so that every
+    replicated form has whatever initial value you set when you replicate an empty form.
+
+    Based on:
+        https://stackoverflow.com/a/73145095
+
+    Example:
+        MyFormSetClass = formset_factory(MyForm, formset=EmptyInitialFormSet)
+        initial = {"myfield": "default value"}
+        MyFormSet = MyFormSetClass(empty_initial=initial)
+    """
+
+    def __init__(self, *args, **kwargs):
+        if "empty_initial" in kwargs:
+            self._empty_initial = kwargs.pop("empty_initial")
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        """Extends BaseFormSet.get_form_kwargs() to return the empty initial data when the index is None,
+        which is the case when creating empty_form.
+        """
+        kwargs = super().get_form_kwargs(index)
+        if index is None and hasattr(self, "_empty_initial") and self._empty_initial is not None:
+            kwargs["initial"] = self._empty_initial
+        return kwargs
+
+
 def create_BuildSubmissionForm() -> Type[Form]:
     """This class works around a problem that raises an exception when migrations are created or checked and there exist
     database calls at the class level.  See: https://stackoverflow.com/a/56878154"""
@@ -342,6 +376,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
             super().__init__(*args, **kwargs)
             for visible in self.visible_fields():
                 visible.field.widget.attrs["class"] = "form-control"
+            for hidden in self.hidden_fields():
+                hidden.field.widget.attrs["class"] = "form-control"
 
         # mode is "autofill" or "validate"
         mode = CharField(widget=HiddenInput())
@@ -498,27 +534,38 @@ def create_BuildSubmissionForm() -> Type[Form]:
             protocol = self.cleaned_data.get("protocol", None)
             instrument = self.cleaned_data.get("instrument", None)
             run_date = self.cleaned_data.get("run_date", None)
+            mode = self.cleaned_data.get("mode", None)
 
             if study_doc is None and peak_annotation_file is None:
-                self.add_error(
-                    "study_doc",
-                    ValidationError(
-                        "At least 1 file is required.",
-                        code="TooFewFiles",
-                    ),
-                )
-                self.add_error(
-                    "peak_annotation_file",
-                    ValidationError(
-                        "At least 1 file is required.",
-                        code="TooFewFiles",
-                    ),
-                )
+                if mode is None or mode not in ["autofill", "validate"]:
+                    self.add_error(
+                        None,
+                        ValidationError(
+                            "At least 1 file is required.",
+                            code="TooFewFiles",
+                        ),
+                    )
+                elif mode == "autofill":
+                    self.add_error(
+                        "peak_annotation_file",
+                        ValidationError(
+                            "At least 1 peak annotation file is required.",
+                            code="TooFewFiles",
+                        ),
+                    )
+                else:
+                    self.add_error(
+                        "study_doc",
+                        ValidationError(
+                            "At least 1 study doc is required.",
+                            code="TooFewFiles",
+                        ),
+                    )
             elif study_doc is not None and not is_excel(study_doc):
                 self.add_error(
                     "study_doc",
                     ValidationError(
-                        "Must be an excel file.",
+                        "Study doc must be an excel file.",
                         code="InvalidStudyFile",
                     ),
                 )
@@ -532,7 +579,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                         self.add_error(
                             "peak_annotation_file",
                             ValidationError(
-                                f"Must be excel or {allowed_delimited_exts}.",
+                                f"Peak annotation files must be excel or {allowed_delimited_exts}.",
                                 code="InvalidPeakAnnotFile",
                             ),
                         )
@@ -542,7 +589,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     self.add_error(
                         "operator",
                         ValidationError(
-                            "required",
+                            "operator required",
                             code="MissingOperator",
                         ),
                     )
@@ -551,7 +598,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     self.add_error(
                         "protocol",
                         ValidationError(
-                            "required",
+                            "protocol required",
                             code="MissingProtocol",
                         ),
                     )
@@ -562,7 +609,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     self.add_error(
                         "instrument",
                         ValidationError(
-                            "required",
+                            "instrument required",
                             code="MissingInstrument",
                         ),
                     )
@@ -572,7 +619,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     self.add_error(
                         "run_date",
                         ValidationError(
-                            "required",
+                            "run date required",
                             code="MissingDate",
                         ),
                     )
