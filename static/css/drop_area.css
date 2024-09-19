@@ -31,7 +31,7 @@
 }
 
 /* This vertically centers the file button and drop-area text in the dash drop-area */
-#drop-area:before {
+#drop-area::before {
     content: "";
     display: inline-block;
     vertical-align: middle;

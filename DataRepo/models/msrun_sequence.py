@@ -144,6 +144,7 @@ class MSRunSequence(Model):
             LCMethod name (str) [LCMethod.create_name(LCMethod.DEFAULT_TYPE)]
         """
         from django.db.models import Count
+
         from DataRepo.models import LCMethod
 
         if default is None:
