@@ -34,6 +34,8 @@ function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-lin
   globalThis.fileFunc = fileFunc
   if (typeof postDropFunc !== 'undefined' && postDropFunc) {
     globalThis.postDropFunc = postDropFunc
+  } else {
+    globalThis.postDropFunc = null
   }
 
   handleFiles(null)
