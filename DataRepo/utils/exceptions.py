@@ -2302,6 +2302,11 @@ class AggregatedErrors(Exception):
         return exc_str
 
     @classmethod
+    def get_trace(cls):
+        """Alias for get_buffered_traceback_string (for convenient debugging)"""
+        return cls.get_buffered_traceback_string()
+
+    @classmethod
     def get_buffered_traceback_string(cls):
         """
         Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack

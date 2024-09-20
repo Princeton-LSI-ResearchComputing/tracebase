@@ -468,6 +468,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
             operator = self.cleaned_data.get("operator", None)
             instrument = self.cleaned_data.get("instrument", None)
             run_date = self.cleaned_data.get("run_date", None)
+            mode = self.cleaned_data.get("mode", None)
 
             if (study_doc is None and peak_annotation_file is None) or (
                 study_doc is not None and not is_excel(study_doc)
@@ -492,6 +493,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     or instrument.strip() == ""
                     or run_date is None
                     or run_date.strip() == ""
+                    or mode is None
+                    or mode.strip() == ""
                 ):
                     return False
 
@@ -520,6 +523,11 @@ def create_BuildSubmissionForm() -> Type[Form]:
             run_date = self.cleaned_data.get("run_date", None)
             mode = self.cleaned_data.get("mode", None)
 
+            # NOTE: All of these errors are added as non-field-errors because the form is processed as a form inside a
+            # formset, but the formset is constructed using javascript from a regular form, so the original formset
+            # object containing errors cannot associate field errors with fields that do not get re-populated (and
+            # they're not bothered to be repopulated because you cannot repopulate files anyway).
+
             if study_doc is None and peak_annotation_file is None:
                 if mode is None or mode not in ["autofill", "validate"]:
                     self.add_error(
@@ -531,7 +539,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     )
                 elif mode == "autofill":
                     self.add_error(
-                        "peak_annotation_file",
+                        None,
                         ValidationError(
                             "At least 1 peak annotation file is required.",
                             code="TooFewFiles",
@@ -539,7 +547,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     )
                 else:
                     self.add_error(
-                        "study_doc",
+                        None,
                         ValidationError(
                             "At least 1 study doc is required.",
                             code="TooFewFiles",
@@ -547,7 +555,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     )
             elif study_doc is not None and not is_excel(study_doc):
                 self.add_error(
-                    "study_doc",
+                    None,
                     ValidationError(
                         "Study doc must be an excel file.",
                         code="InvalidStudyFile",
@@ -561,7 +569,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     _, ext = os.path.splitext(peak_annotation_file)
                     if ext not in allowed_delimited_exts:
                         self.add_error(
-                            "peak_annotation_file",
+                            None,
                             ValidationError(
                                 f"Peak annotation files must be excel or {allowed_delimited_exts}.",
                                 code="InvalidPeakAnnotFile",
@@ -571,7 +579,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 # All Sequence details are required when a peak annotation file is supplied
                 if operator is None or operator.strip() == "":
                     self.add_error(
-                        "operator",
+                        None,
                         ValidationError(
                             "operator required",
                             code="MissingOperator",
@@ -580,7 +588,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
                 if protocol is None or protocol.strip() == "":
                     self.add_error(
-                        "protocol",
+                        None,
                         ValidationError(
                             "protocol required",
                             code="MissingProtocol",
@@ -591,7 +599,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
                 if instrument is None or instrument.strip() == "":
                     self.add_error(
-                        "instrument",
+                        None,
                         ValidationError(
                             "instrument required",
                             code="MissingInstrument",
@@ -601,7 +609,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
                 if run_date is None or run_date.strip() == "":
                     self.add_error(
-                        "run_date",
+                        None,
                         ValidationError(
                             "run date required",
                             code="MissingDate",

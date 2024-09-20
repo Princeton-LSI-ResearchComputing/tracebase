@@ -65,12 +65,7 @@
             <table id="peak-annot-forms-elem">
             </table>
 
-            <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
-            <span class="text-danger">{{ form.operator.errors }}</span>
-            <span class="text-danger">{{ form.instrument.errors }}</span>
-            <span class="text-danger">{{ form.protocol.errors }}</span>
-            <span class="text-danger">{{ form.run_date.errors }}</span>
-            {% if not form.peak_annotation_file.errors and not form.operator.errors and not form.instrument.errors and not form.protocol.errors and not form.run_date.errors %}<br>{% endif %}
+            <br>
 
             <!-- This is where an optional study doc input would be displayed, but the actual submission would be the first row in the table above. -->
             <!-- Support for this as an optional input has not yet been implemented.  This is just a placeholder. -->
@@ -87,7 +82,15 @@
             </div>
             -->
 
-            <span class="text-danger">{{ form.non_field_errors }}</span>
+            <span class="text-danger">
+                {% if form_errors %}
+                    <ul>
+                        {% for err in form_errors %}
+                            <li>{{ err }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </span>
             <button type="submit" class="btn btn-primary" id="submit">Download Template</button>
             <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
             {% if results %}

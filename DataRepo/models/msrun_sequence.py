@@ -151,7 +151,8 @@ class MSRunSequence(Model):
             default = LCMethod.create_name(LCMethod.DEFAULT_TYPE)
 
         max_lc_dict = (
-            cls.objects.values("lc_method_id")
+            cls.objects.exclude(lc_method__type="unknown")
+            .values("lc_method_id")
             .annotate(count=Count("lc_method_id"))
             .order_by("-count")
             .first()
@@ -177,7 +178,8 @@ class MSRunSequence(Model):
             default = cls.INSTRUMENT_DEFAULT
 
         max_instrument_dict = (
-            cls.objects.values("instrument")
+            cls.objects.exclude(instrument="unknown")
+            .values("instrument")
             .annotate(count=Count("instrument"))
             .order_by("-count")
             .first()
