@@ -1,6 +1,6 @@
-Peak Group Conflict	Sequence Name	Selected Peak Annotation File
-Lysine	Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-19	accucor_pos.xlsx
-lysine	Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-19	parentdir/samefilename/casediff/accucor_pos.xlsx
-asparagine	Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-20	ok/nextday/isocorr1.xlsx
-L-aspartame/R-aspartame	Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-20	v1/isocorr1.xlsx
-r-aspartame/l-aspartame	Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-20	v2/difforder/diffcase/difffile/bad/isocorr2.xlsx
+Peak Group Conflict	Common Samples	Selected Peak Annotation File	Common Sample Count	Example Samples
+Lysine	sample1;sample2;sample3	accucor_pos.xlsx	3	sample1;sample2;sample3
+lysine	sample1;sample2;sample3	parentdir/samefilename/casediff/accucor_pos.xlsx	3	sample1;sample2;sample3
+asparagine	sampleA;sampleB	ok/nextday/isocorr1.xlsx	2	sampleA;sampleB
+L-aspartame/R-aspartame	sampleA;sampleB	v1/isocorr1.xlsx	2	sampleA;sampleB
+r-aspartame/l-aspartame	sampleA;sampleB	v2/difforder/diffcase/difffile/bad/isocorr2.xlsx	2	sampleA;sampleB

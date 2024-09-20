@@ -9,7 +9,6 @@ from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
-from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.utils.exceptions import (
     InfileError,
@@ -20,12 +19,16 @@ from DataRepo.utils.exceptions import (
 class PeakGroupConflicts(TableLoader):
     """This class does not load any data, but processes a sheet meant to allow researchers to select peak annotation
     files from which a peak group should be loaded when there exist multiple representations of that compound for the
-    same samples from the same sequence."""
+    same samples."""
+
+    SAMPLE_DELIMITER = ";"
 
     # Header keys (for convenience use only).  Note, they cannot be used in the namedtuple() call.  Literal required.
     PEAKGROUP_KEY = "PEAKGROUP"
-    SEQNAME_KEY = "SEQNAME"
     ANNOTFILE_KEY = "ANNOTFILE"
+    SAMPLECOUNT_KEY = "SAMPLECOUNT"
+    EXAMPLE_KEY = "EXAMPLE"
+    SAMPLES_KEY = "SAMPLES"
 
     DataSheetName = "Peak Group Conflicts"
 
@@ -34,23 +37,27 @@ class PeakGroupConflicts(TableLoader):
         "DataTableHeaders",
         [
             "PEAKGROUP",
-            "SEQNAME",
             "ANNOTFILE",
+            "SAMPLECOUNT",
+            "EXAMPLE",
+            "SAMPLES",
         ],
     )
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
         PEAKGROUP="Peak Group Conflict",
-        SEQNAME="Sequence Name",
         ANNOTFILE="Selected Peak Annotation File",
+        SAMPLECOUNT="Common Sample Count",
+        EXAMPLE="Example Samples",
+        SAMPLES="Common Samples",
     )
 
     # List of required header keys
     DataRequiredHeaders = [
         PEAKGROUP_KEY,
-        SEQNAME_KEY,
         ANNOTFILE_KEY,
+        SAMPLES_KEY,
     ]
 
     # List of header keys for columns that require a value
@@ -60,13 +67,15 @@ class PeakGroupConflicts(TableLoader):
 
     DataColumnTypes: Dict[str, type] = {
         PEAKGROUP_KEY: str,
-        SEQNAME_KEY: str,
         ANNOTFILE_KEY: str,
+        SAMPLECOUNT_KEY: int,
+        EXAMPLE_KEY: str,
+        SAMPLES_KEY: str,
     }
 
     # Combinations of columns whose values must be unique in the file
     DataUniqueColumnConstraints = [
-        [PEAKGROUP_KEY, SEQNAME_KEY],
+        [PEAKGROUP_KEY, SAMPLES_KEY],
     ]
 
     # A mapping of database field to column.  Only set when 1 field maps to 1 column.  Omit others.
@@ -82,41 +91,44 @@ class PeakGroupConflicts(TableLoader):
             # TODO: Replace static references to columns in other sheets with variables (once the circular import issue
             # is resolved)
             guidance=(
-                "A peak group that exists in multiple peak annotation files derived from the same MS Run Sequence.  "
-                "Only 1 peak group may represent each compound.  Note that different synonymns of the same compound "
+                "A peak group that exists in multiple peak annotation files containing common samples.  Only 1 peak "
+                "group may represent each compound per sample.  Note that different synonymns of the same compound "
                 "are treated as qualitatively different compounds (to support for example, stereo-isomers)."
             ),
             format="Note that the order and case of the compound synonyms could differ in each file.",
         ),
-        SEQNAME=TableColumn.init_flat(
-            name=DataHeaders.SEQNAME,
+        SAMPLES=TableColumn.init_flat(
+            name=DataHeaders.SAMPLES,
             help_text=(
-                "The MS Run Sequence that multiple peak annotation files containing overlapping peak groups were "
-                "derived from."
+                "This column contains a sorted list of sample names that multiple peak annotation files have in "
+                "common, and each measure the same peak group compound."
             ),
             type=str,
-            format=(
-                "Comma-delimited string combining the values from these columns from the "
-                f"{SequencesLoader.DataSheetName} sheet in this order:\n"
-                f"- {SequencesLoader.DataHeaders.OPERATOR}\n"
-                f"- {SequencesLoader.DataHeaders.LCNAME}\n"
-                f"- {SequencesLoader.DataHeaders.INSTRUMENT}\n"
-                f"- {SequencesLoader.DataHeaders.DATE}"
+            format=f"A string of sample names delimited by '{SAMPLE_DELIMITER}'.",
+        ),
+        SAMPLECOUNT=TableColumn.init_flat(
+            name=DataHeaders.SAMPLECOUNT,
+            help_text=f"The number of {DataHeaders.SAMPLES} among the files listed for the given peak group compound.",
+            type=int,
+        ),
+        EXAMPLE=TableColumn.init_flat(
+            name=DataHeaders.EXAMPLE,
+            help_text=(
+                f"This column contains a sampling of the {DataHeaders.SAMPLES} between the files in the "
+                f"{DataHeaders.ANNOTFILE} drop-down."
             ),
-            dynamic_choices=ColumnReference(
-                loader_class=SequencesLoader,
-                loader_header_key=SequencesLoader.SEQNAME_KEY,
-            ),
+            type=str,
+            format=f"A string of sample names delimited by '{SAMPLE_DELIMITER}'.",
         ),
         ANNOTFILE=TableColumn.init_flat(
             name=DataHeaders.ANNOTFILE,
             help_text=(
-                "There must exist only one peak group compound for every sample and sequence.  Sometimes a compound "
-                "can show up in multiple scans (e.g. in positive and negative mode scans).  You must select the file "
-                "containing the best representation of each compound.  Using the provided drop-downs, select the peak "
-                "annotation file from which this peak group should be loaded.  That compound in the remaining files "
-                "will be skipped.  Note, each drop-down contains only the peak annotation files containing the peak "
-                "group compound for that row."
+                "There must exist only one peak group compound for every sample.  Sometimes a compound can show up in "
+                "multiple scans (e.g. in positive and negative mode scans).  You must select the file containing the "
+                "best representation of each compound.  Using the provided drop-downs, select the peak annotation file "
+                "from which this peak group should be loaded for the listed samples.  That compound in the remaining "
+                "files will be skipped for those samples.  Note, each drop-down contains only the peak annotation "
+                "files containing the peak group compound for that row."
             ),
             reference=ColumnReference(
                 loader_class=PeakAnnotationFilesLoader,
@@ -137,7 +149,8 @@ class PeakGroupConflicts(TableLoader):
         Exceptions:
             None
         Returns:
-            self.get_selected_representations()
+            self.get_selected_representations(): Dict[str, Dict[str, Optional[str]]] - a dict of selected peak
+                annotation files keyed on lower-cased and sorted peak group compounds and sample names.
         """
         return self.get_selected_representations()
 
@@ -153,8 +166,9 @@ class PeakGroupConflicts(TableLoader):
                 None
         Returns:
             selected_representations (Dict[str, Dict[str, Optional[str]]]): A dict of selected peak annotation files for
-                every sequence and sorted and lower-cased peak group name.  The file will be None, if there was an
-                error associated with that compound and/or sequence.
+                every sample and lower-cased peak group name.  The file will be None if there were conflicting conflict
+                resolutions specified by the user for that sample and peak group compound (e.g. they duplicated a row
+                and selected a different file one each).
         """
         selected_representations = defaultdict(lambda: defaultdict(str))
 
@@ -163,17 +177,26 @@ class PeakGroupConflicts(TableLoader):
         self.check_for_duplicate_resolutions(all_representations)
 
         # Now construct the dict we will return, with the resolutions that are unambiguous
-        for seqname in all_representations.keys():
-            for pgname in all_representations[seqname].keys():
-                if len(all_representations[seqname][pgname].keys()) == 1:
-                    annot_file = list(all_representations[seqname][pgname].keys())[0]
-                    selected_representations[seqname][pgname] = annot_file
+        samples_str: str
+        for samples_str in all_representations.keys():
+            for pgname in all_representations[samples_str].keys():
+                if len(all_representations[samples_str][pgname].keys()) == 1:
+                    selected_annot_file = list(
+                        all_representations[samples_str][pgname].keys()
+                    )[0]
                 else:
-                    # We've already issues errors on the duplicates above.  If we were to allow them all to load, it
-                    # would result in multiplke representation errors in the PeakAnnotationsLoader, which would be a
-                    # redundant error and is thus unnecessary.  By adding None here, it will cause the peak group to be
-                    # skipped in all peak annotation files in the PeakAnnotationsLoader.
-                    selected_representations[seqname][pgname] = None
+                    # We get here when the user has messed with the sheet and possibly pasted in duplicate rows and
+                    # selected a different file on each row.
+
+                    # We've already issued errors on the duplicates above.  If we were to allow them all to load, it
+                    # would result in multiple representation errors in the PeakAnnotationsLoader, which would be a
+                    # redundant error and is thus unnecessary.  By adding None here, it will cause the peak group to
+                    # be skipped in all peak annotation files in the PeakAnnotationsLoader.
+                    selected_annot_file = None
+                for sample in samples_str.strip().split(self.SAMPLE_DELIMITER):
+                    selected_representations[sample.strip()][
+                        pgname
+                    ] = selected_annot_file
 
         return selected_representations
 
@@ -186,7 +209,7 @@ class PeakGroupConflicts(TableLoader):
             None
         Returns:
             all_representations (Dict[str, Dict[str, Dict[str, List[int]]]]): A dict of all peak annotation files and
-                the rows they were on, for every sequence and sorted and lower-cased peak group name.
+                the rows they were on, for every common sample combination and sorted and lower-cased peak group name.
         """
         all_representations = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
@@ -195,7 +218,7 @@ class PeakGroupConflicts(TableLoader):
         for _, row in self.df.iterrows():
             # Grab the values from each column
             pgname_str = self.get_row_val(row, self.headers.PEAKGROUP)
-            seqname = self.get_row_val(row, self.headers.SEQNAME)
+            samples_str = self.get_row_val(row, self.headers.SAMPLES)
             annot_file_str = self.get_row_val(row, self.headers.ANNOTFILE)
 
             if self.is_skip_row():
@@ -208,7 +231,7 @@ class PeakGroupConflicts(TableLoader):
             )
             annot_file = list(os.path.split(annot_file_str))[1]
 
-            all_representations[seqname][pgname][annot_file].append(self.rownum)
+            all_representations[samples_str][pgname][annot_file].append(self.rownum)
 
         return all_representations
 
@@ -235,28 +258,30 @@ class PeakGroupConflicts(TableLoader):
         # overall code when separate.
 
         # Build the dupes dict
-        for seqname in all_representations.keys():
-            for pgname in all_representations[seqname].keys():
+        for samples_str in all_representations.keys():
+            for pgname in all_representations[samples_str].keys():
                 multiple_resolutions = (
-                    len(all_representations[seqname][pgname].keys()) > 1
+                    len(all_representations[samples_str][pgname].keys()) > 1
                 )
-                for rows in all_representations[seqname][pgname].values():
-                    # NOTE: While the seqname and pgname combo are required to be unique, that requirement is applied
-                    # BEFORE the peak group name is sorted and lower-cased, so it needs to be checked again.
+                for rows in all_representations[samples_str][pgname].values():
+                    # NOTE: While the samples string and pgname combo are required to be unique, that requirement is
+                    # applied BEFORE the peak group name is sorted and lower-cased, so it needs to be checked again.
                     if multiple_resolutions or len(rows) > 1:
-                        dupes[seqname][pgname] += len(rows)
+                        dupes[samples_str][pgname] += len(rows)
 
         # Process any duplicate (equivalent or conflicting) resolutions
-        for seqname in dupes.keys():
-            for pgname in dupes[seqname].keys():
-                if len(all_representations[seqname][pgname].keys()) == 1:
+        for samples_str in dupes.keys():
+            for pgname in dupes[samples_str].keys():
+                if len(all_representations[samples_str][pgname].keys()) == 1:
                     # Just issue a warning if all the row duplicates select the same file
-                    annot_file = list(all_representations[seqname][pgname].keys())[0]
+                    annot_file = list(all_representations[samples_str][pgname].keys())[
+                        0
+                    ]
                     self.aggregated_errors_object.buffer_exception(
                         InfileError(
                             (
                                 f"Multiple equivalent resolutions for '{self.DataHeaders.PEAKGROUP}' '{pgname}' in %s "
-                                f"on rows: {all_representations[seqname][pgname][annot_file]}."
+                                f"on rows: {all_representations[samples_str][pgname][annot_file]}."
                             ),
                             file=self.friendly_file,
                             sheet=self.sheet,
@@ -269,8 +294,8 @@ class PeakGroupConflicts(TableLoader):
                     # Issue a fatal error if the resolution to the conflict is different on duplicate rows
                     deets = "\n\t".join(
                         [
-                            f"'{file}', on row(s): {all_representations[seqname][pgname][file]}"
-                            for file in all_representations[seqname][pgname].keys()
+                            f"'{file}', on row(s): {all_representations[samples_str][pgname][file]}"
+                            for file in all_representations[samples_str][pgname].keys()
                         ]
                     )
                     sheetref = generate_file_location_string(
