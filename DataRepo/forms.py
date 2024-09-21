@@ -461,13 +461,9 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
             allowed_delimited_exts = ["csv", "tsv"]
 
-            # Fields (excluding mode)
+            # Fields we need to check
             study_doc = self.cleaned_data.get("study_doc", None)
             peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
-            protocol = self.cleaned_data.get("protocol", None)
-            operator = self.cleaned_data.get("operator", None)
-            instrument = self.cleaned_data.get("instrument", None)
-            run_date = self.cleaned_data.get("run_date", None)
             mode = self.cleaned_data.get("mode", None)
 
             if (study_doc is None and peak_annotation_file is None) or (
@@ -483,20 +479,11 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     if ext not in allowed_delimited_exts:
                         return False
 
-                # All Sequence details are required when a peak annotation file is supplied
-                if (
-                    operator is None
-                    or operator.strip() == ""
-                    or protocol is None
-                    or protocol.strip() == ""
-                    or instrument is None
-                    or instrument.strip() == ""
-                    or run_date is None
-                    or run_date.strip() == ""
-                    or mode is None
-                    or mode.strip() == ""
-                ):
-                    return False
+                # Note, all the sequence metadata fields should allow novel entries (even the instrument)
+
+            # All Sequence details are required when a peak annotation file is supplied
+            if mode is None or mode.strip() == "":
+                return False
 
             return True
 
@@ -507,7 +494,10 @@ def create_BuildSubmissionForm() -> Type[Form]:
             Args:
                 None
             Exceptions:
-                ValidationError
+                Raises:
+                    None
+                Buffers:
+                    ValidationError
             Returns:
                 self.cleaned_data (dict)
             """
@@ -517,10 +507,6 @@ def create_BuildSubmissionForm() -> Type[Form]:
             # Fields (excluding mode)
             study_doc = self.cleaned_data.get("study_doc", None)
             peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
-            operator = self.cleaned_data.get("operator", None)
-            protocol = self.cleaned_data.get("protocol", None)
-            instrument = self.cleaned_data.get("instrument", None)
-            run_date = self.cleaned_data.get("run_date", None)
             mode = self.cleaned_data.get("mode", None)
 
             # NOTE: All of these errors are added as non-field-errors because the form is processed as a form inside a
@@ -576,46 +562,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                             ),
                         )
 
-                # All Sequence details are required when a peak annotation file is supplied
-                if operator is None or operator.strip() == "":
-                    self.add_error(
-                        None,
-                        ValidationError(
-                            "operator required",
-                            code="MissingOperator",
-                        ),
-                    )
-
-                if protocol is None or protocol.strip() == "":
-                    self.add_error(
-                        None,
-                        ValidationError(
-                            "protocol required",
-                            code="MissingProtocol",
-                        ),
-                    )
-                # Explicitly NOT checking the lcprotocol is from the existing DB protocols, to allow for users to create
-                # new ones.
-
-                if instrument is None or instrument.strip() == "":
-                    self.add_error(
-                        None,
-                        ValidationError(
-                            "instrument required",
-                            code="MissingInstrument",
-                        ),
-                    )
-                # Explicitly NOT checking the instrument is from the model's list, to allow for new instrument updates.
-
-                if run_date is None or run_date.strip() == "":
-                    self.add_error(
-                        None,
-                        ValidationError(
-                            "run date required",
-                            code="MissingDate",
-                        ),
-                    )
-                # Explicitly NOT checking date format.  Format is handled by validation and excel/pandas.
+                # Note, all the sequence metadata fields should allow novel entries (even the instrument)
 
             return self.cleaned_data
 
