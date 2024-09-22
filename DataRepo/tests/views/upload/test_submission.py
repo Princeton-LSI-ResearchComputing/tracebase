@@ -481,6 +481,12 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "File Format": str,
                 "Peak Annotation File": str,
             },
+            "Peak Group Conflicts": {
+                "Common Samples": str,
+                "Example Samples": str,
+                "Peak Group Conflict": str,
+                "Selected Peak Annotation File": str,
+            },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
