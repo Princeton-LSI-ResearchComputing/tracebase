@@ -856,6 +856,20 @@ class DataValidationView(FormView):
                     )
             xlsx_writer.sheets[sheet].autofit()
 
+        # Hide the peak groups conflict sheet if it is empty.  (This checks the number of rows in each column.)
+        if (
+            len(
+                [
+                    d
+                    for d in self.dfs_dict[PeakGroupConflicts.DataSheetName].values()
+                    if len(d.keys()) > 0
+                ]
+            )
+            == 0
+        ):
+            print("HIDING EMPTY CONFLICTS SHEET")
+            xlsx_writer.sheets[PeakGroupConflicts.DataSheetName].hide()
+
         self.add_dropdowns(xlsx_writer)
         self.add_formulas(xlsx_writer)
         self.hide_hidden_columns(xlsx_writer)
@@ -1564,6 +1578,9 @@ class DataValidationView(FormView):
         allreps_dict = defaultdict(
             lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         )
+        all_samples = {}
+        # This checks to see if there are multiple scans of a sample in 1 file
+        sample_dupes_exist = False
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
 
@@ -1610,9 +1627,16 @@ class DataValidationView(FormView):
                         SamplesLoader.DataHeaders.SAMPLE: sample_name
                     }
 
+                    if (
+                        sample_name in samples.keys()
+                        and sample_header not in samples[sample_name].keys()
+                    ):
+                        sample_dupes_exist = True
+
                     # samples holds the samples that we will use to look for multiple representations, but since skipped
                     # samples will not be loaded, there's no reason to pick a file from which to load them
                     samples[sample_name][sample_header] = 0
+                    all_samples[sample_name] = 0
 
                 # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
                 unique_annot_deets_key = self.row_key_delim.join(
@@ -1721,60 +1745,74 @@ class DataValidationView(FormView):
                             CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
                         }
 
-        print("LOOKING FOR MULTIPLE REPRESENTATIONS")
-
-        # Initialize an intermediate dict to construct sets of files that have common samples
-        # Example: filesets_dict[compounds_str][filenames_str][sample][sample_header] = 0
-        filesets_dict = defaultdict(
-            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        db_samples_exist = (
+            Sample.objects.filter(name__in=list(all_samples.keys())).first() is not None
         )
+        multiple_files = len(self.peak_annot_files) > 1
 
-        # Add to the allreps_dict from the database, then populate filesets_dict
-        # For every compound (...sorted synonym set) from the file
-        for pgname in allreps_dict.keys():
-            # For every sample from the file
-            for sample in allreps_dict[pgname].keys():
-                existing_files = list(allreps_dict[pgname][sample].keys())
-                # Now let's look for existing potential conflicts already in the DB
-                for pgrec in PeakGroup.objects.filter(
-                    name__iexact=pgname, msrun_sample__sample__name=sample
-                ).exclude(peak_annotation_file__filename__in=existing_files):
-                    # If the pre-existing PeakGroup came from a different file, we have no way of knowing what the
-                    # original sample header was, because it's not saved anywhere
-                    allreps_dict[pgname][sample][pgrec.peak_annotation_file.filename][
-                        "unknown"
-                    ] = 0
+        # We don't need to look for multiple representations if there's only 1 file, no samples pre-exist in the DB, and
+        # there are not duplicate columns (with different scan labels) in the file
+        if multiple_files or db_samples_exist or sample_dupes_exist:
+            print("LOOKING FOR MULTIPLE REPRESENTATIONS")
 
-                # If this sample is in multiple peak annotation files
-                if len(allreps_dict[pgname][sample].keys()) > 1:
-                    file_set_key = ";".join(sorted(allreps_dict[pgname][sample].keys()))
-                    for sample_header in allreps_dict[pgname][sample].keys():
-                        filesets_dict[pgname][file_set_key][sample][sample_header] = 0
+            # Initialize an intermediate dict to construct sets of files that have common samples
+            # Example: filesets_dict[compounds_str][filenames_str][sample][sample_header] = 0
+            filesets_dict = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+            )
 
-        # Now that we have the file sets for files containing measurements for common samples, we can populate the
-        # autofill for the Peak Group Conflicts sheet
-        for pgname in sorted(filesets_dict.keys()):
-            for file_set_key in filesets_dict[pgname].keys():
-                files_list = list(file_set_key.split(";"))
-                samples = sorted(
-                    filesets_dict[pgname][file_set_key].keys(), key=str.casefold
-                )
-                samples_str = ";".join(samples)
-                unique_row_key = f"{pgname}:{samples_str}"
-                example = samples[0]
-                print(f"MULTREP: {pgname} IN {file_set_key} HAS {example}")
-                self.autofill_dict[PeakGroupConflicts.DataSheetName][unique_row_key] = {
-                    PeakGroupConflicts.DataHeaders.PEAKGROUP: pgname,
-                    PeakGroupConflicts.DataHeaders.ANNOTFILE: {
-                        "validate": "list",
-                        "source": files_list,
-                        "show_error": False,
-                        "dropdown": True,
-                    },
-                    PeakGroupConflicts.DataHeaders.SAMPLECOUNT: len(samples),
-                    PeakGroupConflicts.DataHeaders.EXAMPLE: example,
-                    PeakGroupConflicts.DataHeaders.SAMPLES: samples_str,
-                }
+            # Add to the allreps_dict from the database, then populate filesets_dict
+            # For every compound (...sorted synonym set) from the file
+            for pgname in allreps_dict.keys():
+                # For every sample from the file
+                for sample in allreps_dict[pgname].keys():
+                    existing_files = list(allreps_dict[pgname][sample].keys())
+                    # Now let's look for existing potential conflicts already in the DB
+                    for pgrec in PeakGroup.objects.filter(
+                        name__iexact=pgname, msrun_sample__sample__name=sample
+                    ).exclude(peak_annotation_file__filename__in=existing_files):
+                        # If the pre-existing PeakGroup came from a different file, we have no way of knowing what the
+                        # original sample header was, because it's not saved anywhere
+                        allreps_dict[pgname][sample][
+                            pgrec.peak_annotation_file.filename
+                        ]["unknown"] = 0
+
+                    # If this sample is in multiple peak annotation files
+                    if len(allreps_dict[pgname][sample].keys()) > 1:
+                        file_set_key = ";".join(
+                            sorted(allreps_dict[pgname][sample].keys())
+                        )
+                        for sample_header in allreps_dict[pgname][sample].keys():
+                            filesets_dict[pgname][file_set_key][sample][
+                                sample_header
+                            ] = 0
+
+            # Now that we have the file sets for files containing measurements for common samples, we can populate the
+            # autofill for the Peak Group Conflicts sheet
+            for pgname in sorted(filesets_dict.keys()):
+                for file_set_key in filesets_dict[pgname].keys():
+                    files_list = list(file_set_key.split(";"))
+                    samples = sorted(
+                        filesets_dict[pgname][file_set_key].keys(), key=str.casefold
+                    )
+                    samples_str = ";".join(samples)
+                    unique_row_key = f"{pgname}:{samples_str}"
+                    example = samples[0]
+                    print(f"MULTREP: {pgname} IN {file_set_key} HAS {example}")
+                    self.autofill_dict[PeakGroupConflicts.DataSheetName][
+                        unique_row_key
+                    ] = {
+                        PeakGroupConflicts.DataHeaders.PEAKGROUP: pgname,
+                        PeakGroupConflicts.DataHeaders.ANNOTFILE: {
+                            "validate": "list",
+                            "source": files_list,
+                            "show_error": False,
+                            "dropdown": True,
+                        },
+                        PeakGroupConflicts.DataHeaders.SAMPLECOUNT: len(samples),
+                        PeakGroupConflicts.DataHeaders.EXAMPLE: example,
+                        PeakGroupConflicts.DataHeaders.SAMPLES: samples_str,
+                    }
 
     def extract_autofill_from_exceptions(self, retain_as_warnings=True):
         """Remove exceptions related to references to missing underlying data and extract their data.
