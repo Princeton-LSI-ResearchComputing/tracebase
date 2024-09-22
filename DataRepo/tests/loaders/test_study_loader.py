@@ -109,6 +109,7 @@ class StudyLoaderTests(TracebaseTestCase):
                 "HEADERS": "Peak Annotation Details",
                 "INFUSATES": "Infusates",
                 "LCPROTOCOLS": "LC Protocols",
+                "PGCONFLICTS": "Peak Group Conflicts",
                 "SAMPLES": "Samples",
                 "SEQUENCES": "Sequences",
                 "STUDY": "Study",
