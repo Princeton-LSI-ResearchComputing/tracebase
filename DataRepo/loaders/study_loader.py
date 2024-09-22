@@ -39,6 +39,7 @@ from DataRepo.loaders.peak_annotations_loader import (
     PeakAnnotationsLoader,
     UnicorrLoader,
 )
+from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
@@ -127,6 +128,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
     SEQUENCES_SHEET = "SEQUENCES"
     HEADERS_SHEET = "HEADERS"
     FILES_SHEET = "FILES"
+    PGCONFLICTS_SHEET = "PGCONFLICTS"
     DEFAULTS_SHEET = "DEFAULTS"
     ERRORS_SHEET = "ERRORS"
 
@@ -146,6 +148,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             "SEQUENCES",
             "HEADERS",
             "FILES",
+            "PGCONFLICTS",
             "DEFAULTS",
             "ERRORS",
         ],
@@ -165,6 +168,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         SEQUENCES=SequencesLoader.DataSheetName,
         HEADERS=MSRunsLoader.DataSheetName,
         FILES=PeakAnnotationFilesLoader.DataSheetName,
+        PGCONFLICTS=PeakGroupConflicts.DataSheetName,
         DEFAULTS="Defaults",
         ERRORS="Errors",
     )
@@ -190,6 +194,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         SEQUENCES=None,
         HEADERS=None,
         FILES=None,
+        PGCONFLICTS=None,
         DEFAULTS=None,
         ERRORS=None,
     )
@@ -213,6 +218,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         SEQUENCES=SequencesLoader,
         HEADERS=MSRunsLoader,
         FILES=PeakAnnotationFilesLoader,
+        PGCONFLICTS=PeakGroupConflicts,
         DEFAULTS=None,
         ERRORS=None,
     )
@@ -231,19 +237,21 @@ class StudyLoader(ConvertedTableLoader, ABC):
         SEQUENCES={},
         HEADERS={},
         FILES={},
+        PGCONFLICTS={},
         DEFAULTS=None,
         ERRORS=None,
     )
 
     DataSheetDisplayOrder = [
         STUDY_SHEET,
+        TRACERS_SHEET,
+        INFUSATES_SHEET,
         ANIMALS_SHEET,
         SAMPLES_SHEET,
+        SEQUENCES_SHEET,
         FILES_SHEET,
         HEADERS_SHEET,
-        SEQUENCES_SHEET,
-        INFUSATES_SHEET,
-        TRACERS_SHEET,
+        PGCONFLICTS_SHEET,
         TREATMENTS_SHEET,
         TISSUES_SHEET,
         COMPOUNDS_SHEET,
