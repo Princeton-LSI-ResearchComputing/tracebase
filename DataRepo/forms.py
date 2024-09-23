@@ -481,7 +481,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
                 # Note, all the sequence metadata fields should allow novel entries (even the instrument)
 
-            # All Sequence details are required when a peak annotation file is supplied
+            # All Sequence details are optional, but mode is required.
             if mode is None or mode.strip() == "":
                 return False
 
