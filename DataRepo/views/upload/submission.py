@@ -1143,7 +1143,7 @@ class BuildSubmissionView(FormView):
                 for rowindex, validation_dict in self.validation_autofill_dict[sheet][
                     header
                 ].items():
-                    rownum = rowindex + 1
+                    rownum = rowindex + 2  # Indexed from 1, and skip the header
                     worksheet.data_validation(
                         f"{letter}{rownum}",
                         validation_dict,
