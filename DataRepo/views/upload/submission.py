@@ -1687,6 +1687,14 @@ class DataValidationView(FormView):
                 )
                 if pgname not in pgnames:
                     pgnames.append(pgname)
+                    print(f"RECORDING REPRESENTATIONS FOR {pgname}")
+                    # For every sample from the file
+                    for sample in samples.keys():
+                        # For every sample header (that matches the sample after having extracted the scan labels)
+                        for sample_header in samples[sample].keys():
+                            allreps_dict[pgname][sample][peak_annot_filename][
+                                sample_header
+                            ] = 0
 
                 # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in the
                 # peak_annot_loader if any compounds are not in the database.  We don't need that here, because we're
@@ -1713,18 +1721,6 @@ class DataValidationView(FormView):
                         CompoundsLoader.DataHeaders.NAME: compound_name,
                         CompoundsLoader.DataHeaders.FORMULA: formula,
                     }
-
-            print("RECORDING REPRESENTATIONS")
-            # Add to the allreps_dict
-            # For every compound (...sorted synonym set) from the file
-            for pgname in pgnames:
-                # For every sample from the file
-                for sample in samples.keys():
-                    # For every sample header (that matches the sample after having extracted the scan labels)
-                    for sample_header in samples[sample].keys():
-                        allreps_dict[pgname][sample][peak_annot_filename][
-                            sample_header
-                        ] = 0
 
             print("EXTRACTING AND INCLUDING ALL COMPOUNDS WITH MATCHING FORMULAS")
             for formula in np.unique(formulas):
@@ -1753,7 +1749,6 @@ class DataValidationView(FormView):
         # We don't need to look for multiple representations if there's only 1 file, no samples pre-exist in the DB, and
         # there are not duplicate columns (with different scan labels) in the file
         if multiple_files or db_samples_exist or sample_dupes_exist:
-            print("LOOKING FOR MULTIPLE REPRESENTATIONS")
 
             # Initialize an intermediate dict to construct sets of files that have common samples
             # Example: filesets_dict[compounds_str][filenames_str][sample][sample_header] = 0
@@ -1761,22 +1756,39 @@ class DataValidationView(FormView):
                 lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
             )
 
-            # Add to the allreps_dict from the database, then populate filesets_dict
+            print(
+                "PREPARING EXISTING PEAK GROUPS FOR THE MULTIPLE REPRESENTATIONS SEARCH"
+            )
+
+            # Now let's look for existing potential conflicts already in the DB (to add to allreps_dict
+            # before processing it)
+            for pgrec in PeakGroup.objects.filter(
+                msrun_sample__sample__name__in=list(all_samples.keys())
+            ):
+                pgname = pgrec.name.lower()
+                # If the compound is one we're loading and either the sample didn't have this compound in the files or
+                # this is an unseen file, record the representation.
+                if pgname in allreps_dict.keys() and (
+                    pgrec.msrun_sample.sample.name not in allreps_dict[pgname].keys()
+                    or pgrec.peak_annotation_file.filename
+                    not in allreps_dict[pgname][pgrec.msrun_sample.sample.name].keys()
+                ):
+                    # NOTE: We cannot know the original sample header since it is never saved in the DB
+                    allreps_dict[pgname][pgrec.msrun_sample.sample.name][
+                        pgrec.peak_annotation_file.filename
+                    ]["unknown"] = 0
+
+            print("LOOKING FOR MULTIPLE REPRESENTATIONS")
+
+            # Populate filesets_dict so that we can determine all the samples they have in common.  This basically (for
+            # each common compound) takes every grouping of files for each sample and creates a list of common samples
+            # for that file grouping.  We will then use that compound and that list of common samples to be able to be
+            # used as a unique constraint in the sheet and then, when the file is used for loading, we will use the
+            # compound, samples, and the selected file to know which other files with that compound and sample to skip.
             # For every compound (...sorted synonym set) from the file
             for pgname in allreps_dict.keys():
                 # For every sample from the file
                 for sample in allreps_dict[pgname].keys():
-                    existing_files = list(allreps_dict[pgname][sample].keys())
-                    # Now let's look for existing potential conflicts already in the DB
-                    for pgrec in PeakGroup.objects.filter(
-                        name__iexact=pgname, msrun_sample__sample__name=sample
-                    ).exclude(peak_annotation_file__filename__in=existing_files):
-                        # If the pre-existing PeakGroup came from a different file, we have no way of knowing what the
-                        # original sample header was, because it's not saved anywhere
-                        allreps_dict[pgname][sample][
-                            pgrec.peak_annotation_file.filename
-                        ]["unknown"] = 0
-
                     # If this sample is in multiple peak annotation files
                     if len(allreps_dict[pgname][sample].keys()) > 1:
                         file_set_key = ";".join(
@@ -1786,6 +1798,8 @@ class DataValidationView(FormView):
                             filesets_dict[pgname][file_set_key][sample][
                                 sample_header
                             ] = 0
+
+            print("POPULATING MULTIPLE REPRESENTATIONS AUTOFILL")
 
             # Now that we have the file sets for files containing measurements for common samples, we can populate the
             # autofill for the Peak Group Conflicts sheet
