@@ -123,12 +123,12 @@ class PeakGroupConflicts(TableLoader):
         ANNOTFILE=TableColumn.init_flat(
             name=DataHeaders.ANNOTFILE,
             help_text=(
-                "There must exist only one peak group compound for every sample.  Sometimes a compound can show up in "
-                "multiple scans (e.g. in positive and negative mode scans).  You must select the file containing the "
-                "best representation of each compound.  Using the provided drop-downs, select the peak annotation file "
-                "from which this peak group should be loaded for the listed samples.  That compound in the remaining "
-                "files will be skipped for those samples.  Note, each drop-down contains only the peak annotation "
-                "files containing the peak group compound for that row."
+                "TraceBase will accept only one peak group measurement for each compound in a given sample.  Sometimes "
+                "a compound can show up in multiple scans (e.g. in positive and negative mode scans).  You must select "
+                "the file containing the best representation of each compound.  Using the provided drop-downs, select "
+                "the peak annotation file from which this peak group should be loaded for the listed samples.  That "
+                "compound in the remaining files will be skipped for those samples.  Note, each drop-down contains "
+                "only the peak annotation files containing the peak group compound for that row."
             ),
             reference=ColumnReference(
                 loader_class=PeakAnnotationFilesLoader,
