@@ -1238,7 +1238,7 @@ class MaintainedModel(Model):
                     pre_mass_update_func=pre_mass_update_func,
                     post_mass_update_func=post_mass_update_func,
                 ):
-                    fn(*args, **kwargs)
+                    return fn(*args, **kwargs)
 
             return wrapper
 
@@ -1987,19 +1987,25 @@ class AutoUpdateFailed(Exception):
         updater_flds = [
             d["update_field"] for d in updaters if d["update_field"] is not None
         ]
+        if len(updater_flds) == 0:
+            message = f"Propagation of autoupdates from the {model_object.__class__.__name__} model "
+        else:
+            message = f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] "
         try:
             obj_str = str(model_object)
         except Exception:
             # Displaying the offending object is optional, so catch any error
             obj_str = "unknown"
-        message = (
-            f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"database failed for record {obj_str}.  Potential causes:\n"
+        message += (
+            f"in the database failed for record {obj_str}.  Potential causes:\n"
             "\t1. The record was created and deleted before the buffered update (a catch for the exception should be "
             "added and ignored).\n"
-            "\t2. The autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find "
-            "a previous call to a loader that performs mass auto-updates and ensure that clear_update_buffer() is "
-            "called.\n"
+            "\t2. The autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  There "
+            "are multiple possible resolutions to this case.  If deletions of parent and child records are occurring "
+            "together, a `no_autoupdates` decorator/context-manager can be applied to the deletion of the child "
+            "records so that the mass autoupdates do not get called on the deleted parent records, or you can apply a "
+            "`no_autoupdates` decorator to the entire model modification method (or call clear_update_buffer() at the "
+            "end of the method), and run `rebuild_maintained_fields` afterwards.\n"
             f"The triggering {err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)
