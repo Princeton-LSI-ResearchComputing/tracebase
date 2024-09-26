@@ -13,10 +13,22 @@ class PeakGroupConflictsTests(TracebaseTestCase):
         selected_dict = pgc.get_selected_representations()
         expected = {
             # Duplicates that only issue a warning and still skip
-            "Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-19": {
+            "sample1": {
                 "lysine": "accucor_pos.xlsx",
             },
-            "Anonymous, polar-HILIC-25-min, Exploris480, 2024-01-20": {
+            "sample2": {
+                "lysine": "accucor_pos.xlsx",
+            },
+            "sample3": {
+                "lysine": "accucor_pos.xlsx",
+            },
+            "sampleA": {
+                # Version with no issues
+                "asparagine": "isocorr1.xlsx",
+                # Differing conflict resolutions because equivalent names (despite case and order differences)
+                "l-aspartame/r-aspartame": None,
+            },
+            "sampleB": {
                 # Version with no issues
                 "asparagine": "isocorr1.xlsx",
                 # Differing conflict resolutions because equivalent names (despite case and order differences)
