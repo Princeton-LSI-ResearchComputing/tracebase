@@ -1242,13 +1242,9 @@ class TableLoader(ABC):
 
         hidden_column_names = []
         for key in self.DataHiddenColumns:
-            hdr = getattr(headers, key)
-            if hdr is None:
-                # This is in case the custom-supplied headers are incomplete (they should not be if they came from the
-                # instance - only if this is called externally)
-                hidden_column_names.append(getattr(self.DataHeaders, key))
-            else:
-                hidden_column_names.append(hdr)
+            default_header = getattr(self.DataHeaders, key)
+            header = getattr(headers, key, default_header)
+            hidden_column_names.append(header)
 
         return hidden_column_names
 

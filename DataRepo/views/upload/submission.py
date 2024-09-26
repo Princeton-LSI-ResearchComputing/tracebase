@@ -1742,7 +1742,7 @@ class DataValidationView(FormView):
                         }
 
         db_samples_exist = (
-            Sample.objects.filter(name__in=list(all_samples.keys())).first() is not None
+            Sample.objects.filter(name__in=list(all_samples.keys())).count() > 0
         )
         multiple_files = len(self.peak_annot_files) > 1
 
