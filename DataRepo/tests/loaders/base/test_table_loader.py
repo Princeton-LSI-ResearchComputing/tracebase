@@ -299,6 +299,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
@@ -320,6 +321,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 1,
                     "existed": 0,
+                    "deleted": 0,
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
@@ -337,6 +339,25 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 1,
+                    "deleted": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "errored": 0,
+                    "warned": 0,
+                }
+            },
+            tl.record_counts,
+        )
+
+    def test_deleted(self):
+        tl = self.TestLoader()
+        tl.deleted()
+        self.assertDictEqual(
+            {
+                self.TestModel.__name__: {
+                    "created": 0,
+                    "existed": 0,
+                    "deleted": 1,
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
@@ -354,6 +375,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "updated": 0,
                     "skipped": 1,
                     "errored": 0,
@@ -371,6 +393,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "updated": 0,
                     "skipped": 0,
                     "errored": 1,
@@ -388,6 +411,7 @@ class TableLoaderTests(TracebaseTestCase):
                 self.TestModel.__name__: {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "updated": 0,
                     "skipped": 0,
                     "errored": 0,
@@ -1620,6 +1644,7 @@ class TableLoaderTests(TracebaseTestCase):
             "UndocumentedModel": {  # Adding a model that's not in tl.Models (to support child loaders)
                 "created": 10,
                 "existed": 0,
+                "deleted": 0,
                 "updated": 0,
                 "skipped": 0,
                 "errored": 0,
@@ -1628,6 +1653,7 @@ class TableLoaderTests(TracebaseTestCase):
             "TestModel": {
                 "created": 0,
                 "existed": 5,
+                "deleted": 0,
                 "updated": 1,
                 "skipped": 2,
                 "errored": 3,
@@ -1640,6 +1666,7 @@ class TableLoaderTests(TracebaseTestCase):
             "NewUndocumentedModel": {  # Adding a new model
                 "created": 10,
                 "existed": 0,
+                "deleted": 0,
                 "updated": 0,
                 "skipped": 0,
                 "errored": 0,
@@ -1648,6 +1675,7 @@ class TableLoaderTests(TracebaseTestCase):
             "TestModel": {
                 "created": 1,
                 "existed": 2,
+                "deleted": 0,
                 "updated": 3,
                 "skipped": 4,
                 "errored": 5,
@@ -1659,6 +1687,7 @@ class TableLoaderTests(TracebaseTestCase):
             "UndocumentedModel": {
                 "created": 10,
                 "existed": 0,
+                "deleted": 0,
                 "updated": 0,
                 "skipped": 0,
                 "errored": 0,
@@ -1667,6 +1696,7 @@ class TableLoaderTests(TracebaseTestCase):
             "NewUndocumentedModel": {
                 "created": 10,
                 "existed": 0,
+                "deleted": 0,
                 "updated": 0,
                 "skipped": 0,
                 "errored": 0,
@@ -1675,6 +1705,7 @@ class TableLoaderTests(TracebaseTestCase):
             "TestModel": {
                 "created": 1,
                 "existed": 7,
+                "deleted": 0,
                 "updated": 4,
                 "skipped": 6,
                 "errored": 8,

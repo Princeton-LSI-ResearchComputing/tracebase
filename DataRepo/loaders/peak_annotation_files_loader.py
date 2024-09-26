@@ -14,6 +14,7 @@ from DataRepo.loaders.peak_annotations_loader import (
     PeakAnnotationsLoader,
     UnicorrLoader,
 )
+from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.msrun_sequence import MSRunSequence
@@ -150,18 +151,27 @@ class PeakAnnotationFilesLoader(TableLoader):
                     commits anything, but it also raises warnings as fatal (so they can be reported through the web
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
-                peak_annotation_details_file (Optional[str]): The name of the file that the Peak Annotation Details came
-                    from.
-                peak_annotation_details_sheet (Optional[str]): The name of the sheet that the Peak Annotation Details
-                    came from (if it was an excel file).
-                peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation Details
-                    sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of this
-                    instance)
                 annot_files_dict (Optional[Dict[str, str]]): This is a dict of peak annotation file paths keyed on peak
                     annotation file basename.  This is not necessary on the command line.  It is only provided for the
                     purpose of web forms, where the name of the actual file is a randomized hash string at the end of a
                     temporary path.  This dict associates the user's readable filename parsed from the infile (the key)
                     with the actual file (the value).
+                Sample, MSRunSequence, and mzXML data:
+                    peak_annotation_details_file (Optional[str]): The name of the file that the Peak Annotation Details
+                        came from.
+                    peak_annotation_details_sheet (Optional[str]): The name of the sheet that the Peak Annotation
+                        Details came from (if it was an excel file).
+                    peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation
+                        Details sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of
+                        this instance)
+                PeakGroup conflicts (a.k.a. "multiple representations"):
+                    peak_group_conflicts_file (Optional[str]): The name of the file that the Peak Group conflict
+                        resolutions came from.
+                    peak_group_conflicts_sheet (Optional[str]): The name of the sheet that the Peak Group conflict
+                        resolutions came from (if it was an excel file).
+                    peak_group_conflicts_df (Optional[pandas DataFrame]): The DataFrame of the Peak Group conflict
+                        resolutions sheet/file that will be supplied to the PeakGroupConflicts class (that is an
+                        instance member of this instance) and is used to skip peak groups based on user selections.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -174,6 +184,8 @@ class PeakAnnotationFilesLoader(TableLoader):
         # NOTE: We COULD make a friendly version of this file for the web interface, but we don't accept this separate
         # file in that interface, so it will currently always be set using self.file.  These options will only
         # effectively be used on the command line, where self.file *is* already friendly.
+        self.annot_files_dict = kwargs.pop("annot_files_dict", None)
+
         self.peak_annotation_details_file = kwargs.pop(
             "peak_annotation_details_file", None
         )
@@ -181,7 +193,11 @@ class PeakAnnotationFilesLoader(TableLoader):
             "peak_annotation_details_sheet", None
         )
         self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
-        self.annot_files_dict = kwargs.pop("annot_files_dict", None)
+
+        self.peak_group_conflicts_file = kwargs.pop("peak_group_conflicts_file", None)
+        self.peak_group_conflicts_sheet = kwargs.pop("peak_group_conflicts_sheet", None)
+        self.peak_group_conflicts_df = kwargs.pop("peak_group_conflicts_df", None)
+
         super().__init__(*args, **kwargs)
 
         # For tracking exceptions of the individual peak annotation loaders
@@ -462,6 +478,25 @@ class PeakAnnotationFilesLoader(TableLoader):
                 # TODO: Add dtypes argument here
             )
 
+        # Get the peak group conflict resolutions
+        peak_group_conflicts_file = None
+        peak_group_conflicts_sheet = None
+        peak_group_conflicts_df = None
+
+        if self.peak_group_conflicts_df is not None:
+            peak_group_conflicts_file = self.peak_group_conflicts_file
+            peak_group_conflicts_sheet = self.peak_group_conflicts_sheet
+            peak_group_conflicts_df = self.peak_group_conflicts_df
+        elif is_excel(
+            self.file
+        ) and PeakGroupConflicts.DataSheetName in get_sheet_names(self.file):
+            peak_group_conflicts_file = self.file
+            peak_group_conflicts_sheet = PeakGroupConflicts.DataSheetName
+            peak_group_conflicts_df = read_from_file(
+                peak_group_conflicts_file,
+                peak_group_conflicts_sheet,
+            )
+
         # Create an instance of the specific peak annotations loader for this format
         peak_annot_loader = peak_annot_loader_class(
             # These are the essential arguments
@@ -477,6 +512,10 @@ class PeakAnnotationFilesLoader(TableLoader):
             date=date,
             lc_protocol_name=lc_protocol_name,
             instrument=instrument,
+            # Then we need the peak group conflict resolutions the researcher selected
+            peak_group_conflicts_file=peak_group_conflicts_file,
+            peak_group_conflicts_sheet=peak_group_conflicts_sheet,
+            peak_group_conflicts_df=peak_group_conflicts_df,
             # Pass-alongs
             _validate=self.validate,
             defer_rollback=self.defer_rollback,

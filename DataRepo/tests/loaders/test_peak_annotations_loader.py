@@ -8,6 +8,7 @@ from DataRepo.loaders.peak_annotations_loader import (
     IsoautocorrLoader,
     IsocorrLoader,
 )
+from DataRepo.loaders.study_loader import StudyV3Loader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -29,14 +30,17 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
+    DuplicatePeakGroupResolutions,
     DuplicateValues,
     MissingCompounds,
     MissingSamples,
     NoSamples,
     RecordDoesNotExist,
+    ReplacingPeakGroupRepresentation,
     UnexpectedSamples,
     UnskippedBlanks,
 )
+from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.infusate_name_parser import (
     ObservedIsotopeData,
     parse_infusate_name,
@@ -795,6 +799,240 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             ["s1"],
             al.aggregated_errors_object.get_exception_type(NoSamples)[0].search_terms,
         )
+
+    def test_PeakAnnotationsLoader_conflicting_peak_group_resolutions(self):
+        # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
+        dfdict = read_from_file(
+            "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            None,
+        )
+        sl = StudyV3Loader(
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            df=dfdict,
+        )
+        sl.load_data()
+
+        il = IsoautocorrLoader(
+            df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+                sheet=None,
+            ),
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+            peak_group_conflicts_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/conflicting_resolutions.tsv"
+            ),
+            peak_group_conflicts_sheet="Peak Group Conflicts",
+            peak_group_conflicts_df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
+            ),
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/prereqs.xlsx"
+            ),
+            peak_annotation_details_sheet="Peak Annotation Details",
+            peak_annotation_details_df=dfdict["Peak Annotation Details"],
+        )
+        with self.assertRaises(AggregatedErrors):
+            il.load_data()
+        self.assertEqual(
+            (1, 0),
+            (
+                il.aggregated_errors_object.num_errors,
+                il.aggregated_errors_object.num_warnings,
+            ),
+        )
+        dpgrs = il.aggregated_errors_object.get_exception_type(
+            DuplicatePeakGroupResolutions
+        )
+        self.assertEqual(1, len(dpgrs))
+        dpgr = dpgrs[0]
+        self.assertTrue(dpgr.conflicting)
+        self.assertEqual("3-methylglutaconic acid", dpgr.pgname)
+        self.assertEqual(["negative_cor.xlsx", "poshigh_cor.xlsx"], dpgr.selected_files)
+        expected = {
+            "ArchiveFile": {
+                "created": 1,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 0,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakData": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 4,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakDataLabel": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 3,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroup": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 4,  # Load is attempted on each PeakData line
+                "existed": 0,
+                "skipped": 0,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroupLabel": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 3,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroup_compounds": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 4,  # Load is attempted on each PeakData line
+                "updated": 0,
+                "warned": 0,
+            },
+        }
+        self.assertDictEqual(expected, il.get_load_stats())
+
+    def test_PeakAnnotationsLoader_delete_existing_unselected_peak_group(self):
+        # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
+        dfdict = read_from_file(
+            "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            None,
+        )
+        sl = StudyV3Loader(
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            df=dfdict,
+        )
+        sl.load_data()
+
+        # Simulate 2 submissions with the second submission resolving a conflict with the previous load by deleting the
+        # old peak group and replacing it with the one the user selected.
+        il1 = IsoautocorrLoader(
+            df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+                sheet=None,
+            ),
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/negative_cor.xlsx",
+            # No peak_group_conflicts, so that we load a peak group that a later load deletes, due to separate
+            # submissions
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/prereqs.xlsx"
+            ),
+            peak_annotation_details_sheet="Peak Annotation Details",
+            peak_annotation_details_df=dfdict["Peak Annotation Details"],
+        )
+        il1.load_data()
+
+        # Now perform the load with the selected/new peak group
+        il2 = IsoautocorrLoader(
+            df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_cor.xlsx",
+                sheet=None,
+            ),
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_cor.xlsx",
+            peak_group_conflicts_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/poshigh_resolution.tsv"
+            ),
+            peak_group_conflicts_sheet="Peak Group Conflicts",
+            peak_group_conflicts_df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/poshigh_resolution.tsv",
+            ),
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/prereqs.xlsx"
+            ),
+            peak_annotation_details_sheet="Peak Annotation Details",
+            peak_annotation_details_df=dfdict["Peak Annotation Details"],
+        )
+        il2.load_data()
+        self.assertEqual(
+            (0, 1),
+            (
+                il2.aggregated_errors_object.num_errors,
+                il2.aggregated_errors_object.num_warnings,
+            ),
+        )
+        rpgrs = il2.aggregated_errors_object.get_exception_type(
+            ReplacingPeakGroupRepresentation
+        )
+        self.assertEqual(1, len(rpgrs))
+        rpgr = rpgrs[0]
+        self.assertEqual("3-Methylglutaconic acid", rpgr.delete_rec.name)
+        self.assertEqual("poshigh_cor.xlsx", rpgr.selected_file)
+        expected = {
+            "ArchiveFile": {
+                "created": 1,
+                "existed": 0,
+                "deleted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "PeakData": {
+                "created": 2,
+                "existed": 0,
+                "deleted": 4,  # The previously loaded unselected PeakGroup with 4 PeakData rows
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "PeakDataLabel": {
+                "created": 1,
+                "existed": 0,
+                "deleted": 3,  # The previously loaded unselected PeakGroup with 3 PeakData rows with labels
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "PeakGroup": {
+                "created": 1,
+                "existed": 1,  # The PeakGroup isn't created when the second PeakData row is processed
+                "deleted": 1,  # The previously loaded unselected PeakGroup
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "PeakGroupLabel": {
+                "created": 1,
+                "existed": 0,
+                "deleted": 1,  # The previously loaded unselected PeakGroup's 1 label
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+            "PeakGroup_compounds": {
+                "created": 1,
+                "existed": 1,  # The PeakGroup's compound isn't linked when the second PeakData row is processed
+                "deleted": 1,  # The previously loaded unselected PeakGroup's 1 compound link
+                "updated": 0,
+                "skipped": 0,
+                "errored": 0,
+                "warned": 0,
+            },
+        }
+        self.assertDictEqual(expected, il2.get_load_stats())
 
 
 class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):

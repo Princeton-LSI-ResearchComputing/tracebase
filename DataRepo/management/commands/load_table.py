@@ -450,8 +450,8 @@ class LoadTableCommand(ABC, BaseCommand):
     def report_status(self):
         """Prints load status per model.
 
-        Reports counts of loaded, updated, existed, skipped, errored, and warned records.  Includes a note about dry run
-        mode, if active.  Respects the verbosity option.
+        Reports counts of created, existed, deleted, updated, skipped, errored, and warned records.  Includes a note
+        about dry run mode, if active.  Respects the verbosity option.
 
         Args:
             None
@@ -469,18 +469,9 @@ class LoadTableCommand(ABC, BaseCommand):
         load_stats = self.loader.get_load_stats()
         for mdl_name in load_stats.keys():
             msg += (
-                "%s records created: [%i], existed: [%i], updated: [%i], skipped [%i], errored: [%i], and warned: "
-                "[%i].\n"
-                % (
-                    mdl_name,
-                    load_stats[mdl_name]["created"],
-                    load_stats[mdl_name]["existed"],
-                    load_stats[mdl_name]["updated"],
-                    load_stats[mdl_name]["skipped"],
-                    load_stats[mdl_name]["errored"],
-                    load_stats[mdl_name]["warned"],
-                )
-            )
+                "{0} records created: [{created}], existed: [{existed}], deleted: [{deleted}], updated: [{updated}], "
+                "skipped [{skipped}], errored: [{errored}], and warned: [{warned}].\n"
+            ).format(mdl_name, **load_stats[mdl_name])
 
         if self.saved_aes is not None and self.saved_aes.get_num_errors() > 0:
             status = self.style.ERROR(msg)

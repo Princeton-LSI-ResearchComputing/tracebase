@@ -172,6 +172,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 "Animal": {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "skipped": 0,
                     "errored": 1,
                     "updated": 0,
@@ -180,6 +181,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 "AnimalLabel": {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "skipped": 1,
                     "errored": 0,
                     "updated": 0,
@@ -188,6 +190,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 "Animal_studies": {
                     "created": 0,
                     "existed": 0,
+                    "deleted": 0,
                     "skipped": 1,
                     "errored": 0,
                     "updated": 0,

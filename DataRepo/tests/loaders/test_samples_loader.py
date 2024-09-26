@@ -51,6 +51,7 @@ class SamplesLoaderTests(TracebaseTestCase):
             Sample.__name__: {
                 "created": 0,
                 "existed": 0,
+                "deleted": 0,
                 "skipped": 0,
                 "errored": 0,
                 "warned": 0,
@@ -59,6 +60,7 @@ class SamplesLoaderTests(TracebaseTestCase):
             FCirc.__name__: {
                 "created": 0,
                 "existed": 0,
+                "deleted": 0,
                 "skipped": 0,
                 "errored": 0,
                 "warned": 0,
