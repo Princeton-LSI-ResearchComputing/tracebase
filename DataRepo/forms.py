@@ -142,6 +142,8 @@ class AdvSearchForm:
 
     def __init__(self, *args, **kwargs):
         for form_class in (
+            # TODO: These should not be creating instances.  `format_class` is a class attribute.  Remove the parens and
+            # __class__ below
             AdvSearchPeakGroupsForm(),
             AdvSearchPeakDataForm(),
             AdvSearchFluxCircForm(),
@@ -340,8 +342,11 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            # The form-control class is used to identify form fields among cloned form instances
             for visible in self.visible_fields():
                 visible.field.widget.attrs["class"] = "form-control"
+            for hidden in self.hidden_fields():
+                hidden.field.widget.attrs["class"] = "form-control"
 
         # mode is "autofill" or "validate"
         mode = CharField(widget=HiddenInput())
@@ -365,19 +370,34 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=AutoCompleteTextInput(
                 "operators_datalist",
-                get_researchers(),
-                datalist_manual=False,  # TODO: Change to True when forms start to be cloned
-                attrs={"placeholder": "John Doe", "autocomplete": "off"},
+                get_researchers() if len(get_researchers()) > 0 else ["Anonymous"],
+                datalist_manual=True,
+                attrs={
+                    "title": "Mass Spec Operator, e.g. 'John Doe'",
+                    "placeholder": "ms operator",
+                    "autocomplete": "off",
+                },
             ),
         )
         protocol = CharField(
             required=False,
             widget=AutoCompleteTextInput(
                 "protocols_datalist",
-                list(LCMethod.objects.values_list("name", flat=True)),
-                datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+                (
+                    list(LCMethod.objects.values_list("name", flat=True))
+                    if LCMethod.objects.count() > 0
+                    else [LCMethod.create_name(LCMethod.DEFAULT_TYPE)]
+                ),
+                datalist_manual=True,
                 attrs={
-                    "placeholder": MSRunSequence.get_most_used_protocol(),
+                    "title": (
+                        "Liquid Chromatography Protocol, e.g. '"
+                        + LCMethod.create_name(LCMethod.DEFAULT_TYPE)
+                        + "'"
+                    ),
+                    "placeholder": MSRunSequence.get_most_used_protocol(
+                        default="protocol"
+                    ),
                     "autocomplete": "off",
                 },
             ),
@@ -386,27 +406,55 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=AutoCompleteTextInput(
                 "instruments_datalist",
-                list(
-                    MSRunSequence.objects.order_by("instrument")
-                    .distinct()
-                    .values_list("instrument", flat=True)
-                ),
-                datalist_manual=False,  # TODO: Change to True when forms start to be cloned
+                MSRunSequence.INSTRUMENT_CHOICES,
+                datalist_manual=True,
                 attrs={
-                    "placeholder": MSRunSequence.get_most_used_instrument(),
+                    "title": "MS Instrument Model, e.g. '"
+                    + MSRunSequence.INSTRUMENT_DEFAULT
+                    + "'",
+                    "placeholder": MSRunSequence.get_most_used_instrument(
+                        default="instrument"
+                    ),
                     "autocomplete": "off",
                 },
             ),
         )
         run_date = CharField(
             required=False,
-            widget=TextInput(
+            widget=AutoCompleteTextInput(
+                "date_datalist",
+                [
+                    date_to_string(
+                        datetime.date.today() - datetime.timedelta(days=days)
+                    )
+                    for days in range(14)
+                ],
+                datalist_manual=True,
                 attrs={
-                    "placeholder": date_to_string(datetime.date.today()),
+                    "title": "MS Run Date, e.g. '"
+                    + date_to_string(datetime.date.today())
+                    + "'",
+                    "placeholder": "run date",
                     "autocomplete": "off",
-                }
+                },
             ),
         )
+
+        @property
+        def operator_datalist(self):
+            return self.fields["operator"].widget.datalist()
+
+        @property
+        def protocol_datalist(self):
+            return self.fields["protocol"].widget.datalist()
+
+        @property
+        def instrument_datalist(self):
+            return self.fields["instrument"].widget.datalist()
+
+        @property
+        def run_date_datalist(self):
+            return self.fields["run_date"].widget.datalist()
 
         def is_valid(self):
             super().is_valid()
@@ -420,6 +468,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
             operator = self.cleaned_data.get("operator", None)
             instrument = self.cleaned_data.get("instrument", None)
             run_date = self.cleaned_data.get("run_date", None)
+            mode = self.cleaned_data.get("mode", None)
 
             if (study_doc is None and peak_annotation_file is None) or (
                 study_doc is not None and not is_excel(study_doc)
@@ -444,6 +493,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     or instrument.strip() == ""
                     or run_date is None
                     or run_date.strip() == ""
+                    or mode is None
+                    or mode.strip() == ""
                 ):
                     return False
 
@@ -461,7 +512,6 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 self.cleaned_data (dict)
             """
             super().clean()
-            print("CLEAN CALLED")
             allowed_delimited_exts = ["csv", "tsv"]
 
             # Fields (excluding mode)
@@ -471,27 +521,43 @@ def create_BuildSubmissionForm() -> Type[Form]:
             protocol = self.cleaned_data.get("protocol", None)
             instrument = self.cleaned_data.get("instrument", None)
             run_date = self.cleaned_data.get("run_date", None)
+            mode = self.cleaned_data.get("mode", None)
+
+            # NOTE: All of these errors are added as non-field-errors because the form is processed as a form inside a
+            # formset, but the formset is constructed using javascript from a regular form, so the original formset
+            # object containing errors cannot associate field errors with fields that do not get re-populated (and
+            # they're not bothered to be repopulated because you cannot repopulate files anyway).
 
             if study_doc is None and peak_annotation_file is None:
-                self.add_error(
-                    "study_doc",
-                    ValidationError(
-                        "At least 1 file is required.",
-                        code="TooFewFiles",
-                    ),
-                )
-                self.add_error(
-                    "peak_annotation_file",
-                    ValidationError(
-                        "At least 1 file is required.",
-                        code="TooFewFiles",
-                    ),
-                )
+                if mode is None or mode not in ["autofill", "validate"]:
+                    self.add_error(
+                        None,
+                        ValidationError(
+                            "At least 1 file is required.",
+                            code="TooFewFiles",
+                        ),
+                    )
+                elif mode == "autofill":
+                    self.add_error(
+                        None,
+                        ValidationError(
+                            "At least 1 peak annotation file is required.",
+                            code="TooFewFiles",
+                        ),
+                    )
+                else:
+                    self.add_error(
+                        None,
+                        ValidationError(
+                            "At least 1 study doc is required.",
+                            code="TooFewFiles",
+                        ),
+                    )
             elif study_doc is not None and not is_excel(study_doc):
                 self.add_error(
-                    "study_doc",
+                    None,
                     ValidationError(
-                        "Must be an excel file.",
+                        "Study doc must be an excel file.",
                         code="InvalidStudyFile",
                     ),
                 )
@@ -503,9 +569,9 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     _, ext = os.path.splitext(peak_annotation_file)
                     if ext not in allowed_delimited_exts:
                         self.add_error(
-                            "peak_annotation_file",
+                            None,
                             ValidationError(
-                                f"Must be excel or {allowed_delimited_exts}.",
+                                f"Peak annotation files must be excel or {allowed_delimited_exts}.",
                                 code="InvalidPeakAnnotFile",
                             ),
                         )
@@ -513,18 +579,18 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 # All Sequence details are required when a peak annotation file is supplied
                 if operator is None or operator.strip() == "":
                     self.add_error(
-                        "operator",
+                        None,
                         ValidationError(
-                            "required",
+                            "operator required",
                             code="MissingOperator",
                         ),
                     )
 
                 if protocol is None or protocol.strip() == "":
                     self.add_error(
-                        "protocol",
+                        None,
                         ValidationError(
-                            "required",
+                            "protocol required",
                             code="MissingProtocol",
                         ),
                     )
@@ -533,9 +599,9 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
                 if instrument is None or instrument.strip() == "":
                     self.add_error(
-                        "instrument",
+                        None,
                         ValidationError(
-                            "required",
+                            "instrument required",
                             code="MissingInstrument",
                         ),
                     )
@@ -543,9 +609,9 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
                 if run_date is None or run_date.strip() == "":
                     self.add_error(
-                        "run_date",
+                        None,
                         ValidationError(
-                            "required",
+                            "run date required",
                             code="MissingDate",
                         ),
                     )
