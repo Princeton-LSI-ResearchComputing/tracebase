@@ -1257,7 +1257,7 @@ class MaintainedModel(Model):
             def wrapper(*args, **kwargs):
                 coordinator = MaintainedModelCoordinator(auto_update_mode="disabled")
                 with cls.custom_coordinator(coordinator):
-                    fn(*args, **kwargs)
+                    return fn(*args, **kwargs)
 
             return wrapper
 
