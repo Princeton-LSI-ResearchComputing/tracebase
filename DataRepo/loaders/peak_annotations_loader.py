@@ -33,6 +33,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConditionallyRequiredArgs,
     DuplicateCompoundIsotopes,
+    DuplicatePeakGroupResolutions,
     DuplicateValues,
     InfileError,
     IsotopeStringDupe,
@@ -45,6 +46,7 @@ from DataRepo.utils.exceptions import (
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
     RecordDoesNotExist,
+    ReplacingPeakGroupRepresentation,
     RollbackException,
     UnexpectedLabels,
     UnexpectedSamples,
@@ -261,22 +263,32 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     commits anything, but it also raises warnings as fatal (so they can be reported through the web
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
-                peak_annotation_details_file (Optional[str]): The name of the file that the Peak Annotation Details came
-                    from.
-                peak_annotation_details_sheet (Optional[str]): The name of the sheet that the Peak Annotation Details
-                    came from (if it was an excel file).
-                peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation Details
-                    sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of this
-                    instance)
-                operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
-                    (when it has a default for the operator column for the Sequences sheet).
-                lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
-                    defaults_df (when it has a default for the lc_protocol_name column for the Sequences sheet).
-                instrument (Optional[str]): Name of the mass spec instrument.  Mutually exclusive with defaults_df
-                    (when it has a default for the instrument column for the Sequences sheet).
-                date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
-                    with defaults_df (when it has a default for the date column for the Sequences sheet).
                 filename (Optional[str]): In case the (superclass arg) "file" is a temp file with a nonsense name.
+                Sample, MSRunSequence, and mzXML data:
+                    peak_annotation_details_file (Optional[str]): The name of the file that the Peak Annotation Details
+                        came from.
+                    peak_annotation_details_sheet (Optional[str]): The name of the sheet that the Peak Annotation
+                        Details came from (if it was an excel file).
+                    peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation
+                        Details sheet/file that will be supplied to the MSRunsLoader class (that is an instance member
+                        of this instance).
+                MSRunSequence defaults:
+                    operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
+                        (when it has a default for the operator column for the Sequences sheet).
+                    lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
+                        defaults_df (when it has a default for the lc_protocol_name column for the Sequences sheet).
+                    instrument (Optional[str]): Name of the mass spec instrument.  Mutually exclusive with defaults_df
+                        (when it has a default for the instrument column for the Sequences sheet).
+                    date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually
+                        exclusive with defaults_df (when it has a default for the date column for the Sequences sheet).
+                PeakGroup conflicts (a.k.a. "multiple representations"):
+                    peak_group_conflicts_file (Optional[str]): The name of the file that the Peak Group conflict
+                        resolutions came from.
+                    peak_group_conflicts_sheet (Optional[str]): The name of the sheet that the Peak Group conflict
+                        resolutions came from (if it was an excel file).
+                    peak_group_conflicts_df (Optional[pandas DataFrame]): The DataFrame of the Peak Group conflict
+                        resolutions sheet/file that will be supplied to the PeakGroupConflicts class (that is an
+                        instance member of this instance) and is used to skip peak groups based on user selections.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -285,6 +297,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         Returns:
             None
         """
+        # This avoids circular import:
+        from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
+
         # Custom options for the MSRunsLoader member instance.
         self.peak_annotation_details_file = kwargs.pop(
             "peak_annotation_details_file", None
@@ -294,15 +309,23 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         )
         self.peak_annotation_details_df = kwargs.pop("peak_annotation_details_df", None)
 
+        # Peak Group Conflict resolutions selected by the user.
+        self.peak_group_conflicts_file = kwargs.pop("peak_group_conflicts_file", None)
+        self.peak_group_conflicts_sheet = kwargs.pop("peak_group_conflicts_sheet", None)
+        self.peak_group_conflicts_df = kwargs.pop("peak_group_conflicts_df", None)
+
         # Require the file argument if df is supplied
-        if kwargs.get("df") is not None or self.peak_annotation_details_df is not None:
-            if kwargs.get("file") is None:
-                raise AggregatedErrors().buffer_error(
-                    ConditionallyRequiredArgs(
-                        "The [file] argument is required if either the [df] or [peak_annotation_details_df] argument "
-                        "is supplied."
-                    )
+        if kwargs.get("file") is None and (
+            kwargs.get("df") is not None
+            or self.peak_annotation_details_df is not None
+            or self.peak_group_conflicts_df is not None
+        ):
+            raise AggregatedErrors().buffer_error(
+                ConditionallyRequiredArgs(
+                    "The [file] argument is required if either the [df], [peak_annotation_details_df], or "
+                    "[peak_group_conflicts_df] argument is supplied."
                 )
+            )
 
         # The MSRunsLoader member instance is used for 2 purposes:
         # 1. Obtain/process the MSRunSequence defaults (it uses the SequencesLoader).
@@ -317,6 +340,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             date=kwargs.pop("date", None),
             lc_protocol_name=kwargs.pop("lc_protocol_name", None),
             instrument=kwargs.pop("instrument", None),
+        )
+
+        # Example: self.peak_group_selections[sample][pgname.lower()] = selected_peak_annotation_filename
+        self.peakgroupconflicts = PeakGroupConflicts(
+            file=self.peak_group_conflicts_file,
+            data_sheet=self.peak_group_conflicts_sheet,
+            df=self.peak_group_conflicts_df,
+            defaults_df=kwargs.get("defaults_df"),
+            defaults_file=kwargs.get("defaults_file"),
+        )
+        self.peak_group_selections = (
+            self.peakgroupconflicts.get_selected_representations()
         )
 
         # Convert the supplied df using the derived class.
@@ -369,6 +404,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 f"{self.msrunsloader.headers.SAMPLEHEADER} column of the {self.msrunsloader.DataSheetName} sheet/file "
                 "that matches a Sample in the Samples sheet?"
             )
+
+        # Consume any errors buffered by PeakGroupConflicts
+        self.aggregated_errors_object.merge_aggregated_errors_object(
+            self.peakgroupconflicts.aggregated_errors_object
+        )
 
     def initialize_msrun_data(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
@@ -477,9 +517,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             except RollbackException:
                 pass
 
-            if label_observations is None or len(label_observations) == 0:
+            # If label_observations is None, it is because there was an error parsing the isotope string, but the counts
+            # are only updated when label_observations is populated, so increment a skipped count for each label model.
+            # Note that if label_observations is empty, it can be inferred to be the parent (with no labels).
+            if label_observations is None:
                 self.skipped(PeakDataLabel.__name__)
-                self.skipped(PeakGroup.__name__)
+                self.skipped(PeakGroupLabel.__name__)
                 continue
 
             for label_obs in label_observations:
@@ -681,6 +724,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # names for consistency and searchability.
         pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
 
+        # If the peak annotation file for this PeakGroup is a part of a multiuple representation and is not the selected
+        # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
+        # loaded.)
+        if not self.is_selected_peak_group(pgname, peak_annot_file, msrun_sample):
+            return None, False
+
         rec_dict = {
             "msrun_sample": msrun_sample,
             "name": pgname,
@@ -728,6 +777,136 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 )
 
         return rec, created
+
+    def is_selected_peak_group(
+        self, pgname: str, peak_annot_file: ArchiveFile, msrun_sample: MSRunSample
+    ):
+        """This handles peak group conflicts and returns False if the peak group should be skipped.  This updates the
+        stats and deletes previously loaded PeakGroups that will be replaced.
+
+        If a peakgroup is not a part of a conflict, it returns True (as if it was selected to be loaded).
+
+        It's notable that we could end up here multiple times for each compound, if there are more than 2 peak
+        annotation files containing the compound.  This means that there can be multiple checks of the DB for
+        "unselected" and previously loaded versions of that compound, but it will only be attempted to be deleted once.
+        If this turns out to be a speed issue, the speed might be able to be addressed by doing 1 bulk query in the
+        __init__ method.
+
+        Args:
+            pgname (str): The name of the peak group to be loaded.  peak_annot_file (ArchiveFile): The peak annotation
+            file that the peak group to be loaded came from.  msrun_sample (MSRunSample): The MSRunSample of the peak
+            group to be loaded.
+        Exceptions:
+            Buffers:
+                ProgrammingError ReplacingPeakGroupRepresentation
+            Raises:
+                None
+        Returns:
+            is_selected (bool): True if the PeakGroup load should be skipped.
+        """
+        is_selected = True
+        # If this PeakGroup is a part of a conflict (because peak_group_selections has this sample and peak group name)
+        if (
+            # The sample has selected peak groups
+            msrun_sample.sample.name in self.peak_group_selections.keys()
+            # The peak group name is a selected peak group
+            and pgname.lower()
+            in self.peak_group_selections[msrun_sample.sample.name].keys()
+        ):
+            # If the filename is None, it means there was an error in PeakGroupConflicts
+            if (
+                self.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+                    "filename"
+                ]
+                is None
+            ):
+                if (
+                    self.peakgroupconflicts.aggregated_errors_object.exception_exists(
+                        DuplicatePeakGroupResolutions,
+                        attr_name="conflicting",
+                        attr_val=True,
+                    )
+                    == 0
+                ):
+                    self.aggregated_errors_object.buffer_error(
+                        ProgrammingError(
+                            "Expected DuplicatePeakGroupResolutions exception missing."
+                        )
+                    )
+                self.errored(PeakGroup.__name__)
+                # Since there is an error, there's nothing to do, but we will return True so that the PeakGroup is not
+                # loaded.
+                is_selected = False
+                return is_selected
+
+            # If the peak annotation file for this Peak Group is not the selected one, skip its load (and delete it if
+            # it was previously loaded).
+            if (
+                # The file with the selected peak group doesn't match this file's name
+                peak_annot_file.filename
+                != self.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+                    "filename"
+                ]
+            ):
+                # Note that this skipped PeakGroup COULD already exist in the DB if it was loaded from a previous study
+                # submission.  If this is the case, the attempt to load the selected one would raise a
+                # MultiplePeakGroupRepresentation exception below, but we don't want an exception to be raised during a
+                # save when we want to solve it by deletion, so we handle it here, preemptively by checking for
+                # conflicts before the creation attempt.
+
+                # Query for peak groups for the same sample and compound that come from this unselected file.
+                conflicting_pgrecs = PeakGroup.objects.filter(
+                    msrun_sample__sample__name=msrun_sample.sample.name,
+                    name__iexact=pgname,
+                    peak_annotation_file=peak_annot_file,
+                )
+
+                # Each sample is only allowed a single version of every peak group.
+                # We are skipping this peak group for this sample because the user selected a different file to load it
+                # from.
+                if conflicting_pgrecs.count() == 0:
+                    self.skipped(PeakGroup.__name__)
+
+                is_selected = False
+            else:
+                # Note that other PeakGroups COULD already exist in the DB if it was loaded from a previous study
+                # submission, but those would not be in this load.  If this is the case, the attempt to load the
+                # selected one would raise a MultiplePeakGroupRepresentation exception below, but we don't want an
+                # exception to be raised during a save when we want to solve it by deletion, so we handle it here,
+                # preemptively by checking for conflicts before the creation attempt.
+
+                # Query for peak groups for the same sample and compound that come from this unselected file.
+                conflicting_pgrecs = PeakGroup.objects.filter(
+                    msrun_sample__sample__name=msrun_sample.sample.name,
+                    name__iexact=pgname,
+                ).exclude(peak_annotation_file=peak_annot_file)
+
+                is_selected = True
+
+            # There's probably only 1 record, if any, but that's only because of code (the clean method).  The DB allows
+            # multiple, so we will loop just to guarantee this works even if the DB was manipulated manually.
+            for conflicting_pgrec in conflicting_pgrecs:
+                self.aggregated_errors_object.buffer_exception(
+                    ReplacingPeakGroupRepresentation(
+                        conflicting_pgrec,
+                        self.peak_group_selections[msrun_sample.sample.name][
+                            pgname.lower()
+                        ]["filename"],
+                        file=self.peakgroupconflicts.friendly_file,
+                        sheet=self.peakgroupconflicts.sheet,
+                        rownum=self.peak_group_selections[msrun_sample.sample.name][
+                            pgname.lower()
+                        ]["rownum"],
+                    ),
+                    is_error=False,
+                    is_fatal=self.validate,
+                )
+                delete_counts_dict = tuple(conflicting_pgrec.delete())[1]
+                for qual_mdl_name, cnt in delete_counts_dict.items():
+                    mdl_name = list(qual_mdl_name.split("."))[-1]
+                    self.deleted(mdl_name, cnt)
+
+        return is_selected
 
     def get_msrun_sample(self, sample_header):
         """Retrieves the MSRunSample record, either as determined by the self.msrun_sample_dict that was returned by the

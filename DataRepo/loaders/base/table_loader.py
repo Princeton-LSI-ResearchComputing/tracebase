@@ -1044,7 +1044,7 @@ class TableLoader(ABC):
         method).
 
         Metadata initialized:
-        - record_counts (dict of dicts of ints): Created, existed, updated, errored, and warned counts by model.
+        - record_counts (dict of dicts of ints): Created, existed, deleted, updated, errored, & warned counts by model.
         - defaults_current_type (str): Set the self.sheet (before sheet is potentially set to None).
         - sheet (str): Name of the data sheet in an excel file (changes to None if not excel).
         - defaults_sheet (str): Name of the defaults sheet in an excel file (changes to None if not excel).
@@ -1105,6 +1105,7 @@ class TableLoader(ABC):
         return {
             "created": 0,
             "existed": 0,
+            "deleted": 0,
             "updated": 0,
             "skipped": 0,
             "errored": 0,
@@ -2230,9 +2231,9 @@ class TableLoader(ABC):
                     if self.aggregated_errors_object.exception_type_exists(NoLoadData):
                         # Check to see if data was actually processed from the derived class using an alternate means
                         # than the dataframe(/infile) option, by assuming that if there are any stats (created, skipped,
-                        # existed, updated, errored, or warned), it means that data was processed.  This can happen for
-                        # example, if the records being loaded are files themselves, where no input file is being
-                        # traversed.
+                        # existed, deleted, updated, errored, or warned), it means that data was processed.  This can
+                        # happen for example, if the records being loaded are files themselves, where no input file is
+                        # being traversed.
                         for stats_dict in self.record_counts.values():
                             for count in stats_dict.values():
                                 if count > 0:
@@ -2372,7 +2373,7 @@ class TableLoader(ABC):
 
         If model_name is supplied, it returns that model name.  If not supplied, and models is of length 1, it returns
         that one model.  The purpose of this method is so that simple 1-model loaders do not need to supply the model
-        name to the created, existed, updated, errored, and warned methods.
+        name to the created, existed, deleted, updated, errored, and warned methods.
 
         Args:
             model_name (str)
@@ -2420,6 +2421,18 @@ class TableLoader(ABC):
             None
         """
         self.record_counts[self._get_model_name(model_name)]["created"] += num
+
+    def deleted(self, model_name: Optional[str] = None, num=1):
+        """Increments a deleted record count for a model.
+
+        Args:
+            model_name (Optional[str])
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.record_counts[self._get_model_name(model_name)]["deleted"] += num
 
     def updated(self, model_name: Optional[str] = None, num=1):
         """Increments an updated record count for a model.

@@ -199,8 +199,8 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         return super().save(*args, **kwargs)
 
     def check_for_multiple_representations(self):
-        """This checks the PeakGroup record (self) to see if its compound was already measured for this sample/sequence
-        in a different peak annotation file and raises an exception if it was.
+        """This checks the PeakGroup record (self) to see if its compound was already measured for this sample from a
+        different peak annotation file and raises an exception if it was.
 
         Args:
             None
@@ -222,7 +222,6 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         conflicts = PeakGroup.objects.filter(
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,
-            msrun_sample__msrun_sequence__pk=self.msrun_sample.msrun_sequence.pk,
         )
 
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)

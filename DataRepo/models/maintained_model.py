@@ -642,7 +642,7 @@ class MaintainedModel(Model):
         self_sig = self.get_record_signature()
 
         # Delete the record triggering this update
-        super().delete(*args, **kwargs)  # Call the "real" delete() method.
+        retval = super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
@@ -664,7 +664,7 @@ class MaintainedModel(Model):
                 for parent_inst in parents:
                     coordinator.buffer_update(parent_inst)
 
-            return
+            return retval
         elif coordinator.are_immediate_updates_enabled():
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
             # can only be true if immediate_updates is False)), set the label filters based on the currently set global
@@ -676,6 +676,8 @@ class MaintainedModel(Model):
         if coordinator.are_immediate_updates_enabled() and propagate:
             # Percolate changes up to the parents (if any) and mark the deleted record as updated
             self.call_dfs_related_updaters(updated=[self_sig])
+
+        return retval
 
     @classmethod
     def from_db(cls, *args, **kwargs):
