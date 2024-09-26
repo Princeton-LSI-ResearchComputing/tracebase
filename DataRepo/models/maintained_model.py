@@ -635,7 +635,7 @@ class MaintainedModel(Model):
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
         # Used internally. Do not supply unless you know what you're doing.
         propagate = kwargs.pop("propagate", True)
-        # Custom argument: mass_updates - Whether auto-updating biffered model objects - default False
+        # Custom argument: mass_updates - Whether auto-updating buffered model objects - default False
         # Used internally. Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
 

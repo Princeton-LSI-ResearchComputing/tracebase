@@ -94,7 +94,13 @@ class Command(BaseCommand):
         # Return the list of lists of duplicate peak groups
         return dupes
 
+    # Regarding no_autoupdates: The call to PeakGroup .delete() causes an auto-update to be buffered for the parent
+    # record (MSRunSample), however we are later deleting all of those records manually, so we do not want those to
+    # auto-update, as calling save on those later will raise an exception, because the records will not exist.  So since
+    # we are manually handling these records, and will touch all of the MSRunSample records anyway, which will buffer
+    # autoupdates, we are disabling auto-updates for the PeakGroup deletions in this method (only).
     @transaction.atomic
+    @MaintainedModel.no_autoupdates()
     def delete_duplicate_peak_groups(self, dupes):
         """This deletes the peak groups from cls.todelete, among the multiple representations.
 
@@ -114,6 +120,7 @@ class Command(BaseCommand):
             msrs_id_to_delete = None
             msrs_id_to_keep = None
 
+            dupe_peakgroup: PeakGroup
             for dupe_peakgroup in dupe_peakgroup_list:
                 if (
                     dupe_peakgroup.name in self.todelete.keys()
@@ -156,7 +163,7 @@ class Command(BaseCommand):
 
                 # Save the ArchiveFile record (because it won't delete when the record is referenced from
                 # MSRunSample)
-                fake_mzxml = msrs_giver.ms_data_file
+                fake_mzxml: ArchiveFile = msrs_giver.ms_data_file
 
                 # If the neighbor MSRunSample record also has a fake mzXML, migrate the PeakGroups
                 if (
