@@ -679,7 +679,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # We use the synonym provided (via the keys in the dict) because each synonym may represent a significant
         # difference from the primary compound name, e.g. it could be a specific stereoisomer.  However, we order the
         # names for consistency and searchability.
-        pgname = PeakGroup.NAME_DELIM.join(sorted(compound_synonyms))
+        pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
 
         rec_dict = {
             "msrun_sample": msrun_sample,
