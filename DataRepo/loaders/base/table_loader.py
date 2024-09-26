@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable
-from typing import Dict, Optional, Type
+from typing import Dict, List, Optional, Type
 
 from django.core.exceptions import (
     MultipleObjectsReturned,
@@ -62,6 +62,7 @@ class TableLoader(ABC):
             values must be unique in the file.
         FieldToDataHeaderKey (dict): Header keys by field name.
         DataColumnTypes (Optional[dict]): Column value types by header key.
+        DataHiddenColumns (Optional[list]): Header keys
         DataDefaultValues (Optional[DataTableHeaders of objects]): Column default values by header key.  Auto-filled.
         Models (list of Models): List of model classes.
         DataColumnMetadata (DataTableHeaders of TableColumns): TableColumn objects by header key.
@@ -163,6 +164,11 @@ class TableLoader(ABC):
     # (converted to by-header-name in get_column_types)
     # dict of types by header key
     DataColumnTypes: Optional[Dict[str, Type[str]]] = None
+
+    # DataHiddenColumns is optional unless there is an error associated with the column
+    # (converted to by-header-name in get_column_types)
+    # dict of types by header key
+    DataHiddenColumns: Optional[List[str]] = None
 
     # FieldToDataValueConverter is a dict of (lambda) functions keyed on model and field names
     # Use this for exporting the database field values to the value in the column
@@ -834,6 +840,7 @@ class TableLoader(ABC):
             DataUniqueColumnConstraints (class attribute, list of lists of strings): Sets of unique column combinations
             FieldToDataHeaderKey (class attribute, dict): Header keys by field name
             DataColumnTypes (class attribute, Optional[dict]): Column value types by header key
+            DataHiddenColumns (class attribute, Optional[list]): Header keys
             DataDefaultValues (Optional[namedtuple of DataTableHeaders of objects]): Column default values by header key
             DataColumnMetadata (class attribute, namedtuple of DataTableHeaders of TableColumns)
 
@@ -946,6 +953,24 @@ class TableLoader(ABC):
                                 f"must be one of {list(cls.DataHeaders._asdict().keys())}"
                             )
                             valid_types = False
+
+            if cls.DataHiddenColumns is not None:
+                if not isinstance(cls.DataHiddenColumns, list):
+                    typeerrs.append(
+                        f"attribute [{cls.__name__}.DataHiddenColumns] must be a list of strings"
+                    )
+                else:
+                    for hk in cls.DataHiddenColumns:
+                        if not isinstance(hk, str):
+                            typeerrs.append(
+                                f"list attribute [{cls.__name__}.DataHiddenColumns] must have string values, "
+                                f"but type [{type(hk).__name__}] encountered"
+                            )
+                        elif hk not in cls.DataHeaders._asdict().keys():
+                            typeerrs.append(
+                                f"list attribute [{cls.__name__}.DataHiddenColumns] has an invalid key: [{hk}].  Keys "
+                                f"must be one of {list(cls.DataHeaders._asdict().keys())}"
+                            )
 
             if cls.DataDefaultValues is None:
                 # DataDefaultValues is optional (not often used/needed). Set all to None using DataHeaders
@@ -1178,6 +1203,50 @@ class TableLoader(ABC):
                 dtypes[hdr] = self.DataColumnTypes[key]
 
         return dtypes
+
+    def get_hidden_columns(self):
+        """Returns a list of hidden columns by header name (not header key).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            hidden_column_names (list): Header names
+        """
+        if self.DataHiddenColumns is None:
+            return []
+
+        if hasattr(self, "headers") and self.headers is not None:
+            return self._get_hidden_columns(self.headers)
+
+        return self._get_hidden_columns()
+
+    @classmethod
+    def _get_hidden_columns(self, headers=None):
+        """Returns a list of hidden columns by header name (not header key).
+
+        Args:
+            headers (namedtuple)
+        Exceptions:
+            None
+        Returns:
+            hidden_column_names (list): Header names
+        """
+        # TODO: Make optional mode have the ability to consider the required state for the column
+        if self.DataHiddenColumns is None:
+            return []
+
+        if headers is None:
+            headers = self.DataHeaders
+
+        hidden_column_names = []
+        for key in self.DataHiddenColumns:
+            default_header = getattr(self.DataHeaders, key)
+            header = getattr(headers, key, default_header)
+            hidden_column_names.append(header)
+
+        return hidden_column_names
 
     @classmethod
     def header_key_to_name(cls, indict, headers=None):

@@ -14,6 +14,7 @@ from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
+from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.studies_loader import StudiesLoader
@@ -169,6 +170,13 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Default Sequence Name": str,
                 "File Format": str,
                 "Peak Annotation File": str,
+            },
+            "Peak Group Conflicts": {
+                "Peak Group Conflict": str,
+                "Selected Peak Annotation File": str,
+                "Common Sample Count": int,
+                "Example Samples": str,
+                "Common Samples": str,
             },
         }
 
@@ -370,6 +378,13 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Peak Annotation File": {},
             },
             "Infusions": None,  # Ignoring this one
+            "Peak Group Conflicts": {
+                "Peak Group Conflict": {},
+                "Selected Peak Annotation File": {},
+                "Common Sample Count": {},
+                "Example Samples": {},
+                "Common Samples": {},
+            },
         }
 
         # The following is to avoid a JSCPD error.  Silly hoop jumping...
@@ -481,6 +496,12 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "File Format": str,
                 "Peak Annotation File": str,
             },
+            "Peak Group Conflicts": {
+                "Common Samples": str,
+                "Example Samples": str,
+                "Peak Group Conflict": str,
+                "Selected Peak Annotation File": str,
+            },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
@@ -589,6 +610,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Sequences": {},
                 "Peak Annotation Details": {},
                 "Peak Annotation Files": {},
+                "Peak Group Conflicts": {},
             },
             vo.autofill_dict,
         )
@@ -639,6 +661,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
             PeakAnnotationFilesLoader.DataSheetName: {},
+            PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -670,6 +693,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
             PeakAnnotationFilesLoader.DataSheetName: {},
+            PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -703,6 +727,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
             PeakAnnotationFilesLoader.DataSheetName: {},
+            PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -789,6 +814,13 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Default Sequence Name": {},
                 "File Format": {},
                 "Peak Annotation File": {},
+            },
+            "Peak Group Conflicts": {
+                "Peak Group Conflict": {},
+                "Selected Peak Annotation File": {},
+                "Common Sample Count": {},
+                "Example Samples": {},
+                "Common Samples": {},
             },
         }
 
@@ -893,6 +925,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                         "Peak Annotation File": "accucor1.xlsx",
                     },
                 },
+                "Peak Group Conflicts": {},
             },
             dvv.autofill_dict,
         )

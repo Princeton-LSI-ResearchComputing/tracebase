@@ -84,6 +84,8 @@ class PeakGroupConflicts(TableLoader):
 
     # No FieldToDataValueConverter needed
 
+    DataHiddenColumns = [SAMPLES_KEY]
+
     DataColumnMetadata = DataTableHeaders(
         PEAKGROUP=TableColumn.init_flat(
             name=DataHeaders.PEAKGROUP,
