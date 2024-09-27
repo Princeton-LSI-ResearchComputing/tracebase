@@ -874,7 +874,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         dvv.set_files(
             peak_annot_files=["DataRepo/data/tests/data_submission/accucor1.xlsx"]
         )
-        dvv.extract_autofill_from_peak_annotation_files()
+        dvv.extract_autofill_from_peak_annotation_files_forms()
         self.assertDictEqual(
             {
                 "Compounds": {
