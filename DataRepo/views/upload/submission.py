@@ -1812,7 +1812,9 @@ class BuildSubmissionView(FormView):
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
             seq_data: dict = self.annot_file_metadata.get(peak_annot_filename, {})
-            partial_seqname = MSRunSequence.create_sequence_name(**seq_data)
+            partial_seqname = None
+            if len([v for v in seq_data.values() if v not in self.none_vals]) > 0:
+                partial_seqname = MSRunSequence.create_sequence_name(**seq_data)
             complete_seqname = None
             if "" not in seq_data.values() and None not in seq_data.values():
                 complete_seqname = partial_seqname
