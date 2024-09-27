@@ -263,6 +263,7 @@ class BuildSubmissionView(FormView):
         self.annot_files_dict: Dict[str, str] = {}
         self.peak_annot_files = None
         self.peak_annot_filenames = []
+        self.annot_file_metadata = {}
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
         self.validation_offset = 20
@@ -607,37 +608,12 @@ class BuildSubmissionView(FormView):
     def dispatch(self, request, *args, **kwargs):
         return super(BuildSubmissionView, self).dispatch(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, *args, **kwargs):
         formset_class = formset_factory(self.get_form_class())
         formset = self.get_form(formset_class)
 
         if not formset.is_valid():
             return self.form_invalid(formset)
-
-        if "form-0-study_doc" in request.FILES:
-            # We only ever want just the first one.  All others are invalid.
-            study_doc = request.FILES["form-0-study_doc"]
-            tmp_study_file = study_doc.temporary_file_path()
-        else:
-            # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
-            study_doc = None
-            tmp_study_file = None
-
-        peak_annotation_files = []
-        if "form-0-peak_annotation_file" in request.FILES:
-            peak_annotation_files = []
-            for key in request.FILES:
-                if "peak_annotation_file" in key:
-                    peak_annotation_files.append(request.FILES[key])
-
-        self.load_status_data.clear_load()
-
-        self.set_files(
-            tmp_study_file,
-            study_filename=str(study_doc) if study_doc is not None else None,
-            peak_annot_files=[fp.temporary_file_path() for fp in peak_annotation_files],
-            peak_annot_filenames=[str(fp) for fp in peak_annotation_files],
-        )
 
         return self.form_valid(formset)
 
@@ -645,6 +621,49 @@ class BuildSubmissionView(FormView):
         """
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
+
+        # Process the annot file formset
+        mode = None
+        study_file_object = None
+        study_file = None
+        study_filename = None
+        peak_annot_files = []
+        peak_annot_filenames = []
+        self.annot_file_metadata = {}
+        rowform: dict
+        for index, rowform in enumerate(formset.cleaned_data):
+            # We only need/allow a single mode and study_doc, which is saved only in the first rowform
+            if index == 0:
+                mode = rowform["mode"]
+                study_file_object = rowform.get("study_doc")
+                if study_file_object is not None:
+                    study_file = study_file_object.temporary_file_path()
+                    study_filename = str(study_file_object)
+
+            # Process the peak annotation files
+            peak_annotation_file_object = rowform.get("peak_annotation_file")
+            if peak_annotation_file_object is not None:
+                peak_annot_file = peak_annotation_file_object.temporary_file_path()
+                peak_annot_filename = str(peak_annotation_file_object)
+
+                peak_annot_files.append(peak_annot_file)
+                peak_annot_filenames.append(peak_annot_filename)
+
+                self.annot_file_metadata[peak_annot_filename] = {
+                    "operator": rowform.get("operator"),
+                    "protocol": rowform.get("protocol"),
+                    "instrument": rowform.get("instrument"),
+                    "run_date": rowform.get("run_date"),
+                }
+
+        self.load_status_data.clear_load()
+
+        self.set_files(
+            study_file,
+            study_filename=study_filename,
+            peak_annot_files=peak_annot_files,
+            peak_annot_filenames=peak_annot_filenames,
+        )
 
         debug = f"sf: {self.study_file} num pafs: {len(self.peak_annot_files)}"
 
@@ -672,7 +691,6 @@ class BuildSubmissionView(FormView):
         #       'run_date': '2024-09-18',
         #     },
         #   ]
-        mode = formset.cleaned_data[0]["mode"]
         if mode == "autofill":
             page = "Start"
         elif mode == "validate":
