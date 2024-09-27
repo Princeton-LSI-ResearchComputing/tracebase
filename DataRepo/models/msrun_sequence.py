@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.db.models import (
     RESTRICT,
     AutoField,
@@ -27,7 +29,7 @@ class MSRunSequence(Model):
     #    such a problem is encountered, an error is buffered and eventually raised at the end of a failed load.
     # 3. To avoid hard-coding static "magic" values in multiple places.
     INSTRUMENT_DEFAULT = INSTRUMENT_CHOICES[-1][0]
-    SEQNAME_DELIMITER = ","
+    SEQNAME_DELIMITER = ", "
 
     id = AutoField(primary_key=True)
     researcher = CharField(
@@ -131,6 +133,38 @@ class MSRunSequence(Model):
             instrument,
             date,
         )
+
+    @classmethod
+    def create_sequence_name(
+        cls,
+        operator: Optional[str] = "",
+        protocol: Optional[str] = "",
+        instrument: Optional[str] = "",
+        date: Optional[str] = "",
+    ):
+        """Creates the sequence name in the prescribed order.
+
+        This allows None values, which means that the default name would be ",,,".
+
+        Args:
+            operator (str)
+            protocol (str)
+            instrument (str)
+            date (str)
+        Exceptions:
+            None
+        Returns:
+            seqname (str)
+        """
+        if operator is None:
+            operator = ""
+        if protocol is None:
+            protocol = ""
+        if instrument is None:
+            instrument = ""
+        if date is None:
+            date = ""
+        return cls.SEQNAME_DELIMITER.join([operator, protocol, instrument, date])
 
     @classmethod
     def get_most_used_protocol(cls, default=None):

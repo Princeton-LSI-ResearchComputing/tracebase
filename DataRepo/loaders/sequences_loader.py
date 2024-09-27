@@ -147,7 +147,7 @@ class SequencesLoader(TableLoader):
                 f'NOT(ISBLANK(INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()))),'
                 f'NOT(ISBLANK(INDIRECT("{{{DATE_KEY}}}" & ROW()))),'
                 "),"
-                f'_xlfn.TEXTJOIN("{MSRunSequence.SEQNAME_DELIMITER} ", FALSE, '
+                f'_xlfn.TEXTJOIN("{MSRunSequence.SEQNAME_DELIMITER}", FALSE, '
                 f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), '
