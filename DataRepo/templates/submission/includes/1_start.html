@@ -69,9 +69,6 @@
                 <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
             </label>
             {{ form.study_doc }}
-            <span class="text-danger">{{ form.study_doc.errors }}</span>
-            {% comment %} Errors, if they exist, add an extra like which makes the spacing off {% endcomment %}
-            {% if not form.study_doc.errors %}<br>{% endif %}
         </div>
 
         <br>

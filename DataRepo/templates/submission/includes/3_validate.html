@@ -77,10 +77,9 @@
                 <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
             </label>
             {{ form.study_doc }}
-            <span class="text-danger">{{ form.study_doc.errors }}</span>
-            {% comment %} Errors, if they exist, add an extra like which makes the spacing off {% endcomment %}
-            {% if not form.study_doc.errors %}<br>{% endif %}
         </div>
+
+        <br>
 
         <span class="text-danger">
             {% if form_errors %}
@@ -91,10 +90,11 @@
                 </ul>
             {% endif %}
         </span>
+
+        <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
+        <button type="submit" class="btn btn-primary" id="submit">Validate &amp; Repair</button>
+        <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
     </form>
-    <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
-    <button type="submit" class="btn btn-primary" id="submit" onclick="onSubmit();document.getElementById('submission-validation').submit();">Validate &amp; Repair</button>
-    <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
 </div>
 
 
