@@ -175,7 +175,7 @@ function getFormRows () {
  * This function enables the form submission button.
  */
 function enablePeakAnnotForm () {
-  const submitInput = document.querySelector('#submit')
+  const submitInput = dataSubmissionForm.querySelector('#submit')
   submitInput.removeAttribute('disabled')
 }
 
@@ -183,7 +183,7 @@ function enablePeakAnnotForm () {
  * This function disables the form submission button.
  */
 function disablePeakAnnotForm () {
-  const submitInput = document.querySelector('#submit')
+  const submitInput = dataSubmissionForm.querySelector('#submit')
   submitInput.disabled = true
 }
 
