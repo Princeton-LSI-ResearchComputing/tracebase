@@ -464,7 +464,6 @@ def create_BuildSubmissionForm() -> Type[Form]:
             # Fields we need to check
             study_doc = self.cleaned_data.get("study_doc", None)
             peak_annotation_file = self.cleaned_data.get("peak_annotation_file", None)
-            mode = self.cleaned_data.get("mode", None)
 
             if (study_doc is None and peak_annotation_file is None) or (
                 study_doc is not None and not is_excel(study_doc)
@@ -480,10 +479,6 @@ def create_BuildSubmissionForm() -> Type[Form]:
                         return False
 
                 # Note, all the sequence metadata fields should allow novel entries (even the instrument)
-
-            # All Sequence details are optional, but mode is required.
-            if mode is None or mode.strip() == "":
-                return False
 
             return True
 
@@ -552,7 +547,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 peak_annot_filepath = peak_annotation_file.temporary_file_path()
                 if not is_excel(peak_annot_filepath):
                     # Excel files do not need a specific extension, but delimited files do...
-                    _, ext = os.path.splitext(peak_annotation_file)
+                    ext = (os.path.splitext(peak_annotation_file))[1]
                     if ext not in allowed_delimited_exts:
                         self.add_error(
                             None,

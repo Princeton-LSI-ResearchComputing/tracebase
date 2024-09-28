@@ -9,51 +9,92 @@
     </span>
     <br>
     <br>
-    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
+
+    <div style="display: none;">
+        <label for="peak_annotation_file" class="tight-form-label">
+            Peak Annotation Files:
+            <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span>
+        </label>
+        <!-- The 2 form strategy (the one below for adding (mzXML) file names by drag and drop of the actual files and the one above to just submit their names (because that's all we need, and these files can be numerous and large) is based on https://stackoverflow.com/questions/2175831/is-it-possible-to-use-input-type-file-just-to-post-the-filename-without-actu -->
+        <form class="tbform-control">
+            <table>
+                <tr>
+                    <td>
+                        <div id="drop-area">
+                            <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
+                            <label class="btn btn-secondary">
+                                <input type="file" multiple id="drop-area-input" onchange="handleFiles(this.files);"/>
+                                Choose Files
+                            </label>  <span class="drop-area-message">(Drag and drop here)</span>
+                        </div>
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <table>
+                            <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
+                                <td style="display: none;" id="fileColumn">
+                                    {{ form.peak_annotation_file }}
+                                </td>
+                                <td>
+                                    {{ form.operator }}
+                                </td>
+                                <td>
+                                    {{ form.instrument }}
+                                </td>
+                                <td>
+                                    {{ form.protocol }}
+                                </td>
+                                <td>
+                                    {{ form.run_date }}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data" class="tbform-control" onsubmit="onSubmit();">
         {% csrf_token %}
 
-        {{ form.mode }}
+        <!-- Single instances of the datalists (since the form will be replicated and we don't want/need to replicate the datalists along with it) -->
+        {{ form.operator_datalist }}
+        {{ form.protocol_datalist }}
+        {{ form.instrument_datalist }}
+        {{ form.run_date_datalist }}
 
-        <table style="display: none;">
-            <tr>
-                <td>
-                    {{ form.peak_annotation_file }}
-                    <span class="text-danger">{{ form.peak_annotation_file.errors }}</span>
-                </td>
-                <td>
-                    {{ form.operator }}
-                    <span class="text-danger">{{ form.operator.errors }}</span>
-                </td>
-                <td>
-                    {{ form.instrument }}
-                    <span class="text-danger">{{ form.instrument.errors }}</span>
-                </td>
-                <td>
-                    {{ form.protocol }}
-                    <span class="text-danger">{{ form.protocol.errors }}</span>
-                </td>
-                <td>
-                    {{ form.run_date }}
-                    <span class="text-danger">{{ form.run_date.errors }}</span>
-                </td>
-            </tr>
-        </table>
+        <div class="level-indent">
+            <!-- Peak annotation file forms will be added to this table via javascript -->
+            <table id="peak-annot-forms-elem">
+            </table>
+        </div>
 
-        <label for="study_doc" class="tight-form-label">
-            Study doc:
-            <span class="small"><span class="small text-muted">(excel)</span></span>
-        </label>
-        {{ form.study_doc }}<span class="text-danger">{{ form.study_doc.errors }}</span>
-        <!-- Errors, if they exist, add an extra like which makes the spacing off -->
-        {% if not form.study_doc.errors %}<br>{% endif %}
+        <div id="single-form-elems">
+            {{ form.mode }}
 
-        <span class="text-danger">{{ form.non_field_errors }}</span>
-        <button type="submit" class="btn btn-primary" id="validate">Validate &amp; Repair</button>
-        <!-- "Clear" is only needed for -->
-        <button type="reset" class="btn btn-secondary" id="clear" style="display:none;">Clear</button>
-        <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
-        {{ form.management_form }}
+            <label for="study_doc" class="tight-form-label">
+                Study doc:
+                <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
+            </label>
+            {{ form.study_doc }}
+            <span class="text-danger">{{ form.study_doc.errors }}</span>
+            {% comment %} Errors, if they exist, add an extra like which makes the spacing off {% endcomment %}
+            {% if not form.study_doc.errors %}<br>{% endif %}
+        </div>
+
+        <span class="text-danger">
+            {% if form_errors %}
+                <ul>
+                    {% for err in form_errors %}
+                        <li>{{ err }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </span>
     </form>
+    <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
+    <button type="submit" class="btn btn-primary" id="submit" onclick="onSubmit();document.getElementById('submission-validation').submit();">Validate &amp; Repair</button>
+    <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
 </div>
 
 
