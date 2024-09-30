@@ -95,7 +95,125 @@ class ColumnReference:
                 ).header.name
 
 
-class ColumnHeader:
+class ColumnBase:
+    def __init__(
+        self,
+        field: Optional[Field] = None,
+        default=None,
+        required: Optional[bool] = None,
+        unique: Optional[bool] = None,
+        static_choices: Optional[List[tuple]] = None,
+        current_choices: bool = False,
+        current_choices_converter: Optional[Callable] = None,
+    ):
+        """ColumnBase constructor.
+
+        Args:
+            field (Field): Model field from which to derive data, if provided.  Required if no name.
+            default (object): Details added to Model.field.help_text when it differs from the model.
+            required (bool): Whether the header is required to be present.  Derived from field.blank, but can be
+                overridden.
+            unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
+                overridden.
+            static_choices (list of tuples): Possible values in the column (derived from field).
+            current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
+                Requires field to be supplied.
+            current_choices_converter (function): A converter function for use by current_choices.
+        Exceptions:
+            ConditionallyRequiredArgs
+        Returns:
+            instance
+        """
+        self.model = None
+        self.field = None
+        if field is not None:
+            # Convert to the class
+            self.field = field.field
+            self.model = field.field.model
+
+            # Handle overrides and unset/missing attributes.  If anything is invalid, it should be caught downstream.
+            if (
+                hasattr(self.field, "unique")
+                and self.field.unique is not None
+                and unique is None
+            ):
+                unique = self.field.unique
+            if (
+                hasattr(self.field, "default")
+                and self.field.default is not None
+                and default is None
+            ):
+                default = self.field.default
+            if (
+                hasattr(self.field, "blank")
+                and self.field.blank is not None
+                and required is None
+            ):
+                required = not self.field.blank
+            if (
+                hasattr(self.field, "choices")
+                and self.field.choices is not None
+                and static_choices is None
+            ):
+                static_choices = self.field.choices
+        elif current_choices:
+            raise ConditionallyRequiredArgs(
+                "ColumnValue requires a field argument if current_choices is True"
+            )
+
+        # Default values
+        if required is None:
+            required = True
+        if unique is None:
+            unique = False
+
+        self.default = default
+        self.unique = unique
+        self.required = required
+        self._static_choices = static_choices
+        self.current_choices = current_choices
+        self.current_choices_converter = current_choices_converter
+
+    @property
+    def static_choices(self):
+        """Made this into a property to support "current_choices".
+
+        This data could not be compiled during the instantiation of an object because the migrations check ends up
+        evaluating classes that use a TableColumn object as a value of class attributes, which causes a database query
+        to try to execute before the database is setup.  This property avoids that situation.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            choices (List[tuple])
+        """
+        choices = self._static_choices
+        if self.current_choices:
+            fldnm = self.field.name
+            choices = [
+                (
+                    (fs, fs)
+                    if self.current_choices_converter is None
+                    else (
+                        self.current_choices_converter(fs),
+                        self.current_choices_converter(fs),
+                    )
+                )
+                for fs in list(
+                    self.model.objects.order_by(fldnm)
+                    .values_list(fldnm, flat=True)
+                    .distinct(fldnm)
+                )
+                if fs is not None
+            ]
+            if len(choices) == 0:
+                choices = None
+        return choices
+
+
+class ColumnHeader(ColumnBase):
     """Defines metadata associated with an excel column header, e.g. for decorating the header."""
 
     def __init__(
@@ -106,6 +224,8 @@ class ColumnHeader:
         format: Optional[str] = None,
         reference: Optional[ColumnReference] = None,
         static_choices: Optional[List[tuple]] = None,
+        current_choices: bool = False,
+        current_choices_converter: Optional[Callable] = None,
         dynamic_choices: Optional[ColumnReference] = None,
         readonly: bool = False,
         formula: Optional[str] = None,
@@ -113,6 +233,7 @@ class ColumnHeader:
         help_text: Optional[str] = None,
         required: Optional[bool] = None,
         unique: Optional[bool] = None,
+        default=None,
         # Option for the generated name (when field is supplied)
         include_model_in_header: bool = True,
     ):
@@ -121,6 +242,7 @@ class ColumnHeader:
         Args:
             name (str): Header name.  Can override the field derived header.  Required if no field.
             field (Field): Model field from which to derive data, if provided.  Required if no name.
+            default (object): Details added to Model.field.help_text when it differs from the model.
             guidance (str): Details added to Model.field.help_text when it differs from the model.
             format (str): Add to provide notes about units, delimiting strings, etc.
             reference (ColumnReference): Used to add to a header comment when columns are related.
@@ -135,15 +257,23 @@ class ColumnHeader:
             formula (string): Excel formula to use to populate the column.
             static_choices (list of tuples): Possible values in the column (derived from field).
             dynamic_choices (ColumnReference): The excel column used to populate a dropdown.
-
         Exceptions:
             ConditionallyRequiredOptions
-
         Returns:
             instance
         """
         if name is None and field is None:
             raise ConditionallyRequiredOptions("name or field is required")
+
+        super().__init__(
+            field=field,
+            unique=unique,
+            required=required,
+            default=default,
+            static_choices=static_choices,
+            current_choices=current_choices,
+            current_choices_converter=current_choices_converter,
+        )
 
         # field is not saved here, but it can be supplied to automatically set some attributes
         if field is not None:
@@ -168,20 +298,14 @@ class ColumnHeader:
             if hasattr(field, "unique") and field.unique is not None:
                 unique = field.unique
 
-        # Default values
         if required is None:
             required = True
-        if unique is None:
-            unique = False
 
         self.name = name
-        self.required = required
         self.help_text = help_text
         self.format = format
         self.guidance = guidance
         self.reference = reference
-        self.unique = unique
-        self.static_choices = static_choices
         self.dynamic_choices = dynamic_choices
         self.readonly = readonly
         self.formula = formula
@@ -189,6 +313,7 @@ class ColumnHeader:
     @property
     def comment(self):
         """Content of the header comment, composed based on instance attributes.
+
         Args:
             None
         Exceptions:
@@ -261,7 +386,7 @@ class ColumnHeader:
         return comment
 
 
-class ColumnValue:
+class ColumnValue(ColumnBase):
     """This is a *template* for any cell in a table column (except the header cell).  The attributes here are
     collectively applied to every (non-header) cell in a column.
 
@@ -302,104 +427,25 @@ class ColumnValue:
                 overridden.
             formula (string): Excel formula to use to populate the column.
             readonly (bool): Whether the column may be only read (i.e. not edited).
-
         Exceptions:
             None
-
         Returns:
             instance
         """
-        self.model = None
-        self.field = None
-        if field is not None:
-            # Convert to the class
-            self.field = field.field
-            self.model = field.field.model
+        super().__init__(
+            field=field,
+            unique=unique,
+            required=required,
+            default=default,
+            static_choices=static_choices,
+            current_choices=current_choices,
+            current_choices_converter=current_choices_converter,
+        )
 
-            # Handle overrides and unset/missing attributes.  If anything is invalid, it should be caught downstream.
-            if (
-                hasattr(self.field, "unique")
-                and self.field.unique is not None
-                and unique is None
-            ):
-                unique = self.field.unique
-            if (
-                hasattr(self.field, "default")
-                and self.field.default is not None
-                and default is None
-            ):
-                default = self.field.default
-            if (
-                hasattr(self.field, "blank")
-                and self.field.blank is not None
-                and required is None
-            ):
-                required = not self.field.blank
-            if (
-                hasattr(self.field, "choices")
-                and self.field.choices is not None
-                and static_choices is None
-            ):
-                static_choices = self.field.choices
-        elif current_choices:
-            raise ConditionallyRequiredArgs(
-                "ColumnValue requires a field argument if current_choices is True"
-            )
-
-        # Default values
-        if required is None:
-            required = True
-        if unique is None:
-            unique = False
-
-        self.default = default
-        self.required = required
-        self._static_choices = static_choices
         self.dynamic_choices = dynamic_choices
-        self.current_choices = current_choices
-        self.current_choices_converter = current_choices_converter
         self.type = type
-        self.unique = unique
         self.formula = formula
         self.readonly = readonly
-
-    @property
-    def static_choices(self):
-        """Made this into a property to support "current_choices".
-
-        This data could not be compiled during the instantiation of an object because the migrations check ends up
-        evaluating classes that use a TableColumn object as a value of class attributes, which causes a database query
-        to try to execute before the database is setup.  This property avoids that situation.
-
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            choices (List[tuple])
-        """
-        choices = self._static_choices
-        if self.current_choices:
-            fldnm = self.field.name
-            choices = [
-                (
-                    (fs, fs)
-                    if self.current_choices_converter is None
-                    else (
-                        self.current_choices_converter(fs),
-                        self.current_choices_converter(fs),
-                    )
-                )
-                for fs in list(
-                    self.model.objects.order_by(fldnm)
-                    .values_list(fldnm, flat=True)
-                    .distinct(fldnm)
-                )
-                if fs is not None
-            ]
-            if len(choices) == 0:
-                choices = None
-        return choices
 
 
 class TableColumn:
@@ -419,7 +465,7 @@ class TableColumn:
             field (Field): Model field associated with the table column.
             readonly (bool): Whether the column may be only read (i.e. not edited).
         Exceptions:
-            None
+            ConditionallyRequiredOptions
         Returns:
             instance (TableColumn)
         """
@@ -467,6 +513,7 @@ class TableColumn:
         current_choices_converter: Optional[Callable] = None,
     ):
         """Alternate TableColumn constructor.  (This is the pythonic was to implement multiple constructors.)
+
         Args:
             field (Field): A model field that can be used to derive some instance attributes.
             readonly (bool): Whether the column can be edited or not.
@@ -504,17 +551,21 @@ class TableColumn:
                 readonly=readonly,
                 formula=formula,
                 # Set by field (but provided for overriding)
+                unique=unique,
+                default=default,
                 help_text=help_text,
                 required=header_required,
+                current_choices=current_choices,
+                current_choices_converter=current_choices_converter,
             ),
             value=ColumnValue(
                 field=field,
                 type=type,
-                unique=unique,
                 dynamic_choices=dynamic_choices,
                 formula=formula,
                 readonly=readonly,
                 # Set by field (but provided for overriding)
+                unique=unique,
                 default=default,
                 required=value_required,
                 static_choices=static_choices,
