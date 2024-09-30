@@ -54,7 +54,7 @@ class InfusatesLoader(TableLoader):
     DataHeaders = DataTableHeaders(
         ID="Infusate Row Group",
         TRACERGROUP="Tracer Group Name",
-        TRACERNAME="Tracer Name",
+        TRACERNAME="Tracer",
         TRACERCONC="Tracer Concentration",
         NAME="Infusate Name",
     )
@@ -243,13 +243,13 @@ class InfusatesLoader(TableLoader):
                 f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"{{{{",""),'
                 # Join the sorted tracers (from multiple rows) using a ';' delimiter, (mapping the names and concs)
                 '_xlfn.TEXTJOIN(";",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
-                # Filter all tracer names to get ones whose tracer row group ID is the same as as this row's group ID
+                # Filter all tracers to get ones whose tracer row group ID is the same as as this row's group ID
                 f"_xlfn._xlws.FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),'
                 # Filter all concentrations to get ones whose tracer row group ID is the same as as this row's group ID
                 f"_xlfn._xlws.FILTER({{{CONC_KEY}}}:{{{CONC_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
-                # Apply this lambda to the tracer names and concentrations filtered above to concatenate the tracers and
+                # Apply this lambda to the tracers and concentrations filtered above to concatenate the tracers and
                 # their concentrations
                 '_xlfn.LAMBDA(_xlpm.a,_xlpm.b,CONCATENATE(_xlpm.a,"[",_xlpm.b,"]"))))),'
                 # If there is more than 1 tracer for this row group ID, include a closing curly brace
@@ -439,7 +439,7 @@ class InfusatesLoader(TableLoader):
             self.set_row_index(infusate_dict["row_index"])
 
             if self.is_skip_row():
-                # If the row the tracer name was first obtained from is a skip row, skip it
+                # If the row the tracer was first obtained from is a skip row, skip it
                 continue
 
             num_tracers = (
@@ -698,7 +698,7 @@ class InfusatesLoader(TableLoader):
 
             # If we're not already filling in data
             if fill_in_tracer_data is False:
-                # If any Tracer name is missing
+                # If any Tracer is missing
                 all_match = True
                 for table_tracer in table_infusate["tracers"]:
                     table_tracer_name = table_tracer["tracer_name"]
@@ -785,13 +785,13 @@ class InfusatesLoader(TableLoader):
                         {
                             "tracer_name": parsed_infusate["tracer"]["unparsed_string"],
                             "tracer_concentration": parsed_infusate["concentration"],
-                            # The row info where the tracer name was obtained
+                            # The row info where the tracer was obtained
                             "rownum": table_infusate["rownum"],
                             "row_index": table_infusate["row_index"],
                         }
                     )
 
-            # After filling in tracer names
+            # After filling in tracers
 
     def check_tracer_group_names(self):
         """Check the assortment of tracers for issues.
@@ -809,7 +809,7 @@ class InfusatesLoader(TableLoader):
         Returns:
             None
         """
-        # NOTE: This method assumes that the isotopes are consistently ordered in the tracer names
+        # NOTE: This method assumes that the isotopes are consistently ordered in the tracers
 
         tracer_group_dict = defaultdict(lambda: defaultdict(list))
         tracer_group_conc_dict = defaultdict(list)
@@ -1332,7 +1332,7 @@ class InfusatesLoader(TableLoader):
 
         trownums = [te["rownum"] for te in infusate_dict["tracers"]]
 
-        # Get the tracer name using the primary compound (so we will be comparing apples to apples)
+        # Get the tracer using the primary compound (so we will be comparing apples to apples)
         tnames = []
         for tcr in infusate_dict["tracers"]:
             tmptn = tcr["tracer_name"]
@@ -1368,10 +1368,8 @@ class InfusatesLoader(TableLoader):
                 # Rebuild the name from the data with just this change
                 tcr["tracer_name"] = Tracer.name_from_data(tmptndata)
 
-                # Append the modified name to our list of file-derived tracer names
+                # Append the modified name to our list of file-derived tracers
                 tnames.append(tcr["tracer_name"])
-        # TODO: Remove this commented line of code once the above is vetted
-        # tnames = [te["tracer_name"] for te in infusate_dict["tracers"]]
         tconcs = [
             f"{te['tracer_name']}: {te['tracer_concentration']}"
             for te in infusate_dict["tracers"]

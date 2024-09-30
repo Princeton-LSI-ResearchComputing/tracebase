@@ -105,6 +105,7 @@ class ColumnHeader:
         guidance: Optional[str] = None,
         format: Optional[str] = None,
         reference: Optional[ColumnReference] = None,
+        static_choices: Optional[List[tuple]] = None,
         dynamic_choices: Optional[ColumnReference] = None,
         readonly: bool = False,
         formula: Optional[str] = None,
@@ -132,6 +133,8 @@ class ColumnHeader:
                 supplied).
             readonly (bool): Whether the column may be only read (i.e. not edited).
             formula (string): Excel formula to use to populate the column.
+            static_choices (list of tuples): Possible values in the column (derived from field).
+            dynamic_choices (ColumnReference): The excel column used to populate a dropdown.
 
         Exceptions:
             ConditionallyRequiredOptions
@@ -178,6 +181,7 @@ class ColumnHeader:
         self.guidance = guidance
         self.reference = reference
         self.unique = unique
+        self.static_choices = static_choices
         self.dynamic_choices = dynamic_choices
         self.readonly = readonly
         self.formula = formula
@@ -227,7 +231,12 @@ class ColumnHeader:
                 f"The values in this column are referenced by the '{self.reference.header}' column in the "
                 f"'{self.reference.sheet}' sheet."
             )
-        # TODO: Add a note about static_choices (and current_choices)
+        # TODO: Add a note about current_choices
+        if self.static_choices is not None:
+            if comment != "":
+                comment += "\n\n"
+            choices = "\n".join([f"- {tpl[0]}" for tpl in self.static_choices])
+            comment += f"Select a '{self.name}' from the dropdowns in this column.  Valid values are:\n{choices}"
         if self.dynamic_choices is not None:
             if comment != "":
                 comment += "\n\n"
@@ -491,6 +500,7 @@ class TableColumn:
                 format=format,
                 reference=reference,
                 dynamic_choices=dynamic_choices,
+                static_choices=static_choices,
                 readonly=readonly,
                 formula=formula,
                 # Set by field (but provided for overriding)

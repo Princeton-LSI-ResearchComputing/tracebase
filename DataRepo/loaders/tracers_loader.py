@@ -191,7 +191,7 @@ class TracersLoader(TableLoader):
             # due to circular import
             reference=ColumnReference(
                 sheet="Infusates",
-                header="Tracer Name",
+                header="Tracer",
             ),
             type=str,
             # TODO: Create the method that applies the formula to the NAME column on every row

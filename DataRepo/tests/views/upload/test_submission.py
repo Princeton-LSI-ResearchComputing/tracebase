@@ -142,7 +142,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusate Row Group": {},
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
-                "Tracer Name": {},
+                "Tracer": {},
             },
             "LC Protocols": {
                 "Description": str,
@@ -348,7 +348,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusate Row Group": {},
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
-                "Tracer Name": {},
+                "Tracer": {},
             },
             "LC Protocols": {
                 "Description": {},
@@ -467,7 +467,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 # "Infusate Row Group": int,
                 # "Tracer Concentration": float,
                 "Tracer Group Name": str,
-                "Tracer Name": str,
+                "Tracer": str,
             },
             "LC Protocols": {
                 "Description": str,
@@ -786,7 +786,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusate Row Group": {},
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
-                "Tracer Name": {},
+                "Tracer": {},
             },
             "LC Protocols": {
                 "Description": {},

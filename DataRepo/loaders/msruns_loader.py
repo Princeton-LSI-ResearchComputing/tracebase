@@ -103,6 +103,8 @@ class MSRunsLoader(TableLoader):
             MZXMLNAME_KEY,
         ],
         # Annot name is optional (assuming identical headers indicate the same sample)
+        # Note that SEQNAME is effectively optional since the loader can be supplied default values, but *a* value is
+        # required, thus SEQNAME is always required
         SEQNAME_KEY,
     ]
 
@@ -130,7 +132,7 @@ class MSRunsLoader(TableLoader):
         # we need more than just the header or mzXML file name, we need the sequence.  If a user can't tell which
         # sequence to use, all we can do is add their path to differentiate them.
         # All combined must be unique, but note that duplicates of SAMPLENAME_KEY, (SAMPLEHEADER_KEY or MZXMLNAME_KEY),
-        # and SEQUENCE_KEY will be ignored. Duplicates can exist if the same mzXML was used in multiple peak annotation
+        # and SEQNAME_KEY will be ignored. Duplicates can exist if the same mzXML was used in multiple peak annotation
         # files.
         [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
     ]
@@ -160,6 +162,7 @@ class MSRunsLoader(TableLoader):
         SAMPLEHEADER=TableColumn.init_flat(
             name=DataHeaders.SAMPLEHEADER,
             help_text=f"Sample header from {DataHeaders.ANNOTNAME}.",
+            guidance=f"Note, this column is only conditionally required with '{DataHeaders.MZXMLNAME}'.",
         ),
         MZXMLNAME=TableColumn.init_flat(
             name=DataHeaders.MZXMLNAME,
@@ -167,8 +170,11 @@ class MSRunsLoader(TableLoader):
             header_required=False,  # Assuming can be derived from SAMPLEHEADER
             value_required=False,  # There will be an error if multiple files have the same name
             guidance=(
-                f"Note, you can load an/all {DataHeaders.MZXMLNAME}s for a {DataHeaders.SAMPLENAME} *before* the "
-                f"{DataHeaders.ANNOTNAME} is ready to load, in which case you can just leave this value empty."
+                f"Note, you can load any/all {DataHeaders.MZXMLNAME}s for a {DataHeaders.SAMPLENAME} *before* the "
+                f"{DataHeaders.ANNOTNAME} is ready to load, in which case you can just leave this value empty.\n"
+                "\n"
+                f"Note, this column is only conditionally required with '{DataHeaders.SAMPLEHEADER}'.  I.e. an "
+                f"{DataHeaders.MZXMLNAME} can be loaded without a '{DataHeaders.ANNOTNAME}'."
             ),
         ),
         ANNOTNAME=TableColumn.init_flat(
@@ -185,6 +191,7 @@ class MSRunsLoader(TableLoader):
                 sheet="Peak Annotation Files",
                 header="Peak Annotation File",
             ),
+            # ANNOTNAME is actually required, but defaults are provided by arguments to the constructor
             header_required=False,
             value_required=False,
         ),

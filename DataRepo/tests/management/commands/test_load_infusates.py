@@ -74,7 +74,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
             "Infusate Row Group": [1],
             "Infusate Name": ["duderino{lysine-[13C6]}"],
             "Tracer Group Name": ["duderino"],
-            "Tracer Name": ["lysine-[13C6]"],
+            "Tracer": ["lysine-[13C6]"],
             "Tracer Concentration": [20],
         },
     )
@@ -143,7 +143,7 @@ class LoadInfusatesCommandTests(TracebaseTestCase):
         self.assertIsNotNone(Infusate.objects.get_infusate(self.DUDERINO_INFUSATE_DATA))
 
     def test_name_with_multiple_numbers_error(self):
-        """Since Infusate name, tracer name, group name, and concentration must be unique, 1 infusate name with multiple
+        """Since Infusate name, tracer, group name, and concentration must be unique, 1 infusate name with multiple
         infusate numbers comes out as a DuplicateValueError.  Note, row 3 (with a different conc is fine.
         """
         with self.assertRaises(AggregatedErrors) as ar:
