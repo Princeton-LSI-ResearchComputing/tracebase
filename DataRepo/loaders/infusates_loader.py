@@ -156,12 +156,6 @@ class InfusatesLoader(TableLoader):
             field=InfusateTracer.tracer,
             # TODO: Add help text to the field in the Tracer model
             help_text=f"Name of a tracer in this infusate at a specific {DataHeaders.TRACERCONC}.",
-            guidance=(
-                f"Select a {DataHeaders.TRACERNAME} from the dropdowns in this column.  Those dropdowns are populated "
-                f"by the {TracersLoader.DataHeaders.NAME} column in the {TracersLoader.DataSheetName} sheet.  "
-                f"All of the {DataHeaders.TRACERNAME}s in an infusate with multiple {DataHeaders.TRACERNAME}s are "
-                f"defined on separate rows and associated via the values in the {DataHeaders.ID} column."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=TracersLoader,
@@ -178,10 +172,25 @@ class InfusatesLoader(TableLoader):
             readonly=True,  # This is a "soft" read-only.  Users can enter values, but use of the formula is encouraged.
             field=Infusate.name,
             type=str,
+            format=(
+                "While this column is automatically populated by excel formula, the following describes the formula "
+                "output, if you wish to manually enter it.\n"
+                "\n"
+                "Individual tracer compounds will be formatted as: compound_name-[weight element count,weight "
+                "element count]\nexample: valine-[13C5,15N1]\n"
+                "\n"
+                "Mixtures of compounds will be formatted as: tracer_group_name {tracer[conc]; tracer[conc]}\n"
+                "example:\n"
+                "BCAAs {isoleucine-[13C6,15N1][23.2];leucine-[13C6,15N1][100];valine-[13C5,15N1][0.9]}\n"
+                "\n"
+                "Note that the concentrations in the name are limited to "
+                f"{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES} significant figures, but the saved value is as "
+                "entered."
+            ),
             # TODO: Replace "Infusate" and "Animals" below with a reference to its loader's column and DataSheetName
-            guidance=(
-                "This column is automatically filled in using an excel formula and its values are used to populate "
-                "Infusate choices in the Animals sheet."
+            reference=ColumnReference(
+                sheet="Animals",
+                header="Infusate",
             ),
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the

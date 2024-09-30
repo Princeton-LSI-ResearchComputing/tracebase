@@ -269,13 +269,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of this
                     instance)
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
-                    (when it has a default for the operator column for the Sequences sheet).
+                    (when it has a default for the operator column for the MS Runs sheet).
                 lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
-                    defaults_df (when it has a default for the lc_protocol_name column for the Sequences sheet).
+                    defaults_df (when it has a default for the lc_protocol_name column for the MS Runs sheet).
                 instrument (Optional[str]): Name of the mass spec instrument.  Mutually exclusive with defaults_df
-                    (when it has a default for the instrument column for the Sequences sheet).
+                    (when it has a default for the instrument column for the MS Runs sheet).
                 date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
-                    with defaults_df (when it has a default for the date column for the Sequences sheet).
+                    with defaults_df (when it has a default for the date column for the MS Runs sheet).
                 filename (Optional[str]): In case the (superclass arg) "file" is a temp file with a nonsense name.
         Exceptions:
             Raises:
@@ -857,11 +857,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # Create this exception object (without buffering) to use in 2 possible buffering locations
         not_enough_defaults_exc = ConditionallyRequiredArgs(
-            "The arguments supplied to the constructor were insufficient to identify the sequence 1 or more of the "
-            "samples belong to.  Either peak_annotation_details_df can be supplied with a sequence name for every "
-            "MSRunSample record or the following defaults can be supplied via file_defaults of explicit arguments: "
-            f"[operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} defaults supplied were "
-            f"used to create the following query: {query_dict}."
+            "The arguments supplied to the constructor were insufficient to identify the MS Run Sequence that 1 or "
+            "more of the samples belong to.  Either peak_annotation_details_df can be supplied with an MS Run name for "
+            "every MSRunSample record or the following defaults can be supplied via file_defaults of explicit "
+            f"arguments: [operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} defaults "
+            f"supplied were used to create the following query: {query_dict}."
         )
 
         if len(query_dict.keys()) == 0:

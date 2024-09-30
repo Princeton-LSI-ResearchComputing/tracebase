@@ -26,7 +26,7 @@ class TracersLoaderTests(TracebaseTestCase):
     LYSINE_TRACER_DATAFRAME = pd.DataFrame.from_dict(
         {
             "Tracer Row Group": [1],
-            "Compound Name": ["lysine"],
+            "Compound": ["lysine"],
             "Element": ["C"],
             "Mass Number": [13],
             "Label Count": [6],
@@ -274,7 +274,7 @@ class TracersLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(tl.inconsistent_names))
         self.assertEqual(0, len(tl.inconsistent_numbers))
 
-        # Check multiple compound names per number
+        # Check multiple compounds per number
         tl.rownum = 2  # check_data_is_consistent uses self.rownum
         tl.check_data_is_consistent(1, "lysine", "lysine-[13C6]")
         tl.rownum += 1
@@ -303,7 +303,7 @@ class TracersLoaderTests(TracebaseTestCase):
         tl = TracersLoader()
         tl.init_load()
 
-        # 2 different compound names associated with 1 tracer number
+        # 2 different compounds associated with 1 tracer number
         tl.inconsistent_compounds[1]["lysine"] = [2]
         tl.inconsistent_compounds[1]["asparagine"] = [3]
 
@@ -323,14 +323,14 @@ class TracersLoaderTests(TracebaseTestCase):
         self.assertEqual(InfileError, type(tl.aggregated_errors_object.exceptions[2]))
 
         self.assertIn(
-            "Tracer Row Group and Compound Name",
+            "Tracer Row Group and Compound",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(
             "Tracer Row Group 1 ", str(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertIn(
-            "one Compound Name is allowed per Tracer Row Group",
+            "one Compound is allowed per Tracer Row Group",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
         self.assertIn(

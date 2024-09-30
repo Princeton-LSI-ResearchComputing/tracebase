@@ -31,7 +31,7 @@ from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
-    InvalidSequenceName,
+    InvalidMSRunName,
     MixedPolarityErrors,
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
@@ -90,7 +90,7 @@ class MSRunsLoader(TableLoader):
         SAMPLEHEADER="Sample Data Header",
         MZXMLNAME="mzXML File Name",
         ANNOTNAME="Peak Annotation File Name",
-        SEQNAME="Sequence Name",
+        SEQNAME="MS Run",
         SKIP="Skip",
     )
 
@@ -166,18 +166,16 @@ class MSRunsLoader(TableLoader):
             field=MSRunSample.ms_data_file,
             header_required=False,  # Assuming can be derived from SAMPLEHEADER
             value_required=False,  # There will be an error if multiple files have the same name
+            guidance=(
+                f"Note, you can load an/all {DataHeaders.MZXMLNAME}s for a {DataHeaders.SAMPLENAME} *before* the "
+                f"{DataHeaders.ANNOTNAME} is ready to load, in which case you can just leave this value empty."
+            ),
         ),
         ANNOTNAME=TableColumn.init_flat(
             name=DataHeaders.ANNOTNAME,
             help_text=(
-                "Name of the accucor or isocorr file that this sample was analyzed in, if any.  If the sample on this "
-                f"row was included in a {DataHeaders.ANNOTNAME}, add the name of that file here.  If you are loading "
-                f"an {DataHeaders.MZXMLNAME} that was not used in a {DataHeaders.ANNOTNAME}, leave this value empty."
-            ),
-            guidance=(
-                f"Note, you do not need to have an {DataHeaders.MZXMLNAME} associated with every "
-                f"{DataHeaders.SAMPLEHEADER} from a {DataHeaders.ANNOTNAME} worked out ahead of time.  That "
-                "association can be made at a later date."
+                "Name of the peak annotation file.  If the sample on any given row was included in a "
+                f"{DataHeaders.ANNOTNAME}, add the name of that file here."
             ),
             # TODO: Replace "Peak Annotation Files" and "Peak Annotation File" below with a reference to its loader's
             # DataSheetName and the corresponding column, respectively.
@@ -193,17 +191,13 @@ class MSRunsLoader(TableLoader):
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
             help_text=(
-                f"The MSRun Sequence associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
+                f"The MS Run associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
                 f"{DataHeaders.MZXMLNAME} on this row."
             ),
             type=str,
             format=(
-                "Comma-delimited string combining the values from these columns from the "
-                f"{SequencesLoader.DataSheetName} sheet in this order:\n"
-                f"- {SequencesLoader.DataHeaders.OPERATOR}\n"
-                f"- {SequencesLoader.DataHeaders.LCNAME}\n"
-                f"- {SequencesLoader.DataHeaders.INSTRUMENT}\n"
-                f"- {SequencesLoader.DataHeaders.DATE}"
+                f"Refer to the {SequencesLoader.DataHeaders.SEQNAME} column in the {SequencesLoader.DataSheetName} "
+                "sheet for format details."
             ),
             dynamic_choices=ColumnReference(
                 loader_class=SequencesLoader,
@@ -263,13 +257,13 @@ class MSRunsLoader(TableLoader):
             Derived (this) class Args:
                 mzxml_files (Optional[str]): Paths to mzXML files.
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
-                    (when it has a default for the operator column for the Sequences sheet).
+                    (when it has a default for the operator column for the MS Runs sheet).
                 lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
-                    defaults_df (when it has a default for the lc_protocol_name column for the Sequences sheet).
+                    defaults_df (when it has a default for the lc_protocol_name column for the MS Runs sheet).
                 instrument (Optional[str]): Name of the mass spec instrument.  Mutually exclusive with defaults_df
-                    (when it has a default for the instrument column for the Sequences sheet).
+                    (when it has a default for the instrument column for the MS Runs sheet).
                 date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
-                    with defaults_df (when it has a default for the date column for the Sequences sheet).
+                    with defaults_df (when it has a default for the date column for the MS Runs sheet).
                 exact_mode (bool) [False]: When False, and dynamically mapping sample headers to mzXML file names,
                     equate dashes and underscores.  (Isocorr, and possibly other software, when creating sample headers,
                     replaces dashes from the mzXML filename with underscores.  So when the code tries to look for a file
@@ -428,10 +422,10 @@ class MSRunsLoader(TableLoader):
         #    - Extract data from the mzxML files
         #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict, a 4D dict:
         #      {mzXML_name: {mzXML_dir: [{**metadata},...]}}
-        # We need the directory to match the mzXML in the infile with the MSRunSequence name on the same row.  mzXML
-        # files can easily have the same name and all users can reasonably be expected to know is their location and the
-        # sequence they were a part of.  Normally, all that's needed is a name, but if that name is not unique, and
-        # there are multiple sequences in the file, we need a way to distinguish them, and the path is that way.
+        # We need the directory to match the mzXML in the infile with the MS Run name on the same row.  mzXML files can
+        # easily have the same name and all users can reasonably be expected to know is their location and the sequence
+        # they were a part of.  Normally, all that's needed is a name, but if that name is not unique, and there are
+        # multiple sequences in the file, we need a way to distinguish them, and the path is that way.
         for mzxml_file in self.mzxml_files:
             try:
                 self.get_or_create_mzxml_and_raw_archive_files(mzxml_file)
@@ -1167,7 +1161,7 @@ class MSRunsLoader(TableLoader):
 
     def get_msrun_sequence(self, name: Optional[str] = None) -> Optional[MSRunSequence]:
         """Retrieves an MSRunSequence record using either the value in the supplied SEQNAME column or via defaults for
-        the Sequences sheet.
+        the MS Runs sheet.
 
         The SEQMANE column is a comma-delimited string, which has the following values in this order:
         - Operator
@@ -1335,7 +1329,7 @@ class MSRunsLoader(TableLoader):
                     ),
                     orig_exception=mor,
                 )
-        except InvalidSequenceName as isn:
+        except InvalidMSRunName as isn:
             self.aggregated_errors_object.buffer_error(
                 isn.set_formatted_message(
                     file=error_source,
@@ -1511,7 +1505,7 @@ class MSRunsLoader(TableLoader):
                 exist in the database, WITH values for polarity, mz_min, and mz_max.
             annot_name (str): Peak annotation file name associated with the data that populated the rec_dict (i.e. the
                 value from the Peak Annotation File column of the Peak Annotation Details sheet/file that the researcher
-                has explicitly associated the mzXML, sample, sample header, and sequence with.
+                has explicitly associated the mzXML, sample, sample header, and ms run sequence with.
             rec (MSRunSample): An MSRunSample record.  This is intended to be a placeholder record without an
                 ms_data_file value, but either way, the metadata (ms_data_file, polarity, mz_min, and mz_max) in the
                 record is ignored.

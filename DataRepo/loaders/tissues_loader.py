@@ -3,7 +3,7 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Tissue
 from DataRepo.utils.exceptions import RollbackException
@@ -64,7 +64,13 @@ class TissuesLoader(TableLoader):
     DataColumnMetadata = DataTableHeaders(
         NAME=TableColumn.init_flat(field=Tissue.name, name=DataHeaders.NAME),
         DESCRIPTION=TableColumn.init_flat(
-            field=Tissue.description, name=DataHeaders.DESCRIPTION
+            field=Tissue.description,
+            name=DataHeaders.DESCRIPTION,
+            # TODO: Replace sheet/header strings with references once circular import has been figured out
+            reference=ColumnReference(
+                sheet="Samples",
+                header="Tissue",
+            ),
         ),
     )
 

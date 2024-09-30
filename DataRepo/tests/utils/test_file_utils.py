@@ -81,8 +81,8 @@ class FileUtilsTests(TracebaseTestCase):
                 "Animal Treatment": str,
                 "Treatment Description": str,
             },
-            "Sequences": {
-                "Sequence Number": int,
+            "MS Runs": {
+                "MS Run Name": str,
                 "Operator": str,
                 "Date": str,
                 "Instrument": str,
@@ -102,8 +102,8 @@ class FileUtilsTests(TracebaseTestCase):
                     ),
                 },
             },
-            "Sequences": {
-                "Sequence Name": {
+            "MS Runs": {
+                "MS Run Name": {
                     0: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 6/8/2021",
                     1: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 10/19/2021",
                     2: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 7/22/2020",
@@ -132,7 +132,7 @@ class FileUtilsTests(TracebaseTestCase):
         )
         self.assertEqual(len(expected.keys()), len(dfs_dict.keys()))
         self.assertDictEqual(expected["Treatments"], dfs_dict["Treatments"].to_dict())
-        self.assertDictEqual(expected["Sequences"], dfs_dict["Sequences"].to_dict())
+        self.assertDictEqual(expected["MS Runs"], dfs_dict["MS Runs"].to_dict())
 
     def test_get_file_type_temp_file(self):
         """Assert the _get_file_type() works when supplied a TemporaryUploadedFile."""

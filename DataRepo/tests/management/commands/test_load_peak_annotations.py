@@ -146,7 +146,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                         "small_obob_maven_6eaas_inf_blank_sample.xlsx"
                         for _ in range(14)
                     ],
-                    "Sequence Name": [
+                    "MS Run": [
                         "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(14)
                     ],
@@ -216,7 +216,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                         "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                         "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                     ],
-                    "Sequence Name": [
+                    "MS Run": [
                         "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(4)
                     ],
@@ -363,7 +363,7 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
                     ],
                     "mzXML File Name": [None for _ in range(4)],
                     "Peak Annotation File Name": ["accucor.xlsx" for _ in range(4)],
-                    "Sequence Name": [
+                    "MS Run": [
                         "anonymous, polar-HILIC-25-min, unknown, 2022-08-18"
                         for _ in range(4)
                     ],
@@ -430,7 +430,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
                         "small_cor.csv",
                     ],
                     # TODO: Just realized that we either should not allow commas in names or change the seq name delim
-                    "Sequence Name": [
+                    "MS Run": [
                         "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(3)
                     ],
@@ -473,7 +473,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
                         "bcaafasted_cor.xlsx",
                         "bcaafasted_cor.xlsx",
                     ],
-                    "Sequence Name": [
+                    "MS Run": [
                         "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(4)
                     ],
@@ -535,7 +535,7 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
                         "glnfasted_cor.xlsx",
                         "glnfasted_cor.xlsx",
                     ],
-                    "Sequence Name": [
+                    "MS Run": [
                         "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
                         for _ in range(6)
                     ],

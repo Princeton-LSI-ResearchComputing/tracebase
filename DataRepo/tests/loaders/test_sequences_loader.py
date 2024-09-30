@@ -11,7 +11,7 @@ class SequencesLoaderTests(TracebaseTestCase):
 
     TEST_DF = pd.DataFrame.from_dict(
         {
-            "Sequence Name": ["Xianfeng Zeng, polar-HILIC-25-min, QE2, 10/19/2021"],
+            "MS Run Name": ["Xianfeng Zeng, polar-HILIC-25-min, QE2, 10/19/2021"],
             "Operator": ["Xianfeng Zeng"],
             "Date": ["2021-10-19 00:00:00"],
             "Instrument": ["QE2"],

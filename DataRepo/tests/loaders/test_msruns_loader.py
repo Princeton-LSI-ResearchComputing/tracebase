@@ -512,10 +512,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
             defaults_df=pd.DataFrame.from_dict(
                 {
                     MSRunsLoader.DefaultsHeaders.SHEET_NAME: [
-                        "Sequences",
-                        "Sequences",
-                        "Sequences",
-                        "Sequences",
+                        "MS Runs",
+                        "MS Runs",
+                        "MS Runs",
+                        "MS Runs",
                     ],
                     MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                         "Date",
@@ -1357,10 +1357,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 defaults_df=pd.DataFrame.from_dict(
                     {
                         MSRunsLoader.DefaultsHeaders.SHEET_NAME: [
-                            "Sequences",
-                            "Sequences",
-                            "Sequences",
-                            "Sequences",
+                            "MS Runs",
+                            "MS Runs",
+                            "MS Runs",
+                            "MS Runs",
                         ],
                         MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                             "Date",
@@ -1397,9 +1397,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
             MSRunsLoader(
                 defaults_df=pd.DataFrame.from_dict(
                     {
-                        # These are defaults for the Sequences sheet, used by the SequencesLoader instance that is a
+                        # These are defaults for the MS Runs sheet, used by the SequencesLoader instance that is a
                         # member of an MSRunsLoader instance
-                        MSRunsLoader.DefaultsHeaders.SHEET_NAME: ["Sequences"],
+                        MSRunsLoader.DefaultsHeaders.SHEET_NAME: ["MS Runs"],
                         MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                             "Invalid Column Name"
                         ],
@@ -1413,7 +1413,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(InfileError, type(aes.exceptions[0]))
         self.assertIn(
-            "Expected: ['Sequence Name', 'Operator', 'LC Protocol Name', ",
+            "Expected: ['MS Run Name', 'Operator', 'LC Protocol Name', ",
             str(aes.exceptions[0]),
         )
 
@@ -1541,7 +1541,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Sample Data Header": ["s1_pos"],
                 "mzXML File Name": [None],
                 "Peak Annotation File Name": ["accucor.xlsx"],
-                "Sequence Name": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
+                "MS Run": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
             },
         )
         msrl = MSRunsLoader(df=df)
@@ -1573,7 +1573,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Sample Data Header": ["s1_pos", "s2_pos"],
                 "mzXML File Name": ["s1_pos.mzXML", "s2_pos.mzXML"],
                 "Peak Annotation File Name": ["accucor.xlsx", "accucor2.xlsx"],
-                "Sequence Name": [
+                "MS Run": [
                     f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
                     f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
                 ],
@@ -1589,7 +1589,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Peak Annotation File Name": "accucor.xlsx",
                 "Sample Data Header": "s1_pos",
                 "Sample Name": "s1",
-                "Sequence Name": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                "MS Run": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
                 "Skip": False,
                 "mzXML File Name": "s1_pos.mzXML",
             },

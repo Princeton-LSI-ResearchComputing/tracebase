@@ -223,7 +223,10 @@ class ColumnHeader:
         if self.reference is not None:
             if comment != "":
                 comment += "\n\n"
-            comment += f"Must match a value in column '{self.reference.header}' in sheet: {self.reference.sheet}."
+            comment += (
+                f"The values in this column are referenced by the '{self.reference.header}' column in the "
+                f"'{self.reference.sheet}' sheet."
+            )
         # TODO: Add a note about static_choices (and current_choices)
         if self.dynamic_choices is not None:
             if comment != "":

@@ -521,7 +521,7 @@ class RequiredSampleValuesError(Exception):
 # get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
 # compound name for the peakgroup name makes this obsolete/unnecessary.
 class DuplicatePeakGroup(Exception):
-    """Duplicate data for the same sample sequenced on the same day
+    """Duplicate data for the same sample sequence on the same day
 
     Records duplicate sample compound pairs for a given ms_run
 
@@ -636,7 +636,7 @@ class NewResearchers(Exception):
         Frank
     to ensure that the following researchers (parsed from the indicated file locations) are not variants of existing
     names:
-        Edith (in column [Operator] of sheet [Sequences] in study.xlsx, on rows: '1-10')
+        Edith (in column [Operator] of sheet [MS Runs] in study.xlsx, on rows: '1-10')
     """
 
     def __init__(self, new_researcher_exceptions: List[NewResearcher]):
@@ -3534,7 +3534,7 @@ class DateParseError(InfileError):
         self.format = format
 
 
-class InvalidSequenceName(InfileError):
+class InvalidMSRunName(InfileError):
     pass
 
 
@@ -3834,10 +3834,7 @@ class AllMultiplePeakGroupRepresentations(Exception):
                 mpgr_dict[mpgr.compound][seq_key]["samples"].append(mpgr.sample.name)
             mpgr_dict[mpgr.compound][seq_key]["exceptions"].append(mpgr)
 
-        message = (
-            "The following compounds are present in multiple peak annotation files (derived from the same sequence for "
-            "the same samples)."
-        )
+        message = "The following compounds are present in multiple peak annotation files (for the same samples)."
         for compound in sorted(mpgr_dict.keys(), key=str.casefold):
             message += f"\n\t{compound}"
             if len(mpgr_dict[compound].keys()) > 1:
@@ -3878,8 +3875,8 @@ class AllMultiplePeakGroupRepresentations(Exception):
                     message += "\n\t\tFiles:\n\t\t\t\t"
                     message += "\n\t\t\t".join(sorted(files, key=str.casefold))
         message += (
-            "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
-            "(row) from all but one of the listed files."
+            "\nPlease make sure that the files do in fact have samples in common and if so, remove each compound (row) "
+            "from all but one of the listed files."
         )
         super().__init__(message)
         self.exceptions = exceptions
@@ -3920,7 +3917,7 @@ class MultiplePeakGroupRepresentations(Exception):
             mpgr_dict[str(mpgr.sequence)][files_str]["exceptions"].append(mpgr)
 
         message = (
-            "The following peak annotation files derived from the same sequence each contain peak groups for the same "
+            "The following peak annotation files (containing common samples) each contain peak groups for the same "
             "compound.  Multiple representations of the same peak group are not allowed.\n"
         )
         for sequence in mpgr_dict.keys():
@@ -3947,7 +3944,7 @@ class MultiplePeakGroupRepresentations(Exception):
                     sorted(compounds)
                 )
         message += (
-            "\nPlease make sure that the files do in fact belong to the same sequence and if so, remove each compound "
+            "\nPlease make sure that the files do in fact analyze the same samples and if so, remove each compound "
             "(row) from all but one of the listed files."
         )
         super().__init__(message)
@@ -3973,8 +3970,8 @@ class MultiplePeakGroupRepresentation(SummarizableError):
             f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
             "Each peak group originated from:\n"
             f"\t{files_str}\n"
-            "Only 1 representation of a compound per sequence (and sample) is allowed.  Please remove this compound "
-            "from all but one of the above files, or check to make sure the correct sequence is assigned to each file."
+            "Only 1 representation of a compound per sample is allowed.  Please remove this compound from all but one "
+            "of the above files."
         )
         super().__init__(message)
         self.new_rec = new_rec

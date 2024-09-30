@@ -83,7 +83,7 @@ class MSRunSequence(Model):
 
     @classmethod
     def parse_sequence_name(cls, sequence_name: str):
-        """Parses a sequence name into its parts.
+        """Parses an MS Run Name into its parts.
 
         Args:
             name (str)
@@ -95,7 +95,7 @@ class MSRunSequence(Model):
             instrument (Optional[str])
             date (Optional[str])
         """
-        from DataRepo.utils.exceptions import InvalidSequenceName
+        from DataRepo.utils.exceptions import InvalidMSRunName
 
         operator = None
         date = None
@@ -111,8 +111,8 @@ class MSRunSequence(Model):
                     date,
                 ) = sequence_name.split(cls.SEQNAME_DELIMITER)
             except ValueError as ve:
-                raise InvalidSequenceName(
-                    f"Unable to parse sequence name '{sequence_name}'.  Must be 4 comma-delimited values of "
+                raise InvalidMSRunName(
+                    f"Unable to parse MS Run Name '{sequence_name}'.  Must be 4 comma-delimited values of "
                     "[Operator, LC Protocol, Instrument, and Date]."
                 ).with_traceback(ve.__traceback__)
 

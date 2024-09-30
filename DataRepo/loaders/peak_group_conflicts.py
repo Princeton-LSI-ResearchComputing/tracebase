@@ -252,7 +252,7 @@ class PeakGroupConflicts(TableLoader):
 
         Args:
             all_representations (Dict[str, Dict[str, Dict[str, List[int]]]]): A dict of all peak annotation files and
-                the rows they were on, for every sequence and sorted and lower-cased peak group name.
+                the rows they were on, for every common sorted sample set and sorted and lower-cased peak group name.
         Exceptions:
             Buffers:
                 InfileError

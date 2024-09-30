@@ -52,7 +52,7 @@ class TracersLoader(TableLoader):
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
         ID="Tracer Row Group",
-        COMPOUND="Compound Name",
+        COMPOUND="Compound",
         ELEMENT="Element",
         MASSNUMBER="Mass Number",
         LABELCOUNT="Label Count",
@@ -189,9 +189,9 @@ class TracersLoader(TableLoader):
             # corresponding column, respectively
             # Cannot reference the InfusatesLoader here (to include the name of its sheet and its tracer name column)
             # due to circular import
-            guidance=(
-                "This column is automatically filled in using an excel formula and its values are used to populate "
-                "Tracer Name choices in the Infusates sheet."
+            reference=ColumnReference(
+                sheet="Infusates",
+                header="Tracer Name",
             ),
             type=str,
             # TODO: Create the method that applies the formula to the NAME column on every row

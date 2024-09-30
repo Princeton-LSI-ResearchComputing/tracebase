@@ -38,10 +38,10 @@ class Command(LoadTableCommand):
             "--operator",
             type=str,
             help=(
-                "Default researcher (name) who operated the mass spec, used to assign each MSRun Sample to a sequence "
-                f"(only used if --infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} "
-                f"has no value).  Mutually exclusive with a default {SequencesLoader.DataHeaders.OPERATOR} defined "
-                "in either --defaults-file or --defaults-sheet."
+                "Default researcher (who operated the mass spec).  Used to assign each MS Run Sample to an MS Run "
+                "Sequence (only used if --infile is either not provided or column "
+                f"{self.loader_class.DataHeaders.SEQNAME} has no value).  Mutually exclusive with a default "
+                f"{SequencesLoader.DataHeaders.OPERATOR} defined in either --defaults-file or --defaults-sheet."
             ),
             required=False,
         )
@@ -49,9 +49,9 @@ class Command(LoadTableCommand):
             "--date",
             type=str,
             help=(
-                "Default date the mass spec was run, used to assign each MSRun Sample to a sequence (only used if "
-                f"--infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} has no value).  "
-                f"Mutually exclusive with a default {SequencesLoader.DataHeaders.DATE} defined in either "
+                "Default date the mass spec was run.  Used to assign each MS Run Sample to an MS Run Sequence (only "
+                f"used if --infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} has no "
+                f"value).  Mutually exclusive with a default {SequencesLoader.DataHeaders.DATE} defined in either "
                 "--defaults-file or --defaults-sheet."
             ),
             required=False,
@@ -60,7 +60,7 @@ class Command(LoadTableCommand):
             "--lc-protocol-name",
             type=str,
             help=(
-                "Default liquid chromatography protocol name, used to assign each MSRun Sample to a sequence "
+                "Default liquid chromatography protocol name.  Used to assign each MS Run Sample to an MS Run Sequence "
                 f"(only used if --infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} "
                 f"has no value).  Mutually exclusive with a default {SequencesLoader.DataHeaders.LCNAME} defined in "
                 "either --defaults-file or --defaults-sheet."
@@ -71,10 +71,10 @@ class Command(LoadTableCommand):
             "--instrument",
             type=str,
             help=(
-                "Default mass spec instrument name, used to assign each MSRun Sample to a sequence (only used if "
-                f"--infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} has no value).  "
-                f"Mutually exclusive with a default {SequencesLoader.DataHeaders.INSTRUMENT} defined in either "
-                "--defaults-file or --defaults-sheet."
+                "Default mass spec instrument name.  Used to assign each MS Run Sample to an MS Run Sequence (only "
+                f"used if --infile is either not provided or column {self.loader_class.DataHeaders.SEQNAME} has no "
+                f"value).  Mutually exclusive with a default {SequencesLoader.DataHeaders.INSTRUMENT} defined in "
+                "either --defaults-file or --defaults-sheet."
             ),
             required=False,
         )

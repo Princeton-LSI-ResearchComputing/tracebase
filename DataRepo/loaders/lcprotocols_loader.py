@@ -4,7 +4,7 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import LCMethod
 from DataRepo.utils.exceptions import ConflictingValueError, RollbackException
@@ -90,6 +90,16 @@ class LCProtocolsLoader(TableLoader):
             name=DataHeaders.NAME,
             type=str,
             readonly=True,
+            format=(
+                "While this column is automatically populated by excel formula, the following describes the formula "
+                "output, if you wish to manually enter it.\n"
+                "\n"
+                f"E.g. '{DataHeaders.TYPE}'-'{DataHeaders.RUNLEN}'-min"
+            ),
+            reference=ColumnReference(
+                sheet="MS Runs",
+                header="MS Run Name",
+            ),
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates f"{type}-{run_length}-min" using the spreadsheet columns on the current row
             # The header keys will be replaced by the excel column letters.  Simplified example:
