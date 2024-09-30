@@ -1601,7 +1601,7 @@ class BuildSubmissionView(FormView):
             file = loader.get_row_val(row, loader.headers.ANNOTNAME)
             if file in self.none_vals or sample_header in self.none_vals:
                 continue
-            filename = (os.path.split(file))[1]
+            filename = os.path.basename(file)
 
             # If there's no seqname for this row, but we have a complete seqname in self.annot_file_metadata
             # We have enough for autofill
