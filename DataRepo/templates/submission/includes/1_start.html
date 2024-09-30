@@ -24,11 +24,6 @@
                 <td style="vertical-align: middle;">
                     <table>
                         <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
-                            <td style="display: none;" id="hiddenColumn">
-                            <!-- These are necessary for valid forms, but only the first row's values will be used, since it's only the peak annotation file details that need to be replicated. -->
-                                {{ form.mode }}
-                                {{ form.study_doc }}
-                            </td>
                             <td style="display: none;" id="fileColumn">
                                 {{ form.peak_annotation_file }}
                             </td>
@@ -51,53 +46,49 @@
         </table>
     </form>
 
-    <div class="level-indent">
-        <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data" class="tbform-control" onsubmit="onSubmit();">
-            {% csrf_token %}
+    <form action="{% url 'submission' %}" id="submission-validation" method="POST" enctype="multipart/form-data" class="tbform-control" onsubmit="onSubmit();">
+        {% csrf_token %}
 
-            <!-- Single instances of the datalists (since the form will be replicated and we don't want/need to replicate the datalists along with it) -->
-            {{ form.operator_datalist }}
-            {{ form.protocol_datalist }}
-            {{ form.instrument_datalist }}
-            {{ form.run_date_datalist }}
+        <!-- Single instances of the datalists (since the form will be replicated and we don't want/need to replicate the datalists along with it) -->
+        {{ form.operator_datalist }}
+        {{ form.protocol_datalist }}
+        {{ form.instrument_datalist }}
+        {{ form.run_date_datalist }}
 
+        <div class="level-indent">
             <!-- Peak annotation file forms will be added to this table via javascript -->
             <table id="peak-annot-forms-elem">
             </table>
+        </div>
 
-            <br>
+        <div id="single-form-elems" style="display: none;">
+            {{ form.mode }}
 
-            <!-- This is where an optional study doc input would be displayed, but the actual submission would be the first row in the table above. -->
-            <!-- Support for this as an optional input has not yet been implemented.  This is just a placeholder. -->
-            <!--
-            <div style="display: none;">
-                <label for="study_doc" class="tight-form-label">
-                    Study doc:
-                    <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
-                </label>
-                {{ form.study_doc }}
-                <span class="text-danger">{{ form.study_doc.errors }}</span>
-                {% comment %} Errors, if they exist, add an extra like which makes the spacing off {% endcomment %}
-                {% if not form.study_doc.errors %}<br>{% endif %}
-            </div>
-            -->
+            <label for="study_doc" class="tight-form-label">
+                Study doc:
+                <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
+            </label>
+            {{ form.study_doc }}
+        </div>
 
-            <span class="text-danger">
-                {% if form_errors %}
-                    <ul>
-                        {% for err in form_errors %}
-                            <li>{{ err }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </span>
-            <button type="submit" class="btn btn-primary" id="submit">Download Template</button>
-            <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
-            {% if results %}
-                <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
+        <br>
+
+        <span class="text-danger">
+            {% if form_errors %}
+                <ul>
+                    {% for err in form_errors %}
+                        <li>{{ err }}</li>
+                    {% endfor %}
+                </ul>
             {% endif %}
-        </form>
-    </div>
+        </span>
+
+        <button type="submit" class="btn btn-primary" id="submit">Download Template</button>
+        <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
+        {% if results %}
+            <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
+        {% endif %}
+    </form>
 </div>
 
 

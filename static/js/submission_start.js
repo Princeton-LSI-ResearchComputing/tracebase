@@ -2,6 +2,8 @@ var templateContainer = null // eslint-disable-line no-var
 var peakAnnotFormsTable = null // eslint-disable-line no-var
 var dropAreaInput = null // eslint-disable-line no-var
 var dataSubmissionForm = null // eslint-disable-line no-var
+var singleFormDiv = null // eslint-disable-line no-var
+var studyDocInput = null // eslint-disable-line no-var
 
 /**
  * A method to initialize the peak annotation file form interface.  Dropped files will call addPeakAnnotFileToUpload,
@@ -11,11 +13,19 @@ var dataSubmissionForm = null // eslint-disable-line no-var
  * @param {*} peakAnnotFormsTable [table] The table where the form rows will be added when files are dropped in the drop
  * area.
  */
-function initPeakAnnotUploads (templateContainer, peakAnnotFormsTable, dropAreaInput, dataSubmissionForm) { // eslint-disable-line no-unused-vars
+function initPeakAnnotUploads (templateContainer, peakAnnotFormsTable, dropAreaInput, dataSubmissionForm, singleFormDiv, studyDocInput) { // eslint-disable-line no-unused-vars
   globalThis.templateContainer = templateContainer
   globalThis.peakAnnotFormsTable = peakAnnotFormsTable
   globalThis.dropAreaInput = dropAreaInput
   globalThis.dataSubmissionForm = dataSubmissionForm
+  globalThis.singleFormDiv = singleFormDiv
+  globalThis.studyDocInput = studyDocInput
+
+  // Add an event listener to the study doc input to enable the submit button
+  studyDocInput.addEventListener('change', function () {
+    enablePeakAnnotForm()
+  })
+
   // Disable the form submission button to start (because there are no peak annotation form rows yet.
   disablePeakAnnotForm()
 }
@@ -72,30 +82,60 @@ function onSubmit () { // eslint-disable-line no-unused-vars
  * @returns the number of forms in the formset
  */
 function prepareFormsetForms () {
+  // Check if a study doc is being submitted
+  const studyDocExists = studyDocInput.files.length > 0
+
+  // Process the form elements that only occur once (i.e. are not replicated)
+  const singlePrefix = 'form-0-'
+  const singleInputElems = singleFormDiv.querySelectorAll('input')
+  for (let i = 0; i < singleInputElems.length; i++) {
+    const singleInputElem = singleInputElems[i]
+    // If this input element contains the form-control class (i.e. we're using the presence of the form-control class
+    // to infer that the element is an explicitly added input element (not some shadow element)
+    if (singleInputElem.classList.contains('form-control')) {
+      if (singleInputElem.for) {
+        singleInputElem.for = singlePrefix + singleInputElem.for
+      }
+      if (singleInputElem.id) {
+        singleInputElem.id = singlePrefix + singleInputElem.id
+      }
+      if (singleInputElem.name) {
+        singleInputElem.name = singlePrefix + singleInputElem.name
+      }
+    }
+  }
+
+  // Process the form elements that occur multiple times (i.e. are replicated)
   const formRows = getFormRows()
   for (let r = 0; r < formRows.length; r++) {
     const formRow = formRows[r]
     const inputElems = formRow.querySelectorAll('input')
     // Prepend attributes 'id', 'name', and 'for' with "form-0-", as is what django expects from a formset
-    const prefix = 'form-' + r.toString() + '-'
+    const multiPrefix = 'form-' + r.toString() + '-'
     for (let i = 0; i < inputElems.length; i++) {
       const inputElem = inputElems[i]
       // If this input element contains the form-control class (i.e. we're using the presence of the form-control class
       // to infer that the element is an explicitly added input element (not some shadow element)
       if (inputElem.classList.contains('form-control')) {
         if (inputElem.for) {
-          inputElem.for = prefix + inputElem.for
+          inputElem.for = multiPrefix + inputElem.for
         }
         if (inputElem.id) {
-          inputElem.id = prefix + inputElem.id
+          inputElem.id = multiPrefix + inputElem.id
         }
         if (inputElem.name) {
-          inputElem.name = prefix + inputElem.name
+          inputElem.name = multiPrefix + inputElem.name
         }
       }
     }
   }
-  return formRows.length
+
+  if (formRows.length > 0) {
+    return formRows.length
+  } else if (studyDocExists) {
+    return 1
+  }
+  return 0
 }
 
 /**

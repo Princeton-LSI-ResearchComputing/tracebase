@@ -612,7 +612,12 @@ class BuildSubmissionView(FormView):
         formset_class = formset_factory(self.get_form_class())
         formset = self.get_form(formset_class)
 
-        if not formset.is_valid():
+        if (
+            not formset.is_valid()
+            # mode is required in the first form only
+            or "mode" not in formset.cleaned_data[0].keys()
+            or formset.cleaned_data[0]["mode"] not in ["autofill", "validate"]
+        ):
             return self.form_invalid(formset)
 
         return self.form_valid(formset)
@@ -728,7 +733,7 @@ class BuildSubmissionView(FormView):
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
         # Get the mode from the unparsed data (since cleaned_data will not exist)
-        mode = formset.__dict__["data"]["form-0-mode"]
+        mode = formset.__dict__["data"].get("form-0-mode")
         if mode == "autofill":
             page = "Start"
         elif mode == "validate":
