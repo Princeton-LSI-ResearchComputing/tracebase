@@ -263,6 +263,7 @@ class BuildSubmissionView(FormView):
         self.annot_files_dict: Dict[str, str] = {}
         self.peak_annot_files = None
         self.peak_annot_filenames = []
+        self.annot_file_metadata = {}
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
         self.validation_offset = 20
@@ -607,37 +608,12 @@ class BuildSubmissionView(FormView):
     def dispatch(self, request, *args, **kwargs):
         return super(BuildSubmissionView, self).dispatch(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, *args, **kwargs):
         formset_class = formset_factory(self.get_form_class())
         formset = self.get_form(formset_class)
 
         if not formset.is_valid():
             return self.form_invalid(formset)
-
-        if "form-0-study_doc" in request.FILES:
-            # We only ever want just the first one.  All others are invalid.
-            study_doc = request.FILES["form-0-study_doc"]
-            tmp_study_file = study_doc.temporary_file_path()
-        else:
-            # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
-            study_doc = None
-            tmp_study_file = None
-
-        peak_annotation_files = []
-        if "form-0-peak_annotation_file" in request.FILES:
-            peak_annotation_files = []
-            for key in request.FILES:
-                if "peak_annotation_file" in key:
-                    peak_annotation_files.append(request.FILES[key])
-
-        self.load_status_data.clear_load()
-
-        self.set_files(
-            tmp_study_file,
-            study_filename=str(study_doc) if study_doc is not None else None,
-            peak_annot_files=[fp.temporary_file_path() for fp in peak_annotation_files],
-            peak_annot_filenames=[str(fp) for fp in peak_annotation_files],
-        )
 
         return self.form_valid(formset)
 
@@ -645,6 +621,50 @@ class BuildSubmissionView(FormView):
         """
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
+
+        # Process the annot file formset
+        mode = None
+        study_file_object = None
+        study_file = None
+        study_filename = None
+        peak_annot_files = []
+        peak_annot_filenames = []
+        self.annot_file_metadata = {}
+        rowform: dict
+        for index, rowform in enumerate(formset.cleaned_data):
+            # We only need/allow a single mode and study_doc, which is saved only in the first rowform
+            if index == 0:
+                mode = rowform["mode"]
+                study_file_object = rowform.get("study_doc")
+                if study_file_object is not None:
+                    study_file = study_file_object.temporary_file_path()
+                    study_filename = str(study_file_object)
+
+            # Process the peak annotation files
+            peak_annotation_file_object = rowform.get("peak_annotation_file")
+            if peak_annotation_file_object is not None:
+                peak_annot_file = peak_annotation_file_object.temporary_file_path()
+                peak_annot_filename = str(peak_annotation_file_object)
+
+                peak_annot_files.append(peak_annot_file)
+                peak_annot_filenames.append(peak_annot_filename)
+
+                self.annot_file_metadata[peak_annot_filename] = {
+                    "operator": rowform.get("operator"),
+                    "protocol": rowform.get("protocol"),
+                    "instrument": rowform.get("instrument"),
+                    # Date key is selected to be compatible with MSRunSequence.create_sequence_name
+                    "date": rowform.get("run_date"),
+                }
+
+        self.load_status_data.clear_load()
+
+        self.set_files(
+            study_file,
+            study_filename=study_filename,
+            peak_annot_files=peak_annot_files,
+            peak_annot_filenames=peak_annot_filenames,
+        )
 
         debug = f"sf: {self.study_file} num pafs: {len(self.peak_annot_files)}"
 
@@ -672,7 +692,6 @@ class BuildSubmissionView(FormView):
         #       'run_date': '2024-09-18',
         #     },
         #   ]
-        mode = formset.cleaned_data[0]["mode"]
         if mode == "autofill":
             page = "Start"
         elif mode == "validate":
@@ -766,7 +785,7 @@ class BuildSubmissionView(FormView):
             print("Extracting autofill information from file")
 
             # Extract autofill data directly from the peak annotation files
-            self.extract_autofill_from_files()
+            self.extract_autofill_from_files_and_forms()
         else:
             print("Validating study")
             self.validate_study()
@@ -1218,10 +1237,11 @@ class BuildSubmissionView(FormView):
                             f"{col_letter}{rownum}", formula, None, ""
                         )
 
-    def extract_autofill_from_files(self):
-        """Calls methods for extracting autofill data from the submitted files."""
+    def extract_autofill_from_files_and_forms(self):
+        """Calls methods for extracting autofill data from the submitted forms (including from the submitted files)."""
         self.extract_autofill_from_study_doc()
-        self.extract_autofill_from_peak_annotation_files()
+        self.extract_autofill_from_sequence_forms()
+        self.extract_autofill_from_peak_annotation_files_forms()
 
     def extract_autofill_from_study_doc(self):
         """Extracts data from various sheets of the study doc.
@@ -1496,8 +1516,52 @@ class BuildSubmissionView(FormView):
             if loader.is_row_empty(row):
                 continue
 
+            annot_file = loader.get_row_val(row, loader.headers.FILE)
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
-            self.extract_autofill_from_sequence_name(seq_name, seen)
+            (
+                operator,
+                protocol,
+                instrument,
+                date,
+            ) = self.extract_autofill_from_sequence_name(seq_name, seen)
+
+            if annot_file is not None:
+                annot_name = (os.path.split(annot_file))[1]
+
+                if annot_name not in self.annot_file_metadata.keys():
+                    self.annot_file_metadata = {
+                        "operator": None,
+                        "protocol": None,
+                        "instrument": None,
+                        "date": None,
+                    }
+
+                # The values in self.annot_file_metadata[annot_name] already are from the web form.  Those values trump
+                # what we might find in the file already, so we only update with what we find in the file if it's not
+                # set by the web form already.
+                if (
+                    self.annot_file_metadata[annot_name].get("operator") is None
+                    or self.annot_file_metadata[annot_name].get("operator") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["operator"] = operator
+
+                if (
+                    self.annot_file_metadata[annot_name].get("protocol") is None
+                    or self.annot_file_metadata[annot_name].get("protocol") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["protocol"] = protocol
+
+                if (
+                    self.annot_file_metadata[annot_name].get("instrument") is None
+                    or self.annot_file_metadata[annot_name].get("instrument") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["instrument"] = instrument
+
+                if (
+                    self.annot_file_metadata[annot_name].get("date") is None
+                    or self.annot_file_metadata[annot_name].get("date") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["date"] = date
 
     def extract_autofill_from_peak_annot_details_sheet(self):
         if MSRunsLoader.DataSheetName not in self.study_file_sheets:
@@ -1531,14 +1595,53 @@ class BuildSubmissionView(FormView):
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
             self.extract_autofill_from_sequence_name(seq_name, seen)
 
+            # We can actually fill in any missing seqnames in this sheet based on the file (and sample header)
+            # columns...
+            sample_header = loader.get_row_val(row, loader.headers.SAMPLEHEADER)
+            file = loader.get_row_val(row, loader.headers.ANNOTNAME)
+            if file in self.none_vals or sample_header in self.none_vals:
+                continue
+            filename = os.path.basename(file)
+
+            # If there's no seqname for this row, but we have a complete seqname in self.annot_file_metadata
+            # We have enough for autofill
+            if seq_name in self.none_vals and (
+                filename in self.annot_file_metadata.keys()
+                and None not in self.annot_file_metadata[filename].values()
+                and "" not in self.annot_file_metadata[filename].values()
+            ):
+                # Get the unique key used to identify this row
+                unique_annot_deets_key = self.row_key_delim.join(
+                    [sample_header, filename]
+                )
+
+                # If the autofill_dict hasn't been filled in already (i.e. don't overwrite what the user entered in the
+                # web form)
+                if (
+                    unique_annot_deets_key
+                    not in self.autofill_dict[MSRunsLoader.DataSheetName].keys()
+                    or self.autofill_dict[MSRunsLoader.DataSheetName][
+                        unique_annot_deets_key
+                    ].get(MSRunsLoader.DataHeaders.SEQNAME)
+                    is None
+                ):
+                    self.autofill_dict[MSRunsLoader.DataSheetName][
+                        unique_annot_deets_key
+                    ][
+                        MSRunsLoader.DataHeaders.SEQNAME
+                    ] = MSRunSequence.create_sequence_name(
+                        **self.annot_file_metadata[filename]
+                    )
+
     def extract_autofill_from_sequence_name(self, seq_name, seen):
         if seq_name is not None and seq_name not in seen["sequences"].keys():
+            tpl = MSRunSequence.parse_sequence_name(seq_name)
             (
                 operator,
                 lc_protocol_name,
                 instrument,
                 date,
-            ) = MSRunSequence.parse_sequence_name(seq_name)
+            ) = tpl
             self.autofill_dict[SequencesLoader.DataSheetName][seq_name] = {
                 SequencesLoader.DataHeaders.SEQNAME: seq_name,
                 SequencesLoader.DataHeaders.OPERATOR: operator,
@@ -1549,6 +1652,10 @@ class BuildSubmissionView(FormView):
             seen["sequences"][seq_name] = True
 
             self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
+
+            return tpl
+
+        return (None, None, None, None)
 
     def extract_autofill_from_lcprotocol_name(self, lc_protocol_name, seen):
         if (
@@ -1656,8 +1763,35 @@ class BuildSubmissionView(FormView):
             lc_protocol_name = loader.get_row_val(row, loader.headers.LCNAME)
             self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
 
-    def extract_autofill_from_peak_annotation_files(self):
-        """Extracts data from multiple peak annotation files that can be used to populate a made-from-scratch study doc.
+    def extract_autofill_from_sequence_forms(self):
+        """Extracts sequence data from multiple peak annotation file and sequence forms.
+
+        Populates self.autofill_dict.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        for seq_data in self.annot_file_metadata.values():
+            # This unique key is based on SequencesLoader.DataUniqueColumnConstraints
+            seqname = MSRunSequence.create_sequence_name(**seq_data)
+            # Note, this intentionally does not look for subsets of data, e.g. is N rows only have the operator (all the
+            # same) and M rows have the same operator and same instrument, the result is 2 rows in the sequences sheet.
+            # This assumes that the user has filled out as much information as they can in each case, and having those
+            # rows represented in the Sequences sheet will prevent them from having to duplicate them.
+            self.autofill_dict[SequencesLoader.DataSheetName][seqname] = {
+                SequencesLoader.DataHeaders.OPERATOR: seq_data["operator"],
+                SequencesLoader.DataHeaders.LCNAME: seq_data["protocol"],
+                SequencesLoader.DataHeaders.INSTRUMENT: seq_data["instrument"],
+                SequencesLoader.DataHeaders.DATE: seq_data["date"],
+            }
+
+    def extract_autofill_from_peak_annotation_files_forms(self):
+        """Extracts data from multiple peak annotation files and the accompanying form sequence metadata that can be
+        used to populate a made-from-scratch study doc.
 
         Populates self.autofill_dict.
 
@@ -1677,6 +1811,13 @@ class BuildSubmissionView(FormView):
         sample_dupes_exist = False
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
+            seq_data: dict = self.annot_file_metadata.get(peak_annot_filename, {})
+            partial_seqname = None
+            if len([v for v in seq_data.values() if v not in self.none_vals]) > 0:
+                partial_seqname = MSRunSequence.create_sequence_name(**seq_data)
+            complete_seqname = None
+            if "" not in seq_data.values() and None not in seq_data.values():
+                complete_seqname = partial_seqname
 
             # If the file format could not be determined, the loader will be None
             if self.peak_annotations_loaders[i] is None:
@@ -1692,6 +1833,8 @@ class BuildSubmissionView(FormView):
                 # The format was assigned either by the user in the file or automatically determined.  Doesn't matter
                 # how we got it, it's now a candidate for autfill.
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: peak_annot_loader.format_code,
+                # Always fill in what we have of the seqname
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: partial_seqname,
             }
 
             # Extracting samples - using vectorized access of the dataframe because it's faster and we don't need error
@@ -1744,8 +1887,10 @@ class BuildSubmissionView(FormView):
                     # No point in entering the mzXML. It will default to this in its loader:
                     # MSRunsLoader.DataHeaders.MZXMLNAME: f"{sample_header}.mzXML",
                     MSRunsLoader.DataHeaders.ANNOTNAME: peak_annot_filename,
+                    # This only fills in the seqname if it is complete, so it can be autofilled if the researcher fills
+                    # in the rest of the Peak Annotation Files sheet's seqname values
+                    MSRunsLoader.DataHeaders.SEQNAME: complete_seqname,
                     MSRunsLoader.DataHeaders.SKIP: skip,
-                    # Not going to fill in a SEQNAME - will rely on the default in the Peak Annotation Files sheet
                 }
 
             # Extracting compounds - using vectorized access of the dataframe because it's faster and we don't need

@@ -874,7 +874,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         dvv.set_files(
             peak_annot_files=["DataRepo/data/tests/data_submission/accucor1.xlsx"]
         )
-        dvv.extract_autofill_from_peak_annotation_files()
+        dvv.extract_autofill_from_peak_annotation_files_forms()
         self.assertDictEqual(
             {
                 "Compounds": {
@@ -904,18 +904,21 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                         "Peak Annotation File Name": "accucor1.xlsx",
                         "Sample Data Header": "072920_XXX1_1_TS1",
                         "Sample Name": "072920_XXX1_1_TS1",
+                        "Sequence Name": None,
                         "Skip": None,
                     },
                     "072920_XXX1_2_bra__DELIM__accucor1.xlsx": {
                         "Peak Annotation File Name": "accucor1.xlsx",
                         "Sample Data Header": "072920_XXX1_2_bra",
                         "Sample Name": "072920_XXX1_2_bra",
+                        "Sequence Name": None,
                         "Skip": None,
                     },
                     "blank_1_404020__DELIM__accucor1.xlsx": {
                         "Peak Annotation File Name": "accucor1.xlsx",
                         "Sample Data Header": "blank_1_404020",
                         "Sample Name": "blank_1_404020",
+                        "Sequence Name": None,
                         "Skip": "skip",
                     },
                 },
@@ -923,6 +926,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                     "accucor1.xlsx": {
                         "File Format": "accucor",
                         "Peak Annotation File": "accucor1.xlsx",
+                        "Default Sequence Name": None,
                     },
                 },
                 "Peak Group Conflicts": {},
