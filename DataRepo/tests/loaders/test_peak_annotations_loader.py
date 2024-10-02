@@ -801,6 +801,12 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
 
     def test_PeakAnnotationsLoader_conflicting_peak_group_resolutions(self):
+        """This tests a case where the user had to have manipulated the Peak Group Conflicts data (in
+        conflicting_resolutions.tsv) where they duplicated a row and selected multiple conflicting peak annotation files
+        (/'resolutions' for the conflict) for 1 compound/samples-combo combo.
+
+        The assures that the conflict is detected and raised.
+        """
         # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
         dfdict = read_from_file(
             "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
@@ -865,7 +871,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 "deleted": 0,
                 "errored": 0,
                 "existed": 0,
-                "skipped": 4,
+                "skipped": 4,  # Load is attempted on each PeakData line (bu the peakgroup failed)
                 "updated": 0,
                 "warned": 0,
             },
@@ -874,7 +880,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 "deleted": 0,
                 "errored": 0,
                 "existed": 0,
-                "skipped": 3,
+                "skipped": 3,  # Load is attempted on each PeakData line (that has labels)
                 "updated": 0,
                 "warned": 0,
             },
@@ -892,7 +898,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 "deleted": 0,
                 "errored": 0,
                 "existed": 0,
-                "skipped": 3,
+                "skipped": 3,  # Load is attempted on each PeakData line (that has labels)
                 "updated": 0,
                 "warned": 0,
             },
@@ -909,6 +915,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertDictEqual(expected, il.get_load_stats())
 
     def test_PeakAnnotationsLoader_delete_existing_unselected_peak_group(self):
+        """This tests that a previously loaded peak group is not the selected peakgroup on a subsequent load, thus it is
+        deleted.  It simulates that the user was presented with the detected conflict and chose the prefered data for
+        that compound in the peak group conflicts sheet."""
         # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
         dfdict = read_from_file(
             "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
