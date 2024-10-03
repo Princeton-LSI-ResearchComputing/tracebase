@@ -865,7 +865,9 @@ class MSRunsLoader(TableLoader):
                     "ms_data_file__isnull": True,
                 }
 
-                rec, created = MSRunSample.objects.get_or_create(**msrs_placeholder_query_dict, defaults=msrs_rec_dict)
+                rec, created = MSRunSample.objects.get_or_create(
+                    **msrs_placeholder_query_dict, defaults=msrs_rec_dict
+                )
             else:  # We're getting/creating a concrete MSRunSample record
                 rec, created = MSRunSample.objects.get_or_create(**msrs_rec_dict)
 
@@ -896,10 +898,10 @@ class MSRunsLoader(TableLoader):
         annot_name,
     ):
         """This method enforces a few simple rules
-        
+
         1. If a Sample/MSRunSequence has multiple concrete MSRunSample records, all PeakGroups must link to a
            placeholder record.
-        2. """
+        2."""
         # See if there exists a matching placeholder record (there can be only 1)
         placeholder_msrs_rec = MSRunSample.objects.filter(
             msrun_sequence=msrun_sequence,
@@ -948,9 +950,13 @@ class MSRunsLoader(TableLoader):
 
                 # If all of the placeholder's peak groups link to the current peak annotation file
                 if (
-                    placeholder_msrs_rec.peak_groups.exclude(peak_annotation_file__filename=annot_name).count()
+                    placeholder_msrs_rec.peak_groups.exclude(
+                        peak_annotation_file__filename=annot_name
+                    ).count()
                     == 0
-                    and placeholder_msrs_rec.peak_groups.filter(peak_annotation_file__filename=annot_name).count()
+                    and placeholder_msrs_rec.peak_groups.filter(
+                        peak_annotation_file__filename=annot_name
+                    ).count()
                     > 0
                 ):
                     pg_recs = list(placeholder_msrs_rec.peak_groups.all())
