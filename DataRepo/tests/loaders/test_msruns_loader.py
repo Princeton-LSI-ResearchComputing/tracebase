@@ -680,7 +680,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -689,7 +689,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the record does not have an mzXML
         self.assertIsNone(rec.ms_data_file)
         self.assertTrue(created)
-        self.assertFalse(updated)
 
     def test_get_create_or_update_msrun_sample_from_row_creating_placeholder_placeholder_exists(
         self,
@@ -718,7 +717,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -727,7 +726,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the record does not have an mzXML
         self.assertIsNone(rec.ms_data_file)
         self.assertFalse(created)
-        self.assertFalse(updated)
 
     def test_get_create_or_update_msrun_sample_from_row_no_concrete_no_placeholder(
         self,
@@ -758,7 +756,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -772,7 +770,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
-        self.assertFalse(updated)
 
     def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_placeholder(
         self,
@@ -813,10 +810,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # Create a record to be "gotten" (this is setup, not the test method call)
-        msrl.get_create_or_update_msrun_sample_from_row(row)
+        msrl.get_or_create_msrun_sample_from_row(row)
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -830,7 +827,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertFalse(updated)
 
     def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_all_pgs_match(
         self,
@@ -870,7 +866,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -885,7 +881,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertTrue(updated)
+        # self.assertTrue(updated)
 
     def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_pgs_placeholder_all_pgs_match(
         self,
@@ -946,7 +942,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -961,7 +957,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertTrue(updated)
+        # self.assertTrue(updated)
 
         # Check that the existing concrete record was deleted
         self.assertEqual(
@@ -1023,7 +1019,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # This is an initial call to assign 1 peak group (from the existing placeholder) to the concrete record we
         # created above
-        msrl.get_create_or_update_msrun_sample_from_row(row)
+        msrl.get_or_create_msrun_sample_from_row(row)
 
         # Now we have both a placeholder and concrete record, each with 1 peak group.  Let's change the placeholder's
         # peak group to now match the existing concrete record, to simulate a newly made association...
@@ -1038,7 +1034,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         placeholder_rec_id = self.msr.id
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1053,7 +1049,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertTrue(updated)
+        # self.assertTrue(updated)
 
         # Check that the existing concrete record now has 2 peak groups
         self.assertEqual(2, rec.peak_groups.count())
@@ -1100,7 +1096,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1115,7 +1111,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
-        self.assertFalse(updated)
 
         # Check that the existing placeholder record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
@@ -1181,7 +1176,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1196,7 +1191,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertFalse(updated)
 
         # Check that the existing placeholder record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
@@ -1239,7 +1233,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # This is the method we're testing
         try:
-            rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+            rec, created = msrl.get_or_create_msrun_sample_from_row(row)
         except RollbackException:
             # If rollback was raised, raise the real exception that occurred and was buffered
             raise msrl.aggregated_errors_object
@@ -1257,9 +1251,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
-        self.assertFalse(
-            updated
-        )  # Peakgroups are updated, but not the MSRunSequence placeholder record itself
 
         # Check that the existing placeholder record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
@@ -1322,7 +1313,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1337,8 +1328,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        # Peakgroups are updated, but not the MSRunSample placeholder record itself
-        self.assertFalse(updated)
 
         # Check that the existing placeholder record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
