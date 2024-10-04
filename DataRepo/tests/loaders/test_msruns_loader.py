@@ -1413,7 +1413,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(InfileError, type(aes.exceptions[0]))
         self.assertIn(
-            "Expected: ['MS Run Name', 'Operator', 'LC Protocol Name', ",
+            "Expected: ['Sequence Name', 'Operator', 'LC Protocol Name', ",
             str(aes.exceptions[0]),
         )
 

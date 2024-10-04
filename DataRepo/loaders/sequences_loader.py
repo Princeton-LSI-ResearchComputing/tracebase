@@ -52,7 +52,7 @@ class SequencesLoader(TableLoader):
 
     # The default header names (which can be customized via yaml file via the corresponding load script)
     DataHeaders = DataTableHeaders(
-        SEQNAME="MS Run Name",
+        SEQNAME="Sequence Name",
         OPERATOR="Operator",
         LCNAME="LC Protocol Name",
         INSTRUMENT="Instrument",

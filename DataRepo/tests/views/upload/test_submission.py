@@ -156,7 +156,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "LC Protocol Name": str,
                 "Notes": str,
                 "Operator": str,
-                "MS Run Name": str,
+                "Sequence Name": str,
             },
             "Peak Annotation Details": {
                 "Peak Annotation File Name": str,
@@ -362,7 +362,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "LC Protocol Name": {},
                 "Notes": {},
                 "Operator": {},
-                "MS Run Name": {},
+                "Sequence Name": {},
             },
             "Peak Annotation Details": {
                 "Peak Annotation File Name": {},
@@ -481,7 +481,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "LC Protocol Name": str,
                 "Notes": str,
                 "Operator": str,
-                "MS Run Name": str,
+                "Sequence Name": str,
             },
             "Peak Annotation Details": {
                 "Peak Annotation File Name": str,
@@ -800,7 +800,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "LC Protocol Name": {},
                 "Notes": {},
                 "Operator": {},
-                "MS Run Name": {},
+                "Sequence Name": {},
             },
             "Peak Annotation Details": {
                 "Peak Annotation File Name": {},

@@ -83,7 +83,7 @@ class MSRunSequence(Model):
 
     @classmethod
     def parse_sequence_name(cls, sequence_name: str):
-        """Parses an MS Run Name into its parts.
+        """Parses an Sequence Name into its parts.
 
         Args:
             name (str)
@@ -112,7 +112,7 @@ class MSRunSequence(Model):
                 ) = sequence_name.split(cls.SEQNAME_DELIMITER)
             except ValueError as ve:
                 raise InvalidMSRunName(
-                    f"Unable to parse MS Run Name '{sequence_name}'.  Must be 4 comma-delimited values of "
+                    f"Unable to parse Sequence Name '{sequence_name}'.  Must be 4 comma-delimited values of "
                     "[Operator, LC Protocol, Instrument, and Date]."
                 ).with_traceback(ve.__traceback__)
 

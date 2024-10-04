@@ -353,7 +353,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         return rec, created
 
     def get_default_sequence_details(self, row):
-        """Retrieves the MS Run Name and parses it into its parts.
+        """Retrieves the Sequence Name and parses it into its parts.
 
         Args:
             row (pd.Series)

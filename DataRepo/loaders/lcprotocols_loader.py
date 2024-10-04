@@ -98,7 +98,7 @@ class LCProtocolsLoader(TableLoader):
             ),
             reference=ColumnReference(
                 sheet="Sequences",
-                header="MS Run Name",
+                header="Sequence Name",
             ),
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates f"{type}-{run_length}-min" using the spreadsheet columns on the current row

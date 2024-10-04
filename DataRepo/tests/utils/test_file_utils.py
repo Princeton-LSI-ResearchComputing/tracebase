@@ -82,7 +82,7 @@ class FileUtilsTests(TracebaseTestCase):
                 "Treatment Description": str,
             },
             "Sequences": {
-                "MS Run Name": str,
+                "Sequence Name": str,
                 "Operator": str,
                 "Date": str,
                 "Instrument": str,
@@ -101,7 +101,7 @@ class FileUtilsTests(TracebaseTestCase):
                 },
             },
             "Sequences": {
-                "MS Run Name": {
+                "Sequence Name": {
                     0: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 6/8/2021",
                     1: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 10/19/2021",
                     2: "Xianfeng Zeng, polar-HILIC-25-min, QE2, 7/22/2020",
