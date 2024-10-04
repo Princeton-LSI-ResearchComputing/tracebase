@@ -48,7 +48,7 @@ class PeakAnnotationFilesLoader(TableLoader):
     DataHeaders = DataTableHeaders(
         FILE="Peak Annotation File",
         FORMAT="File Format",
-        SEQNAME="Default MS Run",
+        SEQNAME="Default Sequence",
     )
 
     # List of required header keys

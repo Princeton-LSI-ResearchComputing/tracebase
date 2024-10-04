@@ -1712,7 +1712,7 @@ class StudyV2Loader(StudyLoader):
                 else:
                     dfs_dict[files_sheet][format_header][file_i] = None
 
-                # Fill a None into the Default MS Run column
+                # Fill a None into the Default Sequence column
                 dfs_dict[files_sheet][defseqname_header][file_i] = placeholder_seqname
 
                 # Increment for the next row

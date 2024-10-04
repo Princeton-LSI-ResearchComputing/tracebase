@@ -167,7 +167,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "mzXML File Name": str,
             },
             "Peak Annotation Files": {
-                "Default MS Run": str,
+                "Default Sequence": str,
                 "File Format": str,
                 "Peak Annotation File": str,
             },
@@ -373,7 +373,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "mzXML File Name": {},
             },
             "Peak Annotation Files": {
-                "Default MS Run": {},
+                "Default Sequence": {},
                 "File Format": {},
                 "Peak Annotation File": {},
             },
@@ -492,7 +492,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "mzXML File Name": str,
             },
             "Peak Annotation Files": {
-                "Default MS Run": str,
+                "Default Sequence": str,
                 "File Format": str,
                 "Peak Annotation File": str,
             },
@@ -811,7 +811,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "mzXML File Name": {},
             },
             "Peak Annotation Files": {
-                "Default MS Run": {},
+                "Default Sequence": {},
                 "File Format": {},
                 "Peak Annotation File": {},
             },

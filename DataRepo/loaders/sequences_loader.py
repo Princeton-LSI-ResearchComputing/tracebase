@@ -111,12 +111,12 @@ class SequencesLoader(TableLoader):
                 "protocol, instrument (model), and date.  If a researcher performs multiple such Mass Spec Runs on the "
                 "same day, this MS Run Sequence record will represent multiple runs."
             ),
-            # TODO: Replace "Peak Annotation Details" and "Default MS Run" below with a reference to the loader
+            # TODO: Replace "Peak Annotation Details" and "Default Sequence" below with a reference to the loader
             # TODO: Make "reference" be a List[ColumnReference], because there are multiple sheets that reference this
             # column
             reference=ColumnReference(
                 sheet="Peak Annotation Files",
-                header="Default MS Run",
+                header="Default Sequence",
             ),
             type=str,
             format=(
