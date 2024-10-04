@@ -100,7 +100,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
             help_text=(
-                f"The default MS Run to use when loading {DataHeaders.FILE}.  Overridden by values supplied in "
+                f"The default Sequence to use when loading {DataHeaders.FILE}.  Overridden by values supplied in "
                 f"{MSRunsLoader.DataHeaders.SEQNAME} in the {MSRunsLoader.DataSheetName} sheet."
             ),
             type=str,

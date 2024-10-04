@@ -268,7 +268,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
                 "Sample Data Header": ["bat-xz969"],
                 "mzXML File Name": [None],
                 "Peak Annotation File Name": ["obob_maven_c160_inf.xlsx"],
-                "MS Run": ["Dick, polar-HILIC-25-min, QE2, 1991-5-7"],
+                "Sequence": ["Dick, polar-HILIC-25-min, QE2, 1991-5-7"],
                 "Skip": [None],
             },
         )

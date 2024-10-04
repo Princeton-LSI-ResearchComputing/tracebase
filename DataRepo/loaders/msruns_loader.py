@@ -90,7 +90,7 @@ class MSRunsLoader(TableLoader):
         SAMPLEHEADER="Sample Data Header",
         MZXMLNAME="mzXML File Name",
         ANNOTNAME="Peak Annotation File Name",
-        SEQNAME="MS Run",
+        SEQNAME="Sequence",
         SKIP="Skip",
     )
 
@@ -198,7 +198,7 @@ class MSRunsLoader(TableLoader):
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
             help_text=(
-                f"The MS Run associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
+                f"The Sequence associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
                 f"{DataHeaders.MZXMLNAME} on this row."
             ),
             type=str,
@@ -429,10 +429,10 @@ class MSRunsLoader(TableLoader):
         #    - Extract data from the mzxML files
         #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict, a 4D dict:
         #      {mzXML_name: {mzXML_dir: [{**metadata},...]}}
-        # We need the directory to match the mzXML in the infile with the MS Run name on the same row.  mzXML files can
-        # easily have the same name and all users can reasonably be expected to know is their location and the sequence
-        # they were a part of.  Normally, all that's needed is a name, but if that name is not unique, and there are
-        # multiple sequences in the file, we need a way to distinguish them, and the path is that way.
+        # We need the directory to match the mzXML in the infile with the Sequence name on the same row.  mzXML files
+        # can easily have the same name and all users can reasonably be expected to know is their location and the
+        # sequence they were a part of.  Normally, all that's needed is a name, but if that name is not unique, and
+        # there are multiple sequences in the file, we need a way to distinguish them, and the path is that way.
         for mzxml_file in self.mzxml_files:
             try:
                 self.get_or_create_mzxml_and_raw_archive_files(mzxml_file)
