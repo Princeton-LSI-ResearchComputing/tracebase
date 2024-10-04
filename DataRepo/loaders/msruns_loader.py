@@ -264,13 +264,13 @@ class MSRunsLoader(TableLoader):
             Derived (this) class Args:
                 mzxml_files (Optional[str]): Paths to mzXML files.
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
-                    (when it has a default for the operator column for the MS Runs sheet).
+                    (when it has a default for the operator column for the Sequences sheet).
                 lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
-                    defaults_df (when it has a default for the lc_protocol_name column for the MS Runs sheet).
+                    defaults_df (when it has a default for the lc_protocol_name column for the Sequences sheet).
                 instrument (Optional[str]): Name of the mass spec instrument.  Mutually exclusive with defaults_df
-                    (when it has a default for the instrument column for the MS Runs sheet).
+                    (when it has a default for the instrument column for the Sequences sheet).
                 date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
-                    with defaults_df (when it has a default for the date column for the MS Runs sheet).
+                    with defaults_df (when it has a default for the date column for the Sequences sheet).
                 exact_mode (bool) [False]: When False, and dynamically mapping sample headers to mzXML file names,
                     equate dashes and underscores.  (Isocorr, and possibly other software, when creating sample headers,
                     replaces dashes from the mzXML filename with underscores.  So when the code tries to look for a file
@@ -1168,7 +1168,7 @@ class MSRunsLoader(TableLoader):
 
     def get_msrun_sequence(self, name: Optional[str] = None) -> Optional[MSRunSequence]:
         """Retrieves an MSRunSequence record using either the value in the supplied SEQNAME column or via defaults for
-        the MS Runs sheet.
+        the Sequences sheet.
 
         The SEQMANE column is a comma-delimited string, which has the following values in this order:
         - Operator

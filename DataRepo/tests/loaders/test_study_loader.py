@@ -111,7 +111,7 @@ class StudyLoaderTests(TracebaseTestCase):
                 "LCPROTOCOLS": "LC Protocols",
                 "PGCONFLICTS": "Peak Group Conflicts",
                 "SAMPLES": "Samples",
-                "SEQUENCES": "MS Runs",
+                "SEQUENCES": "Sequences",
                 "STUDY": "Study",
                 "TISSUES": "Tissues",
                 "TRACERS": "Tracers",

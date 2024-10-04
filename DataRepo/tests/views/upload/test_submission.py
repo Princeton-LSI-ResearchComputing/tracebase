@@ -150,7 +150,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": str,
                 "Run Length": int,
             },
-            "MS Runs": {
+            "Sequences": {
                 "Date": str,
                 "Instrument": str,
                 "LC Protocol Name": str,
@@ -356,7 +356,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": {},
                 "Run Length": {},
             },
-            "MS Runs": {
+            "Sequences": {
                 "Date": {},
                 "Instrument": {},
                 "LC Protocol Name": {},
@@ -475,7 +475,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": str,
                 # "Run Length": int,
             },
-            "MS Runs": {
+            "Sequences": {
                 "Date": str,
                 "Instrument": str,
                 "LC Protocol Name": str,
@@ -607,7 +607,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tracers": {},
                 "Infusates": {},
                 "LC Protocols": {},
-                "MS Runs": {},
+                "Sequences": {},
                 "Peak Annotation Details": {},
                 "Peak Annotation Files": {},
                 "Peak Group Conflicts": {},
@@ -794,7 +794,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": {},
                 "Run Length": {},
             },
-            "MS Runs": {
+            "Sequences": {
                 "Date": {},
                 "Instrument": {},
                 "LC Protocol Name": {},
@@ -898,7 +898,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Tracers": {},
                 "Infusates": {},
                 "LC Protocols": {},
-                "MS Runs": {},
+                "Sequences": {},
                 "Peak Annotation Details": {
                     "072920_XXX1_1_TS1__DELIM__accucor1.xlsx": {
                         "Peak Annotation File Name": "accucor1.xlsx",

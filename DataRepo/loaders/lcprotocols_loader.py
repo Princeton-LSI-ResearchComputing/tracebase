@@ -97,7 +97,7 @@ class LCProtocolsLoader(TableLoader):
                 f"E.g. '{DataHeaders.TYPE}'-'{DataHeaders.RUNLEN}'-min"
             ),
             reference=ColumnReference(
-                sheet="MS Runs",
+                sheet="Sequences",
                 header="MS Run Name",
             ),
             # TODO: Create the method that applies the formula to the NAME column on every row

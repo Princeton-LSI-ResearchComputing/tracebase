@@ -636,7 +636,7 @@ class NewResearchers(Exception):
         Frank
     to ensure that the following researchers (parsed from the indicated file locations) are not variants of existing
     names:
-        Edith (in column [Operator] of sheet [MS Runs] in study.xlsx, on rows: '1-10')
+        Edith (in column [Operator] of sheet [Sequences] in study.xlsx, on rows: '1-10')
     """
 
     def __init__(self, new_researcher_exceptions: List[NewResearcher]):

@@ -512,10 +512,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
             defaults_df=pd.DataFrame.from_dict(
                 {
                     MSRunsLoader.DefaultsHeaders.SHEET_NAME: [
-                        "MS Runs",
-                        "MS Runs",
-                        "MS Runs",
-                        "MS Runs",
+                        "Sequences",
+                        "Sequences",
+                        "Sequences",
+                        "Sequences",
                     ],
                     MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                         "Date",
@@ -1357,10 +1357,10 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 defaults_df=pd.DataFrame.from_dict(
                     {
                         MSRunsLoader.DefaultsHeaders.SHEET_NAME: [
-                            "MS Runs",
-                            "MS Runs",
-                            "MS Runs",
-                            "MS Runs",
+                            "Sequences",
+                            "Sequences",
+                            "Sequences",
+                            "Sequences",
                         ],
                         MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                             "Date",
@@ -1397,9 +1397,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
             MSRunsLoader(
                 defaults_df=pd.DataFrame.from_dict(
                     {
-                        # These are defaults for the MS Runs sheet, used by the SequencesLoader instance that is a
+                        # These are defaults for the Sequences sheet, used by the SequencesLoader instance that is a
                         # member of an MSRunsLoader instance
-                        MSRunsLoader.DefaultsHeaders.SHEET_NAME: ["MS Runs"],
+                        MSRunsLoader.DefaultsHeaders.SHEET_NAME: ["Sequences"],
                         MSRunsLoader.DefaultsHeaders.COLUMN_NAME: [
                             "Invalid Column Name"
                         ],

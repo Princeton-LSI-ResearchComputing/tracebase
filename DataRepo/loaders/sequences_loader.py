@@ -35,7 +35,7 @@ class SequencesLoader(TableLoader):
     LCNAME_KEY = "LCNAME"
     NOTES_KEY = "NOTES"
 
-    DataSheetName = "MS Runs"
+    DataSheetName = "Sequences"
 
     # The tuple used to store different kinds of data per column at the class level
     DataTableHeaders = namedtuple(

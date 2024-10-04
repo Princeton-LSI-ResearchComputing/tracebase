@@ -269,13 +269,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     sheet/file that will be supplied to the MSRunsLoader class (that is an instance meber of this
                     instance)
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
-                    (when it has a default for the operator column for the MS Runs sheet).
+                    (when it has a default for the operator column for the Sequences sheet).
                 lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
-                    defaults_df (when it has a default for the lc_protocol_name column for the MS Runs sheet).
+                    defaults_df (when it has a default for the lc_protocol_name column for the Sequences sheet).
                 instrument (Optional[str]): Name of the mass spec instrument.  Mutually exclusive with defaults_df
-                    (when it has a default for the instrument column for the MS Runs sheet).
+                    (when it has a default for the instrument column for the Sequences sheet).
                 date (Optional[str]): Date the Mass spec instrument was run.  Format: YYYY-MM-DD.  Mutually exclusive
-                    with defaults_df (when it has a default for the date column for the MS Runs sheet).
+                    with defaults_df (when it has a default for the date column for the Sequences sheet).
                 filename (Optional[str]): In case the (superclass arg) "file" is a temp file with a nonsense name.
         Exceptions:
             Raises:
