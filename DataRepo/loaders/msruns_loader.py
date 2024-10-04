@@ -771,13 +771,14 @@ class MSRunsLoader(TableLoader):
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
             mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
             sequence_name = self.get_row_val(row, self.headers.SEQNAME)
-            annot_name = self.get_row_val(row, self.headers.ANNOTNAME)
             skip_str = self.get_row_val(row, self.headers.SKIP)
             skip = (
                 True
                 if skip_str is not None and skip_str.lower() in self.SKIP_STRINGS
                 else False
             )
+            # Annotation file name is not used in the load of this data.  It is only used when the PeakAnnotationsLoader
+            # retrieves metadata for a particular peak annotations file by calling get_loaded_msrun_sample_dict.
 
             if self.is_skip_row():
                 self.skipped(MSRunSample.__name__)
@@ -871,11 +872,12 @@ class MSRunsLoader(TableLoader):
             else:  # We're getting/creating a concrete MSRunSample record
                 rec, created = MSRunSample.objects.get_or_create(**msrs_rec_dict)
 
+            # 6. Check the MSRunSample records the PeakGroup records link to and re-arrange them if necessary.  Note,
+            # this could result in the creation of a placeholder MSRunSample record.
             self.check_reassign_peak_groups(
                 sample,
                 msrun_sequence,
                 multiple_matches,
-                annot_name,
             )
 
             if created:
@@ -895,13 +897,24 @@ class MSRunsLoader(TableLoader):
         sample,
         msrun_sequence,
         multiple_matches,
-        annot_name,
     ):
-        """This method enforces a few simple rules
+        """This method enforces a simple rule:  If a Sample/MSRunSequence has multiple (or no) concrete^ MSRunSample
+        records, all PeakGroup records must link to a placeholder^ record (for the same sample/sequence).  If a
+        Sample/MSRunSequence has only 1 concrete^ MSRunSample record, all PeakGroups must link to that concrete^
+        MSRunSample record.
 
-        1. If a Sample/MSRunSequence has multiple concrete MSRunSample records, all PeakGroups must link to a
-           placeholder record.
-        2."""
+        ^concrete = An MSRunSample whose mzXML ArchiveFile record is not None
+        ^placeholder = An MSRunSample record whose mzXML ArchiveFile record is None
+
+        Args:
+            sample (Sample)
+            msrun_sequence (MSRunSequence)
+            multiple_matches (bool)
+        Exceptions:
+            None
+        Returns:
+            None
+        """
         # See if there exists a matching placeholder record (there can be only 1)
         placeholder_msrs_rec = MSRunSample.objects.filter(
             msrun_sequence=msrun_sequence,
@@ -948,27 +961,17 @@ class MSRunsLoader(TableLoader):
                 # same peak annotation file, we can link those peak groups to the concrete record and delete the
                 # placeholder.
 
-                # If all of the placeholder's peak groups link to the current peak annotation file
-                if (
-                    placeholder_msrs_rec.peak_groups.exclude(
-                        peak_annotation_file__filename=annot_name
-                    ).count()
-                    == 0
-                    and placeholder_msrs_rec.peak_groups.filter(
-                        peak_annotation_file__filename=annot_name
-                    ).count()
-                    > 0
-                ):
-                    pg_recs = list(placeholder_msrs_rec.peak_groups.all())
-                    for pg_rec in pg_recs:
-                        pg_rec.msrun_sample = concrete_msrs_rec
-                        pg_rec.full_clean()
-                        pg_rec.save()
-                        self.updated(PeakGroup.__name__)
+                pg_recs = list(placeholder_msrs_rec.peak_groups.all())
+                pg_rec: PeakGroup
+                for pg_rec in pg_recs:
+                    pg_rec.msrun_sample = concrete_msrs_rec
+                    pg_rec.full_clean()
+                    pg_rec.save()
+                    self.updated(PeakGroup.__name__)
 
-                    # Now the placeholder record is empty, so there's no need to keep it around
-                    placeholder_msrs_rec.delete()
-                    self.deleted(MSRunSample.__name__)
+                # Now the placeholder record is empty, so there's no need to keep it around
+                placeholder_msrs_rec.delete()
+                self.deleted(MSRunSample.__name__)
 
         if concrete_msrs_qs.count() > 1:
             for concrete_msrs_rec in concrete_msrs_qs.all():
@@ -990,6 +993,7 @@ class MSRunsLoader(TableLoader):
 
     def get_sample_by_name(self, sample_name, from_mzxml=False):
         """Get a Sample record by name.
+
         Args:
             sample_name (string)
             from_mzxml (boolean): Whether the sample_name supplied was extracted from an mzXML file name or not (so that
@@ -1047,21 +1051,11 @@ class MSRunsLoader(TableLoader):
         mzxml_metadata,
     ):
         """Takes a sample record, msrun_sequence record, and metadata parsed from the mzxml (including ArchiveFile
-        records created from the file) and gets or creates MSRunSample records.
+        records created from the file) and gets or creates MSRunSample records.  It assumes that the mzxml_metadata
+        contains an ArchiveFile record for an mzXML file.
 
-        Note, this will not update PeakGroup records.  Updating PeakGroup records is necessary to keep things in synch
-        if PeakGroups from this file were previously added to a placeholder record.
-
-        See get_create_or_update_msrun_sample_from_row to add mzXML files to MSRunSample records while updating
-        PeakGroup records.
-
-        This method assumes that either no placeholder MSRunSample record exists or none of the PeakGroup records
-        that link to it were confirmed to have matched this mzXML.  A PeakGroup record only matches an mzXML if the Peak
-        Annotation Details sheet (i.e. the --infile) annotates the mzXML filename and/or matching peak annotation sample
-        header as belonging to a specific peak annotation file (e.g. accucor file) AND the PeakGroup.med_mz falls into
-        the scan range parsed from the file.  (NOTE: There is no reliable way to check the polarity associated with a
-        PeakGroup record, because that is not reliably recorded in (and cannot be reliably derived from) the
-        PeakAnnotation files).
+        See get_or_create_msrun_sample_from_row to add mzXML files to MSRunSample records while updating PeakGroup
+        records.
 
         Args:
             sample (Sample)
@@ -1077,7 +1071,7 @@ class MSRunsLoader(TableLoader):
                     "rawaf_record": raw_rec,
                     "mzxml_dir": "some/path/to/file",
                     "mzxml_filename": "sample1.mzXML",
-                    "added": False,  # This is assumed to be False in this method
+                    "added": False,
                 }
         Exceptions:
             Raises:
@@ -1322,12 +1316,20 @@ class MSRunsLoader(TableLoader):
         sample_header: Optional[str],
         mzxml_path: Optional[str],
     ) -> Tuple[dict, bool]:
-        """Identifies and retrieves the mzXML file (and metadata) that matches the row of the Peak Annotation Details
+        """Identifies and retrieves the mzXML file (and metadata) that matches a row of the Peak Annotation Details
         sheet so that it is associated with the MSRunSample record belonging to the correct MSRunSequence.  To do this,
         it tries looking up the metadata by (in the following order of precedence): mzXML name, sample header, or sample
         name to match a set of files (each with that name).  It then optionally (if there is more than 1 file with the
         same name) matches the path of the mzXML file from the mzXML name column with the actual directory path of the
         actual files.
+
+        It does not take into account previously loaded data, thus the only information for making the association
+        between a sample, a peak annotation file, and a specific mzXML file is what we have during this load.  After the
+        load, that information is gone, because we do not record (and cannot record) the sample header that suggests
+        which mzXML file any peak data is derived from.  There is no link between the Peak Annotation Files and the
+        mzXML files that were used to produce it.  Even if we had a path for a specific mzXML file during the load to
+        know which mzXML goes with the Peak Annotation File and Sample, that is not saved.  See issue #1238 for more
+        info.  That said...
 
         Note, the user may not have added a path to the mzXML column, and we don't want to have to force them to fill
         that out, since most times, the name is sufficient.  If no match is found, an error will be printed with the
@@ -1436,7 +1438,7 @@ class MSRunsLoader(TableLoader):
             # that can be used for a placeholder MSRunSample record that will be linked to by all peakgroups of this
             # sample.
             # NOTE: This is only relevant to MSRunSample records created by the calling method
-            # 'get_create_or_update_msrun_sample_from_row'.  The method 'get_or_create_msrun_sample_from_mzxml' (called
+            # 'get_or_create_msrun_sample_from_row'.  The method 'get_or_create_msrun_sample_from_mzxml' (called
             # in a loop from 'load_data') will create the leftover MSRunSample records in 'matches' that we are not
             # returning here.
             return placeholder_mzxml_metadata, True
@@ -1457,8 +1459,9 @@ class MSRunsLoader(TableLoader):
         annot_name,
         rec,
     ):
-        """This method retrieves peakgroups from the provided MSRunSample record and separates them based on the peak
-        annotation file name (annot_name) the dict is associated with compared with the one in the PeakGroup record.
+        """Deprecated.  This method retrieves peakgroups from the provided MSRunSample record and separates them based
+        on the peak annotation file name (annot_name) the dict is associated with compared with the one in the PeakGroup
+        record.
 
         Note that technically (though not in practice), multiple different mzXML files for the same sample/sequence can
         be used in a single peak annotation file.  One peak group could originate from one such mzXML file and the other
