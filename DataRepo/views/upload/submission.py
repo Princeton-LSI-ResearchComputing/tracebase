@@ -2511,7 +2511,7 @@ class BuildSubmissionView(FormView):
         ):
             return
 
-        # Get all the tracer names from the tracers sheet (which is assumed to have already been populated by
+        # Get all the tracers from the tracers sheet (which is assumed to have already been populated by
         # add_dynamic_dropdown_tracer_data)
         tracer_names = dict(
             (name, 0)

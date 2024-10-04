@@ -95,205 +95,32 @@ class ColumnReference:
                 ).header.name
 
 
-class ColumnHeader:
-    """Defines metadata associated with an excel column header, e.g. for decorating the header."""
-
-    def __init__(
-        self,
-        name: Optional[str] = None,
-        field: Optional[Field] = None,
-        guidance: Optional[str] = None,
-        format: Optional[str] = None,
-        reference: Optional[ColumnReference] = None,
-        dynamic_choices: Optional[ColumnReference] = None,
-        readonly: bool = False,
-        formula: Optional[str] = None,
-        # ColumnHeader arguments set by field, but can be supplied (e.g. if None or to override)
-        help_text: Optional[str] = None,
-        required: Optional[bool] = None,
-        unique: Optional[bool] = None,
-        # Option for the generated name (when field is supplied)
-        include_model_in_header: bool = True,
-    ):
-        """ColumnHeader constructor.
-
-        Args:
-            name (str): Header name.  Can override the field derived header.  Required if no field.
-            field (Field): Model field from which to derive data, if provided.  Required if no name.
-            guidance (str): Details added to Model.field.help_text when it differs from the model.
-            format (str): Add to provide notes about units, delimiting strings, etc.
-            reference (ColumnReference): Used to add to a header comment when columns are related.
-            help_text (str): Description of the column data.  Can override the field derived value.
-            required (bool): Whether the header is required to be present.  Derived from field.blank, but can be
-                overridden.
-            unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
-                overridden.
-            include_model_in_header (bool): Option to include the field's model name in the header (if name not
-                supplied).
-            readonly (bool): Whether the column may be only read (i.e. not edited).
-            formula (string): Excel formula to use to populate the column.
-
-        Exceptions:
-            ConditionallyRequiredOptions
-
-        Returns:
-            instance
-        """
-        if name is None and field is None:
-            raise ConditionallyRequiredOptions("name or field is required")
-
-        # field is not saved here, but it can be supplied to automatically set some attributes
-        if field is not None:
-            # Convert to the class
-            field = field.field
-
-            if name is None:
-                if include_model_in_header:
-                    name = make_title(field.model.__name__, field.name)
-                else:
-                    name = make_title(field.name)
-
-            # Handle overrides and unset/missing attributes.  If anything is invalid, it should be caught downstream.
-            if (
-                hasattr(field, "help_text")
-                and field.help_text is not None
-                and help_text is None
-            ):
-                help_text = field.help_text
-            if hasattr(field, "blank") and field.blank is not None and required is None:
-                required = not field.blank
-            if hasattr(field, "unique") and field.unique is not None:
-                unique = field.unique
-
-        # Default values
-        if required is None:
-            required = True
-        if unique is None:
-            unique = False
-
-        self.name = name
-        self.required = required
-        self.help_text = help_text
-        self.format = format
-        self.guidance = guidance
-        self.reference = reference
-        self.unique = unique
-        self.dynamic_choices = dynamic_choices
-        self.readonly = readonly
-        self.formula = formula
-
-    @property
-    def comment(self):
-        """Content of the header comment, composed based on instance attributes.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            comment (string)
-        """
-        if (
-            self.help_text is None
-            and self.guidance is None
-            and self.format is None
-            and self.reference is None
-            and self.unique is None
-            and (self.required is None or not self.required)
-        ):
-            return None
-
-        comment = ""
-        if self.readonly:
-            comment += "Readonly."
-            if self.formula is not None:
-                comment += "  (Calculated by formula.)"
-            comment += "\n\n"
-        elif self.formula is not None:
-            comment += "Calculated by formula.\n\n"
-        if self.help_text is not None:
-            comment += self.help_text
-        if self.guidance is not None:
-            if comment != "":
-                comment += "\n\n"
-            comment += self.guidance
-        if self.format is not None:
-            if comment != "":
-                comment += "\n\n"
-            comment += self.format
-        if self.reference is not None:
-            if comment != "":
-                comment += "\n\n"
-            comment += f"Must match a value in column '{self.reference.header}' in sheet: {self.reference.sheet}."
-        # TODO: Add a note about static_choices (and current_choices)
-        if self.dynamic_choices is not None:
-            if comment != "":
-                comment += "\n\n"
-            comment += (
-                f"Select a '{self.name}' from the dropdowns in this column.  The dropdowns are populated by the "
-                f"'{self.dynamic_choices.header}' column in the '{self.dynamic_choices.sheet}' sheet, so if the "
-                f"dropdowns are empty, add rows to the '{self.dynamic_choices.sheet}' sheet."
-            )
-        if self.unique is not None and self.unique:
-            if comment != "":
-                comment += "\n\n"
-            comment += "Must be unique."
-        if self.required:
-            if comment != "":
-                comment += "\n\n"
-            comment += "Required."
-        else:
-            if comment != "":
-                comment += "\n\n"
-            comment += "Optional."
-
-        return comment
-
-
-class ColumnValue:
-    """This is a *template* for any cell in a table column (except the header cell).  The attributes here are
-    collectively applied to every (non-header) cell in a column.
-
-    For example, all the values must be of a single type.  They can be required to be unique or be derived via formula.
-    They can be derived from a set of static choices, or via the values from a column in another sheet.
-    """
-
+class ColumnBase:
     def __init__(
         self,
         field: Optional[Field] = None,
         default=None,
         required: Optional[bool] = None,
-        type: Optional[type] = str,
+        unique: Optional[bool] = None,
         static_choices: Optional[List[tuple]] = None,
-        dynamic_choices: Optional[ColumnReference] = None,
         current_choices: bool = False,
         current_choices_converter: Optional[Callable] = None,
-        unique: Optional[bool] = None,
-        formula: Optional[str] = None,
-        readonly: bool = False,
     ):
-        """ColumnValue constructor.
+        """ColumnBase constructor.
 
         Args:
             field (Field): Model field from which to derive data, if provided.  Required if no name.
             default (object): Details added to Model.field.help_text when it differs from the model.
-            required (bool): Whether a value is required to be present.  Derived from field.blank, but can be
+            required (bool): Whether the header is required to be present.  Derived from field.blank, but can be
                 overridden.
-            type (type) [str]: The type of data expected in the excel column.
-            static_choices (Optional[List[tuple]|Callable[[], List[tuple]]]): (Will be) used to populate a drop-down
-                list.  Derived from the model field, but can be overridden.
-            dynamic_choices (ColumnReference): (Will be) used to populate a drop-down list using the contents of a
-                column in another sheet.  Overrides static_choices.
+            unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
+                overridden.
+            static_choices (list of tuples): Possible values in the column (derived from field).
             current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
                 Requires field to be supplied.
             current_choices_converter (function): A converter function for use by current_choices.
-            unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
-                overridden.
-            formula (string): Excel formula to use to populate the column.
-            readonly (bool): Whether the column may be only read (i.e. not edited).
-
         Exceptions:
-            None
-
+            ConditionallyRequiredArgs
         Returns:
             instance
         """
@@ -341,15 +168,11 @@ class ColumnValue:
             unique = False
 
         self.default = default
+        self.unique = unique
         self.required = required
         self._static_choices = static_choices
-        self.dynamic_choices = dynamic_choices
         self.current_choices = current_choices
         self.current_choices_converter = current_choices_converter
-        self.type = type
-        self.unique = unique
-        self.formula = formula
-        self.readonly = readonly
 
     @property
     def static_choices(self):
@@ -390,6 +213,241 @@ class ColumnValue:
         return choices
 
 
+class ColumnHeader(ColumnBase):
+    """Defines metadata associated with an excel column header, e.g. for decorating the header."""
+
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        field: Optional[Field] = None,
+        guidance: Optional[str] = None,
+        format: Optional[str] = None,
+        reference: Optional[ColumnReference] = None,
+        static_choices: Optional[List[tuple]] = None,
+        current_choices: bool = False,
+        current_choices_converter: Optional[Callable] = None,
+        dynamic_choices: Optional[ColumnReference] = None,
+        readonly: bool = False,
+        formula: Optional[str] = None,
+        # ColumnHeader arguments set by field, but can be supplied (e.g. if None or to override)
+        help_text: Optional[str] = None,
+        required: Optional[bool] = None,
+        unique: Optional[bool] = None,
+        default=None,
+        # Option for the generated name (when field is supplied)
+        include_model_in_header: bool = True,
+    ):
+        """ColumnHeader constructor.
+
+        Args:
+            name (str): Header name.  Can override the field derived header.  Required if no field.
+            field (Field): Model field from which to derive data, if provided.  Required if no name.
+            default (object): Details added to Model.field.help_text when it differs from the model.
+            guidance (str): Details added to Model.field.help_text when it differs from the model.
+            format (str): Add to provide notes about units, delimiting strings, etc.
+            reference (ColumnReference): Used to add to a header comment when columns are related.
+            help_text (str): Description of the column data.  Can override the field derived value.
+            required (bool): Whether the header is required to be present.  Derived from field.blank, but can be
+                overridden.
+            unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
+                overridden.
+            include_model_in_header (bool): Option to include the field's model name in the header (if name not
+                supplied).
+            readonly (bool): Whether the column may be only read (i.e. not edited).
+            formula (string): Excel formula to use to populate the column.
+            static_choices (list of tuples): Possible values in the column (derived from field).
+            dynamic_choices (ColumnReference): The excel column used to populate a dropdown.
+        Exceptions:
+            ConditionallyRequiredOptions
+        Returns:
+            instance
+        """
+        if name is None and field is None:
+            raise ConditionallyRequiredOptions("name or field is required")
+
+        super().__init__(
+            field=field,
+            unique=unique,
+            required=required,
+            default=default,
+            static_choices=static_choices,
+            current_choices=current_choices,
+            current_choices_converter=current_choices_converter,
+        )
+
+        # field is not saved here, but it can be supplied to automatically set some attributes
+        if field is not None:
+            # Convert to the class
+            field = field.field
+
+            if name is None:
+                if include_model_in_header:
+                    name = make_title(field.model.__name__, field.name)
+                else:
+                    name = make_title(field.name)
+
+            # Handle overrides and unset/missing attributes.  If anything is invalid, it should be caught downstream.
+            if (
+                hasattr(field, "help_text")
+                and field.help_text is not None
+                and help_text is None
+            ):
+                help_text = field.help_text
+            if hasattr(field, "blank") and field.blank is not None and required is None:
+                required = not field.blank
+            if hasattr(field, "unique") and field.unique is not None:
+                unique = field.unique
+
+        if required is None:
+            required = True
+
+        self.name = name
+        self.help_text = help_text
+        self.format = format
+        self.guidance = guidance
+        self.reference = reference
+        self.dynamic_choices = dynamic_choices
+        self.readonly = readonly
+        self.formula = formula
+
+    @property
+    def comment(self):
+        """Content of the header comment, composed based on instance attributes.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            comment (string)
+        """
+        if (
+            self.help_text is None
+            and self.guidance is None
+            and self.format is None
+            and self.reference is None
+            and self.unique is None
+            and (self.required is None or not self.required)
+        ):
+            return None
+
+        comment = ""
+        if self.readonly:
+            comment += "Readonly."
+            if self.formula is not None:
+                comment += "  (Calculated by formula.)"
+            comment += "\n\n"
+        elif self.formula is not None:
+            comment += "Calculated by formula.\n\n"
+        if self.help_text is not None:
+            comment += self.help_text
+        if self.guidance is not None:
+            if comment != "":
+                comment += "\n\n"
+            comment += self.guidance
+        if self.format is not None:
+            if comment != "":
+                comment += "\n\n"
+            comment += self.format
+        if self.reference is not None:
+            if comment != "":
+                comment += "\n\n"
+            comment += (
+                f"The values in this column are referenced by the '{self.reference.header}' column in the "
+                f"'{self.reference.sheet}' sheet."
+            )
+        # TODO: Add a note about current_choices
+        if self.static_choices is not None:
+            if comment != "":
+                comment += "\n\n"
+            choices = "\n".join([f"- {tpl[0]}" for tpl in self.static_choices])
+            comment += f"Select a '{self.name}' from the dropdowns in this column.  Valid values are:\n{choices}"
+        if self.dynamic_choices is not None:
+            if comment != "":
+                comment += "\n\n"
+            comment += (
+                f"Select a '{self.name}' from the dropdowns in this column.  The dropdowns are populated by the "
+                f"'{self.dynamic_choices.header}' column in the '{self.dynamic_choices.sheet}' sheet, so if the "
+                f"dropdowns are empty, add rows to the '{self.dynamic_choices.sheet}' sheet."
+            )
+        if self.unique is not None and self.unique:
+            if comment != "":
+                comment += "\n\n"
+            comment += "Must be unique."
+        if self.required:
+            if comment != "":
+                comment += "\n\n"
+            comment += "Required."
+        else:
+            if comment != "":
+                comment += "\n\n"
+            comment += "Optional."
+
+        return comment
+
+
+class ColumnValue(ColumnBase):
+    """This is a *template* for any cell in a table column (except the header cell).  The attributes here are
+    collectively applied to every (non-header) cell in a column.
+
+    For example, all the values must be of a single type.  They can be required to be unique or be derived via formula.
+    They can be derived from a set of static choices, or via the values from a column in another sheet.
+    """
+
+    def __init__(
+        self,
+        field: Optional[Field] = None,
+        default=None,
+        required: Optional[bool] = None,
+        type: Optional[type] = str,
+        static_choices: Optional[List[tuple]] = None,
+        dynamic_choices: Optional[ColumnReference] = None,
+        current_choices: bool = False,
+        current_choices_converter: Optional[Callable] = None,
+        unique: Optional[bool] = None,
+        formula: Optional[str] = None,
+        readonly: bool = False,
+    ):
+        """ColumnValue constructor.
+
+        Args:
+            field (Field): Model field from which to derive data, if provided.  Required if no name.
+            default (object): Details added to Model.field.help_text when it differs from the model.
+            required (bool): Whether a value is required to be present.  Derived from field.blank, but can be
+                overridden.
+            type (type) [str]: The type of data expected in the excel column.
+            static_choices (Optional[List[tuple]|Callable[[], List[tuple]]]): (Will be) used to populate a drop-down
+                list.  Derived from the model field, but can be overridden.
+            dynamic_choices (ColumnReference): (Will be) used to populate a drop-down list using the contents of a
+                column in another sheet.  Overrides static_choices.
+            current_choices (bool): Whether to set static_choices to a distinct list of what's currently in the db.
+                Requires field to be supplied.
+            current_choices_converter (function): A converter function for use by current_choices.
+            unique (bool): Whether the values in the column must be unique.  Derived from field.unique, but can be
+                overridden.
+            formula (string): Excel formula to use to populate the column.
+            readonly (bool): Whether the column may be only read (i.e. not edited).
+        Exceptions:
+            None
+        Returns:
+            instance
+        """
+        super().__init__(
+            field=field,
+            unique=unique,
+            required=required,
+            default=default,
+            static_choices=static_choices,
+            current_choices=current_choices,
+            current_choices_converter=current_choices_converter,
+        )
+
+        self.dynamic_choices = dynamic_choices
+        self.type = type
+        self.formula = formula
+        self.readonly = readonly
+
+
 class TableColumn:
     """A container of ColumnHeader and ColumnValue (template).  This provides the interface into those objects."""
 
@@ -407,7 +465,7 @@ class TableColumn:
             field (Field): Model field associated with the table column.
             readonly (bool): Whether the column may be only read (i.e. not edited).
         Exceptions:
-            None
+            ConditionallyRequiredOptions
         Returns:
             instance (TableColumn)
         """
@@ -455,6 +513,7 @@ class TableColumn:
         current_choices_converter: Optional[Callable] = None,
     ):
         """Alternate TableColumn constructor.  (This is the pythonic was to implement multiple constructors.)
+
         Args:
             field (Field): A model field that can be used to derive some instance attributes.
             readonly (bool): Whether the column can be edited or not.
@@ -488,20 +547,25 @@ class TableColumn:
                 format=format,
                 reference=reference,
                 dynamic_choices=dynamic_choices,
+                static_choices=static_choices,
                 readonly=readonly,
                 formula=formula,
                 # Set by field (but provided for overriding)
+                unique=unique,
+                default=default,
                 help_text=help_text,
                 required=header_required,
+                current_choices=current_choices,
+                current_choices_converter=current_choices_converter,
             ),
             value=ColumnValue(
                 field=field,
                 type=type,
-                unique=unique,
                 dynamic_choices=dynamic_choices,
                 formula=formula,
                 readonly=readonly,
                 # Set by field (but provided for overriding)
+                unique=unique,
                 default=default,
                 required=value_required,
                 static_choices=static_choices,

@@ -31,7 +31,7 @@ from DataRepo.models.utilities import update_rec
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
-    InvalidSequenceName,
+    InvalidMSRunName,
     MixedPolarityErrors,
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
@@ -90,7 +90,7 @@ class MSRunsLoader(TableLoader):
         SAMPLEHEADER="Sample Data Header",
         MZXMLNAME="mzXML File Name",
         ANNOTNAME="Peak Annotation File Name",
-        SEQNAME="Sequence Name",
+        SEQNAME="Sequence",
         SKIP="Skip",
     )
 
@@ -103,6 +103,8 @@ class MSRunsLoader(TableLoader):
             MZXMLNAME_KEY,
         ],
         # Annot name is optional (assuming identical headers indicate the same sample)
+        # Note that SEQNAME is effectively optional since the loader can be supplied default values, but *a* value is
+        # required, thus SEQNAME is always required
         SEQNAME_KEY,
     ]
 
@@ -130,7 +132,7 @@ class MSRunsLoader(TableLoader):
         # we need more than just the header or mzXML file name, we need the sequence.  If a user can't tell which
         # sequence to use, all we can do is add their path to differentiate them.
         # All combined must be unique, but note that duplicates of SAMPLENAME_KEY, (SAMPLEHEADER_KEY or MZXMLNAME_KEY),
-        # and SEQUENCE_KEY will be ignored. Duplicates can exist if the same mzXML was used in multiple peak annotation
+        # and SEQNAME_KEY will be ignored. Duplicates can exist if the same mzXML was used in multiple peak annotation
         # files.
         [SAMPLENAME_KEY, SAMPLEHEADER_KEY, MZXMLNAME_KEY, ANNOTNAME_KEY, SEQNAME_KEY],
     ]
@@ -160,24 +162,26 @@ class MSRunsLoader(TableLoader):
         SAMPLEHEADER=TableColumn.init_flat(
             name=DataHeaders.SAMPLEHEADER,
             help_text=f"Sample header from {DataHeaders.ANNOTNAME}.",
+            guidance=f"Note, this column is only conditionally required with '{DataHeaders.MZXMLNAME}'.",
         ),
         MZXMLNAME=TableColumn.init_flat(
             name=DataHeaders.MZXMLNAME,
             field=MSRunSample.ms_data_file,
             header_required=False,  # Assuming can be derived from SAMPLEHEADER
             value_required=False,  # There will be an error if multiple files have the same name
+            guidance=(
+                f"Note, you can load any/all {DataHeaders.MZXMLNAME}s for a {DataHeaders.SAMPLENAME} *before* the "
+                f"{DataHeaders.ANNOTNAME} is ready to load, in which case you can just leave this value empty.\n"
+                "\n"
+                f"Note, this column is only conditionally required with '{DataHeaders.SAMPLEHEADER}'.  I.e. an "
+                f"{DataHeaders.MZXMLNAME} can be loaded without a '{DataHeaders.ANNOTNAME}'."
+            ),
         ),
         ANNOTNAME=TableColumn.init_flat(
             name=DataHeaders.ANNOTNAME,
             help_text=(
-                "Name of the accucor or isocorr file that this sample was analyzed in, if any.  If the sample on this "
-                f"row was included in a {DataHeaders.ANNOTNAME}, add the name of that file here.  If you are loading "
-                f"an {DataHeaders.MZXMLNAME} that was not used in a {DataHeaders.ANNOTNAME}, leave this value empty."
-            ),
-            guidance=(
-                f"Note, you do not need to have an {DataHeaders.MZXMLNAME} associated with every "
-                f"{DataHeaders.SAMPLEHEADER} from a {DataHeaders.ANNOTNAME} worked out ahead of time.  That "
-                "association can be made at a later date."
+                "Name of the peak annotation file.  If the sample on any given row was included in a "
+                f"{DataHeaders.ANNOTNAME}, add the name of that file here."
             ),
             # TODO: Replace "Peak Annotation Files" and "Peak Annotation File" below with a reference to its loader's
             # DataSheetName and the corresponding column, respectively.
@@ -187,23 +191,20 @@ class MSRunsLoader(TableLoader):
                 sheet="Peak Annotation Files",
                 header="Peak Annotation File",
             ),
+            # ANNOTNAME is actually required, but defaults are provided by arguments to the constructor
             header_required=False,
             value_required=False,
         ),
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
             help_text=(
-                f"The MSRun Sequence associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
+                f"The Sequence associated with the {DataHeaders.SAMPLENAME}, {DataHeaders.SAMPLEHEADER}, and/or "
                 f"{DataHeaders.MZXMLNAME} on this row."
             ),
             type=str,
             format=(
-                "Comma-delimited string combining the values from these columns from the "
-                f"{SequencesLoader.DataSheetName} sheet in this order:\n"
-                f"- {SequencesLoader.DataHeaders.OPERATOR}\n"
-                f"- {SequencesLoader.DataHeaders.LCNAME}\n"
-                f"- {SequencesLoader.DataHeaders.INSTRUMENT}\n"
-                f"- {SequencesLoader.DataHeaders.DATE}"
+                f"Refer to the {SequencesLoader.DataHeaders.SEQNAME} column in the {SequencesLoader.DataSheetName} "
+                "sheet for format details."
             ),
             dynamic_choices=ColumnReference(
                 loader_class=SequencesLoader,
@@ -428,8 +429,8 @@ class MSRunsLoader(TableLoader):
         #    - Extract data from the mzxML files
         #    - store extracted metadata and ArchiveFile record objects in self.mzxml_dict, a 4D dict:
         #      {mzXML_name: {mzXML_dir: [{**metadata},...]}}
-        # We need the directory to match the mzXML in the infile with the MSRunSequence name on the same row.  mzXML
-        # files can easily have the same name and all users can reasonably be expected to know is their location and the
+        # We need the directory to match the mzXML in the infile with the Sequence name on the same row.  mzXML files
+        # can easily have the same name and all users can reasonably be expected to know is their location and the
         # sequence they were a part of.  Normally, all that's needed is a name, but if that name is not unique, and
         # there are multiple sequences in the file, we need a way to distinguish them, and the path is that way.
         for mzxml_file in self.mzxml_files:
@@ -1335,7 +1336,7 @@ class MSRunsLoader(TableLoader):
                     ),
                     orig_exception=mor,
                 )
-        except InvalidSequenceName as isn:
+        except InvalidMSRunName as isn:
             self.aggregated_errors_object.buffer_error(
                 isn.set_formatted_message(
                     file=error_source,
@@ -1511,7 +1512,7 @@ class MSRunsLoader(TableLoader):
                 exist in the database, WITH values for polarity, mz_min, and mz_max.
             annot_name (str): Peak annotation file name associated with the data that populated the rec_dict (i.e. the
                 value from the Peak Annotation File column of the Peak Annotation Details sheet/file that the researcher
-                has explicitly associated the mzXML, sample, sample header, and sequence with.
+                has explicitly associated the mzXML, sample, sample header, and ms run sequence with.
             rec (MSRunSample): An MSRunSample record.  This is intended to be a placeholder record without an
                 ms_data_file value, but either way, the metadata (ms_data_file, polarity, mz_min, and mz_max) in the
                 record is ignored.

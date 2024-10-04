@@ -118,9 +118,10 @@ class SamplesLoader(TableLoader):
         SAMPLE=TableColumn.init_flat(
             name=DataHeaders.SAMPLE,
             field=Sample.name,
-            guidance=(
-                "MUST match the sample names in the peak annotation file, minus any appended suffixes (e.g. "
-                "'_pos')."
+            # TODO: Replace "Peak Annotation Details" and "Sample Name" with a loader class reference
+            reference=ColumnReference(
+                sheet="Peak Annotation Details",
+                header="Sample Name",
             ),
         ),
         HANDLER=TableColumn.init_flat(

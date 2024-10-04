@@ -3,7 +3,7 @@ from typing import Dict
 
 from django.db import transaction
 
-from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Protocol
 from DataRepo.utils.exceptions import RollbackException
@@ -80,7 +80,14 @@ class ProtocolsLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(field=Protocol.name, name=DataHeadersExcel.NAME),
+        NAME=TableColumn.init_flat(
+            field=Protocol.name,
+            name=DataHeadersExcel.NAME,
+            reference=ColumnReference(
+                sheet="Animals",
+                header="Treatment",
+            ),
+        ),
         CATEGORY=TableColumn.init_flat(field=Protocol.category),
         DESCRIPTION=TableColumn.init_flat(
             field=Protocol.description, name=DataHeadersExcel.DESCRIPTION

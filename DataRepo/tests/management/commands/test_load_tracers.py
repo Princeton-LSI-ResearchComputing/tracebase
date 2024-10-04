@@ -142,20 +142,20 @@ class LoadTracersCommandTests(TracebaseTestCase):
         self.assertIn("parsed from the Tracer Name [1]", str(aes.exceptions[2]))
         self.assertIn("Tracer Row Group 2.", str(aes.exceptions[2]))
 
-        # EXCEPTION4(ERROR): InfileError: Compound name from column [aspartate] does not match the name parsed from the
-        # tracer name (aspartame-[13C4]): [aspartame]: column [Compound Name] on row [7] in file
+        # EXCEPTION4(ERROR): InfileError: Compound from column [aspartate] does not match the name parsed from the
+        # tracer name (aspartame-[13C4]): [aspartame]: column [Compound] on row [7] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]
         self.assertIn("[aspartate]", str(aes.exceptions[3]))
         self.assertIn("Tracer Name (aspartame-[13C4])", str(aes.exceptions[3]))
         self.assertIn("row [7]", str(aes.exceptions[3]))
 
-        # EXCEPTION5(ERROR): InfileError: column [Tracer Row Group and Compound Name] in file
+        # EXCEPTION5(ERROR): InfileError: column [Tracer Row Group and Compound] in file
         # [DataRepo/data/tests/tracers/tracers_with_errors.tsv]:
-        # Tracer Row Group 1 is associated with multiple Compound Names on the indicated rows.  Only one Compound Name
+        # Tracer Row Group 1 is associated with multiple Compounds on the indicated rows.  Only one Compound
         # is allowed per Tracer Row Group.
         #     lysine (on rows: [2])
         #     asparagine (on rows: [3])
-        self.assertIn("[Tracer Row Group and Compound Name]", str(aes.exceptions[4]))
+        self.assertIn("[Tracer Row Group and Compound]", str(aes.exceptions[4]))
         self.assertIn("lysine (on rows: [2])", str(aes.exceptions[4]))
         self.assertIn("asparagine (on rows: [3])", str(aes.exceptions[4]))
 

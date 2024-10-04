@@ -1541,7 +1541,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Sample Data Header": ["s1_pos"],
                 "mzXML File Name": [None],
                 "Peak Annotation File Name": ["accucor.xlsx"],
-                "Sequence Name": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
+                "Sequence": [f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7"],
             },
         )
         msrl = MSRunsLoader(df=df)
@@ -1573,7 +1573,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Sample Data Header": ["s1_pos", "s2_pos"],
                 "mzXML File Name": ["s1_pos.mzXML", "s2_pos.mzXML"],
                 "Peak Annotation File Name": ["accucor.xlsx", "accucor2.xlsx"],
-                "Sequence Name": [
+                "Sequence": [
                     f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
                     f"Dick, polar-HILIC-25-min, {inst}, 1991-5-7",
                 ],
@@ -1589,7 +1589,7 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
                 "Peak Annotation File Name": "accucor.xlsx",
                 "Sample Data Header": "s1_pos",
                 "Sample Name": "s1",
-                "Sequence Name": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
+                "Sequence": "Dick, polar-HILIC-25-min, QE, 1991-5-7",
                 "Skip": False,
                 "mzXML File Name": "s1_pos.mzXML",
             },
