@@ -194,7 +194,7 @@ class HierCachedModel(Model):
         """
         if caching_updates:
             self.delete_related_caches()
-        super().delete(*args, **kwargs)  # Call the "real" delete() method.
+        return super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
     def delete_related_caches(self):
         """

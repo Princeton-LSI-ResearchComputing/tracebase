@@ -328,8 +328,8 @@ class LoadTableCommandTests(TracebaseTestCase):
         # Now test the output is correct
         self.assertEqual(
             (
-                "Done.\nLoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], errored: "
-                "[4], and warned: [0].\n"
+                "Done.\nLoadTableTestModel records created: [1], existed: [2], deleted: [0], updated: [0], skipped "
+                "[3], errored: [4], and warned: [0].\n"
             ),
             capture_stdout.getvalue(),
         )
@@ -380,8 +380,8 @@ class LoadTableCommandTests(TracebaseTestCase):
         self.assertEqual(
             (
                 "Dry-run complete.  The following would occur during a real load:\n"
-                "LoadTableTestModel records created: [1], existed: [2], updated: [0], skipped [3], errored: [4], and "
-                "warned: [0].\n"
+                "LoadTableTestModel records created: [1], existed: [2], deleted: [0], updated: [0], skipped [3], "
+                "errored: [4], and warned: [0].\n"
             ),
             capture_stdout.getvalue(),
         )

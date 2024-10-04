@@ -6,12 +6,9 @@ from django.db.models import Model
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.peak_annotation_files_loader import (
-    PeakAnnotationFilesLoader,
-)
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.utils.exceptions import (
-    InfileError,
+    DuplicatePeakGroupResolutions,
     generate_file_location_string,
 )
 
@@ -133,8 +130,8 @@ class PeakGroupConflicts(TableLoader):
                 "only the peak annotation files containing the peak group compound for that row."
             ),
             reference=ColumnReference(
-                loader_class=PeakAnnotationFilesLoader,
-                loader_header_key=PeakAnnotationFilesLoader.FILE_KEY,
+                sheet="Peak Annotation Files",
+                header="Peak Annotation File",
             ),
         ),
     )
@@ -157,7 +154,10 @@ class PeakGroupConflicts(TableLoader):
         return self.get_selected_representations()
 
     def get_selected_representations(self):
-        """This returns a dict of the data in the sheet.
+        """This returns a dict of files keyed by sample and a lower-cased and sorted peak group name.
+
+        The file will be None if there were conflicting conflict resolutions specified by the user for that sample and
+        peak group compound (e.g. they duplicated a row and selected a different file one each).
 
         Args:
             None
@@ -167,12 +167,18 @@ class PeakGroupConflicts(TableLoader):
             Raises:
                 None
         Returns:
-            selected_representations (Dict[str, Dict[str, Optional[str]]]): A dict of selected peak annotation files for
-                every sample and lower-cased peak group name.  The file will be None if there were conflicting conflict
-                resolutions specified by the user for that sample and peak group compound (e.g. they duplicated a row
-                and selected a different file one each).
+            selected_representations (Dict[str, Dict[str, Dict[str, Optional[str]]]]): A dict of selected peak
+                annotation files for every sample and lower-cased peak group name.
+                Example:
+                    selected_representations[sample][pgname] = {
+                        "filename": peak_annotation_filename or None,
+                        "rownum": rownum,
+                    }
         """
         selected_representations = defaultdict(lambda: defaultdict(str))
+
+        if self.df is None:
+            return selected_representations
 
         all_representations = self.get_all_representations()
 
@@ -186,6 +192,11 @@ class PeakGroupConflicts(TableLoader):
                     selected_annot_file = list(
                         all_representations[samples_str][pgname].keys()
                     )[0]
+                    # There should be only 1 rownum, but allow for synonymous duplicates.  There would have been a
+                    # warning about this from check_for_duplicate_resolutions.
+                    rownum = all_representations[samples_str][pgname][
+                        selected_annot_file
+                    ]
                 else:
                     # We get here when the user has messed with the sheet and possibly pasted in duplicate rows and
                     # selected a different file on each row.
@@ -195,10 +206,17 @@ class PeakGroupConflicts(TableLoader):
                     # redundant error and is thus unnecessary.  By adding None here, it will cause the peak group to
                     # be skipped in all peak annotation files in the PeakAnnotationsLoader.
                     selected_annot_file = None
+                    # Join all the erroneous rows
+                    rownum = [
+                        rownum
+                        for dupfile in all_representations[samples_str][pgname].keys()
+                        for rownum in all_representations[samples_str][pgname][dupfile]
+                    ]
                 for sample in samples_str.strip().split(self.SAMPLE_DELIMITER):
-                    selected_representations[sample.strip()][
-                        pgname
-                    ] = selected_annot_file
+                    selected_representations[sample.strip()][pgname] = {
+                        "filename": selected_annot_file,
+                        "rownum": rownum,
+                    }
 
         return selected_representations
 
@@ -216,6 +234,9 @@ class PeakGroupConflicts(TableLoader):
         all_representations = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
         )
+
+        if self.df is None:
+            return all_representations
 
         for _, row in self.df.iterrows():
             # Grab the values from each column
@@ -238,9 +259,9 @@ class PeakGroupConflicts(TableLoader):
             pgname = PeakGroup.compound_synonyms_to_peak_group_name(
                 [ns.strip().lower() for ns in pgname_str.split(PeakGroup.NAME_DELIM)]
             )
-            annot_file = list(os.path.split(annot_file_str))[1]
+            annot_filename = list(os.path.split(annot_file_str))[1]
 
-            all_representations[samples_str][pgname][annot_file].append(self.rownum)
+            all_representations[samples_str][pgname][annot_filename].append(self.rownum)
 
         return all_representations
 
@@ -287,35 +308,27 @@ class PeakGroupConflicts(TableLoader):
                         0
                     ]
                     self.aggregated_errors_object.buffer_exception(
-                        InfileError(
-                            (
-                                f"Multiple equivalent resolutions for '{self.DataHeaders.PEAKGROUP}' '{pgname}' in %s "
-                                f"on rows: {all_representations[samples_str][pgname][annot_file]}."
-                            ),
+                        DuplicatePeakGroupResolutions(
+                            pgname,
+                            list(all_representations[samples_str][pgname].keys()),
+                            conflicting=False,
                             file=self.friendly_file,
                             sheet=self.sheet,
                             column=self.DataHeaders.PEAKGROUP,
+                            rownum=all_representations[samples_str][pgname][annot_file],
                         ),
                         is_error=False,
                         is_fatal=self.validate,
                     )
                 else:
                     # Issue a fatal error if the resolution to the conflict is different on duplicate rows
-                    deets = "\n\t".join(
-                        [
-                            f"'{file}', on row(s): {all_representations[samples_str][pgname][file]}"
-                            for file in all_representations[samples_str][pgname].keys()
-                        ]
-                    )
                     sheetref = generate_file_location_string(
                         file=self.friendly_file, sheet=self.sheet
                     )
                     self.aggregated_errors_object.buffer_error(
-                        InfileError(
-                            (
-                                f"Multiple differing resolutions for '{self.DataHeaders.PEAKGROUP}' '{pgname}' in %s:\n"
-                                f"\t{deets}\nNote, the peak group names may differ by case and/or compound order."
-                            ),
+                        DuplicatePeakGroupResolutions(
+                            pgname,
+                            list(all_representations[samples_str][pgname].keys()),
                             file=self.friendly_file,
                             sheet=self.sheet,
                             suggestion=f"Delete all but one of the above rows from {sheetref}.",

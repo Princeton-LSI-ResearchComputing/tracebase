@@ -23,6 +23,7 @@ from DataRepo.models.researcher import get_researchers
 if TYPE_CHECKING:
     from DataRepo.models.archive_file import ArchiveFile
     from DataRepo.models.msrun_sample import MSRunSample
+    from DataRepo.models.peak_group import PeakGroup
     from DataRepo.models.sample import Sample
 
 
@@ -3827,7 +3828,7 @@ class AllMultiplePeakGroupRepresentations(Exception):
         )
         for mpgr in exceptions:
             seq_key = str(mpgr.sequence)
-            for file in mpgr.files:
+            for file in mpgr.filenames:
                 if file not in mpgr_dict[mpgr.compound][seq_key]["files"]:
                     mpgr_dict[mpgr.compound][seq_key]["files"].append(file)
             if mpgr.sample.name not in mpgr_dict[mpgr.compound][seq_key]["samples"]:
@@ -3897,9 +3898,9 @@ class MultiplePeakGroupRepresentations(Exception):
             lambda: defaultdict(lambda: defaultdict(list))
         )
         for mpgr in exceptions:
-            files_str = ", ".join(sorted(mpgr.files))
+            files_str = ", ".join(sorted(mpgr.filenames))
             if files_str not in mpgr_dict[str(mpgr.sequence)].keys():
-                mpgr_dict[str(mpgr.sequence)][files_str]["files"] = mpgr.files
+                mpgr_dict[str(mpgr.sequence)][files_str]["files"] = mpgr.filenames
             if (
                 mpgr.compound
                 not in mpgr_dict[str(mpgr.sequence)][files_str]["compounds"]
@@ -3954,16 +3955,16 @@ class MultiplePeakGroupRepresentations(Exception):
 class MultiplePeakGroupRepresentation(SummarizableError):
     SummarizerExceptionClass = MultiplePeakGroupRepresentations
 
-    def __init__(self, new_rec, existing_recs):
+    def __init__(self, new_rec: PeakGroup, existing_recs, message=None):
         """MultiplePeakGroupRepresentations constructor.
 
         Args:
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
-        files = [new_rec.peak_annotation_file.filename]
-        files.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
-        files_str = "\n\t".join(files)
+        filenames = [new_rec.peak_annotation_file.filename]
+        filenames.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
+        files_str = "\n\t".join(filenames)
         message = (
             "Multiple representations of this peak group compound were encountered:\n"
             f"\tCompound: {new_rec.name}\n"
@@ -3976,10 +3977,38 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         super().__init__(message)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
-        self.files = files
+        self.filenames = filenames
         self.compound = new_rec.name
         self.sequence = new_rec.msrun_sample.msrun_sequence
         self.sample = new_rec.msrun_sample.sample
+
+
+class ReplacingPeakGroupRepresentation(InfileError):
+    def __init__(self, delete_rec: PeakGroup, selected_file: str, **kwargs):
+        message = (
+            f"Replacing PeakGroup {delete_rec} (previously loaded from file "
+            f"'{delete_rec.peak_annotation_file.filename}') with the version from file '{selected_file}', as specified "
+            "in the Peak Group Conflict resolution selected on %s."
+        )
+        super().__init__(message, **kwargs)
+        self.delete_rec = delete_rec
+        self.selected_file = selected_file
+
+
+class DuplicatePeakGroupResolutions(InfileError):
+    def __init__(
+        self, pgname: str, selected_files: List[str], conflicting=True, **kwargs
+    ):
+        dupetype = "conflicting" if conflicting else "equivalent"
+        message = (
+            f"Multiple {dupetype} resolutions for peak group '{pgname}' selecting file(s) {selected_files} in %s.\n"
+            "Note, the peak group names may differ by case and/or compound order."
+        )
+
+        super().__init__(message, **kwargs)
+        self.pgname = pgname
+        self.selected_files = selected_files
+        self.conflicting = conflicting
 
 
 class CompoundSynonymExists(Exception):
@@ -4513,7 +4542,10 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
     if loc_str != "" and rownum is not None:
         loc_str += "on "
     if rownum is not None:
-        loc_str += f"row [{rownum}] "
+        if isinstance(rownum, list):
+            loc_str += f"row(s) {summarize_int_list(rownum)} "
+        else:
+            loc_str += f"row [{rownum}] "
     if loc_str != "" and sheet is not None:
         loc_str += "of "
     if sheet is not None:

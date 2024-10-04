@@ -5,6 +5,7 @@ import pandas as pd
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
+from DataRepo.loaders.study_loader import StudyV3Loader
 from DataRepo.models import (
     Animal,
     ArchiveFile,
@@ -21,7 +22,8 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import InfileError
+from DataRepo.utils.exceptions import AggregatedErrorsSet, InfileError
+from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 PeakGroupCompound = PeakGroup.compounds.through
@@ -293,6 +295,115 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         pafl.load_data()
 
         self.assert_test_peak_annotations_loaded()
+
+    def test_PeakAnnotationFilesLoader_conflicting_peak_group_resolutions(self):
+        # Load all the prerequisites (everything but the Peak Annotation Files and Peak Group Conflicts)
+        dfdict = read_from_file(
+            "DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            None,
+        )
+        sl = StudyV3Loader(
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/prereqs.xlsx",
+            df=dfdict,
+        )
+        sl.load_data()
+
+        pafl = PeakAnnotationFilesLoader(
+            df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/peak_annotation_files.tsv",
+            ),
+            file="DataRepo/data/tests/multiple_representations/resolution_handling/peak_annotation_files.tsv",
+            peak_group_conflicts_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/conflicting_resolutions.tsv"
+            ),
+            peak_group_conflicts_df=read_from_file(
+                "DataRepo/data/tests/multiple_representations/resolution_handling/conflicting_resolutions.tsv",
+            ),
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/multiple_representations/"
+                "resolution_handling/prereqs.xlsx"
+            ),
+            peak_annotation_details_df=dfdict["Peak Annotation Details"],
+        )
+        with self.assertRaises(AggregatedErrorsSet):
+            pafl.load_data()
+        self.assertEqual(
+            (1, 0),
+            (
+                pafl.aggregated_errors_dict["negative_cor.xlsx"].num_errors,
+                pafl.aggregated_errors_dict["negative_cor.xlsx"].num_warnings,
+            ),
+        )
+        self.assertEqual(
+            (1, 0),
+            (
+                pafl.aggregated_errors_dict["poshigh_cor.xlsx"].num_errors,
+                pafl.aggregated_errors_dict["poshigh_cor.xlsx"].num_warnings,
+            ),
+        )
+        # negative_cor.xlsx is tested in DataRepo/tests/loaders/test_peak_annotations_loader.py
+        dpgr = pafl.aggregated_errors_dict["poshigh_cor.xlsx"].exceptions[0]
+        self.assertTrue(dpgr.conflicting)
+        self.assertEqual("3-methylglutaconic acid", dpgr.pgname)
+        self.assertEqual(["negative_cor.xlsx", "poshigh_cor.xlsx"], dpgr.selected_files)
+        expected = {
+            "ArchiveFile": {
+                "created": 2,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 2,  # Both the PeakAnnotationFilesLoader and PeakAnnotationsLoader attempt this load
+                "skipped": 0,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakData": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 6,  # 4 (neg) + 2 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakDataLabel": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 4,  # 3 (neg) + 1 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroup": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 6,  # 4 (neg) + 2 (poshigh)
+                "existed": 0,
+                "skipped": 0,
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroupLabel": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 4,  # 3 (neg) + 1 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+            "PeakGroup_compounds": {
+                "created": 0,
+                "deleted": 0,
+                "errored": 0,
+                "existed": 0,
+                "skipped": 6,  # 4 (neg) + 2 (poshigh)
+                "updated": 0,
+                "warned": 0,
+            },
+        }
+        self.assertDictEqual(expected, pafl.get_load_stats())
 
     def test_get_default_sequence_details(self):
         # TODO: Implement test
