@@ -1637,48 +1637,53 @@ class MSRunsLoader(TableLoader):
 
             symbol_polarity = ""
             mixed_polarities = {}
-            for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
-                # Parse the mz_min
-                tmp_mz_min = float(entry_dict["@lowMz"])
-                # Get the min of the mins
-                if mz_min is None or tmp_mz_min < mz_min:
-                    mz_min = tmp_mz_min
-                # Parse the mz_max
-                tmp_mz_max = float(entry_dict["@highMz"])
-                # Get the max of the maxes
-                if mz_max is None or tmp_mz_max > mz_max:
-                    mz_max = tmp_mz_max
-                # Parse the polarity
-                # If we haven't run into a polarity conflict (yet)
-                if str(mzxml_path_obj) not in mixed_polarities.keys():
-                    if symbol_polarity == "":
-                        symbol_polarity = entry_dict["@polarity"]
-                    elif symbol_polarity != entry_dict["@polarity"]:
-                        mixed_polarities[str(mzxml_path_obj)] = {
-                            "first": symbol_polarity,
-                            "different": entry_dict["@polarity"],
-                            "scan": entry_dict["@num"],
-                        }
-            if len(mixed_polarities.keys()) > 0:
-                errs_buffer.buffer_exception(
-                    MixedPolarityErrors(mixed_polarities),
-                )
+            # mzXML files can have 0 scans
+            if "scan" in mzxml_dict["mzXML"]["msRun"].keys():
+                for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
+                    # Parse the mz_min
+                    tmp_mz_min = float(entry_dict["@lowMz"])
+                    # Get the min of the mins
+                    if mz_min is None or tmp_mz_min < mz_min:
+                        mz_min = tmp_mz_min
+                    # Parse the mz_max
+                    tmp_mz_max = float(entry_dict["@highMz"])
+                    # Get the max of the maxes
+                    if mz_max is None or tmp_mz_max > mz_max:
+                        mz_max = tmp_mz_max
+                    # Parse the polarity
+                    # If we haven't run into a polarity conflict (yet)
+                    if str(mzxml_path_obj) not in mixed_polarities.keys():
+                        if symbol_polarity == "":
+                            symbol_polarity = entry_dict["@polarity"]
+                        elif symbol_polarity != entry_dict["@polarity"]:
+                            mixed_polarities[str(mzxml_path_obj)] = {
+                                "first": symbol_polarity,
+                                "different": entry_dict["@polarity"],
+                                "scan": entry_dict["@num"],
+                            }
+
+                if len(mixed_polarities.keys()) > 0:
+                    errs_buffer.buffer_exception(
+                        MixedPolarityErrors(mixed_polarities),
+                    )
+
+                if symbol_polarity == "+":
+                    polarity = MSRunSample.POSITIVE_POLARITY
+                elif symbol_polarity == "-":
+                    polarity = MSRunSample.NEGATIVE_POLARITY
+                elif symbol_polarity != "":
+                    errs_buffer.buffer_error(
+                        ValueError(
+                            f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
+                            f"[{str(mzxml_path_obj)}]."
+                        )
+                    )
+
         except KeyError as ke:
             errs_buffer.buffer_error(
                 MzxmlParseError(
                     f"Missing key [{ke}] encountered in mzXML file [{str(mzxml_path_obj)}]."
                 ).with_traceback(ke.__traceback__)
-            )
-        if symbol_polarity == "+":
-            polarity = MSRunSample.POSITIVE_POLARITY
-        elif symbol_polarity == "-":
-            polarity = MSRunSample.NEGATIVE_POLARITY
-        elif symbol_polarity != "":
-            errs_buffer.buffer_error(
-                ValueError(
-                    f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
-                    f"[{str(mzxml_path_obj)}]."
-                )
             )
 
         return {
