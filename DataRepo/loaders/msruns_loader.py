@@ -692,7 +692,10 @@ class MSRunsLoader(TableLoader):
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
         if len(errs.exceptions) > 0:
-            self.aggregated_errors_object.merge_aggregated_errors_object(errs)
+            for exc in errs.exceptions:
+                self.buffer_infile_exception(exc)
+            self.errored(ArchiveFile.__name__, num=len(errs.exceptions))
+            raise RollbackException()
 
         # Get or create an ArchiveFile record for a raw file
         try:
@@ -1379,11 +1382,15 @@ class MSRunsLoader(TableLoader):
         if multiple_mzxml_dict is None:
             multiple_mzxml_dict = self.mzxml_dict.get(sample_header)
             mzxml_name = str(sample_header)
+            if mzxml_path is None:
+                mzxml_basename = mzxml_name
 
         # As a last resort, we use the sample name itself
         if multiple_mzxml_dict is None:
             multiple_mzxml_dict = self.mzxml_dict.get(sample_name)
             mzxml_name = str(sample_name)
+            if mzxml_path is None:
+                mzxml_basename = mzxml_name
 
         # If we could not find an mzXML file('s metadata) that matches the provided input (e.g. taken from the infile),
         # return a dict with "Nones" as values (because this method is called from having read the infile and from going
@@ -1566,13 +1573,12 @@ class MSRunsLoader(TableLoader):
         Args:
             mzxml_path (str or Path): mzXML file path
             full_dict (boolean): Whether to return the raw/full dict of the mzXML file
-
         Exceptions:
             Raises:
                 None
             Buffers:
+                MzxmlParseError
                 ValueError
-
         Returns:
             If mzxml_path is not a real existing file:
                 None
@@ -1589,6 +1595,11 @@ class MSRunsLoader(TableLoader):
         """
         # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
         errs_buffer = AggregatedErrors()
+        raw_file_name = None
+        raw_file_sha1 = None
+        polarity = None
+        mz_min = None
+        mz_max = None
 
         # Assume Path object
         mzxml_path_obj = mzxml_path
@@ -1624,9 +1635,6 @@ class MSRunsLoader(TableLoader):
                 raw_file_name = None
                 raw_file_sha1 = None
 
-            polarity = None
-            mz_min = None
-            mz_max = None
             symbol_polarity = ""
             mixed_polarities = {}
             for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
@@ -1656,7 +1664,11 @@ class MSRunsLoader(TableLoader):
                     MixedPolarityErrors(mixed_polarities),
                 )
         except KeyError as ke:
-            errs_buffer.buffer_error(MzxmlParseError(str(ke)))
+            errs_buffer.buffer_error(
+                MzxmlParseError(
+                    f"Missing key [{ke}] encountered in mzXML file [{str(mzxml_path_obj)}]."
+                ).with_traceback(ke.__traceback__)
+            )
         if symbol_polarity == "+":
             polarity = MSRunSample.POSITIVE_POLARITY
         elif symbol_polarity == "-":
