@@ -3310,6 +3310,54 @@ class NoMZXMLFiles(Exception):
         super().__init__(message)
 
 
+class MzXMLSkipRowError(InfileError):
+    def __init__(
+        self, mzxml_name, existing_paths, skip_paths_dict, skip_files, **kwargs
+    ):
+        """The situation here is that we may not be able to identify which files to skip and which to
+        load.  dirs could contain files we should skip because the user didn't provide directory paths on the skipped
+        rows from the infile.  We only know to skip them if the number of skips and the number of directories is the
+        same - but they differ.
+
+        Args:
+            mzxml_name (str): The mzXML filename without the extension
+            existing_paths (List[str]): Directories that hold a file named {mzxml_name} (i.e. same-named files)
+            skip_paths_dict (Dict[str, int]): Directories extracted from a Peak Annotation Details sheet that do not
+                match existing_paths.  If a key is an empty string, it means no path was provided (or the path is the
+                root directory).
+            skip_files (List[str]): List of mzXML files (with paths) whose load will be skipped.
+        """
+        dirs_from_infile = [d for d in skip_paths_dict.keys() if d != ""]
+        nlt = "\n\t"
+        # In this instance, we don't have any paths from the infile
+        if len(dirs_from_infile) == 0:
+            message = (
+                f"The number of mzXML files with the name '{mzxml_name}' found in directory(/ies):\n"
+                f"\t{nlt.join(existing_paths)}\n"
+                "matches a different number of skipped sample headers (without directory paths included in the mzXML "
+                f"file name column): {skip_paths_dict['']}.  If all mzXML files named '{mzxml_name}' must be skipped, "
+                "the number of skipped rows with that sample header in %s must equal the number of files above "
+                f"({len(existing_paths)}), or if not all should be skipped, the directory paths must be included for "
+                f"these mzXML files in the mzXML file name column so that we can tell which to ones skip)."
+            )
+        else:
+            message = (
+                f"The paths of the following mzXML files with the same sample name '{mzxml_name}':"
+                f"\n\t{nlt.join(existing_paths)}\n"
+                f"do not match the paths supplied in %s:\n"
+                f"{nlt.join(dirs_from_infile)}\n"
+                "If all must be skipped, you don't need to specify the paths - you just need the same number of rows "
+                "in %s with that sample header.  If not all should be skipped, the directory paths must be included in "
+                "the existing rows so that we can tell which mzXML files to load/skip).  Search for rows in the "
+                f"file and update/add the mzXML file names with their paths."
+            )
+        message += f"\n\nThe following mzXML files will not be loaded:\n\t{nlt.join(skip_files)}"
+        super().__init__(message, **kwargs)
+        self.mzxml_name = mzxml_name
+        self.existing_paths = existing_paths
+        self.skip_paths_dict = skip_paths_dict
+
+
 class PeakAnnotFileMismatches(Exception):
     def __init__(self, incorrect_pgs_files, peak_annotation_filename):
         bad_files_str = "\n\t".join(
@@ -4433,7 +4481,7 @@ class StudyDocVersionException(Exception):
                                 f"{mdict['missing']}**\n"
                             )
                         if len(mdict["unknown"]) > 0:
-                            message += f"\t\t\t{len(mdict['unknown'])} unknown (ignored) headers: {mdict['unknown']}\n"
+                            message += f"\t\t\t{len(mdict['unknown'])} ignored^ headers: {mdict['unknown']}\n"
                     else:
                         message += f" all {len(mdict['matching'])} matching headers.\n"
                 if len(match_data["versions"][version]["unknown_sheets"]) > 0:
@@ -4444,7 +4492,7 @@ class StudyDocVersionException(Exception):
                     if len(match_data["versions"][version]["missing_sheets"]) > 0:
                         message += (
                             "\t\t\tIn addition, the following sheets were not found, and could potentially be a "
-                            "match if the unknown (ignored) sheet(s) were renamed: "
+                            "match if the ignored^ sheet(s) were renamed: "
                             f"{match_data['versions'][version]['missing_sheets']}\n"
                         )
             elif len(match_data["versions"][version]["missing_sheets"]) > 0:
@@ -4452,6 +4500,12 @@ class StudyDocVersionException(Exception):
                     f"\t\tNone of the expected sheet names: {match_data['versions'][version]['missing_sheets']}\n"
                     f"\t\twere found among the supplied sheets: {list(match_data['supplied'].keys())}\n"
                 )
+
+        message += (
+            "\n^ 'ignored' headers may or may not be correct.  They are just not used in file format "
+            "identification."
+        )
+
         super().__init__(message)
         self.match_data = match_data
 

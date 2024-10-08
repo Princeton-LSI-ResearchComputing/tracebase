@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     MutuallyExclusiveArgs,
     MzxmlParseError,
     MzxmlSampleHeaderMismatch,
+    MzXMLSkipRowError,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -402,7 +403,7 @@ class MSRunsLoader(TableLoader):
 
         # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
-        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(bool))
+        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(int))
 
     # There are maintained fields in the models involved, so deferring autoupdates will make this faster
     @MaintainedModel.defer_autoupdates(
@@ -465,15 +466,56 @@ class MSRunsLoader(TableLoader):
 
             for mzxml_name in self.mzxml_dict.keys():
 
-                # We will skip creating MSRunSample records for blanks, because to have an MSRunSample record, you need
-                # a Sample record, and we don't create those for blank samples.
-                dirs = list(self.mzxml_dict[mzxml_name].keys())
+                # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
+                # an MSRunSample record, you need a Sample record, and we don't create those for blank samples.
                 if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
+                    # There can exist rows in the sheet with the sample mzxml name that are not marked with 'skip'
                     dirs = [
                         dir
                         for dir in self.mzxml_dict[mzxml_name].keys()
                         if dir not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
                     ]
+                else:
+                    dirs = list(self.mzxml_dict[mzxml_name].keys())
+
+                if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
+                    if len(dirs) == 0:
+                        # The sample (header) / mzXML file has been explicitly skipped by having added the directory
+                        # path to the mzXML file name column of the infile
+                        continue
+                    if (
+                        # There is a single skipped directory entry indicated in the infile
+                        len(self.skip_msrunsample_by_mzxml[mzxml_name].keys()) == 1
+                        # The directory path is an empty string (meaning it's either in the root directory or an mzXML
+                        # filename was not provided in the infile)
+                        and "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        # The number of rows in the infile indicating that this 'sample header' should be skipped (i.e.
+                        # the count stored in self.skip_msrunsample_by_mzxml[mzxml_name][""]) is equal to the number of
+                        # files with this name (inferred by the number of directory paths)
+                        and len(dirs) == self.skip_msrunsample_by_mzxml[mzxml_name][""]
+                    ):
+                        # We will skip the files that matches the number of infile rows where the sample header was
+                        # marked as a skip row even though we haven't confirmed any explicit directory matches.
+                        continue
+                    elif "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys():
+                        skip_files = []
+                        for dr in self.mzxml_dict[mzxml_name].keys():
+                            for dct in self.mzxml_dict[mzxml_name][dr]:
+                                skip_files.append(
+                                    os.path.join(dr, dct["mzxml_filename"])
+                                )
+                        self.aggregated_errors_object.buffer_error(
+                            MzXMLSkipRowError(
+                                mzxml_name,
+                                dirs,
+                                self.skip_msrunsample_by_mzxml[mzxml_name],
+                                skip_files,
+                                file=self.friendly_file,
+                                sheet=self.DataSheetName,
+                                column=self.DataHeaders.MZXMLNAME,
+                            )
+                        )
+                        continue
 
                 # Guess the sample based on the mzXML file's basename
                 # NOTE: Assuming that the version with dashes is the user-entered sample name, and that that's what they
@@ -794,13 +836,13 @@ class MSRunsLoader(TableLoader):
                 if mzxml_path is not None:
                     mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] = True
+                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] += 1
                 else:
                     # If there happen to be mzXMLs supplied, but not in the mzXML column, add the sample header to cause
                     # the skip (fingers crossed, there's not some difference - but we can't necessarily know that).
                     # TODO: Account for the dash/underscore issue here.  Isocorr changes dashes in the mzXML name to
                     # underscores, and we haven't accounted for that here...
-                    self.skip_msrunsample_by_mzxml[sample_header][""] = True
+                    self.skip_msrunsample_by_mzxml[sample_header][""] += 1
                 return rec, created
 
             sample = self.get_sample_by_name(sample_name)
