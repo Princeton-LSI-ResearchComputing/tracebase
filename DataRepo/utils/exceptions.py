@@ -3312,7 +3312,11 @@ class NoMZXMLFiles(Exception):
 
 class MzXMLSkipRowError(InfileError):
     def __init__(
-        self, mzxml_name, existing_paths, skip_paths_dict, skip_files, **kwargs
+        self,
+        mzxml_name: str,
+        existing_files: List[str],
+        skip_paths_dict: Dict[str, int],
+        **kwargs,
     ):
         """The situation here is that we may not be able to identify which files to skip and which to
         load.  dirs could contain files we should skip because the user didn't provide directory paths on the skipped
@@ -3321,40 +3325,30 @@ class MzXMLSkipRowError(InfileError):
 
         Args:
             mzxml_name (str): The mzXML filename without the extension
-            existing_paths (List[str]): Directories that hold a file named {mzxml_name} (i.e. same-named files)
+            existing_files (List[str]): mzXML files all named mzxml_name
             skip_paths_dict (Dict[str, int]): Directories extracted from a Peak Annotation Details sheet that do not
                 match existing_paths.  If a key is an empty string, it means no path was provided (or the path is the
                 root directory).
-            skip_files (List[str]): List of mzXML files (with paths) whose load will be skipped.
         """
         dirs_from_infile = [d for d in skip_paths_dict.keys() if d != ""]
         nlt = "\n\t"
         # In this instance, we don't have any paths from the infile
         if len(dirs_from_infile) == 0:
             message = (
-                f"The number of mzXML files with the name '{mzxml_name}' found in directory(/ies):\n"
-                f"\t{nlt.join(existing_paths)}\n"
-                "matches a different number of skipped sample headers (without directory paths included in the mzXML "
-                f"file name column): {skip_paths_dict['']}.  If all mzXML files named '{mzxml_name}' must be skipped, "
-                "the number of skipped rows with that sample header in %s must equal the number of files above "
-                f"({len(existing_paths)}), or if not all should be skipped, the directory paths must be included for "
-                f"these mzXML files in the mzXML file name column so that we can tell which to ones skip)."
+                f"The number of supplied mzXML files with the name '{mzxml_name}':\n"
+                f"\t{nlt.join(existing_files)}\n"
+                f"matches a different number of skipped sample headers ({skip_paths_dict['']}) in %s."
             )
         else:
             message = (
-                f"The paths of the following mzXML files with the same sample name '{mzxml_name}':"
-                f"\n\t{nlt.join(existing_paths)}\n"
-                f"do not match the paths supplied in %s:\n"
-                f"{nlt.join(dirs_from_infile)}\n"
-                "If all must be skipped, you don't need to specify the paths - you just need the same number of rows "
-                "in %s with that sample header.  If not all should be skipped, the directory paths must be included in "
-                "the existing rows so that we can tell which mzXML files to load/skip).  Search for rows in the "
-                f"file and update/add the mzXML file names with their paths."
+                f"The paths of the following mzXML files with the same sample name ({mzxml_name}):"
+                f"\n\t{nlt.join(existing_files)}\n"
+                "do not match the paths supplied in %s:\n"
+                f"{nlt.join(dirs_from_infile)}"
             )
-        message += f"\n\nThe following mzXML files will not be loaded:\n\t{nlt.join(skip_files)}"
         super().__init__(message, **kwargs)
         self.mzxml_name = mzxml_name
-        self.existing_paths = existing_paths
+        self.existing_files = existing_files
         self.skip_paths_dict = skip_paths_dict
 
 

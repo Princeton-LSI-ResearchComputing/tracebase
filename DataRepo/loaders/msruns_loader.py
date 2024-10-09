@@ -504,15 +504,22 @@ class MSRunsLoader(TableLoader):
                                 skip_files.append(
                                     os.path.join(dr, dct["mzxml_filename"])
                                 )
-                        self.aggregated_errors_object.buffer_error(
+                        self.aggregated_errors_object.buffer_warning(
                             MzXMLSkipRowError(
                                 mzxml_name,
-                                dirs,
-                                self.skip_msrunsample_by_mzxml[mzxml_name],
                                 skip_files,
+                                self.skip_msrunsample_by_mzxml[mzxml_name],
                                 file=self.friendly_file,
                                 sheet=self.DataSheetName,
                                 column=self.DataHeaders.MZXMLNAME,
+                                suggestion=(
+                                    "The mzXML files listed above will not be loaded.  If all mzXML files named "
+                                    f"'{mzxml_name}' must be skipped, please ensure that the number of rows in the "
+                                    f"'{self.DataSheetName}' sheet equals the number of files above "
+                                    f"({len(skip_files)}), or if not all should be skipped, the directory paths should "
+                                    "be included for each mzXML file in the mzXML file name column so that we can tell "
+                                    "which ones to load and which to skip)."
+                                ),
                             )
                         )
                         continue
