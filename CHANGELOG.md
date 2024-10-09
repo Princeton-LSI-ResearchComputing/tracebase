@@ -14,6 +14,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+## [3.1.0-beta] - 2024-09-12
+
+### Fixed
+
+- Included consideration for the variability of the AccuCor 'adductName' column.
+- Fixes for uncaught exceptions about study doc versions and for referenced infusates from the animals sheet/loader.
+  - Replaced uncaught study doc version exceptions with graceful exceptions that include a hint of which version the submitted version is closest to.
+  - Fixed an issue where finding the infusate using the infusate name fails when the infusate does not yet exist in the database.
+- Worked around an IsoCorr quirk that changes dashes in sample name headers to underscores, causing mismatches with the mzXML filenames.
+- Improved submission start page performance to prevent timeouts.
+- Added missing environment variables to the example env file.
+- Ensured that the peakgroup name is composed of the supplied compound synonyms instead of the compound primary name so-as to support qualitative differences in the compounds synonyms describe (e.g. stereoisomers) (which was incorrectly changed before).
+- Addressed infusate/tracer consistency check issue associated with spaces between isotopes and added case insensitivity.
+- Fixed the clean-up of archive files when the load fails.
+- Fixed all of the column overrun issues in the templates.
+- Fixed the 200 row download limit issue.
+- Clarified confusing "labeled elements" columns in the templates to represent combinations of elements among the tracers.
+- Fixed empty MSRun names in the peak group templates.
+- Avoided TypeError due to the mzXML file column not having a value.
+- Fixed dry-run mode handling WRT child loaders of StudyLoader.
+- Fixed handling of defer_rollback mode.
+- Fixed omission of MultiplePeakGroupRepresentations and NoTracerLabeledElements errors by adding an override of PeakGroup.save() to check for multiple representations.
+
+### Added
+
+- Additions to the submission interface.
+  - Added autofill functionality for all sheets in the study doc.
+  - Added static drop-downs for fields/columns that are enumerated.
+  - Added formulas to calculated columns (and shaded those columns).
+  - The submission (aka "validation") page now wraps calls to the new loading classes.
+  - Added the ability to allow csv and tsv files in the submission form.
+  - Added backward compatibility support for version 2 study docs.
+  - Added compounds with matching formulas to the Compounds autofill.
+- Moved/renamed legacy loader scripts and replaced load_study.py with calls to the new loading classes.
+- Scan label handling (e.g. "_pos" and "_neg") additions.
+  - Added the ability to remove internal scan labels from sample headers to determine sample name.
+  - Added dashes as a alternate scan label delimiter.
+- Added aggregation of load stats to StudyLoader.
+
+### Changed
+
+- Removed the code field from the Study model and its loader/sheet.
+- Changes to the submission interface.
+  - Linked to a new google submission form.
+  - Added a tab-bar to the submission page and broke up the submission process into 4 steps:
+    - Start (to download a template based on autofill from peak annotation files).
+    - Fill In (including instructions on filling out the study doc).
+    - Validate (to check the study doc for problems and make minor fixes).
+    - Submit (to link researchers to the google form that emails us a new submission exists).
+  - Removed the original upload page and instead linked the Upload tab directly to the submission start page.
+  - Removed the validation disabled view/template.
+- Improved the help_text for PeakGroup.name to be more specific about how it differs from the primary compound name.
+- Updated the upload instructions in the docs.
+- Many exception summarization and streamlining improvements were made.
+- Removed cache retrieval print.
+
 ## [3.0.2-beta] - 2024-07-30
 
 ### Fixed

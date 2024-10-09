@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from django.db import transaction
 from django.db.utils import IntegrityError
 
-from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
@@ -84,7 +84,15 @@ class CompoundsLoader(TableLoader):
     # No FieldToDataValueConverter needed
 
     DataColumnMetadata = DataTableHeaders(
-        NAME=TableColumn.init_flat(field=Compound.name, name=DataHeaders.NAME),
+        NAME=TableColumn.init_flat(
+            field=Compound.name,
+            name=DataHeaders.NAME,
+            # TODO: Replace sheet/header strings with references once the circular import issue is figured out
+            reference=ColumnReference(
+                sheet="Tracers",
+                header="Compound",
+            ),
+        ),
         HMDB_ID=TableColumn.init_flat(field=Compound.hmdb_id, name=DataHeaders.HMDB_ID),
         FORMULA=TableColumn.init_flat(field=Compound.formula, name=DataHeaders.FORMULA),
         SYNONYMS=TableColumn.init_flat(

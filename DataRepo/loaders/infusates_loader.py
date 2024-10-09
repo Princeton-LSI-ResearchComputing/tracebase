@@ -54,7 +54,7 @@ class InfusatesLoader(TableLoader):
     DataHeaders = DataTableHeaders(
         ID="Infusate Row Group",
         TRACERGROUP="Tracer Group Name",
-        TRACERNAME="Tracer Name",
+        TRACERNAME="Tracer",
         TRACERCONC="Tracer Concentration",
         NAME="Infusate Name",
     )
@@ -156,12 +156,6 @@ class InfusatesLoader(TableLoader):
             field=InfusateTracer.tracer,
             # TODO: Add help text to the field in the Tracer model
             help_text=f"Name of a tracer in this infusate at a specific {DataHeaders.TRACERCONC}.",
-            guidance=(
-                f"Select a {DataHeaders.TRACERNAME} from the dropdowns in this column.  Those dropdowns are populated "
-                f"by the {TracersLoader.DataHeaders.NAME} column in the {TracersLoader.DataSheetName} sheet.  "
-                f"All of the {DataHeaders.TRACERNAME}s in an infusate with multiple {DataHeaders.TRACERNAME}s are "
-                f"defined on separate rows and associated via the values in the {DataHeaders.ID} column."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=TracersLoader,
@@ -178,10 +172,25 @@ class InfusatesLoader(TableLoader):
             readonly=True,  # This is a "soft" read-only.  Users can enter values, but use of the formula is encouraged.
             field=Infusate.name,
             type=str,
+            format=(
+                "While this column is automatically populated by excel formula, the following describes the formula "
+                "output, if you wish to manually enter it.\n"
+                "\n"
+                "Individual tracer compounds will be formatted as: compound_name-[weight element count,weight "
+                "element count]\nexample: valine-[13C5,15N1]\n"
+                "\n"
+                "Mixtures of compounds will be formatted as: tracer_group_name {tracer[conc]; tracer[conc]}\n"
+                "example:\n"
+                "BCAAs {isoleucine-[13C6,15N1][23.2];leucine-[13C6,15N1][100];valine-[13C5,15N1][0.9]}\n"
+                "\n"
+                "Note that the concentrations in the name are limited to "
+                f"{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES} significant figures, but the saved value is as "
+                "entered."
+            ),
             # TODO: Replace "Infusate" and "Animals" below with a reference to its loader's column and DataSheetName
-            guidance=(
-                "This column is automatically filled in using an excel formula and its values are used to populate "
-                "Infusate choices in the Animals sheet."
+            reference=ColumnReference(
+                sheet="Animals",
+                header="Infusate",
             ),
             # TODO: Create the method that applies the formula to the NAME column on every row
             # Excel formula that creates the name using the spreadsheet columns on the rows containing the ID on the
@@ -234,13 +243,13 @@ class InfusatesLoader(TableLoader):
                 f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"{{{{",""),'
                 # Join the sorted tracers (from multiple rows) using a ';' delimiter, (mapping the names and concs)
                 '_xlfn.TEXTJOIN(";",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
-                # Filter all tracer names to get ones whose tracer row group ID is the same as as this row's group ID
+                # Filter all tracers to get ones whose tracer row group ID is the same as as this row's group ID
                 f"_xlfn._xlws.FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),'
                 # Filter all concentrations to get ones whose tracer row group ID is the same as as this row's group ID
                 f"_xlfn._xlws.FILTER({{{CONC_KEY}}}:{{{CONC_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()), ""),'
-                # Apply this lambda to the tracer names and concentrations filtered above to concatenate the tracers and
+                # Apply this lambda to the tracers and concentrations filtered above to concatenate the tracers and
                 # their concentrations
                 '_xlfn.LAMBDA(_xlpm.a,_xlpm.b,CONCATENATE(_xlpm.a,"[",_xlpm.b,"]"))))),'
                 # If there is more than 1 tracer for this row group ID, include a closing curly brace
@@ -430,7 +439,7 @@ class InfusatesLoader(TableLoader):
             self.set_row_index(infusate_dict["row_index"])
 
             if self.is_skip_row():
-                # If the row the tracer name was first obtained from is a skip row, skip it
+                # If the row the tracer was first obtained from is a skip row, skip it
                 continue
 
             num_tracers = (
@@ -689,7 +698,7 @@ class InfusatesLoader(TableLoader):
 
             # If we're not already filling in data
             if fill_in_tracer_data is False:
-                # If any Tracer name is missing
+                # If any Tracer is missing
                 all_match = True
                 for table_tracer in table_infusate["tracers"]:
                     table_tracer_name = table_tracer["tracer_name"]
@@ -776,13 +785,13 @@ class InfusatesLoader(TableLoader):
                         {
                             "tracer_name": parsed_infusate["tracer"]["unparsed_string"],
                             "tracer_concentration": parsed_infusate["concentration"],
-                            # The row info where the tracer name was obtained
+                            # The row info where the tracer was obtained
                             "rownum": table_infusate["rownum"],
                             "row_index": table_infusate["row_index"],
                         }
                     )
 
-            # After filling in tracer names
+            # After filling in tracers
 
     def check_tracer_group_names(self):
         """Check the assortment of tracers for issues.
@@ -800,7 +809,7 @@ class InfusatesLoader(TableLoader):
         Returns:
             None
         """
-        # NOTE: This method assumes that the isotopes are consistently ordered in the tracer names
+        # NOTE: This method assumes that the isotopes are consistently ordered in the tracers
 
         tracer_group_dict = defaultdict(lambda: defaultdict(list))
         tracer_group_conc_dict = defaultdict(list)
@@ -1323,7 +1332,7 @@ class InfusatesLoader(TableLoader):
 
         trownums = [te["rownum"] for te in infusate_dict["tracers"]]
 
-        # Get the tracer name using the primary compound (so we will be comparing apples to apples)
+        # Get the tracer using the primary compound (so we will be comparing apples to apples)
         tnames = []
         for tcr in infusate_dict["tracers"]:
             tmptn = tcr["tracer_name"]
@@ -1359,10 +1368,8 @@ class InfusatesLoader(TableLoader):
                 # Rebuild the name from the data with just this change
                 tcr["tracer_name"] = Tracer.name_from_data(tmptndata)
 
-                # Append the modified name to our list of file-derived tracer names
+                # Append the modified name to our list of file-derived tracers
                 tnames.append(tcr["tracer_name"])
-        # TODO: Remove this commented line of code once the above is vetted
-        # tnames = [te["tracer_name"] for te in infusate_dict["tracers"]]
         tconcs = [
             f"{te['tracer_name']}: {te['tracer_concentration']}"
             for te in infusate_dict["tracers"]

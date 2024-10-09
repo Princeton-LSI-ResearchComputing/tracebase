@@ -177,18 +177,6 @@ class AnimalsLoader(TableLoader):
         INFUSATE=TableColumn.init_flat(
             name=DataHeaders.INFUSATE,
             field=Animal.infusate,
-            format=(
-                "Individual tracer compounds will be formatted: compound_name-[weight element count,weight "
-                "element count]\nexample: valine-[13C5,15N1]\n"
-                "\n"
-                "Mixtures of compounds will be formatted: tracer_group_name {tracer[conc]; tracer[conc]}\n"
-                "example:\n"
-                "BCAAs {isoleucine-[13C6,15N1][23.2];leucine-[13C6,15N1][100];valine-[13C5,15N1][0.9]}\n"
-                "\n"
-                "Note that the concentrations in the name are limited to "
-                f"{Infusate.CONCENTRATION_SIGNIFICANT_FIGURES} significant figures, but the saved value is as "
-                "entered."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=InfusatesLoader,
@@ -199,9 +187,9 @@ class AnimalsLoader(TableLoader):
             name=DataHeaders.STUDY,
             field=Animal.studies,
             format=(
-                "Note that an animal can belong to multiple studies.  As such, this is delimited field.  Multiple "
-                f"{DataHeaders.STUDY}s can be entered using the delimiter: [{StudyDelimiter}], but you only need to "
-                "add the study relevant to this submission."
+                "Note that an animal can belong to multiple studies.  As such, this is a delimited field.  Multiple "
+                f"{DataHeaders.STUDY} records can be entered using the delimiter: '{StudyDelimiter}', but the "
+                "dropdowns only work for individual studies, thus multiple studies must be manually entered."
             ),
             type=str,
             dynamic_choices=ColumnReference(
@@ -213,10 +201,6 @@ class AnimalsLoader(TableLoader):
         TREATMENT=TableColumn.init_flat(
             name=DataHeaders.TREATMENT,
             field=Animal.treatment,
-            guidance=(
-                f"Select a {DataHeaders.TREATMENT} from the dropdowns in this column.  The dropdowns are populated "
-                f"by the {ProtocolsLoader.DataHeadersExcel.NAME} column in the {ProtocolsLoader.DataSheetName} sheet."
-            ),
             type=str,
             dynamic_choices=ColumnReference(
                 loader_class=ProtocolsLoader,

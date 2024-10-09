@@ -14,6 +14,7 @@ from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
+from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.studies_loader import StudiesLoader
@@ -36,7 +37,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
-from DataRepo.views.upload.submission import DataValidationView
+from DataRepo.views.upload.submission import BuildSubmissionView
 
 
 class DataValidationViewTests1(TracebaseTransactionTestCase):
@@ -83,7 +84,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             name="test", category="animal_treatment", description="test description"
         )
 
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = None
 
         dfs_dict = dvv.get_or_create_dfs_dict()
@@ -128,7 +129,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": {},
             },
             "Tracers": {
-                "Compound Name": {},
+                "Compound": {},
                 "Element": {},
                 "Label Count": {},
                 "Label Positions": {},
@@ -141,7 +142,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusate Row Group": {},
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
-                "Tracer Name": {},
+                "Tracer": {},
             },
             "LC Protocols": {
                 "Description": str,
@@ -161,14 +162,21 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Peak Annotation File Name": str,
                 "Sample Data Header": str,
                 "Sample Name": str,
-                "Sequence Name": str,
+                "Sequence": str,
                 "Skip": bool,
                 "mzXML File Name": str,
             },
             "Peak Annotation Files": {
-                "Default Sequence Name": str,
+                "Default Sequence": str,
                 "File Format": str,
                 "Peak Annotation File": str,
+            },
+            "Peak Group Conflicts": {
+                "Peak Group Conflict": str,
+                "Selected Peak Annotation File": str,
+                "Common Sample Count": int,
+                "Example Samples": str,
+                "Common Samples": str,
             },
         }
 
@@ -192,7 +200,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
 
         This also indirectly tests get_study_dfs_dict and fill_in_missing_columns.
         """
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = (
             "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
         )
@@ -327,7 +335,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": {},
             },
             "Tracers": {
-                "Compound Name": {},
+                "Compound": {},
                 "Element": {},
                 "Label Count": {},
                 "Label Positions": {},
@@ -340,7 +348,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusate Row Group": {},
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
-                "Tracer Name": {},
+                "Tracer": {},
             },
             "LC Protocols": {
                 "Description": {},
@@ -360,16 +368,23 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Peak Annotation File Name": {},
                 "Sample Data Header": {},
                 "Sample Name": {},
-                "Sequence Name": {},
+                "Sequence": {},
                 "Skip": {},
                 "mzXML File Name": {},
             },
             "Peak Annotation Files": {
-                "Default Sequence Name": {},
+                "Default Sequence": {},
                 "File Format": {},
                 "Peak Annotation File": {},
             },
             "Infusions": None,  # Ignoring this one
+            "Peak Group Conflicts": {
+                "Peak Group Conflict": {},
+                "Selected Peak Annotation File": {},
+                "Common Sample Count": {},
+                "Example Samples": {},
+                "Common Samples": {},
+            },
         }
 
         # The following is to avoid a JSCPD error.  Silly hoop jumping...
@@ -394,7 +409,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assert_dfs_dicts(expected, dfs_dict)
 
     def test_get_study_dtypes_dict(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         # TODO: Eliminate the need for a dummy file (with an xls extension).  The protocol headers change for the
         # treatments sheet if it's an excel file.  The data is not needed - just the headers.
         dvv.study_file = "dummy.xlsx"
@@ -439,7 +454,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Synonyms": str,
             },
             "Tracers": {
-                "Compound Name": str,
+                "Compound": str,
                 "Element": str,
                 # "Label Count": int,
                 "Label Positions": str,
@@ -452,7 +467,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 # "Infusate Row Group": int,
                 # "Tracer Concentration": float,
                 "Tracer Group Name": str,
-                "Tracer Name": str,
+                "Tracer": str,
             },
             "LC Protocols": {
                 "Description": str,
@@ -472,20 +487,26 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Peak Annotation File Name": str,
                 "Sample Data Header": str,
                 "Sample Name": str,
-                "Sequence Name": str,
+                "Sequence": str,
                 "Skip": str,
                 "mzXML File Name": str,
             },
             "Peak Annotation Files": {
-                "Default Sequence Name": str,
+                "Default Sequence": str,
                 "File Format": str,
                 "Peak Annotation File": str,
+            },
+            "Peak Group Conflicts": {
+                "Common Samples": str,
+                "Example Samples": str,
+                "Peak Group Conflict": str,
+                "Selected Peak Annotation File": str,
             },
         }
         self.assertDictEqual(expected, dvv.get_study_dtypes_dict())
 
     def get_data_validation_object_with_errors(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.load_status_data = MultiLoadStatus(
             load_keys=[
                 "All Samples present",
@@ -589,6 +610,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Sequences": {},
                 "Peak Annotation Details": {},
                 "Peak Annotation Files": {},
+                "Peak Group Conflicts": {},
             },
             vo.autofill_dict,
         )
@@ -608,7 +630,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertEqual("WARNING", vo.load_status_data.statuses["file2.xlsx"]["state"])
 
     def test_extract_all_missing_samples(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.extract_all_missing_values(
             AllMissingSamples(
                 [
@@ -639,11 +661,12 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
             PeakAnnotationFilesLoader.DataSheetName: {},
+            PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
     def test_extract_all_missing_tissues(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.extract_all_missing_values(
             AllMissingTissues(
                 [
@@ -670,11 +693,12 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
             PeakAnnotationFilesLoader.DataSheetName: {},
+            PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
     def test_extract_all_missing_treatments(self):
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.extract_all_missing_values(
             AllMissingTreatments(
                 [
@@ -703,6 +727,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             SequencesLoader.DataSheetName: {},
             MSRunsLoader.DataSheetName: {},
             PeakAnnotationFilesLoader.DataSheetName: {},
+            PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
 
@@ -748,7 +773,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Name": {},
             },
             "Tracers": {
-                "Compound Name": {},
+                "Compound": {},
                 "Element": {},
                 "Label Count": {},
                 "Label Positions": {},
@@ -761,7 +786,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Infusate Row Group": {},
                 "Tracer Concentration": {},
                 "Tracer Group Name": {},
-                "Tracer Name": {},
+                "Tracer": {},
             },
             "LC Protocols": {
                 "Description": {},
@@ -781,14 +806,21 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "Peak Annotation File Name": {},
                 "Sample Data Header": {},
                 "Sample Name": {},
-                "Sequence Name": {},
+                "Sequence": {},
                 "Skip": {},
                 "mzXML File Name": {},
             },
             "Peak Annotation Files": {
-                "Default Sequence Name": {},
+                "Default Sequence": {},
                 "File Format": {},
                 "Peak Annotation File": {},
+            },
+            "Peak Group Conflicts": {
+                "Peak Group Conflict": {},
+                "Selected Peak Annotation File": {},
+                "Common Sample Count": {},
+                "Example Samples": {},
+                "Common Samples": {},
             },
         }
 
@@ -838,11 +870,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         )
 
     def test_extract_autofill_from_peak_annotation_files(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.set_files(
             peak_annot_files=["DataRepo/data/tests/data_submission/accucor1.xlsx"]
         )
-        dvv.extract_autofill_from_peak_annotation_files()
+        dvv.extract_autofill_from_peak_annotation_files_forms()
         self.assertDictEqual(
             {
                 "Compounds": {
@@ -872,18 +904,21 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                         "Peak Annotation File Name": "accucor1.xlsx",
                         "Sample Data Header": "072920_XXX1_1_TS1",
                         "Sample Name": "072920_XXX1_1_TS1",
+                        "Sequence": None,
                         "Skip": None,
                     },
                     "072920_XXX1_2_bra__DELIM__accucor1.xlsx": {
                         "Peak Annotation File Name": "accucor1.xlsx",
                         "Sample Data Header": "072920_XXX1_2_bra",
                         "Sample Name": "072920_XXX1_2_bra",
+                        "Sequence": None,
                         "Skip": None,
                     },
                     "blank_1_404020__DELIM__accucor1.xlsx": {
                         "Peak Annotation File Name": "accucor1.xlsx",
                         "Sample Data Header": "blank_1_404020",
                         "Sample Name": "blank_1_404020",
+                        "Sequence": None,
                         "Skip": "skip",
                     },
                 },
@@ -891,14 +926,16 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                     "accucor1.xlsx": {
                         "File Format": "accucor",
                         "Peak Annotation File": "accucor1.xlsx",
+                        "Default Sequence": None,
                     },
                 },
+                "Peak Group Conflicts": {},
             },
             dvv.autofill_dict,
         )
 
     def test_determine_study_file_readiness_no_peak_files(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.set_files(
             study_file="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
             study_filename=None,
@@ -909,7 +946,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertTrue(dvv.determine_study_file_validation_readiness())
 
     def test_determine_study_file_readiness_study_file_with_sample_names_only(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = "study.xlsx"  # Invalid, but does not matter
         dvv.peak_annot_files = ["accucor.xlsx"]  # Invalid, but does not matter
         dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
@@ -917,7 +954,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertFalse(dvv.determine_study_file_validation_readiness())
 
     def test_determine_study_file_readiness_fleshed_study_file(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         dvv.study_file = "study.xlsx"  # Invalid, but does not matter
         dvv.peak_annot_files = ["accucor.xlsx"]  # Invalid, but does not matter
         dvv.dfs_dict = self.get_autofilled_study_dfs_dict()
@@ -928,7 +965,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
 
     def test_create_study_file_writer(self):
         # This also tests annotate_study_excel and dfs_dict_is_valid (indirectly)
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
         study_stream = BytesIO()
         xlsxwriter = dvv.create_study_file_writer(study_stream)
         dvv.annotate_study_excel(xlsxwriter)
@@ -936,7 +973,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         self.assertEqual(0, len(base64.b64encode(study_stream.read()).decode("utf-8")))
 
     def test_header_to_cell(self):
-        dvv = DataValidationView()
+        dvv = BuildSubmissionView()
 
         # Get cell location success
         result = dvv.header_to_cell("Animals", "Age")
@@ -1377,7 +1414,7 @@ class DataValidationViewTests2(TracebaseTransactionTestCase):
 
     def validate_some_files(self, sample_file, accucor_files):
         # Test the get_validation_results function
-        vo = DataValidationView()
+        vo = BuildSubmissionView()
         vo.set_files(study_file=sample_file, peak_annot_files=accucor_files)
         # Now try validating the load files
         vo.validate_study()

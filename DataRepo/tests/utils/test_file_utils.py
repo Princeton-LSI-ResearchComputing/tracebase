@@ -82,13 +82,11 @@ class FileUtilsTests(TracebaseTestCase):
                 "Treatment Description": str,
             },
             "Sequences": {
-                "Sequence Number": int,
+                "Sequence Name": str,
                 "Operator": str,
                 "Date": str,
                 "Instrument": str,
-                "LC Protocol": str,
-                "LC Run Length": int,
-                "LC Description": str,
+                "LC Protocol Name": str,
                 "Notes": str,
             },
         }

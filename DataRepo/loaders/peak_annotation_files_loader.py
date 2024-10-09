@@ -49,7 +49,7 @@ class PeakAnnotationFilesLoader(TableLoader):
     DataHeaders = DataTableHeaders(
         FILE="Peak Annotation File",
         FORMAT="File Format",
-        SEQNAME="Default Sequence Name",
+        SEQNAME="Default Sequence",
     )
 
     # List of required header keys
@@ -85,6 +85,10 @@ class PeakAnnotationFilesLoader(TableLoader):
             name=DataHeaders.FILE,
             help_text="Peak annotation file, e.g. AccuCor, IsoCorr, etc.",
             guidance="Include a path if the file will not be in the top level of the submission directory.",
+            reference=ColumnReference(
+                loader_class=MSRunsLoader,
+                loader_header_key=MSRunsLoader.ANNOTNAME_KEY,
+            ),
         ),
         FORMAT=TableColumn.init_flat(
             name=DataHeaders.FORMAT,
@@ -97,17 +101,13 @@ class PeakAnnotationFilesLoader(TableLoader):
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
             help_text=(
-                f"The default MSRun Sequence to use when loading {DataHeaders.FILE}.  Overridden by values supplied in "
+                f"The default Sequence to use when loading {DataHeaders.FILE}.  Overridden by values supplied in "
                 f"{MSRunsLoader.DataHeaders.SEQNAME} in the {MSRunsLoader.DataSheetName} sheet."
             ),
             type=str,
             format=(
-                "Comma-delimited string combining the values from these columns from the "
-                f"{SequencesLoader.DataSheetName} sheet in this order:\n"
-                f"- {SequencesLoader.DataHeaders.OPERATOR}\n"
-                f"- {SequencesLoader.DataHeaders.LCNAME}\n"
-                f"- {SequencesLoader.DataHeaders.INSTRUMENT}\n"
-                f"- {SequencesLoader.DataHeaders.DATE}"
+                f"Refer to the {SequencesLoader.DataHeaders.SEQNAME} column in the {SequencesLoader.DataSheetName} "
+                "sheet for format details."
             ),
             dynamic_choices=ColumnReference(
                 loader_class=SequencesLoader,
@@ -369,7 +369,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         return rec, created
 
     def get_default_sequence_details(self, row):
-        """Retrieves the sequence name and parses it into its parts.
+        """Retrieves the Sequence Name and parses it into its parts.
 
         Args:
             row (pd.Series)
@@ -407,7 +407,7 @@ class PeakAnnotationFilesLoader(TableLoader):
         date=None,
         filename=None,
     ):
-        """Loads the peak annotations file reference in the row and supplies a default sequence, if supplied.
+        """Loads the peak annotations file reference in the row and supplies a default MS Run Sequence, if supplied.
 
         Args:
             filepath (str)

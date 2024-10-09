@@ -81,6 +81,8 @@ class PeakGroupConflicts(TableLoader):
 
     # No FieldToDataValueConverter needed
 
+    DataHiddenColumns = [SAMPLES_KEY]
+
     DataColumnMetadata = DataTableHeaders(
         PEAKGROUP=TableColumn.init_flat(
             name=DataHeaders.PEAKGROUP,
@@ -246,7 +248,14 @@ class PeakGroupConflicts(TableLoader):
                 continue
 
             # NOTE: This does not check validity of the peak group name (i.e. it does not check if the delimited
-            # compound synonyms exist in the database)
+            # compound synonyms exist in the database).  Note that this lower-cases the peak group name only for its
+            # usage as a key in the all_representations dict, because the purpose of saving the compound synonyms in
+            # PeakGroup is to be able to differentiate between qualitatively different versions of a compound linked to
+            # the same compound record (e.g. stereo-isomers).  Making this case insensitive mitigates the possibility
+            # that synonyms differing only by case create duplicate representations that are not qualitatively
+            # different.  Note also that compound_synonyms_to_peak_group_name sorts the synonyms so that "citrate/
+            # isocitrate" is not considered different from "isocitrate/citrate".  I.e. synonyms only differing by case
+            # and/or order are considered multiple representations.
             pgname = PeakGroup.compound_synonyms_to_peak_group_name(
                 [ns.strip().lower() for ns in pgname_str.split(PeakGroup.NAME_DELIM)]
             )
@@ -264,7 +273,7 @@ class PeakGroupConflicts(TableLoader):
 
         Args:
             all_representations (Dict[str, Dict[str, Dict[str, List[int]]]]): A dict of all peak annotation files and
-                the rows they were on, for every sequence and sorted and lower-cased peak group name.
+                the rows they were on, for every common sorted sample set and sorted and lower-cased peak group name.
         Exceptions:
             Buffers:
                 InfileError

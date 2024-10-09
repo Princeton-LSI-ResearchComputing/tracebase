@@ -1,6 +1,6 @@
 Peak Group Conflict	Common Samples	Selected Peak Annotation File	Common Sample Count	Example Samples
-Lysine	sample1;sample2;sample3	accucor_pos.xlsx	3	sample1;sample2;sample3
-lysine	sample1;sample2;sample3	parentdir/samefilename/casediff/accucor_pos.xlsx	3	sample1;sample2;sample3
-asparagine	sampleA;sampleB	ok/nextday/isocorr1.xlsx	2	sampleA;sampleB
-L-aspartame/R-aspartame	sampleA;sampleB	v1/isocorr1.xlsx	2	sampleA;sampleB
-r-aspartame/l-aspartame	sampleA;sampleB	v2/difforder/diffcase/difffile/bad/isocorr2.xlsx	2	sampleA;sampleB
+Lysine	sample1;sample2;sample3	accucor_pos.xlsx	3	sample1
+lysine	sample1;sample2;sample3	parentdir/samefilename/casediff/accucor_pos.xlsx	3	sample1
+asparagine	sampleA;sampleB	ok/nextday/isocorr1.xlsx	2	sampleA
+L-aspartame/R-aspartame	sampleA;sampleB	v1/isocorr1.xlsx	2	sampleA
+r-aspartame/l-aspartame	sampleA;sampleB	v2/difforder/diffcase/difffile/bad/isocorr2.xlsx	2	sampleA

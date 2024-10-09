@@ -33,11 +33,11 @@ from .search import (
     search_basic,
     view_search_results,
 )
-from .upload import DataValidationView
+from .upload import BuildSubmissionView
 
 __all__ = [
     "home",
-    "DataValidationView",
+    "BuildSubmissionView",
     "search_basic",
     "view_search_results",
     "AdvancedSearchView",

@@ -44,7 +44,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
             "Infusate Row Group": [1],
             "Infusate Name": ["duderino{lysine-[13C6]}"],
             "Tracer Group Name": ["duderino"],
-            "Tracer Name": ["lysine-[13C6]"],
+            "Tracer": ["lysine-[13C6]"],
             "Tracer Concentration": [20],
         },
     )

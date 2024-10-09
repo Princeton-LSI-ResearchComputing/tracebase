@@ -298,9 +298,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 "Sample Data Header": ["s1_pos"],
                 "mzXML File Name": [None],
                 "Peak Annotation File Name": ["accucor1.xlsx"],
-                "Sequence Name": [
-                    f"Dick, polar-HILIC-25-min, {cls.INSTRUMENT}, 1991-5-7"
-                ],
+                "Sequence": [f"Dick, polar-HILIC-25-min, {cls.INSTRUMENT}, 1991-5-7"],
             },
         )
         super().setUpTestData()
@@ -353,7 +351,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                     "accucor1.xlsx",
                     "accucor1.xlsx",
                 ],
-                "Sequence Name": [
+                "Sequence": [
                     f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",
                     f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",
                     f"Dick, polar-HILIC-25-min, {self.INSTRUMENT}, 1991-5-7",

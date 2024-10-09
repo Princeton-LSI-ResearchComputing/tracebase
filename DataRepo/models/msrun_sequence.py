@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.db.models import (
     RESTRICT,
     AutoField,
@@ -27,7 +29,7 @@ class MSRunSequence(Model):
     #    such a problem is encountered, an error is buffered and eventually raised at the end of a failed load.
     # 3. To avoid hard-coding static "magic" values in multiple places.
     INSTRUMENT_DEFAULT = INSTRUMENT_CHOICES[-1][0]
-    SEQNAME_DELIMITER = ","
+    SEQNAME_DELIMITER = ", "
 
     id = AutoField(primary_key=True)
     researcher = CharField(
@@ -83,7 +85,7 @@ class MSRunSequence(Model):
 
     @classmethod
     def parse_sequence_name(cls, sequence_name: str):
-        """Parses a sequence name into its parts.
+        """Parses an Sequence Name into its parts.
 
         Args:
             name (str)
@@ -95,7 +97,7 @@ class MSRunSequence(Model):
             instrument (Optional[str])
             date (Optional[str])
         """
-        from DataRepo.utils.exceptions import InvalidSequenceName
+        from DataRepo.utils.exceptions import InvalidMSRunName
 
         operator = None
         date = None
@@ -111,8 +113,8 @@ class MSRunSequence(Model):
                     date,
                 ) = sequence_name.split(cls.SEQNAME_DELIMITER)
             except ValueError as ve:
-                raise InvalidSequenceName(
-                    f"Unable to parse sequence name '{sequence_name}'.  Must be 4 comma-delimited values of "
+                raise InvalidMSRunName(
+                    f"Unable to parse Sequence Name '{sequence_name}'.  Must be 4 comma-delimited values of "
                     "[Operator, LC Protocol, Instrument, and Date]."
                 ).with_traceback(ve.__traceback__)
 
@@ -131,3 +133,91 @@ class MSRunSequence(Model):
             instrument,
             date,
         )
+
+    @classmethod
+    def create_sequence_name(
+        cls,
+        operator: Optional[str] = "",
+        protocol: Optional[str] = "",
+        instrument: Optional[str] = "",
+        date: Optional[str] = "",
+    ):
+        """Creates the sequence name in the prescribed order.
+
+        This allows None values, which means that the default name would be ",,,".
+
+        Args:
+            operator (str)
+            protocol (str)
+            instrument (str)
+            date (str)
+        Exceptions:
+            None
+        Returns:
+            seqname (str)
+        """
+        if operator is None:
+            operator = ""
+        if protocol is None:
+            protocol = ""
+        if instrument is None:
+            instrument = ""
+        if date is None:
+            date = ""
+        return cls.SEQNAME_DELIMITER.join([operator, protocol, instrument, date])
+
+    @classmethod
+    def get_most_used_protocol(cls, default=None):
+        """Retrieves the name of the most used LCMethod in the database.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            LCMethod name (str) [LCMethod.create_name(LCMethod.DEFAULT_TYPE)]
+        """
+        from django.db.models import Count
+
+        from DataRepo.models import LCMethod
+
+        if default is None:
+            default = LCMethod.create_name(LCMethod.DEFAULT_TYPE)
+
+        max_lc_dict = (
+            cls.objects.exclude(lc_method__type="unknown")
+            .values("lc_method_id")
+            .annotate(count=Count("lc_method_id"))
+            .order_by("-count")
+            .first()
+        )
+        if max_lc_dict is None:
+            return default
+        return LCMethod.objects.get(id=max_lc_dict["lc_method_id"]).name
+
+    @classmethod
+    def get_most_used_instrument(cls, default=None):
+        """Retrieves the name of the most used instrument in the database.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            instrument (str) [cls.INSTRUMENT_DEFAULT]
+        """
+        from django.db.models import Count
+
+        if default is None:
+            default = cls.INSTRUMENT_DEFAULT
+
+        max_instrument_dict = (
+            cls.objects.exclude(instrument="unknown")
+            .values("instrument")
+            .annotate(count=Count("instrument"))
+            .order_by("-count")
+            .first()
+        )
+        if max_instrument_dict is None:
+            return default
+        return max_instrument_dict["instrument"]

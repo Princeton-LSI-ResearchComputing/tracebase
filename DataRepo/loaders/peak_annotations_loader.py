@@ -1036,11 +1036,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # Create this exception object (without buffering) to use in 2 possible buffering locations
         not_enough_defaults_exc = ConditionallyRequiredArgs(
-            "The arguments supplied to the constructor were insufficient to identify the sequence 1 or more of the "
-            "samples belong to.  Either peak_annotation_details_df can be supplied with a sequence name for every "
-            "MSRunSample record or the following defaults can be supplied via file_defaults of explicit arguments: "
-            f"[operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} defaults supplied were "
-            f"used to create the following query: {query_dict}."
+            "The arguments supplied to the constructor were insufficient to identify the MS Run Sequence that 1 or "
+            "more of the samples belong to.  Either peak_annotation_details_df can be supplied with a sequence name "
+            "for every MSRunSample record or the following defaults can be supplied via file_defaults of explicit "
+            f"arguments: [operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} defaults "
+            f"supplied were used to create the following query: {query_dict}."
         )
 
         if len(query_dict.keys()) == 0:

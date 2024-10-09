@@ -107,13 +107,17 @@ class SequencesLoader(TableLoader):
             name=DataHeaders.SEQNAME,
             readonly=True,
             help_text=(
-                "Read-only. (Calculated by formula).\n\n"
-                "A unique sequence identifier.\n\nNote that a sequence record is unique to a researcher, protocol, "
-                "instrument model, and date.  If a researcher performs multiple such Mass Spec runs on the same day, "
-                "this sequence record will represent multiple runs."
+                "A unique MS Run (Sequence) identifier.\n\nNote that an MS Run Sequence is unique to a researcher, "
+                "protocol, instrument (model), and date.  If a researcher performs multiple such Mass Spec Runs on the "
+                "same day, this MS Run Sequence record will represent multiple runs."
             ),
-            # TODO: Replace "Peak Annotation Details" below with a reference to its loader's DataSheetName
-            guidance="This column is used to populate Sequence Name choices in the Peak Annotation Details sheet.",
+            # TODO: Replace "Peak Annotation Details" and "Default Sequence" below with a reference to the loader
+            # TODO: Make "reference" be a List[ColumnReference], because there are multiple sheets that reference this
+            # column
+            reference=ColumnReference(
+                sheet="Peak Annotation Files",
+                header="Default Sequence",
+            ),
             type=str,
             format=(
                 "Comma-delimited string combining the values from these columns in this order:\n"
@@ -147,7 +151,7 @@ class SequencesLoader(TableLoader):
                 f'NOT(ISBLANK(INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()))),'
                 f'NOT(ISBLANK(INDIRECT("{{{DATE_KEY}}}" & ROW()))),'
                 "),"
-                f'_xlfn.TEXTJOIN("{MSRunSequence.SEQNAME_DELIMITER} ", FALSE, '
+                f'_xlfn.TEXTJOIN("{MSRunSequence.SEQNAME_DELIMITER}", FALSE, '
                 f'INDIRECT("{{{OPERATOR_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{LCNAME_KEY}}}" & ROW()), '
                 f'INDIRECT("{{{INSTRUMENT_KEY}}}" & ROW()), '

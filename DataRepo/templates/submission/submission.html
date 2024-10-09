@@ -5,12 +5,33 @@
     {{ block.super }}
 
     <link href="{% static 'css/tabbar.css' %}" rel="stylesheet">
-    {% if page == 'Start' or page is None %}
+    {% if page == 'Start' or page == 'Validate' or page is None %}
         <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+        <link href="{% static 'css/tbforms.css' %}" rel="stylesheet">
         <link href="{% static 'css/drop_area.css' %}" rel="stylesheet">
         <script src="{% static 'js/browser_download.js' %}"></script>
+        <script src="{% static 'js/submission_start.js' %}"></script>
         <script src="{% static 'js/file_list_drop_area.js' %}"></script>
         <script src="{% static 'js/submission.js' %}"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function(){
+                let tmpElems = document.getElementsByName("study_doc");
+                let studyDocInput = tmpElems[0];
+                initPeakAnnotUploads(
+                    document.getElementById('drop-annot-metadata-row-template'),
+                    document.getElementById('peak-annot-forms-elem'),
+                    document.getElementById('drop-area-input'),
+                    document.getElementById("submission-validation"),
+                    document.getElementById("single-form-elems"),
+                    studyDocInput
+                );
+                initDropArea(
+                    document.getElementById('drop-area'),
+                    addPeakAnnotFileToUpload,
+                    afterAddingFiles
+                );
+            })
+        </script>
     {% elif page == 'Fill In' %}
         <script src="{% static 'js/submission_fillin.js' %}"></script>
         <script>
@@ -18,10 +39,6 @@
                 initListeners("{% static 'images/minus.png' %}", "{% static 'images/plus.png' %}")
             })
         </script>
-    {% elif page == 'Validate' %}
-        <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
-        <script src="{% static 'js/browser_download.js' %}"></script>
-        <script src="{% static 'js/submission.js' %}"></script>
     {% elif page == 'Submit' %}
         <link href="{% static 'css/file_tree.css' %}" rel="stylesheet">
     {% endif %}

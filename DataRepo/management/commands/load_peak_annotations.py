@@ -108,8 +108,8 @@ class Command(LoadTableCommand):
             "--operator",
             type=str,
             help=(
-                "Default researcher (name) who operated the mass spec, used to assign each MSRun Sample to a sequence "
-                f"(only used if --peak-annotation-details-file is either not provided or column "
+                "Default researcher (name) who operated the mass spec.  Used to assign each MS Run Sample to an MS Run "
+                "Sequence (only used if --peak-annotation-details-file is either not provided or column "
                 f"{SequencesLoader.DataHeaders.SEQNAME} has no value).  Mutually exclusive with a default "
                 f"{SequencesLoader.DataHeaders.OPERATOR} defined in either --defaults-file or --defaults-sheet."
             ),
@@ -119,8 +119,8 @@ class Command(LoadTableCommand):
             "--date",
             type=str,
             help=(
-                "Default date the mass spec was run, used to assign each MSRunSample to a sequence (only used if "
-                f"--peak-annotation-details-file is either not provided or column "
+                "Default date the mass spec was run.  Used to assign each MS Run Sample to an MS Run Sequence (only "
+                "used if --peak-annotation-details-file is either not provided or column "
                 f"{SequencesLoader.DataHeaders.SEQNAME} has no value).  Mutually exclusive with a default "
                 f"{SequencesLoader.DataHeaders.DATE} defined in either --defaults-file or --defaults-sheet."
             ),
@@ -130,8 +130,8 @@ class Command(LoadTableCommand):
             "--lc-protocol-name",
             type=str,
             help=(
-                "Default liquid chromatography protocol name, used to assign each MSRun Sample to a sequence "
-                f"(only used if --peak-annotation-details-file is either not provided or column "
+                "Default liquid chromatography protocol name.  Used to assign each MS Run Sample to an MS Run Sequence "
+                "(only used if --peak-annotation-details-file is either not provided or column "
                 f"{SequencesLoader.DataHeaders.SEQNAME} has no value).  Mutually exclusive with a default "
                 f"{SequencesLoader.DataHeaders.LCNAME} defined in either --defaults-file or --defaults-sheet."
             ),
@@ -141,8 +141,8 @@ class Command(LoadTableCommand):
             "--instrument",
             type=str,
             help=(
-                "Default mass spec instrument name, used to assign each MSRun Sample to a sequence (only used if "
-                f"--peak-annotation-details-file is either not provided or column "
+                "Default mass spec instrument name.  Used to assign each MS Run Sample to an MS Run Sequence (only "
+                "used if --peak-annotation-details-file is either not provided or column "
                 f"{SequencesLoader.DataHeaders.SEQNAME} has no value).  Mutually exclusive with a default "
                 f"{SequencesLoader.DataHeaders.INSTRUMENT} defined in either --defaults-file or --defaults-sheet."
             ),

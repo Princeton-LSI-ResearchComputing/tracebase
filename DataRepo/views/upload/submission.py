@@ -12,10 +12,10 @@ import xlsxwriter.worksheet
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.utils import ProgrammingError
-from django.forms import ValidationError
+from django.forms import ValidationError, formset_factory
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.forms import create_BuildSubmissionForm
 from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -33,6 +33,7 @@ from DataRepo.loaders.peak_annotations_loader import (
     PeakAnnotationsLoader,
     UnicorrLoader,
 )
+from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
@@ -45,6 +46,7 @@ from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.lc_method import LCMethod
 from DataRepo.models.msrun_sequence import MSRunSequence
+from DataRepo.models.peak_group import PeakGroup
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.sample import Sample
 from DataRepo.models.tracer import Tracer
@@ -75,8 +77,7 @@ from DataRepo.utils.infusate_name_parser import (
 from DataRepo.utils.text_utils import autowrap
 
 
-class DataValidationView(FormView):
-    form_class = DataSubmissionValidationForm
+class BuildSubmissionView(FormView):
     template_name = "submission/submission.html"
     success_url = ""
     submission_url = settings.SUBMISSION_FORM_URL
@@ -103,6 +104,7 @@ class DataValidationView(FormView):
         SequencesLoader.DataSheetName,
         MSRunsLoader.DataSheetName,
         PeakAnnotationFilesLoader.DataSheetName,
+        PeakGroupConflicts.DataSheetName,
     ]
 
     def __init__(self):
@@ -121,6 +123,19 @@ class DataValidationView(FormView):
         self.autofill_dict[LCProtocolsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[SequencesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[PeakAnnotationFilesLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[PeakGroupConflicts.DataSheetName] = defaultdict(dict)
+
+        # For static dropdowns, we will use validation_autofill_dict.  Any value encountered in autofill_dict that is a
+        # dict, when adding autofill values, will be skipped and the following dict will be populated:
+        # validation_autofill_dict[sheet][header][rowindex] = {
+        #     "validate": "list",
+        #     "source": values_list,
+        #     "show_error": show_error,
+        #     "dropdown": True,
+        # }
+        self.validation_autofill_dict = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(dict))
+        )
 
         # These are used to help determine whether to validate or only autofill.  If a non-autofill column has any
         # values, it will trigger validate mode
@@ -190,6 +205,12 @@ class DataValidationView(FormView):
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT,  # Consumes
                 PeakAnnotationFilesLoader.DataHeaders.SEQNAME,  # Feeds
             ],
+            PeakGroupConflicts.DataSheetName: [
+                PeakGroupConflicts.DataHeaders.PEAKGROUP,  # Consumes
+                PeakGroupConflicts.DataHeaders.SAMPLECOUNT,  # Consumes
+                PeakGroupConflicts.DataHeaders.EXAMPLE,  # Consumes
+                PeakGroupConflicts.DataHeaders.SAMPLES,  # Consumes
+            ],
         }
 
         self.extracted_exceptions = defaultdict(lambda: {"errors": [], "warnings": []})
@@ -214,6 +235,7 @@ class DataValidationView(FormView):
         self.sequences_loader = SequencesLoader()
         self.msruns_loader = MSRunsLoader()
         self.peakannotfiles_loader = PeakAnnotationFilesLoader()
+        self.peakgroupconflicts_loader = PeakGroupConflicts()
         self.peak_annotations_loaders = []
         self.loaders: Dict[str, TableLoader] = {
             StudiesLoader.DataSheetName: self.studies_loader,
@@ -228,6 +250,7 @@ class DataValidationView(FormView):
             SequencesLoader.DataSheetName: self.sequences_loader,
             MSRunsLoader.DataSheetName: self.msruns_loader,
             PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader,
+            PeakGroupConflicts.DataSheetName: self.peakgroupconflicts_loader,
         }
 
         self.output_study_filename = "study.xlsx"
@@ -240,6 +263,7 @@ class DataValidationView(FormView):
         self.annot_files_dict: Dict[str, str] = {}
         self.peak_annot_files = None
         self.peak_annot_filenames = []
+        self.annot_file_metadata = {}
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
         self.validation_offset = 20
@@ -305,6 +329,9 @@ class DataValidationView(FormView):
                 "dict": {"bg_color": "#F2F2F2"},
             },
         }
+
+    def get_form_class(self):
+        return create_BuildSubmissionForm()
 
     def set_files(
         self,
@@ -556,66 +583,133 @@ class DataValidationView(FormView):
         elif page != "Fill In":
             raise ProgrammingError(f"Invalid page: {context['page']}")
 
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        form.fields["mode"].initial = mode
+        # Note, this logic developed due to the fact that form_invalid in the superclass was a formset, but the view
+        # uses a regular form generated by javascript.  Once I overrode form_invalid to handle errors, this logic likely
+        # no longer is needed, but it doesn't hurt, and it might help out if the code is edited later, so I'm going to
+        # keep it.
+        if (
+            "form" not in context.keys()
+            or not hasattr(context["form"], "fields")
+            or not hasattr(context["form"].fields["mode"], "initial")
+            or context["form"].fields["mode"].initial is None
+            or context["form"].fields["mode"].initial not in ["autofill", "validate"]
+        ):
+            if "form" not in context.keys() or not hasattr(context["form"], "fields"):
+                form_class = self.get_form_class()
+                form = self.get_form(form_class)
+            else:
+                form = context["form"]
 
-        context["form"] = form
+            form.fields["mode"].initial = mode
+            context["form"] = form
 
         return context
 
     def dispatch(self, request, *args, **kwargs):
-        return super(DataValidationView, self).dispatch(request, *args, **kwargs)
+        return super(BuildSubmissionView, self).dispatch(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
+    def post(self, *args, **kwargs):
+        formset_class = formset_factory(self.get_form_class())
+        formset = self.get_form(formset_class)
 
-        if not form.is_valid():
-            return self.form_invalid(form)
+        if (
+            not formset.is_valid()
+            # mode is required in the first form only
+            or "mode" not in formset.cleaned_data[0].keys()
+            or formset.cleaned_data[0]["mode"] not in ["autofill", "validate"]
+        ):
+            return self.form_invalid(formset)
 
-        if "animal_sample_table" in request.FILES:
-            sample_file = request.FILES["animal_sample_table"]
-            tmp_study_file = sample_file.temporary_file_path()
-        else:
-            # Ignore missing study file (allow user to validate just the accucor/isocorr file(s))
-            sample_file = None
-            tmp_study_file = None
+        return self.form_valid(formset)
 
-        if "peak_annotation_files" in request.FILES:
-            peak_annotation_files = request.FILES.getlist("peak_annotation_files")
-        else:
-            # Ignore missing accucor files (allow user to validate just the sample file)
-            peak_annotation_files = []
+    def form_valid(self, formset):
+        """
+        Upon valid file submission, adds validation messages to the context of the validation page.
+        """
+
+        # Process the annot file formset
+        mode = None
+        study_file_object = None
+        study_file = None
+        study_filename = None
+        peak_annot_files = []
+        peak_annot_filenames = []
+        self.annot_file_metadata = {}
+        rowform: dict
+        for index, rowform in enumerate(formset.cleaned_data):
+            # We only need/allow a single mode and study_doc, which is saved only in the first rowform
+            if index == 0:
+                mode = rowform["mode"]
+                study_file_object = rowform.get("study_doc")
+                if study_file_object is not None:
+                    study_file = study_file_object.temporary_file_path()
+                    study_filename = str(study_file_object)
+
+            # Process the peak annotation files
+            peak_annotation_file_object = rowform.get("peak_annotation_file")
+            if peak_annotation_file_object is not None:
+                peak_annot_file = peak_annotation_file_object.temporary_file_path()
+                peak_annot_filename = str(peak_annotation_file_object)
+
+                peak_annot_files.append(peak_annot_file)
+                peak_annot_filenames.append(peak_annot_filename)
+
+                self.annot_file_metadata[peak_annot_filename] = {
+                    "operator": rowform.get("operator"),
+                    "protocol": rowform.get("protocol"),
+                    "instrument": rowform.get("instrument"),
+                    # Date key is selected to be compatible with MSRunSequence.create_sequence_name
+                    "date": rowform.get("run_date"),
+                }
 
         self.load_status_data.clear_load()
 
         self.set_files(
-            tmp_study_file,
-            study_filename=str(sample_file) if sample_file is not None else None,
-            peak_annot_files=[fp.temporary_file_path() for fp in peak_annotation_files],
-            peak_annot_filenames=[str(fp) for fp in peak_annotation_files],
+            study_file,
+            study_filename=study_filename,
+            peak_annot_files=peak_annot_files,
+            peak_annot_filenames=peak_annot_filenames,
         )
-
-        return self.form_valid(form)
-
-    def form_valid(self, form):
-        """
-        Upon valid file submission, adds validation messages to the context of the validation page.
-        """
 
         debug = f"sf: {self.study_file} num pafs: {len(self.peak_annot_files)}"
 
         study_data = self.get_download_data()
 
         # Determine the page based on the mode submitted in the form (validate or autofill)
-        mode = form.cleaned_data["mode"]
+        # Example of cleaned_data:
+        #   [
+        #     {
+        #       'study_doc': None,
+        #       'peak_annotation_file': <TemporaryUploadedFile: col013a_negative_cor.xlsx
+        #         (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)>,
+        #       'operator': 'Anonymous',
+        #       'protocol': 'unknown',
+        #       'instrument': 'QE (Q Exactive)',
+        #       'run_date': '2024-09-18',
+        #     },
+        #     {
+        #       'study_doc': None,
+        #       'peak_annotation_file': <TemporaryUploadedFile: col013a_pos-highmz_cor.xlsx
+        #         (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)>,
+        #       'operator': 'Anonymous',
+        #       'protocol': 'unknown',
+        #       'instrument': 'QE (Q Exactive)',
+        #       'run_date': '2024-09-18',
+        #     },
+        #   ]
         if mode == "autofill":
             page = "Start"
         elif mode == "validate":
             page = "Validate"
         else:
             raise ProgrammingError(f"Invalid mode: {mode}")
+
+        # We need a new regular form (not a formset)
+        form_class = self.get_form_class()
+        # Cannot use the form.fields["mode"].initial trick to set the value for the hidden "mode" field here, because
+        # for some reason, we end up with a bound form here (and that method doesn't work on bound forms).  So we set
+        # the initial value using the constructor method.
+        form = form_class(initial={"mode": mode})
 
         return self.render_to_response(
             self.get_context_data(
@@ -634,6 +728,54 @@ class DataValidationView(FormView):
             ),
         )
 
+    def form_invalid(self, formset):
+        """
+        Upon valid file submission, adds validation messages to the context of the validation page.
+        """
+        # Get the mode from the unparsed data (since cleaned_data will not exist)
+        mode = formset.__dict__["data"].get("form-0-mode")
+        if mode == "autofill":
+            page = "Start"
+        elif mode == "validate":
+            page = "Validate"
+        else:
+            raise ProgrammingError(f"Invalid mode: {mode}")
+
+        # We need a new regular form (not a formset)
+        form_class = self.get_form_class()
+        # Cannot use the form.fields["mode"].initial trick to set the value for the hidden "mode" field here, because
+        # for some reason, we end up with a bound form here (and that method doesn't work on bound forms).  So we set
+        # the initial value using the constructor method.
+        form = form_class(initial={"mode": mode})
+
+        # The errors are stored in the formset object, but we're not using the formset object in the template.  We're
+        # using a basic form and converting it into a formset on submit with javascript, so we need a way to transmit
+        # errors.
+        form_errors = []
+        for formset_error in formset._errors:
+            for errlst in formset_error.values():
+                for errstr in errlst:
+                    if errstr not in form_errors:
+                        form_errors.append(errstr)
+
+        return self.render_to_response(
+            self.get_context_data(
+                results=None,
+                debug=None,
+                valid=None,
+                state=None,
+                form=form,
+                form_errors=form_errors,
+                page=page,
+                exceptions=None,
+                submission_url=self.submission_url,
+                ordered_keys=None,
+                study_data=None,
+                study_filename=None,
+                quiet_mode=self.autofill_only_mode,
+            ),
+        )
+
     def get_download_data(self):
         """This does all the processing of the submission after set_files() has been called."""
 
@@ -648,7 +790,7 @@ class DataValidationView(FormView):
             print("Extracting autofill information from file")
 
             # Extract autofill data directly from the peak annotation files
-            self.extract_autofill_from_files()
+            self.extract_autofill_from_files_and_forms()
         else:
             print("Validating study")
             self.validate_study()
@@ -799,6 +941,7 @@ class DataValidationView(FormView):
             SequencesLoader.DataSheetName: self.sequences_loader.get_header_metadata(),
             MSRunsLoader.DataSheetName: self.msruns_loader.get_header_metadata(),
             PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_header_metadata(),
+            PeakGroupConflicts.DataSheetName: self.peakgroupconflicts_loader.get_header_metadata(),
         }
         for order_spec in StudyLoader.get_study_sheet_column_display_order():
             sheet = order_spec[0]
@@ -831,10 +974,62 @@ class DataValidationView(FormView):
                     )
             xlsx_writer.sheets[sheet].autofit()
 
+        # Hide the peak groups conflict sheet if it is empty.  (This checks the number of rows in each column.)
+        if (
+            len(
+                [
+                    d
+                    for d in self.dfs_dict[PeakGroupConflicts.DataSheetName].values()
+                    if len(d.keys()) > 0
+                ]
+            )
+            == 0
+        ):
+            print("HIDING EMPTY CONFLICTS SHEET")
+            xlsx_writer.sheets[PeakGroupConflicts.DataSheetName].hide()
+
         self.add_dropdowns(xlsx_writer)
         self.add_formulas(xlsx_writer)
+        self.hide_hidden_columns(xlsx_writer)
+
+    def hide_hidden_columns(self, xlsx_writer):
+        loader: TableLoader
+        for loader in [
+            self.studies_loader,
+            self.animals_loader,
+            self.samples_loader,
+            self.tissues_loader,
+            self.treatments_loader,
+            self.compounds_loader,
+            self.tracers_loader,
+            self.infusates_loader,
+            self.lcprotocols_loader,
+            self.sequences_loader,
+            self.msruns_loader,
+            self.peakannotfiles_loader,
+            self.peakgroupconflicts_loader,
+        ]:
+            sheet = loader.DataSheetName
+            if sheet not in self.build_sheets or sheet not in self.dfs_dict.keys():
+                # Skipping unsupported and not present (PeakGroupConflicts) sheets
+                continue
+
+            worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
+
+            for hidden_header in loader.get_hidden_columns():
+                print(f"HIDING {sheet}, {hidden_header}")
+                letter = self.header_to_cell(
+                    sheet=sheet, header=hidden_header, letter_only=True
+                )
+                worksheet.set_column(f"{letter}:{letter}", None, None, {"hidden": True})
 
     def add_dropdowns(self, xlsx_writer):
+        print("Adding whole column dropdowns")
+        self.add_whole_column_dropdowns(xlsx_writer)
+        print("Adding autofill dropdowns")
+        self.add_autofill_dropdowns(xlsx_writer)
+
+    def add_whole_column_dropdowns(self, xlsx_writer):
         column_metadata = {
             StudiesLoader.DataSheetName: self.studies_loader.get_value_metadata(),
             AnimalsLoader.DataSheetName: self.animals_loader.get_value_metadata(),
@@ -848,6 +1043,7 @@ class DataValidationView(FormView):
             SequencesLoader.DataSheetName: self.sequences_loader.get_value_metadata(),
             MSRunsLoader.DataSheetName: self.msruns_loader.get_value_metadata(),
             PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_value_metadata(),
+            PeakGroupConflicts.DataSheetName: self.peakgroupconflicts_loader.get_value_metadata(),
         }
         for order_spec in StudyLoader.get_study_sheet_column_display_order():
             sheet = order_spec[0]
@@ -940,6 +1136,43 @@ class DataValidationView(FormView):
                         },
                     )
 
+    def add_autofill_dropdowns(self, xlsx_writer):
+        """Populates individual cell dropdowns from the validation_autofill_dict."""
+        for sheet in (
+            StudiesLoader.DataSheetName,
+            AnimalsLoader.DataSheetName,
+            SamplesLoader.DataSheetName,
+            TissuesLoader.DataSheetName,
+            ProtocolsLoader.DataSheetName,
+            CompoundsLoader.DataSheetName,
+            TracersLoader.DataSheetName,
+            InfusatesLoader.DataSheetName,
+            LCProtocolsLoader.DataSheetName,
+            SequencesLoader.DataSheetName,
+            MSRunsLoader.DataSheetName,
+            PeakAnnotationFilesLoader.DataSheetName,
+            PeakGroupConflicts.DataSheetName,
+        ):
+            if sheet not in self.validation_autofill_dict.keys():
+                continue
+
+            worksheet: xlsxwriter.worksheet.Worksheet = xlsx_writer.sheets[sheet]
+
+            for header in self.validation_autofill_dict[sheet].keys():
+                letter = self.header_to_cell(
+                    sheet=sheet,
+                    header=header,
+                    letter_only=True,
+                )
+                for rowindex, validation_dict in self.validation_autofill_dict[sheet][
+                    header
+                ].items():
+                    rownum = rowindex + 2  # Indexed from 1, and skip the header
+                    worksheet.data_validation(
+                        f"{letter}{rownum}",
+                        validation_dict,
+                    )
+
     def add_formulas(self, xlsx_writer):
         loader: TableLoader
         for loader in [
@@ -955,6 +1188,7 @@ class DataValidationView(FormView):
             self.sequences_loader,
             self.msruns_loader,
             self.peakannotfiles_loader,
+            self.peakgroupconflicts_loader,
         ]:
             sheet = loader.DataSheetName
             if sheet not in self.build_sheets:
@@ -1008,10 +1242,11 @@ class DataValidationView(FormView):
                             f"{col_letter}{rownum}", formula, None, ""
                         )
 
-    def extract_autofill_from_files(self):
-        """Calls methods for extracting autofill data from the submitted files."""
+    def extract_autofill_from_files_and_forms(self):
+        """Calls methods for extracting autofill data from the submitted forms (including from the submitted files)."""
         self.extract_autofill_from_study_doc()
-        self.extract_autofill_from_peak_annotation_files()
+        self.extract_autofill_from_sequence_forms()
+        self.extract_autofill_from_peak_annotation_files_forms()
 
     def extract_autofill_from_study_doc(self):
         """Extracts data from various sheets of the study doc.
@@ -1286,8 +1521,52 @@ class DataValidationView(FormView):
             if loader.is_row_empty(row):
                 continue
 
+            annot_file = loader.get_row_val(row, loader.headers.FILE)
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
-            self.extract_autofill_from_sequence_name(seq_name, seen)
+            (
+                operator,
+                protocol,
+                instrument,
+                date,
+            ) = self.extract_autofill_from_sequence_name(seq_name, seen)
+
+            if annot_file is not None:
+                annot_name = (os.path.split(annot_file))[1]
+
+                if annot_name not in self.annot_file_metadata.keys():
+                    self.annot_file_metadata = {
+                        "operator": None,
+                        "protocol": None,
+                        "instrument": None,
+                        "date": None,
+                    }
+
+                # The values in self.annot_file_metadata[annot_name] already are from the web form.  Those values trump
+                # what we might find in the file already, so we only update with what we find in the file if it's not
+                # set by the web form already.
+                if (
+                    self.annot_file_metadata[annot_name].get("operator") is None
+                    or self.annot_file_metadata[annot_name].get("operator") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["operator"] = operator
+
+                if (
+                    self.annot_file_metadata[annot_name].get("protocol") is None
+                    or self.annot_file_metadata[annot_name].get("protocol") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["protocol"] = protocol
+
+                if (
+                    self.annot_file_metadata[annot_name].get("instrument") is None
+                    or self.annot_file_metadata[annot_name].get("instrument") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["instrument"] = instrument
+
+                if (
+                    self.annot_file_metadata[annot_name].get("date") is None
+                    or self.annot_file_metadata[annot_name].get("date") == ""
+                ):
+                    self.annot_file_metadata[annot_name]["date"] = date
 
     def extract_autofill_from_peak_annot_details_sheet(self):
         if MSRunsLoader.DataSheetName not in self.study_file_sheets:
@@ -1321,14 +1600,53 @@ class DataValidationView(FormView):
             seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
             self.extract_autofill_from_sequence_name(seq_name, seen)
 
+            # We can actually fill in any missing seqnames in this sheet based on the file (and sample header)
+            # columns...
+            sample_header = loader.get_row_val(row, loader.headers.SAMPLEHEADER)
+            file = loader.get_row_val(row, loader.headers.ANNOTNAME)
+            if file in self.none_vals or sample_header in self.none_vals:
+                continue
+            filename = os.path.basename(file)
+
+            # If there's no seqname for this row, but we have a complete seqname in self.annot_file_metadata
+            # We have enough for autofill
+            if seq_name in self.none_vals and (
+                filename in self.annot_file_metadata.keys()
+                and None not in self.annot_file_metadata[filename].values()
+                and "" not in self.annot_file_metadata[filename].values()
+            ):
+                # Get the unique key used to identify this row
+                unique_annot_deets_key = self.row_key_delim.join(
+                    [sample_header, filename]
+                )
+
+                # If the autofill_dict hasn't been filled in already (i.e. don't overwrite what the user entered in the
+                # web form)
+                if (
+                    unique_annot_deets_key
+                    not in self.autofill_dict[MSRunsLoader.DataSheetName].keys()
+                    or self.autofill_dict[MSRunsLoader.DataSheetName][
+                        unique_annot_deets_key
+                    ].get(MSRunsLoader.DataHeaders.SEQNAME)
+                    is None
+                ):
+                    self.autofill_dict[MSRunsLoader.DataSheetName][
+                        unique_annot_deets_key
+                    ][
+                        MSRunsLoader.DataHeaders.SEQNAME
+                    ] = MSRunSequence.create_sequence_name(
+                        **self.annot_file_metadata[filename]
+                    )
+
     def extract_autofill_from_sequence_name(self, seq_name, seen):
         if seq_name is not None and seq_name not in seen["sequences"].keys():
+            tpl = MSRunSequence.parse_sequence_name(seq_name)
             (
                 operator,
                 lc_protocol_name,
                 instrument,
                 date,
-            ) = MSRunSequence.parse_sequence_name(seq_name)
+            ) = tpl
             self.autofill_dict[SequencesLoader.DataSheetName][seq_name] = {
                 SequencesLoader.DataHeaders.SEQNAME: seq_name,
                 SequencesLoader.DataHeaders.OPERATOR: operator,
@@ -1339,6 +1657,10 @@ class DataValidationView(FormView):
             seen["sequences"][seq_name] = True
 
             self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
+
+            return tpl
+
+        return (None, None, None, None)
 
     def extract_autofill_from_lcprotocol_name(self, lc_protocol_name, seen):
         if (
@@ -1446,8 +1768,8 @@ class DataValidationView(FormView):
             lc_protocol_name = loader.get_row_val(row, loader.headers.LCNAME)
             self.extract_autofill_from_lcprotocol_name(lc_protocol_name, seen)
 
-    def extract_autofill_from_peak_annotation_files(self):
-        """Extracts data from multiple peak annotation files that can be used to populate a made-from-scratch study doc.
+    def extract_autofill_from_sequence_forms(self):
+        """Extracts sequence data from multiple peak annotation file and sequence forms.
 
         Populates self.autofill_dict.
 
@@ -1458,8 +1780,49 @@ class DataValidationView(FormView):
         Returns:
             None
         """
+        for seq_data in self.annot_file_metadata.values():
+            # This unique key is based on SequencesLoader.DataUniqueColumnConstraints
+            seqname = MSRunSequence.create_sequence_name(**seq_data)
+            # Note, this intentionally does not look for subsets of data, e.g. is N rows only have the operator (all the
+            # same) and M rows have the same operator and same instrument, the result is 2 rows in the sequences sheet.
+            # This assumes that the user has filled out as much information as they can in each case, and having those
+            # rows represented in the Sequences sheet will prevent them from having to duplicate them.
+            self.autofill_dict[SequencesLoader.DataSheetName][seqname] = {
+                SequencesLoader.DataHeaders.OPERATOR: seq_data["operator"],
+                SequencesLoader.DataHeaders.LCNAME: seq_data["protocol"],
+                SequencesLoader.DataHeaders.INSTRUMENT: seq_data["instrument"],
+                SequencesLoader.DataHeaders.DATE: seq_data["date"],
+            }
+
+    def extract_autofill_from_peak_annotation_files_forms(self):
+        """Extracts data from multiple peak annotation files and the accompanying form sequence metadata that can be
+        used to populate a made-from-scratch study doc.
+
+        Populates self.autofill_dict.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # Example: allreps_dict[compounds_str][sample][filename][sample_header] = 0
+        allreps_dict = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        )
+        all_samples = {}
+        # This checks to see if there are multiple scans of a sample in 1 file
+        sample_dupes_exist = False
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
+            seq_data: dict = self.annot_file_metadata.get(peak_annot_filename, {})
+            partial_seqname = None
+            if len([v for v in seq_data.values() if v not in self.none_vals]) > 0:
+                partial_seqname = MSRunSequence.create_sequence_name(**seq_data)
+            complete_seqname = None
+            if "" not in seq_data.values() and None not in seq_data.values():
+                complete_seqname = partial_seqname
 
             # If the file format could not be determined, the loader will be None
             if self.peak_annotations_loaders[i] is None:
@@ -1475,6 +1838,8 @@ class DataValidationView(FormView):
                 # The format was assigned either by the user in the file or automatically determined.  Doesn't matter
                 # how we got it, it's now a candidate for autfill.
                 PeakAnnotationFilesLoader.DataHeaders.FORMAT: peak_annot_loader.format_code,
+                # Always fill in what we have of the seqname
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: partial_seqname,
             }
 
             # Extracting samples - using vectorized access of the dataframe because it's faster and we don't need error
@@ -1483,6 +1848,7 @@ class DataValidationView(FormView):
             sample_headers = peak_annot_loader.df[
                 peak_annot_loader.headers.SAMPLEHEADER
             ].unique()
+            samples = defaultdict(lambda: defaultdict(int))
             for sample_header in sample_headers:
                 if str(sample_header) in self.none_vals:
                     continue
@@ -1503,6 +1869,17 @@ class DataValidationView(FormView):
                         SamplesLoader.DataHeaders.SAMPLE: sample_name
                     }
 
+                    if (
+                        sample_name in samples.keys()
+                        and sample_header not in samples[sample_name].keys()
+                    ):
+                        sample_dupes_exist = True
+
+                    # samples holds the samples that we will use to look for multiple representations, but since skipped
+                    # samples will not be loaded, there's no reason to pick a file from which to load them
+                    samples[sample_name][sample_header] = 0
+                    all_samples[sample_name] = 0
+
                 # This unique key is based on MSRunsLoader.DataUniqueColumnConstraints
                 unique_annot_deets_key = self.row_key_delim.join(
                     [sample_header, peak_annot_filename]
@@ -1515,8 +1892,10 @@ class DataValidationView(FormView):
                     # No point in entering the mzXML. It will default to this in its loader:
                     # MSRunsLoader.DataHeaders.MZXMLNAME: f"{sample_header}.mzXML",
                     MSRunsLoader.DataHeaders.ANNOTNAME: peak_annot_filename,
+                    # This only fills in the seqname if it is complete, so it can be autofilled if the researcher fills
+                    # in the rest of the Peak Annotation Files sheet's seqname values
+                    MSRunsLoader.DataHeaders.SEQNAME: complete_seqname,
                     MSRunsLoader.DataHeaders.SKIP: skip,
-                    # Not going to fill in a SEQNAME - will rely on the default in the Peak Annotation Files sheet
                 }
 
             # Extracting compounds - using vectorized access of the dataframe because it's faster and we don't need
@@ -1527,9 +1906,10 @@ class DataValidationView(FormView):
                 peak_annot_loader.headers.COMPOUND
             ].to_list()
             seen = {}
+            pgnames = []
             for index in range(len(pgname_strs)):
                 formula = formulas[index]
-                compound_synonyms_str = str(pgname_strs[index])
+                compound_synonyms_str = str(pgname_strs[index]).strip()
 
                 # If we've seen this combo before, continue
                 seen_key = f"{compound_synonyms_str},{str(formula)}"
@@ -1542,6 +1922,23 @@ class DataValidationView(FormView):
                 # formula is None, because formulas are not unique in the compound model.)
                 if compound_synonyms_str in self.none_vals:
                     continue
+
+                pgname = PeakGroup.compound_synonyms_to_peak_group_name(
+                    [
+                        s.strip().lower()
+                        for s in compound_synonyms_str.split(PeakGroup.NAME_DELIM)
+                    ]
+                )
+                if pgname not in pgnames:
+                    pgnames.append(pgname)
+                    print(f"RECORDING REPRESENTATIONS FOR {pgname}")
+                    # For every sample from the file
+                    for sample in samples.keys():
+                        # For every sample header (that matches the sample after having extracted the scan labels)
+                        for sample_header in samples[sample].keys():
+                            allreps_dict[pgname][sample][peak_annot_filename][
+                                sample_header
+                            ] = 0
 
                 # Get compounds - Note that the result of the second arg (list of compounds), will buffer errors in the
                 # peak_annot_loader if any compounds are not in the database.  We don't need that here, because we're
@@ -1587,6 +1984,93 @@ class DataValidationView(FormView):
                             CompoundsLoader.DataHeaders.NAME: compound_rec.name,
                             CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
                         }
+
+        db_samples_exist = (
+            Sample.objects.filter(name__in=list(all_samples.keys())).count() > 0
+        )
+        multiple_files = len(self.peak_annot_files) > 1
+
+        # We don't need to look for multiple representations if there's only 1 file, no samples pre-exist in the DB, and
+        # there are not duplicate columns (with different scan labels) in the file
+        if multiple_files or db_samples_exist or sample_dupes_exist:
+
+            # Initialize an intermediate dict to construct sets of files that have common samples
+            # Example: filesets_dict[compounds_str][filenames_str][sample][sample_header] = 0
+            filesets_dict = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+            )
+
+            print(
+                "PREPARING EXISTING PEAK GROUPS FOR THE MULTIPLE REPRESENTATIONS SEARCH"
+            )
+
+            # Now let's look for existing potential conflicts already in the DB (to add to allreps_dict
+            # before processing it)
+            for pgrec in PeakGroup.objects.filter(
+                msrun_sample__sample__name__in=list(all_samples.keys())
+            ):
+                pgname = pgrec.name.lower()
+                # If the compound is one we're loading and either the sample didn't have this compound in the files or
+                # this is an unseen file, record the representation.
+                if pgname in allreps_dict.keys() and (
+                    pgrec.msrun_sample.sample.name not in allreps_dict[pgname].keys()
+                    or pgrec.peak_annotation_file.filename
+                    not in allreps_dict[pgname][pgrec.msrun_sample.sample.name].keys()
+                ):
+                    # NOTE: We cannot know the original sample header since it is never saved in the DB
+                    allreps_dict[pgname][pgrec.msrun_sample.sample.name][
+                        pgrec.peak_annotation_file.filename
+                    ]["unknown"] = 0
+
+            print("LOOKING FOR MULTIPLE REPRESENTATIONS")
+
+            # Populate filesets_dict so that we can determine all the samples they have in common.  This basically (for
+            # each common compound) takes every grouping of files for each sample and creates a list of common samples
+            # for that file grouping.  We will then use that compound and that list of common samples to be able to be
+            # used as a unique constraint in the sheet and then, when the file is used for loading, we will use the
+            # compound, samples, and the selected file to know which other files with that compound and sample to skip.
+            # For every compound (...sorted synonym set) from the file
+            for pgname in allreps_dict.keys():
+                # For every sample from the file
+                for sample in allreps_dict[pgname].keys():
+                    # If this sample is in multiple peak annotation files
+                    if len(allreps_dict[pgname][sample].keys()) > 1:
+                        file_set_key = ";".join(
+                            sorted(allreps_dict[pgname][sample].keys())
+                        )
+                        for sample_header in allreps_dict[pgname][sample].keys():
+                            filesets_dict[pgname][file_set_key][sample][
+                                sample_header
+                            ] = 0
+
+            print("POPULATING MULTIPLE REPRESENTATIONS AUTOFILL")
+
+            # Now that we have the file sets for files containing measurements for common samples, we can populate the
+            # autofill for the Peak Group Conflicts sheet
+            for pgname in sorted(filesets_dict.keys()):
+                for file_set_key in filesets_dict[pgname].keys():
+                    files_list = list(file_set_key.split(";"))
+                    samples = sorted(
+                        filesets_dict[pgname][file_set_key].keys(), key=str.casefold
+                    )
+                    samples_str = ";".join(samples)
+                    unique_row_key = f"{pgname}:{samples_str}"
+                    example = samples[0]
+                    print(f"MULTREP: {pgname} IN {file_set_key} HAS {example}")
+                    self.autofill_dict[PeakGroupConflicts.DataSheetName][
+                        unique_row_key
+                    ] = {
+                        PeakGroupConflicts.DataHeaders.PEAKGROUP: pgname,
+                        PeakGroupConflicts.DataHeaders.ANNOTFILE: {
+                            "validate": "list",
+                            "source": files_list,
+                            "show_error": False,
+                            "dropdown": True,
+                        },
+                        PeakGroupConflicts.DataHeaders.SAMPLECOUNT: len(samples),
+                        PeakGroupConflicts.DataHeaders.EXAMPLE: example,
+                        PeakGroupConflicts.DataHeaders.SAMPLES: samples_str,
+                    }
 
     def extract_autofill_from_exceptions(self, retain_as_warnings=True):
         """Remove exceptions related to references to missing underlying data and extract their data.
@@ -1645,6 +2129,7 @@ class DataValidationView(FormView):
         self.autofill_dict[LCProtocolsLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[SequencesLoader.DataSheetName] = defaultdict(dict)
         self.autofill_dict[PeakAnnotationFilesLoader.DataSheetName] = defaultdict(dict)
+        self.autofill_dict[PeakGroupConflicts.DataSheetName] = defaultdict(dict)
 
         # For every AggregatedErrors objects associated with a file or category
         for load_key in [
@@ -1775,13 +2260,14 @@ class DataValidationView(FormView):
             self.sequences_loader,
             self.lcprotocols_loader,
             self.peakannotfiles_loader,
+            self.peakgroupconflicts_loader,
         ]:
             # This is a list of column headers in a sheet whose combination defines a unique row
             # We need it to find existing rows that match the composite key in the autofitt dict, so that we don't
             # accidentally add duplicate data
             unique_column_combo_list = loader.header_keys_to_names(
                 # Specifically selected unique column constraint group - used to find existing rows
-                # If any ldesired index happens to not be 0, this will need to be a loop variable
+                # If any desired index happens to not be 0, this will need to be a loop variable
                 loader.DataUniqueColumnConstraints[0]
             )
 
@@ -1863,10 +2349,26 @@ class DataValidationView(FormView):
                     # Only fill in the value if it doesn't already have a value.
                     # Custom-entered values from the user trump autofill.
                     if self.dfs_dict[sheet][header].get(index) is None:
-                        print(f"FILLING IN {sheet_dict[header]} ON ROW {index}")
-                        # Add the new data
-                        self.dfs_dict[sheet][header][index] = sheet_dict[header]
-                        data_added = True
+                        # If the value from the autofill dict is a dict, e.g.:
+                        # {
+                        #     "validate": "list",
+                        #     "source": [1, 2, 3],
+                        #     "show_error": False,
+                        #     "dropdown": True,
+                        # }
+                        # ...it has to be added later by xlsxwriter, so buffer it in self.validation_autofill_dict
+                        if isinstance(sheet_dict[header], dict):
+                            print(
+                                f"FILLING IN VALIDATION FOR COLUMN {header} ON ROW {index}"
+                            )
+                            self.validation_autofill_dict[sheet][header][index] = (
+                                sheet_dict[header]
+                            )
+                        else:
+                            print(f"FILLING IN {sheet_dict[header]} ON ROW {index}")
+                            # Add the new data
+                            self.dfs_dict[sheet][header][index] = sheet_dict[header]
+                            data_added = True
                     else:
                         print(
                             f"THE VALUE WAS NOT NONE: {self.dfs_dict[sheet][header].get(index)}, SO NOT OVERWRITING"
@@ -2009,7 +2511,7 @@ class DataValidationView(FormView):
         ):
             return
 
-        # Get all the tracer names from the tracers sheet (which is assumed to have already been populated by
+        # Get all the tracers from the tracers sheet (which is assumed to have already been populated by
         # add_dynamic_dropdown_tracer_data)
         tracer_names = dict(
             (name, 0)
@@ -2208,6 +2710,8 @@ class DataValidationView(FormView):
             headers = self.msruns_loader.get_ordered_display_headers()
         elif sheet == PeakAnnotationFilesLoader.DataSheetName:
             headers = self.peakannotfiles_loader.get_ordered_display_headers()
+        elif sheet == PeakGroupConflicts.DataSheetName:
+            headers = self.peakgroupconflicts_loader.get_ordered_display_headers()
         else:
             raise ValueError(f"Invalid sheet: [{sheet}].")
         column_letter = xlsxwriter.utility.xl_col_to_name(headers.index(header))
@@ -2300,6 +2804,7 @@ class DataValidationView(FormView):
                 SequencesLoader.DataSheetName: self.sequences_loader.get_dataframe_template(),
                 MSRunsLoader.DataSheetName: self.msruns_loader.get_dataframe_template(),
                 PeakAnnotationFilesLoader.DataSheetName: self.peakannotfiles_loader.get_dataframe_template(),
+                PeakGroupConflicts.DataSheetName: self.peakgroupconflicts_loader.get_dataframe_template(),
             }
 
         if (
@@ -2446,6 +2951,17 @@ class DataValidationView(FormView):
                 self.peakannotfiles_loader.get_dataframe_template()
             )
 
+        if PeakGroupConflicts.DataSheetName in dfs_dict.keys():
+            self.fill_in_missing_columns(
+                dfs_dict,
+                PeakGroupConflicts.DataSheetName,
+                self.peakgroupconflicts_loader.get_dataframe_template(),
+            )
+        else:
+            dfs_dict[PeakGroupConflicts.DataSheetName] = (
+                self.peakgroupconflicts_loader.get_dataframe_template()
+            )
+
         return dfs_dict
 
     @classmethod
@@ -2572,6 +3088,7 @@ class DataValidationView(FormView):
             self.sequences_loader,
             self.msruns_loader,
             self.peakannotfiles_loader,
+            self.peakgroupconflicts_loader,
         ]:
             ldr_types[ldr.DataSheetName] = ldr.get_column_types(optional_mode=True)
 
@@ -2844,4 +3361,13 @@ class DataValidationView(FormView):
                     self.dfs_dict[PeakAnnotationFilesLoader.DataSheetName]
                 )
             ).check_dataframe_headers()
+            and (
+                # This is an optional sheet
+                PeakGroupConflicts.DataSheetName not in self.dfs_dict.keys()
+                or PeakGroupConflicts(
+                    df=pd.DataFrame.from_dict(
+                        self.dfs_dict[PeakGroupConflicts.DataSheetName]
+                    )
+                ).check_dataframe_headers()
+            )
         )
