@@ -30,6 +30,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
     MutuallyExclusiveArgs,
+    RequiredColumnValue,
     RollbackException,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -1409,6 +1410,88 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertEqual("file-with-dashes_and_underscrore", name6)
 
+    def test_get_mzxml_files_none(self):
+        mzxml_files = MSRunsLoader.get_mzxml_files()
+        self.assertEqual([], mzxml_files)
+
+    def test_get_mzxml_files_files(self):
+        files = [
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+        ]
+        mzxml_files = MSRunsLoader.get_mzxml_files(
+            files=files,
+            dir="DataRepo/data/tests/small_obob",
+        )
+        self.assertEqual(files, mzxml_files)
+
+    def test_get_mzxml_files_dir(self):
+        mzxml_files = MSRunsLoader.get_mzxml_files(dir="DataRepo/data/tests/small_obob")
+        expected = [
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+        ]
+        self.assertEqual(set(expected), set(mzxml_files))
+
+    def test_sequence_or_skip_required(self):
+        """This tests that a sequence name is not required if the row is being skipped."""
+        msrl = MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    MSRunsLoader.DataHeaders.SEQNAME: [
+                        None,  # No error
+                        None,  # No error
+                        None,  # Should produce RequiredColumnValue exception since SKIP is also None
+                    ],
+                    MSRunsLoader.DataHeaders.SAMPLENAME: [
+                        "s1",
+                        "s2",
+                        "s3",
+                    ],
+                    MSRunsLoader.DataHeaders.SAMPLEHEADER: [
+                        "s1_pos",
+                        None,
+                        "s3_pos",
+                    ],
+                    MSRunsLoader.DataHeaders.MZXMLNAME: [
+                        None,
+                        "s2_pos.mzXML",
+                        None,
+                    ],
+                    MSRunsLoader.DataHeaders.ANNOTNAME: [
+                        None,
+                        None,
+                        None,
+                    ],
+                    MSRunsLoader.DataHeaders.SKIP: [
+                        "skip",  # No error
+                        "skip",  # No error
+                        None,  # Should produce RequiredColumnValue exception since SEQNAME is also None
+                    ],
+                }
+            ),
+        )
+        # This should buffer RequiredColumnValue exceptions if there are any missing required values, one for each
+        # offending row - and we only expect 1 for the last row (identified as row 4 in an excel sheet)
+        msrl.check_dataframe_values()
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            1,
+            len(msrl.aggregated_errors_object.get_exception_type(RequiredColumnValue)),
+        )
+        self.assertEqual("4", str(msrl.aggregated_errors_object.exceptions[0].rownum))
+        self.assertEqual(
+            "(Sequence, Skip)^ (^ = Any Required)",
+            str(msrl.aggregated_errors_object.exceptions[0].column),
+            msg=f"'(Sequence, Skip)^ (^ = Any Required)' != {msrl.aggregated_errors_object.exceptions[0].column}",
+        )
+
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
@@ -1559,32 +1642,3 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         }
 
         self.assertDictEqual(expected, msrsd)
-
-    def test_get_mzxml_files_none(self):
-        mzxml_files = MSRunsLoader.get_mzxml_files()
-        self.assertEqual([], mzxml_files)
-
-    def test_get_mzxml_files_files(self):
-        files = [
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
-        ]
-        mzxml_files = MSRunsLoader.get_mzxml_files(
-            files=files,
-            dir="DataRepo/data/tests/small_obob",
-        )
-        self.assertEqual(files, mzxml_files)
-
-    def test_get_mzxml_files_dir(self):
-        mzxml_files = MSRunsLoader.get_mzxml_files(dir="DataRepo/data/tests/small_obob")
-        expected = [
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
-            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
-        ]
-        self.assertEqual(set(expected), set(mzxml_files))

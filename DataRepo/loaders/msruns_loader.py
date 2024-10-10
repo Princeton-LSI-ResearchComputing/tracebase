@@ -104,8 +104,11 @@ class MSRunsLoader(TableLoader):
         ],
         # Annot name is optional (assuming identical headers indicate the same sample)
         # Note that SEQNAME is effectively optional since the loader can be supplied default values, but *a* value is
-        # required, thus SEQNAME is always required
-        SEQNAME_KEY,
+        # required, thus SEQNAME is always required - UNLESS the skip column has a value.
+        [
+            SEQNAME_KEY,
+            SKIP_KEY,
+        ],
     ]
 
     # List of header keys for columns that require a value
