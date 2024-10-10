@@ -176,7 +176,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         MEDRT=TableColumn.init_flat(name=DataHeaders.MEDRT, field=PeakData.med_rt),
         RAW=TableColumn.init_flat(name=DataHeaders.RAW, field=PeakData.raw_abundance),
         CORRECTED=TableColumn.init_flat(
-            name=DataHeaders.RAW, field=PeakData.corrected_abundance
+            name=DataHeaders.CORRECTED, field=PeakData.corrected_abundance
         ),
         FORMULA=TableColumn.init_flat(
             name=DataHeaders.FORMULA, field=PeakGroup.formula
