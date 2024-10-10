@@ -66,8 +66,8 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(1, MSRunSequence.objects.count())
         self.assertEqual(15, PeakData.objects.count())
 
-        # PeakDataLabel: 13 non-parent rows, 7 of which have nitrogen AND carbon
-        self.assertEqual(20, PeakDataLabel.objects.count())
+        # PeakDataLabel: 15 rows, 8 of which have nitrogen AND carbon
+        self.assertEqual(23, PeakDataLabel.objects.count())
 
         self.assertEqual(2, PeakGroup.objects.count())
         self.assertEqual(3, PeakGroupLabel.objects.count())
