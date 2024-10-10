@@ -362,20 +362,20 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         al = AccucorLoader(
             df=self.ACCUCOR_DF_DICT,
             peak_annotation_details_df=peak_annotation_details_df,
-            file="DataRepo/data/tests/data_submission/accucor1.xlsx",
+            file="DataRepo/data/tests/data_submission/accucor1.xlsx",  # This is not what's in self.ACCUCOR_DF_DICT
         )
         al.load_data()
         self.assertEqual(1, ArchiveFile.objects.count())  # accucor1.xlsx
-        # There are 4 PeakGroups because 2 samples and each has 2 compounds
+        # There are 4 PeakGroups because 2 (non-blank) samples and each has 2 compounds
         self.assertEqual(4, PeakGroup.objects.count())
-        # We only created 1 label per
+        # We only created 1 label (carbon) per PeakGroup
         self.assertEqual(4, PeakGroupLabel.objects.count())
-        # and 1 compound per
+        # and 1 compound link per PeakGroup
         self.assertEqual(4, PeakGroupCompound.objects.count())
-        # and 1 peakdata row per
+        # and 2 peakdata rows in each peakgroup
         self.assertEqual(8, PeakData.objects.count())
-        # and 1 label per
-        self.assertEqual(4, PeakDataLabel.objects.count())
+        # and 1 label in each peakdata row
+        self.assertEqual(8, PeakDataLabel.objects.count())
 
     def test_get_or_create_annot_file(self):
         al = AccucorLoader(file="DataRepo/data/tests/data_submission/accucor1.xlsx")
@@ -1003,9 +1003,9 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
                 "warned": 0,
             },
             "PeakDataLabel": {
-                "created": 1,
+                "created": 2,
                 "existed": 0,
-                "deleted": 3,  # The previously loaded unselected PeakGroup with 3 PeakData rows with labels
+                "deleted": 4,  # The previously loaded unselected PeakGroup with 4 PeakData rows
                 "updated": 0,
                 "skipped": 0,
                 "errored": 0,
@@ -1022,7 +1022,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             },
             "PeakGroupLabel": {
                 "created": 1,
-                "existed": 0,
+                "existed": 1,
                 "deleted": 1,  # The previously loaded unselected PeakGroup's 1 label
                 "updated": 0,
                 "skipped": 0,

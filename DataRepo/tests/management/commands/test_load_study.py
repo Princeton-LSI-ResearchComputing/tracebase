@@ -23,7 +23,7 @@ class LoadStudyTests(TracebaseTestCase):
             "CompoundSynonym": 74,
             "LCMethod": 1,
             "Tissue": 36,
-            "PeakDataLabel": 344,
+            "PeakDataLabel": 380,
             "PeakData": 200,
             "PeakGroup": 20,
             "PeakGroupLabel": 36,
