@@ -1077,7 +1077,7 @@ class IsoautocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     }
     DF_DICT = {
         "original": pd.DataFrame.from_dict(ORIG_DICT),
-        "cor_pct": pd.DataFrame.from_dict(CORR_DICT),
+        "cor_abs": pd.DataFrame.from_dict(CORR_DICT),
     }
 
     def test_IsoautocorrLoader(self):

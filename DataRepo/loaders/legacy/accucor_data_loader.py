@@ -156,7 +156,7 @@ class AccuCorDataLoader:
     DATA_SHEETS = {
         ACCUCOR_FORMAT_CODE: ["Original", "Corrected", "Normalized", "PoolAfterDF"],
         ISOCORR_FORMAT_CODE: ["enrichment", "absolte", "total ion"],
-        ISOAUTOCORR_FORMAT_CODE: ["original", "cor_pct", "cor_abs", "total"],
+        ISOAUTOCORR_FORMAT_CODE: ["original", "cor_abs", "cor_pct", "total"],
     }
 
     def __init__(
@@ -2117,7 +2117,7 @@ class AccuCorDataLoader:
                 data_format = DataFormat.objects.get(code=cls.ACCUCOR_FORMAT_CODE)
             elif sheets == cls.DATA_SHEETS[cls.ISOCORR_FORMAT_CODE]:
                 data_format = DataFormat.objects.get(code=cls.ISOCORR_FORMAT_CODE)
-            elif sheets == cls.DATA_SHEETS[cls.ISOAUTOCORR_FORMAT_CODE]:
+            elif set(sheets) == set(cls.DATA_SHEETS[cls.ISOAUTOCORR_FORMAT_CODE]):
                 data_format = DataFormat.objects.get(code=cls.ISOAUTOCORR_FORMAT_CODE)
             else:
                 raise PeakAnnotationParseError(
