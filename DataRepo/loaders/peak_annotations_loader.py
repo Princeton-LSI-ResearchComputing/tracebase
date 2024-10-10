@@ -1997,7 +1997,7 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
 
     OrigDataRequiredHeaders = {
         # Raw abundances are optional, so no original
-        "cor_pct": [
+        "cor_abs": [
             "FORMULA",
             "MEDMZ",
             "MEDRT",
@@ -2043,7 +2043,7 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
             "value_column": "Raw Abundance",
             "uncondensed_columns": uncondensed_columns,
         },
-        "cor_pct": {
+        "cor_abs": {
             "header_column": "Sample Header",
             "value_column": "Corrected Abundance",
             "uncondensed_columns": uncondensed_columns,
@@ -2053,7 +2053,7 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
     # Merge happens after column add and condense, but before column rename, so it refers to added and condensed (final)
     # column names and original (un-renamed) column names.
     merge_dict = {
-        "first_sheet": "cor_pct",  # This key only occurs once in the outermost dict
+        "first_sheet": "cor_abs",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
             "on": [
                 *uncondensed_columns,  # All these are common between sheets.  Including them here prevents duplication.
