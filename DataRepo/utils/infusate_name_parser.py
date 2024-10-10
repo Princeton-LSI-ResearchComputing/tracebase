@@ -341,27 +341,27 @@ def parse_isotope_label(
     """Parse an El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1.
 
     The isotope label string only includes elements observed in the peak reported on the row and a row only exists
-    if at least 1 isotope was detected.  However, when an isotope is present, we want to report 0 counts for
-    elements present (as labeled) in the tracers when the compound being recorded has an element that is labeled
-    in the tracers, so to include these 0 counts, supply possible_observations.
+    if it is the parent or at least 1 isotope was detected.  However, when an isotope is present, we want to report 0
+    counts for elements present (as labeled) in the tracers when the compound being recorded has an element that is
+    labeled in the tracers, so to include these 0 counts, supply possible_observations.
 
     NOTE: The isotope label string only includes elements whose label count is greater than 0.  If the tracers
     contain labeled elements that happen to not have been observed in a peak on the row containing the isotope label
     string, that element will not be parsed from the string. For example, on "PARENT" rows, even though "C12" exists
-    in the string, an empty list is returned.
+    in the string, an empty list is returned unless possible_observations is supplied.
 
     Args:
         label (str): The isotopeLabel string from the DataFrame.
         possible_observations (Optional[List[ObservedIsotopeData]]): A list of isotopes that are potentially present
-            (e.g. present in the tracers).  Causes 0-counts to be added to non-parent observations.
+            (e.g. present in the tracers).  Causes 0-counts to be added to observations.
     Exceptions:
         Raises:
             IsotopeObservationParsingError
         Buffers:
             None
     Returns:
-        isotope_observations (List[ObservedIsotopeData]): List of isotopes.  Note, PARENT records have no isotopes, so
-            an empty list is returned for parent strings.
+        isotope_observations (List[ObservedIsotopeData]): List of isotopes.  Note, PARENT records have no isotopes, but
+            a list of possible_observations with 0 counts is returned.
     """
     isotope_observations = []
 
@@ -375,6 +375,12 @@ def parse_isotope_label(
         parent = False
 
         if parent_str is not None and parent_str == "PARENT":
+            if possible_observations is not None:
+                for pos_obs in possible_observations:
+                    zero_obs = deepcopy(pos_obs)
+                    zero_obs["count"] = 0
+                    isotope_observations.append(zero_obs)
+                return isotope_observations
             return []
         else:
             if len(elements) != len(mass_numbers) or len(elements) != len(counts):

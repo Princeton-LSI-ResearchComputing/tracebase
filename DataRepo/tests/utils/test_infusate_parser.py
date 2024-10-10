@@ -466,7 +466,14 @@ class InfusateValidationTests(InfusateTest):
             ),
         ]
         label = "C12 PARENT"
-        expected = []
+        expected = [
+            ObservedIsotopeData(
+                element="C",
+                mass_number=13,
+                count=0,
+                parent=True,
+            ),
+        ]
         obs = parse_isotope_label(label, possible_obs)
         self.assertEqual(expected, obs)
 
