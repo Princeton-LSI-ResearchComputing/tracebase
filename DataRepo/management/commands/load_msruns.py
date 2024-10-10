@@ -4,7 +4,10 @@ from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.management.commands.load_table import LoadTableCommand
-from DataRepo.utils.exceptions import ConditionallyRequiredOptions
+from DataRepo.utils.exceptions import (
+    ConditionallyRequiredOptions,
+    MutuallyExclusiveOptions,
+)
 
 
 class Command(LoadTableCommand):
@@ -26,6 +29,16 @@ class Command(LoadTableCommand):
         super().add_arguments(parser)
 
         # Add additional options for this specific script
+        parser.add_argument(
+            "--mzxml-dir",
+            type=str,
+            help=(
+                "The root directory of all mzXML files (containing instrument run data) associated with the "
+                f"{MSRunsLoader.DataSheetName} sheet."
+            ),
+            default=None,
+            required=False,
+        )
         parser.add_argument(
             "--mzxml-files",
             type=str,
@@ -111,10 +124,21 @@ class Command(LoadTableCommand):
         Returns:
             None
         """
-        # Check conditionally required options
         if (
             options.get("mzxml_files") is not None
-            and len(options.get("mzxml_files")) > 0
+            and options.get("mzxml_dir") is not None
+        ):
+            raise MutuallyExclusiveOptions(
+                "--mzxml-files and --mzxml-dir are mutually exclusive options."
+            )
+
+        mzxml_files = MSRunsLoader.get_mzxml_files(
+            files=options.get("mzxml_files"), dir=options.get("mzxml_dir")
+        )
+
+        # Check conditionally required options
+        if (
+            len(mzxml_files) > 0
             and options.get("infile") is None
             and options.get("defaults_file") is None
             and (

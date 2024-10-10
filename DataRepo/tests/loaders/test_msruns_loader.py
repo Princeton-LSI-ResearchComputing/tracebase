@@ -398,18 +398,34 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(2, unmatching_peakgroups_qs.count())
 
     def test_get_matching_mzxml_metadata_error(self):
-        """Tests the case where there are multiple mzXML files with the same name and the user will be prompted to add a
-        path to the infile."""
+        """Tests the case where there are multiple mzXML files with the same name and the record is created with a
+        warning."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+        mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
             "mysample1_edited_filename.mzXML",  # file name without path will match multiple
         )
-        self.assertIsNone(mzxml_metadata)
+        self.assertDictEqual(
+            {
+                "polarity": None,
+                "mz_min": None,
+                "mz_max": None,
+                "raw_file_name": None,
+                "raw_file_sha1": None,
+                "mzaf_record": None,
+                "rawaf_record": None,
+                "mzxml_dir": None,
+                "mzxml_filename": None,
+                "added": False,
+            },
+            mzxml_metadata,
+        )
         self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, msrl.aggregated_errors_object.num_warnings)
+        self.assertEqual(0, msrl.aggregated_errors_object.num_errors)
         self.assertIn(
             "Multiple mzXML files", str(msrl.aggregated_errors_object.exceptions[0])
         )
@@ -422,13 +438,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
             str(msrl.aggregated_errors_object.exceptions[0]),
         )
 
+        self.assertTrue(mult_matches)
+
     def test_get_matching_mzxml_metadata_adding_path_fix(self):
         """Tests the case where there are multiple mzXML files with the same name and the user fixes the issue by adding
         a path to the mzXML Name column in the --infile."""
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+        mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample1",  # Sample name - does not match
             "mysample1_neg_pos_scan2",  # Sample header - does not match (because of the "1")
             "/path/to/second/file/mysample1_edited_filename.mzXML",  # file name with path will match 1
@@ -439,6 +457,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertDictEqual(expected, mzxml_metadata)
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
 
+        self.assertFalse(mult_matches)
+
     def test_get_matching_mzxml_metadata_header_matches_uniquely(self):
         msrl = MSRunsLoader()
         msrl.set_row_index(2)
@@ -446,13 +466,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
         expected = self.MOCK_MZXML_DICT["Br_xz971"][
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]
-        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+        mzxml_metadata, mult_matches = msrl.get_matching_mzxml_metadata(
             "mysample",  # Sample name - does not match
             "Br_xz971",  # Sample header - does match
             "Br-xz971.mzXML",  # file name or path
         )
         self.assertDictEqual(expected, mzxml_metadata)
         self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+
+        self.assertFalse(mult_matches)
 
     def test_get_matching_mzxml_metadata_header_with_underscore_matches_dash(self):
         msrl = MSRunsLoader()
@@ -461,7 +483,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.get_or_create_mzxml_and_raw_archive_files(
             "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         )
-        mzxml_metadata = msrl.get_matching_mzxml_metadata(
+        mzxml_metadata, _ = msrl.get_matching_mzxml_metadata(
             "mysample",  # Sample name - does not match
             "BAT_xz971",  # Sample header - does match
             None,  # no mzxml filename from sheet
@@ -653,17 +675,13 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(ArchiveFile, type(rawaf_rec))
         self.assertTrue(rawaf_created)
 
-    def test_get_create_or_update_msrun_sample_from_row_creating_placeholder_no_placeholder_exists(
+    def test_get_or_create_msrun_sample_from_row_creating_placeholder_no_placeholder_exists(
         self,
     ):
         """Input: Data for a placeholder record
         State: No placeholder record exists, no peakgroups exist
         Result: Placeholder created
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        #     if existing_placeholder_qs.count() == 0:
 
         # Set up the loader object
         msrl = MSRunsLoader()
@@ -680,7 +698,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -689,19 +709,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the record does not have an mzXML
         self.assertIsNone(rec.ms_data_file)
         self.assertTrue(created)
-        self.assertFalse(updated)
 
-    def test_get_create_or_update_msrun_sample_from_row_creating_placeholder_placeholder_exists(
+    def test_get_or_create_msrun_sample_from_row_creating_placeholder_placeholder_exists(
         self,
     ):
         """Input: Data for a placeholder record
         State: Placeholder record exists, peak groups may or may not exist for it
         Result: Placeholder gotten
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        #     if NOT existing_placeholder_qs.count() == 0:
 
         # Set up the loader object
         msrl = MSRunsLoader()
@@ -718,7 +733,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -727,20 +744,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the record does not have an mzXML
         self.assertIsNone(rec.ms_data_file)
         self.assertFalse(created)
-        self.assertFalse(updated)
 
-    def test_get_create_or_update_msrun_sample_from_row_no_concrete_no_placeholder(
+    def test_get_or_create_msrun_sample_from_row_no_concrete_no_placeholder(
         self,
     ):
         """Input: Data for a concrete record
         State: No placeholder record exists, no concrete record exists, no peak groups for them exist
         Result: Concrete created
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
 
         # Set up the loader object
         msrl = MSRunsLoader()
@@ -758,7 +769,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -772,20 +785,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
-        self.assertFalse(updated)
 
-    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_placeholder(
+    def test_get_or_create_msrun_sample_from_row_concrete_exists_no_placeholder(
         self,
     ):
         """Input: Data for a concrete record
         State: No placeholder record exists, concrete record exists, peak groups may or may not exist for them
-        Result: Concrete gotten
+        Result: Concrete gotten and placeholder not created
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
 
         # Set up the loader object
         msrl = MSRunsLoader()
@@ -813,10 +820,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # Create a record to be "gotten" (this is setup, not the test method call)
-        msrl.get_create_or_update_msrun_sample_from_row(row)
+        msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -830,23 +841,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertFalse(updated)
 
-    def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_all_pgs_match(
+    def test_get_or_create_msrun_sample_from_row_no_concrete_placeholder_all_pgs_match(
         self,
     ):
         """Input: Data for a concrete record
         State: Placeholder record with all matching peak groups exists and no concrete record exists
-        Result: Placeholder updated to concrete record
+        Result: Placeholder deleted, concrete record created, and PeakGroups updated
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #             if existing_concrete_rec is None:
 
         # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
         # existing placeholder record (created in setUpTestData) will match the added mzXML file / concrete msrun_sample
@@ -869,41 +871,37 @@ class MSRunsLoaderTests(TracebaseTestCase):
             }
         )
 
+        # Save the placeholder id
+        ph_id = self.msr.id
+
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
         self.assertEqual(self.msr.sample, rec.sample)
 
         # Check that the existing placeholder now has the mzXML
-        self.assertEqual(self.msr.id, rec.id)
+        self.assertNotEqual(self.msr.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]["mzaf_record"],
         )
-        self.assertFalse(created)
-        self.assertTrue(updated)
+        self.assertTrue(created)
+        self.assertGreater(rec.peak_groups.count(), 0)
+        self.assertEqual(0, MSRunSample.objects.filter(id=ph_id).count())
 
     def test_get_create_or_update_msrun_sample_from_row_concrete_exists_no_pgs_placeholder_all_pgs_match(
         self,
     ):
         """Input: Data for a concrete record
         State: Placeholder record with all matching peak groups exists and concrete record with no peak groups exists
-        Result: Placeholder updated to concrete and existing concrete record is deleted
+        Result: PeakGroups moved to the existing concrete record and Placeholder deleted
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #             if existing_concrete_rec is None:
-        #             else:
-        #                 if existing_concrete_rec.peak_groups.count() == 0:
 
         # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
         # existing placeholder record (created in setUpTestData) will match the added mzXML file / concrete msrun_sample
@@ -928,7 +926,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         empty_concrete_rec.full_clean()
 
         # Save the ID to check that this record is deleted
-        empty_concrete_rec_id = empty_concrete_rec.id
+        placeholder_id = self.msr.id
 
         # Set up the loader object
         msrl = MSRunsLoader()
@@ -946,14 +944,16 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
         self.assertEqual(self.msr.sample, rec.sample)
 
         # Check that the record has the mzXML
-        self.assertEqual(self.msr.id, rec.id)
+        self.assertEqual(empty_concrete_rec.id, rec.id)
         self.assertEqual(
             rec.ms_data_file,
             self.MOCK_MZXML_DICT["BAT_xz971"][
@@ -961,31 +961,21 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertTrue(updated)
 
-        # Check that the existing concrete record was deleted
-        self.assertEqual(
-            0, MSRunSample.objects.filter(id=empty_concrete_rec_id).count()
-        )
+        # Check that the existing placeholder record was deleted
+        self.assertEqual(0, MSRunSample.objects.filter(id=placeholder_id).count())
 
-    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_with_pgs_placeholder_all_pgs_match(
+        # Check that the concrete record received the peakgroups
+        self.assertGreater(empty_concrete_rec.peak_groups.count(), 0)
+        self.assertEqual(0, self.msr.peak_groups.count())
+
+    def test_get_or_create_msrun_sample_from_row_concrete_exists_with_pgs_placeholder_all_pgs_match(
         self,
     ):
         """Input: Data for a concrete record
-        State: Placeholder with all matching peak groups exists and concrete record with peak groups exists
-        Result: Link placeholder's peakgroups to the existing concrete record and delete placeholder
+        State: Placeholder does not exist and concrete record with peak groups exists
+        Result: Existing concrete record retrieved and still has peak groups and no placeholder created
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #             if existing_concrete_rec is None:
-        #             else:
-        #                 if existing_concrete_rec.peak_groups.count() == 0:
-        #                 else:
 
         # Create an empty concrete MSRunSample record (i.e. it has an mzXML file and no peak groups link to it)
         concrete_mzxml_dict = self.MOCK_MZXML_DICT["BAT_xz971"][
@@ -1021,28 +1011,39 @@ class MSRunsLoaderTests(TracebaseTestCase):
             }
         )
 
-        # This is an initial call to assign 1 peak group (from the existing placeholder) to the concrete record we
-        # created above
-        msrl.get_create_or_update_msrun_sample_from_row(row)
+        # Keep track of the placeholder record's ID so we can check it gets deleted
+        placeholder_rec_id = self.msr.id
+        msrun_sequence = self.msr.msrun_sequence
+        sample = self.msr.sample
 
-        # Now we have both a placeholder and concrete record, each with 1 peak group.  Let's change the placeholder's
-        # peak group to now match the existing concrete record, to simulate a newly made association...
+        # This is an initial call to assign peak groups (from the existing placeholder) to the concrete record we
+        # created above and delete the placeholder record
+        start_rec, start_created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
+
+        # Make sure we're in the expected starting state
+        self.assertEqual(0, MSRunSample.objects.filter(id=placeholder_rec_id).count())
+        self.assertEqual(2, start_rec.peak_groups.count())
+        self.assertFalse(start_created)
+
+        # Now we have both a placeholder and concrete record, with peak groups belonging to the concrete record.  Let's
+        # change a peak group to now belong to a different annotation file, to simulate a newly made association...
 
         # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
         # existing placeholder record (created in setUpTestData) will match the mzXML file / concrete msrun_sample
         # record that is now associated with a peak annotation file
-        self.pg2.peak_annotation_file = self.accucor_file1
-        self.pg2.save()
-
-        # Keep track of the placeholder record's ID so we can check it gets deleted
-        placeholder_rec_id = self.msr.id
+        pg2 = start_rec.peak_groups.filter(name="lact").first()
+        pg2.peak_annotation_file = self.accucor_file1
+        pg2.save()
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
-
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
         # Make sure that the record returned belongs to the expected sample and sequence
-        self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
-        self.assertEqual(self.msr.sample, rec.sample)
+        self.assertEqual(msrun_sequence, rec.msrun_sequence)
+        self.assertEqual(sample, rec.sample)
 
         # Check that the record has the mzXML
         self.assertEqual(concrete_rec.id, rec.id)
@@ -1053,7 +1054,6 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertTrue(updated)
 
         # Check that the existing concrete record now has 2 peak groups
         self.assertEqual(2, rec.peak_groups.count())
@@ -1061,22 +1061,13 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Check that the existing placeholder record was deleted
         self.assertEqual(0, MSRunSample.objects.filter(id=placeholder_rec_id).count())
 
-    def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_exists_but_no_pgs_match(
+    def test_get_or_create_msrun_sample_from_row_no_concrete_placeholder_exists_but_no_pgs_match(
         self,
     ):
         """Input: Data for a concrete record
-        State: Placeholder record with no matching peak groups exists and no concrete record exists
-        Result: Concrete record created, placeholder record kept, and do not change the peak group links
+        State: Placeholder record with matching peak groups exists and no concrete record exists
+        Result: Concrete record created, placeholder deleted, and peak groups moved to concrete record
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #         elif matching_peakgroups_qs.count() == 0:
-        #             if existing_concrete_rec is None:
 
         # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
         # existing placeholder record (created in setUpTestData) will **NOT** match the added mzXML file / concrete
@@ -1087,6 +1078,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         # Set up the loader object
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+
+        ph_id = self.msr.id
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1100,7 +1093,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1115,31 +1110,20 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
-        self.assertFalse(updated)
 
-        # Check that the existing placeholder record still exists
-        self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
+        # Check that the existing placeholder record was deleted
+        self.assertEqual(0, MSRunSample.objects.filter(id=ph_id).count())
 
-        # And that it still has both peak groups
-        self.assertEqual(2, self.msr.peak_groups.count())
+        # And that the concrete record got both peak groups
+        self.assertEqual(2, rec.peak_groups.count())
 
-    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_placeholder_exists_but_no_pgs_match(
+    def test_get_or_create_msrun_sample_from_row_concrete_exists_placeholder_exists_but_no_pgs_match(
         self,
     ):
         """Input: Data for a concrete record
-        State: Placeholder record with no matching peak groups exists and concrete record exists
-        Result: Get existing concrete record
+        State: Placeholder record with matching peak groups exists and concrete record exists
+        Result: Get existing concrete record, peak groups re-linked to the concrete record, and placeholder deleted
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #         elif matching_peakgroups_qs.count() == 0:
-        #             if existing_concrete_rec is None:
-        #             else:
 
         # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
         # existing placeholder record (created in setUpTestData) will **NOT** match the added mzXML file / concrete
@@ -1169,6 +1153,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
 
+        ph_id = self.msr.id
+
         # The row data we will attempt to load
         row = pd.Series(
             {
@@ -1181,7 +1167,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1196,35 +1184,26 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        self.assertFalse(updated)
 
         # Check that the existing placeholder record still exists
-        self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
+        self.assertEqual(0, MSRunSample.objects.filter(id=ph_id).count())
 
         # And that it still has both peak groups
-        self.assertEqual(2, self.msr.peak_groups.count())
+        self.assertEqual(2, concrete_rec.peak_groups.count())
 
-    def test_get_create_or_update_msrun_sample_from_row_no_concrete_placeholder_exists_some_pgs_match(
+    def test_get_or_create_msrun_sample_from_row_no_concrete_placeholder_exists_some_pgs_match(
         self,
     ):
         """Input: Data for a concrete record
-        State: Placeholder record with some matching peak groups exists and no concrete record exists
-        Result: Create a concrete record and link some of the peak groups belonging to the placeholder to it
+        State: Placeholder record with matching peak groups exists and no concrete record exists
+        Result: Create a concrete record and peak groups are re-linked to the concrete record, and placeholder deleted
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #         elif matching_peakgroups_qs.count() == 0:
-        #         elif matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() > 0:
-        #             if existing_concrete_rec is None:
 
         # Set up the loader object
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
+
+        ph_id = self.msr.id
 
         # The row data we will attempt to load
         row = pd.Series(
@@ -1239,7 +1218,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         # This is the method we're testing
         try:
-            rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+            rec, created = msrl.get_or_create_msrun_sample_from_row(row)
         except RollbackException:
             # If rollback was raised, raise the real exception that occurred and was buffered
             raise msrl.aggregated_errors_object
@@ -1257,36 +1236,20 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertTrue(created)
-        self.assertFalse(
-            updated
-        )  # Peakgroups are updated, but not the MSRunSequence placeholder record itself
 
-        # Check that the existing placeholder record still exists
-        self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
+        # Check that the existing placeholder record is deleted
+        self.assertEqual(0, MSRunSample.objects.filter(id=ph_id).count())
 
-        # And that it still has 1 peak group
-        self.assertEqual(1, self.msr.peak_groups.count())
-        # And that the concrete record was given 1 peak group
-        self.assertEqual(1, rec.peak_groups.count())
+        # And that the concrete record was given the peak groups
+        self.assertEqual(2, rec.peak_groups.count())
 
-    def test_get_create_or_update_msrun_sample_from_row_concrete_exists_placeholder_exists_some_pgs_match(
+    def test_get_or_create_msrun_sample_from_row_concrete_exists_placeholder_exists_some_pgs_match(
         self,
     ):
-        """Input: Data for a concrete record
-        State: Placeholder record with some matching peak groups exists and concrete record exists
-        Result: Link some of the placeholder's peak groups to the existing concrete record
+        """Input: Data for a concrete record (same as existing)
+        State: Placeholder record with matching peak groups exists and concrete record exists
+        Result: Re-link the placeholder's peak groups to the existing concrete record and delete the placeholder
         """
-
-        # This is the logic/place in the msruns_loader code we are testing works
-        # if mzxml_metadata["mzaf_record"] is None:
-        # else:
-        #     if existing_placeholder_qs.count() == 0:
-        #     else:
-        #         if matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() == 0:
-        #         elif matching_peakgroups_qs.count() == 0:
-        #         elif matching_peakgroups_qs.count() > 0 and unmatching_peakgroups_qs.count() > 0:
-        #             if existing_concrete_rec is None:
-        #             else:
 
         # Set up the loader object
         msrl = MSRunsLoader()
@@ -1310,6 +1273,8 @@ class MSRunsLoaderTests(TracebaseTestCase):
         concrete_rec = MSRunSample.objects.create(**concrete_rec_dict)
         concrete_rec.full_clean()
 
+        ph_id = self.msr.id
+
         # The row data we will attempt to load
         row = pd.Series(
             {
@@ -1322,7 +1287,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
 
         # This is the method we're testing
-        rec, created, updated = msrl.get_create_or_update_msrun_sample_from_row(row)
+        rec, created = msrl.get_or_create_msrun_sample_from_row(row)
+        if msrl.aggregated_errors_object.should_raise():
+            raise msrl.aggregated_errors_object
 
         # Make sure that the record returned belongs to the expected sample and sequence
         self.assertEqual(self.msr.msrun_sequence, rec.msrun_sequence)
@@ -1337,18 +1304,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]["mzaf_record"],
         )
         self.assertFalse(created)
-        # Peakgroups are updated, but not the MSRunSample placeholder record itself
-        self.assertFalse(updated)
 
-        # Check that the existing placeholder record still exists
-        self.assertEqual(1, MSRunSample.objects.filter(id=self.msr.id).count())
+        # Check that the existing placeholder record was deleted
+        self.assertEqual(0, MSRunSample.objects.filter(id=ph_id).count())
         # Check that the existing concrete record still exists
         self.assertEqual(1, MSRunSample.objects.filter(id=concrete_rec.id).count())
 
-        # And that it still has 1 peak group
-        self.assertEqual(1, self.msr.peak_groups.count())
-        # And that the concrete record was given 1 peak group
-        self.assertEqual(1, rec.peak_groups.count())
+        # And that the concrete record was given all of the peak groups
+        self.assertEqual(2, rec.peak_groups.count())
 
     def test_constructor_conflicting_defaults(self):
         inst = MSRunSequence.INSTRUMENT_CHOICES[0][0]
@@ -1596,3 +1559,32 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         }
 
         self.assertDictEqual(expected, msrsd)
+
+    def test_get_mzxml_files_none(self):
+        mzxml_files = MSRunsLoader.get_mzxml_files()
+        self.assertEqual([], mzxml_files)
+
+    def test_get_mzxml_files_files(self):
+        files = [
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+        ]
+        mzxml_files = MSRunsLoader.get_mzxml_files(
+            files=files,
+            dir="DataRepo/data/tests/small_obob",
+        )
+        self.assertEqual(files, mzxml_files)
+
+    def test_get_mzxml_files_dir(self):
+        mzxml_files = MSRunsLoader.get_mzxml_files(dir="DataRepo/data/tests/small_obob")
+        expected = [
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+        ]
+        self.assertEqual(set(expected), set(mzxml_files))
