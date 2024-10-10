@@ -1559,3 +1559,32 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         }
 
         self.assertDictEqual(expected, msrsd)
+
+    def test_get_mzxml_files_none(self):
+        mzxml_files = MSRunsLoader.get_mzxml_files()
+        self.assertEqual([], mzxml_files)
+
+    def test_get_mzxml_files_files(self):
+        files = [
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+        ]
+        mzxml_files = MSRunsLoader.get_mzxml_files(
+            files=files,
+            dir="DataRepo/data/tests/small_obob",
+        )
+        self.assertEqual(files, mzxml_files)
+
+    def test_get_mzxml_files_dir(self):
+        mzxml_files = MSRunsLoader.get_mzxml_files(dir="DataRepo/data/tests/small_obob")
+        expected = [
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/Br-xz971_neg.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_neg_mzxmls/BAT-xz971_neg.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+        ]
+        self.assertEqual(set(expected), set(mzxml_files))

@@ -291,11 +291,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     purpose of web forms, where the name of the actual file is a randomized hash string at the end of a
                     temporary path.  This dict associates the user's readable filename parsed from the infile (the key)
                     with the actual file (the value).
+                mzxml_dir (Optional[str]): A directory under which files containing the case-insensitive suffix '.mzxml'
+                    reside.  The directory is walked and all mzXML files are supplied to the MSRunsLoader.
         Exceptions:
             Raises:
-                AggregatedErrors
+                ProgrammingError
             Buffers:
-                ValueError
+                None
         Returns:
             None
         """
@@ -311,9 +313,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.df_dict = None
 
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
+        mzxml_dir = kwargs.pop("mzxml_dir", None)
+        self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
 
         clkwa = self.CustomLoaderKwargs._asdict()
         clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
+        clkwa["HEADERS"]["mzxml_files"] = self.mzxml_files
         # This occludes the CustomLoaderKwargs class attribute (which we copied and are leaving unchanged)
         # Just note that only the instance has annot_files_dict
         self.CustomLoaderKwargs = self.DataTableHeaders(**clkwa)
@@ -347,7 +352,18 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
     @classmethod
     def check_study_class_attributes(cls):
-        """Basically just error-checks that the sheet display keys are equivalent to the load order keys."""
+        """Basically just error-checks that the sheet display keys are equivalent to the load order keys.
+
+        Args:
+            None
+        Exceptions:
+            Raises:
+                ProgrammingError
+            Buffers:
+                None
+        Returns:
+            None
+        """
         if set(cls.DataTableHeaders._fields) != set(cls.DataSheetDisplayOrder):
             raise ProgrammingError(
                 "DataTableHeaders and DataSheetDisplayOrder must have the same sheet keys"
@@ -892,7 +908,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 version_match_data["versions"][version_number]["unknown_sheets"] = list(
                     supplied_sheets.difference(expected_sheets)
                 )
-                # TODO: This debug data should be tracked and be used/[resented when there is no version match.  For
+                # TODO: This debug data should be tracked and be used/presented when there is no version match.  For
                 # now, keep it as a debug print.
                 print(
                     f"V{study_loader_subcls.version_number} EXPECTED SHEETS: {expected_sheets} SUPPLIED SHEETS: "
@@ -922,14 +938,14 @@ class StudyLoader(ConvertedTableLoader, ABC):
                         ]["unknown"] = list(
                             supplied_headers.difference(required_headers)
                         )
-                        # TODO: This debug data should be tracked and be used/[resented when there is no version match.
+                        # TODO: This debug data should be tracked and be used/presented when there is no version match.
                         # For now, keep it as a debug print.
                         print(
                             f"V{study_loader_subcls.version_number} SHEET {sheet} REQUIRED HEADERS: {required_headers} "
                             f"SUPPLIED HEADERS: {supplied_headers}"
                         )
                         if not required_headers <= supplied_headers:
-                            # TODO: This debug data should be tracked and be used/[resented when there is no version
+                            # TODO: This debug data should be tracked and be used/presented when there is no version
                             # match. For now, keep it as a debug print.
                             print(f"NOT {study_loader_subcls.version_number}")
                             match = False
@@ -1015,6 +1031,21 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
     @classmethod
     def get_loader_class(cls, df_dict, version=None):
+        """Retrieves the derived class of StudyLoader representing the detected/supplied infile study doc version.
+
+        Args:
+            df_dict (Dict[str, pandas.DataFrame])
+            version (Optional[str])
+        Exceptions:
+            Raises:
+                InvalidStudyDocVersion
+                UnknownStudyDocVersion
+                MultipleStudyDocVersions
+            Buffers:
+                None
+        Returns:
+            loader_class (StudyLoader): A derived class of StudyLoader matching the study doc version
+        """
         loader_class: TableLoader
 
         if version is not None:

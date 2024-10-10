@@ -39,6 +39,14 @@ class Command(LoadTableCommand):
         # Add the options provided by the superclass
         super().add_arguments(parser)
 
+        parser.add_argument(
+            "--mzxml-dir",
+            type=str,
+            help="The root directory of all mzXML files (containing instrument run data) associated with the study.",
+            default=None,
+            required=False,
+        )
+
         # This option overrides dynamic format determination.
         parser.add_argument(
             "--infile-version",
@@ -128,6 +136,6 @@ class Command(LoadTableCommand):
             )
 
         # We can now instantiate the StudyV{number}Loader, since we know the study doc version
-        self.init_loader()
+        self.init_loader(mzxml_dir=options.get("mzxml_dir"))
 
         self.load_data()

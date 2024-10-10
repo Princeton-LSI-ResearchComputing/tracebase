@@ -1828,3 +1828,30 @@ class MSRunsLoader(TableLoader):
         if not self.exact_mode:
             sample_header = sample_header.replace("-", "_")
         return sample_header
+
+    @classmethod
+    def get_mzxml_files(cls, files=None, dir=None):
+        """Return a list of mzXML files.
+
+        If files is not None, it just returns that list.  Otherwise, if dir is None, return an empty list,
+        otherwise, return all files ending with '.mzxml' (case insensitive).
+
+        Args:
+            files (Optional[List[str]]): A list of mzXML files, intended to be used by a command line option for
+                files (mutually exclusive with a root directory option).
+            dir (Optional[str]): A directory under which mzXML files reside (in subdirectories).
+        Exceptions:
+            None
+        Returns:
+            (List[str]): A list of file paths.
+        """
+        if files is not None:
+            return files
+        if dir is None:
+            return []
+        return [
+            os.path.join(p, fl)
+            for p, _, fs in os.walk(dir)
+            for fl in fs
+            if fl.lower().endswith(".mzxml")
+        ]
