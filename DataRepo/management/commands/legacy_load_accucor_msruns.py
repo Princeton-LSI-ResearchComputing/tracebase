@@ -268,15 +268,15 @@ class Command(BaseCommand):
             if sheet_names is not None:
                 if "original" not in sheet_names:
                     raise WrongExcelSheet("IsoAutoCorr", sheet_names[0], "original", 1)
-                if "cor_pct" not in sheet_names:
-                    raise WrongExcelSheet("IsoAutoCorr", sheet_names[1], "cor_pct", 2)
+                if "cor_abs" not in sheet_names:
+                    raise WrongExcelSheet("IsoAutoCorr", sheet_names[2], "cor_abs", 3)
                 # get the "original" sheet when in isoautocorr format
                 self.original = read_from_file(peak_annot_file, sheet="original")
             else:
                 self.original = (
                     None  # There is no original sheet if the file is not an excel file
                 )
-            corrected_sheet_name = "cor_pct"
+            corrected_sheet_name = "cor_abs"
 
         self.corrected = read_from_file(peak_annot_file, sheet=corrected_sheet_name)
 
