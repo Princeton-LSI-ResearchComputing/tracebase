@@ -202,8 +202,8 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         self.assertEqual(8, PeakGroupCompound.objects.count())
         # and 38 total peakdata rows
         self.assertEqual(38, PeakData.objects.count())
-        # and 7 records have no labels (parent records)
-        self.assertEqual(31, PeakDataLabel.objects.count())
+        # and all have 1 label
+        self.assertEqual(38, PeakDataLabel.objects.count())
         # Assert the peak groups all belong to an msrunsample belonging to the same sequence (Dick as opposed to Roger)
         self.assertEqual(
             7,
