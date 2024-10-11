@@ -3310,6 +3310,48 @@ class NoMZXMLFiles(Exception):
         super().__init__(message)
 
 
+class MzXMLSkipRowError(InfileError):
+    def __init__(
+        self,
+        mzxml_name: str,
+        existing_files: List[str],
+        skip_paths_dict: Dict[str, int],
+        **kwargs,
+    ):
+        """The situation here is that we may not be able to identify which files to skip and which to
+        load.  dirs could contain files we should skip because the user didn't provide directory paths on the skipped
+        rows from the infile.  We only know to skip them if the number of skips and the number of directories is the
+        same - but they differ.
+
+        Args:
+            mzxml_name (str): The mzXML filename without the extension
+            existing_files (List[str]): mzXML files all named mzxml_name
+            skip_paths_dict (Dict[str, int]): Directories extracted from a Peak Annotation Details sheet that do not
+                match existing_paths.  If a key is an empty string, it means no path was provided (or the path is the
+                root directory).
+        """
+        dirs_from_infile = [d for d in skip_paths_dict.keys() if d != ""]
+        nlt = "\n\t"
+        # In this instance, we don't have any paths from the infile
+        if len(dirs_from_infile) == 0:
+            message = (
+                f"The number of supplied mzXML files with the name '{mzxml_name}':\n"
+                f"\t{nlt.join(existing_files)}\n"
+                f"matches a different number of skipped sample headers ({skip_paths_dict['']}) in %s."
+            )
+        else:
+            message = (
+                f"The paths of the following mzXML files with the same sample name ({mzxml_name}):"
+                f"\n\t{nlt.join(existing_files)}\n"
+                "do not match the paths supplied in %s:\n"
+                f"{nlt.join(dirs_from_infile)}"
+            )
+        super().__init__(message, **kwargs)
+        self.mzxml_name = mzxml_name
+        self.existing_files = existing_files
+        self.skip_paths_dict = skip_paths_dict
+
+
 class PeakAnnotFileMismatches(Exception):
     def __init__(self, incorrect_pgs_files, peak_annotation_filename):
         bad_files_str = "\n\t".join(
@@ -4433,7 +4475,7 @@ class StudyDocVersionException(Exception):
                                 f"{mdict['missing']}**\n"
                             )
                         if len(mdict["unknown"]) > 0:
-                            message += f"\t\t\t{len(mdict['unknown'])} unknown (ignored) headers: {mdict['unknown']}\n"
+                            message += f"\t\t\t{len(mdict['unknown'])} ignored^ headers: {mdict['unknown']}\n"
                     else:
                         message += f" all {len(mdict['matching'])} matching headers.\n"
                 if len(match_data["versions"][version]["unknown_sheets"]) > 0:
@@ -4444,7 +4486,7 @@ class StudyDocVersionException(Exception):
                     if len(match_data["versions"][version]["missing_sheets"]) > 0:
                         message += (
                             "\t\t\tIn addition, the following sheets were not found, and could potentially be a "
-                            "match if the unknown (ignored) sheet(s) were renamed: "
+                            "match if the ignored^ sheet(s) were renamed: "
                             f"{match_data['versions'][version]['missing_sheets']}\n"
                         )
             elif len(match_data["versions"][version]["missing_sheets"]) > 0:
@@ -4452,6 +4494,12 @@ class StudyDocVersionException(Exception):
                     f"\t\tNone of the expected sheet names: {match_data['versions'][version]['missing_sheets']}\n"
                     f"\t\twere found among the supplied sheets: {list(match_data['supplied'].keys())}\n"
                 )
+
+        message += (
+            "\n^ 'ignored' headers may or may not be correct.  They are just not used in file format "
+            "identification."
+        )
+
         super().__init__(message)
         self.match_data = match_data
 

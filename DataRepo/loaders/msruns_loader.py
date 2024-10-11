@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     MutuallyExclusiveArgs,
     MzxmlParseError,
     MzxmlSampleHeaderMismatch,
+    MzXMLSkipRowError,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -402,7 +403,7 @@ class MSRunsLoader(TableLoader):
 
         # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
-        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(bool))
+        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(int))
 
     # There are maintained fields in the models involved, so deferring autoupdates will make this faster
     @MaintainedModel.defer_autoupdates(
@@ -465,15 +466,63 @@ class MSRunsLoader(TableLoader):
 
             for mzxml_name in self.mzxml_dict.keys():
 
-                # We will skip creating MSRunSample records for blanks, because to have an MSRunSample record, you need
-                # a Sample record, and we don't create those for blank samples.
-                dirs = list(self.mzxml_dict[mzxml_name].keys())
+                # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
+                # an MSRunSample record, you need a Sample record, and we don't create those for blank samples.
                 if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
+                    # There can exist rows in the sheet with the sample mzxml name that are not marked with 'skip'
                     dirs = [
                         dir
                         for dir in self.mzxml_dict[mzxml_name].keys()
                         if dir not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
                     ]
+                else:
+                    dirs = list(self.mzxml_dict[mzxml_name].keys())
+
+                if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
+                    if len(dirs) == 0:
+                        # The sample (header) / mzXML file has been explicitly skipped by having added the directory
+                        # path to the mzXML file name column of the infile
+                        continue
+                    if (
+                        # There is a single skipped directory entry indicated in the infile
+                        len(self.skip_msrunsample_by_mzxml[mzxml_name].keys()) == 1
+                        # The directory path is an empty string (meaning it's either in the root directory or an mzXML
+                        # filename was not provided in the infile)
+                        and "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        # The number of rows in the infile indicating that this 'sample header' should be skipped (i.e.
+                        # the count stored in self.skip_msrunsample_by_mzxml[mzxml_name][""]) is equal to the number of
+                        # files with this name (inferred by the number of directory paths)
+                        and len(dirs) == self.skip_msrunsample_by_mzxml[mzxml_name][""]
+                    ):
+                        # We will skip the files that matches the number of infile rows where the sample header was
+                        # marked as a skip row even though we haven't confirmed any explicit directory matches.
+                        continue
+                    elif "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys():
+                        skip_files = []
+                        for dr in self.mzxml_dict[mzxml_name].keys():
+                            for dct in self.mzxml_dict[mzxml_name][dr]:
+                                skip_files.append(
+                                    os.path.join(dr, dct["mzxml_filename"])
+                                )
+                        self.aggregated_errors_object.buffer_warning(
+                            MzXMLSkipRowError(
+                                mzxml_name,
+                                skip_files,
+                                self.skip_msrunsample_by_mzxml[mzxml_name],
+                                file=self.friendly_file,
+                                sheet=self.DataSheetName,
+                                column=self.DataHeaders.MZXMLNAME,
+                                suggestion=(
+                                    "The mzXML files listed above will not be loaded.  If all mzXML files named "
+                                    f"'{mzxml_name}' must be skipped, please ensure that the number of rows in the "
+                                    f"'{self.DataSheetName}' sheet equals the number of files above "
+                                    f"({len(skip_files)}), or if not all should be skipped, the directory paths should "
+                                    "be included for each mzXML file in the mzXML file name column so that we can tell "
+                                    "which ones to load and which to skip)."
+                                ),
+                            )
+                        )
+                        continue
 
                 # Guess the sample based on the mzXML file's basename
                 # NOTE: Assuming that the version with dashes is the user-entered sample name, and that that's what they
@@ -692,7 +741,10 @@ class MSRunsLoader(TableLoader):
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
         if len(errs.exceptions) > 0:
-            self.aggregated_errors_object.merge_aggregated_errors_object(errs)
+            for exc in errs.exceptions:
+                self.buffer_infile_exception(exc)
+            self.errored(ArchiveFile.__name__, num=len(errs.exceptions))
+            raise RollbackException()
 
         # Get or create an ArchiveFile record for a raw file
         try:
@@ -791,13 +843,13 @@ class MSRunsLoader(TableLoader):
                 if mzxml_path is not None:
                     mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
                     mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] = True
+                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] += 1
                 else:
                     # If there happen to be mzXMLs supplied, but not in the mzXML column, add the sample header to cause
                     # the skip (fingers crossed, there's not some difference - but we can't necessarily know that).
                     # TODO: Account for the dash/underscore issue here.  Isocorr changes dashes in the mzXML name to
                     # underscores, and we haven't accounted for that here...
-                    self.skip_msrunsample_by_mzxml[sample_header][""] = True
+                    self.skip_msrunsample_by_mzxml[sample_header][""] += 1
                 return rec, created
 
             sample = self.get_sample_by_name(sample_name)
@@ -1379,11 +1431,15 @@ class MSRunsLoader(TableLoader):
         if multiple_mzxml_dict is None:
             multiple_mzxml_dict = self.mzxml_dict.get(sample_header)
             mzxml_name = str(sample_header)
+            if mzxml_path is None:
+                mzxml_basename = mzxml_name
 
         # As a last resort, we use the sample name itself
         if multiple_mzxml_dict is None:
             multiple_mzxml_dict = self.mzxml_dict.get(sample_name)
             mzxml_name = str(sample_name)
+            if mzxml_path is None:
+                mzxml_basename = mzxml_name
 
         # If we could not find an mzXML file('s metadata) that matches the provided input (e.g. taken from the infile),
         # return a dict with "Nones" as values (because this method is called from having read the infile and from going
@@ -1566,13 +1622,12 @@ class MSRunsLoader(TableLoader):
         Args:
             mzxml_path (str or Path): mzXML file path
             full_dict (boolean): Whether to return the raw/full dict of the mzXML file
-
         Exceptions:
             Raises:
                 None
             Buffers:
+                MzxmlParseError
                 ValueError
-
         Returns:
             If mzxml_path is not a real existing file:
                 None
@@ -1589,6 +1644,11 @@ class MSRunsLoader(TableLoader):
         """
         # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
         errs_buffer = AggregatedErrors()
+        raw_file_name = None
+        raw_file_sha1 = None
+        polarity = None
+        mz_min = None
+        mz_max = None
 
         # Assume Path object
         mzxml_path_obj = mzxml_path
@@ -1624,49 +1684,55 @@ class MSRunsLoader(TableLoader):
                 raw_file_name = None
                 raw_file_sha1 = None
 
-            polarity = None
-            mz_min = None
-            mz_max = None
             symbol_polarity = ""
             mixed_polarities = {}
-            for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
-                # Parse the mz_min
-                tmp_mz_min = float(entry_dict["@lowMz"])
-                # Get the min of the mins
-                if mz_min is None or tmp_mz_min < mz_min:
-                    mz_min = tmp_mz_min
-                # Parse the mz_max
-                tmp_mz_max = float(entry_dict["@highMz"])
-                # Get the max of the maxes
-                if mz_max is None or tmp_mz_max > mz_max:
-                    mz_max = tmp_mz_max
-                # Parse the polarity
-                # If we haven't run into a polarity conflict (yet)
-                if str(mzxml_path_obj) not in mixed_polarities.keys():
-                    if symbol_polarity == "":
-                        symbol_polarity = entry_dict["@polarity"]
-                    elif symbol_polarity != entry_dict["@polarity"]:
-                        mixed_polarities[str(mzxml_path_obj)] = {
-                            "first": symbol_polarity,
-                            "different": entry_dict["@polarity"],
-                            "scan": entry_dict["@num"],
-                        }
-            if len(mixed_polarities.keys()) > 0:
-                errs_buffer.buffer_exception(
-                    MixedPolarityErrors(mixed_polarities),
-                )
+            # mzXML files can have 0 scans
+            if "scan" in mzxml_dict["mzXML"]["msRun"].keys():
+                for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
+                    # Parse the mz_min
+                    tmp_mz_min = float(entry_dict["@lowMz"])
+                    # Get the min of the mins
+                    if mz_min is None or tmp_mz_min < mz_min:
+                        mz_min = tmp_mz_min
+                    # Parse the mz_max
+                    tmp_mz_max = float(entry_dict["@highMz"])
+                    # Get the max of the maxes
+                    if mz_max is None or tmp_mz_max > mz_max:
+                        mz_max = tmp_mz_max
+                    # Parse the polarity
+                    # If we haven't run into a polarity conflict (yet)
+                    if str(mzxml_path_obj) not in mixed_polarities.keys():
+                        if symbol_polarity == "":
+                            symbol_polarity = entry_dict["@polarity"]
+                        elif symbol_polarity != entry_dict["@polarity"]:
+                            mixed_polarities[str(mzxml_path_obj)] = {
+                                "first": symbol_polarity,
+                                "different": entry_dict["@polarity"],
+                                "scan": entry_dict["@num"],
+                            }
+
+                if len(mixed_polarities.keys()) > 0:
+                    errs_buffer.buffer_exception(
+                        MixedPolarityErrors(mixed_polarities),
+                    )
+
+                if symbol_polarity == "+":
+                    polarity = MSRunSample.POSITIVE_POLARITY
+                elif symbol_polarity == "-":
+                    polarity = MSRunSample.NEGATIVE_POLARITY
+                elif symbol_polarity != "":
+                    errs_buffer.buffer_error(
+                        ValueError(
+                            f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
+                            f"[{str(mzxml_path_obj)}]."
+                        )
+                    )
+
         except KeyError as ke:
-            errs_buffer.buffer_error(MzxmlParseError(str(ke)))
-        if symbol_polarity == "+":
-            polarity = MSRunSample.POSITIVE_POLARITY
-        elif symbol_polarity == "-":
-            polarity = MSRunSample.NEGATIVE_POLARITY
-        elif symbol_polarity != "":
             errs_buffer.buffer_error(
-                ValueError(
-                    f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
-                    f"[{str(mzxml_path_obj)}]."
-                )
+                MzxmlParseError(
+                    f"Missing key [{ke}] encountered in mzXML file [{str(mzxml_path_obj)}]."
+                ).with_traceback(ke.__traceback__)
             )
 
         return {
