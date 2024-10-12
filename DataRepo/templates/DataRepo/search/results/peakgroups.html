@@ -343,13 +343,13 @@
                                     {% if not forloop.first %}
                                         <br>
                                     {% endif%}
-                                    <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} ({{ msrsrec.polarity }} {{ msrsrec.mz_min }}-{{ msrsrec.mz_max }}){% endif %}</a>
+                                    <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endif %}</a>
                                 {% endfor %}
                             {% else %}
                                 <!-- This block will execute when split_rows is True in the format -->
                                 {% get_model_rec_by_id "ArchiveFile" pg.mzdatafl as afrec %}
                                 <!-- There will be only 1 record in afrec.mz_to_msrunsamples.all -->
-                                <a href="{% url 'archive_file_detail' pg.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}{% for msrsrec in afrec.mz_to_msrunsamples.all %} ({{ msrsrec.polarity }} {{ msrsrec.mz_min }}-{{ msrsrec.mz_max }}){% endfor %}</a>
+                                <a href="{% url 'archive_file_detail' pg.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}{% for msrsrec in afrec.mz_to_msrunsamples.all %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endfor %}</a>
                             {% endif %}
                         {% else %}
                             None

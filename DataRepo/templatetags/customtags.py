@@ -320,6 +320,23 @@ def get_model_rec_by_id(mdl_name, pk):
     return mdl.objects.get(pk__exact=pk)
 
 
+@register.filter
+def polarity_name_to_sign(name):
+    if name is None:
+        return None
+    elif name.lower().startswith("p"):
+        return "+"
+    elif name.lower().startswith("n"):
+        return "-"
+    return "error"
+
+
+@register.filter
+def sigdig(num, digits=3):
+    """Return the supplied num with the significant number of digits."""
+    return float(f"{num:.{digits}g}")
+
+
 @register.simple_tag
 def compile_stats(stats, num_chars=160):
     """
