@@ -334,7 +334,7 @@ def polarity_name_to_sign(name):
 @register.filter
 def sigdig(num, digits=3):
     """Return the supplied num with the significant number of digits."""
-    return float(f"{num:.{digits}g}")
+    return f"{num:.{digits}g}"
 
 
 @register.simple_tag
