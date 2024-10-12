@@ -332,7 +332,7 @@
                     <!-- MZ Data Files -->
                     <td>
                         {% if pg.msrun_sample.sample.msrun_samples.count > 0 %}
-                            {% if pg.mzdatafl and pg.mzdatafl != "" %}
+                            {% if pg.mzdatafl == "" %}
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">
                                     {% for msrsrec in pg.msrun_sample.sample.msrun_samples %}{% if not forloop.first %}{% endif%}{{ msrsrec.ms_data_file.filename }}{% endfor %}
