@@ -59,7 +59,7 @@
         data-show-export="false"
         data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
 
-        <colgroup span="9" class="identdata"></colgroup>
+        <colgroup span="10" class="identdata"></colgroup>
         <colgroup span="4" class="datadata"></colgroup>
         <colgroup span="14" class="metadata"></colgroup>
 
@@ -118,6 +118,13 @@
                     {% with "Labeled<br>Element" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_data__labels__element">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp">
+                    {% with "MZ Data Files" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__msrun_samples__ms_data_file">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -320,6 +327,30 @@
                     <!-- Labeled Element -->
                     <td>
                         {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}{{ label_rec.element }}{% endfor %}
+                    </td>
+
+                    <!-- MZ Data Files -->
+                    <td>
+                        {% if pg.msrun_sample.sample.msrun_samples.count > 0 %}
+                            {% if pg.mzdatafl and pg.mzdatafl != "" %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">
+                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples %}{% if not forloop.first %}{% endif%}{{ msrsrec.ms_data_file.filename }}{% endfor %}
+                                </div>
+
+                                {% for msrsrec in pg.msrun_sample.sample.msrun_samples %}
+                                    {% if not forloop.first %}
+                                        <br>
+                                    {% endif%}
+                                    <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}">{{ msrsrec.ms_data_file.filename }}</a>
+                                {% endfor %}
+                            {% else %}
+                                {% get_model_by_id "ArchiveFile" pg.mzdatafl as afrec %}
+                                <a href="{% url 'archive_file_detail' pg.mzdatafl %}">{{ afrec.filename }}</a>
+                            {% endif %}
+                        {% else %}
+                            None
+                        {% endif %}
                     </td>
 
                     <!-- Peak Annotation Filename -->

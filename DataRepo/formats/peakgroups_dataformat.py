@@ -581,7 +581,7 @@ class PeakGroupsFormat(Format):
         "MZFile": {
             "model": "ArchiveFile",
             "path": "msrun_sample__sample__msrun_samples__ms_data_file",
-            "reverse_path": "mz_to_msrunsamples__peak_groups",
+            "reverse_path": "mz_to_msrunsamples__sample__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "through": False,
@@ -608,7 +608,7 @@ class PeakGroupsFormat(Format):
         "RAWFile": {
             "model": "ArchiveFile",
             "path": "msrun_sample__sample__msrun_samples__ms_raw_file",
-            "reverse_path": "raw_to_msrunsamples__peak_groups",
+            "reverse_path": "raw_to_msrunsamples__sample__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "through": False,

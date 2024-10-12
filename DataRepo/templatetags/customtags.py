@@ -7,6 +7,7 @@ from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 register = template.Library()
@@ -311,6 +312,12 @@ def get_many_related_rec(qs, pk):
         recs = qs.all()
 
     return recs
+
+
+@register.simple_tag
+def get_model_by_id(mdl_name, pk):
+    mdl = get_model_by_name(mdl_name)
+    return mdl.objects.get(pk__exact=pk)
 
 
 @register.simple_tag
