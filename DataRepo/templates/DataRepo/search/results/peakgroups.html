@@ -335,10 +335,10 @@
                             {% if pg.mzdatafl == "" %}
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">
-                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples %}{% if not forloop.first %}{% endif%}{{ msrsrec.ms_data_file.filename }}{% endfor %}
+                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif%}{{ msrsrec.ms_data_file.filename }}{% endfor %}
                                 </div>
 
-                                {% for msrsrec in pg.msrun_sample.sample.msrun_samples %}
+                                {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}
                                     {% if not forloop.first %}
                                         <br>
                                     {% endif%}
