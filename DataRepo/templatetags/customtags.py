@@ -315,7 +315,7 @@ def get_many_related_rec(qs, pk):
 
 
 @register.simple_tag
-def get_model_by_id(mdl_name, pk):
+def get_model_rec_by_id(mdl_name, pk):
     mdl = get_model_by_name(mdl_name)
     return mdl.objects.get(pk__exact=pk)
 

@@ -333,6 +333,7 @@
                     <td>
                         {% if pg.msrun_sample.sample.msrun_samples.count > 0 %}
                             {% if pg.mzdatafl == "" %}
+                                <!-- This block will execute when split_rows is False in the format -->
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">
                                     {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif%}{{ msrsrec.ms_data_file.filename }}{% endfor %}
@@ -342,11 +343,13 @@
                                     {% if not forloop.first %}
                                         <br>
                                     {% endif%}
-                                    <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}">{{ msrsrec.ms_data_file.filename }}</a>
+                                    <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} ({{ msrsrec.polarity }} {{ msrsrec.mz_min }}-{{ msrsrec.mz_max }}){% endif %}</a>
                                 {% endfor %}
                             {% else %}
-                                {% get_model_by_id "ArchiveFile" pg.mzdatafl as afrec %}
-                                <a href="{% url 'archive_file_detail' pg.mzdatafl %}">{{ afrec.filename }}</a>
+                                <!-- This block will execute when split_rows is True in the format -->
+                                {% get_model_rec_by_id "ArchiveFile" pg.mzdatafl as afrec %}
+                                <!-- There will be only 1 record in afrec.mz_to_msrunsamples.all -->
+                                <a href="{% url 'archive_file_detail' pg.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}{% for msrsrec in afrec.mz_to_msrunsamples.all %} ({{ msrsrec.polarity }} {{ msrsrec.mz_min }}-{{ msrsrec.mz_max }}){% endfor %}</a>
                             {% endif %}
                         {% else %}
                             None
