@@ -580,13 +580,14 @@ class PeakGroupsFormat(Format):
         },
         "MZFile": {
             "model": "ArchiveFile",
-            "path": "msrun_sample__ms_data_file",
+            "path": "msrun_sample__sample__msrun_samples__ms_data_file",
             "reverse_path": "mz_to_msrunsamples__peak_groups",
             "manyrelated": {
-                "is": False,
+                "is": True,
                 "through": False,
-                "manytomany": False,
+                "manytomany": True,  # Searching for 1 MZFile can produce many PeakGroups and vice versa
                 "split_rows": False,
+                "root_annot_fld": "mzdatafl",
             },
             "fields": {
                 "id": {
@@ -606,13 +607,14 @@ class PeakGroupsFormat(Format):
         },
         "RAWFile": {
             "model": "ArchiveFile",
-            "path": "msrun_sample__ms_raw_file",
+            "path": "msrun_sample__sample__msrun_samples__ms_raw_file",
             "reverse_path": "raw_to_msrunsamples__peak_groups",
             "manyrelated": {
-                "is": False,
+                "is": True,
                 "through": False,
-                "manytomany": False,
+                "manytomany": True,  # Searching for 1 RAWFile can produce many PeakGroups and vice versa
                 "split_rows": False,
+                "root_annot_fld": "mzrawfl",
             },
             "fields": {
                 "id": {
