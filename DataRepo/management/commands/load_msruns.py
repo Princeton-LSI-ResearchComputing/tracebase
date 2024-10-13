@@ -1,3 +1,5 @@
+import os
+import sys
 from typing import Type
 
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -20,7 +22,7 @@ class Command(LoadTableCommand):
         # Don't require any options (i.e. don't require the --infile option)
         super().__init__(
             *args,
-            required_optname_groups=[["mzxml_files", "infile"]],
+            required_optnames=[],
             **kwargs,
         )
 
@@ -124,6 +126,13 @@ class Command(LoadTableCommand):
         Returns:
             None
         """
+        if len(sys.argv) == 2:  # ['manage.py', 'load_msruns']
+            self.print_help(
+                "manage.py", list(os.path.splitext(os.path.basename(__file__)))[1]
+            )
+            self.options["help"] = True
+            return
+
         if (
             options.get("mzxml_files") is not None
             and options.get("mzxml_dir") is not None
