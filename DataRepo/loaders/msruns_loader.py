@@ -484,6 +484,7 @@ class MSRunsLoader(TableLoader):
 
                 if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
                     if len(dirs) == 0:
+                        print(f"EXACT SKIP {mzxml_name} {list(self.mzxml_dict[mzxml_name].keys())}")
                         # The sample (header) / mzXML file has been explicitly skipped by having added the directory
                         # path to the mzXML file name column of the infile
                         continue
@@ -498,10 +499,12 @@ class MSRunsLoader(TableLoader):
                         # files with this name (inferred by the number of directory paths)
                         and len(dirs) == self.skip_msrunsample_by_mzxml[mzxml_name][""]
                     ):
+                        print(f"SAME NUM SKIP {mzxml_name} {list(self.mzxml_dict[mzxml_name].keys())}")
                         # We will skip the files that matches the number of infile rows where the sample header was
                         # marked as a skip row even though we haven't confirmed any explicit directory matches.
                         continue
                     elif "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys():
+                        print(f"DIFF NUM SKIP {mzxml_name} {list(self.mzxml_dict[mzxml_name].keys())}")
                         skip_files = []
                         for dr in self.mzxml_dict[mzxml_name].keys():
                             for dct in self.mzxml_dict[mzxml_name][dr]:
@@ -553,9 +556,11 @@ class MSRunsLoader(TableLoader):
                                 sample, msrun_sequence, mzxml_metadata
                             )
                         except RollbackException:
+                            print(f"ERROR SKIP {mzxml_dir}/{mzxml_name} {self.aggregated_errors_object.exceptions[-1]}")
                             # Exception handling was handled
                             # Continue processing rows to find more errors
                             pass
+                        print(f"CREATED/GOT {mzxml_dir}/{mzxml_name}")
 
         # If there were any exceptions (i.e. a rollback of everything will be triggered)
         if self.aggregated_errors_object.should_raise():
@@ -1156,6 +1161,7 @@ class MSRunsLoader(TableLoader):
             rec (MSRunSample)
             created (boolean)
         """
+        # This doesn't return a "gotten" record (which is "wrong"), but returning here keeps the stats accurate.
         if mzxml_metadata["added"] is True or msrun_sequence is None or sample is None:
             return None, False
 
@@ -1503,6 +1509,7 @@ class MSRunsLoader(TableLoader):
                         "The default MSRunSequence will be used if provided.  If this is followed by an error "
                         "requiring defaults to be supplied, add one of the paths of the above files to the "
                         f"{self.defaults.MZXMLNAME} column in %s.  All PeakGroups will be linked to a placeholder "
+                        # TODO: Remove debug content
                         f"MSRunSample record.  DEBUG: {multiple_mzxml_dict}"
                     ),
                     file=self.friendly_file,
