@@ -2603,7 +2603,7 @@ class TableLoader(ABC):
         return found_errors
 
     def buffer_infile_exception(
-        self, exception, is_error=True, is_fatal=True, column=None, suggestion=None
+        self, exception, is_error=None, is_fatal=None, column=None, suggestion=None
     ):
         """Convenience method to keep the loading code succinct.  Buffers an exception (default: as fatal error) as an
         InfileError.  Use this to provide file context to any non-database related exception.  The file name, sheet, and
@@ -2611,8 +2611,8 @@ class TableLoader(ABC):
 
         Args:
             exception (Exception)
-            is_error (bool) [True]
-            is_fatal (bool) [True]
+            is_error (Optional[bool]) [True]
+            is_fatal (Optional[bool]) [True]
             column (str|int) [None]: Name of the column or columns that is the source of the erroneous data.
             suggestion (Optional[str])
         Exceptions:
@@ -2623,6 +2623,16 @@ class TableLoader(ABC):
         Returns:
             None
         """
+        if hasattr(exception, "is_error") and isinstance(exception.is_error, bool):
+            is_error = exception.is_error
+        else:
+            is_error = True
+
+        if hasattr(exception, "is_fatal") and isinstance(exception.is_fatal, bool):
+            is_fatal = exception.is_fatal
+        else:
+            is_fatal = True
+
         if isinstance(exception, InfileError):
             exception.set_formatted_message(
                 file=self.friendly_file,
