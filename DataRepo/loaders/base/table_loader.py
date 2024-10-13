@@ -2623,22 +2623,55 @@ class TableLoader(ABC):
         Returns:
             None
         """
-        if hasattr(exception, "is_error") and isinstance(exception.is_error, bool):
+        if (
+            hasattr(exception, "is_error")
+            and isinstance(exception.is_error, bool)
+            and is_error is None
+        ):
             is_error = exception.is_error
-        else:
+        elif is_error is None:
             is_error = True
 
-        if hasattr(exception, "is_fatal") and isinstance(exception.is_fatal, bool):
+        if (
+            hasattr(exception, "is_fatal")
+            and isinstance(exception.is_fatal, bool)
+            and is_fatal is None
+        ):
             is_fatal = exception.is_fatal
-        else:
+        elif is_fatal is None:
             is_fatal = True
+
+        if hasattr(exception, "file") and exception.file is not None:
+            file = exception.file
+        else:
+            file = self.friendly_file
+        if hasattr(exception, "sheet") and exception.sheet is not None:
+            sheet = exception.sheet
+        else:
+            sheet = self.sheet
+        if (
+            hasattr(exception, "column")
+            and exception.column is not None
+            and column is None
+        ):
+            column = exception.column
+        if hasattr(exception, "rownum") and exception.rownum is not None:
+            rownum = exception.rownum
+        else:
+            rownum = self.rownum
+        if (
+            hasattr(exception, "suggestion")
+            and exception.suggestion is not None
+            and suggestion is None
+        ):
+            suggestion = exception.suggestion
 
         if isinstance(exception, InfileError):
             exception.set_formatted_message(
-                file=self.friendly_file,
-                sheet=self.sheet,
+                file=file,
+                sheet=sheet,
                 column=column,
-                rownum=self.rownum,
+                rownum=rownum,
                 suggestion=suggestion,
             )
             self.aggregated_errors_object.buffer_exception(
@@ -2650,10 +2683,10 @@ class TableLoader(ABC):
             self.aggregated_errors_object.buffer_exception(
                 InfileError(
                     str(exception),
-                    file=self.friendly_file,
-                    sheet=self.sheet,
+                    file=file,
+                    sheet=sheet,
                     column=column,
-                    rownum=self.rownum,
+                    rownum=rownum,
                     suggestion=suggestion,
                 ),
                 is_error=is_error,

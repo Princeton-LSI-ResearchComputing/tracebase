@@ -126,7 +126,9 @@ class Command(LoadTableCommand):
         Returns:
             None
         """
-        if len(sys.argv) == 2:  # ['manage.py', 'load_msruns']
+        if (
+            len(sys.argv) == 2 and sys.argv[1] == "load_msruns"
+        ):  # ['manage.py', 'load_msruns']
             self.print_help(
                 "manage.py", list(os.path.splitext(os.path.basename(__file__)))[1]
             )
