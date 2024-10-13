@@ -3310,6 +3310,12 @@ class NoMZXMLFiles(Exception):
         super().__init__(message)
 
 
+class NoScans(InfileError):
+    def __init__(self, **kwargs):
+        message = "mzXML File '%s' contains no scans."
+        super().__init__(message, **kwargs)
+
+
 class MzXMLSkipRowError(InfileError):
     def __init__(
         self,
