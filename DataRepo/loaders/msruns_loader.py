@@ -1503,7 +1503,7 @@ class MSRunsLoader(TableLoader):
                         "The default MSRunSequence will be used if provided.  If this is followed by an error "
                         "requiring defaults to be supplied, add one of the paths of the above files to the "
                         f"{self.defaults.MZXMLNAME} column in %s.  All PeakGroups will be linked to a placeholder "
-                        "MSRunSample record."
+                        f"MSRunSample record.  DEBUG: {multiple_mzxml_dict}"
                     ),
                     file=self.friendly_file,
                     sheet=self.sheet,
