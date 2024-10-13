@@ -109,4 +109,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(ConditionallyRequiredOptions, type(aes.exceptions[0]))
-        self.assertIn("['mzxml_files', 'infile']", str(aes.exceptions[0]))
+        self.assertIn(
+            "--mzxml-dir (with a directory containing mzxml files), --mzxml-files, or --infile",
+            str(aes.exceptions[0]),
+        )

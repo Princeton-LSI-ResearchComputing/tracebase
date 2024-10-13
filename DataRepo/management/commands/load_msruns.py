@@ -145,6 +145,12 @@ class Command(LoadTableCommand):
             files=options.get("mzxml_files"), dir=options.get("mzxml_dir")
         )
 
+        if len(mzxml_files) == 0 and options.get("infile") is None:
+            raise ConditionallyRequiredOptions(
+                "Either --mzxml-dir (with a directory containing mzxml files), --mzxml-files, or --infile is "
+                "required."
+            )
+
         # Check conditionally required options
         if (
             len(mzxml_files) > 0
@@ -166,9 +172,9 @@ class Command(LoadTableCommand):
             if len(missing) > 0:
                 missing_str = f" or {missing}"
             raise ConditionallyRequiredOptions(
-                "When --mzxml-files are supplied without an --infile, either a --defaults-file must be provided or "
-                "each of these default options must all be supplied: --operator, --date, --lc-protocol-name, and "
-                f"--instrument.  Missing: infile or defaults_file{missing_str}."
+                "When mzxml files are supplied (using --mzxml-dir or --mzxml-files) without an --infile, either a "
+                "--defaults-file must be provided or each of these default options must all be supplied: --operator, "
+                f"--date, --lc-protocol-name, and --instrument.  Missing: infile or defaults_file{missing_str}."
             )
 
         # The MSRunsLoader class constructor has custom arguments, so we must call init_loader to supply them
