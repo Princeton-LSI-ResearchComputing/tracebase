@@ -1,12 +1,11 @@
 import os
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from typing import Dict
 
 from django.db import transaction
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
@@ -85,9 +84,13 @@ class PeakAnnotationFilesLoader(TableLoader):
             name=DataHeaders.FILE,
             help_text="Peak annotation file, e.g. AccuCor, IsoCorr, etc.",
             guidance="Include a path if the file will not be in the top level of the submission directory.",
+            # TODO: Replace "Peak Annotation Details" and "Peak Annotation File" below with a reference to its loader's
+            # DataSheetName and the corresponding column, respectively.
+            # Cannot reference the MSRunsLoader here (to include the name of its sheet and its file column) due to
+            # circular import.
             reference=ColumnReference(
-                loader_class=MSRunsLoader,
-                loader_header_key=MSRunsLoader.ANNOTNAME_KEY,
+                sheet="Peak Annotation Details",
+                header="Peak Annotation File Name",
             ),
         ),
         FORMAT=TableColumn.init_flat(
@@ -100,9 +103,13 @@ class PeakAnnotationFilesLoader(TableLoader):
         ),
         SEQNAME=TableColumn.init_flat(
             name=DataHeaders.SEQNAME,
+            # TODO: Replace "Peak Annotation Details" and "Sequence" below with a reference to its loader's
+            # DataSheetName and the corresponding column, respectively.
+            # Cannot reference the MSRunsLoader here (to include the name of its sheet and its file column) due to
+            # circular import.
             help_text=(
                 f"The default Sequence to use when loading {DataHeaders.FILE}.  Overridden by values supplied in "
-                f"{MSRunsLoader.DataHeaders.SEQNAME} in the {MSRunsLoader.DataSheetName} sheet."
+                f"the 'Peak Annotation File Name' column in the 'Peak Annotation Details' sheet."
             ),
             type=str,
             format=(
@@ -463,15 +470,18 @@ class PeakAnnotationFilesLoader(TableLoader):
         peak_annotation_details_sheet = None
         peak_annotation_details_df = None
 
+        # TODO: Replace "Peak Annotation Details" with a reference to its loader's DataSheetName.
+        # Cannot reference the MSRunsLoader here (to include the name of its sheet and its file column) due to circular
+        # import.
         if self.peak_annotation_details_df is not None:
             peak_annotation_details_file = self.peak_annotation_details_file
             peak_annotation_details_sheet = self.peak_annotation_details_sheet
             peak_annotation_details_df = self.peak_annotation_details_df
-        elif is_excel(self.file) and MSRunsLoader.DataSheetName in get_sheet_names(
+        elif is_excel(self.file) and "Peak Annotation Details" in get_sheet_names(
             self.file
         ):
             peak_annotation_details_file = self.file
-            peak_annotation_details_sheet = MSRunsLoader.DataSheetName
+            peak_annotation_details_sheet = "Peak Annotation Details"
             peak_annotation_details_df = read_from_file(
                 peak_annotation_details_file,
                 peak_annotation_details_sheet,
@@ -529,3 +539,40 @@ class PeakAnnotationFilesLoader(TableLoader):
             self.aggregated_errors_dict[filename] = aes
         finally:
             self.update_load_stats(peak_annot_loader.get_load_stats())
+
+    def get_dir_to_sequence_dict(self):
+        """This traverses self.df to return a dict that maps the peak annotation file's directory path to a list of
+        sequence names.
+
+        This is intended to be used by the MSRunsLoader to associate an mzXML file with the sequence it came from by
+        determining that the mzXML file's path contains the peak annotation file's path (because peak annotation files
+        are required to be co-located with the mzXML files of a sequence).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"/path/to/peakannot/dir": ["sequence name"]}}
+        """
+        dir_to_sequence_dict = defaultdict(list)
+
+        # Save the current row index
+        save_row_index = self.row_index
+        # Initialize the row index
+        self.set_row_index(None)
+
+        for _, row in self.df.iterrows():
+            file = self.get_row_val(row, self.headers.FILE)
+            seqname = self.get_row_val(row, self.headers.SEQNAME)
+            if file is None or seqname is None:
+                continue
+            dir: str
+            dir = os.path.dirname(file)
+            if seqname not in dir_to_sequence_dict[dir]:
+                dir_to_sequence_dict[dir].append(seqname)
+
+        # Restore the original row index
+        self.set_row_index(save_row_index)
+
+        return dir_to_sequence_dict

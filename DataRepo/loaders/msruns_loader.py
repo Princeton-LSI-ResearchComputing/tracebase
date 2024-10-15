@@ -10,6 +10,9 @@ from django.db.models import Max, Min, Q
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
+from DataRepo.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models import (
@@ -34,6 +37,8 @@ from DataRepo.utils.exceptions import (
     MixedPolarityErrors,
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
+    MzxmlColocatedWithMultipleAnnot,
+    MzxmlNotColocatedWithAnnot,
     MzxmlParseError,
     MzxmlSampleHeaderMismatch,
     MzXMLSkipRowError,
@@ -43,7 +48,7 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValues,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_date
+from DataRepo.utils.file_utils import is_excel, read_from_file, string_to_date
 
 
 class MSRunsLoader(TableLoader):
@@ -266,7 +271,10 @@ class MSRunsLoader(TableLoader):
                     commits anything, but it also raises warnings as fatal (so they can be reported through the web
                     interface and seen by researchers, among other behaviors specific to non-privileged users).
             Derived (this) class Args:
-                mzxml_files (Optional[str]): Paths to mzXML files.
+                mzxml_files (Optional[List[str]]): Paths to mzXML files.
+                mzxml_dir (Optional[str]): Path to mzXML directory.  (The common parent directory.)  NOT USED TO FIND
+                    MZXML FILES.  USE mzxml_files FOR THAT.  ONLY USED TO DETERMINE THE SEQUENCE AN MZXML BELONGS TO DUE
+                    TO COMMON DIRECTORY WITH A PEAK ANNOT FILE.
                 operator (Optional[str]): The researcher who ran the mass spec.  Mutually exclusive with defaults_df
                     (when it has a default for the operator column for the Sequences sheet).
                 lc_protocol_name (Optional[str]): Name of the liquid chromatography method.  Mutually exclusive with
@@ -289,6 +297,7 @@ class MSRunsLoader(TableLoader):
         # file in that interface, so it will only ever effectively be used on the command line, where mzxml_files *are*
         # already friendly.
         self.mzxml_files = kwargs.pop("mzxml_files", [])
+        self.mzxml_dir = kwargs.pop("mzxml_dir", None)
         operator_default = kwargs.pop("operator", None)
         date_default = kwargs.pop("date", None)
         lc_protocol_name_default = kwargs.pop("lc_protocol_name", None)
@@ -297,9 +306,48 @@ class MSRunsLoader(TableLoader):
 
         super().__init__(*args, **kwargs)
 
+        self.annotdir_to_seq_dict = None
+        # If we have mzxml files to load, we need to retrieve the paths of the peak annotation files mapped to their
+        # sequences so that we can associate those sequences with the mzXML files that are on the same path
+        if len(self.mzxml_files) > 0 and self.file is not None and is_excel(self.file):
+            # If no file is provided, we will not error, but note that if there are multiple mzXML files with the same
+            # name, and no default sequence is provided, we will not be able to know what sequence an mzXML belongs to,
+            # so we won't be able to create an MSRunSample record for those files.  (Note: mzXML files are co-located
+            # with peak annotation files and their common paths are used to infer the sequence they're derived from.
+            # using the default sequence column in the Sequences sheet that associates the peak annotation file and
+            # sequence.)
+            pafl = PeakAnnotationFilesLoader(
+                df=read_from_file(
+                    self.file, sheet=PeakAnnotationFilesLoader.DataSheetName
+                ),
+                file=self.file,
+            )
+            self.annotdir_to_seq_dict = pafl.get_dir_to_sequence_dict()
+            # Error-check the peak annotation file paths to ensure they are relative.  We require relative paths to be
+            # able to compare with mzXML file paths
+            abs_paths = []
+            for annot_dir in self.annotdir_to_seq_dict.keys():
+                if os.path.isabs(annot_dir):
+                    abs_paths.append(annot_dir)
+            if len(abs_paths) > 0:
+                # This load takes a long time.  Let's not waste it and raise immediately.
+                nlt = "\n\t"
+                raise self.aggregated_errors_object.buffer_error(
+                    InfileError(
+                        (
+                            "Paths to peak annotation files must be relative paths, but the following absolute paths "
+                            f"were found in %s:\n{nlt.join(abs_paths)}"
+                        ),
+                        file=self.file,
+                        sheet=PeakAnnotationFilesLoader.DataSheetName,
+                    ),
+                )
+            # Since we have annotation file paths, we should make sure we have a directory for the mzXML files
+            if self.mzxml_dir is None:
+                self.mzxml_dir = os.path.commonpath(self.mzxml_files)
+
         # We are going to use defaults from the SequencesLoader if no dataframe (i.e. --infile) was provided
         seqloader = SequencesLoader(
-            df=self.friendly_file,  # Only used for reporting errors with the defaults sheet
             defaults_df=self.defaults_df,
             defaults_file=self.defaults_file,
         )
@@ -528,29 +576,16 @@ class MSRunsLoader(TableLoader):
                         )
                         continue
 
-                # Guess the sample based on the mzXML file's basename
-                # NOTE: Assuming that the version with dashes is the user-entered sample name, and that that's what they
-                # want (and would have entered into the samples sheet), we will guess the sample name in the database
-                # using the mzXML file name without having had the dashes removed (see self.exact_mode).
-                mzxml_basename = mzxml_name
-                if not self.exact_mode:
-                    # All of the file names should be the same, so we're going to arbitrarily grab the first one
-                    arbitrary_key = next(iter(self.mzxml_dict[mzxml_name]))
-                    mzxml_filename = self.mzxml_dict[mzxml_name][arbitrary_key][0][
-                        "mzxml_filename"
-                    ]
-                    mzxml_basename = (os.path.splitext(mzxml_filename))[0]
-                sample_name = self.guess_sample_name(mzxml_basename)
-
-                sample = self.get_sample_by_name(sample_name, from_mzxml=True)
-
                 # NOTE: The directory content of self.mzxml_dict is based on the actual supplied mzXML files, not on the
                 # content of the mzxml filename column in the infile.
                 for mzxml_dir in dirs:
                     for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
                         try:
                             self.get_or_create_msrun_sample_from_mzxml(
-                                sample, default_msrun_sequence, mzxml_metadata
+                                mzxml_name,
+                                mzxml_dir,
+                                mzxml_metadata,
+                                default_msrun_sequence,
                             )
                         except RollbackException:
                             # Exception handling was handled
@@ -1120,9 +1155,10 @@ class MSRunsLoader(TableLoader):
     @transaction.atomic
     def get_or_create_msrun_sample_from_mzxml(
         self,
-        sample,
-        msrun_sequence,
+        mzxml_name,
+        mzxml_dir,
         mzxml_metadata,
+        default_msrun_sequence,
     ):
         """Takes a sample record, msrun_sequence record, and metadata parsed from the mzxml (including ArchiveFile
         records created from the file) and gets or creates MSRunSample records.  It assumes that the mzxml_metadata
@@ -1132,8 +1168,9 @@ class MSRunsLoader(TableLoader):
         records.
 
         Args:
-            sample (Sample)
-            msrun_sequence (MSRunSequence)
+            mzxml_name (str): Basename of an mzXML file.
+            mzxml_dir (str): Directory path of an mzXML file.
+            default_msrun_sequence (Optional[MSRunSequence])
             mzxml_metadata (dict): This dict contains metadata parsed from the mzXML file.  Example structure:
                 {
                     "polarity": "positive",
@@ -1156,15 +1193,34 @@ class MSRunsLoader(TableLoader):
             rec (MSRunSample)
             created (boolean)
         """
+        # This doesn't return a "gotten" record (which is "wrong", seeing as how this methis is a *get*_or_create
+        # method), but returning here keeps the created/skipped stats accurate.
+        if mzxml_metadata["added"] is True:
+            return None, False
 
-        # TODO: Associate mzXML files with a sequence based on the path of the co-located peak annotation file.
-        # See issue #1263
-        # We don't have the sequence from the infile here.  Only the default sequence is passed in.  Issue #1263 will
-        # use the path of the peak annotation file (assuming it uses only mzXMLs from a single sequence) as the path
-        # under which mzXML files from the sequence can be found.
+        # Now determine the sequence
+        msrun_sequence = self.get_msrun_sequence_from_dir(
+            mzxml_name,
+            mzxml_dir,
+            default_msrun_sequence,
+        )
 
-        # This doesn't return a "gotten" record (which is "wrong"), but returning here keeps the stats accurate.
-        if mzxml_metadata["added"] is True or msrun_sequence is None or sample is None:
+        # Guess the sample based on the mzXML file's basename
+        # NOTE: Assuming that the version with dashes is the user-entered sample name, and that that's what they
+        # want (and would have entered into the samples sheet), we will guess the sample name in the database
+        # using the mzXML file name without having had the dashes removed (see self.exact_mode).
+        mzxml_basename = mzxml_name
+        if not self.exact_mode:
+            # All of the file names should be the same, so we're going to arbitrarily grab the first one
+            arbitrary_key = next(iter(self.mzxml_dict[mzxml_name]))
+            mzxml_filename = self.mzxml_dict[mzxml_name][arbitrary_key][0][
+                "mzxml_filename"
+            ]
+            mzxml_basename = (os.path.splitext(mzxml_filename))[0]
+        sample_name = self.guess_sample_name(mzxml_basename)
+        sample = self.get_sample_by_name(sample_name, from_mzxml=True)
+        if sample is None:
+            # get_sample_by_name will have already buffered an error
             return None, False
 
         try:
@@ -1194,6 +1250,75 @@ class MSRunsLoader(TableLoader):
             raise RollbackException()
 
         return rec, created
+
+    def get_msrun_sequence_from_dir(
+        self,
+        mzxml_name,
+        mzxml_dir,
+        default_msrun_sequence: Optional[MSRunSequence],
+    ):
+        """Uses the self.annotdir_to_seq_dict to assign the peak annotation file's sequence to mzXML files that have a
+        common path.
+
+        Args:
+            mzxml_name (str): Basename of the mzXML file.
+            mzxml_dir (str): Path to directory of the mzXML file.
+            default_msrun_sequence (Optional[MSRunSequence]): Default sequence to use if there are no or multiple
+                sequences.
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                MzxmlNotColocatedWithAnnot
+                MzxmlColocatedWithMultipleAnnot
+        Returns:
+            msrun_sequence (Optional[MSRunSequence]): The MSRunSequence record that the mzXML file belongs to.
+        """
+        if self.annotdir_to_seq_dict is None:
+            return default_msrun_sequence
+
+        msrun_sequence = None
+        msrun_sequence_names = []
+
+        # The paths in self.annotdir_to_seq_dict are relative paths, so make the mzXML path relative as well
+        if os.path.isabs(mzxml_dir):
+            mzxml_dir = os.path.relpath(mzxml_dir, start=self.mzxml_dir)
+
+        # Build the msrun_sequence_names list containing unique sequence names of peak annotation files found along the
+        # path to the mzXML
+        for annot_dir in self.annotdir_to_seq_dict.keys():
+            common_dir = os.path.commonpath([mzxml_dir, annot_dir])
+            norm_annot_dir = os.path.normpath(annot_dir)
+            if norm_annot_dir == common_dir:
+                for seqname in self.annotdir_to_seq_dict[annot_dir]:
+                    if seqname not in msrun_sequence_names:
+                        msrun_sequence_names.append(seqname)
+
+        # If none are found
+        if len(msrun_sequence_names) == 0:
+            if default_msrun_sequence is not None:
+                self.aggregated_errors_object.buffer_warning(
+                    MzxmlNotColocatedWithAnnot(
+                        file=os.path.join(mzxml_dir, mzxml_name),
+                        suggestion=f"Using the default sequence '{default_msrun_sequence.sequence_name}'.",
+                    )
+                )
+                msrun_sequence = default_msrun_sequence
+        elif len(msrun_sequence_names) > 1:  # If multiple are found
+            if default_msrun_sequence is not None:
+                suggestion = f"Using the default sequence '{default_msrun_sequence.sequence_name}'."
+                msrun_sequence = default_msrun_sequence
+            self.aggregated_errors_object.buffer_warning(
+                MzxmlColocatedWithMultipleAnnot(
+                    msrun_sequence_names,
+                    file=os.path.join(mzxml_dir, mzxml_name),
+                    suggestion=suggestion,
+                )
+            )
+        else:  # One was found
+            msrun_sequence = self.get_msrun_sequence(msrun_sequence_names[0])
+
+        return msrun_sequence
 
     def get_msrun_sequence(self, name: Optional[str] = None) -> Optional[MSRunSequence]:
         """Retrieves an MSRunSequence record using either the value in the supplied SEQNAME column or via defaults for

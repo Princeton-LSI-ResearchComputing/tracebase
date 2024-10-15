@@ -134,6 +134,17 @@ class MSRunSequence(Model):
             date,
         )
 
+    @property
+    def sequence_name(self):
+        from DataRepo.utils.file_utils import date_to_string
+
+        return self.create_sequence_name(
+            self.researcher,
+            self.lc_method.name,
+            self.instrument,
+            date_to_string(self.date),
+        )
+
     @classmethod
     def create_sequence_name(
         cls,

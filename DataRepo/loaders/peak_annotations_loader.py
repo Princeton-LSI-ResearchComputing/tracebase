@@ -10,7 +10,6 @@ from django.db.utils import ProgrammingError
 from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_column import TableColumn
 from DataRepo.loaders.compounds_loader import CompoundsLoader
-from DataRepo.loaders.msruns_loader import MSRunsLoader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -298,6 +297,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             None
         """
         # This avoids circular import:
+        from DataRepo.loaders.msruns_loader import MSRunsLoader
         from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 
         # Custom options for the MSRunsLoader member instance.
