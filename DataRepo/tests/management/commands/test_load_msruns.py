@@ -107,7 +107,15 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
                 instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             )
         aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
+        nl = "\n"
+        self.assertEqual(
+            1,
+            len(aes.exceptions),
+            msg=(
+                "Should be 1 ConditionallyRequiredOptions exception in: "
+                f"{nl.join([type(e).__name__ + ': ' + str(e) for e in aes.exceptions])}"
+            ),
+        )
         self.assertEqual(ConditionallyRequiredOptions, type(aes.exceptions[0]))
         self.assertIn(
             "--mzxml-dir (with a directory containing mzxml files), --mzxml-files, or --infile",

@@ -576,9 +576,14 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
 
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+
         # Test create
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
-            sample, msrun_sequence, mzxml_metadata
+            "BAT_xz971",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            mzxml_metadata,
+            msrun_sequence,
         )
         self.assertTrue(created)
         self.assertEqual(rec.sample, sample)
@@ -593,14 +598,17 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
         rec2, created2 = msrl.get_or_create_msrun_sample_from_mzxml(
-            sample, msrun_sequence, mzxml_metadata2
+            "BAT_xz971",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            mzxml_metadata2,
+            msrun_sequence,
         )
         self.assertFalse(created2)
         self.assertEqual(rec, rec2)
 
     def test_get_or_create_msrun_sample_from_mzxml_error(self):
         msrl = MSRunsLoader()
-        sample = self.msr.sample
+        # sample = self.msr.sample
         msrun_sequence = self.msr.msrun_sequence
         # Copy the metadata, because the method will modify it
         mzxml_metadata = deepcopy(
@@ -608,8 +616,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
+
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
-            sample, msrun_sequence, mzxml_metadata
+            # sample,  # Make sure this isn't necessary in edge cases
+            "Br_xz971",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            mzxml_metadata,
+            msrun_sequence,
         )
         self.assertFalse(created)
         self.assertIsNone(rec)
