@@ -418,7 +418,8 @@ class LoadTableCommand(ABC, BaseCommand):
                 self.saved_aes = AggregatedErrors()
                 self.saved_aes.buffer_error(e)
 
-            self.report_status()
+            if not self.options.get("help"):
+                self.report_status()
 
             if self.saved_aes is not None and self.saved_aes.should_raise():
                 self.saved_aes.print_summary()

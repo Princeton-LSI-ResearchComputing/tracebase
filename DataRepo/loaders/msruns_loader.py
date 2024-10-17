@@ -37,6 +37,7 @@ from DataRepo.utils.exceptions import (
     MzxmlParseError,
     MzxmlSampleHeaderMismatch,
     MzXMLSkipRowError,
+    NoScans,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -465,7 +466,7 @@ class MSRunsLoader(TableLoader):
         if self.leftover_mzxml_files_exist():
 
             # Get the sequence defined by the defaults (for researcher, protocol, instrument, and date)
-            msrun_sequence = self.get_msrun_sequence()
+            default_msrun_sequence = self.get_msrun_sequence()
 
             for mzxml_name in self.mzxml_dict.keys():
 
@@ -549,7 +550,7 @@ class MSRunsLoader(TableLoader):
                     for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
                         try:
                             self.get_or_create_msrun_sample_from_mzxml(
-                                sample, msrun_sequence, mzxml_metadata
+                                sample, default_msrun_sequence, mzxml_metadata
                             )
                         except RollbackException:
                             # Exception handling was handled
@@ -706,11 +707,35 @@ class MSRunsLoader(TableLoader):
                 DataType.DoesNotExist
                 DataFormat.DoesNotExist
         Returns:
-            mzaf_rec (ArchiveFile)
+            mzaf_rec (Optional[ArchiveFile])
             mzaf_created (boolean)
-            rawaf_rec (ArchiveFile)
+            rawaf_rec (Optional[ArchiveFile])
             rawaf_created (boolean)
         """
+        # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
+        errs: AggregatedErrors
+        mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+        for exc in errs.exceptions:
+            suggestion = None
+            if (
+                mzxml_metadata is None
+                and isinstance(exc, InfileError)
+                and exc.is_error is False
+            ):
+                suggestion = "The mzXML file will be skipped."
+            self.buffer_infile_exception(exc, suggestion=suggestion)
+
+        if errs.num_errors > 0:
+            self.errored(ArchiveFile.__name__)
+            # No need to raise, because we haven't tried to create a record yet
+            return None, False, None, False
+
+        if mzxml_metadata is None:
+            # mzxml_metadata can be None if the file did not exist or the scan file was empty
+            self.skipped(ArchiveFile.__name__)
+            # No need to raise, because errors and warnings have been buffered above
+            return None, False, None, False
+
         # Get or create the ArchiveFile record for the mzXML
         try:
             mz_rec_dict = {
@@ -740,14 +765,6 @@ class MSRunsLoader(TableLoader):
             raise RollbackException()
 
         mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
-
-        # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
-        mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
-        if len(errs.exceptions) > 0:
-            for exc in errs.exceptions:
-                self.buffer_infile_exception(exc)
-            self.errored(ArchiveFile.__name__, num=len(errs.exceptions))
-            raise RollbackException()
 
         # Get or create an ArchiveFile record for a raw file
         try:
@@ -1139,6 +1156,14 @@ class MSRunsLoader(TableLoader):
             rec (MSRunSample)
             created (boolean)
         """
+
+        # TODO: Associate mzXML files with a sequence based on the path of the co-located peak annotation file.
+        # See issue #1263
+        # We don't have the sequence from the infile here.  Only the default sequence is passed in.  Issue #1263 will
+        # use the path of the peak annotation file (assuming it uses only mzXMLs from a single sequence) as the path
+        # under which mzXML files from the sequence can be found.
+
+        # This doesn't return a "gotten" record (which is "wrong"), but returning here keeps the stats accurate.
         if mzxml_metadata["added"] is True or msrun_sequence is None or sample is None:
             return None, False
 
@@ -1486,7 +1511,7 @@ class MSRunsLoader(TableLoader):
                         "The default MSRunSequence will be used if provided.  If this is followed by an error "
                         "requiring defaults to be supplied, add one of the paths of the above files to the "
                         f"{self.defaults.MZXMLNAME} column in %s.  All PeakGroups will be linked to a placeholder "
-                        "MSRunSample record."
+                        f"MSRunSample record."
                     ),
                     file=self.friendly_file,
                     sheet=self.sheet,
@@ -1659,17 +1684,22 @@ class MSRunsLoader(TableLoader):
             mzxml_path_obj = Path(mzxml_path)
 
         if not mzxml_path_obj.is_file():
+            errs_buffer.buffer_error(FileNotFoundError(f"File not found: {mzxml_path}"))
             # mzXML files are optional, but the file names are supplied in a file, in which case, we may have a name,
             # but not the file, so just return None if what we have isn't a real file.
-            return None
+            return None, errs_buffer
 
         # Parse the xml content
         with mzxml_path_obj.open(mode="r") as f:
             xml_content = f.read()
         mzxml_dict = xmltodict.parse(xml_content)
 
+        if "scan" not in mzxml_dict["mzXML"]["msRun"].keys():
+            errs_buffer.buffer_warning(NoScans(file=mzxml_path))
+            return None, errs_buffer
+
         if full_dict:
-            return mzxml_dict
+            return mzxml_dict, errs_buffer
 
         try:
             raw_file_type = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileType"]

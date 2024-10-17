@@ -1,3 +1,5 @@
+import os
+import sys
 from typing import Type
 
 from DataRepo.loaders.base.table_loader import TableLoader
@@ -20,7 +22,7 @@ class Command(LoadTableCommand):
         # Don't require any options (i.e. don't require the --infile option)
         super().__init__(
             *args,
-            required_optname_groups=[["mzxml_files", "infile"]],
+            required_optnames=[],
             **kwargs,
         )
 
@@ -125,6 +127,15 @@ class Command(LoadTableCommand):
             None
         """
         if (
+            len(sys.argv) == 2 and sys.argv[1] == "load_msruns"
+        ):  # ['manage.py', 'load_msruns']
+            self.print_help(
+                "manage.py", list(os.path.splitext(os.path.basename(__file__)))[1]
+            )
+            self.options["help"] = True
+            return
+
+        if (
             options.get("mzxml_files") is not None
             and options.get("mzxml_dir") is not None
         ):
@@ -135,6 +146,12 @@ class Command(LoadTableCommand):
         mzxml_files = MSRunsLoader.get_mzxml_files(
             files=options.get("mzxml_files"), dir=options.get("mzxml_dir")
         )
+
+        if len(mzxml_files) == 0 and options.get("infile") is None:
+            raise ConditionallyRequiredOptions(
+                "Either --mzxml-dir (with a directory containing mzxml files), --mzxml-files, or --infile is "
+                "required."
+            )
 
         # Check conditionally required options
         if (
@@ -157,14 +174,14 @@ class Command(LoadTableCommand):
             if len(missing) > 0:
                 missing_str = f" or {missing}"
             raise ConditionallyRequiredOptions(
-                "When --mzxml-files are supplied without an --infile, either a --defaults-file must be provided or "
-                "each of these default options must all be supplied: --operator, --date, --lc-protocol-name, and "
-                f"--instrument.  Missing: infile or defaults_file{missing_str}."
+                "When mzxml files are supplied (using --mzxml-dir or --mzxml-files) without an --infile, either a "
+                "--defaults-file must be provided or each of these default options must all be supplied: --operator, "
+                f"--date, --lc-protocol-name, and --instrument.  Missing: infile or defaults_file{missing_str}."
             )
 
         # The MSRunsLoader class constructor has custom arguments, so we must call init_loader to supply them
         self.init_loader(
-            mzxml_files=options.get("mzxml_files"),
+            mzxml_files=mzxml_files,
             operator=options.get("operator"),
             date=options.get("date"),
             lc_protocol_name=options.get("lc_protocol_name"),
