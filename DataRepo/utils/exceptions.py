@@ -3316,6 +3316,56 @@ class NoScans(InfileError):
         super().__init__(message, **kwargs)
 
 
+class MzxmlNotColocatedWithAnnot(InfileError):
+    def __init__(self, **kwargs):
+        message = (
+            "mzXML file '%s' does not share a common path with a peak annotation file from the peak annotation files "
+            "sheet.\nCo-location of mzXML files with peak annotation files is what allows mzXML files to be linked to "
+            "an MSRunSequence, based on the Default Sequence column in the Peak Annotation Files sheet."
+        )
+        super().__init__(message, **kwargs)
+
+
+class MzxmlColocatedWithMultipleAnnot(InfileError):
+    def __init__(self, msrun_sequence_names, **kwargs):
+        nlt = "\n\t"
+        message = (
+            "mzXML file '%s' shares a common path with multiple peak annotation files (from the peak annotation files "
+            f"sheet) that are associated with different sequences:\n\t{nlt.join(msrun_sequence_names)}\nCo-location of "
+            "mzXML files with peak annotation files is what allows mzXML files to be linked to an MSRunSequence, based "
+            "on the Default Sequence column in the Peak Annotation Files sheet."
+        )
+        super().__init__(message, **kwargs)
+
+
+class DefaultSequenceNotFound(Exception):
+    def __init__(self, operator, date, instrument, protocol):
+        message = (
+            "A search on the MSRunSample table given the following supplied arguments:\n"
+            f"\toperator: {operator}\n"
+            f"\tprotocol: {protocol}\n"
+            f"\tinstrument: {instrument}\n"
+            f"\tdate: {date}\n"
+            f"produced no records.\n"
+            "Please edit these arguments to produce a single result."
+        )
+        super().__init__(message)
+
+
+class MultipleDefaultSequencesFound(Exception):
+    def __init__(self, operator, date, instrument, protocol):
+        message = (
+            "A search on the MSRunSample table given the following supplied arguments:\n"
+            f"\toperator: {operator}\n"
+            f"\tprotocol: {protocol}\n"
+            f"\tinstrument: {instrument}\n"
+            f"\tdate: {date}\n"
+            f"produced multiple records.\n"
+            "Please ammend these arguments to produce a single result."
+        )
+        super().__init__(message)
+
+
 class MzXMLSkipRowError(InfileError):
     def __init__(
         self,

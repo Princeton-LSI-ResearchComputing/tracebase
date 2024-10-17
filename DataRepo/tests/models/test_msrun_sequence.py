@@ -40,5 +40,28 @@ class MSRunSequenceTests(TracebaseTestCase):
         self.assertEqual(ValidationError, type(exc))
 
     def test_parse_sequence_name(self):
-        # TODO: Implement test
-        pass
+        (operator, lc_protocol_name, instrument, date) = (
+            MSRunSequence.parse_sequence_name("Rob, polar-HILIC-25-min, QE, 1972-11-24")
+        )
+        self.assertEqual(
+            ("Rob", "polar-HILIC-25-min", "QE", "1972-11-24"),
+            (operator, lc_protocol_name, instrument, date),
+        )
+
+    def test_sequence_name(self):
+        lcm = LCMethod(
+            name="polar-HILIC-25-min",
+            type="polar-HILIC",
+            description="Here it is! 2487. You go and get her! I'll wait here!",
+        )
+        self.lcm.full_clean()
+        self.lcm.save()
+        seq = MSRunSequence(
+            researcher="Mark Hamill",
+            date=dateutil.parser.parse("5-4-1977").date(),
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
+            lc_method=lcm,
+        )
+        self.assertEqual(
+            "Mark Hamill, polar-HILIC-25-min, QE, 1977-05-04", seq.sequence_name
+        )

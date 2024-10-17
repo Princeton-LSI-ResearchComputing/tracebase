@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Type
 
 from django.core.management import BaseCommand, CommandError
+from django.db import ProgrammingError
 
 from DataRepo.loaders import TableLoader
 from DataRepo.utils import (
@@ -469,10 +470,21 @@ class LoadTableCommand(ABC, BaseCommand):
 
         load_stats = self.loader.get_load_stats()
         for mdl_name in load_stats.keys():
-            msg += (
-                "{0} records created: [{created}], existed: [{existed}], deleted: [{deleted}], updated: [{updated}], "
-                "skipped [{skipped}], errored: [{errored}], and warned: [{warned}].\n"
-            ).format(mdl_name, **load_stats[mdl_name])
+            try:
+                msg += (
+                    "{0} records created: [{created}], existed: [{existed}], deleted: [{deleted}], updated: "
+                    "[{updated}], skipped [{skipped}], errored: [{errored}], and warned: [{warned}].\n"
+                ).format(mdl_name, **load_stats[mdl_name])
+            except KeyError as ke:
+                raise AggregatedErrors().buffer_error(
+                    ProgrammingError(
+                        f"Encountered uninitialized record stats for model [{mdl_name}] in loader "
+                        f"{self.loader_class.__name__}.  Please make sure all model record count increment method "
+                        f"calls (such as {ke}) are in {self.loader_class.__name__}.Models: "
+                        f"{[m.__name__ for m in self.loader.Models]}."
+                    ),
+                    orig_exception=ke,
+                )
 
         if self.saved_aes is not None and self.saved_aes.get_num_errors() > 0:
             status = self.style.ERROR(msg)

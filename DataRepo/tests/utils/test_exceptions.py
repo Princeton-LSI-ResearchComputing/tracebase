@@ -6,6 +6,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatmentsErrors,
     CompoundDoesNotExist,
     DateParseError,
+    DefaultSequenceNotFound,
     DuplicateCompoundIsotopes,
     DuplicateValueErrors,
     DuplicateValues,
@@ -25,7 +26,10 @@ from DataRepo.utils.exceptions import (
     MissingTissue,
     MissingTreatment,
     MultiLoadStatus,
+    MultipleDefaultSequencesFound,
     MutuallyExclusiveOptions,
+    MzxmlColocatedWithMultipleAnnot,
+    MzxmlNotColocatedWithAnnot,
     MzxmlSampleHeaderMismatch,
     NewResearcher,
     NewResearchers,
@@ -33,6 +37,7 @@ from DataRepo.utils.exceptions import (
     NonUniqueSampleDataHeader,
     NonUniqueSampleDataHeaders,
     NoSamples,
+    NoScans,
     NoTracerLabeledElements,
     ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
@@ -1348,3 +1353,43 @@ class ExceptionTests(TracebaseTestCase):
         sdnes = self.get_sample_dnes()
         valstr = sdnes[0]._get_query_values_str()
         self.assertEqual("sample1", valstr)
+
+    def test_MzxmlNotColocatedWithAnnot(self):
+        mncwa = MzxmlNotColocatedWithAnnot(
+            file="/abs/path/to/file.mzXML",
+            suggestion="Move a peak annot file to a point along the path.",
+        )
+        self.assertIn(
+            "'/abs/path/to/file.mzXML' does not share a common path with a peak annotation file",
+            str(mncwa),
+        )
+        self.assertIn("Move a peak annot file to a point along the path.", str(mncwa))
+
+    def test_MzxmlColocatedWithMultipleAnnot(self):
+        mcwma = MzxmlColocatedWithMultipleAnnot(
+            ["name1", "name2"],
+            file="/abs/path/to/file.mzXML",
+        )
+        self.assertIn(
+            "associated with different sequences:\n\tname1\n\tname2\n", str(mcwma)
+        )
+
+    def test_NoScans(self):
+        ns = NoScans(file="/abs/path/to/file.mzXML")
+        self.assertIn("'/abs/path/to/file.mzXML' contains no scans", str(ns))
+
+    def test_DefaultSequenceNotFound(self):
+        dsnf = DefaultSequenceNotFound(
+            "Rob", "1972-11-24", "HILIC", "polar-HILIC-25-min"
+        )
+        self.assertIn(
+            "operator: Rob\n\tprotocol: polar-HILIC-25-min\n\tinstrument: HILIC\n\tdate: 1972-11-24",
+            str(dsnf),
+        )
+
+    def test_MultipleDefaultSequencesFound(self):
+        mdsf = MultipleDefaultSequencesFound("Rob", "1972-11-24", "QE", None)
+        self.assertIn(
+            "operator: Rob\n\tprotocol: None\n\tinstrument: QE\n\tdate: 1972-11-24",
+            str(mdsf),
+        )
