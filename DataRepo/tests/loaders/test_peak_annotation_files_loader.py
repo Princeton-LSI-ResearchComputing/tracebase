@@ -406,5 +406,47 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         self.assertDictEqual(expected, pafl.get_load_stats())
 
     def test_get_default_sequence_details(self):
-        # TODO: Implement test
-        pass
+        pafl = PeakAnnotationFilesLoader()
+        row = pd.Series(
+            {pafl.DataHeaders.SEQNAME: "Rob, polar-HILIC-25-min, QE, 1972-11-24"}
+        )
+        (
+            def_operator,
+            def_protocol,
+            def_instrument,
+            def_date,
+        ) = pafl.get_default_sequence_details(row)
+        self.assertEqual("Rob", def_operator)
+        self.assertEqual("polar-HILIC-25-min", def_protocol)
+        self.assertEqual("QE", def_instrument)
+        self.assertEqual("1972-11-24", def_date)
+
+    def test_get_dir_to_sequence_dict(self):
+        df = pd.DataFrame.from_dict(
+            {
+                PeakAnnotationFilesLoader.DataHeaders.FILE: [
+                    "path/to/accucor1.xlsx",  # 2 files in the same dir from diff seqs
+                    "path/to/accucor2.xlsx",
+                    "path/to/scan2/accucor3.xlsx",
+                ],
+                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: [
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                    "Zoe, polar-HILIC-25-min, QE, 1985-4-18",
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                ],
+            }
+        )
+        pafl = PeakAnnotationFilesLoader(df=df)
+        dtsd = pafl.get_dir_to_sequence_dict()
+        self.assertDictEqual(
+            {
+                "path/to": [
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                    "Zoe, polar-HILIC-25-min, QE, 1985-4-18",
+                ],
+                "path/to/scan2": [
+                    "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                ],
+            },
+            dtsd,
+        )

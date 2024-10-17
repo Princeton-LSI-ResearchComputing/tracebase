@@ -3338,6 +3338,34 @@ class MzxmlColocatedWithMultipleAnnot(InfileError):
         super().__init__(message, **kwargs)
 
 
+class DefaultSequenceNotFound(Exception):
+    def __init__(self, operator, date, instrument, protocol):
+        message = (
+            "A search on the MSRunSample table given the following supplied arguments:\n"
+            f"\toperator: {operator}\n"
+            f"\tprotocol: {protocol}\n"
+            f"\tinstrument: {instrument}\n"
+            f"\tdate: {date}\n"
+            f"produced no records.\n"
+            "Please edit these arguments to produce a single result."
+        )
+        super().__init__(message)
+
+
+class MultipleDefaultSequencesFound(Exception):
+    def __init__(self, operator, date, instrument, protocol):
+        message = (
+            "A search on the MSRunSample table given the following supplied arguments:\n"
+            f"\toperator: {operator}\n"
+            f"\tprotocol: {protocol}\n"
+            f"\tinstrument: {instrument}\n"
+            f"\tdate: {date}\n"
+            f"produced multiple records.\n"
+            "Please ammend these arguments to produce a single result."
+        )
+        super().__init__(message)
+
+
 class MzXMLSkipRowError(InfileError):
     def __init__(
         self,

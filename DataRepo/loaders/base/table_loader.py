@@ -1371,6 +1371,13 @@ class TableLoader(ABC):
 
         return outdict
 
+    def check_dataframe(self):
+        """Convenience method for checking the overall dataframe validity."""
+        headers_passed = self.check_dataframe_headers()
+        values_passed = self.check_dataframe_values()
+        uniques_passed = self.check_unique_constraints()
+        return headers_passed and values_passed and uniques_passed
+
     def check_dataframe_headers(self, reading_defaults=False, error=True):
         """Error-checks the headers in the dataframe.
 
@@ -1630,10 +1637,12 @@ class TableLoader(ABC):
             Buffers:
                 DuplicateValues
         Returns:
-            None
+            passed (bool)
         """
+        passed = True
+
         if self.unique_constraints is None:
-            return
+            return passed
 
         if df is None and self.df is not None:
             df = self.df
@@ -1646,7 +1655,7 @@ class TableLoader(ABC):
                 self.aggregated_errors_object.buffer_warning(
                     NoLoadData("No dataframe [df] provided.  Nothing to load.")
                 )
-            return
+            return passed
 
         for unique_combo in self.unique_constraints:
             # A single field unique requirements is much cleaner to display than unique combos, so handle differently
@@ -1661,6 +1670,9 @@ class TableLoader(ABC):
                         dupes, unique_combo, sheet=self.sheet, file=self.friendly_file
                     )
                 )
+                passed = False
+
+        return passed
 
     def check_dataframe_values(self, reading_defaults=False, error=True):
         """Preprocesses the dataframe to ensure that required values are satisfied.
@@ -2192,9 +2204,7 @@ class TableLoader(ABC):
                 aes_set = None
                 with transaction.atomic():
                     try:
-                        self.check_dataframe_headers()
-                        self.check_dataframe_values()
-                        self.check_unique_constraints()
+                        self.check_dataframe()
 
                         retval = fn(*args, **kwargs)
 

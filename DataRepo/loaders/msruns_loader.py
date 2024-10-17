@@ -32,9 +32,12 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConditionallyRequiredArgs,
+    DefaultSequenceNotFound,
     InfileError,
     InvalidMSRunName,
     MixedPolarityErrors,
+    MultipleDefaultSequencesFound,
     MultipleRecordsReturned,
     MutuallyExclusiveArgs,
     MzxmlColocatedWithMultipleAnnot,
@@ -249,6 +252,7 @@ class MSRunsLoader(TableLoader):
 
     def __init__(self, *args, **kwargs):
         """Constructor.
+
         Args:
             Superclass Args:
                 df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
@@ -316,6 +320,8 @@ class MSRunsLoader(TableLoader):
             # with peak annotation files and their common paths are used to infer the sequence they're derived from.
             # using the default sequence column in the Sequences sheet that associates the peak annotation file and
             # sequence.)
+            # TODO: Instead of reading the file here, I should take the PAFL dataframe, sheet name, and file as input
+            # arguments, like I do in other classes.
             pafl = PeakAnnotationFilesLoader(
                 df=read_from_file(
                     self.file, sheet=PeakAnnotationFilesLoader.DataSheetName
@@ -323,6 +329,9 @@ class MSRunsLoader(TableLoader):
                 file=self.file,
             )
             self.annotdir_to_seq_dict = pafl.get_dir_to_sequence_dict()
+            self.aggregated_errors_object.merge_aggregated_errors_object(
+                pafl.aggregated_errors_object
+            )
             # Error-check the peak annotation file paths to ensure they are relative.  We require relative paths to be
             # able to compare with mzXML file paths
             abs_paths = []
@@ -440,7 +449,48 @@ class MSRunsLoader(TableLoader):
 
         self.msrun_sequence_dict = {}
         # Save the default MSRunSequence record (if any) in the self.msrun_sequence_dict:
-        self.get_msrun_sequence()
+        default_sequence = self.get_msrun_sequence()
+        if default_sequence is None and (
+            operator_default is not None
+            or date_default is not None
+            or lc_protocol_name_default is not None
+            or instrument_default is not None
+        ):
+            # Remove the error from the buffer and replace it with a more specific error (because this may not have been
+            # from an infile and without the context of the query originating from the arguments in the constructor for
+            # the "default" sequence, it is confusing)
+            if self.aggregated_errors_object.exception_type_exists(RecordDoesNotExist):
+                rdne = list(
+                    self.aggregated_errors_object.remove_exception_type(
+                        RecordDoesNotExist
+                    )
+                )[0]
+                self.aggregated_errors_object.buffer_error(
+                    DefaultSequenceNotFound(
+                        operator_default,
+                        date_default,
+                        lc_protocol_name_default,
+                        instrument_default,
+                    ),
+                    orig_exception=rdne,
+                )
+            if self.aggregated_errors_object.exception_type_exists(
+                MultipleRecordsReturned
+            ):
+                mrr = list(
+                    self.aggregated_errors_object.remove_exception_type(
+                        MultipleRecordsReturned
+                    )
+                )[0]
+                self.aggregated_errors_object.buffer_error(
+                    MultipleDefaultSequencesFound(
+                        operator_default,
+                        date_default,
+                        lc_protocol_name_default,
+                        instrument_default,
+                    ),
+                    orig_exception=mrr,
+                )
 
         # This will contain the created ArchiveFile records for mzXML files
         self.created_mzxml_archive_file_recs = []
@@ -452,6 +502,11 @@ class MSRunsLoader(TableLoader):
         # This will contain metadata parsed from the mzXML files (and the created ArchiveFile records to be added to
         # MSRunSample records
         self.mzxml_dict = defaultdict(lambda: defaultdict(list))
+
+        # This will contain the sample header mapped to the sample name in the database.  It will be used to map
+        # multiple mzXML files with the same name to a sample (because mzXML files with the same name could not be
+        # mapped to a specific row, but they should all map to the same sample).
+        self.header_to_sample_name = defaultdict(lambda: defaultdict(list))
 
         # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
@@ -505,6 +560,7 @@ class MSRunsLoader(TableLoader):
                     # Exception handling was handled
                     # Continue processing rows to find more errors
                     pass
+        self.check_sample_headers()
 
         # 3. Traverse leftover mzXML/ArchiveFile records unassociated with those processed in step 2, using:
         #    - The name of the mzXML automatically mapped to a sample name
@@ -515,59 +571,94 @@ class MSRunsLoader(TableLoader):
 
             # Get the sequence defined by the defaults (for researcher, protocol, instrument, and date)
             default_msrun_sequence = self.get_msrun_sequence()
+            # If there's no default sequence and no way to associate an mzXML with a sequence (because
+            # annotdir_to_seq_dict is None) and not all default sequence data was provided (because it's only required
+            # if we couldn't associate these files with rows in the infile)
+            if (
+                default_msrun_sequence is None
+                and self.annotdir_to_seq_dict is None
+                and (
+                    self.operator_default is None
+                    or self.instrument_default is None
+                    or self.date_default is None
+                    or self.lc_protocol_name_default is None
+                )
+            ):
+                self.aggregated_errors_object.buffer_error(
+                    ConditionallyRequiredArgs(
+                        (
+                            "Enough of the following arguments to accurately and uniquely identify an MSRunSequence "
+                            "record are required:\n\t{0}"
+                        ).format(
+                            "\n\t".join(
+                                [
+                                    "operator_default",
+                                    "instrument_default",
+                                    "date_default",
+                                    "lc_protocol_name_default",
+                                ]
+                            )
+                        )
+                    )
+                )
+                # Otherwise, we errored about it not being found already
 
-            for mzxml_name in self.mzxml_dict.keys():
+            for mzxml_name_no_ext in self.mzxml_dict.keys():
 
                 # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
                 # an MSRunSample record, you need a Sample record, and we don't create those for blank samples.
-                if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
+                if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
                     # There can exist rows in the sheet with the sample mzxml name that are not marked with 'skip'
                     dirs = [
                         dir
-                        for dir in self.mzxml_dict[mzxml_name].keys()
-                        if dir not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        for dir in self.mzxml_dict[mzxml_name_no_ext].keys()
+                        if dir
+                        not in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
                     ]
                 else:
-                    dirs = list(self.mzxml_dict[mzxml_name].keys())
+                    dirs = list(self.mzxml_dict[mzxml_name_no_ext].keys())
 
-                if mzxml_name in self.skip_msrunsample_by_mzxml.keys():
+                if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
                     if len(dirs) == 0:
                         # The sample (header) / mzXML file has been explicitly skipped by having added the directory
                         # path to the mzXML file name column of the infile
                         continue
                     if (
                         # There is a single skipped directory entry indicated in the infile
-                        len(self.skip_msrunsample_by_mzxml[mzxml_name].keys()) == 1
+                        len(self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys())
+                        == 1
                         # The directory path is an empty string (meaning it's either in the root directory or an mzXML
                         # filename was not provided in the infile)
-                        and "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                        and ""
+                        in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
                         # The number of rows in the infile indicating that this 'sample header' should be skipped (i.e.
                         # the count stored in self.skip_msrunsample_by_mzxml[mzxml_name][""]) is equal to the number of
                         # files with this name (inferred by the number of directory paths)
-                        and len(dirs) == self.skip_msrunsample_by_mzxml[mzxml_name][""]
+                        and len(dirs)
+                        == self.skip_msrunsample_by_mzxml[mzxml_name_no_ext][""]
                     ):
                         # We will skip the files that matches the number of infile rows where the sample header was
                         # marked as a skip row even though we haven't confirmed any explicit directory matches.
                         continue
-                    elif "" in self.skip_msrunsample_by_mzxml[mzxml_name].keys():
+                    elif "" in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys():
                         skip_files = []
-                        for dr in self.mzxml_dict[mzxml_name].keys():
-                            for dct in self.mzxml_dict[mzxml_name][dr]:
+                        for dr in self.mzxml_dict[mzxml_name_no_ext].keys():
+                            for dct in self.mzxml_dict[mzxml_name_no_ext][dr]:
                                 skip_files.append(
                                     os.path.join(dr, dct["mzxml_filename"])
                                 )
                         self.aggregated_errors_object.buffer_warning(
                             MzXMLSkipRowError(
-                                mzxml_name,
+                                mzxml_name_no_ext,
                                 skip_files,
-                                self.skip_msrunsample_by_mzxml[mzxml_name],
+                                self.skip_msrunsample_by_mzxml[mzxml_name_no_ext],
                                 file=self.friendly_file,
                                 sheet=self.DataSheetName,
                                 column=self.DataHeaders.MZXMLNAME,
                                 suggestion=(
                                     "The mzXML files listed above will not be loaded.  If all mzXML files named "
-                                    f"'{mzxml_name}' must be skipped, please ensure that the number of rows in the "
-                                    f"'{self.DataSheetName}' sheet equals the number of files above "
+                                    f"'{mzxml_name_no_ext}' must be skipped, please ensure that the number of rows in "
+                                    f"the '{self.DataSheetName}' sheet equals the number of files above "
                                     f"({len(skip_files)}), or if not all should be skipped, the directory paths should "
                                     "be included for each mzXML file in the mzXML file name column so that we can tell "
                                     "which ones to load and which to skip)."
@@ -576,13 +667,47 @@ class MSRunsLoader(TableLoader):
                         )
                         continue
 
+                # Guess the sample based on the mzXML file's basename
+                # mzxml_name_no_ext may or may not have had dashes converted to underscores based on exact_mode
+                exact_sample_header_from_mzxml = mzxml_name_no_ext
+
+                # We want the exact filename (without the extension), regardless of exact_mode, to supply to
+                # guess_sample_name
+                if not self.exact_mode:
+                    # All of the file names should be the same, so we're going to arbitrarily grab the first one
+                    arbitrary_key = next(iter(self.mzxml_dict[mzxml_name_no_ext]))
+                    mzxml_filename = self.mzxml_dict[mzxml_name_no_ext][arbitrary_key][
+                        0
+                    ]["mzxml_filename"]
+                    exact_sample_header_from_mzxml = (os.path.splitext(mzxml_filename))[
+                        0
+                    ]
+
+                # If the mzXML name was recorded in the infile as 1 or more peak annot file headers and it(/they) only
+                # map(s) to 1 sample name (i.e. there are multiple files with the same filename/annot-header, but they
+                # are all for the same sample)
+                if (
+                    mzxml_name_no_ext in self.header_to_sample_name.keys()
+                    and len(self.header_to_sample_name[mzxml_name_no_ext].keys()) == 1
+                ):
+                    # Get the sample name from the infile/sheet
+                    sample_name = next(
+                        iter(self.header_to_sample_name[mzxml_name_no_ext])
+                    )
+                else:
+                    # We going to guess the sample name based on the mzXML filename (without the extension)
+                    sample_name = self.guess_sample_name(exact_sample_header_from_mzxml)
+
+                sample = self.get_sample_by_name(sample_name, from_mzxml=True)
+
                 # NOTE: The directory content of self.mzxml_dict is based on the actual supplied mzXML files, not on the
                 # content of the mzxml filename column in the infile.
                 for mzxml_dir in dirs:
-                    for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
+                    for mzxml_metadata in self.mzxml_dict[mzxml_name_no_ext][mzxml_dir]:
                         try:
                             self.get_or_create_msrun_sample_from_mzxml(
-                                mzxml_name,
+                                sample,
+                                mzxml_name_no_ext,
                                 mzxml_dir,
                                 mzxml_metadata,
                                 default_msrun_sequence,
@@ -601,6 +726,28 @@ class MSRunsLoader(TableLoader):
 
         enable_caching_updates()
         delete_all_caches()
+
+    def check_sample_headers(self):
+        """This checks that all identical sample headers all map to the same sample name (database record)."""
+        for sample_header in self.header_to_sample_name.keys():
+            if len(self.header_to_sample_name[sample_header].keys()) > 1:
+                rows = []
+                sample_names = []
+                for sn in self.header_to_sample_name[sample_header].keys():
+                    sample_names.append(sn)
+                    rows.extend(self.header_to_sample_name[sample_header][sn])
+                self.aggregated_errors_object.buffer_error(
+                    InfileError(
+                        (
+                            f"Multiple sample headers with '{sample_header}' are associated with different database "
+                            f"sample names: {sample_names} in %s."
+                        ),
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                        column=f"{self.headers.SAMPLENAME} and {self.headers.SAMPLEHEADER}",
+                        rownum=rows,
+                    )
+                )
 
     def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
         """This method is only intended to be called after a load has been performed.
@@ -860,6 +1007,9 @@ class MSRunsLoader(TableLoader):
         MSRunSample records identified from the row data.  This is later used to process leftover mzXML files that were
         not denoted in the peak annotation details file/sheet.
 
+        Updates self.header_to_sample_name, which is used to associate mzXML files with the samples they belong to (when
+        they could be assigned to a specific row of the infile, due to multiple files with the same name).
+
         Args:
             row (pandas dataframe row)
         Exceptions:
@@ -906,6 +1056,8 @@ class MSRunsLoader(TableLoader):
                     # underscores, and we haven't accounted for that here...
                     self.skip_msrunsample_by_mzxml[sample_header][""] += 1
                 return rec, created
+
+            self.header_to_sample_name[sample_header][sample_name].append(self.rownum)
 
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
@@ -1120,6 +1272,14 @@ class MSRunsLoader(TableLoader):
             rec = Sample.objects.get(name=sample_name)
         except Sample.DoesNotExist as dne:
             if from_mzxml:
+                # Let's see if this is a "dash" issue
+                sample_name_nodash = self.get_sample_header_from_mzxml_name(sample_name)
+                if sample_name_nodash != sample_name:
+                    try:
+                        return Sample.objects.get(name=sample_name_nodash)
+                    except Sample.DoesNotExist:
+                        # Ignore this attempt and press on with processing the original exception
+                        pass
                 file = (
                     self.friendly_file
                     if self.friendly_file is not None
@@ -1155,20 +1315,23 @@ class MSRunsLoader(TableLoader):
     @transaction.atomic
     def get_or_create_msrun_sample_from_mzxml(
         self,
+        sample,
         mzxml_name,
         mzxml_dir,
         mzxml_metadata,
         default_msrun_sequence,
     ):
-        """Takes a sample record, msrun_sequence record, and metadata parsed from the mzxml (including ArchiveFile
-        records created from the file) and gets or creates MSRunSample records.  It assumes that the mzxml_metadata
-        contains an ArchiveFile record for an mzXML file.
+        """Takes a sample record, default msrun_sequence record, the name of the mzXML file (without the extension),
+        the directory path to the mzXML file, and metadata parsed from the mzxml (including ArchiveFile records created
+        from the file) and gets or creates MSRunSample records.  It assumes that the mzxml_metadata contains an
+        ArchiveFile record for an mzXML file.
 
         See get_or_create_msrun_sample_from_row to add mzXML files to MSRunSample records while updating PeakGroup
         records.
 
         Args:
-            mzxml_name (str): Basename of an mzXML file.
+            sample (Optional[Sample])
+            mzxml_name (str): Basename of an mzXML file *without* the extension.
             mzxml_dir (str): Directory path of an mzXML file.
             default_msrun_sequence (Optional[MSRunSequence])
             mzxml_metadata (dict): This dict contains metadata parsed from the mzXML file.  Example structure:
@@ -1193,10 +1356,14 @@ class MSRunsLoader(TableLoader):
             rec (MSRunSample)
             created (boolean)
         """
+        rec = None
+        created = False
+
         # This doesn't return a "gotten" record (which is "wrong", seeing as how this methis is a *get*_or_create
         # method), but returning here keeps the created/skipped stats accurate.
-        if mzxml_metadata["added"] is True:
-            return None, False
+        if mzxml_metadata["added"] is True or sample is None:
+            # If sample is None, get_sample_by_name will have already buffered an error
+            return rec, created
 
         # Now determine the sequence
         msrun_sequence = self.get_msrun_sequence_from_dir(
@@ -1205,23 +1372,9 @@ class MSRunsLoader(TableLoader):
             default_msrun_sequence,
         )
 
-        # Guess the sample based on the mzXML file's basename
-        # NOTE: Assuming that the version with dashes is the user-entered sample name, and that that's what they
-        # want (and would have entered into the samples sheet), we will guess the sample name in the database
-        # using the mzXML file name without having had the dashes removed (see self.exact_mode).
-        mzxml_basename = mzxml_name
-        if not self.exact_mode:
-            # All of the file names should be the same, so we're going to arbitrarily grab the first one
-            arbitrary_key = next(iter(self.mzxml_dict[mzxml_name]))
-            mzxml_filename = self.mzxml_dict[mzxml_name][arbitrary_key][0][
-                "mzxml_filename"
-            ]
-            mzxml_basename = (os.path.splitext(mzxml_filename))[0]
-        sample_name = self.guess_sample_name(mzxml_basename)
-        sample = self.get_sample_by_name(sample_name, from_mzxml=True)
-        if sample is None:
-            # get_sample_by_name will have already buffered an error
-            return None, False
+        if msrun_sequence is None:
+            self.errored(MSRunSample.__name__)
+            return rec, created
 
         try:
             msrs_rec_dict = {
@@ -1305,6 +1458,7 @@ class MSRunsLoader(TableLoader):
                 )
                 msrun_sequence = default_msrun_sequence
         elif len(msrun_sequence_names) > 1:  # If multiple are found
+            suggestion = None
             if default_msrun_sequence is not None:
                 suggestion = f"Using the default sequence '{default_msrun_sequence.sequence_name}'."
                 msrun_sequence = default_msrun_sequence
@@ -2046,7 +2200,7 @@ class MSRunsLoader(TableLoader):
         """
         sample_header: str
         # In case they passed in a file path
-        _, mzxml_nopath = os.path.split(mzxml_name)
+        mzxml_nopath = os.path.basename(mzxml_name)
         # In case they passed in a file name
         sample_header, _ = os.path.splitext(mzxml_nopath)
         if not self.exact_mode:

@@ -36,9 +36,9 @@ class Command(LoadTableCommand):
             type=str,
             help=(
                 "The root directory of all mzXML files (containing instrument run data) associated with the "
-                f"{MSRunsLoader.DataSheetName} sheet.  Default: '.'."
+                f"{MSRunsLoader.DataSheetName} sheet."
             ),
-            default=None,  # Default filled in in the constructor
+            default=None,
             required=False,
         )
         parser.add_argument(
@@ -143,12 +143,8 @@ class Command(LoadTableCommand):
                 "--mzxml-files and --mzxml-dir are mutually exclusive options."
             )
 
-        mzxml_dir = options.get("mzxml_dir")
-        if mzxml_dir is None:
-            mzxml_dir = "."
-
         mzxml_files = MSRunsLoader.get_mzxml_files(
-            files=options.get("mzxml_files"), dir=mzxml_dir
+            files=options.get("mzxml_files"), dir=options.get("mzxml_dir")
         )
 
         if len(mzxml_files) == 0 and options.get("infile") is None:
@@ -186,7 +182,7 @@ class Command(LoadTableCommand):
         # The MSRunsLoader class constructor has custom arguments, so we must call init_loader to supply them
         self.init_loader(
             mzxml_files=mzxml_files,
-            mzxml_dir=mzxml_dir,
+            mzxml_dir=options.get("mzxml_dir"),
             operator=options.get("operator"),
             date=options.get("date"),
             lc_protocol_name=options.get("lc_protocol_name"),

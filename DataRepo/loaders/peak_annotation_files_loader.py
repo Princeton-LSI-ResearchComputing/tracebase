@@ -553,9 +553,12 @@ class PeakAnnotationFilesLoader(TableLoader):
         Exceptions:
             None
         Returns:
-            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"/path/to/peakannot/dir": ["sequence name"]}}
+            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"/path/to/peakannot/dir": ["sequence name"]}
         """
         dir_to_sequence_dict = defaultdict(list)
+
+        # Since load_data is not being called...
+        self.check_dataframe()
 
         # Save the current row index
         save_row_index = self.row_index
@@ -569,7 +572,10 @@ class PeakAnnotationFilesLoader(TableLoader):
                 continue
             dir: str
             dir = os.path.dirname(file)
-            if seqname not in dir_to_sequence_dict[dir]:
+            if (
+                dir not in dir_to_sequence_dict.keys()
+                or seqname not in dir_to_sequence_dict[dir]
+            ):
                 dir_to_sequence_dict[dir].append(seqname)
 
         # Restore the original row index
