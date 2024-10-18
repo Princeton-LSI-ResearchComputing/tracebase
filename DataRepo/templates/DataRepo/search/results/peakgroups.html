@@ -350,7 +350,7 @@
                                     {% endif %}
                                 {% endfor %}
                                 {% if mzxml_exists is None %}
-                                    None
+                                    None {{ pg.mzdatafl }}
                                 {% endif %}
                             {% else %}
                                 <!-- This block will execute when split_rows is True in the format definition.
