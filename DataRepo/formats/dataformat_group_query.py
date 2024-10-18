@@ -533,7 +533,7 @@ def constructAdvancedQueryHelper(qry, units_lookup=None):
                 # non-null files.  And it is specific for when split_rows iin the format is False.  This basically says,
                 # "find me all the non-null records and inverse it to return the complement".  This might be a durable
                 # solution, but it is complex and probably *should* look for val = False and have a means to specify ALL
-                # linked records are null.
+                # linked records are null.  See issue #1268.
                 negate = True
                 val = False
         elif units_lookup:
