@@ -339,16 +339,19 @@
                                 <div style="display:none;">
                                     {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif %}{{ msrsrec.ms_data_file.filename }}{% endfor %}
                                 </div>
+
                                 {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}
                                     {% if msrsrec.ms_data_file %}
                                         {% if mzxml_exists %}
                                             <!-- Using this instead of forloop.first because we might not print anything on the first loop. -->
                                             <br>
                                         {% endif %}
-                                        <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}</a>{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endif %}
+                                        <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}</a> <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>
                                         {% define True as mzxml_exists %}
                                     {% endif %}
                                 {% endfor %}
+
+                                {% comment %} We cannot use mzxml_exists from the loop because it has its own "namespace", but since there can only exist a single MSRunSample with a ms_data_file record that is None, we can determine what we need to know using the following conditional... {% endcomment %}
                                 {% if pg.msrun_sample.sample.msrun_samples.count == 0 or pg.msrun_sample.sample.msrun_samples.count == 1 and pg.msrun_sample.sample.msrun_samples.first.ms_data_file is None %}
                                     None
                                 {% endif %}

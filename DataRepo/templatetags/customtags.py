@@ -77,18 +77,7 @@ def define(the_val):
         {% if not file_exists %}  <!-- BUT THIS DOES NOT WORK AS EXPECTED - IT WILL ALWAYS BE False -->
             No file
         {% endif %}
-    To deal with this, you must only ever set the variable the first time, inside the loop, so...
-        {% for container in rec.containers.all %}  <!-- BECAUSE FOR LOOPS HAVE THEIR OWN "NAMESPACE" -->
-            {% if file_exists %}  <!-- THIS WORKS -->
-                <br>
-            {% endif %}
-            {% if container.file %}
-                {% define True as file_exists %}  <!-- THIS WORKS TOO -->
-            {% endif %}
-        {% endfor %}
-        {% if file_exists %}  <!-- BUT THIS DOES NOT WORK AS EXPECTED - IT WILL ALWAYS BE False -->
-            No files
-        {% endif %}
+    There is no workaround for this.  If you need to change a value inside a loop, you will not be able to do it.
     """
     return the_val
 
