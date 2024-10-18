@@ -333,33 +333,43 @@
                     <td>
                         {% if pg.msrun_sample.sample.msrun_samples.count > 0 %}
                             {% if pg.mzdatafl == "" %}
-                                <!-- This block will execute when split_rows is False in the format -->
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">
-                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif%}{{ msrsrec.ms_data_file.filename }}{% endfor %}
-                                </div>
-                                MRS Count: {{ pg.msrun_sample.sample.msrun_samples.count }}
-                                {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}
-                                    MSRS ID: {{ msrsrec.id }}
-                                    {% if not forloop.first %}
-                                        <br>
-                                    {% endif%}
-                                    {% if msrsrec.ms_data_file %}
-                                        <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}</a>{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endif %}
-                                    {% else %}
-                                        No file
-                                    {% endif %}
-                                {% endfor %}
-                            {% else %}
-                                <!-- This block will execute when split_rows is True in the format -->
-                                {% get_model_rec_by_id "ArchiveFile" pg.mzdatafl as afrec %}
+                                <!-- This block will execute when split_rows is False in the format definition.
+                                It displays all mzXML files associated with this peak group's sample in 1 table cell. -->
 
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">
-                                    {{ afrec.filename }}{% for msrsrec in afrec.mz_to_msrunsamples.all %} {{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }}{% endfor %}
+                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif %}{{ msrsrec.ms_data_file.filename }}{% endfor %}
                                 </div>
-                                <!-- There will be only 1 record in afrec.mz_to_msrunsamples.all -->
-                                <a href="{% url 'archive_file_detail' pg.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}</a>{% for msrsrec in afrec.mz_to_msrunsamples.all %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endfor %}
+
+                                {% define False as mzxml_exists %}
+                                {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}
+                                    {% if not forloop.first %}
+                                        <br>
+                                    {% endif %}
+                                    {% if msrsrec.ms_data_file %}
+                                        {% define True as mzxml_exists %}
+                                        <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}</a>{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if not mzxml_exists %}
+                                    None
+                                {% endif %}
+                            {% else %}
+                                <!-- This block will execute when split_rows is True in the format definition.
+                                It displays JUST the mzXML file whose ID is annotated in the queryset record in pg.mzdatafl. -->
+                                {% get_model_rec_by_id "ArchiveFile" pg.mzdatafl as afrec %}
+
+                                {% if afrec %}
+                                    <!-- Put displayed link text first for sorting -->
+                                    <div style="display:none;">
+                                        {{ afrec.filename }}{% for msrsrec in afrec.mz_to_msrunsamples.all %} {{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }}{% endfor %}
+                                    </div>
+
+                                    <!-- There will be only 1 record in afrec.mz_to_msrunsamples.all -->
+                                    <a href="{% url 'archive_file_detail' pg.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}</a>{% for msrsrec in afrec.mz_to_msrunsamples.all %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endfor %}
+                                {% else %}
+                                    None
+                                {% endif %}
                             {% endif %}
                         {% else %}
                             None
@@ -488,9 +498,9 @@
                         {% else %}
                             {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.tracer.name is None %}
-                                    None{% if not forloop.last %};<br>{% endif%}
+                                    None{% if not forloop.last %};<br>{% endif %}
                                 {% else %}
-                                    <div class="nobr">{{ link.tracer.name }}{% if not forloop.last %};<br>{% endif%}</div>
+                                    <div class="nobr">{{ link.tracer.name }}{% if not forloop.last %};<br>{% endif %}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -503,9 +513,9 @@
                         {% else %}
                             {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.tracer.compound.name is None %}
-                                    None{% if not forloop.last %};<br>{% endif%}
+                                    None{% if not forloop.last %};<br>{% endif %}
                                 {% else %}
-                                    <div class="nobr"><a href="{% url 'compound_detail' link.tracer.compound.id %}">{{ link.tracer.compound.name }}</a>{% if not forloop.last %};<br>{% endif%}</div>
+                                    <div class="nobr"><a href="{% url 'compound_detail' link.tracer.compound.id %}">{{ link.tracer.compound.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -518,9 +528,9 @@
                         {% else %}
                             {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.concentration is None %}
-                                    None{% if not forloop.last %},<br>{% endif%}
+                                    None{% if not forloop.last %},<br>{% endif %}
                                 {% else %}
-                                    <div class="nobr">{{ link.concentration }}{% if not forloop.last %},<br>{% endif%}</div>
+                                    <div class="nobr">{{ link.concentration }}{% if not forloop.last %},<br>{% endif %}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -537,10 +547,10 @@
                         {% get_many_related_rec pg.msrun_sample.sample.animal.studies pg.study as studies %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
-                            {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% endfor %}
+                            {% for study in studies %}{% if not forloop.first %},<br>{% endif %}{{ study.name }}{% endfor %}
                         </div>
 
-                        {% for study in studies %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
+                        {% for study in studies %}{% if not forloop.first %},<br>{% endif %}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
                     </td>
                 </tr>
             {% endfor %}
