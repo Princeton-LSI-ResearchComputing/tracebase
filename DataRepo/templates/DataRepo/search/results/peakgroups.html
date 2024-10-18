@@ -122,11 +122,10 @@
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp">
-                    {% with "MZ Data Files" as colhead %}
-                        {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__msrun_samples__ms_data_file">{{ colhead }}</div>
-                        {% endif %}
-                    {% endwith %}
+                    <!-- Cannot sort based on the mz files, because the MSRunSample table is traversed twice to get all
+                    neighbors, and since django requires sort fields to be made distinct, sorting would cause multiple
+                    duplicate rows. -->
+                    MZ Data Files
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" class="idgrp">
                     {% with "Peak Annotation Filename" as colhead %}
@@ -350,7 +349,7 @@
                                         {% define True as mzxml_exists %}
                                     {% endif %}
                                 {% endfor %}
-                                {% if mzxml_exists is not None %}
+                                {% if mzxml_exists is None %}
                                     None
                                 {% endif %}
                             {% else %}
