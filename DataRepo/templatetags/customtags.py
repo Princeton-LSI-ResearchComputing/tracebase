@@ -58,6 +58,38 @@ def index(indexable, i):
 
 @register.simple_tag
 def define(the_val):
+    """Use this in a template to define variables. For example, use `{% define 1 as my_num_var %}` to create a variable
+    named `my_num_var` whose value is 1.  You can change the value later using the same mechanism:
+    `{% define 3 as my_num_var %}`, with 1 caveat...
+
+    A value set above a `for` loop can be changed inside the loop and the code inside the loop will show that it is
+    changed, but AFTER the end of the loop, the value reverts to what it was before the loop.  For example, this will
+    not work as expected:
+        {% define False as file_exists %}  <!-- WHEN YOU DO THIS -->
+        {% for container in rec.containers.all %}  <!-- BECAUSE FOR LOOPS HAVE THEIR OWN "NAMESPACE" -->
+            {% if file_exists %}  <!-- THIS WORKS -->
+                <br>
+            {% endif %}
+            {% if container.file %}
+                {% define True as file_exists %}  <!-- THIS WORKS TOO -->
+            {% endif %}
+        {% endfor %}
+        {% if not file_exists %}  <!-- BUT THIS DOES NOT WORK AS EXPECTED - IT WILL ALWAYS BE False -->
+            No file
+        {% endif %}
+    To deal with this, you must only ever set the variable the first time, inside the loop, so...
+        {% for container in rec.containers.all %}  <!-- BECAUSE FOR LOOPS HAVE THEIR OWN "NAMESPACE" -->
+            {% if file_exists %}  <!-- THIS WORKS -->
+                <br>
+            {% endif %}
+            {% if container.file %}
+                {% define True as file_exists %}  <!-- THIS WORKS TOO -->
+            {% endif %}
+        {% endfor %}
+        {% if file_exists %}  <!-- BUT THIS DOES NOT WORK AS EXPECTED - IT WILL ALWAYS BE False -->
+            No files
+        {% endif %}
+    """
     return the_val
 
 
