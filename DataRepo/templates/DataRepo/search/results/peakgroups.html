@@ -350,7 +350,7 @@
                                     {% endif %}
                                 {% endfor %}
                                 {% if mzxml_exists is None %}
-                                    None {{ pg.mzdatafl }}
+                                    None Y{{ pg.mzdatafl }}Y Z{{mzxml_exists}}Z
                                 {% endif %}
                             {% else %}
                                 <!-- This block will execute when split_rows is True in the format definition.
@@ -366,7 +366,7 @@
                                     <!-- There will be only 1 record in afrec.mz_to_msrunsamples.all -->
                                     <a href="{% url 'archive_file_detail' pg.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}</a>{% for msrsrec in afrec.mz_to_msrunsamples.all %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endfor %}
                                 {% else %}
-                                    None
+                                    None X{{ pg.mzdatafl }}X
                                 {% endif %}
                             {% endif %}
                         {% else %}
