@@ -340,18 +340,17 @@
                                 <div style="display:none;">
                                     {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif %}{{ msrsrec.ms_data_file.filename }}{% endfor %}
                                 </div>
-
-                                {% define False as mzxml_exists %}
                                 {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}
-                                    {% if not forloop.first %}
-                                        <br>
-                                    {% endif %}
                                     {% if msrsrec.ms_data_file %}
-                                        {% define True as mzxml_exists %}
+                                        {% if mzxml_exists %}
+                                            <!-- Using this instead of forloop.first because we might not print anything on the first loop. -->
+                                            <br>
+                                        {% endif %}
                                         <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}</a>{% if pg.msrun_sample.sample.msrun_samples.count > 1 %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endif %}
+                                        {% define True as mzxml_exists %}
                                     {% endif %}
                                 {% endfor %}
-                                {% if mzxml_exists is False %}
+                                {% if mzxml_exists is not None %}
                                     None
                                 {% endif %}
                             {% else %}
