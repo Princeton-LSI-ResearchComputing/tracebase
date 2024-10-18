@@ -7,6 +7,7 @@ from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 register = template.Library()
@@ -57,6 +58,27 @@ def index(indexable, i):
 
 @register.simple_tag
 def define(the_val):
+    """Use this in a template to define variables. For example, use `{% define 1 as my_num_var %}` to create a variable
+    named `my_num_var` whose value is 1.  You can change the value later using the same mechanism:
+    `{% define 3 as my_num_var %}`, with 1 caveat...
+
+    A value set above a `for` loop can be changed inside the loop and the code inside the loop will show that it is
+    changed, but AFTER the end of the loop, the value reverts to what it was before the loop.  For example, this will
+    not work as expected:
+        {% define False as file_exists %}  <!-- WHEN YOU DO THIS -->
+        {% for container in rec.containers.all %}  <!-- BECAUSE FOR LOOPS HAVE THEIR OWN "NAMESPACE" -->
+            {% if file_exists %}  <!-- THIS WORKS -->
+                <br>
+            {% endif %}
+            {% if container.file %}
+                {% define True as file_exists %}  <!-- THIS WORKS TOO -->
+            {% endif %}
+        {% endfor %}
+        {% if not file_exists %}  <!-- BUT THIS DOES NOT WORK AS EXPECTED - IT WILL ALWAYS BE False -->
+            No file
+        {% endif %}
+    There is no workaround for this.  If you need to change a value inside a loop, you will not be able to do it.
+    """
     return the_val
 
 
@@ -311,6 +333,29 @@ def get_many_related_rec(qs, pk):
         recs = qs.all()
 
     return recs
+
+
+@register.simple_tag
+def get_model_rec_by_id(mdl_name, pk):
+    mdl = get_model_by_name(mdl_name)
+    return mdl.objects.get(pk__exact=pk)
+
+
+@register.filter
+def polarity_name_to_sign(name):
+    if name is None:
+        return None
+    elif name.lower().startswith("p"):
+        return "+"
+    elif name.lower().startswith("n"):
+        return "-"
+    return "error"
+
+
+@register.filter
+def sigdig(num, digits=3):
+    """Return the supplied num with the significant number of digits."""
+    return f"{num:.{digits}g}"
 
 
 @register.simple_tag

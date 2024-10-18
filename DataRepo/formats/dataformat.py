@@ -948,7 +948,7 @@ class Format:
             reroot_rpath_list = []
             if reroot_rpath != "":
                 reroot_rpath_list = reroot_rpath.split("__")
-            for item in common_path_list:
+            for _ in common_path_list:
                 reroot_rpath_list.pop()
             reroot_rpath_rem = "__".join(reroot_rpath_list)
 

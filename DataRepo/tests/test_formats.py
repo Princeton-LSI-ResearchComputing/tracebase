@@ -223,13 +223,19 @@ class FormatsTests(TracebaseTestCase):
             ("msrun_sample__sample__animal__infusate__name", "Infusate"),
             ("msrun_sample__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
-            ("msrun_sample__ms_data_file__filename", "MZ Data Filename"),
+            (
+                "msrun_sample__sample__msrun_samples__ms_data_file__filename",
+                "MZ Data Filename",
+            ),
             ("msrun_sample__msrun_sequence__researcher", "Mass Spec Operator"),
             ("msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
             ("msrun_sample__polarity", "Polarity"),
-            ("msrun_sample__ms_raw_file__filename", "RAW Data Filename"),
+            (
+                "msrun_sample__sample__msrun_samples__ms_raw_file__filename",
+                "RAW Data Filename",
+            ),
             ("msrun_sample__sample__name", "Sample"),
             ("msrun_sample__sample__animal__sex", "Sex"),
             ("msrun_sample__sample__animal__studies__name", "Study"),
@@ -506,12 +512,12 @@ class FormatsTests(TracebaseTestCase):
         prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
         expected_prefetches = [
             "msrun_sample__sample__animal__infusate__tracers__compound",
+            "msrun_sample__sample__msrun_samples__ms_data_file",
+            "msrun_sample__sample__msrun_samples__ms_raw_file",
             "msrun_sample__sample__animal__treatment",
             "msrun_sample__sample__animal__studies",
             "msrun_sample__sample__tissue",
             "msrun_sample__msrun_sequence",
-            "msrun_sample__ms_data_file",
-            "msrun_sample__ms_raw_file",
             "peak_annotation_file",
             [
                 "compounds",
@@ -594,6 +600,8 @@ class FormatsTests(TracebaseTestCase):
             },  # Empty string annotation when split_rows is False
             {"compound": F("compounds__pk")},
             {"study": Value("")},
+            {"mzdatafl": Value("")},
+            {"mzrawfl": Value("")},
         ]
         self.assertEqual(
             str(expected_annots),
@@ -667,6 +675,8 @@ class FormatsTests(TracebaseTestCase):
             "compounds__synonyms__pk",
             "msrun_sample__sample__animal__studies__name",
             "msrun_sample__sample__animal__studies__pk",
+            "msrun_sample__sample__msrun_samples__ms_data_file__pk",
+            "msrun_sample__sample__msrun_samples__ms_raw_file__pk",
         ]
         self.assertEqual(expected_distincts, distincts)
 
@@ -1191,13 +1201,19 @@ class FormatsTests(TracebaseTestCase):
             ("msrun_sample__sample__animal__infusate__name", "Infusate"),
             ("msrun_sample__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
-            ("msrun_sample__ms_data_file__filename", "MZ Data Filename"),
+            (
+                "msrun_sample__sample__msrun_samples__ms_data_file__filename",
+                "MZ Data Filename",
+            ),
             ("msrun_sample__msrun_sequence__researcher", "Mass Spec Operator"),
             ("msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
             ("msrun_sample__polarity", "Polarity"),
-            ("msrun_sample__ms_raw_file__filename", "RAW Data Filename"),
+            (
+                "msrun_sample__sample__msrun_samples__ms_raw_file__filename",
+                "RAW Data Filename",
+            ),
             ("msrun_sample__sample__name", "Sample"),
             ("msrun_sample__sample__animal__sex", "Sex"),
             ("msrun_sample__sample__animal__studies__name", "Study"),
