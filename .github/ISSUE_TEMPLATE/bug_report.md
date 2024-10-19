@@ -42,27 +42,40 @@ None
 ## ISSUE OWNER SECTION
 
 ### Assumptions
+<!-- A numbered list of assumptions, e.g.
 
-1. List of assumptions made WRT the code
+1. List of assumptions that the code will not explicitly address/check
 2. E.g. We will assume input is correct (explaining why there is no validation)
+-->
+None
 
 ### Limitations
+<!-- A numbered list of limitations, e.g.
 
 1. A list of things this work will specifically not do
 2. E.g. This feature will only handle the most frequent use case X
+-->
+None
 
 ### Affected Components
-<!-- A list of repository items, dependencies, etc, labeled with add, delete,
-or change.  One item per line.  (Mostly, this will be a list of files.) -->
+<!-- A tentative list of anticipated repository items that will be changed,
+labeled with "add", "delete", or "change".  One item per line.  (Mostly, this
+will be a list of files.) E.g.
+
 - change: File path or DB table ...
 - add: Environment variable or server setting
 - delete: External executable or cron job
+-->
+None provided
 
 ### Requirements
+<!-- A numbered list of requirements, e.g.
 
-- [ ] 1. List of numbered conditions to be met for the feature
-- [ ] 2. E.g. Every column/row must display a value, i.e. cannot be empty
-- [ ] 3. Numbers for reference & checkboxes for progress tracking
+- [ ] `1.` List of numbered conditions to be met for the feature
+- [ ] `1.1.` E.g. Every column/row must display a value, i.e. cannot be empty
+- [ ] `2.` Numbers for reference & checkboxes for progress tracking
+-->
+None provided
 
 ### DESIGN
 
@@ -76,6 +89,4 @@ None provided
 
 #### Tests
 
-- [ ] 1. A description of at least one test for each requirement above.
-- [ ] 2. E.g. Test for req 2 that there's an exception when display value is ''
-- [ ] 3. Numbers for reference & checkboxes for progress tracking
+A test for each listed requirement

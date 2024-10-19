@@ -7,10 +7,9 @@ See affected issue(s).
 ## Affected Issues/Pull Requests
 
 - Resolves #__issue_number__
-<!--
+<!-- Other examples:
 - Partially addresses #__issue_number__
 - Merges into PR #__pull_request_number__
-- Requires merge of PR #__pull_request_number__
 -->
 
 ## Review Notes
@@ -62,5 +61,5 @@ author and/or reviewers should uncheck any unmet requirements:
   resolving the affected issue(s).
   -->
   - [x] [New/changed method tests implemented/updated *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
-  - [x] [Updated *Unreleased* section of `changelog.md` *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md)
+  - [ ] [Updated *Unreleased* section of `changelog.md` *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md)
   - [x] [Migrations created & committed *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
