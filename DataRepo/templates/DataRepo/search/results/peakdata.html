@@ -59,7 +59,7 @@
         data-show-export="false"
         data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
 
-        <colgroup span="9" class="identdata"></colgroup>
+        <colgroup span="10" class="identdata"></colgroup>
         <colgroup span="5" class="datadata"></colgroup>
         <colgroup span="15" class="metadata"></colgroup>
 
@@ -120,6 +120,12 @@
                             <div onclick="sortColumn(this)" class="sortable" id="labels__element">{{ colhead1 }}</div><div onclick="sortColumn(this)" class="sortable" id="labels__count">{{ colhead2 }}</div>
                         {% endif %}
                     {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp">
+                    <!-- Cannot sort based on the mz files, because the MSRunSample table is traversed twice to get all
+                    neighbors, and since django requires sort fields to be made distinct, sorting would cause multiple
+                    duplicate rows. -->
+                    MZ Data File(s)
                 </th>
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename">
                     {% with "Peak Annotation Filename" as colhead %}
@@ -314,25 +320,74 @@
                         {% get_many_related_rec pd.peak_group.compounds pd.peak_group.compound as compounds %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
-                            {% for mcpd in compounds %}{% if not forloop.first %}; {% endif%}{{ mcpd.name }}{% endfor %}
+                            {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}{{ mcpd.name }}{% endfor %}
                         </div>
 
-                        {% for mcpd in compounds %}{% if not forloop.first %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% endfor %}
+                        {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% endfor %}
                     </td>
 
                     <!-- Measured Compound Synonym(s) -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
-                            {% for mcpd in compounds %}{% if not forloop.first %}; {% endif%}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not forloop.first %}/{% endif%}{{ mcpdsyn }}{% endfor %}{% endfor %}
+                            {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not forloop.first %}/{% endif %}{{ mcpdsyn }}{% endfor %}{% endfor %}
                         </div>
 
-                        {% for mcpd in compounds %}{% if not forloop.first %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not forloop.first %}/{% endif%}{{ mcpdsyn }}{% endfor %}</a>{% endfor %}
+                        {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}<a href="{% url 'compound_detail' mcpd.id %}">{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not forloop.first %}/{% endif %}{{ mcpdsyn }}{% endfor %}</a>{% endfor %}
                     </td>
 
                     <!-- Labeled Element:Count -->
                     <td>
-                        {% for lbl in pd.labels.all %}{% if not forloop.first %}; {% endif%}{{ lbl.element }}:{{ lbl.count }}{% endfor %}
+                        {% for lbl in pd.labels.all %}{% if not forloop.first %}; {% endif %}{{ lbl.element }}:{{ lbl.count }}{% endfor %}
+                    </td>
+
+                    <!-- MZ Data Files -->
+                    <td>
+                        {% if pd.peak_group.msrun_sample.sample.msrun_samples.count > 0 %}
+                            {% if pd.mzdatafl == "" %}
+                                <!-- This block will execute when split_rows is False in the format definition.
+                                It displays all mzXML files associated with this peak group's sample in 1 table cell. -->
+
+                                <!-- Put displayed link text first for sorting (even though sorting is disabled until #1268 is finished) -->
+                                <div style="display:none;">
+                                    {% for msrsrec in pd.peak_group.msrun_sample.sample.msrun_samples.all %}{% if msrsrec.ms_data_file %}{{ msrsrec.ms_data_file.filename }}{% endif %}{% endfor %}
+                                </div>
+
+                                {% for msrsrec in pd.peak_group.msrun_sample.sample.msrun_samples.all %}
+                                    {% if msrsrec.ms_data_file %}
+                                        {% if mzxml_exists %}
+                                            <!-- Using this instead of forloop.first because we might not print anything on the first loop. -->
+                                            <br>
+                                        {% endif %}
+                                        <a href="{% url 'archive_file_detail' msrsrec.ms_data_file.id %}" title="{{ msrsrec.ms_data_file.checksum }}">{{ msrsrec.ms_data_file.filename }}</a> <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>
+                                        {% define True as mzxml_exists %}
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% comment %} We cannot use mzxml_exists from the loop because it has its own "namespace", but since there can only exist a single MSRunSample with a ms_data_file record that is None, we can determine what we need to know using the following conditional... {% endcomment %}
+                                {% if pd.peak_group.msrun_sample.sample.msrun_samples.count == 0 or pd.peak_group.msrun_sample.sample.msrun_samples.count == 1 and pd.peak_group.msrun_sample.sample.msrun_samples.first.ms_data_file is None %}
+                                    None
+                                {% endif %}
+                            {% else %}
+                                <!-- This block will execute when split_rows is True in the format definition.
+                                It displays JUST the mzXML file whose ID is annotated in the queryset record in pd.mzdatafl. -->
+                                {% get_model_rec_by_id "ArchiveFile" pd.mzdatafl as afrec %}
+
+                                {% if afrec %}
+                                    <!-- Put displayed link text first for sorting -->
+                                    <div style="display:none;">
+                                        {{ afrec.filename }}{% for msrsrec in afrec.mz_to_msrunsamples.all %} {{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }}{% endfor %}
+                                    </div>
+
+                                    <!-- There will be only 1 record in afrec.mz_to_msrunsamples.all -->
+                                    <a href="{% url 'archive_file_detail' pd.mzdatafl %}" title="{{ afrec.checksum }}">{{ afrec.filename }}</a>{% for msrsrec in afrec.mz_to_msrunsamples.all %} <small>({{ msrsrec.polarity|polarity_name_to_sign }} {{ msrsrec.mz_min|sigdig:3 }}-{{ msrsrec.mz_max|sigdig:3 }})</small>{% endfor %}
+                                {% else %}
+                                    None
+                                {% endif %}
+                            {% endif %}
+                        {% else %}
+                            None
+                        {% endif %}
                     </td>
 
                     <!-- Peak Annotation Filename -->
@@ -445,9 +500,9 @@
                         {% else %}
                             {% for link in pd.peak_group.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.tracer.name is None %}
-                                    None{% if not forloop.last %};<br>{% endif%}
+                                    None{% if not forloop.last %};<br>{% endif %}
                                 {% else %}
-                                    <div class="nobr">{{ link.tracer.name }}{% if not forloop.last %};<br>{% endif%}</div>
+                                    <div class="nobr">{{ link.tracer.name }}{% if not forloop.last %};<br>{% endif %}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -460,9 +515,9 @@
                         {% else %}
                             {% for link in pd.peak_group.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.tracer.compound.name is None %}
-                                    None{% if not forloop.last %};<br>{% endif%}
+                                    None{% if not forloop.last %};<br>{% endif %}
                                 {% else %}
-                                    <div class="nobr"><a href="{% url 'compound_detail' link.tracer.compound.id %}">{{ link.tracer.compound.name }}</a>{% if not forloop.last %};<br>{% endif%}</div>
+                                    <div class="nobr"><a href="{% url 'compound_detail' link.tracer.compound.id %}">{{ link.tracer.compound.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -475,9 +530,9 @@
                         {% else %}
                             {% for link in pd.peak_group.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.concentration is None %}
-                                    None{% if not forloop.last %},<br>{% endif%}
+                                    None{% if not forloop.last %},<br>{% endif %}
                                 {% else %}
-                                    <div class="nobr">{{ link.concentration }}{% if not forloop.last %},<br>{% endif%}</div>
+                                    <div class="nobr">{{ link.concentration }}{% if not forloop.last %},<br>{% endif %}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}
@@ -494,10 +549,10 @@
                         {% get_many_related_rec pd.peak_group.msrun_sample.sample.animal.studies pd.study as studies %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
-                            {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% endfor %}
+                            {% for study in studies %}{% if not forloop.first %},<br>{% endif %}{{ study.name }}{% endfor %}
                         </div>
 
-                        {% for study in studies %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
+                        {% for study in studies %}{% if not forloop.first %},<br>{% endif %}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
                     </td>
                 </tr>
             {% endfor %}

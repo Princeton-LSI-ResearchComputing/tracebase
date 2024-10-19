@@ -618,13 +618,14 @@ class PeakDataFormat(Format):
         },
         "MZFile": {
             "model": "ArchiveFile",
-            "path": "peak_group__msrun_sample__ms_data_file",
-            "reverse_path": "mz_to_msrunsamples__peak_groups__peak_data",
+            "path": "peak_group__msrun_sample__sample__msrun_samples__ms_data_file",
+            "reverse_path": "mz_to_msrunsamples__sample__msrun_samples__peak_groups__peak_data",
             "manyrelated": {
-                "is": False,
+                "is": True,
                 "through": False,
-                "manytomany": False,
+                "manytomany": True,  # Searching for 1 MZFile can produce many PeakData recs and vice versa
                 "split_rows": False,
+                "root_annot_fld": "mzdatafl",
             },
             "fields": {
                 "id": {
@@ -644,13 +645,14 @@ class PeakDataFormat(Format):
         },
         "RAWFile": {
             "model": "ArchiveFile",
-            "path": "peak_group__msrun_sample__ms_raw_file",
-            "reverse_path": "raw_to_msrunsamples__peak_groups__peak_data",
+            "path": "peak_group__msrun_sample__sample__msrun_samples__ms_raw_file",
+            "reverse_path": "raw_to_msrunsamples__sample__msrun_samples__peak_groups__peak_data",
             "manyrelated": {
-                "is": False,
+                "is": True,
                 "through": False,
-                "manytomany": False,
+                "manytomany": True,  # Searching for 1 MZFile can produce many PeakData recs and vice versa
                 "split_rows": False,
+                "root_annot_fld": "mzrawfl",
             },
             "fields": {
                 "id": {
