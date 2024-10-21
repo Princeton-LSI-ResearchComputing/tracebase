@@ -30,9 +30,12 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
     MutuallyExclusiveArgs,
+    MzxmlColocatedWithMultipleAnnot,
+    MzxmlNotColocatedWithAnnot,
     RequiredColumnValue,
     RollbackException,
 )
+from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
@@ -74,15 +77,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
 
-        seq = MSRunSequence.objects.create(
+        cls.seq = MSRunSequence.objects.create(
             researcher="John Doe",
             date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
             instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
             lc_method=lcm,
         )
-        seq.full_clean()
+        cls.seq.full_clean()
         cls.msr = MSRunSample.objects.create(
-            msrun_sequence=seq,
+            msrun_sequence=cls.seq,
             sample=smpl,
             polarity=None,  # Placeholder
             ms_raw_file=None,  # Placeholder
@@ -576,9 +579,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
 
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+
         # Test create
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
-            sample, msrun_sequence, mzxml_metadata
+            sample,
+            "BAT_xz971",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            mzxml_metadata,
+            msrun_sequence,
         )
         self.assertTrue(created)
         self.assertEqual(rec.sample, sample)
@@ -593,7 +602,11 @@ class MSRunsLoaderTests(TracebaseTestCase):
             ][0]
         )
         rec2, created2 = msrl.get_or_create_msrun_sample_from_mzxml(
-            sample, msrun_sequence, mzxml_metadata2
+            sample,
+            "BAT_xz971",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            mzxml_metadata2,
+            msrun_sequence,
         )
         self.assertFalse(created2)
         self.assertEqual(rec, rec2)
@@ -608,8 +621,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls"
             ][0]
         )
+
+        msrl.mzxml_dict = self.MOCK_MZXML_DICT
+
         rec, created = msrl.get_or_create_msrun_sample_from_mzxml(
-            sample, msrun_sequence, mzxml_metadata
+            sample,  # Make sure this isn't necessary in edge cases
+            "Br_xz971",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls",
+            mzxml_metadata,
+            msrun_sequence,
         )
         self.assertFalse(created)
         self.assertIsNone(rec)
@@ -1490,6 +1510,235 @@ class MSRunsLoaderTests(TracebaseTestCase):
             "(Sequence, Skip)^ (^ = Any Required)",
             str(msrl.aggregated_errors_object.exceptions[0].column),
             msg=f"'(Sequence, Skip)^ (^ = Any Required)' != {msrl.aggregated_errors_object.exceptions[0].column}",
+        )
+
+    def test_msrunsamples_created_for_mzxmls_with_same_name_using_default_seq(self):
+        """This tests that MSRunSample records are created using the default sequence arguments and sample records
+        matching the mzXML filenames."""
+        # Create samples based on the file names (the one(s) created in setUpTestData have different names)
+        Sample.objects.create(
+            name="BAT_xz971",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        msrl = MSRunsLoader(
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+            ],
+            operator="John Doe",  # From setUpTestData
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="QE",
+            date="1991-5-7",
+        )
+        af_before = ArchiveFile.objects.count()
+        msrs_before = MSRunSample.objects.count()
+        msrl.load_data()
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+        self.assertDictEqual(
+            {
+                "ArchiveFile": {
+                    "created": 3,  # Both files have the same raw file
+                    "existed": 1,
+                    "skipped": 0,
+                    "updated": 0,
+                    "deleted": 0,
+                    "errored": 0,
+                    "warned": 0,
+                },
+                "MSRunSample": {
+                    "created": 2,
+                    "existed": 0,
+                    "skipped": 0,
+                    "updated": 0,
+                    "deleted": 0,
+                    "errored": 0,
+                    "warned": 0,
+                },
+                "PeakGroup": {
+                    "created": 0,
+                    "existed": 0,
+                    "skipped": 0,
+                    "updated": 0,
+                    "deleted": 0,
+                    "errored": 0,
+                    "warned": 0,
+                },
+            },
+            msrl.record_counts,
+        )
+        self.assertEqual(af_before + 3, ArchiveFile.objects.count())
+        self.assertEqual(msrs_before + 2, MSRunSample.objects.count())
+
+    def test_msrunsamples_created_for_mzxmls_with_same_name_using_dir_dict_and_sample_from_infile(
+        self,
+    ):
+        """This tests that MSRunSample records are created using the sequence records associated with a peak
+        anotation file on the path of the mzXML and sample records matching the sample column that is associated with a
+        header that matches the mzXML filenames."""
+        df = read_from_file(
+            "DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            sheet=MSRunsLoader.DataSheetName,
+        )
+        msrl = MSRunsLoader(
+            df=df,
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",
+            mzxml_files=[
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+            ],
+        )
+        af_before = ArchiveFile.objects.count()
+        msrs_before = MSRunSample.objects.count()
+
+        msrl.load_data()
+
+        self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(2, msrl.aggregated_errors_object.num_warnings)
+
+        self.assertEqual(3, ArchiveFile.objects.count() - af_before)
+        self.assertEqual(2, MSRunSample.objects.count() - msrs_before)
+
+        self.assertEqual(3, msrl.record_counts["ArchiveFile"]["created"])
+        self.assertEqual(1, msrl.record_counts["ArchiveFile"]["existed"])
+        self.assertEqual(2, msrl.record_counts["MSRunSample"]["created"])
+        self.assertEqual(0, msrl.record_counts["MSRunSample"]["errored"])
+
+    def test_msrunsamples_created_for_mzxmls_with_same_name_using_dir_dict_from_infile(
+        self,
+    ):
+        """This tests that MSRunSample records are created using the sequence records associated with a peak
+        anotation file on the path of the mzXML and sample records matching the mzXML filenames (no matching row in the
+        peak annotation details sheet).
+
+        NOTE: This differs frm test_msrunsamples_created_for_mzxmls_with_same_name_using_dir_dict_and_sample_from_infile
+        in that the mzXML filename in that one matched multiple rows in the Peak Annotation Details sheet, where a
+        sample name differed from the mzXML filename.  Here, the mzXML isn't in the file at all, but we're still using
+        the sequence associated with a peak annotation file found on the mzXML dir path
+        """
+        Sample.objects.create(
+            name="BAT_xz971",
+            tissue=self.tsu,
+            animal=self.anml,
+            researcher="John Doe",
+            date=datetime.now(),
+        )
+        msrl = MSRunsLoader(
+            df=pd.DataFrame.from_dict(
+                {
+                    "Sample Name": [],
+                    "Sample Data Header": [],
+                    "mzXML File Name": [],
+                    "Peak Annotation File Name": [],
+                    "Sequence": [],
+                    "Skip": [],
+                }
+            ),
+            file="DataRepo/data/tests/same_name_mzxmls/mzxml_study_doc_same_seq.xlsx",  # Pk Annotation Details not used
+            mzxml_files=[
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/same_name_mzxmls/mzxmls/pos/BAT-xz971.mzXML",
+            ],
+        )
+        af_before = ArchiveFile.objects.count()
+        msrs_before = MSRunSample.objects.count()
+
+        msrl.load_data()
+
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+
+        self.assertEqual(3, ArchiveFile.objects.count() - af_before)
+        self.assertEqual(2, MSRunSample.objects.count() - msrs_before)
+
+        self.assertEqual(3, msrl.record_counts["ArchiveFile"]["created"])
+        self.assertEqual(1, msrl.record_counts["ArchiveFile"]["existed"])
+        self.assertEqual(2, msrl.record_counts["MSRunSample"]["created"])
+        self.assertEqual(0, msrl.record_counts["MSRunSample"]["errored"])
+
+    def test_get_msrun_sequence_from_dir_success(self):
+        msrl = MSRunsLoader()
+        msrl.annotdir_to_seq_dict = {
+            "path/to": [
+                "John Doe, polar-HILIC-25-min, QE, 1991-5-7",
+            ],
+            "path/to/scan2": [
+                "John Doe, polar-HILIC-25-min, QE, 1991-5-7",
+            ],
+        }
+        seq = msrl.get_msrun_sequence_from_dir(
+            "sample.mzXML",
+            "path/to/scan2/pos",
+            None,
+        )
+        self.assertEqual(self.seq, seq)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+
+    def test_get_msrun_sequence_from_dir_ambiguous(self):
+        msrl = MSRunsLoader()
+        msrl.annotdir_to_seq_dict = {
+            "path/to": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+                "Zoe, polar-HILIC-25-min, QE, 1985-4-18",
+            ],
+            "path/to/scan2": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+            ],
+        }
+        seq = msrl.get_msrun_sequence_from_dir(
+            "sample.mzXML",
+            "path/to",
+            None,
+        )
+        self.assertIsNone(seq)
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            msrl.aggregated_errors_object.exception_type_exists(
+                MzxmlColocatedWithMultipleAnnot
+            )
+        )
+
+    def test_get_msrun_sequence_from_dir_none(self):
+        msrl = MSRunsLoader()
+        msrl.annotdir_to_seq_dict = {
+            "path/to": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+            ],
+            "path/to/scan2": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+            ],
+        }
+        seq = msrl.get_msrun_sequence_from_dir(
+            "sample.mzXML",
+            "alternate/path/to",
+            None,
+        )
+        self.assertIsNone(seq)
+        self.assertEqual(0, len(msrl.aggregated_errors_object.exceptions))
+
+    def test_get_msrun_sequence_from_dir_default(self):
+        msrl = MSRunsLoader()
+        msrl.annotdir_to_seq_dict = {
+            "path/to": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+            ],
+            "path/to/scan2": [
+                "Rob, polar-HILIC-25-min, QE, 1972-11-24",
+            ],
+        }
+        seq = msrl.get_msrun_sequence_from_dir(
+            "sample.mzXML",
+            "alternate/path/to",
+            self.seq,
+        )
+        self.assertEqual(self.seq, seq)
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, msrl.aggregated_errors_object.num_warnings)
+        self.assertTrue(
+            msrl.aggregated_errors_object.exception_type_exists(
+                MzxmlNotColocatedWithAnnot
+            )
         )
 
 

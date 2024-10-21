@@ -182,6 +182,7 @@ class Command(LoadTableCommand):
         # The MSRunsLoader class constructor has custom arguments, so we must call init_loader to supply them
         self.init_loader(
             mzxml_files=mzxml_files,
+            mzxml_dir=options.get("mzxml_dir"),
             operator=options.get("operator"),
             date=options.get("date"),
             lc_protocol_name=options.get("lc_protocol_name"),

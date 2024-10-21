@@ -2,6 +2,7 @@ import io
 import sys
 from collections import namedtuple
 
+from django.db import ProgrammingError
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
 
@@ -497,3 +498,33 @@ class LoadTableCommandTests(TracebaseTestCase):
             },
         ]
         self.assertEqual(expected, ud_df_as_dict)
+
+    def test_invalid_model_record_counts(self):
+        tc = TestCommand()
+        opts = {
+            "infile": "DataRepo/data/tests/load_table/test.tsv",
+            "defaults_sheet": None,
+            "data_sheet": "Test",
+            "headers": None,
+            "dry_run": False,
+            "defer_rollback": False,
+            "verbosity": 1,
+            "defaults_file": None,
+        }
+        tc.init_loader()
+
+        # Required attributes normally set when handle() is called (which we're skipping)
+        tc.saved_aes = None
+        tc.options = opts
+
+        # Initialize the stats
+        tc.loader.errored("InvalidModel")
+
+        with self.assertRaises(AggregatedErrors) as ar:
+            # Report the stats result to the console
+            tc.report_status()
+        aes: AggregatedErrors = ar.exception
+
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(aes.exception_type_exists(ProgrammingError))
+        self.assertIn("InvalidModel", str(aes.exceptions[0]))
