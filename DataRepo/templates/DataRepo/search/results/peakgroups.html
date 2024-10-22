@@ -121,11 +121,11 @@
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp">
+                <th data-valign="top" data-sortable="false" data-visible="{% get_template_cookie selfmt 'MZ_Filenames-data-visible' 'false' %}" data-field="MZ_Filenames" class="idgrp">
                     <!-- Cannot sort based on the mz files, because the MSRunSample table is traversed twice to get all
                     neighbors, and since django requires sort fields to be made distinct, sorting would cause multiple
                     duplicate rows. -->
-                    MZ Data Files
+                    MZ Data File(s)
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" class="idgrp">
                     {% with "Peak Annotation Filename" as colhead %}
@@ -335,9 +335,9 @@
                                 <!-- This block will execute when split_rows is False in the format definition.
                                 It displays all mzXML files associated with this peak group's sample in 1 table cell. -->
 
-                                <!-- Put displayed link text first for sorting -->
+                                <!-- Put displayed link text first for sorting (even though sorting is disabled until #1268 is finished) -->
                                 <div style="display:none;">
-                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if not forloop.first %}{% endif %}{{ msrsrec.ms_data_file.filename }}{% endfor %}
+                                    {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}{% if msrsrec.ms_data_file %}{{ msrsrec.ms_data_file.filename }}{% endif %}{% endfor %}
                                 </div>
 
                                 {% for msrsrec in pg.msrun_sample.sample.msrun_samples.all %}

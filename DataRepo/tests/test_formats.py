@@ -161,7 +161,10 @@ class FormatsTests(TracebaseTestCase):
             ),
             ("labels__count", "Labeled Count"),
             ("labels__element", "Labeled Element"),
-            ("peak_group__msrun_sample__ms_data_file__filename", "MZ Data Filename"),
+            (
+                "peak_group__msrun_sample__sample__msrun_samples__ms_data_file__filename",
+                "MZ Data Filename",
+            ),
             (
                 "peak_group__msrun_sample__msrun_sequence__researcher",
                 "Mass Spec Operator",
@@ -180,7 +183,10 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__peak_annotation_file__filename", "Peak Annotation Filename"),
             ("peak_group__name", "Peak Group"),
             ("peak_group__msrun_sample__polarity", "Polarity"),
-            ("peak_group__msrun_sample__ms_raw_file__filename", "RAW Data Filename"),
+            (
+                "peak_group__msrun_sample__sample__msrun_samples__ms_raw_file__filename",
+                "RAW Data Filename",
+            ),
             ("raw_abundance", "Raw Abundance"),
             ("peak_group__msrun_sample__sample__name", "Sample"),
             ("peak_group__msrun_sample__sample__animal__sex", "Sex"),
@@ -1249,12 +1255,12 @@ class FormatsTests(TracebaseTestCase):
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
             "peak_group__msrun_sample__sample__animal__infusate__tracers__compound",
+            "peak_group__msrun_sample__sample__msrun_samples__ms_data_file",
+            "peak_group__msrun_sample__sample__msrun_samples__ms_raw_file",
             "peak_group__msrun_sample__sample__animal__treatment",
             "peak_group__msrun_sample__sample__animal__studies",
             "peak_group__msrun_sample__sample__tissue",
             "peak_group__msrun_sample__msrun_sequence",
-            "peak_group__msrun_sample__ms_data_file",
-            "peak_group__msrun_sample__ms_raw_file",
             "peak_group__peak_annotation_file",
             "peak_group__compounds__synonyms",
             "labels",
