@@ -677,16 +677,36 @@ class MSRunsLoader(TableLoader):
                     MSRunSample.objects.get(**query_dict)
                 )
             except MSRunSample.DoesNotExist as dne:
-                self.aggregated_errors_object.buffer_error(
-                    RecordDoesNotExist(
-                        MSRunSample,
-                        query_dict,
-                        file=self.friendly_file,
-                        sheet=self.sheet,
-                        rownum=self.rownum,
-                    ),
-                    orig_exception=dne,
-                )
+                tmp_msrs = None
+                if mzxml_metadata["mzaf_record"] is None:
+                    # It's possible that a single concrete MSRunSample record exists that the PeakGroups are linked to.
+                    # The above query was for a placeholder.  This can happen because the PeakAnnotationsLoader doesn't
+                    # have access to the mzXML files (nor do we want to have to supply them), and when it calls this
+                    # method, the mzxml_dict is empty.  The above command will often succeed in this case because there
+                    # is usually a placeholder record (because there are usually multiple files with the same name).
+                    # But when there's 1 file, the PeakGroups will link to the concrete record, so:
+                    try:
+                        concrete_query_dict = {
+                            "msrun_sequence": msrun_sequence,
+                            "sample": sample,
+                        }
+                        tmp_msrs = MSRunSample.objects.get(**concrete_query_dict)
+                        msrun_sample_dict[sample_header][
+                            MSRunSample.__name__
+                        ] = tmp_msrs
+                    except Exception:
+                        pass
+                if tmp_msrs is None:
+                    self.aggregated_errors_object.buffer_error(
+                        RecordDoesNotExist(
+                            MSRunSample,
+                            query_dict,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            rownum=self.rownum,
+                        ),
+                        orig_exception=dne,
+                    )
 
         # Restore the original row index
         self.set_row_index(save_row_index)

@@ -1,5 +1,5 @@
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.text_utils import autowrap
+from DataRepo.utils.text_utils import autowrap, sigfig
 
 
 class TextUtilsTests(TracebaseTestCase):
@@ -38,3 +38,6 @@ class TextUtilsTests(TracebaseTestCase):
                 default_width=20,
             ),
         )
+
+    def test_sigfig(self):
+        self.assertEqual("1.23e+05", sigfig(123456.789))

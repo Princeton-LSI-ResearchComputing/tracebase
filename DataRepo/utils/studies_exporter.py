@@ -8,7 +8,7 @@ from django.template.loader import get_template
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import Study
 from DataRepo.utils.exceptions import AggregatedErrors
-from DataRepo.views.search.download import tsv_template_iterator
+from DataRepo.views.search.download import AdvancedSearchDownloadView
 
 
 class StudiesExporter:
@@ -107,7 +107,7 @@ class StudiesExporter:
                     ),
                     "w",
                 ) as outfile:
-                    for line in tsv_template_iterator(
+                    for line in AdvancedSearchDownloadView.tsv_template_iterator(
                         self.row_template, self.header_template, results, qry, dt_string
                     ):
                         outfile.write(line)

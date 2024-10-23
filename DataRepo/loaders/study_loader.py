@@ -382,16 +382,23 @@ class StudyLoader(ConvertedTableLoader, ABC):
         Exceptions:
             Raises:
                 AggregatedErrorsSet
+                ConditionallyRequiredArgs
                 MultiLoadStatus
             Buffers:
+                ProgrammingError
                 ValueError
         Returns:
             None
         """
+        # TODO: Remove the requirement for the file path/name.  The file is used for the load_keys in the
+        # MultiLoadStatus object.  Other files' paths and names come from inside the study doc.  So I think we can just
+        # use something like "study doc" in place of the actual name.  This facilitates testing where the name doesn't
+        # matter.
         if self.file is None:
             raise AggregatedErrors().buffer_error(
                 ValueError(
-                    f"The [file] argument to {type(self).__name__}() is required."
+                    f"The [file] argument to {type(self).__name__}() is required for stats tracking and error "
+                    "reporting."
                 )
             )
         elif not is_excel(self.file):
@@ -401,12 +408,22 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 )
             )
 
+        if self.df_dict is not None and not isinstance(self.df_dict, dict):
+            raise self.aggregated_errors_object.buffer_error(
+                ProgrammingError(
+                    "The [df] argument to {type(self).__name__}() must be a dict of DataFrames, not "
+                    f"'{type(self.df_dict).__name__}'.  (This is necessary in order to convert to the latest study doc "
+                    "version via convert_df called from the constructor.)  Hint: if you are using read_from_file() to "
+                    "create the value for the df argument, you must set sheet=None."
+                ),
+            )
+
         if self.file is not None and self.df is None:
             raise ConditionallyRequiredArgs(
                 "'df' is required to have been supplied to the constructor if 'file' was supplied/defined."
             )
 
-        if self.df_dict is None or not isinstance(self.df_dict, dict):
+        if self.df_dict is None:
             raise self.aggregated_errors_object.buffer_error(
                 ProgrammingError(
                     "The supplied file has to have been converted to the latest version (which should be a dict of "
