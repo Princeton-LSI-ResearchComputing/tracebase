@@ -929,7 +929,7 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                 )
             else:
                 message = (
-                    f"{len(exceptions)} {self.ModelName}s matching the following values were not found in the "
+                    f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
                     f"database:{summary}\nwhile processing %s."
                 )
 
