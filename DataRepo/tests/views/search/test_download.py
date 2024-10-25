@@ -4,6 +4,7 @@ from django.http import StreamingHttpResponse
 
 from DataRepo.forms import AdvSearchDownloadForm
 from DataRepo.loaders.study_loader import StudyV3Loader
+from DataRepo.models.peak_group import PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.views.search.download import (
@@ -65,10 +66,10 @@ def assert_StreamingHttpResponse(testcase_obj, response):
     testcase_obj.assertEqual("application/text", response.headers["Content-Type"])
 
 
-class AdvancedSearchDownloadViewTests(TracebaseTestCase):
+class BaseAdvancedSearchDownloadViewTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-
-    qry = test_qry
+    asdv = None
+    res = PeakGroup.objects.none()
 
     @classmethod
     def setUpTestData(cls):
@@ -80,7 +81,13 @@ class AdvancedSearchDownloadViewTests(TracebaseTestCase):
             mzxml_dir="DataRepo/data/tests/full_tiny_study",
         )
         sl.load_data()
+        cls.asdv = AdvancedSearchDownloadView()
+        cls.res = cls.asdv.get_query_results(test_qry)
         super().setUpTestData()
+
+
+class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
+    qry = test_qry
 
     def test_get_qry(self):
         form_data = {"qryjson": json.dumps(self.qry)}
@@ -103,8 +110,8 @@ class AdvancedSearchDownloadViewTests(TracebaseTestCase):
         asdv = AdvancedSearchDownloadView()
         response = asdv.form_valid(form)
         assert_StreamingHttpResponse(self, response)
-        expected1 = "# Download Time: ".encode()
-        expected2 = (
+        expected_header1 = "# Download Time: ".encode()
+        expected_header2 = (
             "# Advanced Search Query: {'selectedtemplate': 'pgtemplate', "
             "'searches': {'pgtemplate': {'name': 'PeakGroups', 'tree': {'type': 'group', 'val': 'all', 'static': "
             "False, 'queryGroup': [{'type': 'query', 'pos': '', 'static': False, 'fld': '', 'ncmp': '', 'val': '', "
@@ -121,7 +128,7 @@ class AdvancedSearchDownloadViewTests(TracebaseTestCase):
             "Feeding Status\tTreatment\tInfusate\tTracer(s)\tTracer Compound(s)\tTracer Concentration(s) (mM)\t"
             "Infusion Rate (ul/min/g)\tStudies\n"
         ).encode()
-        expected3 = (
+        expected_content = (
             "xzl5_t\tserum_plasma_tail\t150.0\talanine\talanine\talanine/L-alanine/ala\tC3H7NO2\tC\txzl5_t.mzXML\t"
             "6587116.743783121\t0.2235244143081364\t1472381.4121334408\t1.0\talafasted_cor.xlsx\txzl5\tWT\t27.5\t14.0\t"
             "M\tPicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\talanine-[13C3,15N1]\talanine\t"
@@ -140,31 +147,12 @@ class AdvancedSearchDownloadViewTests(TracebaseTestCase):
         ).encode()
         content = str(response.getvalue())
         # `[2:-1]` removes the "b'" and last "'" from the beginning and end of the converted bytes to string
-        self.assertIn(str(expected1)[2:-1], content)
-        self.assertIn(str(expected2)[2:-1], content)
-        self.assertIn(str(expected3)[2:-1], content)
+        self.assertIn(str(expected_header2)[2:-1], content)
+        self.assertIn(str(expected_header1)[2:-1], content)
+        self.assertIn(str(expected_content)[2:-1], content)
 
 
-class RecordToMzxmlTSVTests(TracebaseTestCase):
-    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-
-    asdv = None
-    res = None
-
-    @classmethod
-    def setUpTestData(cls):
-        sl = StudyV3Loader(
-            file="DataRepo/data/tests/full_tiny_study/study.xlsx",
-            df=read_from_file(
-                "DataRepo/data/tests/full_tiny_study/study.xlsx", sheet=None
-            ),
-            mzxml_dir="DataRepo/data/tests/full_tiny_study",
-        )
-        sl.load_data()
-        cls.asdv = AdvancedSearchDownloadView()
-        cls.res = cls.asdv.get_query_results(test_qry)
-        super().setUpTestData()
-
+class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
     def test_headers(self):
         self.assertEqual(
             [
@@ -194,10 +182,10 @@ class RecordToMzxmlTSVTests(TracebaseTestCase):
             RecordToMzxmlTSV.headers,
         )
 
-    def test_get_rec_to_rows_method(self):
-        self.assertEqual(
-            "PeakGroupsToMzxmlTSV.rec_to_rows",
-            RecordToMzxmlTSV.get_rec_to_rows_method("pgtemplate").__qualname__,
+    def test_get_converter_object(self):
+        self.assertIsInstance(
+            RecordToMzxmlTSV.get_converter_object("pgtemplate"),
+            PeakGroupsToMzxmlTSV,
         )
 
     def test_PeakGroupsToMzxmlTSV_msrun_sample_rec_to_row(self):
@@ -231,9 +219,10 @@ class RecordToMzxmlTSVTests(TracebaseTestCase):
             row,
         )
 
-    def test_rec_to_rows(self):
+    def test_PeakGroupsToMzxmlTSV_queryset_to_rows_iterator(self):
         pgtmt = PeakGroupsToMzxmlTSV()
-        row = pgtmt.rec_to_rows(self.res.first())
+        # Slicing the queryset to make the expected test data more manageable
+        rows = list(pgtmt.queryset_to_rows_iterator(self.res[0:1]))
         self.assertEqual(
             [
                 [
@@ -261,15 +250,16 @@ class RecordToMzxmlTSVTests(TracebaseTestCase):
                     "2020-07-22",
                 ],
             ],
-            row,
+            rows,
         )
 
-    def test_PeakDataToMzxmlTSV_rec_to_rows(self):
+    def test_PeakDataToMzxmlTSV_queryset_to_rows_iterator(self):
         pdqry = test_qry.copy()
         pdqry["selectedtemplate"] = "pdtemplate"
         pdtmt = PeakDataToMzxmlTSV()
         res = self.asdv.get_query_results(pdqry)
-        row = pdtmt.rec_to_rows(res.first())
+        # Slicing the queryset to make the expected test data more manageable
+        rows = list(pdtmt.queryset_to_rows_iterator(res[0:1]))
         self.assertEqual(
             [
                 [
@@ -297,25 +287,11 @@ class RecordToMzxmlTSVTests(TracebaseTestCase):
                     "2020-07-22",
                 ],
             ],
-            row,
+            rows,
         )
 
 
-class AdvancedSearchDownloadMzxmlTSVViewTests(TracebaseTestCase):
-    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-
-    @classmethod
-    def setUpTestData(cls):
-        sl = StudyV3Loader(
-            file="DataRepo/data/tests/full_tiny_study/study.xlsx",
-            df=read_from_file(
-                "DataRepo/data/tests/full_tiny_study/study.xlsx", sheet=None
-            ),
-            mzxml_dir="DataRepo/data/tests/full_tiny_study",
-        )
-        sl.load_data()
-        super().setUpTestData()
-
+class AdvancedSearchDownloadMzxmlTSVViewTests(BaseAdvancedSearchDownloadViewTests):
     def test_form_valid(self):
         form_data = {"qryjson": json.dumps(test_qry)}
         form = AdvSearchDownloadForm(data=form_data)
@@ -332,11 +308,43 @@ class AdvancedSearchDownloadMzxmlTSVViewTests(TracebaseTestCase):
             "\t1.0\t502.9\txzl5_t\tserum_plasma_tail\t2020-07-22\t150.0\tXianfeng Zeng\txzl5\t14.0\tM\tWT\t27.5\t"
             "PicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\t"
             "polar-HILIC-25-min\t2020-07-22\r\n2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/"
-            "xzl5_t.mzXML\tpositive\t1.0\t502.9\txzl5_t\tserum_plasma_tail\t2020-07-22\t150.0\tXianfeng Zeng\txzl5\t"
-            "14.0\tM\tWT\t27.5\tPicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\t"
-            "QE2\tpolar-HILIC-25-min\t2020-07-22\r\n"  # There is more, but this is sufficient
+            "xzl5_panc.mzXML\tpositive\t1.0\t502.9\txzl5_panc\tpancreas\t2020-07-22\t150.0\tXianfeng Zeng\txzl5\t14.0\t"
+            "M\tWT\t27.5\tPicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\t"
+            "polar-HILIC-25-min\t2020-07-22\r\n"  # There is more, but this is sufficient
         ).encode()
         content = str(response.getvalue())
         # `[2:-1]` removes the "b'" and last "'" from the beginning and end of the converted bytes to string
         self.assertIn(str(expected1)[2:-1], content)
         self.assertIn(str(expected2)[2:-1], content)
+
+    def test_prepare_download(self):
+        # TODO: Implement test
+        pass
+
+
+class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
+    def test_msrun_sample_rec_to_file(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_converter_object(self):
+        # TODO: Implement test
+        pass
+
+    def test_PeakGroupsToMzxmlZIP_queryset_to_files_iterator(self):
+        # TODO: Implement test
+        pass
+
+    def test_PeakDataToMzxmlZIP_queryset_to_files_iterator(self):
+        # TODO: Implement test
+        pass
+
+
+class AdvancedSearchDownloadMzxmlZIPViewTests(BaseAdvancedSearchDownloadViewTests):
+    def test_form_valid(self):
+        # TODO: Implement test
+        pass
+
+    def test_mzxml_zip_iterator(self):
+        # TODO: Implement test
+        pass
