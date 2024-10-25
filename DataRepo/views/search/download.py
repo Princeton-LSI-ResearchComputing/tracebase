@@ -1,14 +1,14 @@
 import csv
-import io
 import json
-import zipfile
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from datetime import datetime
-from io import BytesIO
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import _csv
 from django.conf import settings
+from django.db.models.fields.files import FieldFile
 from django.http import Http404, StreamingHttpResponse
 from django.template import loader
 from django.views.generic.edit import FormView
@@ -27,8 +27,40 @@ from DataRepo.utils.file_utils import date_to_string
 
 # See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files
 class Echo:
+    """A class that implements just the write method of a file-like interface.
+
+    This is intended for use by a csv writer.
+    """
+
     def write(self, value):
         return value
+
+
+class ZipBuffer:
+    """A class that implements a zip-file-like interface.
+
+    This is intended for use by a zipfile writer.
+    """
+
+    def __init__(self):
+        self.buf = bytearray()
+
+    def write(self, data):
+        self.buf.extend(data)
+        return len(data)
+
+    def flush(self):
+        pass
+
+    def take(self):
+        buf = self.buf
+        self.buf = bytearray()
+        return bytes(buf)
+
+    def end(self):
+        buf = self.buf
+        self.buf = None
+        return bytes(buf)
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -310,7 +342,7 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
             raise ValueError("Argument 'qry' cannot be None.")
 
         if self.qry is None:
-            self.qry = qry
+            self.qry = deepcopy(qry)
 
         # Get the search format ID and name
         self.format_id = self.qry["selectedtemplate"]
@@ -377,7 +409,7 @@ class RecordToMzxmlZIP(ABC):
 
     def msrun_sample_rec_to_file(
         self, msrsrec: MSRunSample
-    ) -> Tuple[Optional[str], Any]:
+    ) -> Tuple[Optional[str], FieldFile]:
         """Takes an MSRunSample record and returns an export path string and a File object.  The path is generated as:
         date/researcher/instrument/protocol/polarity/mz_min-mz_max/filename.
 
@@ -386,7 +418,7 @@ class RecordToMzxmlZIP(ABC):
         Exceptions:
             None
         Returns:
-            export_path, file_location (str, File)
+            export_path, file_location (str, FieldFile)
         """
         return msrsrec.mzxml_export_path, msrsrec.ms_data_file.file_location
 
@@ -495,24 +527,42 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
         # export path and a file_location field value from an ArchiveFile record)
         self.converter = RecordToMzxmlZIP.get_converter_object(self.format_id)
 
+        # Generate the content of the metadata file that will accompany the mzXML files in the zip archive.
         self.asdtv = AdvancedSearchDownloadMzxmlTSVView(qry=self.qry, res=self.res)
-        with io.StringIO() as metadata_io:
-            metadata_tsv_writer = csv.writer(metadata_io, delimiter="\t")
-            metadata_content = self.asdtv.tsv_iterator(metadata_tsv_writer)
+        # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
+        pseudo_buffer = Echo()
+        metadata_tsv_writer: "_csv._writer" = csv.writer(pseudo_buffer, delimiter="\t")
+        metadata_content = "".join(list(self.asdtv.tsv_iterator(metadata_tsv_writer)))
 
-        zipio = BytesIO()
-        with zipfile.ZipFile(zipio, "w") as zipf:
-            return StreamingHttpResponse(
-                self.mzxml_zip_iterator(zipf, metadata_content),
-                content_type=self.content_type,
-                headers={
-                    "Content-Disposition": f"attachment; filename={self.filename}"
-                },
-            )
+        return StreamingHttpResponse(
+            self.mzxml_zip_iterator(metadata_content),
+            content_type=self.content_type,
+            headers={"Content-Disposition": f"attachment; filename={self.filename}"},
+        )
 
-    def mzxml_zip_iterator(self, zipf, metadata_content):
-        yield zipf.writestr(self.asdtv.filename, metadata_content)
-        for file_tuple in self.converter.queryset_to_files_iterator(self.res):
-            export_path, file_obj = file_tuple
-            with open(file_obj, "r") as fl:
-                yield zipf.writestr(export_path, fl.read())
+    def mzxml_zip_iterator(self, metadata_content):
+        """Builds a zip archive stream that contains all mzXML files from the user's search and includes a metadata file
+        describing all of the files.
+
+        Based on: https://stackoverflow.com/a/77515363/2057516
+
+        Args:
+            metadata_content (str): The content of the metadata file
+        Exceptions:
+            None
+        Yields:
+            files added to the zip archive
+        """
+        buffer = ZipBuffer()
+
+        # Create a zip file object
+        with ZipFile(buffer, "w", ZIP_DEFLATED) as zipf:
+            zipf.writestr(self.asdtv.filename, metadata_content)
+            yield buffer.take()
+            for file_tuple in self.converter.queryset_to_files_iterator(self.res):
+                export_path, file_obj = file_tuple
+                with file_obj.file.open("r") as fl:
+                    zipf.writestr(export_path, fl.read())
+                    yield buffer.take()
+
+        yield buffer.end()

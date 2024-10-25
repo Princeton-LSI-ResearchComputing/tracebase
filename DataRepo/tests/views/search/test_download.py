@@ -1,4 +1,6 @@
 import json
+import zipfile
+from io import BytesIO
 
 from django.http import StreamingHttpResponse
 
@@ -9,11 +11,15 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.views.search.download import (
     AdvancedSearchDownloadMzxmlTSVView,
+    AdvancedSearchDownloadMzxmlZIPView,
     AdvancedSearchDownloadView,
     Echo,
     PeakDataToMzxmlTSV,
+    PeakDataToMzxmlZIP,
     PeakGroupsToMzxmlTSV,
+    PeakGroupsToMzxmlZIP,
     RecordToMzxmlTSV,
+    RecordToMzxmlZIP,
 )
 
 empty_tree = {
@@ -56,14 +62,14 @@ class EchoTests(TracebaseTestCase):
         self.assertEqual("test", Echo().write("test"))
 
 
-def assert_StreamingHttpResponse(testcase_obj, response):
+def assert_StreamingHttpResponse(testcase_obj, response, filename_start, content_type):
     testcase_obj.assertIsInstance(response, StreamingHttpResponse)
     testcase_obj.assertEqual(200, response.status_code)
     testcase_obj.assertIn("attachment", response.headers["Content-Disposition"])
     testcase_obj.assertIn(
-        "filename=PeakGroups_", response.headers["Content-Disposition"]
+        f"filename={filename_start}", response.headers["Content-Disposition"]
     )
-    testcase_obj.assertEqual("application/text", response.headers["Content-Type"])
+    testcase_obj.assertEqual(content_type, response.headers["Content-Type"])
 
 
 class BaseAdvancedSearchDownloadViewTests(TracebaseTestCase):
@@ -109,7 +115,7 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
         form.is_valid()
         asdv = AdvancedSearchDownloadView()
         response = asdv.form_valid(form)
-        assert_StreamingHttpResponse(self, response)
+        assert_StreamingHttpResponse(self, response, "PeakGroups_", "application/text")
         expected_header1 = "# Download Time: ".encode()
         expected_header2 = (
             "# Advanced Search Query: {'selectedtemplate': 'pgtemplate', "
@@ -292,6 +298,7 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
 
 
 class AdvancedSearchDownloadMzxmlTSVViewTests(BaseAdvancedSearchDownloadViewTests):
+    # test_form_valid implicitly tests the tsv_iterator method
     def test_form_valid(self):
         form_data = {"qryjson": json.dumps(test_qry)}
         form = AdvSearchDownloadForm(data=form_data)
@@ -299,7 +306,7 @@ class AdvancedSearchDownloadMzxmlTSVViewTests(BaseAdvancedSearchDownloadViewTest
         form.is_valid()
         asdv = AdvancedSearchDownloadMzxmlTSVView()
         response = asdv.form_valid(form)
-        assert_StreamingHttpResponse(self, response)
+        assert_StreamingHttpResponse(self, response, "PeakGroups_", "application/text")
         expected1 = "# Download Time: ".encode()
         expected2 = (
             "nmzXML File\tPolarity\tMZ Min\tMZ Max\tSample\tTissue\tDate Collected\tCollection Time (m)\tHandler\t"
@@ -318,33 +325,96 @@ class AdvancedSearchDownloadMzxmlTSVViewTests(BaseAdvancedSearchDownloadViewTest
         self.assertIn(str(expected2)[2:-1], content)
 
     def test_prepare_download(self):
-        # TODO: Implement test
-        pass
+        asdmtv = AdvancedSearchDownloadMzxmlTSVView()
+        asdmtv.prepare_download(qry=test_qry)
+        self.assertEqual(test_qry, asdmtv.qry)
+        self.assertEqual(36, asdmtv.res.count())
 
 
 class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
     def test_msrun_sample_rec_to_file(self):
-        # TODO: Implement test
-        pass
+        pgtmz = PeakGroupsToMzxmlZIP()
+        export_path, file_obj = pgtmz.msrun_sample_rec_to_file(
+            self.res.first().msrun_sample
+        )
+        self.assertEqual(
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_t.mzXML",
+            export_path,
+        )
+        self.assertEqual(
+            "archive_files/2024-10/ms_data/xzl5_t.mzXML",
+            file_obj.name,
+        )
 
     def test_get_converter_object(self):
-        # TODO: Implement test
-        pass
+        self.assertIsInstance(
+            RecordToMzxmlZIP.get_converter_object("pdtemplate"),
+            PeakDataToMzxmlZIP,
+        )
 
     def test_PeakGroupsToMzxmlZIP_queryset_to_files_iterator(self):
-        # TODO: Implement test
-        pass
+        pgtmt = PeakGroupsToMzxmlZIP()
+        # Slicing the queryset to make the expected test data more manageable
+        file_tuples = list(pgtmt.queryset_to_files_iterator(self.res[0:1]))
+        self.assertEqual(
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_t.mzXML",
+            file_tuples[0][0],
+        )
+        self.assertEqual(
+            "archive_files/2024-10/ms_data/xzl5_t.mzXML",
+            file_tuples[0][1].name,
+        )
 
     def test_PeakDataToMzxmlZIP_queryset_to_files_iterator(self):
-        # TODO: Implement test
-        pass
+        pdqry = test_qry.copy()
+        pdqry["selectedtemplate"] = "pdtemplate"
+        pdtmt = PeakDataToMzxmlZIP()
+        res = self.asdv.get_query_results(pdqry)
+        # Slicing the queryset to make the expected test data more manageable
+        file_tuples = list(pdtmt.queryset_to_files_iterator(res[0:1]))
+        self.assertEqual(
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_panc.mzXML",
+            file_tuples[0][0],
+        )
+        self.assertEqual(
+            "archive_files/2024-10/ms_data/xzl5_panc.mzXML",
+            file_tuples[0][1].name,
+        )
 
 
 class AdvancedSearchDownloadMzxmlZIPViewTests(BaseAdvancedSearchDownloadViewTests):
-    def test_form_valid(self):
-        # TODO: Implement test
-        pass
+    qry = test_qry
 
-    def test_mzxml_zip_iterator(self):
-        # TODO: Implement test
-        pass
+    # test_form_valid implicitly tests the mzxml_zip_iterator method
+    def test_form_valid(self):
+        form_data = {"qryjson": json.dumps(self.qry)}
+        form = AdvSearchDownloadForm(data=form_data)
+        # This creates form.cleaned_data (so that form_valid doesn't complain)
+        form.is_valid()
+        asdmz = AdvancedSearchDownloadMzxmlZIPView()
+        response = asdmz.form_valid(form)
+        assert_StreamingHttpResponse(
+            self, response, "PeakGroups_mzxmls_", "application/zip"
+        )
+
+        expected_mzxml_files = [
+            # "PeakGroups_25.10.2024.16.39.05.tsv",  # timestamp will be different
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_t.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl5_panc.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_t.mzXML",
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brownFat.mzXML",
+        ]
+
+        with BytesIO(response.getvalue()) as zip_buffer:
+            with zipfile.ZipFile(zip_buffer, "r") as zip_file:
+
+                self.assertIsNone(zip_file.testzip())
+                files_list = zip_file.namelist()
+
+        metadata_file = files_list[0]
+        self.assertTrue(metadata_file.startswith("PeakGroups_"))
+        self.assertTrue(metadata_file.endswith(".tsv"))
+        mzxml_files = files_list[1:]
+        self.assertEqual(expected_mzxml_files, mzxml_files)
