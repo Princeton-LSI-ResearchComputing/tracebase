@@ -164,7 +164,7 @@ class AdvSearchDownloadForm(Form):
     # type] might be something like "results-table tsv").  The point is, it's customizable.  Use whatever string you
     # want in order to decide what download view to use.  And note that not every search format may support every
     # download type.  E.g. The FCirc search format does not include mzXML files.
-    download_format = CharField(widget=HiddenInput())
+    download_format = CharField(widget=HiddenInput(), required=False)
 
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
