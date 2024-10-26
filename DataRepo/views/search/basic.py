@@ -60,7 +60,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
     except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
         raise Http404(e)
-    download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+    download_forms = [AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})]
 
     rows_per_page = int(
         get_cookie(
@@ -97,7 +97,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
             "res": res,
             "stats": stats,
             "pager": pager,
-            "download_form": download_form,
+            "download_forms": download_forms,
             "debug": settings.DEBUG,
             "root_group": root_group,
             "mode": "search",

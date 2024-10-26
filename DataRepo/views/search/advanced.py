@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from django.conf import settings
 from django.http import Http404
@@ -58,8 +59,8 @@ class AdvancedSearchView(MultiFormsView):
     # This form submits to the AdvSearchDownloadView
     #
 
-    # Advanced search download form
-    download_form = AdvSearchDownloadForm()
+    # Advanced search download forms
+    download_forms: List[AdvSearchDownloadForm] = [AdvSearchDownloadForm()]
 
     # MultiFormView class vars
     template_name = "DataRepo/search/query.html"
@@ -131,10 +132,12 @@ class AdvancedSearchView(MultiFormsView):
 
         qry = formsetsToDict(formset, self.form_classes)
         res = {}
-        download_form = {}
+        download_forms = [AdvSearchDownloadForm()]
 
         if isQryObjValid(qry, self.basf.form_classes.keys()):
-            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            download_forms = [
+                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            ]
             rows_per_page = int(
                 self.get_template_cookie(
                     qry["selectedtemplate"],
@@ -172,7 +175,7 @@ class AdvancedSearchView(MultiFormsView):
                 stats=stats,
                 forms=self.form_classes,
                 qry=qry,
-                download_form=download_form,
+                download_forms=download_forms,
                 root_group=root_group,
                 debug=settings.DEBUG,
                 pager=self.pager,
@@ -205,7 +208,7 @@ class AdvancedSearchView(MultiFormsView):
                 res={},
                 forms=self.form_classes,
                 qry=qry,
-                download_form=AdvSearchDownloadForm(),
+                download_forms=[AdvSearchDownloadForm()],
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
@@ -297,7 +300,9 @@ class AdvancedSearchView(MultiFormsView):
             # clicked, but it still seems to work.  If however, the form creation in the first case is moved to the
             # bottom of the block, the downloaded file will only contain the header and will not be named properly...
             # Might be a (Safari) browser issue (according to stack).
-            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            download_forms = [
+                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            ]
             res, tot, stats = self.basv_metadata.performQuery(
                 qry,
                 qry["selectedtemplate"],
@@ -320,7 +325,9 @@ class AdvancedSearchView(MultiFormsView):
             # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
             # object isn't built correctly when the initial browse link is clicked)
             qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
-            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            download_forms = [
+                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            ]
 
         # If we received populated stats from the paging form (i.e. they were previously calculated)
         if not generate_stats:
@@ -347,7 +354,7 @@ class AdvancedSearchView(MultiFormsView):
                 stats=stats,
                 forms=self.form_classes,
                 qry=qry,
-                download_form=download_form,
+                download_forms=download_forms,
                 debug=settings.DEBUG,
                 root_group=root_group,
                 pager=self.pager,
@@ -395,9 +402,9 @@ class AdvancedSearchView(MultiFormsView):
                 qry = context["qry"]
 
             if mode == "browse":
-                context["download_form"] = AdvSearchDownloadForm(
-                    initial={"qryjson": json.dumps(qry)}
-                )
+                context["download_forms"] = [
+                    AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+                ]
                 self.pager.update()
                 offset = 0
                 (
@@ -428,9 +435,9 @@ class AdvancedSearchView(MultiFormsView):
             and ("res" not in context or len(context["res"]) == 0)
         ):
             qry = context["qry"]
-            context["download_form"] = AdvSearchDownloadForm(
-                initial={"qryjson": json.dumps(qry)}
-            )
+            context["download_forms"] = [
+                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            ]
             (
                 context["res"],
                 context["tot"],

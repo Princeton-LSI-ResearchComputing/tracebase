@@ -89,10 +89,11 @@
                 <div style="float: right;">
                     <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
                         {% csrf_token %}
-                        {{ download_form.qryjson }}
+                        {{ download_forms.0.qryjson }}
+                        {{ download_forms.0.download_format }}
                         <button type="submit" class="btn btn-primary mb-2" id="advanced-download-submit" title="Export data"><i class="fa fa-download"></i></button>
                         <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
-                        {{ download_form.management_form }}
+                        {{ download_forms.0.management_form }}
                     </form>
                 </div>
 
