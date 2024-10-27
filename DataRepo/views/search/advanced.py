@@ -446,7 +446,8 @@ class AdvancedSearchView(MultiFormsView):
     def get_download_form_tuples(cls, qry=None) -> List[Tuple[str, AdvSearchDownloadForm, str]]:
         """Returns a list of tuples containing the download button name, a form instance, and the form action.
 
-        The returned list always contains the default download formst (TSV).
+        The returned list always contains the default download formst (TSV).  It adds other entries based on the
+        selected format in the qry object.
 
         Assumptions:
             The supplied qry object is assumed to be valid (or None)
@@ -466,4 +467,16 @@ class AdvancedSearchView(MultiFormsView):
                 "/DataRepo/search_advanced_tsv/",  # Form action
             )
         ]
+
+        selected_template = qry["selectedtemplate"]
+        templates_with_mzxmls = ["pgtemplate", "pdtemplate"]
+        if selected_template in templates_with_mzxmls:
+            download_form_tuples.append(
+                (
+                    "mzXMLs",  # Button name
+                    AdvSearchDownloadForm(**asdf_kwargs),  # Download form
+                    "/DataRepo/search_advanced_mzxml/",  # Form action
+                )
+            )
+
         return download_form_tuples

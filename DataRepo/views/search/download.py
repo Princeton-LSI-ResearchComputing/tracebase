@@ -150,13 +150,7 @@ class AdvancedSearchDownloadView(FormView):
                 "tot": tot,
                 "stats": stats,
                 "pager": asv.pager,
-                "download_forms": [
-                    (
-                        "TSV",  # Button name
-                        AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)}),  # Download form
-                        "/DataRepo/search_advanced_tsv/",  # Form action
-                    )
-                ],
+                "download_forms": asv.get_download_form_tuples(qry=qry),
                 "forms": AdvSearchForm().form_classes,
                 "qry": qry,
                 "debug": settings.DEBUG,

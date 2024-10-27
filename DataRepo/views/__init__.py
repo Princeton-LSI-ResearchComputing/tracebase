@@ -29,6 +29,7 @@ from .models import (
 from .nav import home
 from .search import (
     AdvancedSearchDownloadView,
+    AdvancedSearchDownloadMzxmlZIPView,
     AdvancedSearchView,
     search_basic,
     view_search_results,
@@ -42,6 +43,7 @@ __all__ = [
     "view_search_results",
     "AdvancedSearchView",
     "AdvancedSearchDownloadView",
+    "AdvancedSearchDownloadMzxmlZIPView",
     "ArchiveFileDetailView",
     "ArchiveFileListView",
     "CompoundListView",
