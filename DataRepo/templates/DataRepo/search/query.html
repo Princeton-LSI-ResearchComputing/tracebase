@@ -69,11 +69,13 @@
                 })
 
                 {% if res %}
-                    var dlform = document.getElementById("advanced-search-download-form")
-                    document.getElementById("advanced-download-submit").addEventListener("click", function () {
-                        dlform.submit(function (event) {
-                            // Stop form from submitting normally
-                            event.preventDefault();
+                    var dlforms = document.getElementsByClassName("advanced-search-download-form");
+                    dlforms.forEach(function (dlform) {
+                        dlform.getElementById("advanced-download-submit").addEventListener("click", function () {
+                            dlform.submit(function (event) {
+                                // Stop form from submitting normally
+                                event.preventDefault();
+                            })
                         })
                     })
                 {% endif %}

@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Tuple
 
 from django.conf import settings
 from django.http import Http404
@@ -60,7 +60,7 @@ class AdvancedSearchView(MultiFormsView):
     #
 
     # Advanced search download forms
-    download_forms: List[AdvSearchDownloadForm] = [AdvSearchDownloadForm()]
+    download_forms: List[Tuple[str, AdvSearchDownloadForm, str]]
 
     # MultiFormView class vars
     template_name = "DataRepo/search/query.html"
@@ -132,12 +132,9 @@ class AdvancedSearchView(MultiFormsView):
 
         qry = formsetsToDict(formset, self.form_classes)
         res = {}
-        download_forms = [AdvSearchDownloadForm()]
 
         if isQryObjValid(qry, self.basf.form_classes.keys()):
-            download_forms = [
-                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            ]
+            download_forms = self.get_download_form_tuples(qry=qry)
             rows_per_page = int(
                 self.get_template_cookie(
                     qry["selectedtemplate"],
@@ -164,6 +161,7 @@ class AdvancedSearchView(MultiFormsView):
                 rows=rows_per_page,
             )
         else:
+            download_forms = self.get_download_form_tuples(qry=None)
             # Log a warning
             print("WARNING: Invalid query root:", qry)
 
@@ -208,7 +206,7 @@ class AdvancedSearchView(MultiFormsView):
                 res={},
                 forms=self.form_classes,
                 qry=qry,
-                download_forms=[AdvSearchDownloadForm()],
+                download_forms=self.get_download_form_tuples(qry=qry),
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
@@ -300,9 +298,7 @@ class AdvancedSearchView(MultiFormsView):
             # clicked, but it still seems to work.  If however, the form creation in the first case is moved to the
             # bottom of the block, the downloaded file will only contain the header and will not be named properly...
             # Might be a (Safari) browser issue (according to stack).
-            download_forms = [
-                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            ]
+            download_forms = self.get_download_form_tuples(qry=qry)
             res, tot, stats = self.basv_metadata.performQuery(
                 qry,
                 qry["selectedtemplate"],
@@ -325,9 +321,7 @@ class AdvancedSearchView(MultiFormsView):
             # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
             # object isn't built correctly when the initial browse link is clicked)
             qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
-            download_forms = [
-                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            ]
+            download_forms = self.get_download_form_tuples(qry=qry)
 
         # If we received populated stats from the paging form (i.e. they were previously calculated)
         if not generate_stats:
@@ -402,9 +396,7 @@ class AdvancedSearchView(MultiFormsView):
                 qry = context["qry"]
 
             if mode == "browse":
-                context["download_forms"] = [
-                    AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-                ]
+                context["download_forms"] = self.get_download_form_tuples(qry=qry)
                 self.pager.update()
                 offset = 0
                 (
@@ -435,9 +427,7 @@ class AdvancedSearchView(MultiFormsView):
             and ("res" not in context or len(context["res"]) == 0)
         ):
             qry = context["qry"]
-            context["download_forms"] = [
-                AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            ]
+            context["download_forms"] = self.get_download_form_tuples(qry=qry)
             (
                 context["res"],
                 context["tot"],
@@ -451,3 +441,29 @@ class AdvancedSearchView(MultiFormsView):
                 },
                 tot=context["tot"],
             )
+
+    @classmethod
+    def get_download_form_tuples(cls, qry=None) -> List[Tuple[str, AdvSearchDownloadForm, str]]:
+        """Returns a list of tuples containing the download button name, a form instance, and the form action.
+
+        The returned list always contains the default download formst (TSV).
+
+        Assumptions:
+            The supplied qry object is assumed to be valid (or None)
+        Args:
+            qry (Optional[dict]): A qry object
+        Exceptions:
+            None
+        Returns:
+            download_form_tuples (List[Tuple[str, AdvSearchDownloadForm, str]])
+        """
+        asdf_kwargs = {} if qry is None else {"initial": {"qryjson": json.dumps(qry)}}
+        # Handle the always-present default format
+        download_form_tuples = [
+            (
+                "TSV",  # Button name
+                AdvSearchDownloadForm(**asdf_kwargs),  # Download form
+                "/DataRepo/search_advanced_tsv/",  # Form action
+            )
+        ]
+        return download_form_tuples

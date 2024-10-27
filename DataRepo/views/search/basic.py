@@ -60,7 +60,13 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
     except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
         raise Http404(e)
-    download_forms = [AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})]
+    download_forms = [
+        (
+            "TSV",  # Button name
+            AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)}),  # Download form
+            "/DataRepo/search_advanced_tsv/",  # Form action
+        )
+    ]
 
     rows_per_page = int(
         get_cookie(
