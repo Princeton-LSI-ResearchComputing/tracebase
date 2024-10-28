@@ -388,6 +388,7 @@ class BuildSubmissionView(FormView):
         self.peak_annot_filenames = []
         self.peak_annotations_loaders = []
         user_file_formats: Dict[str, str] = {}
+        self.files_with_format_errors = []
 
         if peak_annot_files is not None and len(peak_annot_files) > 0:
             for index, peak_annot_file in enumerate(peak_annot_files):
@@ -484,10 +485,13 @@ class BuildSubmissionView(FormView):
         # Now we will sort through the peak annotation files that were supplied and create loader objects for them to
         # extract autofill data
         peak_annot_loader_class: Type[PeakAnnotationsLoader]
+        allowed_exts = [".csv", ".tsv"]
+        exc: Exception
 
         if peak_annot_files is not None and len(peak_annot_files) > 0:
             for index, peak_annot_file in enumerate(peak_annot_files):
                 peak_annot_filename = peak_annot_filenames[index]
+                ext = list(os.path.splitext(peak_annot_filename))[1]
 
                 # Now we will determine the format to decide which loader to create.
                 # We will defer to the user's supplied format (if any)
@@ -528,6 +532,47 @@ class BuildSubmissionView(FormView):
                             # We don't need the default sequence info - we only want to read the file
                         )
                     )
+                elif (
+                    ext in allowed_exts
+                    and self.autofill_only_mode
+                    and set(matching_formats) == set(["isocorr", "isoautocorr"])
+                ):
+                    # For the purposes of autofill, "isocorr" and "isoautocorr" versions are similar enough to be able
+                    # to extract data using one or the other version
+                    peak_annot_loader_class = IsocorrLoader
+                    self.files_with_format_errors.append(peak_annot_filenames[index])
+                    print("Creating peak annotations loader")
+                    # Create an instance of the loader, appended onto the loaders
+                    self.peak_annotations_loaders.append(
+                        peak_annot_loader_class(
+                            # These are the essential arguments
+                            df=df,
+                            file=peak_annot_file,
+                            # We don't need the default sequence info - we only want to read the file
+                        )
+                    )
+
+                    # Log a warning for the user
+                    suggestion = (
+                        f"The format of peak annotation file '{peak_annot_filename}' is being temporarily set to "
+                        "'isocorr' for sample name extraction.  You must add the correct format (one of "
+                        f"{matching_formats}) on row {index + 2} to the 'File Format' column in the 'Peak Annotation "
+                        "Files' sheet for this file."
+                    )
+
+                    exc = MultiplePeakAnnotationFileFormats(
+                        matching_formats,
+                        file=peak_annot_filenames[index],
+                        suggestion=suggestion,
+                    )
+
+                    self.load_status_data.set_load_exception(
+                        exc,
+                        peak_annot_filenames[index],
+                        top=False,
+                        default_is_error=False,
+                        default_is_fatal=True,
+                    )
                 else:
                     suggestion = (
                         "Unable to process the file.  Note that format determination is made using sheet names and "
@@ -535,7 +580,6 @@ class BuildSubmissionView(FormView):
                         "common header names."
                     )
 
-                    exc: Exception
                     if len(matching_formats) == 0:
                         self.peak_annotations_loaders.append(None)
                         exc = UnknownPeakAnnotationFileFormat(
@@ -1837,7 +1881,11 @@ class BuildSubmissionView(FormView):
                 PeakAnnotationFilesLoader.DataHeaders.FILE: peak_annot_filename,
                 # The format was assigned either by the user in the file or automatically determined.  Doesn't matter
                 # how we got it, it's now a candidate for autfill.
-                PeakAnnotationFilesLoader.DataHeaders.FORMAT: peak_annot_loader.format_code,
+                PeakAnnotationFilesLoader.DataHeaders.FORMAT: (
+                    peak_annot_loader.format_code
+                    if peak_annot_filename not in self.files_with_format_errors
+                    else None
+                ),
                 # Always fill in what we have of the seqname
                 PeakAnnotationFilesLoader.DataHeaders.SEQNAME: partial_seqname,
             }
