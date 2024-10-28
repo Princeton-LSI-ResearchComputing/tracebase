@@ -353,7 +353,7 @@ def polarity_name_to_sign(name):
 
 
 @register.filter
-def sigdig(num, digits=3):
+def sigdig(num, digits=3) -> str:
     """Return the supplied num with the significant number of digits."""
     return f"{num:.{digits}g}"
 

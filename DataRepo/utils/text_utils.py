@@ -56,3 +56,8 @@ def is_number(val):
     except Exception:
         return False
     return True
+
+
+def sigfig(num, figures=3) -> str:
+    """Return the supplied num with the significant number of figures/digits."""
+    return f"{num:.{figures}g}"
