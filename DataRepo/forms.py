@@ -459,7 +459,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
         def is_valid(self):
             super().is_valid()
 
-            allowed_delimited_exts = ["csv", "tsv"]
+            allowed_delimited_exts = [".csv", ".tsv"]
 
             # Fields we need to check
             study_doc = self.cleaned_data.get("study_doc", None)
@@ -474,7 +474,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 peak_annot_filepath = peak_annotation_file.temporary_file_path()
                 if not is_excel(peak_annot_filepath):
                     # Excel files do not need a specific extension, but delimited files do...
-                    ext = list(os.path.splitext(peak_annotation_file))[1]
+                    ext = list(os.path.splitext(str(peak_annotation_file)))[1]
                     if ext not in allowed_delimited_exts:
                         return False
 
@@ -497,7 +497,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 self.cleaned_data (dict)
             """
             super().clean()
-            allowed_delimited_exts = ["csv", "tsv"]
+            allowed_delimited_exts = [".csv", ".tsv"]
 
             # Fields (excluding mode)
             study_doc = self.cleaned_data.get("study_doc", None)
@@ -547,12 +547,15 @@ def create_BuildSubmissionForm() -> Type[Form]:
                 peak_annot_filepath = peak_annotation_file.temporary_file_path()
                 if not is_excel(peak_annot_filepath):
                     # Excel files do not need a specific extension, but delimited files do...
-                    ext = (os.path.splitext(peak_annotation_file))[1]
+                    ext = (os.path.splitext(str(peak_annotation_file)))[1]
                     if ext not in allowed_delimited_exts:
                         self.add_error(
                             None,
                             ValidationError(
-                                f"Peak annotation files must be excel or {allowed_delimited_exts}.",
+                                (
+                                    f"Peak annotation files must be excel or its extension '{ext}' must be one of: "
+                                    f"{allowed_delimited_exts}."
+                                ),
                                 code="InvalidPeakAnnotFile",
                             ),
                         )
