@@ -750,7 +750,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             else:
                 self.existed(PeakGroup.__name__)
         except MultiplePeakGroupRepresentation as mpgr:
-            self.aggregated_errors_object.buffer_error(mpgr.set_formatted_message(suggestion=self.multrep_suggestion))
+            self.aggregated_errors_object.buffer_error(
+                mpgr.set_formatted_message(suggestion=self.multrep_suggestion)
+            )
             self.errored(PeakGroup.__name__)
             raise RollbackException()
         except NoTracerLabeledElements as ntle:
