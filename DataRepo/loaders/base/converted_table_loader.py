@@ -825,7 +825,12 @@ class ConvertedTableLoader(TableLoader, ABC):
         # numeric, fill them with zeros.
         num_type_fill_dict = {}
         for col, typ in self.get_column_types().items():
-            if col in _outdf.columns and typ in [int, float]:
+            if col in _outdf.columns and typ in [
+                int,
+                float,
+                pd.Int64Dtype(),
+                pd.Float64Dtype(),
+            ]:
                 num_type_fill_dict[col] = 0
         if len(num_type_fill_dict.keys()) > 0:
             _outdf.fillna(num_type_fill_dict, inplace=True)

@@ -605,15 +605,21 @@ class StudyLoader(ConvertedTableLoader, ABC):
             dtypes (dict): Types keyed on header names (not keys)
         """
         if headers is not None:
-            return loader_class._get_column_types(headers, optional_mode=True)
+            dtypes, aes = loader_class._get_column_types(headers, optional_mode=True)
+            self.aggregated_errors_object.merge_aggregated_errors_object(aes)
+            return dtypes
 
         # TODO Get rid of (/refactor) the ProtocolsLoader to not use this "DataHeadersExcel" class attribute
         if hasattr(loader_class, "DataHeadersExcel"):
-            return loader_class._get_column_types(
+            dtypes, aes = loader_class._get_column_types(
                 loader_class.DataHeadersExcel, optional_mode=True
             )
+            self.aggregated_errors_object.merge_aggregated_errors_object(aes)
+            return dtypes
 
-        return loader_class._get_column_types(optional_mode=True)
+        dtypes, aes = loader_class._get_column_types(optional_mode=True)
+        self.aggregated_errors_object.merge_aggregated_errors_object(aes)
+        return dtypes
 
     def get_sheet_names_tuple(self):
         """Retrieve a tuple containing all of the loaders' sheet names.

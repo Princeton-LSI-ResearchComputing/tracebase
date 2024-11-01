@@ -432,17 +432,21 @@ class BuildSubmissionView(FormView):
                 # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
                 # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
                 # in order to avoid accidental int(/etc) types...
+                # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make
+                # sure this solution is comprehensive before I refactor this code (more)
+                dtypes, aes = PeakAnnotationFilesLoader._get_column_types(
+                    optional_mode=True
+                )
                 pafl = PeakAnnotationFilesLoader(
                     df=read_from_file(
                         self.study_file,
                         sheet=PeakAnnotationFilesLoader.DataSheetName,
-                        dtype=PeakAnnotationFilesLoader._get_column_types(
-                            optional_mode=True
-                        ),
+                        dtype=dtypes,
                     ),
                     file=self.study_file,
                     filename=self.study_filename,
                 )
+                pafl.aggregated_errors_object.merge_aggregated_errors_object(aes)
                 for _, row in pafl.df.iterrows():
                     if pafl.is_row_empty(row):
                         continue
@@ -1324,15 +1328,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = AnimalsLoader._get_column_types(optional_mode=True)
         loader = AnimalsLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=AnimalsLoader.DataSheetName,
-                dtype=AnimalsLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
         seen = {
             "infusates": defaultdict(dict),
             "tracers": defaultdict(dict),
@@ -1508,15 +1516,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = SamplesLoader._get_column_types(optional_mode=True)
         loader = SamplesLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=SamplesLoader.DataSheetName,
-                dtype=SamplesLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
         seen = {
             "tissues": defaultdict(dict),
             "animals": defaultdict(dict),
@@ -1548,15 +1560,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = PeakAnnotationFilesLoader._get_column_types(optional_mode=True)
         loader = PeakAnnotationFilesLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=PeakAnnotationFilesLoader.DataSheetName,
-                dtype=PeakAnnotationFilesLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
         seen = {
             "sequences": defaultdict(dict),
             "lcprotocols": defaultdict(dict),
@@ -1621,15 +1637,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = MSRunsLoader._get_column_types(optional_mode=True)
         loader = MSRunsLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=MSRunsLoader.DataSheetName,
-                dtype=MSRunsLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
         # We're going to ignore the sample column.  It's way more likely it will have been auto-filled itself, and the
         # samples sheet is populated at the same time, so doing that here is just wasted cycles.  Instead, we're looking
         # for manually filled-in data to autofill elsewhere.
@@ -1728,15 +1748,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = InfusatesLoader._get_column_types(optional_mode=True)
         loader = InfusatesLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=InfusatesLoader.DataSheetName,
-                dtype=InfusatesLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
 
         # Convenience shortcut
         trcr_sheet_cols = self.dfs_dict[TracersLoader.DataSheetName]
@@ -1769,15 +1793,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = TracersLoader._get_column_types(optional_mode=True)
         loader = TracersLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=TracersLoader.DataSheetName,
-                dtype=TracersLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
         seen = {"compounds": defaultdict(dict)}
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
@@ -1795,15 +1823,19 @@ class BuildSubmissionView(FormView):
         # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
         # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
         # in order to avoid accidental int(/etc) types...
+        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # solution is comprehensive before I refactor this code (more)
+        dtypes, aes = SequencesLoader._get_column_types(optional_mode=True)
         loader = SequencesLoader(
             df=read_from_file(
                 self.study_file,
                 sheet=SequencesLoader.DataSheetName,
-                dtype=SequencesLoader._get_column_types(optional_mode=True),
+                dtype=dtypes,
             ),
             file=self.study_file,
             filename=self.study_filename,
         )
+        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
         seen = {"lcprotocols": defaultdict(dict)}
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
