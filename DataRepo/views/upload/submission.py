@@ -88,6 +88,7 @@ class BuildSubmissionView(FormView):
         "None",  # none_vals is(/should be) evaluated with the value inside str() to handle weird types
         "dummy",  # Some studies used this on rows for blank samples
         "NaT",  # This happens when a dfs_dict entry is changed to None (e.g. when replacing a "dummy" value)
+        "<NA>",  # This happens when the type is a pandas nullable type and the cell was empty
     ]
 
     # TODO: Until all sheets are supported, this variable will be used to filter the sheets obtained from StudyLoader
