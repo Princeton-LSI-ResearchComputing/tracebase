@@ -1079,6 +1079,7 @@ class TableLoader(ABC):
         try:
             self.set_headers()
         except TypeError as te:
+            self.aggregated_errors_object.buffer_warning(te)
             typeerrs.append(str(te))
             # TODO: Buffering at the caught exception would be better, because it provides a better trace.  Refactor
             # spots where I do this.
@@ -1087,6 +1088,7 @@ class TableLoader(ABC):
         try:
             self.set_defaults()
         except TypeError as te:
+            self.aggregated_errors_object.buffer_warning(te)
             typeerrs.append(str(te))
             # self.aggregated_errors_object.buffer_error(te)
 

@@ -844,7 +844,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             _merge_dict=_merge_dict["next_merge_dict"].copy(),
         )
 
-    def get_column_types(self):
+    def get_column_types(self, **kwargs):
         """Override of TableLoader.get_column_types, to add the original header types to the converted header types.
         Returns a dict of column types by header name (not header key).
 
@@ -859,7 +859,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             dtypes (dict): Types by header name (instead of by header key)
         """
         # Get the converted header types
-        dtypes = super().get_column_types()
+        dtypes = super().get_column_types(**kwargs)
         if dtypes is None:
             dtypes = {}
 
