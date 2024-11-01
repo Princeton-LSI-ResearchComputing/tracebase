@@ -205,28 +205,23 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Args:
             None
         Exceptions:
-            MultiplePeakGroupRepresentations
+            MultiplePeakGroupRepresentation
         Returns:
             None
         """
-        from DataRepo.models.utilities import exists_in_db
         from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
 
-        if (
-            not hasattr(self, "peak_annotation_file")
-            or self.peak_annotation_file is None
-        ):
-            # This cannot be a multiple representation issue if no peak annotation file is provided
-            return None
-
+        # Look for peak groups with the same name (i.e. compound) for the same sample
         conflicts = PeakGroup.objects.filter(
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,
         )
 
-        # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
-        if exists_in_db(self):
-            conflicts = conflicts.exclude(pk=self.pk)
+        # Exclude this peak group from the same file.  This also catches when the record already exists (e.g. doing an
+        # update).  Note that a peak_annotation_file is a required field.
+        conflicts = conflicts.exclude(
+            peak_annotation_file__pk=self.peak_annotation_file.pk
+        )
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentation(self, conflicts)
