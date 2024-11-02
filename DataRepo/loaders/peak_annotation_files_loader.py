@@ -221,6 +221,9 @@ class PeakAnnotationFilesLoader(TableLoader):
             None
         """
         for _, row in self.df.iterrows():
+            if self.is_skip_row():
+                continue
+
             # Determine the format
             filename, filepath, format_code = self.get_file_and_format(row)
 
