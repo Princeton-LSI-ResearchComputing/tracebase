@@ -582,12 +582,12 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
         if ignore_row_idxs is not None and rowidx in ignore_row_idxs:
             continue
 
-        # Ignore empty combos
-        empty_combo = True
+        # Ignore empty combos.  I.e. we will not count multiple occurrences of empty cells as duplicate rows.
+        empty_combo = False
         for ck in unique_col_keys:
             val = row.get(ck, None)
-            if val is not None or not isinstance(val, str) or val == "":
-                empty_combo = False
+            if val is not None or not isinstance(val, str) or val != "":
+                empty_combo = True
                 break
         if empty_combo:
             continue
