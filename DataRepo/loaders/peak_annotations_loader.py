@@ -109,10 +109,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     # List of required header keys
     DataRequiredHeaders = [
-        MEDMZ_KEY,
-        MEDRT_KEY,
         ISOTOPELABEL_KEY,
-        FORMULA_KEY,
         COMPOUND_KEY,
         SAMPLEHEADER_KEY,
         CORRECTED_KEY,
@@ -121,7 +118,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     # List of header keys for columns that require a value
     DataRequiredValues = [
         ISOTOPELABEL_KEY,
-        FORMULA_KEY,
         COMPOUND_KEY,
         SAMPLEHEADER_KEY,
         CORRECTED_KEY,
@@ -738,9 +734,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         rec_dict = {
             "msrun_sample": msrun_sample,
             "name": pgname,
-            "formula": formula,
             "peak_annotation_file": peak_annot_file,
         }
+
+        if formula is not None:
+            rec_dict["formula"] = formula
 
         try:
             rec, created = PeakGroup.objects.get_or_create(**rec_dict)
@@ -1818,13 +1816,6 @@ class AccucorLoader(PeakAnnotationsLoader):
     )
 
     OrigDataRequiredHeaders = {
-        "Original": [
-            "FORMULA",
-            "MEDMZ",
-            "MEDRT",
-            "ISOTOPELABEL",
-            "ORIGCOMPOUND",
-        ],
         "Corrected": [
             "CORRCOMPOUND",
             "CLABEL",
@@ -1857,7 +1848,17 @@ class AccucorLoader(PeakAnnotationsLoader):
             ),
             # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
             "Compound": lambda df: df["compound"],
-        }
+        },
+        "Corrected": {
+            "isotopeLabel": lambda df: df.apply(
+                lambda row: (
+                    "C13-label-" + str(row["C_Label"])
+                    if row["C_Label"] > 0
+                    else "C12 PARENT"
+                ),
+                axis=1,
+            ),
+        },
     }
 
     condense_columns_dict = {
@@ -1890,6 +1891,7 @@ class AccucorLoader(PeakAnnotationsLoader):
             "uncondensed_columns": [
                 "Compound",
                 "C_Label",
+                "isotopeLabel",
                 # The adductName column only ends up in this sheet due to earlier versions of Accucor not being aware
                 # that El Maven added it in later versions.
                 "adductName",
@@ -1903,14 +1905,13 @@ class AccucorLoader(PeakAnnotationsLoader):
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
             # Note, if adductName is erroneously in both sheets, merging will duplicate it with _x and _y suffixes
-            "on": ["Compound", "C_Label", "Sample Header"],
+            "on": ["Compound", "C_Label", "isotopeLabel", "Sample Header"],
             "left_columns": None,  # all
             "right_sheet": "Original",
             "right_columns": [
                 "formula",
                 "medMz",
                 "medRt",
-                "isotopeLabel",
                 "Raw Abundance",
             ],
             "how": "left",
@@ -1923,7 +1924,14 @@ class AccucorLoader(PeakAnnotationsLoader):
         "Corrected Abundance": 0,
         "medMz": 0,
         "medRt": 0,
-        "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
+        "isotopeLabel": lambda df: df.apply(
+            lambda row: (
+                "C13-label-" + str(row["C_Label"])
+                if row["C_Label"] > 0
+                else "C12 PARENT"
+            ),
+            axis=1,
+        ),
     }
 
     sort_columns = ["Sample Header", "Compound", "C_Label"]
