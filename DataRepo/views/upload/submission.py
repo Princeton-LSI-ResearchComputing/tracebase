@@ -1982,10 +1982,15 @@ class BuildSubmissionView(FormView):
             # Extracting compounds - using vectorized access of the dataframe because it's faster and we don't need
             # error tracking per line of the input file.
             print("EXTRACTING COMPOUNDS")
-            formulas = peak_annot_loader.df[peak_annot_loader.headers.FORMULA].to_list()
             pgname_strs = peak_annot_loader.df[
                 peak_annot_loader.headers.COMPOUND
             ].to_list()
+            if peak_annot_loader.headers.FORMULA in peak_annot_loader.df.columns:
+                formulas = peak_annot_loader.df[
+                    peak_annot_loader.headers.FORMULA
+                ].to_list()
+            else:
+                formulas = [None] * len(pgname_strs)
             seen = {}
             pgnames = []
             for index in range(len(pgname_strs)):
@@ -2047,24 +2052,29 @@ class BuildSubmissionView(FormView):
                         CompoundsLoader.DataHeaders.FORMULA: formula,
                     }
 
-            print("EXTRACTING AND INCLUDING ALL COMPOUNDS WITH MATCHING FORMULAS")
-            for formula in np.unique(formulas):
-                if formula in self.none_vals:
-                    continue
-                for compound_rec in Compound.objects.filter(formula__iexact=formula):
-                    if (
-                        compound_rec.name
-                        not in self.autofill_dict[CompoundsLoader.DataSheetName].keys()
+            if peak_annot_loader.headers.FORMULA in peak_annot_loader.df.columns:
+                print("EXTRACTING AND INCLUDING ALL COMPOUNDS WITH MATCHING FORMULAS")
+                for formula in np.unique(formulas):
+                    if formula in self.none_vals:
+                        continue
+                    for compound_rec in Compound.objects.filter(
+                        formula__iexact=formula
                     ):
-                        print(
-                            f"ADDING COMPOUND (BY FORMULA) {compound_rec.name} {compound_rec.formula}"
-                        )
-                        self.autofill_dict[CompoundsLoader.DataSheetName][
+                        if (
                             compound_rec.name
-                        ] = {
-                            CompoundsLoader.DataHeaders.NAME: compound_rec.name,
-                            CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
-                        }
+                            not in self.autofill_dict[
+                                CompoundsLoader.DataSheetName
+                            ].keys()
+                        ):
+                            print(
+                                f"ADDING COMPOUND (BY FORMULA) {compound_rec.name} {compound_rec.formula}"
+                            )
+                            self.autofill_dict[CompoundsLoader.DataSheetName][
+                                compound_rec.name
+                            ] = {
+                                CompoundsLoader.DataHeaders.NAME: compound_rec.name,
+                                CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
+                            }
 
         db_samples_exist = (
             Sample.objects.filter(name__in=list(all_samples.keys())).count() > 0
