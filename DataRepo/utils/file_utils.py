@@ -586,7 +586,7 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
         empty_combo = False
         for ck in unique_col_keys:
             val = row.get(ck, None)
-            if val is not None or not isinstance(val, str) or val != "":
+            if val is None or (isinstance(val, str) and val == ""):
                 empty_combo = True
                 break
         if empty_combo:
