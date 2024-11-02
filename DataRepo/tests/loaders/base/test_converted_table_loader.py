@@ -607,8 +607,8 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         self.assertIsInstance(aes.exceptions[0], RequiredHeadersError)
         self.assertIn(
             (
-                "missing: {'Unnamed sheet': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'mzXML Name', "
-                "'Corrected Abundance']}"
+                "missing: {'Corrected': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'mzXML Name', 'Corrected "
+                "Abundance']}"
             ),
             str(aes.exceptions[0]),
         )
@@ -798,19 +798,20 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             # dataframe, thus it seems like it's saying (for example) that "medMz" is missing (when it's not), because
             # to do the test, we skipped conversion and passed it a bogus original dataframe as if it was converted.
             # So, this result is the expected result given the manipulation.
-            # It also names the sheet as "Unnamed sheet" for the same reason.  The class is compatible with either a
-            # dict of dataframes or a dataframe.  When it's given a dataframe (as in this case), it doesn't know the
-            # name of the sheet, which is gets from the keys of the dict of dataframes that we did not provide.
+            # It also names the sheet as "absolte" because it assumes that when it's given a single sheet, it is the one
+            # required sheet.  The class is compatible with either a dict of dataframes or a dataframe.  When it's given
+            # a dataframe (as in this case), it doesn't really know the name of the sheet, which it gets from the keys
+            # of the dict of dataframes that we did not provide.  It just assumes it's the one it needs.
             (
-                "{'Unnamed sheet': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'compound', 'mzXML Name', 'Corrected "
+                "{'absolte': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'compound', 'mzXML Name', 'Corrected "
                 "Abundance']}"
             ),
             str(aes.exceptions[0]),
         )
 
-    def test_get_single_sheet(self):
+    def test_get_single_required_sheet(self):
         il = self.TestConvertedLoader2()  # pylint: disable=not-callable
-        sheet = il.get_single_sheet()
+        sheet = il.get_single_required_sheet()
         self.assertEqual("absolte", sheet)
 
     def test_get_existing_static_columns_success(self):
