@@ -606,10 +606,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], RequiredHeadersError)
         self.assertIn(
-            (
-                "missing: {'Corrected': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'mzXML Name', 'Corrected "
-                "Abundance']}"
-            ),
+            "missing: {'Corrected': ['medMz', 'medRt', 'isotopeLabel', 'formula']}",
             str(aes.exceptions[0]),
         )
 
