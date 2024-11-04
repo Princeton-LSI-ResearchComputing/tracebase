@@ -1,13 +1,14 @@
 import csv
 import json
-import os
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from datetime import datetime
-from typing import List, Union
+from typing import List, Optional, Tuple
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import _csv
 from django.conf import settings
-from django.db.models import Model
+from django.db.models.fields.files import FieldFile
 from django.http import Http404, StreamingHttpResponse
 from django.template import loader
 from django.views.generic.edit import FormView
@@ -22,13 +23,44 @@ from DataRepo.models.msrun_sample import MSRunSample
 from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.utils.file_utils import date_to_string
-from DataRepo.utils.text_utils import sigfig
 
 
 # See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files
 class Echo:
+    """A class that implements just the write method of a file-like interface.
+
+    This is intended for use by a csv writer.
+    """
+
     def write(self, value):
         return value
+
+
+class ZipBuffer:
+    """A class that implements a zip-file-like interface.
+
+    This is intended for use by a zipfile writer.
+    """
+
+    def __init__(self):
+        self.buf = bytearray()
+
+    def write(self, data):
+        self.buf.extend(data)
+        return len(data)
+
+    def flush(self):
+        pass
+
+    def take(self):
+        buf = self.buf
+        self.buf = bytearray()
+        return bytes(buf)
+
+    def end(self):
+        buf = self.buf
+        self.buf = None
+        return bytes(buf)
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -116,8 +148,8 @@ class RecordToMzxmlTSV(ABC):
     """This class defines a download format and type.  In this instance, it is a tsv file format that defines a file of
     mzXML metadata.  It is an abstract base class.  Derived classes define how to convert a queryset from one or more
     search Format classes belonging to the SearchGroup class.  Derived classes must set a format_id class attribute that
-    matches one of the SearchGroup Format classes, and a rec_to_rows method that does the conversion of a queryset
-    record to a list of lists.
+    matches one of the SearchGroup Format classes, and a queryset_to_rows_iterator method that does the conversion of a
+    queryset record to a list of lists.
 
     This class and its derived classes are used by AdvancedSearchDownloadMzxmlTSVView to generate mzXML tsv download
     data.
@@ -131,7 +163,7 @@ class RecordToMzxmlTSV(ABC):
         pass
 
     @abstractmethod
-    def rec_to_rows(self, rec: Model) -> Union[List[list], List[str]]:
+    def queryset_to_rows_iterator(self, qs):
         """Derived classes must implement this as a class attribute."""
         pass
 
@@ -161,26 +193,26 @@ class RecordToMzxmlTSV(ABC):
     ]
 
     @classmethod
-    def get_rec_to_rows_method(cls, format_id: str):
-        """Takes a format_id and returns a rec_to_rows method that comes from the subclass whose format_id matches the
-        supplied format_id.
+    def get_converter_object(cls, format_id: str):
+        """Takes a format_id and returns the derived class object that comes from the subclass whose format_id matches
+        the supplied format_id.
 
         Args:
             format_id (str)
         Exceptions:
             Http404
-        Returns
-            rec_to_rows (funtion)
+        Returns:
+            (RecordToMzxmlTSV)
         """
         for derived_class in cls.__subclasses__():
             if format_id == derived_class.format_id:
-                return derived_class().rec_to_rows
+                return derived_class()
         raise Http404(
             f"Invalid format ID: {format_id}.  Must be one of "
-            f"{[c.format_id for c in RecordToMzxmlTSV.__subclasses__()]}"
+            f"{[c.format_id for c in cls.__subclasses__()]}"
         )
 
-    def msrun_sample_rec_to_row(self, msrsrec: MSRunSample) -> List[str]:
+    def msrun_sample_rec_to_row(self, msrsrec: MSRunSample) -> List[Optional[str]]:
         """Takes an MSRunSample record and returns a list of values for the download of mzXML metadata.
 
         It is intended to accompany a series of mzXML files organized into subdirectories.
@@ -190,19 +222,10 @@ class RecordToMzxmlTSV(ABC):
         Exceptions:
             None
         Returns:
-            (List[str])
+            (List[Optional[str]])
         """
-        filepath = os.path.join(
-            date_to_string(msrsrec.msrun_sequence.date),
-            msrsrec.msrun_sequence.researcher,
-            msrsrec.msrun_sequence.instrument,
-            msrsrec.msrun_sequence.lc_method.name,
-            msrsrec.polarity,
-            f"{sigfig(msrsrec.mz_min)}-{sigfig(msrsrec.mz_max)}",
-            msrsrec.ms_data_file.filename,
-        )
         return [
-            filepath,
+            msrsrec.mzxml_export_path,
             msrsrec.polarity,
             msrsrec.mz_min,
             msrsrec.mz_max,
@@ -234,24 +257,24 @@ class PeakGroupsToMzxmlTSV(RecordToMzxmlTSV):
     # This format ID matches PeakGroupsFormat.id
     format_id = "pgtemplate"
 
-    def rec_to_rows(self, rec: PeakGroup) -> Union[List[list], List[str]]:
-        """Takes a PeakGroup record (from a queryset) and returns a list of lists of column data.
-
-        Each record can link to many mzXML files, hence it returns multiple rows.
+    def queryset_to_rows_iterator(self, qs):
+        """Takes a queryset of PeakGroup records and returns a list of lists of column data.
 
         Args:
-            rec (PeakGroup)
+            qs (QuerySet[PeakGroup])
         Exceptions:
             None
         Returns:
-            rows (List[List[str]])
+            (List[str])
         """
-        rows = []
-        msrsrec: MSRunSample
-        for msrsrec in rec.msrun_sample.sample.msrun_samples.all():
-            if msrsrec.ms_data_file:
-                rows.append(self.msrun_sample_rec_to_row(msrsrec))
-        return rows
+        seen = {}
+        pgrec: PeakGroup
+        for pgrec in qs.all():
+            msrsrec: MSRunSample
+            for msrsrec in pgrec.msrun_sample.sample.msrun_samples.all():
+                if msrsrec.id not in seen.keys() and msrsrec.ms_data_file is not None:
+                    yield self.msrun_sample_rec_to_row(msrsrec)
+                    seen[msrsrec.id] = True
 
 
 class PeakDataToMzxmlTSV(RecordToMzxmlTSV):
@@ -261,61 +284,85 @@ class PeakDataToMzxmlTSV(RecordToMzxmlTSV):
     # This format ID matches PeakDataFormat.id
     format_id = "pdtemplate"
 
-    def rec_to_rows(self, rec: PeakData) -> Union[List[list], List[str]]:
-        """Takes a PeakData record (from a queryset) and returns a list of lists of column data.
-
-        Each record can link to many mzXML files, hence it returns multiple rows.
+    def queryset_to_rows_iterator(self, qs):
+        """Takes a queryset of PeakData records and returns a list of lists of column data.
 
         Args:
-            rec (PeakData)
+            qs (QuerySet[PeakData])
         Exceptions:
             None
         Returns:
             rows (List[List[str]])
         """
-        rows = []
-        msrsrec: MSRunSample
-        for msrsrec in rec.peak_group.msrun_sample.sample.msrun_samples.all():
-            if msrsrec.ms_data_file:
-                rows.append(self.msrun_sample_rec_to_row(msrsrec))
-        return rows
+        seen = {}
+        pdrec: PeakData
+        for pdrec in qs.all():
+            msrsrec: MSRunSample
+            for msrsrec in pdrec.peak_group.msrun_sample.sample.msrun_samples.all():
+                if msrsrec.ms_data_file is not None and msrsrec.id not in seen.keys():
+                    yield self.msrun_sample_rec_to_row(msrsrec)
+                    seen[msrsrec.id] = True
 
 
 class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
     """This is a secondary download view for the advanced search page.
 
     This view is for a subset of SearchGroup formats (those that include mz data files in their results:
-    PeakGroupsFormat and PeakDataFormat).
+    PeakGroupsFormat and PeakDataFormat).  It is for streaming a download of the mzXML metadata in a TSV format.
     """
 
     header_template = "DataRepo/search/downloads/search_metadata.txt"
     content_type = "application/text"
 
-    # See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files
-    def form_valid(self, form):
-        # Get the query object (for the commented metadata header)
-        self.qry = self.get_qry(form.cleaned_data)
+    def __init__(self, qry=None, res=None):
+        self.qry = qry
+
         # Get the date (for the commented metadata header)
         now = datetime.now()
         self.date_str = now.strftime(self.date_format)
+        self.datestamp_str = now.strftime(self.datestamp_format)
+
         # Set the metadata header template object
         self.headtmplt = loader.get_template(self.header_template)
 
         # Get the column headers list
         self.headers = RecordToMzxmlTSV.headers
 
-        # Get the search format ID and name
-        format_id = self.qry["selectedtemplate"]
-        self.format_name = self.qry["searches"][format_id]["name"]
+        self.format_id = None
+        self.format_name = None
+        self.converter = None
+        self.res = None
+        self.filename = None
 
-        # Get the method that converts a record from the results queryset to a list of lists
-        self.rec_to_rows = RecordToMzxmlTSV.get_rec_to_rows_method(format_id)
+        if qry is not None:
+            self.prepare_download(qry=qry, res=res)
+
+    def prepare_download(self, qry=None, res=None):
+        if qry is None and self.qry is None:
+            raise ValueError("Argument 'qry' cannot be None.")
+
+        if self.qry is None:
+            self.qry = deepcopy(qry)
+
+        # Get the search format ID and name
+        self.format_id = self.qry["selectedtemplate"]
+        self.format_name = self.qry["searches"][self.format_id]["name"]
+
+        # Get the converter object that converts a record from the results queryset to a list we can supply to csv
+        self.converter = RecordToMzxmlTSV.get_converter_object(self.format_id)
 
         # Perform the query and save the queryset
-        self.res = self.get_query_results(self.qry)
+        self.res = res if res is not None else self.get_query_results(self.qry)
 
         # Set the output file name
-        self.filename = f"{self.format_name}_{now.strftime(self.datestamp_format)}.tsv"
+        self.filename = f"{self.format_name}_{self.datestamp_str}.tsv"
+
+    # See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files
+    def form_valid(self, form):
+        # Get the query object (for the commented metadata header)
+        self.qry = self.get_qry(form.cleaned_data)
+
+        self.prepare_download()
 
         # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
         pseudo_buffer = Echo()
@@ -333,8 +380,189 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         yield self.headtmplt.render({"qry": self.qry, "dt": self.date_str})
         # Column headers
         yield writer.writerow(self.headers)
-        for rec in self.res:
-            rows = self.rec_to_rows(rec)
-            if len(rows) > 0:
-                for row in rows:
-                    yield writer.writerow(row)
+        for row in self.converter.queryset_to_rows_iterator(self.res):
+            yield writer.writerow(row)
+
+
+class RecordToMzxmlZIP(ABC):
+    """This class defines a download format and type.  In this instance, it is a tsv file format that defines a file of
+    mzXML metadata.  It is an abstract base class.  Derived classes define how to convert a queryset from one or more
+    search Format classes belonging to the SearchGroup class.  Derived classes must set a format_id class attribute that
+    matches one of the SearchGroup Format classes, and a queryset_to_files_iterator method that does the conversion of a
+    queryset record to a list of tuples (where each tuple is an export path and file object).
+
+    This class and its derived classes are used by AdvancedSearchDownloadMzxmlZIPView to generate an mzXML zip archive
+    download file.
+    """
+
+    @property
+    @abstractmethod
+    def format_id(self) -> str:
+        """Derived classes must implement this as a class attribute.  The format_id must match one of the ids in the
+        Format classes in the SearchGroup class."""
+        pass
+
+    @abstractmethod
+    def queryset_to_files_iterator(self, qs):
+        """Derived classes must implement this as a class attribute."""
+        pass
+
+    def msrun_sample_rec_to_file(
+        self, msrsrec: MSRunSample
+    ) -> Tuple[Optional[str], FieldFile]:
+        """Takes an MSRunSample record and returns an export path string and a File object.  The path is generated as:
+        date/researcher/instrument/protocol/polarity/mz_min-mz_max/filename.
+
+        Args:
+            msrsrec (MSRunSample)
+        Exceptions:
+            None
+        Returns:
+            export_path, file_location (str, FieldFile)
+        """
+        return msrsrec.mzxml_export_path, msrsrec.ms_data_file.file_location
+
+    @classmethod
+    def get_converter_object(cls, format_id: str):
+        """Takes a format_id and returns the derived class object that comes from the subclass whose format_id matches
+        the supplied format_id.
+
+        Args:
+            format_id (str)
+        Exceptions:
+            Http404
+        Returns:
+            (RecordToMzxmlZIP)
+        """
+        for derived_class in cls.__subclasses__():
+            if format_id == derived_class.format_id:
+                return derived_class()
+        raise Http404(
+            f"Invalid format ID: {format_id}.  Must be one of "
+            f"{[c.format_id for c in cls.__subclasses__()]}"
+        )
+
+
+class PeakGroupsToMzxmlZIP(RecordToMzxmlZIP):
+    """This class defines how to convert a PeakGroupsFormat class's queryset record to a list of lists (1 PeakGroup
+    record can link to 0 or more mzXML files)."""
+
+    # This format ID matches PeakGroupsFormat.id
+    format_id = "pgtemplate"
+
+    def queryset_to_files_iterator(self, qs):
+        """Takes a queryset of PeakGroup records and returns a list of tuples of file data.
+
+        Args:
+            qs (QuerySet[PeakGroup])
+        Exceptions:
+            None
+        Returns:
+            rows (Tuple[str, File])
+        """
+        seen = {}
+        pgrec: PeakGroup
+        for pgrec in qs.all():
+            msrsrec: MSRunSample
+            for msrsrec in pgrec.msrun_sample.sample.msrun_samples.all():
+                if msrsrec.ms_data_file is not None and msrsrec.id not in seen.keys():
+                    yield self.msrun_sample_rec_to_file(msrsrec)
+                    seen[msrsrec.id] = True
+
+
+class PeakDataToMzxmlZIP(RecordToMzxmlZIP):
+    """This class defines how to convert a PeakDataFormat class's queryset record to a list of lists (1 PeakData record
+    can link to 0 or more mzXML files)."""
+
+    # This format ID matches PeakDataFormat.id
+    format_id = "pdtemplate"
+
+    def queryset_to_files_iterator(self, qs):
+        """Takes a queryset of PeakData records and returns a list of tuples of file data.
+
+        Args:
+            qs (QuerySet[PeakData])
+        Exceptions:
+            None
+        Returns:
+            rows (Tuple[str, File])
+        """
+        seen = {}
+        pgrec: PeakData
+        for pgrec in qs.all():
+            msrsrec: MSRunSample
+            for msrsrec in pgrec.peak_group.msrun_sample.sample.msrun_samples.all():
+                if msrsrec.ms_data_file is not None and msrsrec.id not in seen.keys():
+                    yield self.msrun_sample_rec_to_file(msrsrec)
+                    seen[msrsrec.id] = True
+
+
+class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
+    """This is a secondary download view for the advanced search page.
+
+    This view is for a subset of SearchGroup formats (those that include mz data files in their results:
+    PeakGroupsFormat and PeakDataFormat).  It is for streaming a download of the mzXML files in a zip archive.
+    """
+
+    content_type = "application/zip"
+
+    def form_valid(self, form):
+        # Get the query object (for the commented metadata header)
+        self.qry = self.get_qry(form.cleaned_data)
+        # Get the date (for the commented metadata header)
+        now = datetime.now()
+        self.date_str = now.strftime(self.date_format)
+        self.datestamp_str = now.strftime(self.datestamp_format)
+
+        # Get the search format ID and name
+        self.format_id = self.qry["selectedtemplate"]
+        self.format_name = self.qry["searches"][self.format_id]["name"]
+
+        # Perform the query and save the queryset
+        self.res = self.get_query_results(self.qry)
+
+        # Set the output file name
+        self.filename = f"{self.format_name}_mzxmls_{self.datestamp_str}.zip"
+        # Get the object that converts a record from the results queryset to a list of file tuples (containing the
+        # export path and a file_location field value from an ArchiveFile record)
+        self.converter = RecordToMzxmlZIP.get_converter_object(self.format_id)
+
+        # Generate the content of the metadata file that will accompany the mzXML files in the zip archive.
+        self.asdtv = AdvancedSearchDownloadMzxmlTSVView(qry=self.qry, res=self.res)
+        # Create a fake buffer object (needed to be able to use the csv package for streaming the tsv)
+        pseudo_buffer = Echo()
+        metadata_tsv_writer: "_csv._writer" = csv.writer(pseudo_buffer, delimiter="\t")
+        metadata_content = "".join(list(self.asdtv.tsv_iterator(metadata_tsv_writer)))
+
+        return StreamingHttpResponse(
+            self.mzxml_zip_iterator(metadata_content),
+            content_type=self.content_type,
+            headers={"Content-Disposition": f"attachment; filename={self.filename}"},
+        )
+
+    def mzxml_zip_iterator(self, metadata_content):
+        """Builds a zip archive stream that contains all mzXML files from the user's search and includes a metadata file
+        describing all of the files.
+
+        Based on: https://stackoverflow.com/a/77515363/2057516
+
+        Args:
+            metadata_content (str): The content of the metadata file
+        Exceptions:
+            None
+        Yields:
+            files added to the zip archive
+        """
+        buffer = ZipBuffer()
+
+        # Create a zip file object
+        with ZipFile(buffer, "w", ZIP_DEFLATED) as zipf:
+            zipf.writestr(self.asdtv.filename, metadata_content)
+            yield buffer.take()
+            for file_tuple in self.converter.queryset_to_files_iterator(self.res):
+                export_path, file_obj = file_tuple
+                with file_obj.file.open("r") as fl:
+                    zipf.writestr(export_path, fl.read())
+                    yield buffer.take()
+
+        yield buffer.end()

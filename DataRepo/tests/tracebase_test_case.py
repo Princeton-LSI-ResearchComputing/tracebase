@@ -14,6 +14,12 @@ LONG_TEST_THRESH_SECS = 20
 LONG_TEST_ALERT_STR = f" [ALERT > {LONG_TEST_THRESH_SECS}]"
 
 
+# See: https://stackoverflow.com/a/61345284/2057516
+if "unittest.util" in __import__("sys").modules:
+    # Show full diff in self.assertEqual.
+    __import__("sys").modules["unittest.util"]._MAX_LENGTH = 999999999
+
+
 def test_case_class_factory(base_class) -> Type[TestCase]:
     """
     Class creation factory where the base class is an argument.  Note, it must receive a TestCase-compatible class.

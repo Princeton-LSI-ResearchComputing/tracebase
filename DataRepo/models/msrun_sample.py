@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from typing import Optional
+
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db.models import (
@@ -151,6 +154,36 @@ class MSRunSample(HierCachedModel, MaintainedModel):
         if details != "":
             details = f" ({details})"
         return f"{self.sample} run by {self.msrun_sequence.researcher} on {self.msrun_sequence.date}{details}"
+
+    @property
+    def mzxml_export_path(self) -> Optional[str]:
+        """Returns an export path for the mzXML file following this pattern:
+        date/researcher/instrument/protocol/polarity/mz_min-mz_max/filename.mzXML
+
+        Assumptions:
+            If self.ms_data_file is not None, polarity and scan range are not None.
+        Args:
+            msrsrec (MSRunSample)
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        from DataRepo.utils.file_utils import date_to_string
+        from DataRepo.utils.text_utils import sigfig
+
+        if self.ms_data_file is None:
+            return None
+
+        return os.path.join(
+            date_to_string(self.msrun_sequence.date),
+            self.msrun_sequence.researcher,
+            self.msrun_sequence.instrument,
+            self.msrun_sequence.lc_method.name,
+            self.polarity,
+            f"{sigfig(self.mz_min)}-{sigfig(self.mz_max)}",
+            self.ms_data_file.filename,
+        )
 
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)

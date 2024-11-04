@@ -85,7 +85,7 @@ class MSRunSampleTests(TracebaseTestCase):
         msrs.full_clean()
         msrs.save()
 
-    def test_msrun_sample_all(self):
+    def create_rec(self):
         mstype = DataType.objects.get(code="ms_data")
         rawfmt = DataFormat.objects.get(code="ms_raw")
         mzxfmt = DataFormat.objects.get(code="mzxml")
@@ -107,11 +107,17 @@ class MSRunSampleTests(TracebaseTestCase):
             msrun_sequence=self.seq,
             sample=self.smpl,
             polarity=MSRunSample.POSITIVE_POLARITY,
+            mz_min=1,
+            mz_max=1234,
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
         msrs.full_clean()
         msrs.save()
+        return msrs
+
+    def test_msrun_sample_all(self):
+        self.create_rec()
 
     def test_msdata_format_unknown(self):
         mstype = DataType.objects.get(code="ms_data")
@@ -200,3 +206,10 @@ class MSRunSampleTests(TracebaseTestCase):
         exc = self.assert_archive_file_exception("test.mzxml", mstype, mzxfmt, False)
         self.assertIn("ms_data_file", str(exc))
         self.assertIn("data format", str(exc))
+
+    def test_mzxml_export_path(self):
+        msrs = self.create_rec()
+        self.assertEqual(
+            "1972-11-24/Jerry Seinfeld/QE/unknown/positive/1-1.23e+03/test.mzxml",
+            msrs.mzxml_export_path,
+        )
