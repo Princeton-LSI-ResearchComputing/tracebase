@@ -346,7 +346,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     def test_conflicting_peak_group(self):
         """Test inserting two conflicting PeakGroups raises ConflictingValueErrors
 
-        Insert two PeakGroups that differ only in Forumla.
+        Insert two PeakGroups that differ only in Formula.
 
         This tests the AccuCorDataLoader.insert_peak_group method directly.
         """

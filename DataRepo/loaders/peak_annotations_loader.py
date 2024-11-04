@@ -230,7 +230,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         PeakGroupCompound,
     ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, multrep_suggestion=None, **kwargs):
         """Constructor.
 
         Limitations:
@@ -288,6 +288,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     peak_group_conflicts_df (Optional[pandas DataFrame]): The DataFrame of the Peak Group conflict
                         resolutions sheet/file that will be supplied to the PeakGroupConflicts class (that is an
                         instance member of this instance) and is used to skip peak groups based on user selections.
+                multrep_suggestion (Optional[str]): A description of what to do if you encounter a
+                    MultiplePeakGroupRepresentation exception, which will be appended to the text of those exceptions.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -313,6 +315,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.peak_group_conflicts_file = kwargs.pop("peak_group_conflicts_file", None)
         self.peak_group_conflicts_sheet = kwargs.pop("peak_group_conflicts_sheet", None)
         self.peak_group_conflicts_df = kwargs.pop("peak_group_conflicts_df", None)
+
+        # A suggestion of how to resolve MultiplePeakGroupRepresentation exceptions
+        self.multrep_suggestion = multrep_suggestion
 
         # Require the file argument if df is supplied
         if kwargs.get("file") is None and (
@@ -745,7 +750,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             else:
                 self.existed(PeakGroup.__name__)
         except MultiplePeakGroupRepresentation as mpgr:
-            self.aggregated_errors_object.buffer_error(mpgr)
+            self.aggregated_errors_object.buffer_error(
+                mpgr.set_formatted_message(suggestion=self.multrep_suggestion)
+            )
             self.errored(PeakGroup.__name__)
             raise RollbackException()
         except NoTracerLabeledElements as ntle:

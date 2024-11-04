@@ -260,6 +260,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
         ERRORS_SHEET,
     ]
 
+    representations_suggestion = (
+        "Please select the best peak annotation file to use for each compound in the "
+        f"'{PeakGroupConflicts.DataSheetName}' sheet.  If that sheet is hidden or empty, supply all files listed in "
+        "the multiple representations errors to the submission start page and copy the sheet to your study doc to "
+        "fill out."
+    )
+
     def __init__(self, *args, **kwargs):
         """Constructor.
 
@@ -746,7 +753,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
         mpgr_excs = aes.modify_exception_type(
             MultiplePeakGroupRepresentations, is_fatal=False, is_error=False
         )
+        mpgr_exc: MultiplePeakGroupRepresentations
         for mpgr_exc in mpgr_excs:
+            mpgr_exc.set_formatted_message(suggestion=self.representations_suggestion)
             self.multiple_pg_reps_exceptions.extend(mpgr_exc.exceptions)
 
     def extract_missing_records_exception(
@@ -780,48 +789,55 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
         exc_cls: MissingModelRecordsByFile
         exc_lst: List[RecordDoesNotExist]
-        for exc_cls, exc_lst, load_key, succinct in [
+        for exc_cls, exc_lst, load_key, succinct, suggestion in [
             (
                 AllMissingStudies,
                 self.missing_study_record_exceptions,
                 "Studies Check",
                 False,
+                None,
             ),
             (
                 AllMissingSamples,
                 self.missing_sample_record_exceptions,
                 "Samples Check",
                 False,
+                None,
             ),
             (
                 AllMissingSamples,
                 self.no_sample_record_exceptions,
                 "Peak Annotation Samples Check",
                 True,
+                None,
             ),
             (
                 AllMissingTissues,
                 self.missing_tissue_record_exceptions,
                 "Tissues Check",
                 False,
+                None,
             ),
             (
                 AllMissingTreatments,
                 self.missing_treatment_record_exceptions,
                 "Treatments Check",
                 False,
+                None,
             ),
             (
                 AllMissingCompounds,
                 self.missing_compound_record_exceptions,
                 "Compounds Check",
                 True,
+                None,
             ),
             (
                 AllMultiplePeakGroupRepresentations,
                 self.multiple_pg_reps_exceptions,
                 "Peak Groups Check",
                 True,
+                self.representations_suggestion,
             ),
         ]:
             # Add this load key (if not already present anong the load keys).
@@ -831,7 +847,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             # Collect all the missing samples in 1 error to add to the animal sample table file
             if len(exc_lst) > 0:
                 self.load_statuses.set_load_exception(
-                    exc_cls(exc_lst, succinct=succinct),
+                    exc_cls(exc_lst, succinct=succinct, suggestion=suggestion),
                     load_key,
                     top=True,
                 )

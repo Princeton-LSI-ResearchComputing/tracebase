@@ -205,7 +205,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Args:
             None
         Exceptions:
-            MultiplePeakGroupRepresentations
+            MultiplePeakGroupRepresentation
         Returns:
             None
         """
@@ -219,6 +219,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             # This cannot be a multiple representation issue if no peak annotation file is provided
             return None
 
+        # Look for peak groups with the same name (i.e. compound) for the same sample
         conflicts = PeakGroup.objects.filter(
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,

@@ -3920,6 +3920,7 @@ class AllMultiplePeakGroupRepresentations(Exception):
         self,
         exceptions: list[MultiplePeakGroupRepresentation],
         succinct=False,
+        suggestion=None,
     ):
         mpgr_dict: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
@@ -3973,12 +3974,32 @@ class AllMultiplePeakGroupRepresentations(Exception):
                     message += "\n\t\t\t".join(sorted(samples, key=str.casefold))
                     message += "\n\t\tFiles:\n\t\t\t\t"
                     message += "\n\t\t\t".join(sorted(files, key=str.casefold))
-        message += (
-            "\nPlease make sure that the files do in fact have samples in common and if so, remove each compound (row) "
-            "from all but one of the listed files."
-        )
+        message += "\nOnly 1 representation of a compound per sample is allowed."
+        if suggestion is not None:
+            # TODO: This suggestion attribute was added to parallel other exception classes derived from InfileError.
+            # Create a new higher level exception class (e.g. ResolvableException) that InfileError,
+            # MultiplePeakGroupRepresentation and this class should inherit from, which implements the suggestion
+            # attribute and remove this custom suggestion attribute in this class.
+            message += f"\n{suggestion}"
         super().__init__(message)
         self.exceptions = exceptions
+        self.succinct = succinct
+        self.suggestion = suggestion
+        self.orig_message = message
+        self.message = message
+
+    def set_formatted_message(self, suggestion=None):
+        message = self.orig_message
+        if suggestion is not None:
+            if message.endswith("\n"):
+                message += suggestion
+            else:
+                message += f"\n{suggestion}"
+        self.message = message
+        return self
+
+    def __str__(self):
+        return self.message
 
 
 class MultiplePeakGroupRepresentations(Exception):
@@ -3991,6 +4012,7 @@ class MultiplePeakGroupRepresentations(Exception):
     def __init__(
         self,
         exceptions: list[MultiplePeakGroupRepresentation],
+        suggestion=None,
     ):
         mpgr_dict: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
@@ -4017,7 +4039,7 @@ class MultiplePeakGroupRepresentations(Exception):
 
         message = (
             "The following peak annotation files (containing common samples) each contain peak groups for the same "
-            "compound.  Multiple representations of the same peak group are not allowed.\n"
+            "compound.\n"
         )
         for sequence in mpgr_dict.keys():
             message += f"\tMS Run Sequence '{sequence}':"
@@ -4042,18 +4064,39 @@ class MultiplePeakGroupRepresentations(Exception):
                 message += "\n\t\tCompounds:\n\t\t\t" + "\n\t\t\t".join(
                     sorted(compounds)
                 )
-        message += (
-            "\nPlease make sure that the files do in fact analyze the same samples and if so, remove each compound "
-            "(row) from all but one of the listed files."
-        )
+        message += "\nOnly 1 representation of a compound per sample is allowed."
+        if suggestion is not None:
+            # TODO: This suggestion attribute was added to parallel other exception classes derived from InfileError.
+            # Create a new higher level exception class (e.g. ResolvableException) that InfileError,
+            # MultiplePeakGroupRepresentation and this class should inherit from, which implements the suggestion
+            # attribute and remove this custom suggestion attribute in this class.
+            message += f"\n{suggestion}"
         super().__init__(message)
         self.exceptions = exceptions
+        self.suggestion = suggestion
+        self.orig_message = message
+        self.message = message
+
+    def set_formatted_message(self, suggestion=None):
+        message = self.orig_message
+        if suggestion is not None:
+            if message.endswith("\n"):
+                message += suggestion
+            else:
+                message += f"\n{suggestion}"
+        self.message = message
+        return self
+
+    def __str__(self):
+        return self.message
 
 
 class MultiplePeakGroupRepresentation(SummarizableError):
     SummarizerExceptionClass = MultiplePeakGroupRepresentations
 
-    def __init__(self, new_rec: PeakGroup, existing_recs, message=None):
+    def __init__(
+        self, new_rec: PeakGroup, existing_recs, message=None, suggestion=None
+    ):
         """MultiplePeakGroupRepresentations constructor.
 
         Args:
@@ -4069,9 +4112,14 @@ class MultiplePeakGroupRepresentation(SummarizableError):
             f"\tMSRunSequence: {new_rec.msrun_sample.msrun_sequence}\n"
             "Each peak group originated from:\n"
             f"\t{files_str}\n"
-            "Only 1 representation of a compound per sample is allowed.  Please remove this compound from all but one "
-            "of the above files."
+            "Only 1 representation of a compound per sample is allowed."
         )
+        if suggestion is not None:
+            # TODO: This suggestion attribute was added to parallel other exception classes derived from InfileError.
+            # Create a new higher level exception class (e.g. ResolvableException) that InfileError,
+            # AllMultiplePeakGroupRepresentations and this class should inherit from, which implements the suggestion
+            # attribute and remove this custom suggestion attribute in this class.
+            message += f"\n{suggestion}"
         super().__init__(message)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
@@ -4079,6 +4127,22 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         self.compound = new_rec.name
         self.sequence = new_rec.msrun_sample.msrun_sequence
         self.sample = new_rec.msrun_sample.sample
+        self.suggestion = suggestion
+        self.orig_message = message
+        self.message = message
+
+    def set_formatted_message(self, suggestion=None):
+        message = self.orig_message
+        if suggestion is not None:
+            if message.endswith("\n"):
+                message += suggestion
+            else:
+                message += f"\n{suggestion}"
+        self.message = message
+        return self
+
+    def __str__(self):
+        return self.message
 
 
 class ReplacingPeakGroupRepresentation(InfileError):
