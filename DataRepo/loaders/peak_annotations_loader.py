@@ -495,7 +495,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # Get or create PeakGroups
             try:
                 pgrec, _ = self.get_or_create_peak_group(
-                    row, annot_file_rec, list(cmpdrecs_dict.keys())
+                    row, annot_file_rec, cmpdrecs_dict
                 )
             except RollbackException:
                 pass
@@ -690,16 +690,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return rec
 
     @transaction.atomic
-    def get_or_create_peak_group(self, row, peak_annot_file, compound_synonyms):
+    def get_or_create_peak_group(
+        self, row, peak_annot_file, compound_recs_dict: Dict[str, Compound]
+    ):
         """Get or create a PeakGroup Record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
             row (pandas.Series)
             peak_annot_file (Optional[ArchiveFile]): The ArchiveFile record for self.file
-            compound_synonyms (List[str]): Compound synonyms parsed from the supplied peak group name.
+            compound_recs_dict (Dict[str, Compound]): Dict of Compound records keyed on the compound synonyms that were
+                parsed from the supplied peak group name.
         Exceptions:
             Buffers:
-                None
+                InfileError
             Raises:
                 RollbackException
         Returns:
@@ -708,6 +711,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
         formula = self.get_row_val(row, self.headers.FORMULA)
+        compound_synonyms = list(compound_recs_dict.keys())
 
         msrun_sample = self.get_msrun_sample(sample_header)
 
@@ -725,6 +729,20 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # names for consistency and searchability.
         pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
 
+        if formula is None:
+            # Arbitrarily grab the first compound formula (assuming all have the same formula)
+            first_compound = list(compound_recs_dict.values())[0]
+            if first_compound is not None:
+                formula = first_compound.formula
+            # If the formula is still None
+            if formula is None:
+                self.buffer_infile_exception(
+                    f"No compound formula available for peak group {pgname} in %s."
+                )
+                self.add_skip_row_index()
+                self.errored(PeakGroup.__name__)
+                return None, False
+
         # If the peak annotation file for this PeakGroup is a part of a multiple representation and is not the selected
         # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
         # loaded.)
@@ -734,11 +752,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         rec_dict = {
             "msrun_sample": msrun_sample,
             "name": pgname,
+            "formula": formula,
             "peak_annotation_file": peak_annot_file,
         }
-
-        if formula is not None:
-            rec_dict["formula"] = formula
 
         try:
             rec, created = PeakGroup.objects.get_or_create(**rec_dict)
