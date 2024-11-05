@@ -729,6 +729,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # names for consistency and searchability.
         pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
 
+        # The formula can be None if loading just the Accucor Corrected sheet.  In this instance, we can retrieve the
+        # formula from the Compound record.
         if formula is None:
             # Arbitrarily grab the first compound formula (assuming all have the same formula)
             first_compound = list(compound_recs_dict.values())[0]

@@ -421,10 +421,10 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         }
         paf, _ = ArchiveFile.objects.get_or_create(**rec_dict)
         al = AccucorLoader()
-        _, created1 = al.get_or_create_peak_group(row, paf, ["serine"])
+        _, created1 = al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
         self.assertTrue(created1)
         self.assertEqual(1, PeakGroup.objects.count())
-        _, created2 = al.get_or_create_peak_group(row, paf, ["serine"])
+        _, created2 = al.get_or_create_peak_group(row, paf, {"serine": self.SERINE})
         self.assertFalse(created2)
 
     def test_get_msrun_sample_no_annot_details_df(self):
