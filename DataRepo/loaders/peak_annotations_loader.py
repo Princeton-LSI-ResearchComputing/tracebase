@@ -509,7 +509,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             compound = row[self.headers.COMPOUND]
             formula = row[self.headers.FORMULA]
             row_indexes = list(row["INDEX"])
-            print(f"DOING ROW: {compound} {formula} {row_indexes}")
+
             if previous_compound is not None:
                 # If the compound has changed
                 if compound != previous_compound:
