@@ -729,7 +729,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # names for consistency and searchability.
         pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
 
-        # If the peak annotation file for this PeakGroup is a part of a multiuple representation and is not the selected
+        # If the peak annotation file for this PeakGroup is a part of a multiple representation and is not the selected
         # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
         # loaded.)
         if not self.is_selected_peak_group(pgname, peak_annot_file, msrun_sample):
