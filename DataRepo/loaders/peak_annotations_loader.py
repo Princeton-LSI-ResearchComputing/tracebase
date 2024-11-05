@@ -1924,28 +1924,11 @@ class AccucorLoader(PeakAnnotationsLoader):
         "medMz": 0,
         "medRt": 0,
         "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
-        # This is a much less efficient way of filling in missing formulas than the previous strategy of using
-        # nan_filldown_columns, but in some edge cases, there can exist no C12 parent row in the accucor file, which
-        # resulted in invalid formulas is a very infrequent manner.  This builds a dict from the entire dataframe each
-        # time in order to be able to perform the formula lookup.
-        "formula": (
-            lambda df: df["formula"].fillna(
-                df["Compound"].apply(
-                    lambda x:
-                    # This gets all compounds and formulas where the formula is populated
-                    df.loc[df["formula"].notna(), ["Compound", "formula"]]
-                    # Then we create a dict where the compound is the key and the formula is the value
-                    .set_index("Compound")["formula"].to_dict()
-                    # Then we lookup the formula for the compound on this row
-                    .get(x)
-                )
-            )
-        ),
     }
 
     sort_columns = ["Sample Header", "Compound", "C_Label"]
 
-    nan_filldown_columns = None
+    nan_filldown_columns = ["formula"]
 
     merged_column_rename_dict = {
         "formula": "Formula",
