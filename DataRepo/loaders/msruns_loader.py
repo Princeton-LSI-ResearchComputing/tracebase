@@ -46,6 +46,7 @@ from DataRepo.utils.exceptions import (
     MzxmlSampleHeaderMismatch,
     MzXMLSkipRowError,
     NoScans,
+    PossibleDuplicateSamples,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -736,17 +737,17 @@ class MSRunsLoader(TableLoader):
                 for sn in self.header_to_sample_name[sample_header].keys():
                     sample_names.append(sn)
                     rows.extend(self.header_to_sample_name[sample_header][sn])
-                self.aggregated_errors_object.buffer_error(
-                    InfileError(
-                        (
-                            f"Multiple sample headers with '{sample_header}' are associated with different database "
-                            f"sample names: {sample_names} in %s."
-                        ),
+                self.aggregated_errors_object.buffer_exception(
+                    PossibleDuplicateSamples(
+                        sample_header,
+                        sample_names,
                         file=self.friendly_file,
                         sheet=self.sheet,
                         column=f"{self.headers.SAMPLENAME} and {self.headers.SAMPLEHEADER}",
                         rownum=rows,
-                    )
+                    ),
+                    is_error=False,
+                    is_fatal=self.validate,
                 )
 
     def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
