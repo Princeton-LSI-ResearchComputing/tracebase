@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     DuplicateValues,
     InfileError,
     IsotopeStringDupe,
+    MissingC12ParentPeak,
     MissingCompounds,
     MissingSamples,
     MultiplePeakGroupRepresentation,
@@ -359,6 +360,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
         ConvertedTableLoader.__init__(self, *args, **kwargs)
 
+        # Check that every compound has a valid C12 PARENT row.
+        self.check_c12_parents()
+
         # Initialize the MSRun Sample and Sequence data (obtained from self.msrunsloader)
         self.operator_default = None
         self.date_default = None
@@ -410,6 +414,141 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.aggregated_errors_object.merge_aggregated_errors_object(
             self.peakgroupconflicts.aggregated_errors_object
         )
+
+    def check_c12_parents(self):
+        """This method ensures that every compound in the original peak annotations file had a row for the C12 PARENT.
+        It does this by looking through the sorted compounds and formulas in the unicorr converted dataframe and
+        inferring that if the compound changes, but the formula stays the same, then the formula was filled down from
+        the preceding compound.
+
+        Note that it is technically possible that the formulas of 2 adjacent compounds could be the same, so when it
+        finds that the formula did not change, it keeps track and only buffers an error if the formula for that compound
+        later changes.  At that point, we can infer that the parent row was actually missing, because the only reason
+        the formula would change is because the assumption had been made that all C12 PARENT records were present and
+        the fill down strategy only fills empty formulas with the one above it.
+
+        This check is performed on all peak annotation files, but currently the only possible errors it catches come
+        from the AccucorLoader.
+
+        Example:
+            Originals sheet missing a C12 PARENT row for 3-hydroxyisobutyrate:
+                C12 PARENT	2-keto-isovalerate	C5H8O3
+                C13-label-2	2-keto-isovalerate	C5H8O3
+                C13-label-3	3-hydroxyisobutyrate	C4H8O3
+            Data after the merge (before the fill-down):
+                C12 PARENT	2-keto-isovalerate	C5H8O3
+                C13-label-1	2-keto-isovalerate	None
+                C13-label-2	2-keto-isovalerate	C5H8O3
+                C12 PARENT	3-hydroxyisobutyrate	None
+                C13-label-1	3-hydroxyisobutyrate	None
+                C13-label-2	3-hydroxyisobutyrate	None
+                C13-label-3	3-hydroxyisobutyrate	C4H8O3
+            Data after the fill-down is applied for the formula:
+                C12 PARENT	2-keto-isovalerate	C5H8O3
+                C13-label-1	2-keto-isovalerate	C5H8O3
+                C13-label-2	2-keto-isovalerate	C5H8O3
+                C12 PARENT	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
+                C13-label-1	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
+                C13-label-2	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
+                C13-label-3	3-hydroxyisobutyrate	C4H8O3
+        Args:
+            None
+        Exceptions:
+            Raised:
+                None
+            Buffered:
+                MissingC12ParentPeak
+        Returns:
+            None
+        """
+        if self.df is None:
+            return
+
+        # Create a dataframe with just the relevant data needed to identify missing C12 PARENT rows in the original data
+        # We infer this from the fact that a formula from an above compound filled down into the next compound (because
+        # its parent was missing)
+        compounds_and_formulas = self.df[[self.headers.COMPOUND, self.headers.FORMULA]]
+
+        # Create a column containing the original indexes - we will use this to mark skip rows
+        compounds_and_formulas["INDEX"] = compounds_and_formulas.index
+
+        # Get the unique compound and formula combos, and make the INDEX column be a list of original indexes
+        compounds_and_formulas = (
+            compounds_and_formulas.groupby(
+                [self.headers.COMPOUND, self.headers.FORMULA]
+            )["INDEX"]
+            .apply(list)
+            .reset_index()
+        )
+
+        # In order to sort by compound and then the first row index, we must create another column to contain the first
+        # row index.
+        compounds_and_formulas["FIRSTINDEX"] = compounds_and_formulas["INDEX"].apply(
+            lambda lst: lst[0]
+        )
+
+        # The above groupby does not preserve the row order that existed before the fill down (which was sorted by
+        # compound and isotope), so this re-sorts by the compound and original first row index (to represent the first
+        # isotope).
+        # Note also that these compound/formula combos repeat for every sample, so the indexes will be chunks or
+        # contiguous rows.
+        compounds_and_formulas.sort_values(
+            by=[self.headers.COMPOUND, "FIRSTINDEX"],
+            inplace=True,
+        )
+
+        # Keep track of the previous row values
+        previous_formula = None
+        previous_compound = None
+        previous_row_indexes = None
+        possible_stale_formula = None
+
+        # Cycle through the unique compound and formula combos
+        for _, row in compounds_and_formulas.iterrows():
+            # Get the values from this row
+            compound = row[self.headers.COMPOUND]
+            formula = row[self.headers.FORMULA]
+            row_indexes = list(row["INDEX"])
+
+            if previous_compound is not None:
+                # If the compound has changed
+                if compound != previous_compound:
+                    # And the formula has NOT changed
+                    if formula == previous_formula:
+                        # Note that 2 different (distinguishable) compounds can have the same formula, so this is a
+                        # candidate, not a definite missing parent instance
+                        possible_stale_formula = formula
+                    else:
+                        possible_stale_formula = None
+
+                elif (
+                    compound == previous_compound and possible_stale_formula is not None
+                ):
+                    # The compound is the same and it is a candidate for a missing C12 PARENT row
+                    if formula != possible_stale_formula:
+                        # The formula for this compound changed mid-isotope. This confirms that the formula that didn't
+                        # change when the compound changed is the result of a missing C12 PARENT row from the original
+                        # data.  Buffer an error.
+                        self.aggregated_errors_object.buffer_error(
+                            MissingC12ParentPeak(
+                                compound,
+                                file=self.friendly_file,
+                                # The sheet, column, and row numbers are irrelevant in the converted format
+                            )
+                        )
+
+                        # Mark the rows of the previous chunk as skip rows
+                        self.add_skip_row_index(index_list=previous_row_indexes)
+                        # Mark the rows of the current chunk as skip rows
+                        self.add_skip_row_index(index_list=row_indexes)
+
+                        # No longer need to track for a stale formula
+                        possible_stale_formula = None
+
+            # Update the previous row vars
+            previous_formula = formula
+            previous_compound = compound
+            previous_row_indexes = row_indexes
 
     def initialize_msrun_data(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation

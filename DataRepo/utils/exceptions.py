@@ -2946,6 +2946,53 @@ class IsotopeStringDupe(InfileError):
         self.parent = parent
 
 
+class MissingC12ParentPeakErrors(SummarizedInfileError, Exception):
+    """Summary of all MissingC12ParentPeak errors
+
+    Attributes:
+        exceptions: A list of MissingC12ParentPeak exceptions
+    """
+
+    def __init__(
+        self,
+        exceptions: list[MissingC12ParentPeak],
+        suggestion=None,
+    ):
+        SummarizedInfileError.__init__(self, exceptions)
+        compounds_str = ""
+        include_loc = len(self.file_dict.keys()) > 1
+        exc: MissingC12ParentPeak
+        for loc, exc_list in self.file_dict.items():
+            if include_loc:
+                compounds_str += f"\t{loc}\n"
+            for exc in exc_list:
+                if include_loc:
+                    compounds_str += "\t"
+                compounds_str += f"\t{exc.compound}\n"
+        loc = ""
+        if not include_loc:
+            loc = " in " + list(self.file_dict.keys())[0]
+        message = (
+            f"The C12 PARENT peak row is missing for the following compounds{loc}:\n{compounds_str}\n"
+            "Please re-pick peaks to include the C12 PARENT peaks for these compounds."
+        )
+        if suggestion is not None:
+            message += f"\n{suggestion}"
+        Exception.__init__(self, message)
+
+
+class MissingC12ParentPeak(InfileError, SummarizableError):
+    SummarizerExceptionClass = MissingC12ParentPeakErrors
+
+    def __init__(self, compound: str, **kwargs):
+        message = (
+            f"C12 PARENT peak row missing for compound '{compound}' in '%s'.\n"
+            "Please re-pick the peaks to include the C12 PARENT."
+        )
+        super().__init__(message, **kwargs)
+        self.compound = compound
+
+
 class UnexpectedIsotopes(Exception):
     def __init__(self, detected_isotopes, labeled_isotopes, compounds):
         message = (
