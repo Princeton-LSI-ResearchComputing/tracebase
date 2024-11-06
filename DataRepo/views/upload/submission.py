@@ -534,6 +534,7 @@ class BuildSubmissionView(FormView):
                             # These are the essential arguments
                             df=df,
                             file=peak_annot_file,
+                            filename=peak_annot_filename,
                             # We don't need the default sequence info - we only want to read the file
                         )
                     )
@@ -545,7 +546,7 @@ class BuildSubmissionView(FormView):
                     # For the purposes of autofill, "isocorr" and "isoautocorr" versions are similar enough to be able
                     # to extract data using one or the other version
                     peak_annot_loader_class = IsocorrLoader
-                    self.files_with_format_errors.append(peak_annot_filenames[index])
+                    self.files_with_format_errors.append(peak_annot_filename)
                     print("Creating peak annotations loader")
                     # Create an instance of the loader, appended onto the loaders
                     self.peak_annotations_loaders.append(
@@ -553,6 +554,7 @@ class BuildSubmissionView(FormView):
                             # These are the essential arguments
                             df=df,
                             file=peak_annot_file,
+                            filename=peak_annot_filename,
                             # We don't need the default sequence info - we only want to read the file
                         )
                     )
@@ -567,13 +569,13 @@ class BuildSubmissionView(FormView):
 
                     exc = MultiplePeakAnnotationFileFormats(
                         matching_formats,
-                        file=peak_annot_filenames[index],
+                        file=peak_annot_filename,
                         suggestion=suggestion,
                     )
 
                     self.load_status_data.set_load_exception(
                         exc,
-                        peak_annot_filenames[index],
+                        peak_annot_filename,
                         top=False,
                         default_is_error=False,
                         default_is_fatal=True,
@@ -589,22 +591,31 @@ class BuildSubmissionView(FormView):
                         self.peak_annotations_loaders.append(None)
                         exc = UnknownPeakAnnotationFileFormat(
                             PeakAnnotationsLoader.get_supported_formats(),
-                            file=peak_annot_filenames[index],
+                            file=peak_annot_filename,
                             suggestion=suggestion,
                         )
                     else:
                         self.peak_annotations_loaders.append(None)
                         exc = MultiplePeakAnnotationFileFormats(
                             matching_formats,
-                            file=peak_annot_filenames[index],
+                            file=peak_annot_filename,
                             suggestion=suggestion,
                         )
 
                     self.load_status_data.set_load_exception(
                         exc,
-                        peak_annot_filenames[index],
+                        peak_annot_filename,
                         top=False,
                     )
+
+                # Go through the loaders and log any exceptions that occurred
+                pal: PeakAnnotationsLoader = self.peak_annotations_loaders[-1]
+                if pal is not None:
+                    for pal_exc in pal.aggregated_errors_object.exceptions:
+                        self.load_status_data.set_load_exception(
+                            pal_exc,
+                            peak_annot_filename,
+                        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1982,10 +1993,15 @@ class BuildSubmissionView(FormView):
             # Extracting compounds - using vectorized access of the dataframe because it's faster and we don't need
             # error tracking per line of the input file.
             print("EXTRACTING COMPOUNDS")
-            formulas = peak_annot_loader.df[peak_annot_loader.headers.FORMULA].to_list()
             pgname_strs = peak_annot_loader.df[
                 peak_annot_loader.headers.COMPOUND
             ].to_list()
+            if peak_annot_loader.headers.FORMULA in peak_annot_loader.df.columns:
+                formulas = peak_annot_loader.df[
+                    peak_annot_loader.headers.FORMULA
+                ].to_list()
+            else:
+                formulas = [None] * len(pgname_strs)
             seen = {}
             pgnames = []
             for index in range(len(pgname_strs)):
@@ -2047,24 +2063,29 @@ class BuildSubmissionView(FormView):
                         CompoundsLoader.DataHeaders.FORMULA: formula,
                     }
 
-            print("EXTRACTING AND INCLUDING ALL COMPOUNDS WITH MATCHING FORMULAS")
-            for formula in np.unique(formulas):
-                if formula in self.none_vals:
-                    continue
-                for compound_rec in Compound.objects.filter(formula__iexact=formula):
-                    if (
-                        compound_rec.name
-                        not in self.autofill_dict[CompoundsLoader.DataSheetName].keys()
+            if peak_annot_loader.headers.FORMULA in peak_annot_loader.df.columns:
+                print("EXTRACTING AND INCLUDING ALL COMPOUNDS WITH MATCHING FORMULAS")
+                for formula in np.unique(formulas):
+                    if formula in self.none_vals:
+                        continue
+                    for compound_rec in Compound.objects.filter(
+                        formula__iexact=formula
                     ):
-                        print(
-                            f"ADDING COMPOUND (BY FORMULA) {compound_rec.name} {compound_rec.formula}"
-                        )
-                        self.autofill_dict[CompoundsLoader.DataSheetName][
+                        if (
                             compound_rec.name
-                        ] = {
-                            CompoundsLoader.DataHeaders.NAME: compound_rec.name,
-                            CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
-                        }
+                            not in self.autofill_dict[
+                                CompoundsLoader.DataSheetName
+                            ].keys()
+                        ):
+                            print(
+                                f"ADDING COMPOUND (BY FORMULA) {compound_rec.name} {compound_rec.formula}"
+                            )
+                            self.autofill_dict[CompoundsLoader.DataSheetName][
+                                compound_rec.name
+                            ] = {
+                                CompoundsLoader.DataHeaders.NAME: compound_rec.name,
+                                CompoundsLoader.DataHeaders.FORMULA: compound_rec.formula,
+                            }
 
         db_samples_exist = (
             Sample.objects.filter(name__in=list(all_samples.keys())).count() > 0

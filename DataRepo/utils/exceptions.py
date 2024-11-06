@@ -27,37 +27,6 @@ if TYPE_CHECKING:
     from DataRepo.models.sample import Sample
 
 
-class SummarizableError(Exception, ABC):
-    @property
-    @abstractmethod
-    def SummarizerExceptionClass(self):
-        """An exception class that takes a list of Exceptions of derived exception classes of this class as the sole
-        required positional argument to its constructor.  All keyword arguments are ignored (if they exist).
-
-        Usage example:
-            # Create a summarizer Exception class - code it however you want
-            class MyExceptionSummarier(Exception):
-                def __init__(self, exceptions: List[MyException])
-                    ...
-
-            # Create your exception class that inherits from SummarizableError - code it however you want, just define
-            # SummarizerExceptionClass
-            class MyException(SummarizableError):
-                SummarizerExceptionClass = MyExceptionSummarier
-                ...
-
-            # Later, when you're handling multiple buffered exceptions (i.e. you have an AggregatedErrors object: aes),
-            # you can check if it's summarizable, and replace them with the summarized version
-            if issubclass(myexception, SummarizableError):
-                aes.buffer_error(
-                    myexception.SummarizerExceptionClass(
-                        aes.remove_exception_type(type(myexception))
-                    )
-                )
-        """
-        pass
-
-
 class InfileError(Exception):
     """An exception class to provide file location context to other exceptions (when used as a base class).
 
@@ -249,6 +218,76 @@ class InfileError(Exception):
 
     def __str__(self):
         return self.message
+
+
+class SummarizableError(Exception, ABC):
+    @property
+    @abstractmethod
+    def SummarizerExceptionClass(self):
+        """An exception class that takes a list of Exceptions of derived exception classes of this class as the sole
+        required positional argument to its constructor.  All keyword arguments are ignored (if they exist).
+
+        Usage example:
+            # Create a summarizer Exception class - code it however you want
+            class MyExceptionSummarier(Exception):
+                def __init__(self, exceptions: List[MyException])
+                    ...
+
+            # Create your exception class that inherits from SummarizableError - code it however you want, just define
+            # SummarizerExceptionClass
+            class MyException(SummarizableError):
+                SummarizerExceptionClass = MyExceptionSummarier
+                ...
+
+            # Later, when you're handling multiple buffered exceptions (i.e. you have an AggregatedErrors object: aes),
+            # you can check if it's summarizable, and replace them with the summarized version
+            if issubclass(myexception, SummarizableError):
+                aes.buffer_error(
+                    myexception.SummarizerExceptionClass(
+                        aes.remove_exception_type(type(myexception))
+                    )
+                )
+        """
+        pass
+
+
+class SummarizedInfileError:
+    """This class will break up a list of InfileError exceptions into a dict keyed on the generated file location
+    (including the file, sheet, and column).  It is intended to be used in a derived class to sort exceptions into
+    sections grouped by file.  Note, it does not call super.__init__, because it is intended to aid in the construction
+    of the exception message, so you must multiply inherit to generate the exception message.  Example usage:
+
+        class MyException(SummarizedInfileError, Exception):
+            def __init__(
+                self,
+                exceptions: list[MySummarizableInfileErrorExceptions],
+            ):
+                SummarizedInfileError.__init__(self, exceptions)
+                exc: InfileError
+                for loc, exc_list in self.file_dict.items():
+                    # Build message
+                Exception.__init__(self, message)
+    """
+
+    def __init__(self, exceptions):
+        """Constructor.
+
+        Args:
+            self (SummarizedInfileError)
+            exceptions (List[InfileError])
+        Exceptions:
+            None
+        Returns:
+            instance (SummarizedInfileError)
+        """
+        file_dict = defaultdict(list)
+        exc: InfileError
+        for exc in exceptions:
+            loc = generate_file_location_string(
+                file=exc.file, sheet=exc.sheet, column=exc.column
+            )
+            file_dict[loc].append(exc)
+        self.file_dict = file_dict
 
 
 class HeaderError(Exception):
@@ -2907,6 +2946,53 @@ class IsotopeStringDupe(InfileError):
         self.parent = parent
 
 
+class MissingC12ParentPeakErrors(SummarizedInfileError, Exception):
+    """Summary of all MissingC12ParentPeak errors
+
+    Attributes:
+        exceptions: A list of MissingC12ParentPeak exceptions
+    """
+
+    def __init__(
+        self,
+        exceptions: list[MissingC12ParentPeak],
+        suggestion=None,
+    ):
+        SummarizedInfileError.__init__(self, exceptions)
+        compounds_str = ""
+        include_loc = len(self.file_dict.keys()) > 1
+        exc: MissingC12ParentPeak
+        for loc, exc_list in self.file_dict.items():
+            if include_loc:
+                compounds_str += f"\t{loc}\n"
+            for exc in exc_list:
+                if include_loc:
+                    compounds_str += "\t"
+                compounds_str += f"\t{exc.compound}\n"
+        loc = ""
+        if not include_loc:
+            loc = " in " + list(self.file_dict.keys())[0]
+        message = (
+            f"The C12 PARENT peak row is missing for the following compounds{loc}:\n{compounds_str}\n"
+            "Please re-pick peaks to include the C12 PARENT peaks for these compounds."
+        )
+        if suggestion is not None:
+            message += f"\n{suggestion}"
+        Exception.__init__(self, message)
+
+
+class MissingC12ParentPeak(InfileError, SummarizableError):
+    SummarizerExceptionClass = MissingC12ParentPeakErrors
+
+    def __init__(self, compound: str, **kwargs):
+        message = (
+            f"C12 PARENT peak row missing for compound '{compound}' in '%s'.\n"
+            "Please re-pick the peaks to include the C12 PARENT."
+        )
+        super().__init__(message, **kwargs)
+        self.compound = compound
+
+
 class UnexpectedIsotopes(Exception):
     def __init__(self, detected_isotopes, labeled_isotopes, compounds):
         message = (
@@ -4143,6 +4229,59 @@ class MultiplePeakGroupRepresentation(SummarizableError):
 
     def __str__(self):
         return self.message
+
+
+class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
+    """Summary of all PossibleDuplicateSamples errors
+
+    Attributes:
+        exceptions: A list of PossibleDuplicateSamples exceptions
+    """
+
+    def __init__(
+        self,
+        exceptions: list[PossibleDuplicateSamples],
+        suggestion=None,
+    ):
+        SummarizedInfileError.__init__(self, exceptions)
+        headers_str = ""
+        include_loc = len(self.file_dict.keys()) > 1
+        exc: PossibleDuplicateSamples
+        for loc, exc_list in self.file_dict.items():
+            if include_loc:
+                headers_str += f"\t{loc}\n"
+            for exc in exc_list:
+                if include_loc:
+                    headers_str += "\t"
+                headers_str += f"\t{exc.sample_header}: {exc.sample_names} on rows: {summarize_int_list(exc.rownum)}\n"
+        loc = ""
+        if not include_loc:
+            loc = " in " + list(self.file_dict.keys())[0]
+        message = (
+            f"There are multiple sample headers{loc} from different peak annotation files with the same name that are "
+            f"associated with different database samples:\n{headers_str}"
+            "Are you sure these are different samples?  If they are not, they should all be associated with the same "
+            "tracebase sample."
+        )
+        if suggestion is not None:
+            message += f"\n{suggestion}"
+        Exception.__init__(self, message)
+
+
+class PossibleDuplicateSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = PossibleDuplicateSamplesError
+
+    def __init__(self, sample_header: str, sample_names: List[str], **kwargs):
+        nlt = "\n\t"
+        message = (
+            f"There are multiple sample headers from different peak annotation files with the name '{sample_header}' "
+            f"that are associated with different database samples:\n\t{nlt.join(sample_names)}\nin %s.\n"
+            "Are you sure these are different samples?  If they are not, they should all be associated with the same "
+            "tracebase sample."
+        )
+        super().__init__(message, **kwargs)
+        self.sample_header = sample_header
+        self.sample_names = sample_names
 
 
 class ReplacingPeakGroupRepresentation(InfileError):

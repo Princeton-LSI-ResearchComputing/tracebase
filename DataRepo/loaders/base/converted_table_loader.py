@@ -227,10 +227,6 @@ class ConvertedTableLoader(TableLoader, ABC):
         """
         indf = deepcopy(self.orig_df)
 
-        # If the value for key 'next_merge_dict' is None, it is inferred to mean that no merge is
-        # necessary.  Just set the outdf to that one dataframe indicated by the sole sheet key.
-        single_sheet = self.get_single_sheet()
-
         # Create keys for recording the columns present in the dataframe (dict)
         self.initialize_merge_dict()
 
@@ -270,7 +266,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             if self.merged_column_rename_dict is not None:
                 outdf = outdf.rename(columns=self.merged_column_rename_dict)
         except Exception as e:
-            if isinstance(indf, pd.DataFrame) and single_sheet is None:
+            if isinstance(indf, pd.DataFrame) and not self.uses_only_one_sheet():
                 raise self.aggregated_errors_object.buffer_error(
                     ValueError(
                         f"A dataframe dict containing the following sheets/keys: {self.get_required_sheets()} is "
@@ -315,21 +311,53 @@ class ConvertedTableLoader(TableLoader, ABC):
                 RequiredHeadersError(self.revert_headers(missing))
             )
 
-    def get_single_sheet(self):
-        """If there is nothing to merge, the one sheet that the conversion is based on is returned.
+    def uses_only_one_sheet(self):
+        """Returns whether or not the format being converted only uses one sheet.
 
         Args:
             None
         Exceptions:
             None
         Returns:
-            sheet (str)
+            (bool)
         """
         return (
-            self.merge_dict["first_sheet"]
-            if self.merge_dict["next_merge_dict"] is None
-            else None
+            "next_merge_dict" not in self.merge_dict.keys()
+            or self.merge_dict["next_merge_dict"] is None
         )
+
+    def get_single_required_sheet(self):
+        """It is assumed that only 1 sheet is required and that it is always the first_sheet in the top level of the
+        merge_dict.  This returns that sheet.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            first_sheet (str)
+        """
+        return self.merge_dict["first_sheet"]
+
+    def get_single_supplied_sheet(self):
+        """If the user supplied a csv or tsv, this returns "Unnamed sheet".  If they supplied an excel file with 1
+        sheet, the name of that sheet is returned.  Otherwise, it returns None (when they supplied multiple sheets).
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (Optional[str])
+        """
+        # The first sheet from the merge dict is the default (because headers not explicitly in the merge dict will be
+        # there), unless the user did their own conversion, then we don't know the original sheet name, in which case,
+        # there could be unexpected columns
+        if isinstance(self.orig_df, pd.DataFrame):
+            return "Unnamed sheet"
+        if len(self.orig_df.keys()) == 1:
+            return list(self.orig_df.keys())[0]
+        return None
 
     def add_df_columns(self, df):
         """Creates/adds columns to pandas DataFrames based on the methods in self.add_columns_dict that generate columns
@@ -349,14 +377,14 @@ class ConvertedTableLoader(TableLoader, ABC):
             return
 
         if isinstance(df, pd.DataFrame):
-            single_sheet = self.get_single_sheet()
+            single_required_sheet = self.get_single_required_sheet()
             if (
-                single_sheet is not None
-                and single_sheet in self.add_columns_dict.keys()
+                single_required_sheet is not None
+                and single_required_sheet in self.add_columns_dict.keys()
             ):
                 try:
                     for new_column, method in self.add_columns_dict[
-                        single_sheet
+                        single_required_sheet
                     ].items():
                         df[new_column] = method(df)
                 except KeyError:
@@ -396,24 +424,24 @@ class ConvertedTableLoader(TableLoader, ABC):
             return outdf
 
         if isinstance(in_df, pd.DataFrame):
-            single_sheet = self.get_single_sheet()
+            single_required_sheet = self.get_single_required_sheet()
             if (
-                single_sheet is not None
-                and single_sheet in self.condense_columns_dict.keys()
+                single_required_sheet is not None
+                and single_required_sheet in self.condense_columns_dict.keys()
             ):
                 try:
                     # This prevents errors about missing id_vars columns (eg. if the user has done their own conversion)
                     existing_static_columns = self.get_existing_static_columns(
-                        single_sheet,
-                        {single_sheet: in_df},
+                        single_required_sheet,
+                        {single_required_sheet: in_df},
                         False,
                     )
 
                     outdf = in_df.melt(
-                        var_name=self.condense_columns_dict[single_sheet][
+                        var_name=self.condense_columns_dict[single_required_sheet][
                             "header_column"
                         ],
-                        value_name=self.condense_columns_dict[single_sheet][
+                        value_name=self.condense_columns_dict[single_required_sheet][
                             "value_column"
                         ],
                         id_vars=existing_static_columns,
@@ -496,6 +524,17 @@ class ConvertedTableLoader(TableLoader, ABC):
         # Check for missing column groups (e.g. missing sample columns) and build the condense_cols dict to check for a
         # consistent number of "sample" columns between sheets (that will be condensed)
         for sheet_key in self.condense_columns_dict.keys():
+            if sheet_key not in df_dict.keys():
+                if sheet_key == sheet:
+                    # We're assuming that the sheet supplied is required.  It is (according to the calling instances)
+                    # the first sheet in the merge_dict.  Otherwise, if any sheet doesn't exist, we can just skip the
+                    # condensing of its columns.
+                    self.aggregated_errors_object.buffer_error(
+                        KeyError(
+                            f"Required sheet '{sheet}' missing from df_dict {list(df_dict.keys())}"
+                        )
+                    )
+                continue
             condense_columns_exist = False
             for hdr in df_dict[sheet_key].columns:
                 if (
@@ -604,14 +643,7 @@ class ConvertedTableLoader(TableLoader, ABC):
         # Final output dict (reverted headers keyed on the original sheets)
         rev_headers_dict = defaultdict(list)
 
-        # The first sheet from the merge dict is the default (because headers not explicitly in the merge dict will be
-        # there), unless the user did their own conversion, then we don't know the original sheet name, in which case,
-        # there could be unexpected columns
-        default_sheet = (
-            self.merge_dict["first_sheet"]
-            if isinstance(self.orig_df, dict)
-            else "Unnamed sheet"
-        )
+        default_sheet = self.get_single_required_sheet()
 
         if self.merge_dict["next_merge_dict"] is None:
             rev_headers_dict[default_sheet] = rev_headers

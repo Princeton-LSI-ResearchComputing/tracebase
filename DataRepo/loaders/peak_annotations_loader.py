@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     DuplicateValues,
     InfileError,
     IsotopeStringDupe,
+    MissingC12ParentPeak,
     MissingCompounds,
     MissingSamples,
     MultiplePeakGroupRepresentation,
@@ -109,10 +110,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     # List of required header keys
     DataRequiredHeaders = [
-        MEDMZ_KEY,
-        MEDRT_KEY,
         ISOTOPELABEL_KEY,
-        FORMULA_KEY,
         COMPOUND_KEY,
         SAMPLEHEADER_KEY,
         CORRECTED_KEY,
@@ -121,7 +119,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     # List of header keys for columns that require a value
     DataRequiredValues = [
         ISOTOPELABEL_KEY,
-        FORMULA_KEY,
         COMPOUND_KEY,
         SAMPLEHEADER_KEY,
         CORRECTED_KEY,
@@ -363,6 +360,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
         ConvertedTableLoader.__init__(self, *args, **kwargs)
 
+        # Check that every compound has a valid C12 PARENT row.
+        self.check_c12_parents()
+
         # Initialize the MSRun Sample and Sequence data (obtained from self.msrunsloader)
         self.operator_default = None
         self.date_default = None
@@ -414,6 +414,141 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.aggregated_errors_object.merge_aggregated_errors_object(
             self.peakgroupconflicts.aggregated_errors_object
         )
+
+    def check_c12_parents(self):
+        """This method ensures that every compound in the original peak annotations file had a row for the C12 PARENT.
+        It does this by looking through the sorted compounds and formulas in the unicorr converted dataframe and
+        inferring that if the compound changes, but the formula stays the same, then the formula was filled down from
+        the preceding compound.
+
+        Note that it is technically possible that the formulas of 2 adjacent compounds could be the same, so when it
+        finds that the formula did not change, it keeps track and only buffers an error if the formula for that compound
+        later changes.  At that point, we can infer that the parent row was actually missing, because the only reason
+        the formula would change is because the assumption had been made that all C12 PARENT records were present and
+        the fill down strategy only fills empty formulas with the one above it.
+
+        This check is performed on all peak annotation files, but currently the only possible errors it catches come
+        from the AccucorLoader.
+
+        Example:
+            Originals sheet missing a C12 PARENT row for 3-hydroxyisobutyrate:
+                C12 PARENT	2-keto-isovalerate	C5H8O3
+                C13-label-2	2-keto-isovalerate	C5H8O3
+                C13-label-3	3-hydroxyisobutyrate	C4H8O3
+            Data after the merge (before the fill-down):
+                C12 PARENT	2-keto-isovalerate	C5H8O3
+                C13-label-1	2-keto-isovalerate	None
+                C13-label-2	2-keto-isovalerate	C5H8O3
+                C12 PARENT	3-hydroxyisobutyrate	None
+                C13-label-1	3-hydroxyisobutyrate	None
+                C13-label-2	3-hydroxyisobutyrate	None
+                C13-label-3	3-hydroxyisobutyrate	C4H8O3
+            Data after the fill-down is applied for the formula:
+                C12 PARENT	2-keto-isovalerate	C5H8O3
+                C13-label-1	2-keto-isovalerate	C5H8O3
+                C13-label-2	2-keto-isovalerate	C5H8O3
+                C12 PARENT	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
+                C13-label-1	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
+                C13-label-2	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
+                C13-label-3	3-hydroxyisobutyrate	C4H8O3
+        Args:
+            None
+        Exceptions:
+            Raised:
+                None
+            Buffered:
+                MissingC12ParentPeak
+        Returns:
+            None
+        """
+        if self.df is None:
+            return
+
+        # Create a dataframe with just the relevant data needed to identify missing C12 PARENT rows in the original data
+        # We infer this from the fact that a formula from an above compound filled down into the next compound (because
+        # its parent was missing)
+        compounds_and_formulas = self.df[[self.headers.COMPOUND, self.headers.FORMULA]]
+
+        # Create a column containing the original indexes - we will use this to mark skip rows
+        compounds_and_formulas["INDEX"] = compounds_and_formulas.index
+
+        # Get the unique compound and formula combos, and make the INDEX column be a list of original indexes
+        compounds_and_formulas = (
+            compounds_and_formulas.groupby(
+                [self.headers.COMPOUND, self.headers.FORMULA]
+            )["INDEX"]
+            .apply(list)
+            .reset_index()
+        )
+
+        # In order to sort by compound and then the first row index, we must create another column to contain the first
+        # row index.
+        compounds_and_formulas["FIRSTINDEX"] = compounds_and_formulas["INDEX"].apply(
+            lambda lst: lst[0]
+        )
+
+        # The above groupby does not preserve the row order that existed before the fill down (which was sorted by
+        # compound and isotope), so this re-sorts by the compound and original first row index (to represent the first
+        # isotope).
+        # Note also that these compound/formula combos repeat for every sample, so the indexes will be chunks or
+        # contiguous rows.
+        compounds_and_formulas.sort_values(
+            by=[self.headers.COMPOUND, "FIRSTINDEX"],
+            inplace=True,
+        )
+
+        # Keep track of the previous row values
+        previous_formula = None
+        previous_compound = None
+        previous_row_indexes = None
+        possible_stale_formula = None
+
+        # Cycle through the unique compound and formula combos
+        for _, row in compounds_and_formulas.iterrows():
+            # Get the values from this row
+            compound = row[self.headers.COMPOUND]
+            formula = row[self.headers.FORMULA]
+            row_indexes = list(row["INDEX"])
+
+            if previous_compound is not None:
+                # If the compound has changed
+                if compound != previous_compound:
+                    # And the formula has NOT changed
+                    if formula == previous_formula:
+                        # Note that 2 different (distinguishable) compounds can have the same formula, so this is a
+                        # candidate, not a definite missing parent instance
+                        possible_stale_formula = formula
+                    else:
+                        possible_stale_formula = None
+
+                elif (
+                    compound == previous_compound and possible_stale_formula is not None
+                ):
+                    # The compound is the same and it is a candidate for a missing C12 PARENT row
+                    if formula != possible_stale_formula:
+                        # The formula for this compound changed mid-isotope. This confirms that the formula that didn't
+                        # change when the compound changed is the result of a missing C12 PARENT row from the original
+                        # data.  Buffer an error.
+                        self.aggregated_errors_object.buffer_error(
+                            MissingC12ParentPeak(
+                                compound,
+                                file=self.friendly_file,
+                                # The sheet, column, and row numbers are irrelevant in the converted format
+                            )
+                        )
+
+                        # Mark the rows of the previous chunk as skip rows
+                        self.add_skip_row_index(index_list=previous_row_indexes)
+                        # Mark the rows of the current chunk as skip rows
+                        self.add_skip_row_index(index_list=row_indexes)
+
+                        # No longer need to track for a stale formula
+                        possible_stale_formula = None
+
+            # Update the previous row vars
+            previous_formula = formula
+            previous_compound = compound
+            previous_row_indexes = row_indexes
 
     def initialize_msrun_data(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
@@ -499,7 +634,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # Get or create PeakGroups
             try:
                 pgrec, _ = self.get_or_create_peak_group(
-                    row, annot_file_rec, list(cmpdrecs_dict.keys())
+                    row, annot_file_rec, cmpdrecs_dict
                 )
             except RollbackException:
                 pass
@@ -694,16 +829,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return rec
 
     @transaction.atomic
-    def get_or_create_peak_group(self, row, peak_annot_file, compound_synonyms):
+    def get_or_create_peak_group(
+        self, row, peak_annot_file, compound_recs_dict: Dict[str, Compound]
+    ):
         """Get or create a PeakGroup Record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
             row (pandas.Series)
             peak_annot_file (Optional[ArchiveFile]): The ArchiveFile record for self.file
-            compound_synonyms (List[str]): Compound synonyms parsed from the supplied peak group name.
+            compound_recs_dict (Dict[str, Compound]): Dict of Compound records keyed on the compound synonyms that were
+                parsed from the supplied peak group name.
         Exceptions:
             Buffers:
-                None
+                InfileError
             Raises:
                 RollbackException
         Returns:
@@ -712,6 +850,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
         formula = self.get_row_val(row, self.headers.FORMULA)
+        compound_synonyms = list(compound_recs_dict.keys())
 
         msrun_sample = self.get_msrun_sample(sample_header)
 
@@ -728,6 +867,22 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # difference from the primary compound name, e.g. it could be a specific stereoisomer.  However, we order the
         # names for consistency and searchability.
         pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
+
+        # The formula can be None if loading just the Accucor Corrected sheet.  In this instance, we can retrieve the
+        # formula from the Compound record.
+        if formula is None:
+            # Arbitrarily grab the first compound formula (assuming all have the same formula)
+            first_compound = list(compound_recs_dict.values())[0]
+            if first_compound is not None:
+                formula = first_compound.formula
+            # If the formula is still None
+            if formula is None:
+                self.buffer_infile_exception(
+                    f"No compound formula available for peak group {pgname} in %s."
+                )
+                self.add_skip_row_index()
+                self.errored(PeakGroup.__name__)
+                return None, False
 
         # If the peak annotation file for this PeakGroup is a part of a multiple representation and is not the selected
         # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
@@ -1818,13 +1973,6 @@ class AccucorLoader(PeakAnnotationsLoader):
     )
 
     OrigDataRequiredHeaders = {
-        "Original": [
-            "FORMULA",
-            "MEDMZ",
-            "MEDRT",
-            "ISOTOPELABEL",
-            "ORIGCOMPOUND",
-        ],
         "Corrected": [
             "CORRCOMPOUND",
             "CLABEL",
@@ -1857,7 +2005,17 @@ class AccucorLoader(PeakAnnotationsLoader):
             ),
             # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
             "Compound": lambda df: df["compound"],
-        }
+        },
+        "Corrected": {
+            "isotopeLabel": lambda df: df.apply(
+                lambda row: (
+                    "C13-label-" + str(row["C_Label"])
+                    if row["C_Label"] > 0
+                    else "C12 PARENT"
+                ),
+                axis=1,
+            ),
+        },
     }
 
     condense_columns_dict = {
@@ -1890,6 +2048,7 @@ class AccucorLoader(PeakAnnotationsLoader):
             "uncondensed_columns": [
                 "Compound",
                 "C_Label",
+                "isotopeLabel",
                 # The adductName column only ends up in this sheet due to earlier versions of Accucor not being aware
                 # that El Maven added it in later versions.
                 "adductName",
@@ -1903,14 +2062,13 @@ class AccucorLoader(PeakAnnotationsLoader):
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
             # Note, if adductName is erroneously in both sheets, merging will duplicate it with _x and _y suffixes
-            "on": ["Compound", "C_Label", "Sample Header"],
+            "on": ["Compound", "C_Label", "isotopeLabel", "Sample Header"],
             "left_columns": None,  # all
             "right_sheet": "Original",
             "right_columns": [
                 "formula",
                 "medMz",
                 "medRt",
-                "isotopeLabel",
                 "Raw Abundance",
             ],
             "how": "left",
@@ -1923,7 +2081,14 @@ class AccucorLoader(PeakAnnotationsLoader):
         "Corrected Abundance": 0,
         "medMz": 0,
         "medRt": 0,
-        "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
+        "isotopeLabel": lambda df: df.apply(
+            lambda row: (
+                "C13-label-" + str(row["C_Label"])
+                if row["C_Label"] > 0
+                else "C12 PARENT"
+            ),
+            axis=1,
+        ),
     }
 
     sort_columns = ["Sample Header", "Compound", "C_Label"]
