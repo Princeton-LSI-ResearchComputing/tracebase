@@ -595,27 +595,6 @@ class PeakDataFormat(Format):
                 },
             },
         },
-        "MSRunSample": {
-            "model": "MSRunSample",
-            "path": "peak_group__msrun_sample",
-            "reverse_path": "peak_groups__peak_data",
-            "manyrelated": {
-                "is": False,
-                "through": False,
-                "manytomany": False,
-                "split_rows": False,
-            },
-            "fields": {
-                # There is no single identifying field, so no ID field.  No handoff.  This means that a link from the
-                # basic_search to MSRunSample cannot be serviced.
-                "polarity": {
-                    "displayname": "Polarity",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
         "MZFile": {
             "model": "ArchiveFile",
             "path": "peak_group__msrun_sample__sample__msrun_samples__ms_data_file",
