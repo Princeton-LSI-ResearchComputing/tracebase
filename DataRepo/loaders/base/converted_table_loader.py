@@ -825,7 +825,12 @@ class ConvertedTableLoader(TableLoader, ABC):
         # numeric, fill them with zeros.
         num_type_fill_dict = {}
         for col, typ in self.get_column_types().items():
-            if col in _outdf.columns and typ in [int, float]:
+            if col in _outdf.columns and typ in [
+                int,
+                float,
+                pd.Int64Dtype(),
+                pd.Float64Dtype(),
+            ]:
                 num_type_fill_dict[col] = 0
         if len(num_type_fill_dict.keys()) > 0:
             _outdf.fillna(num_type_fill_dict, inplace=True)
@@ -839,7 +844,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             _merge_dict=_merge_dict["next_merge_dict"].copy(),
         )
 
-    def get_column_types(self):
+    def get_column_types(self, **kwargs):
         """Override of TableLoader.get_column_types, to add the original header types to the converted header types.
         Returns a dict of column types by header name (not header key).
 
@@ -854,7 +859,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             dtypes (dict): Types by header name (instead of by header key)
         """
         # Get the converted header types
-        dtypes = super().get_column_types()
+        dtypes = super().get_column_types(**kwargs)
         if dtypes is None:
             dtypes = {}
 

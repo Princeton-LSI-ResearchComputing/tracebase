@@ -5,6 +5,7 @@ from collections import defaultdict, namedtuple
 from collections.abc import Iterable
 from typing import Dict, List, Optional, Type
 
+import pandas as pd
 from django.core.exceptions import (
     MultipleObjectsReturned,
     ObjectDoesNotExist,
@@ -200,7 +201,7 @@ class TableLoader(ABC):
     DefaultsRequiredValues = ["SHEET_NAME", "COLUMN_NAME"]
 
     # For handling empty "cells".  Any value to be converted to None, when evaluated as a string.
-    none_vals = ["", "nan", "None", "dummy", "NaT"]
+    none_vals = ["", "nan", "None", "dummy", "NaT", "<NA>"]
 
     def __init__(
         self,
@@ -1078,6 +1079,7 @@ class TableLoader(ABC):
         try:
             self.set_headers()
         except TypeError as te:
+            self.aggregated_errors_object.buffer_warning(te)
             typeerrs.append(str(te))
             # TODO: Buffering at the caught exception would be better, because it provides a better trace.  Refactor
             # spots where I do this.
@@ -1086,6 +1088,7 @@ class TableLoader(ABC):
         try:
             self.set_defaults()
         except TypeError as te:
+            self.aggregated_errors_object.buffer_warning(te)
             typeerrs.append(str(te))
             # self.aggregated_errors_object.buffer_error(te)
 
@@ -1150,13 +1153,14 @@ class TableLoader(ABC):
             and hasattr(obj, "_fields")
         )
 
-    def get_column_types(self, optional_mode=False):
+    def get_column_types(self, optional_mode=False, pandas_mode=True):
         """Returns a dict of column types by header name (not header key).
 
         Args:
             optional_mode (bool): Only include types that do not raise pandas exceptions when empty (because they are
                 optional).  Currently, this means it will only include string types, e.g. so that animal names that are
                 only numbers stay as strings.
+            pandas_mode (bool) [True]: Whether to return pandas types or not.
         Exceptions:
             None
         Returns:
@@ -1166,12 +1170,20 @@ class TableLoader(ABC):
             return None
 
         if hasattr(self, "headers") and self.headers is not None:
-            return self._get_column_types(self.headers, optional_mode=optional_mode)
+            types, aes = self._get_column_types(
+                self.headers, optional_mode=optional_mode, pandas_mode=pandas_mode
+            )
+        else:
+            types, aes = self._get_column_types(
+                optional_mode=optional_mode, pandas_mode=pandas_mode
+            )
 
-        return self._get_column_types(optional_mode=optional_mode)
+        self.aggregated_errors_object.merge_aggregated_errors_object(aes)
+
+        return types
 
     @classmethod
-    def _get_column_types(self, headers=None, optional_mode=False):
+    def _get_column_types(cls, headers=None, optional_mode=False, pandas_mode=True):
         """Returns a dict of column types by header name (not header key).
 
         Args:
@@ -1179,31 +1191,52 @@ class TableLoader(ABC):
             optional_mode (bool): Only include types that do not raise pandas exceptions when empty (because they are
                 optional).  Currently, this means it will only include string types, e.g. so that animal names that are
                 only numbers stay as strings.
+            pandas_mode (bool) [True]: Whether to return pandas types or not.
         Exceptions:
             None
         Returns:
             dtypes (dict): Types by header name (instead of by header key)
+            aes (AggregatedErrors)
         """
+        aes = AggregatedErrors()
+
         # TODO: Make optional mode have the ability to consider the required state for the column
-        if self.DataColumnTypes is None:
-            return None
+        if cls.DataColumnTypes is None:
+            return None, aes
 
         if headers is None:
-            headers = self.DataHeaders
+            headers = cls.DataHeaders
 
         dtypes = {}
-        for key in self.DataColumnTypes.keys():
-            if optional_mode and self.DataColumnTypes[key] != str:
+        for key in cls.DataColumnTypes.keys():
+            if optional_mode and cls.DataColumnTypes[key] != str:
                 continue
             hdr = getattr(headers, key)
             if hdr is None:
                 # This is in case the custom-supplied headers are incomplete (they should not be if they came from the
                 # instance - only if this is called externally)
-                dtypes[getattr(self.DataHeaders, key)] = self.DataColumnTypes[key]
+                dtypes[getattr(cls.DataHeaders, key)] = cls.DataColumnTypes[key]
             else:
-                dtypes[hdr] = self.DataColumnTypes[key]
+                if not pandas_mode or hdr in cls.DataRequiredValues:
+                    dtypes[hdr] = cls.DataColumnTypes[key]
+                elif cls.DataColumnTypes[key] == int:
+                    # Pandas' Nullable integer
+                    dtypes[hdr] = pd.Int64Dtype()
+                elif cls.DataColumnTypes[key] == float:
+                    # Pandas' Nullable float
+                    dtypes[hdr] = pd.Float64Dtype()
+                else:
+                    if cls.DataColumnTypes[key] != str:
+                        aes.buffer_warning(
+                            ProgrammingError(
+                                f"A Pandas Type for '{cls.DataColumnTypes[key].__name__}' is not yet "
+                                "implemented."
+                            )
+                        )
+                    # Add types as needed
+                    dtypes[hdr] = cls.DataColumnTypes[key]
 
-        return dtypes
+        return dtypes, aes
 
     def get_hidden_columns(self):
         """Returns a list of hidden columns by header name (not header key).
@@ -2002,7 +2035,7 @@ class TableLoader(ABC):
             apply_types = False
 
         # Get the column types by header name
-        coltypes = self.get_column_types()
+        coltypes = self.get_column_types(pandas_mode=False)
 
         # Error tracking
         unknown_sheets = defaultdict(list)
