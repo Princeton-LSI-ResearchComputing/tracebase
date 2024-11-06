@@ -109,10 +109,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
     # List of required header keys
     DataRequiredHeaders = [
-        MEDMZ_KEY,
-        MEDRT_KEY,
         ISOTOPELABEL_KEY,
-        FORMULA_KEY,
         COMPOUND_KEY,
         SAMPLEHEADER_KEY,
         CORRECTED_KEY,
@@ -121,7 +118,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     # List of header keys for columns that require a value
     DataRequiredValues = [
         ISOTOPELABEL_KEY,
-        FORMULA_KEY,
         COMPOUND_KEY,
         SAMPLEHEADER_KEY,
         CORRECTED_KEY,
@@ -499,7 +495,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # Get or create PeakGroups
             try:
                 pgrec, _ = self.get_or_create_peak_group(
-                    row, annot_file_rec, list(cmpdrecs_dict.keys())
+                    row, annot_file_rec, cmpdrecs_dict
                 )
             except RollbackException:
                 pass
@@ -694,16 +690,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return rec
 
     @transaction.atomic
-    def get_or_create_peak_group(self, row, peak_annot_file, compound_synonyms):
+    def get_or_create_peak_group(
+        self, row, peak_annot_file, compound_recs_dict: Dict[str, Compound]
+    ):
         """Get or create a PeakGroup Record.  Handles exceptions, updates stats, and triggers a rollback.
 
         Args:
             row (pandas.Series)
             peak_annot_file (Optional[ArchiveFile]): The ArchiveFile record for self.file
-            compound_synonyms (List[str]): Compound synonyms parsed from the supplied peak group name.
+            compound_recs_dict (Dict[str, Compound]): Dict of Compound records keyed on the compound synonyms that were
+                parsed from the supplied peak group name.
         Exceptions:
             Buffers:
-                None
+                InfileError
             Raises:
                 RollbackException
         Returns:
@@ -712,6 +711,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
         formula = self.get_row_val(row, self.headers.FORMULA)
+        compound_synonyms = list(compound_recs_dict.keys())
 
         msrun_sample = self.get_msrun_sample(sample_header)
 
@@ -728,6 +728,22 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # difference from the primary compound name, e.g. it could be a specific stereoisomer.  However, we order the
         # names for consistency and searchability.
         pgname = PeakGroup.compound_synonyms_to_peak_group_name(compound_synonyms)
+
+        # The formula can be None if loading just the Accucor Corrected sheet.  In this instance, we can retrieve the
+        # formula from the Compound record.
+        if formula is None:
+            # Arbitrarily grab the first compound formula (assuming all have the same formula)
+            first_compound = list(compound_recs_dict.values())[0]
+            if first_compound is not None:
+                formula = first_compound.formula
+            # If the formula is still None
+            if formula is None:
+                self.buffer_infile_exception(
+                    f"No compound formula available for peak group {pgname} in %s."
+                )
+                self.add_skip_row_index()
+                self.errored(PeakGroup.__name__)
+                return None, False
 
         # If the peak annotation file for this PeakGroup is a part of a multiple representation and is not the selected
         # one, skip its load.  (Note, this updates counts and deletes an unselected PeakGroup if it was previously
@@ -1818,13 +1834,6 @@ class AccucorLoader(PeakAnnotationsLoader):
     )
 
     OrigDataRequiredHeaders = {
-        "Original": [
-            "FORMULA",
-            "MEDMZ",
-            "MEDRT",
-            "ISOTOPELABEL",
-            "ORIGCOMPOUND",
-        ],
         "Corrected": [
             "CORRCOMPOUND",
             "CLABEL",
@@ -1857,7 +1866,17 @@ class AccucorLoader(PeakAnnotationsLoader):
             ),
             # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
             "Compound": lambda df: df["compound"],
-        }
+        },
+        "Corrected": {
+            "isotopeLabel": lambda df: df.apply(
+                lambda row: (
+                    "C13-label-" + str(row["C_Label"])
+                    if row["C_Label"] > 0
+                    else "C12 PARENT"
+                ),
+                axis=1,
+            ),
+        },
     }
 
     condense_columns_dict = {
@@ -1890,6 +1909,7 @@ class AccucorLoader(PeakAnnotationsLoader):
             "uncondensed_columns": [
                 "Compound",
                 "C_Label",
+                "isotopeLabel",
                 # The adductName column only ends up in this sheet due to earlier versions of Accucor not being aware
                 # that El Maven added it in later versions.
                 "adductName",
@@ -1903,14 +1923,13 @@ class AccucorLoader(PeakAnnotationsLoader):
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
             # Note, if adductName is erroneously in both sheets, merging will duplicate it with _x and _y suffixes
-            "on": ["Compound", "C_Label", "Sample Header"],
+            "on": ["Compound", "C_Label", "isotopeLabel", "Sample Header"],
             "left_columns": None,  # all
             "right_sheet": "Original",
             "right_columns": [
                 "formula",
                 "medMz",
                 "medRt",
-                "isotopeLabel",
                 "Raw Abundance",
             ],
             "how": "left",
@@ -1923,7 +1942,14 @@ class AccucorLoader(PeakAnnotationsLoader):
         "Corrected Abundance": 0,
         "medMz": 0,
         "medRt": 0,
-        "isotopeLabel": lambda df: "C13-label-" + df["C_Label"].astype(str),
+        "isotopeLabel": lambda df: df.apply(
+            lambda row: (
+                "C13-label-" + str(row["C_Label"])
+                if row["C_Label"] > 0
+                else "C12 PARENT"
+            ),
+            axis=1,
+        ),
     }
 
     sort_columns = ["Sample Header", "Compound", "C_Label"]
