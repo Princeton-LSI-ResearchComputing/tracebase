@@ -182,7 +182,6 @@ class FormatsTests(TracebaseTestCase):
             ("med_rt", "Median RT"),
             ("peak_group__peak_annotation_file__filename", "Peak Annotation Filename"),
             ("peak_group__name", "Peak Group"),
-            ("peak_group__msrun_sample__polarity", "Polarity"),
             (
                 "peak_group__msrun_sample__sample__msrun_samples__ms_raw_file__filename",
                 "RAW Data Filename",
@@ -237,7 +236,6 @@ class FormatsTests(TracebaseTestCase):
             ("msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
-            ("msrun_sample__polarity", "Polarity"),
             (
                 "msrun_sample__sample__msrun_samples__ms_raw_file__filename",
                 "RAW Data Filename",
@@ -330,7 +328,7 @@ class FormatsTests(TracebaseTestCase):
 
     def assertIsAPgUnitsLookupDict(self, fld_units_lookup):
         # There should be 39 fields with units lookups
-        self.assertEqual(46, len(fld_units_lookup.keys()))
+        self.assertEqual(45, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
         self.assertIsNone(fld_units_lookup["msrun_sample__sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
@@ -1215,7 +1213,6 @@ class FormatsTests(TracebaseTestCase):
             ("msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
-            ("msrun_sample__polarity", "Polarity"),
             (
                 "msrun_sample__sample__msrun_samples__ms_raw_file__filename",
                 "RAW Data Filename",
@@ -1290,7 +1287,6 @@ class FormatsTests(TracebaseTestCase):
             "CompoundSynonym",
             "Study",
             "MSRunSequence",
-            "MSRunSample",
             "MZFile",
             "RAWFile",
         ]
@@ -1536,8 +1532,8 @@ class FormatsTests(TracebaseTestCase):
             expected_age_dict, fld_units_dict["fctemplate"]["serum_sample__animal__age"]
         )
         self.assertEqual(31, len(fld_units_dict["fctemplate"].keys()))
-        self.assertEqual(47, len(fld_units_dict["pgtemplate"].keys()))
-        self.assertEqual(51, len(fld_units_dict["pdtemplate"].keys()))
+        self.assertEqual(46, len(fld_units_dict["pgtemplate"].keys()))
+        self.assertEqual(50, len(fld_units_dict["pdtemplate"].keys()))
 
     def test_getAllFieldUnitsChoices(self):
         sg = SearchGroup()
