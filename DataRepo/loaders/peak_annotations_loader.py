@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Dict, List, Optional
 
+import pandas as pd
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.db.utils import ProgrammingError
@@ -60,6 +61,13 @@ from DataRepo.utils.infusate_name_parser import (
 )
 
 PeakGroupCompound = PeakGroup.compounds.through
+# Isotopes supported by accucor.  See https://cran.r-project.org/web/packages/accucor/readme/README.html
+AccucorIsotopes = {
+    "C": "C13",
+    "N": "N15",
+    "D": "H2",  # TraceBase needs the mass_number
+    "H": "H2",
+}
 
 
 class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
@@ -1930,6 +1938,47 @@ class IsocorrLoader(PeakAnnotationsLoader):
     ]
 
 
+def get_accucor_label_column_name(df: pd.DataFrame):
+    """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
+
+    Args:
+        df (pd.DataFrame)
+    Exceptions:
+        None
+    Returns:
+        matches[0] (str)
+    """
+    matches = [cn for cn in df.columns if cn.endswith("_Label")]
+    return matches[0] if len(matches) == 1 else None
+
+
+def get_accucor_isotope_string(df: pd.DataFrame):
+    """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
+
+    Args:
+        df (pd.DataFrame)
+    Exceptions:
+        ValueError
+        KeyError
+    Returns:
+        matches[0] (str)
+    """
+    header_matches = [cn for cn in df.columns if cn.endswith("_Label")]
+    if len(header_matches) != 1:
+        raise ValueError(
+            "Unable to identify label column among the accucor corrected column names: "
+            f"{list(df.columns)}"
+        )
+    label_column = header_matches[0]
+    element, _ = label_column.split("_")
+    if element not in AccucorIsotopes.keys():
+        raise KeyError(
+            f"Unsupported accucor isotope element '{element}'.  Supported elements are: "
+            f"{list(AccucorIsotopes.keys())}."
+        )
+    return AccucorIsotopes[element]
+
+
 class AccucorLoader(PeakAnnotationsLoader):
     """Derived class of PeakAnnotationsLoader that just defines how to convert an accucor excel file to the format
     accepted by the parent class's load_data method.
@@ -1959,6 +2008,9 @@ class AccucorLoader(PeakAnnotationsLoader):
             "PPMDIFF",
             "PARENT",
             "CLABEL",
+            "NLABEL",
+            "HLABEL",
+            "DLABEL",
         ],
     )
 
@@ -1978,13 +2030,15 @@ class AccucorLoader(PeakAnnotationsLoader):
         EXPECTEDRTDIFF="expectedRtDiff",
         PPMDIFF="ppmDiff",
         PARENT="parent",
-        CLABEL="C_Label",
+        CLABEL="C_Label",  # Only 1 of the X_Label column possibilities will be present
+        NLABEL="N_Label",
+        HLABEL="H_Label",
+        DLABEL="D_Label",
     )
 
     OrigDataRequiredHeaders = {
         "Corrected": [
             "CORRCOMPOUND",
-            "CLABEL",
         ],
     }
 
@@ -1997,6 +2051,9 @@ class AccucorLoader(PeakAnnotationsLoader):
         "ORIGCOMPOUND": str,
         "CORRCOMPOUND": str,
         "CLABEL": int,
+        "NLABEL": int,
+        "HLABEL": int,
+        "DLABEL": int,
     }
 
     # These attributes are defined in the order in which they are applied
@@ -2004,23 +2061,19 @@ class AccucorLoader(PeakAnnotationsLoader):
     add_columns_dict = {
         # Sheet: dict
         "Original": {
-            # New column name: method that takes a dataframe to create the new column
-            "C_Label": (
-                lambda df: df["isotopeLabel"]
-                .str.split("-")
-                .str.get(-1)
-                .replace({"C12 PARENT": "0"})
-                .astype(int)
-            ),
             # Rename happens after merge, but before merge, we want matching column names in each sheet, so...
             "Compound": lambda df: df["compound"],
         },
         "Corrected": {
             "isotopeLabel": lambda df: df.apply(
                 lambda row: (
-                    "C13-label-" + str(row["C_Label"])
-                    if row["C_Label"] > 0
-                    else "C12 PARENT"
+                    ""
+                    if get_accucor_label_column_name(df) is None
+                    else (
+                        f"{get_accucor_isotope_string(df)}-label-{row[get_accucor_label_column_name(df)]}"
+                        if row[get_accucor_label_column_name(df)] > 0
+                        else "C12 PARENT"
+                    )
                 ),
                 axis=1,
             ),
@@ -2048,7 +2101,6 @@ class AccucorLoader(PeakAnnotationsLoader):
                 "ppmDiff",
                 "parent",
                 "Compound",  # From add_columns_dict
-                "C_Label",  # From add_columns_dict
             ],
         },
         "Corrected": {
@@ -2056,8 +2108,11 @@ class AccucorLoader(PeakAnnotationsLoader):
             "value_column": "Corrected Abundance",
             "uncondensed_columns": [
                 "Compound",
+                "isotopeLabel",  # From add_columns_dict
                 "C_Label",
-                "isotopeLabel",
+                "N_Label",
+                "D_Label",
+                "H_Label",
                 # The adductName column only ends up in this sheet due to earlier versions of Accucor not being aware
                 # that El Maven added it in later versions.
                 "adductName",
@@ -2071,7 +2126,7 @@ class AccucorLoader(PeakAnnotationsLoader):
         "first_sheet": "Corrected",  # This key only occurs once in the outermost dict
         "next_merge_dict": {
             # Note, if adductName is erroneously in both sheets, merging will duplicate it with _x and _y suffixes
-            "on": ["Compound", "C_Label", "isotopeLabel", "Sample Header"],
+            "on": ["Compound", "isotopeLabel", "Sample Header"],
             "left_columns": None,  # all
             "right_sheet": "Original",
             "right_columns": [
@@ -2090,17 +2145,21 @@ class AccucorLoader(PeakAnnotationsLoader):
         "Corrected Abundance": 0,
         "medMz": 0,
         "medRt": 0,
-        "isotopeLabel": lambda df: df.apply(
-            lambda row: (
-                "C13-label-" + str(row["C_Label"])
-                if row["C_Label"] > 0
-                else "C12 PARENT"
-            ),
-            axis=1,
+        "isotopeLabel": lambda df: (
+            ""
+            if get_accucor_label_column_name(df) is None
+            else df.apply(
+                lambda row: (
+                    f"{get_accucor_isotope_string(df)}-label-{row[get_accucor_label_column_name(df)]}"
+                    if row[get_accucor_label_column_name(df)] > 0
+                    else "C12 PARENT"
+                ),
+                axis=1,
+            )
         ),
     }
 
-    sort_columns = ["Sample Header", "Compound", "C_Label"]
+    sort_columns = ["Sample Header", "Compound", "isotopeLabel"]
 
     nan_filldown_columns = ["formula"]
 
@@ -2126,6 +2185,9 @@ class AccucorLoader(PeakAnnotationsLoader):
         "ppmDiff",
         "parent",
         "C_Label",
+        "N_Label",
+        "H_Label",
+        "D_Label",
     ]
 
 
