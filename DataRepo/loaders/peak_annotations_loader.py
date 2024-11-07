@@ -61,13 +61,6 @@ from DataRepo.utils.infusate_name_parser import (
 )
 
 PeakGroupCompound = PeakGroup.compounds.through
-# Isotopes supported by accucor.  See https://cran.r-project.org/web/packages/accucor/readme/README.html
-AccucorIsotopes = {
-    "C": "C13",
-    "N": "N15",
-    "D": "H2",  # TraceBase needs the mass_number
-    "H": "H2",
-}
 
 
 class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
@@ -1938,47 +1931,6 @@ class IsocorrLoader(PeakAnnotationsLoader):
     ]
 
 
-def get_accucor_label_column_name(df: pd.DataFrame):
-    """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
-
-    Args:
-        df (pd.DataFrame)
-    Exceptions:
-        None
-    Returns:
-        matches[0] (str)
-    """
-    matches = [cn for cn in df.columns if cn.endswith("_Label")]
-    return matches[0] if len(matches) == 1 else None
-
-
-def get_accucor_isotope_string(df: pd.DataFrame):
-    """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
-
-    Args:
-        df (pd.DataFrame)
-    Exceptions:
-        ValueError
-        KeyError
-    Returns:
-        matches[0] (str)
-    """
-    header_matches = [cn for cn in df.columns if cn.endswith("_Label")]
-    if len(header_matches) != 1:
-        raise ValueError(
-            "Unable to identify label column among the accucor corrected column names: "
-            f"{list(df.columns)}"
-        )
-    label_column = header_matches[0]
-    element, _ = label_column.split("_")
-    if element not in AccucorIsotopes.keys():
-        raise KeyError(
-            f"Unsupported accucor isotope element '{element}'.  Supported elements are: "
-            f"{list(AccucorIsotopes.keys())}."
-        )
-    return AccucorIsotopes[element]
-
-
 class AccucorLoader(PeakAnnotationsLoader):
     """Derived class of PeakAnnotationsLoader that just defines how to convert an accucor excel file to the format
     accepted by the parent class's load_data method.
@@ -1988,6 +1940,55 @@ class AccucorLoader(PeakAnnotationsLoader):
     """
 
     format_code = "accucor"
+
+    # Isotopes supported by accucor.  See https://cran.r-project.org/web/packages/accucor/readme/README.html
+    AccucorIsotopes = {
+        "C": "C13",
+        "N": "N15",
+        "D": "H2",  # TraceBase needs the mass_number
+        "H": "H2",
+    }
+
+    @classmethod
+    def get_accucor_label_column_name(cls, df: pd.DataFrame):
+        """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
+
+        Args:
+            df (pd.DataFrame)
+        Exceptions:
+            None
+        Returns:
+            matches[0] (str)
+        """
+        matches = [cn for cn in df.columns if cn.endswith("_Label")]
+        return matches[0] if len(matches) == 1 else None
+
+    @classmethod
+    def get_accucor_isotope_string(cls, df: pd.DataFrame):
+        """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
+
+        Args:
+            df (pd.DataFrame)
+        Exceptions:
+            ValueError
+            KeyError
+        Returns:
+            matches[0] (str)
+        """
+        header_matches = [cn for cn in df.columns if cn.endswith("_Label")]
+        if len(header_matches) != 1:
+            raise ValueError(
+                "Unable to identify label column among the accucor corrected column names: "
+                f"{list(df.columns)}"
+            )
+        label_column = header_matches[0]
+        element, _ = label_column.split("_")
+        if element not in cls.AccucorIsotopes.keys():
+            raise KeyError(
+                f"Unsupported accucor isotope element '{element}'.  Supported elements are: "
+                f"{list(cls.AccucorIsotopes.keys())}."
+            )
+        return cls.AccucorIsotopes[element]
 
     OrigDataTableHeaders = namedtuple(
         "OrigDataTableHeaders",
@@ -2068,10 +2069,14 @@ class AccucorLoader(PeakAnnotationsLoader):
             "isotopeLabel": lambda df: df.apply(
                 lambda row: (
                     ""
-                    if get_accucor_label_column_name(df) is None
+                    if AccucorLoader.get_accucor_label_column_name(df) is None
                     else (
-                        f"{get_accucor_isotope_string(df)}-label-{row[get_accucor_label_column_name(df)]}"
-                        if row[get_accucor_label_column_name(df)] > 0
+                        (
+                            f"{AccucorLoader.get_accucor_isotope_string(df)}"
+                            "-label-"
+                            f"{row[AccucorLoader.get_accucor_label_column_name(df)]}"
+                        )
+                        if row[AccucorLoader.get_accucor_label_column_name(df)] > 0
                         else "C12 PARENT"
                     )
                 ),
@@ -2147,11 +2152,15 @@ class AccucorLoader(PeakAnnotationsLoader):
         "medRt": 0,
         "isotopeLabel": lambda df: (
             ""
-            if get_accucor_label_column_name(df) is None
+            if AccucorLoader.get_accucor_label_column_name(df) is None
             else df.apply(
                 lambda row: (
-                    f"{get_accucor_isotope_string(df)}-label-{row[get_accucor_label_column_name(df)]}"
-                    if row[get_accucor_label_column_name(df)] > 0
+                    (
+                        f"{AccucorLoader.get_accucor_isotope_string(df)}"
+                        "-label-"
+                        f"{row[AccucorLoader.get_accucor_label_column_name(df)]}"
+                    )
+                    if row[AccucorLoader.get_accucor_label_column_name(df)] > 0
                     else "C12 PARENT"
                 ),
                 axis=1,
