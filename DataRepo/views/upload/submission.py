@@ -529,15 +529,22 @@ class BuildSubmissionView(FormView):
 
                     print("Creating peak annotations loader")
                     # Create an instance of the loader, appended onto the loaders
-                    self.peak_annotations_loaders.append(
-                        peak_annot_loader_class(
-                            # These are the essential arguments
-                            df=df,
-                            file=peak_annot_file,
-                            filename=peak_annot_filename,
-                            # We don't need the default sequence info - we only want to read the file
+                    try:
+                        self.peak_annotations_loaders.append(
+                            peak_annot_loader_class(
+                                # These are the essential arguments
+                                df=df,
+                                file=peak_annot_file,
+                                filename=peak_annot_filename,
+                                # We don't need the default sequence info - we only want to read the file
+                            )
                         )
-                    )
+                    except AggregatedErrors as aes:
+                        self.load_status_data.set_load_exception(
+                            aes,
+                            peak_annot_filename,
+                        )
+                        self.peak_annotations_loaders.append(None)
                 elif (
                     ext in allowed_exts
                     and self.autofill_only_mode
@@ -549,15 +556,22 @@ class BuildSubmissionView(FormView):
                     self.files_with_format_errors.append(peak_annot_filename)
                     print("Creating peak annotations loader")
                     # Create an instance of the loader, appended onto the loaders
-                    self.peak_annotations_loaders.append(
-                        peak_annot_loader_class(
-                            # These are the essential arguments
-                            df=df,
-                            file=peak_annot_file,
-                            filename=peak_annot_filename,
-                            # We don't need the default sequence info - we only want to read the file
+                    try:
+                        self.peak_annotations_loaders.append(
+                            peak_annot_loader_class(
+                                # These are the essential arguments
+                                df=df,
+                                file=peak_annot_file,
+                                filename=peak_annot_filename,
+                                # We don't need the default sequence info - we only want to read the file
+                            )
                         )
-                    )
+                    except AggregatedErrors as aes:
+                        self.load_status_data.set_load_exception(
+                            aes,
+                            peak_annot_filename,
+                        )
+                        self.peak_annotations_loaders.append(None)
 
                     # Log a warning for the user
                     suggestion = (
@@ -610,12 +624,11 @@ class BuildSubmissionView(FormView):
 
                 # Go through the loaders and log any exceptions that occurred
                 pal: PeakAnnotationsLoader = self.peak_annotations_loaders[-1]
-                if pal is not None:
-                    for pal_exc in pal.aggregated_errors_object.exceptions:
-                        self.load_status_data.set_load_exception(
-                            pal_exc,
-                            peak_annot_filename,
-                        )
+                if pal is not None and len(pal.aggregated_errors_object.exceptions) > 0:
+                    self.load_status_data.set_load_exception(
+                        pal.aggregated_errors_object,
+                        peak_annot_filename,
+                    )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

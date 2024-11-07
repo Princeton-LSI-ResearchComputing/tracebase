@@ -998,7 +998,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             Raises:
                 AggregatedErrors
             Buffers:
-                ConditionallyRequiredArgs
+                Any unhandled exception raised by convert_df
         Returns:
             None
         """

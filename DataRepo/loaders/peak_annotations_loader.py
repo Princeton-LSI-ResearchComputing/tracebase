@@ -356,9 +356,18 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.peakgroupconflicts.get_selected_representations()
         )
 
-        # Convert the supplied df using the derived class.
-        # Cannot call super().__init__() because ABC.__init__() takes a custom argument
-        ConvertedTableLoader.__init__(self, *args, **kwargs)
+        try:
+            # Convert the supplied df using the derived class.
+            # Cannot call super().__init__() because ABC.__init__() takes a custom argument
+            ConvertedTableLoader.__init__(self, *args, **kwargs)
+        except AggregatedErrors:
+            # Whenever ConvertedTableLoader raises an AggregatedErrors object, it is raising
+            # self.aggregated_errors_object, so there is no need to merge
+            # The conversion failed, so we cannot proceed
+            raise self.aggregated_errors_object
+        except Exception as e:
+            # The conversion failed, so we cannot proceed
+            raise self.aggregated_errors_object.buffer_error(e)
 
         # Check that every compound has a valid C12 PARENT row.
         self.check_c12_parents()
