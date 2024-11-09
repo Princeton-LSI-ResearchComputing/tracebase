@@ -1,4 +1,5 @@
 from collections import namedtuple
+from copy import deepcopy
 
 import pandas as pd
 from django.db.models import AutoField, CharField, Model
@@ -10,7 +11,7 @@ from DataRepo.utils.exceptions import AggregatedErrors, RequiredHeadersError
 
 
 @isolate_apps("DataRepo.tests.apps.loader")
-class TestConvertedLoaderTests(TracebaseTestCase):
+class ConvertedTableLoaderTests(TracebaseTestCase):
     # Going to create independent copies of the TestConvertedLoader1 and TestConvertedLoader2 classes in order to make
     # these tests independent
 
@@ -76,10 +77,6 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 CORRECTED="Corrected Abundance",
             )
             DataRequiredHeaders = [
-                "MEDMZ",
-                "MEDRT",
-                "ISOTOPELABEL",
-                "FORMULA",
                 "COMPOUND",
                 "SAMPLEHEADER",
                 "CORRECTED",
@@ -160,7 +157,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
                 }
             }
 
-            merge_dict = cls.accucor_merge_dict
+            merge_dict = deepcopy(cls.accucor_merge_dict)
 
             OrigDataTableHeaders = namedtuple(
                 "OrigDataTableHeaders",
@@ -188,13 +185,6 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             )
 
             OrigDataRequiredHeaders = {
-                "Original": [
-                    "FORMULA",
-                    "MEDMZ",
-                    "MEDRT",
-                    "ISOTOPELABEL",
-                    "ORIGCOMPOUND",
-                ],
                 "Corrected": [
                     "CORRCOMPOUND",
                     "CLABEL",
@@ -298,11 +288,11 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             }
 
             OrigDataColumnTypes = {
-                "formula": str,
-                "medMz": float,
-                "medRt": float,
-                "isotopeLabel": str,
-                "compound": str,
+                "FORMULA": str,
+                "MEDMZ": float,
+                "MEDRT": float,
+                "ISOTOPELABEL": str,
+                "COMPOUND": str,
             }
 
             nan_defaults_dict = None
@@ -347,13 +337,16 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         "absolte": pd.DataFrame.from_dict(ABSO_DICT),
     }
 
-    @classmethod
-    def setUpTestData(cls):
-        mdl = cls.generate_test_model()
-        TestTableLoader = cls.generate_test_table_loader(mdl)
-        cls.TestConvertedLoader1 = cls.generate_test_converted_loader1(TestTableLoader)
-        cls.TestConvertedLoader2 = cls.generate_test_converted_loader2(TestTableLoader)
-        super().setUpTestData()
+    def setUp(self):
+        super().setUp()
+        mdl = self.generate_test_model()
+        TestTableLoader = self.generate_test_table_loader(mdl)
+        self.TestConvertedLoader1 = self.generate_test_converted_loader1(
+            TestTableLoader
+        )
+        self.TestConvertedLoader2 = self.generate_test_converted_loader2(
+            TestTableLoader
+        )
 
     def get_accucor_df_with_added_columns(self):
         expected_orig_dict = self.ORIG_DICT.copy()
@@ -468,6 +461,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         )
 
     def get_converted_accucor_df(self):
+        """This returns a dataframe that is the result of merging the original and corrected sheets"""
         return pd.DataFrame.from_dict(
             {
                 "MedMz": [
@@ -585,6 +579,13 @@ class TestConvertedLoaderTests(TracebaseTestCase):
             },
         )
 
+    def get_converted_corrected_accucor_df(self):
+        """This removes all of the columns that come from the original sheet, so it returns a dataframe that represents
+        just the corrected sheet."""
+        return self.get_converted_accucor_df()[
+            ["Compound", "mzXML Name", "Corrected Abundance"]
+        ]
+
     def test_convert_df_accucor_excel(self):
         tmpdf = dict(
             (sheet, adf.copy(deep=True)) for sheet, adf in self.ACCUCOR_DF_DICT.items()
@@ -596,17 +597,29 @@ class TestConvertedLoaderTests(TracebaseTestCase):
 
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
-    def test_convert_df_accucor_tsv(self):
-        """The user provides only a single sheet (Corrected), so we expect to get an exception about missing headers."""
+    def test_convert_df_accucor_tsv_success(self):
+        """The user provides only a single sheet (Corrected), which should work, despite supporting a merge of 2 sheets.
+        The only thing that's missing (from a Tracebase perspective) is the formula column, but the loading code in that
+        instance, grabs in from the compound record.  Note, this is just an example, written to test a
+        ConvertedTableLoader feature (skip merging if the 1 required sheet is provided), independent of Tracebase, but
+        this was also written to approximate what would happen in TraceBase."""
+        tcl = self.TestConvertedLoader1(  # pylint: disable=not-callable
+            df=self.ACCUCOR_DF_DICT["Corrected"]
+        )
+        tcl.convert_df()
+        aes = tcl.aggregated_errors_object
+        self.assertEqual(0, len(aes.exceptions))
+
+    def test_convert_df_accucor_tsv_missingheaders(self):
         with self.assertRaises(AggregatedErrors) as ar:
             self.TestConvertedLoader1(  # pylint: disable=not-callable
-                df=self.ACCUCOR_DF_DICT["Corrected"]
+                df=self.ACCUCOR_DF_DICT["Original"].copy(deep=True)
             ).convert_df()
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], RequiredHeadersError)
         self.assertIn(
-            "missing: {'Corrected': ['medMz', 'medRt', 'isotopeLabel', 'formula']}",
+            "missing: {'Corrected': ['Compound']}",
             str(aes.exceptions[0]),
         )
 
@@ -720,17 +733,11 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
     def test_extra_columns_excluded_accucor_tsv(self):
-        tmporig = self.ORIG_DICT.copy()
-        tmporig["metaGroupId"] = [2, 2, 3, 3]
-        tmpcorr = self.CORR_DICT.copy()
-        tmpcorr["adductName"] = [0, 0, 0, 0]
-        tmpdict = {
-            "Original": pd.DataFrame.from_dict(tmporig),
-            "Corrected": pd.DataFrame.from_dict(tmpcorr),
-        }
-        expected = self.get_converted_accucor_df()
+        tmpdict = self.CORR_DICT.copy()
+        tmpdict["adductName"] = [0, 0, 0, 0]
+        expected = self.get_converted_corrected_accucor_df()
         outdf = self.TestConvertedLoader1(  # pylint: disable=not-callable
-            df=tmpdict
+            df=pd.DataFrame.from_dict(tmpdict)
         ).convert_df()
         pd.testing.assert_frame_equal(expected, outdf, check_like=True)
 
@@ -791,18 +798,19 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], RequiredHeadersError))
         self.assertIn(
-            # This is actually misleading.  The method infers that the original headers were missing in the "converted"
-            # dataframe, thus it seems like it's saying (for example) that "medMz" is missing (when it's not), because
-            # to do the test, we skipped conversion and passed it a bogus original dataframe as if it was converted.
-            # So, this result is the expected result given the manipulation.
-            # It also names the sheet as "absolte" because it assumes that when it's given a single sheet, it is the one
-            # required sheet.  The class is compatible with either a dict of dataframes or a dataframe.  When it's given
-            # a dataframe (as in this case), it doesn't really know the name of the sheet, which it gets from the keys
-            # of the dict of dataframes that we did not provide.  It just assumes it's the one it needs.
-            (
-                "{'absolte': ['medMz', 'medRt', 'isotopeLabel', 'formula', 'compound', 'mzXML Name', 'Corrected "
-                "Abundance']}"
-            ),
+            # This is actually misleading.  The method shows that the original headers were missing in the "converted"
+            # dataframe, thus it seems like it's saying (for example) that "compound" is missing (when it's not),
+            # because to do the test, we skipped conversion and passed it a bogus original dataframe as if it was
+            # converted.  It's actually looking for the converted "Compound" header, but it doesn't want to tell the
+            # user they were missing a header that was renamed in the conversion, so the header is converted back to the
+            # original (when possible).  Also note that it's not possible to be missing 'mzXML Name' and 'Corrected
+            # Abundance', because those would have been created by the conversion.
+            # So, this result is the expected result given the manipulation.  It also names the sheet as "absolte"
+            # because it assumes that when it's given a single sheet, it is the one required sheet.  The class is
+            # compatible with either a dict of dataframes or a dataframe.  When it's given a dataframe (as in this
+            # case), it doesn't really know the name of the sheet, which it gets from the keys of the dict of dataframes
+            # that we did not provide.  It just assumes it's the one it needs.
+            "{'absolte': ['compound', 'mzXML Name', 'Corrected Abundance']}",
             str(aes.exceptions[0]),
         )
 
@@ -858,7 +866,7 @@ class TestConvertedLoaderTests(TracebaseTestCase):
     def test_get_required_sheets(self):
         al = self.TestConvertedLoader1()  # pylint: disable=not-callable
         sheets = al.get_required_sheets()
-        expected = ["Corrected", "Original"]
+        expected = ["Corrected"]
         self.assertEqual(set(expected), set(sheets))
 
     def test_get_required_headers(self):
@@ -869,14 +877,46 @@ class TestConvertedLoaderTests(TracebaseTestCase):
         self.assertEqual(
             set(
                 [
-                    "formula",
-                    "medMz",
-                    "medRt",
-                    "isotopeLabel",
-                    "compound",
                     "Compound",
                     "C_Label",
                 ]
             ),
             set(rh),
+        )
+
+    def test_uses_only_one_sheet(self):
+        tcl = self.TestConvertedLoader1()
+        self.assertFalse(tcl.uses_only_one_sheet())
+        tcl.merge_dict["next_merge_dict"] = None
+        self.assertTrue(tcl.uses_only_one_sheet())
+
+    def test_get_single_supplied_sheet(self):
+        """This tests the expected outputs from get_single_supplied_sheet, given different inputs."""
+        # Returns None if there are multiple sheets in a df dict
+        tcl = self.TestConvertedLoader1(  # pylint: disable=not-callable
+            df=self.ACCUCOR_DF_DICT.copy()
+        )
+        self.assertIsNone(tcl.get_single_supplied_sheet())
+        # Returns "Unnamed sheet" is a dataframe is provided
+        tcl = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df=self.ISOCORR_DF_DICT["absolte"]
+        )
+        self.assertEqual("Unnamed sheet", tcl.get_single_supplied_sheet())
+        # Returns the name of the actual sheet if a df dict with 1 sheet is provided
+        tcl = self.TestConvertedLoader2(  # pylint: disable=not-callable
+            df={"absolte": self.ISOCORR_DF_DICT["absolte"]}
+        )
+        self.assertEqual("absolte", tcl.get_single_supplied_sheet())
+
+    def test_get_column_types(self):
+        tcl = self.TestConvertedLoader2()
+        self.assertDictEqual(
+            {
+                "compound": str,
+                "formula": str,
+                "isotopeLabel": str,
+                "medMz": float,
+                "medRt": float,
+            },
+            tcl.get_column_types(),
         )
