@@ -230,7 +230,7 @@ class SummarizableError(Exception, ABC):
         Usage example:
             # Create a summarizer Exception class - code it however you want
             class MyExceptionSummarier(Exception):
-                def __init__(self, exceptions: List[MyException])
+                def __init__(self, exceptions: List[MyException]):
                     ...
 
             # Create your exception class that inherits from SummarizableError - code it however you want, just define
@@ -2956,7 +2956,6 @@ class MissingC12ParentPeakErrors(SummarizedInfileError, Exception):
     def __init__(
         self,
         exceptions: list[MissingC12ParentPeak],
-        suggestion=None,
     ):
         SummarizedInfileError.__init__(self, exceptions)
         compounds_str = ""
@@ -2973,11 +2972,9 @@ class MissingC12ParentPeakErrors(SummarizedInfileError, Exception):
         if not include_loc:
             loc = " in " + list(self.file_dict.keys())[0]
         message = (
-            f"The C12 PARENT peak row is missing for the following compounds{loc}:\n{compounds_str}\n"
+            f"The C12 PARENT peak row is missing for the following compounds{loc}:\n{compounds_str}"
             "Please re-pick peaks to include the C12 PARENT peaks for these compounds."
         )
-        if suggestion is not None:
-            message += f"\n{suggestion}"
         Exception.__init__(self, message)
 
 
@@ -4253,7 +4250,9 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
             for exc in exc_list:
                 if include_loc:
                     headers_str += "\t"
-                headers_str += f"\t{exc.sample_header}: {exc.sample_names} on rows: {summarize_int_list(exc.rownum)}\n"
+                rowlist = summarize_int_list(exc.rownum)
+                rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
+                headers_str += f"\t{exc.sample_header}: {exc.sample_names}{rowstr}\n"
         loc = ""
         if not include_loc:
             loc = " in " + list(self.file_dict.keys())[0]
@@ -4874,6 +4873,8 @@ def summarize_int_list(intlist):
     sum_list = []
     last_num = None
     waiting_num = None
+    if intlist is None:
+        return []
     for num in [n for n in sorted([i for i in intlist if i is not None])]:
         try:
             num = int(num)

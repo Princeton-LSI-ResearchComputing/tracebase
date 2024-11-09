@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -18,6 +20,8 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeKeys,
     InvalidHeaderCrossReferenceError,
     IsotopeStringDupe,
+    MissingC12ParentPeak,
+    MissingC12ParentPeakErrors,
     MissingColumnGroup,
     MissingCompounds,
     MissingDataAdded,
@@ -41,6 +45,8 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
+    PossibleDuplicateSamples,
+    PossibleDuplicateSamplesError,
     RecordDoesNotExist,
     RequiredArgument,
     RequiredColumnValue,
@@ -53,6 +59,8 @@ from DataRepo.utils.exceptions import (
     RequiredValueErrors,
     ResearcherNotNew,
     SheetMergeError,
+    SummarizableError,
+    SummarizedInfileError,
     UnequalColumnGroups,
     UnexpectedIsotopes,
     UnexpectedLabels,
@@ -283,7 +291,6 @@ class MultiLoadStatusTests(TracebaseTestCase):
         aes2.buffer_error(ValueError("Test error 2"))
         mls.set_load_exception(aes2, "mykey2", top=True)
         messages = mls.get_status_messages()
-        print(f"MESSAGES:\n{messages}")
         self.assertEqual(
             [
                 {
@@ -460,6 +467,62 @@ class AggregatedErrorsTests(TracebaseTestCase):
         aes.remove_matching_exceptions(KeyError, "is_error", False)
         self.assertEqual(0, len(aes.exceptions))
         self.assertEqual(0, aes.num_warnings)
+
+
+class SummarizableErrorTests(TracebaseTestCase):
+    @staticmethod
+    def summarizer_class_factory():
+        # Create a summarizer Exception class for testing - code it however you want
+        class MyExceptionSummarier(Exception):
+            def __init__(self, _):
+                pass
+
+        return MyExceptionSummarier
+
+    @staticmethod
+    def summarizable_class_factory():
+        # Create an exception class that inherits from SummarizableError - code it however you want, just define
+        # SummarizerExceptionClass
+        class MyException(SummarizableError):
+            SummarizerExceptionClass = SummarizableErrorTests.summarizer_class_factory()
+
+        return MyException
+
+    def test_summarize_exceptions(self):
+        test_exception_class = self.summarizable_class_factory()
+        test_exception = test_exception_class()
+        # Later, when you're handling multiple buffered exceptions (e.g. you have an AggregatedErrors object: aes),
+        # you can check if it's summarizable, and replace them with the summarized version
+        self.assertTrue(issubclass(test_exception.__class__, SummarizableError))
+        summarized_exception = test_exception.SummarizerExceptionClass([test_exception])
+        # NOTE: assertIsInstance() doesn't work due to the factory creating a distinct class each time, so we check by
+        # qualname
+        self.assertEqual(
+            summarized_exception.__class__.__qualname__,
+            self.summarizer_class_factory().__qualname__,
+        )
+
+    def test_SummarizedInfileError(self):
+        """This basically checks that the SummarizedInfileError constructor creates a file_dict instance variable
+        containing exception lists keys by the file string that the exception is based on.
+        """
+
+        class MySummarizedInfileException(SummarizedInfileError, Exception):
+            def __init__(
+                self,
+                exceptions: list[MySummarizableInfileException],
+            ):
+                SummarizedInfileError.__init__(self, exceptions)
+                Exception.__init__(self, "test")
+
+        class MySummarizableInfileException(InfileError, SummarizableError):
+            SummarizerExceptionClass = MySummarizedInfileException
+
+        msbie = MySummarizableInfileException("there was a problem", file="test.txt")
+        msdie = MySummarizedInfileException([msbie])
+
+        self.assertTrue(hasattr(msdie, "file_dict"))
+        self.assertDictEqual({"test.txt": [msbie]}, msdie.file_dict)
 
 
 class ExceptionTests(TracebaseTestCase):
@@ -1393,3 +1456,35 @@ class ExceptionTests(TracebaseTestCase):
             "operator: Rob\n\tprotocol: None\n\tinstrument: QE\n\tdate: 1972-11-24",
             str(mdsf),
         )
+
+    def test_MissingC12ParentPeakErrors(self):
+        mcpp = MissingC12ParentPeak("lysine")
+        mcppe = MissingC12ParentPeakErrors([mcpp])
+        # Check problem described
+        self.assertIn("C12 PARENT peak row is missing", str(mcppe))
+        # Check data included
+        self.assertIn("lysine", str(mcppe))
+        # Check suggestion exists
+        self.assertIn("Please re-pick peaks", str(mcppe))
+
+    def test_MissingC12ParentPeak(self):
+        mcpp = MissingC12ParentPeak("lysine", file="accucor.xlsx")
+        # Check problem described
+        self.assertIn(
+            "C12 PARENT peak row missing for compound 'lysine' in 'accucor.xlsx'.",
+            str(mcpp),
+        )
+        # Check suggestion exists
+        self.assertIn("Please re-pick the peaks", str(mcpp))
+
+    def test_PossibleDuplicateSamplesError(self):
+        pds = PossibleDuplicateSamples("s1", ["s1_pos", "s1_neg"])
+        pdse = PossibleDuplicateSamplesError([pds])
+        # Check problem described
+        self.assertIn(
+            "same name that are associated with different database samples", str(pdse)
+        )
+        # Check data included
+        self.assertIn("s1: ['s1_pos', 's1_neg']", str(pdse))
+        # Check suggestion exists
+        self.assertIn("associated with the same tracebase sample", str(pdse))
