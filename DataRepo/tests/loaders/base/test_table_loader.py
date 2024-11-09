@@ -6,7 +6,7 @@ from django.db import IntegrityError, ProgrammingError
 from django.db.models import AutoField, CharField, Model, UniqueConstraint
 from django.test.utils import isolate_apps
 
-from DataRepo.loaders.base.table_column import TableColumn
+from DataRepo.loaders.base.table_column import ColumnValue, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
@@ -590,7 +590,7 @@ class TableLoaderTests(TracebaseTestCase):
         }
         self.assertEqual(expected, nd)
 
-    def test_get_column_types(self):
+    def test_get_column_types_default(self):
         tucl = self.TestUCLoader()
         td = tucl.get_column_types()
         expected = {
@@ -1631,12 +1631,32 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
     def test_get_value_metadata(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual(["Name", "Choice"], list(tl.get_value_metadata().keys()))
+        self.assertEqual(
+            2,
+            len(
+                [
+                    v
+                    for v in tl.get_value_metadata().values()
+                    if isinstance(v, ColumnValue)
+                ]
+            ),
+        )
 
     def test_get_column_metadata(self):
-        # TODO: Implement test
-        pass
+        tl = self.TestLoader()
+        self.assertEqual(["Name", "Choice"], list(tl.get_column_metadata().keys()))
+        self.assertEqual(
+            2,
+            len(
+                [
+                    v
+                    for v in tl.get_column_metadata().values()
+                    if isinstance(v, TableColumn)
+                ]
+            ),
+        )
 
     def test_update_load_stats(self):
         tl = self.TestLoader()
@@ -1714,6 +1734,36 @@ class TableLoaderTests(TracebaseTestCase):
         }
         self.assertDictEqual(expected, tl.record_counts)
 
+    def test_get_friendly_filename(self):
+        tl1 = self.TestLoader(file="/ugly/path/ugly.tsv")
+        self.assertEqual("ugly.tsv", tl1.get_friendly_filename())
+        tl2 = self.TestLoader(file="/ugly/path/ugly.tsv", filename="pretty.tsv")
+        self.assertEqual("pretty.tsv", tl2.get_friendly_filename())
+        tl3 = self.TestLoader(
+            file="/ugly/path/ugly.tsv", filename="relative/path/pretty.tsv"
+        )
+        self.assertEqual("pretty.tsv", tl3.get_friendly_filename())
+
+    def test__get_column_types(self):
+        cts, _ = self.TestUCLoader._get_column_types()
+        self.assertDictEqual({"Name": str, "uf1": str, "uf2": str}, cts)
+
+    def test_get_column_types_custom(self):
+        self.assertDictEqual(
+            {
+                "UsersDumbNameHeader": str,
+                "UsersDumbFieldOneHeader": str,
+                "UsersDumbFieldTwoHeader": str,
+            },
+            self.TestUCLoader(
+                user_headers={
+                    "NAME": "UsersDumbNameHeader",
+                    "UFONE": "UsersDumbFieldOneHeader",
+                    "UFTWO": "UsersDumbFieldTwoHeader",
+                }
+            ).get_column_types(),
+        )
+
 
 class TableLoaderUtilitiesTests(TracebaseTestCase):
     def test_flatten(self):
@@ -1731,11 +1781,3 @@ class TableLoaderUtilitiesTests(TracebaseTestCase):
             ]
         )
         self.assertEqual("['one', 'two', 'three']", str(ve))
-
-    def test_get_friendly_filename(self):
-        # TODO: Implement test
-        pass
-
-    def test__get_column_types(self):
-        # TODO: Implement test
-        pass

@@ -180,7 +180,7 @@ def _get_file_type(filepath, filetype=None):
             try:
                 pd.ExcelFile(filepath, engine="openpyxl")
                 filetype = "excel"
-            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
+            except (InvalidFileException, ValueError, BadZipFile, FileNotFoundError):  # type: ignore
                 raise CommandError(
                     'Invalid file extension: "%s", expected one of %s',
                     ext,
