@@ -20,6 +20,7 @@ from DataRepo.views.search.download import (
     PeakGroupsToMzxmlZIP,
     RecordToMzxmlTSV,
     RecordToMzxmlZIP,
+    ZipBuffer,
 )
 
 empty_tree = {
@@ -418,3 +419,34 @@ class AdvancedSearchDownloadMzxmlZIPViewTests(BaseAdvancedSearchDownloadViewTest
         self.assertTrue(metadata_file.endswith(".tsv"))
         mzxml_files = files_list[1:]
         self.assertEqual(expected_mzxml_files, mzxml_files)
+
+
+class ZipBufferTests(TracebaseTestCase):
+    def test_ZipBuffer(self):
+        zb = ZipBuffer()
+        self.assertTrue(hasattr(zb, "buf"))
+        self.assertIsInstance(zb.buf, bytearray)
+
+        # Check that ZipBuffer has a zip-file-like interface
+        self.assertTrue(hasattr(ZipBuffer, "write"))
+        self.assertTrue(hasattr(ZipBuffer, "flush"))  # No test necessary
+        self.assertTrue(hasattr(ZipBuffer, "take"))
+        self.assertTrue(hasattr(ZipBuffer, "end"))
+
+    def test_write(self):
+        zb = ZipBuffer()
+        zb.buf = bytearray("test".encode())
+        self.assertEqual(4, zb.write("test".encode()))
+        self.assertEqual(bytes("testtest".encode()), zb.buf)
+
+    def test_take(self):
+        zb = ZipBuffer()
+        zb.buf = bytearray("test".encode())
+        self.assertEqual(bytes("test".encode()), zb.take())
+        self.assertEqual(bytearray(), zb.buf)
+
+    def test_end(self):
+        zb = ZipBuffer()
+        zb.buf = bytearray("test".encode())
+        self.assertEqual(bytes("test".encode()), zb.end())
+        self.assertIsNone(zb.buf)
