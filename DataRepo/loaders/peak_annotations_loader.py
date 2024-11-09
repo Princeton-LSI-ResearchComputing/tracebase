@@ -1965,7 +1965,7 @@ class AccucorLoader(PeakAnnotationsLoader):
 
     @classmethod
     def get_accucor_isotope_string(cls, df: pd.DataFrame):
-        """Given a pandas dataframe, it returns the column header of the label column, e.g. 'C_Label'.
+        """Given a pandas dataframe, it returns the isotope portion of the isotopeLabel column, e.g. 'N15'.
 
         Args:
             df (pd.DataFrame)
