@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -32,6 +33,7 @@ from DataRepo.utils.exceptions import (
     DuplicateCompoundIsotopes,
     DuplicatePeakGroupResolutions,
     DuplicateValues,
+    MissingC12ParentPeak,
     MissingCompounds,
     MissingSamples,
     NoSamples,
@@ -88,7 +90,7 @@ class DerivedPeakAnnotationsLoaderTestCase(TracebaseTestCase):
     }
 
     def get_converted_with_raw_df(self):
-        return pd.DataFrame.from_dict(
+        df = pd.DataFrame.from_dict(
             {
                 "MedMz": [
                     104.035217,
@@ -204,6 +206,9 @@ class DerivedPeakAnnotationsLoaderTestCase(TracebaseTestCase):
                 ],
             },
         )
+        df.sort_values(by=["Sample Header", "Compound", "IsotopeLabel"], inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        return df
 
     def get_converted_without_raw_df(self):
         return (
@@ -1060,9 +1065,91 @@ class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
 
 class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     def test_AccucorLoader(self):
-        il = AccucorLoader(df=self.ACCUCOR_DF_DICT, file="accucor.xlsx")
+        al = AccucorLoader(df=self.ACCUCOR_DF_DICT, file="accucor.xlsx")
         pd.testing.assert_frame_equal(
-            self.get_converted_with_raw_df(), il.df, check_like=True
+            self.get_converted_with_raw_df(),
+            al.df,
+            check_like=True,
+        )
+
+    def test_get_accucor_label_column_name(self):
+        corrected_dict = deepcopy(self.CORR_DICT)
+        corrected_dict["N_Label"] = corrected_dict.pop("C_Label")
+        corrected_df = pd.DataFrame.from_dict(corrected_dict)
+        self.assertEqual(
+            "N_Label", AccucorLoader.get_accucor_label_column_name(corrected_df)
+        )
+
+    def test_get_accucor_isotope_string(self):
+        corrected_dict = deepcopy(self.CORR_DICT)
+        corrected_dict["D_Label"] = corrected_dict.pop("C_Label")
+        corrected_df = pd.DataFrame.from_dict(corrected_dict)
+        self.assertEqual("H2", AccucorLoader.get_accucor_isotope_string(corrected_df))
+        corrected_dict["C_Label"] = corrected_dict.pop("D_Label")
+        corrected_df = pd.DataFrame.from_dict(corrected_dict)
+        self.assertEqual("C13", AccucorLoader.get_accucor_isotope_string(corrected_df))
+        corrected_dict["N_Label"] = corrected_dict.pop("C_Label")
+        corrected_df = pd.DataFrame.from_dict(corrected_dict)
+        self.assertEqual("N15", AccucorLoader.get_accucor_isotope_string(corrected_df))
+        corrected_dict["H_Label"] = corrected_dict.pop("N_Label")
+        corrected_df = pd.DataFrame.from_dict(corrected_dict)
+        self.assertEqual("H2", AccucorLoader.get_accucor_isotope_string(corrected_df))
+
+    def test_check_c12_parents(self):
+        """Checks that check_c12_parents (called from the constructor, buffers a MissingC12ParentPeak for each sample
+        where the C12 parent row is missing.  Here is what happens...
+
+        You start out with this:
+
+               Compound IsotopeLabel  Formula      Sample Header
+            0   Glycine   C12 PARENT  C2H5NO2  072920_XXX1_1_TS1  # <-- formula correct bec. of sorting and backfill
+            1   Glycine  C13-label-1  C2H5NO2  072920_XXX1_1_TS1
+            2    Serine   C12 PARENT  C3H7NO3  072920_XXX1_1_TS1
+            3    Serine  C13-label-1  C3H7NO3  072920_XXX1_1_TS1
+            4   Glycine   C12 PARENT  C3H7NO3  072920_XXX1_2_bra  # <-- formula WRONG bec. of fill and missing PARENT
+            5   Glycine  C13-label-1  C2H5NO2  072920_XXX1_2_bra
+            6    Serine   C12 PARENT  C3H7NO3  072920_XXX1_2_bra
+            7    Serine  C13-label-1  C3H7NO3  072920_XXX1_2_bra
+            8   Glycine   C12 PARENT  C3H7NO3     blank_1_404020  # <-- formula WRONG bec. of fill and missing PARENT
+            9   Glycine  C13-label-1  C2H5NO2     blank_1_404020
+            10   Serine   C12 PARENT  C3H7NO3     blank_1_404020
+            11   Serine  C13-label-1  C3H7NO3     blank_1_404020
+
+        check_c12_parents converts the above into:
+
+              Compound  Formula                 INDEX  FIRSTINDEX
+            0  Glycine  C2H5NO2          [0, 1, 5, 9]           0
+            1  Glycine  C3H7NO3                [4, 8]           4  # <-- formula WRONG bec. of fill and missing PARENT
+            2   Serine  C3H7NO3  [2, 3, 6, 7, 10, 11]           2
+
+        It identifies the formula change in the same compound and assumes it's due to the fill-down.
+        """
+        orig_dict = {
+            "medMz": [104.035217, 105.038544, 75.028],
+            "medRt": [12.73, 12.722, 12.614],
+            "isotopeLabel": ["C12 PARENT", "C13-label-1", "C13-label-1"],
+            "compound": ["Serine", "Serine", "Glycine"],
+            "formula": ["C3H7NO3", "C3H7NO3", "C2H5NO2"],
+            "blank_1_404020": [1, 2, 4],
+            "072920_XXX1_1_TS1": [5, 6, 8],
+            "072920_XXX1_2_bra": [9, 10, 12],
+        }
+        corr_dict = {
+            "Compound": ["Serine", "Serine", "Glycine", "Glycine"],
+            "C_Label": [0, 1, 0, 1],
+            "blank_1_404020": [966.2099201, 0, 0, 0],
+            "072920_XXX1_1_TS1": [124298.5248, 393.3480206, 0, 0],
+            "072920_XXX1_2_bra": [2106922.129, 0, 0, 4910.491834],
+        }
+        accucor_df_dict = {
+            "Original": pd.DataFrame.from_dict(orig_dict),
+            "Corrected": pd.DataFrame.from_dict(corr_dict),
+        }
+        al = AccucorLoader(df=accucor_df_dict, file="accucor.xlsx")
+
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(MissingC12ParentPeak)
         )
 
 
