@@ -370,6 +370,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # The conversion failed, so we cannot proceed
             raise self.aggregated_errors_object.buffer_error(e)
 
+        if self.df is not None:
+            # Sort the dataframe by sample header, compound, and isotope label - then reset the index.
+            # This is important for the fill-down.
+            self.df.sort_values(
+                by=[
+                    self.headers.SAMPLEHEADER,
+                    self.headers.COMPOUND,
+                    self.headers.ISOTOPELABEL,
+                ],
+                inplace=True,
+            )
+            self.df.reset_index(inplace=True, drop=True)
+
         # Check that every compound has a valid C12 PARENT row.
         self.check_c12_parents()
 
@@ -428,14 +441,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     def check_c12_parents(self):
         """This method ensures that every compound in the original peak annotations file had a row for the C12 PARENT.
         It does this by looking through the sorted compounds and formulas in the unicorr converted dataframe and
-        inferring that if the compound changes, but the formula stays the same, then the formula was filled down from
-        the preceding compound.
-
-        Note that it is technically possible that the formulas of 2 adjacent compounds could be the same, so when it
-        finds that the formula did not change, it keeps track and only buffers an error if the formula for that compound
-        later changes.  At that point, we can infer that the parent row was actually missing, because the only reason
-        the formula would change is because the assumption had been made that all C12 PARENT records were present and
-        the fill down strategy only fills empty formulas with the one above it.
+        inferring that if the compound does not change, but the formula changes, then the formula was filled down from
+        the preceding compound because the left-join had a C_Label row for 0 labels in the corrected sheet and there was
+        not a row for the C12 PARENT in the original sheet (because the researcher failed to pick that peak).
 
         This check is performed on all peak annotation files, but currently the only possible errors it catches come
         from the AccucorLoader.
@@ -491,6 +499,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             .reset_index()
         )
 
+        # Sort the indexes so that we're comparing formulas for the same sample when we sort the rows by the first index
+        compounds_and_formulas["INDEX"] = compounds_and_formulas["INDEX"].apply(sorted)
+
         # In order to sort by compound and then the first row index, we must create another column to contain the first
         # row index.
         compounds_and_formulas["FIRSTINDEX"] = compounds_and_formulas["INDEX"].apply(
@@ -511,7 +522,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         previous_formula = None
         previous_compound = None
         previous_row_indexes = None
-        possible_stale_formula = None
 
         # Cycle through the unique compound and formula combos
         for _, row in compounds_and_formulas.iterrows():
@@ -520,40 +530,25 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             formula = row[self.headers.FORMULA]
             row_indexes = list(row["INDEX"])
 
-            if previous_compound is not None:
-                # If the compound has changed
-                if compound != previous_compound:
-                    # And the formula has NOT changed
-                    if formula == previous_formula:
-                        # Note that 2 different (distinguishable) compounds can have the same formula, so this is a
-                        # candidate, not a definite missing parent instance
-                        possible_stale_formula = formula
-                    else:
-                        possible_stale_formula = None
+            # If the compound has not changed but the formula has, we will assume this was a fill-down error because
+            # the C12 PARENT row was missing, so buffer an error.
+            if (
+                previous_compound is not None
+                and compound == previous_compound
+                and formula != previous_formula
+            ):
+                self.aggregated_errors_object.buffer_error(
+                    MissingC12ParentPeak(
+                        compound,
+                        file=self.friendly_file,
+                        # The sheet, column, and row numbers are irrelevant in the converted format
+                    )
+                )
 
-                elif (
-                    compound == previous_compound and possible_stale_formula is not None
-                ):
-                    # The compound is the same and it is a candidate for a missing C12 PARENT row
-                    if formula != possible_stale_formula:
-                        # The formula for this compound changed mid-isotope. This confirms that the formula that didn't
-                        # change when the compound changed is the result of a missing C12 PARENT row from the original
-                        # data.  Buffer an error.
-                        self.aggregated_errors_object.buffer_error(
-                            MissingC12ParentPeak(
-                                compound,
-                                file=self.friendly_file,
-                                # The sheet, column, and row numbers are irrelevant in the converted format
-                            )
-                        )
-
-                        # Mark the rows of the previous chunk as skip rows
-                        self.add_skip_row_index(index_list=previous_row_indexes)
-                        # Mark the rows of the current chunk as skip rows
-                        self.add_skip_row_index(index_list=row_indexes)
-
-                        # No longer need to track for a stale formula
-                        possible_stale_formula = None
+                # Mark the rows of the previous chunk as skip rows
+                self.add_skip_row_index(index_list=previous_row_indexes)
+                # Mark the rows of the current chunk as skip rows
+                self.add_skip_row_index(index_list=row_indexes)
 
             # Update the previous row vars
             previous_formula = formula
