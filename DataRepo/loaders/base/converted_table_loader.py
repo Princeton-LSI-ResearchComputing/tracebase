@@ -659,16 +659,18 @@ class ConvertedTableLoader(TableLoader, ABC):
                 rev_headers_dict[self.merge_dict["first_sheet"]].append(rh)
             else:
                 merge_dict = self.merge_dict["next_merge_dict"].copy()
-                right_sheet = default_sheet
+                left_sheet = default_sheet
                 while merge_dict is not None:
+                    # TODO: This used to use the "right_all_columns" key, but it doesn't ever appear to be set when this
+                    # is called.  Note, "right_all_columns" includes "supplied" columns.  This should be fixed.
                     if (
-                        merge_dict["right_all_columns"] is not None
-                        and len(merge_dict["right_all_columns"]) > 0
-                        and rh in merge_dict["right_all_columns"]
+                        merge_dict["right_columns"] is not None
+                        and len(merge_dict["right_columns"]) > 0
+                        and rh in merge_dict["right_columns"]
                     ):
                         rev_headers_dict[merge_dict["right_sheet"]].append(rh)
                     elif merge_dict["next_merge_dict"] is None:
-                        rev_headers_dict[right_sheet].append(rh)
+                        rev_headers_dict[left_sheet].append(rh)
                     if merge_dict["next_merge_dict"] is not None:
                         merge_dict = merge_dict["next_merge_dict"].copy()
                     else:
@@ -895,8 +897,10 @@ class ConvertedTableLoader(TableLoader, ABC):
         if dtypes is None:
             dtypes = {}
 
+        # Header names by header key
         headers = self.OrigDataHeaders
 
+        # OrigDataColumnTypes are types by header key
         for key in self.OrigDataColumnTypes.keys():
             hdr = getattr(headers, key)
             dtypes[hdr] = self.OrigDataColumnTypes[key]
@@ -957,6 +961,8 @@ class ConvertedTableLoader(TableLoader, ABC):
             for col in self.nan_filldown_columns:
                 if col in outdf.columns:
                     outdf[col].ffill(inplace=True)
+                    # In case an empty value was left at the top...
+                    outdf[col].bfill(inplace=True)
         return outdf
 
     def __init__(self, *args, **kwargs):
