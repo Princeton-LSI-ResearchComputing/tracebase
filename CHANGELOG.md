@@ -6,13 +6,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [3.1.1-beta] - 2024-11-13
 
 ### Fixed
 
+- Fixed the ability to load accucor corrected data when unaccompanied by original data (i.e. support for csv/tsv accucor data).
+- Fixed a copy/paste bug where RAW data was being loaded as corrected data.
+- Fixed an old undiscovered bug in the isoautocorr support was using the "cor_pct" sheet instead of the "cor_abs" sheet.
+- Fixed the display of peak annotation filenames in the advanced search results.
+- Fixed a 500 server error when trying to sort advanced search results using the labeled element.
+- Fixed an isotopeLabel parsing error that was skipping the load of C12 PARENT data when dual labeled data was missing labels of one or more elements.
+- Fixed a bug that prevented loading and template creation of peak annotation files in csv/tsv format.
+- Fixed a bug that prevented the load of animal data when it was missing the optional age data.
+- Fixed a bug that was calling empty rows as duplicate rows.
+- Fixed the skipping of empty rows in the peak annotation files loader.
+
 ### Added
 
+- New submission start page features
+  - Added the ability for the user to specify the mass spec operator, run date, LC protocol, and instrument for each peak annotation file supplied on the submission start page.
+    - Added autocomplete to each of the sequence fields.
+    - Metadata filled in next to the drop-area gets copied for each dropped file.
+    - Added the ability to autofill the sequence metadata into the 'Sequences', 'Peak Annotation Files', and 'Peak Annotation Details' sheets.
+  - Created a drop-area for peak annotation files on the submission start page.
+  - Added the ability to detect and report multiple compound representations.
+  - Added a 'Peak Group Conflicts' sheet to the study doc download, to allow users to select a peak annotation file for each measurement of the same compound for a set of samples, so that there is only one measurement for a compound and sample that is loaded without error.  The sheet is hidden if there are no conflicts.  The sheet includes the following columns:
+    - Peak Group Conflict (for the compound [synonym])
+    - Selected Peak Annotation File (with a dropdown of the files containing the compound and common samples)
+    - Common Sample Count (the number of common samples between the files in the above-described dropdown)
+    - Example Samples
+    - Common Samples (a hidden column with delimited sample names)
+  - Added the ability to disable and enable the submit button to help clarify that files must be added to the form.
+- Added features to the loading scripts to account for peak group conflicts.
+  - Added the ability to skip peak groups from peak annotation files that were unselected in the 'Peak Group Conflicts' sheet.
+  - Added exception classes to explain related errors.
+  - Added the ability to delete previously loaded peak groups when new peak annotation files create a conflict.
+- Added an --mzxml-dir option to the load_study and load_msruns command-line scripts.
+  - The directory is walked to find files with an `mzXML` extension.
+  - mzXML files are associated with peak annotation files based on whether the peak annotation file is in a directory on the path to the mzXML file.
+  - Added the ability to skip mzXML files containing 0 scans.
+  - Made it possible to run `load_msruns` with only the --mzxml-dir option.
+- Added the ability to extract compound and sample data even when the peak annotation format could not be precisely determined (between isocorr and isoautocorr).
+- Added all mzXML files associated with a sample, along with polarity and scan range, to the advanced search results (Peak Groups and Peak Data formats).
+- Added a bulk mzXML download button on the advanced search interface.
+  - The download is a streamed ZIP archive.
+  - The download includes a metadata file.
+  - Files are organized into subdirectories.
+- Added the ability to check for missing C12 PARENT rows in peak annotation data (which addressed a bug that was filling in the wrong formula in some accucor files).
+- Added the detection (and reporting) of errors in loaders called from StudyLoader in both the validation interface and `load_study`.
+- Added support for alternate AccuCor labeled elements (N and D).
+
 ### Changed
+
+- Improved the accuracy of some count stats in the loaders.
+- Improved various column header comments (making repeated similar comments automated).
+- Renamed some columns for clarity.
+- Changed the way MSRunSample records are linked to by PeakGroup records to simplify the logic for MSRunSample record decisions based on whether they do or do not contain mzXML file ArchiveFile record links.
+  - Now, PeakGroup records are always linked to MSRunSample records *without* mzXML file links if there are multiple mzXML files for a sample and sequence (to pave the way toward the old design of each MSRunSample record linking to a "bucket of files" for any sample/sequence combination).
+- Improved peak annotation file format identification.
+- Allowed required missing values to be allowed to be missing when the skip column (in the Peak Annotation Details' sheet has a value.
+- Removed the polarity column from the advanced search results formats.
+- Removed the ability to sort by mzXML filenames.
+- Made duplicate sample errors based on peak annotation headers into a warning (to account for sample headers that are the same between multiple peak annotation files).
 
 ## [3.1.0-beta] - 2024-09-12
 
