@@ -8,6 +8,7 @@ from DataRepo.loaders.peak_annotations_loader import (
     AccucorLoader,
     IsoautocorrLoader,
     IsocorrLoader,
+    PeakAnnotationsLoader,
 )
 from DataRepo.loaders.study_loader import StudyV3Loader
 from DataRepo.models import (
@@ -1045,6 +1046,55 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             },
         }
         self.assertDictEqual(expected, il2.get_load_stats())
+
+    def test_determine_matching_formats_accucor_xlsx(self):
+        self.assertEqual(
+            [AccucorLoader.format_code],
+            PeakAnnotationsLoader.determine_matching_formats(
+                read_from_file(
+                    "DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
+                    sheet=None,
+                )
+            ),
+        )
+
+    def test_determine_matching_formats_isocorr_xlsx(self):
+        self.assertEqual(
+            [IsocorrLoader.format_code],
+            PeakAnnotationsLoader.determine_matching_formats(
+                read_from_file(
+                    "DataRepo/data/tests/multiple_tracers/bcaafasted_cor.xlsx",
+                    sheet=None,
+                )
+            ),
+        )
+
+    def test_determine_matching_formats_isocorr_csv(self):
+        self.assertEqual(
+            [IsocorrLoader.format_code, IsoautocorrLoader.format_code],
+            PeakAnnotationsLoader.determine_matching_formats(
+                read_from_file(
+                    "DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
+                    sheet=None,
+                )
+            ),
+        )
+
+    def test_determine_matching_formats_invalid_xlsx(self):
+        self.assertEqual(
+            [],
+            PeakAnnotationsLoader.determine_matching_formats(
+                read_from_file(
+                    "DataRepo/data/tests/submission_v3/study.xlsx", sheet=None
+                )
+            ),
+        )
+
+    def test_get_supported_formats(self):
+        self.assertEqual(
+            ["isocorr", "accucor", "isoautocorr", "unicorr"],
+            PeakAnnotationsLoader.get_supported_formats(),
+        )
 
 
 class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
