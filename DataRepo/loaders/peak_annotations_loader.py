@@ -11,6 +11,7 @@ from django.db.utils import ProgrammingError
 from DataRepo.loaders.base.converted_table_loader import ConvertedTableLoader
 from DataRepo.loaders.base.table_column import TableColumn
 from DataRepo.loaders.compounds_loader import CompoundsLoader
+from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.models import (
     ArchiveFile,
     Compound,
@@ -262,8 +263,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             Derived (this) class Args:
                 filename (Optional[str]): In case the (superclass arg) "file" is a temp file with a nonsense name.
                 Sample, MSRunSequence, and mzXML data:
-                    peak_annotation_details_file (Optional[str]): The name of the file that the Peak Annotation Details
-                        came from.
+                    peak_annotation_details_file (Optional[str]): The filepeth that the Peak Annotation Details came
+                        from.
+                    peak_annotation_details_filename (Optional[str]): The name of the file that the Peak Annotation
+                        Details came from.
                     peak_annotation_details_sheet (Optional[str]): The name of the sheet that the Peak Annotation
                         Details came from (if it was an excel file).
                     peak_annotation_details_df (Optional[pandas DataFrame]): The DataFrame of the Peak Annotation
@@ -304,6 +307,14 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.peak_annotation_details_file = kwargs.pop(
             "peak_annotation_details_file", None
         )
+        padfn = (
+            None
+            if self.peak_annotation_details_file is None
+            else os.path.basename(self.peak_annotation_details_file)
+        )
+        self.peak_annotation_details_filename = kwargs.pop(
+            "peak_annotation_details_filename", padfn
+        )
         self.peak_annotation_details_sheet = kwargs.pop(
             "peak_annotation_details_sheet", None
         )
@@ -335,6 +346,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # 2. Obtain the previously loaded MSRunSample records mapped to sample names (when different from the headers).
         self.msrunsloader = MSRunsLoader(
             file=self.peak_annotation_details_file,
+            filename=self.peak_annotation_details_filename,
             data_sheet=self.peak_annotation_details_sheet,
             df=self.peak_annotation_details_df,
             defaults_df=kwargs.get("defaults_df"),
@@ -400,19 +412,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         self.missing_headers_as_samples = []
 
         # For referencing the compounds sheet in errors about missing compounds
-        if self.peak_annotation_details_file is None:
+        if self.peak_annotation_details_filename is None:
             self.compounds_loc = generate_file_location_string(
                 file="the study excel file",
                 sheet=CompoundsLoader.DataSheetName,
             )
-        elif is_excel(self.peak_annotation_details_file):
+        elif is_excel(self.peak_annotation_details_filename):
             self.compounds_loc = generate_file_location_string(
-                file=self.peak_annotation_details_file,
+                file=self.peak_annotation_details_filename,
                 sheet=CompoundsLoader.DataSheetName,
             )
         else:
             self.compounds_loc = generate_file_location_string(
-                file=self.peak_annotation_details_file,
+                file=self.peak_annotation_details_filename,
             )
 
         # Compound lookup is slow and compounds are repeatedly looked up, so this will buffer the results
@@ -1621,16 +1633,19 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.aggregated_errors_object.buffer_warning(
                 UnskippedBlanks(
                     possible_blank_dnes,
+                    # TODO: Have StudyLoader pass along the peak annotations filename
+                    file="the study doc",
                     suggestion=(
-                        f"Use the {self.msrunsloader.DataSheetName} sheet/file to add these "
-                        f"{self.headers.SAMPLEHEADER}s to the {self.msrunsloader.headers.SAMPLEHEADER} column and set "
-                        f"its {self.msrunsloader.headers.SKIP} column to 'true'."
+                        f"Either add 'skip' to the '{self.msrunsloader.headers.SKIP}' column in the "
+                        f"'{self.msrunsloader.DataSheetName}' sheet for these {self.headers.SAMPLEHEADER}s or add the "
+                        f"missing sample(s) to the '{SamplesLoader.DataSheetName}' sheet."
                     ),
-                )
+                ),
+                is_fatal=self.validate,
             )
 
-        # See if *any* samples were found (including Sample searches that weren't performed bec. the MSRunSample
-        # record existed)
+        # See if *any* samples were found in the headers of the peak annotation file that weren't in the Peak Annotation
+        # Details sheet.
         unexpected_samples = [
             uss
             for uss in self.msrun_sample_dict.keys()

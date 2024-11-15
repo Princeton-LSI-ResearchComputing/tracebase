@@ -36,6 +36,7 @@ from DataRepo.utils.exceptions import (
     DefaultSequenceNotFound,
     InfileError,
     InvalidMSRunName,
+    MissingSamples,
     MixedPolarityErrors,
     MultipleDefaultSequencesFound,
     MultipleRecordsReturned,
@@ -45,12 +46,14 @@ from DataRepo.utils.exceptions import (
     MzxmlParseError,
     MzxmlSampleHeaderMismatch,
     MzXMLSkipRowError,
+    NoSamples,
     NoScans,
     PossibleDuplicateSamples,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
     RollbackException,
+    UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import is_excel, read_from_file, string_to_date
 
@@ -718,12 +721,11 @@ class MSRunsLoader(TableLoader):
                             # Continue processing rows to find more errors
                             pass
 
+        self.report_discrepant_headers()
+
         # If there were any exceptions (i.e. a rollback of everything will be triggered)
         if self.aggregated_errors_object.should_raise():
             self.clean_up_created_mzxmls_in_archive()
-
-        # TODO: Repackage exceptions about RecordDoesNotExist for Sample records into either MissingSamples or
-        # UnskippedBlanks
 
         enable_caching_updates()
         delete_all_caches()
@@ -749,6 +751,88 @@ class MSRunsLoader(TableLoader):
                     is_error=False,
                     is_fatal=self.validate,
                 )
+
+    def report_discrepant_headers(self):
+        """This removes RecordDoesNotExist exceptions (from the aggregated errors) about missing Sample records in the
+        peak annotation details sheet and replaces them.  Among those not found in the peak annotation details, it
+        breaks them up into a MissingSamples (or NoSamples) and an UnskippedBlanks.
+
+        If a sample record was missing, but the sample name looks like a "blank" sample (according to
+        Sample.is_a_blank), the error is converted to a warning and the MSRunSample record is just skipped.
+
+        Args:
+            None
+        Exceptions:
+            Buffers:
+                UnskippedBlanks
+                MissingSamples
+                NoSamples
+            Raises:
+                None
+        Returns:
+            None
+        """
+        # Extract exceptions about missing Sample records
+        sample_dnes = self.aggregated_errors_object.remove_matching_exceptions(
+            RecordDoesNotExist, "model", Sample
+        )
+
+        # Separate the exceptions based on whether they appear to be blanks or not
+        possible_blank_dnes = []
+        likely_missing_dnes = []
+        likely_missing_sample_names = []
+        for sdne in sample_dnes:
+            sample_name = sdne.query_obj["name"]
+            if Sample.is_a_blank(sample_name):
+                possible_blank_dnes.append(sdne)
+            else:
+                likely_missing_dnes.append(sdne)
+                if sample_name not in likely_missing_sample_names:
+                    likely_missing_sample_names.append(sample_name)
+
+        # Buffer an error about missing samples (that are not blanks)
+        if len(likely_missing_dnes) > 0:
+            # See if *any* samples were found (i.e. the MSRunSample record existed)
+            num_samples = len(
+                dict(
+                    (s, 0)
+                    for sh in self.header_to_sample_name.keys()
+                    for s in self.header_to_sample_name[sh].keys()
+                ).keys()
+            )
+
+            if num_samples == len(likely_missing_sample_names):
+                self.aggregated_errors_object.buffer_error(
+                    NoSamples(
+                        likely_missing_dnes,
+                        suggestion=(
+                            f"Did you forget to include these {self.headers.SAMPLENAME}s in the "
+                            f"{SamplesLoader.DataHeaders.SAMPLE} column of the {SamplesLoader.DataSheetName} sheet?"
+                        ),
+                    )
+                )
+            else:
+                self.aggregated_errors_object.buffer_error(
+                    MissingSamples(
+                        likely_missing_dnes,
+                        suggestion=(
+                            f"Did you forget to include these {self.headers.SAMPLENAME}s in the "
+                            f"'{SamplesLoader.DataHeaders.SAMPLE}' column of the {SamplesLoader.DataSheetName} sheet?"
+                        ),
+                    )
+                )
+
+        if len(possible_blank_dnes) > 0:
+            self.aggregated_errors_object.buffer_warning(
+                UnskippedBlanks(
+                    possible_blank_dnes,
+                    suggestion=(
+                        f"Rows for these {self.headers.SAMPLEHEADER}s either need to be added to the "
+                        f"'{SamplesLoader.DataHeaders.SAMPLE}' column of the '{SamplesLoader.DataSheetName}' sheet or "
+                        f"must have 'skip' in the '{self.headers.SKIP}' column."
+                    ),
+                )
+            )
 
     def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
         """This method is only intended to be called after a load has been performed.

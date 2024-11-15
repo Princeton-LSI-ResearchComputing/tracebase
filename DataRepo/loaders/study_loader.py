@@ -203,7 +203,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
     # TODO: Support for a dict of dataframes should be introduced here by setting the DataSheetName to None
     # Unused (currently)
-    DataSheetName = "Defaults"
+    DataSheetName = "Study Doc Tabs"
 
     Loaders = DataTableHeaders(
         STUDY=StudiesLoader,

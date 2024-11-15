@@ -1327,15 +1327,16 @@ class UnskippedBlanks(MissingSamples):
     ):
         super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
+        nlt = "\n\t"
         if message is None:
             message = (
-                f"{len(exceptions)} samples that appear to possibly be blanks are missing in the database: "
-                f"[{', '.join(self.search_terms)}]."
+                f"{len(exceptions)} sample(s) from %s, that appear to possibly be blanks, are missing in the database: "
+                f"{nlt}{nlt.join(self.search_terms)}"
             )
         suggestion = kwargs.pop("suggestion", None)
         if suggestion is None:
             suggestion = (
-                "Be sure to set the skip column in the PeakAnnotation Details sheet to 'true' for blank "
+                "\nBe sure to set the skip column in the Peak Annotation Details sheet to 'true' for blank "
                 "samples."
             )
         self.orig_message = message
