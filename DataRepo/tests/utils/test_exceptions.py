@@ -1375,7 +1375,10 @@ class ExceptionTests(TracebaseTestCase):
 
     def test_UnskippedBlanks(self):
         usbs = UnskippedBlanks(self.get_sample_dnes())
-        self.assertIn("2 samples that appear to possibly be blanks", str(usbs))
+        self.assertIn(
+            "2 sample(s) from the load file data, that appear to possibly be blanks",
+            str(usbs),
+        )
 
     def test_NoSamples(self):
         nss = NoSamples(self.get_sample_dnes())

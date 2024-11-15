@@ -256,7 +256,7 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             "Treatments": {
                 "Treatment Description": {
                     0: "No manipulation besides what is already described in other fields.",
-                    1: "ob/ob homozygouse mice were fasted",
+                    1: "ob/ob homozygous mice were fasted",
                 },
                 "Animal Treatment": {0: "no treatment", 1: "obob_fasted"},
             },

@@ -56,6 +56,13 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             ),
         )
         call_command(
+            "load_compounds",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
             "load_tracers",
             infile=(
                 "DataRepo/data/tests/small_obob/"
@@ -70,7 +77,21 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             ),
         )
         call_command(
+            "load_protocols",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
             "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_tissues",
             infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
