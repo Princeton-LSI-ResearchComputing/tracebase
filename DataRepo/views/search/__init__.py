@@ -1,6 +1,9 @@
 from .advanced import AdvancedSearchView
 from .basic import search_basic
-from .download import AdvancedSearchDownloadView, AdvancedSearchDownloadMzxmlZIPView
+from .download import (
+    AdvancedSearchDownloadMzxmlZIPView,
+    AdvancedSearchDownloadView,
+)
 from .results import view_search_results
 
 __all__ = [

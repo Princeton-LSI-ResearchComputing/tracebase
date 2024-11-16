@@ -10,10 +10,7 @@ from django.http import Http404
 from django.shortcuts import render
 
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.forms import (
-    AdvSearchForm,
-    AdvSearchPageForm,
-)
+from DataRepo.forms import AdvSearchForm, AdvSearchPageForm
 from DataRepo.pager import Pager
 from DataRepo.views.search.advanced import AdvancedSearchView
 from DataRepo.views.utils import get_cookie

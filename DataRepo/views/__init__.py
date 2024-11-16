@@ -28,8 +28,8 @@ from .models import (
 )
 from .nav import home
 from .search import (
-    AdvancedSearchDownloadView,
     AdvancedSearchDownloadMzxmlZIPView,
+    AdvancedSearchDownloadView,
     AdvancedSearchView,
     search_basic,
     view_search_results,
