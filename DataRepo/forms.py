@@ -159,6 +159,13 @@ class AdvSearchDownloadForm(Form):
 
     qryjson = JSONField(widget=HiddenInput())
 
+    # "format" can just be, for example, "tsv", but it can also be like "mzXML zip" (where "zip" is the "format", but it
+    # also specifies the type of content [e.g. mzXML files from the results], so the analog of "tsv" [to include the
+    # type] might be something like "results-table tsv").  The point is, it's customizable.  Use whatever string you
+    # want in order to decide what download view to use.  And note that not every search format may support every
+    # download type.  E.g. The FCirc search format does not include mzXML files.
+    download_format = CharField(widget=HiddenInput(), required=False)
+
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
         self.saved_data = self.cleaned_data

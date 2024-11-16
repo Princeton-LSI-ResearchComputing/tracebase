@@ -25,6 +25,11 @@ urlpatterns = [
         views.AdvancedSearchDownloadView.as_view(),
         name="search_advanced_tsv",
     ),
+    path(
+        "search_advanced_mzxml/",
+        views.AdvancedSearchDownloadMzxmlZIPView.as_view(),
+        name="search_advanced_mzxml",
+    ),
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(
         "compounds/<int:pk>/",

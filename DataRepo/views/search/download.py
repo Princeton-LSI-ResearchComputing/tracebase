@@ -10,6 +10,7 @@ import _csv
 from django.conf import settings
 from django.db.models.fields.files import FieldFile
 from django.http import Http404, StreamingHttpResponse
+from django.shortcuts import render
 from django.template import loader
 from django.views.generic.edit import FormView
 
@@ -18,11 +19,12 @@ from DataRepo.formats.dataformat_group_query import (
     isValidQryObjPopulated,
 )
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.forms import AdvSearchDownloadForm
+from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
 from DataRepo.models.msrun_sample import MSRunSample
 from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.utils.file_utils import date_to_string
+from DataRepo.views.search.advanced import AdvancedSearchView
 
 
 # See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files
@@ -84,6 +86,8 @@ class AdvancedSearchDownloadView(FormView):
     header_template = "DataRepo/search/downloads/download_header.tsv"
     row_template = "DataRepo/search/downloads/download_row.tsv"
     content_type = "application/text"
+    # This is only used for form_invalid, so that form submissions that are invalid go to the advanced search page
+    template_name = "DataRepo/search/query.html"
 
     def get_qry(self, form):
         qry = {}
@@ -96,35 +100,80 @@ class AdvancedSearchDownloadView(FormView):
             print("ERROR: qryjson hidden input not in saved form.")
         return qry
 
-    def get_query_results(self, qry):
+    def get_query_results(self, qry, **kwargs):
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
             print("ERROR: Invalid qry object: ", qry)
             raise Http404("Invalid json")
 
         if isValidQryObjPopulated(qry):
-            res, _, _ = self.basv_metadata.performQuery(qry, qry["selectedtemplate"])
+            res, tot, stats = self.basv_metadata.performQuery(
+                qry, qry["selectedtemplate"], **kwargs
+            )
         else:
-            res, _, _ = self.basv_metadata.getAllBrowseData(qry["selectedtemplate"])
+            res, tot, stats = self.basv_metadata.getAllBrowseData(
+                qry["selectedtemplate"], **kwargs
+            )
 
-        return res
+        return res, tot, stats
 
     def form_invalid(self, form):
+        # TODO: I could not figure out how to redirect to /DataRepo/advanced_search, but this is better than the
+        # exception I was seeing when the download form was invalid.  Figure out how to properly redirect to the
+        # previous page when this happens.
         qry = self.get_qry(form.saved_data)
-        now = datetime.now()
-        return self.render_to_response(
-            self.get_context_data(
-                res={},
-                qry=qry,
-                dt=now.strftime(self.date_format),
-                debug=settings.DEBUG,
-            )
+        rows_per_page = 10  # Fallback, bec. we don't know
+        res, tot, stats = self.get_query_results(
+            qry,
+            limit=rows_per_page,
+            offset=0,  # Fallback, bec. we don't know
+            order_by=None,  # Fallback, bec. we don't know
+            order_direction=None,  # Fallback, bec. we don't know
+            generate_stats=False,  # Fallback, bec. we don't know
+        )
+        asv = AdvancedSearchView()
+        asv.pager.update(
+            other_field_inits={
+                "qryjson": json.dumps(qry),
+                "show_stats": False,
+                "stats": json.dumps(stats),
+            },
+            tot=tot,
+            page=1,  # Fallback, bec. we don't know
+            rows=rows_per_page,
+        )
+        return render(
+            self.request,
+            self.template_name,
+            content_type="text/html",
+            context={
+                "res": res,
+                "tot": tot,
+                "stats": stats,
+                "pager": asv.pager,
+                "download_forms": asv.get_download_form_tuples(qry=qry),
+                "forms": AdvSearchForm().form_classes,
+                "qry": qry,
+                "debug": settings.DEBUG,
+                "root_group": self.basv_metadata.getRootGroup(),
+                "default_format": self.basv_metadata.default_format,
+                "ncmp_choices": self.basv_metadata.getComparisonChoices(),
+                "fld_types": self.basv_metadata.getFieldTypes(),
+                "fld_choices": self.basv_metadata.getSearchFieldChoicesDict(),
+                "fld_units": self.basv_metadata.getFieldUnitsDict(),
+                "error": (
+                    "The download feature is malfunctioning.  Please report this error and click your browser's back "
+                    "button."
+                ),
+                "mode": self.basv_metadata.default_mode,
+                "format": self.basv_metadata.default_format,
+            },
         )
 
     def form_valid(self, form):
         qry = self.get_qry(form.cleaned_data)
         now = datetime.now()
         filename = f"{qry['searches'][qry['selectedtemplate']]['name']}_{now.strftime(self.datestamp_format)}.tsv"
-        res = self.get_query_results(qry)
+        res = list(self.get_query_results(qry))[0]
 
         headtmplt = loader.get_template(self.header_template)
         rowtmplt = loader.get_template(self.row_template)
@@ -352,7 +401,7 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         self.converter = RecordToMzxmlTSV.get_converter_object(self.format_id)
 
         # Perform the query and save the queryset
-        self.res = res if res is not None else self.get_query_results(self.qry)
+        self.res = res if res is not None else list(self.get_query_results(self.qry))[0]
 
         # Set the output file name
         self.filename = f"{self.format_name}_{self.datestamp_str}.tsv"
@@ -519,7 +568,7 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
         self.format_name = self.qry["searches"][self.format_id]["name"]
 
         # Perform the query and save the queryset
-        self.res = self.get_query_results(self.qry)
+        self.res = list(self.get_query_results(self.qry))[0]
 
         # Set the output file name
         self.filename = f"{self.format_name}_mzxmls_{self.datestamp_str}.zip"

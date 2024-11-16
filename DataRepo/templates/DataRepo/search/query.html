@@ -69,13 +69,16 @@
                 })
 
                 {% if res %}
-                    var dlform = document.getElementById("advanced-search-download-form")
-                    document.getElementById("advanced-download-submit").addEventListener("click", function () {
-                        dlform.submit(function (event) {
-                            // Stop form from submitting normally
-                            event.preventDefault();
+                    var dlforms = document.getElementsByClassName("advanced-search-download-form");
+                    for (let i = 0; i < dlforms.length; i++) {
+                        let dlform = dlforms[i];
+                        dlform.querySelectorAll('button[id="advanced-download-submit"]')[0].addEventListener("click", function () {
+                            dlform.submit(function (event) {
+                                // Stop form from submitting normally
+                                event.preventDefault();
+                            })
                         })
-                    })
+                    }
                 {% endif %}
 
             })

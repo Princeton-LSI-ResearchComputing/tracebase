@@ -11,11 +11,11 @@ from django.shortcuts import render
 
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms import (
-    AdvSearchDownloadForm,
     AdvSearchForm,
     AdvSearchPageForm,
 )
 from DataRepo.pager import Pager
+from DataRepo.views.search.advanced import AdvancedSearchView
 from DataRepo.views.utils import get_cookie
 
 
@@ -60,7 +60,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
     except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
         raise Http404(e)
-    download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+    download_forms = AdvancedSearchView.get_download_form_tuples(qry=qry)
 
     rows_per_page = int(
         get_cookie(
@@ -97,7 +97,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
             "res": res,
             "stats": stats,
             "pager": pager,
-            "download_form": download_form,
+            "download_forms": download_forms,
             "debug": settings.DEBUG,
             "root_group": root_group,
             "mode": "search",
