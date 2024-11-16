@@ -6,13 +6,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [3.1.2-beta] - 2024-11-13
 
 ### Fixed
 
+- Advanced search download form errors now gracefully display an error.
+
 ### Added
 
+- Added an `mzXMLs` download button to the advanced search results when the results displayed have an MZ file column.
+- Added `textlint` to the contributing doc.
+
 ### Changed
+
+- Changed the advanced search download button to additionally contain "TSV" to distinguish it from the mzXMLs download button.
 
 ## [3.1.1-beta] - 2024-11-13
 

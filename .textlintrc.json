@@ -1,0 +1,7 @@
+{
+  "plugins": {},
+  "filters": {},
+  "rules": {
+    "terminology": true
+  }
+}

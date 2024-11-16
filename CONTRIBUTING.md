@@ -186,6 +186,7 @@ editor. Some linters that may be useful to install locally include:
   * [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
     \- Config linting
   * [stylelint](https://stylelint.io) - CSS linting
+  * [textlint](https://github.com/textlint/textlint) - Natural language linting
 
 It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
@@ -205,6 +206,7 @@ developing, you can run these example linting commands on the command-line:
     find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
         -not -path "*__pycache__*" \) -exec editorconfig-checker {} \;
     npx stylelint **/*.css
+    npx textlint **/*.md
 
 ##### Superlinter
 

@@ -21,6 +21,7 @@ None
     - [ ] Replace the existing `Unreleased` header with the new tag and current date
     - [ ] `git log [PREVIOUS_TAG]..HEAD` - Review the log to summarize changes since the last release
     - [ ] `markdownlint --config .markdown-lint.yml CHANGELOG.md`
+    - [ ] `npx textlint CHANGELOG.md`
     - [ ] `git commit`
   - [ ] `git push` - commit and push updated changelog
     - [ ] Ensure all tests pass in GitHub actions
@@ -31,6 +32,7 @@ None
   - [ ] Edit `changelog.md` to add back the *Unreleased* section
     - [ ] Replace the existing `Unreleased` section with the new tag and current date
     - [ ] `markdownlint --config .markdown-lint.yml CHANGELOG.md`
+    - [ ] `npx textlint CHANGELOG.md`
     - [ ] `git commit`
   - [ ] `git push` - commit and push updated changelog
   - [ ] If this is a release branch (not `main`), merge into main

@@ -443,7 +443,9 @@ class AdvancedSearchView(MultiFormsView):
             )
 
     @classmethod
-    def get_download_form_tuples(cls, qry=None) -> List[Tuple[str, AdvSearchDownloadForm, str]]:
+    def get_download_form_tuples(
+        cls, qry=None
+    ) -> List[Tuple[str, AdvSearchDownloadForm, str]]:
         """Returns a list of tuples containing the download button name, a form instance, and the form action.
 
         The returned list always contains the default download formst (TSV).  It adds other entries based on the
