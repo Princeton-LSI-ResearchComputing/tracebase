@@ -24,6 +24,7 @@ from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name_with_concs,
     parse_tracer_string,
 )
+from DataRepo.utils.text_utils import sigfig
 
 
 class InfusatesLoader(TableLoader):
@@ -719,12 +720,21 @@ class InfusatesLoader(TableLoader):
                             parsed_tracer_name = parsed_infusate_tracer["tracer"][
                                 "unparsed_string"
                             ]
-                            parsed_concentration = parsed_infusate_tracer[
-                                "concentration"
-                            ]
+                            parsed_concentration = float(
+                                sigfig(
+                                    parsed_infusate_tracer["concentration"],
+                                    Infusate.CONCENTRATION_SIGNIFICANT_FIGURES,
+                                )
+                            )
 
                             if math.isclose(
-                                parsed_concentration, float(table_tracer_conc)
+                                parsed_concentration,
+                                float(
+                                    sigfig(
+                                        table_tracer_conc,
+                                        Infusate.CONCENTRATION_SIGNIFICANT_FIGURES,
+                                    )
+                                ),
                             ) and (
                                 # Ignoring whitespace and case differences
                                 parsed_tracer_name.replace(" ", "").lower()
