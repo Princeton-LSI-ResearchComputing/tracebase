@@ -33,7 +33,6 @@ from DataRepo.utils import (
     DryRun,
     NoSamplesError,
     TracerLabeledElementNotFound,
-    UnskippedBlanksError,
     read_from_file,
 )
 from DataRepo.utils.exceptions import (
@@ -50,16 +49,49 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_studies",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
         )
-
-        Study.objects.create(name="Small OBOB")
-        Infusate.objects.get_or_create_infusate(
-            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        call_command(
+            "load_compounds",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_tracers",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_infusates",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_protocols",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
         )
         call_command(
             "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_tissues",
             infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
@@ -72,14 +104,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
-        # call_command(
-        #     "legacy_load_animals_and_samples",
-        #     animal_and_sample_table_filename=(
-        #         "DataRepo/data/tests/small_obob/"
-        #         "small_obob_animal_and_sample_table.xlsx"
-        #     ),
-        # )
-
         super().setUpTestData()
 
     @classmethod
@@ -95,41 +119,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
-
-    def test_accucor_load_blank_fail(self):
-        with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
-            call_command(
-                "legacy_load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-            )
-        aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], UnskippedBlanksError))
-
-    def test_accucor_load_blank_skip(self):
-        call_command(
-            "legacy_load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            skip_samples=("blank"),
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
-        SAMPLES_COUNT = 14
-        PEAKDATA_ROWS = 11
-        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
-
-        self.assertEqual(
-            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
-        )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
     def test_accucor_load_sample_prefix(self):
         call_command(

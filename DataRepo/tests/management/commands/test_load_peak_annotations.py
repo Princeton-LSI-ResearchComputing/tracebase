@@ -4,6 +4,9 @@ import pandas as pd
 from django.core.management import CommandError, call_command
 
 from DataRepo.loaders import MSRunsLoader
+from DataRepo.loaders.peak_annotation_files_loader import (
+    PeakAnnotationFilesLoader,
+)
 from DataRepo.models import (
     Animal,
     Infusate,
@@ -18,14 +21,14 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     DuplicateFileHeaders,
     MultiplePeakGroupRepresentations,
+    UnskippedBlanks,
 )
-from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
+from DataRepo.utils.file_utils import read_from_file
 
 # TODO: Swap out all of the calls to legacy_load_animals_and_samples and legacy_load_samples once those loaders are
 # refactored to inherit from TableLoader.
@@ -48,15 +51,49 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_studies",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
         )
-        Study.objects.create(name="Small OBOB")
-        Infusate.objects.get_or_create_infusate(
-            parse_infusate_name_with_concs("lysine-[13C6][23.2]")
+        call_command(
+            "load_compounds",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_tracers",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_infusates",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_protocols",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
         )
         call_command(
             "load_animals",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_tissues",
             infile=(
                 "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
@@ -69,13 +106,6 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
-        # call_command(
-        #     "legacy_load_animals_and_samples",
-        #     animal_and_sample_table_filename=(
-        #         "DataRepo/data/tests/small_obob/"
-        #         "small_obob_animal_and_sample_table.xlsx"
-        #     ),
-        # )
         super().setUpTestData()
 
     def assure_coordinator_state_is_initialized(
@@ -250,6 +280,95 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         # 1 compounds, 2 samples -> 2 PeakGroups
         # This error occurs on each of 7 rows, twice (once for each sample)
         self.assertEqual(14, len(aes.exceptions[0].exceptions))
+
+    @MaintainedModel.no_autoupdates()
+    def test_blank_skip(self):
+        # NOTE: setUpTestData already loaded animals, samples, and all other basal data
+        pre_peak_data = PeakData.objects.count()
+        pre_peak_group = PeakGroup.objects.count()
+        # Load MSRunSequences
+        call_command(
+            "load_sequences",
+            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
+        )
+        # Load MSRunSamples
+        call_command(
+            "load_msruns",
+            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
+        )
+        # This should skip a sample column named "blank" in blank_samples/blanks1/accucor_with_blank.xlsx
+        call_command(
+            "load_peak_annotation_files",
+            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_skip_study.xlsx",
+        )
+        SAMPLES_COUNT = 1
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+        self.assertEqual(
+            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            PeakGroup.objects.count() - pre_peak_group,
+        )
+        self.assertEqual(
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            PeakData.objects.all().count() - pre_peak_data,
+        )
+
+    @MaintainedModel.no_autoupdates()
+    def test_blank_warn(self):
+        # NOTE: setUpTestData already loaded animals, samples, and all other basal data
+        pre_peak_data = PeakData.objects.count()
+        pre_peak_group = PeakGroup.objects.count()
+
+        # Load MSRunSequences
+        call_command(
+            "load_sequences",
+            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+        )
+        # Load MSRunSamples
+        # This should skip a row with a sample named "blank" with a warning because the sample wasn't loaded from the
+        # Samples sheet, but the name has "blank" in it.
+        call_command(
+            "load_msruns",
+            infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+        )
+
+        # This should also skip a sample *column* named "blank" in blank_samples/blanks1/accucor_with_blank.xlsx with a
+        # warning because an MSRunSample record wasn't found, but "blank" is in the header.
+        pafl = PeakAnnotationFilesLoader(
+            df=read_from_file(
+                "DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+                sheet=PeakAnnotationFilesLoader.DataSheetName,
+            ),
+            file="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+        )
+        pafl.load_data()
+
+        self.assertEqual(
+            1, len(pafl.aggregated_errors_dict["accucor_with_blank.xlsx"].exceptions)
+        )
+        self.assertEqual(
+            1, pafl.aggregated_errors_dict["accucor_with_blank.xlsx"].num_warnings
+        )
+        self.assertEqual(
+            1,
+            pafl.aggregated_errors_dict[
+                "accucor_with_blank.xlsx"
+            ].exception_type_exists(UnskippedBlanks),
+        )
+
+        SAMPLES_COUNT = 1
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        # The one valid sample loaded
+        self.assertEqual(
+            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            PeakGroup.objects.count() - pre_peak_group,
+        )
+        self.assertEqual(
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            PeakData.objects.all().count() - pre_peak_data,
+        )
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):

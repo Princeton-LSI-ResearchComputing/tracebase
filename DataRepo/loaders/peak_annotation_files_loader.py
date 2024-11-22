@@ -541,6 +541,12 @@ class PeakAnnotationFilesLoader(TableLoader):
             # Log the peak annot loader's exceptions by file
             self.aggregated_errors_dict[filename] = aes
         finally:
+            # Just in case the raised AggregatedErrors exception above wasn't in the loader object, add the object,
+            # because it can contain warnings that were not raised
+            if filename not in self.aggregated_errors_dict.keys():
+                self.aggregated_errors_dict[filename] = (
+                    peak_annot_loader.aggregated_errors_object
+                )
             self.update_load_stats(peak_annot_loader.get_load_stats())
 
     def get_dir_to_sequence_dict(self):

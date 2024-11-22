@@ -33,7 +33,6 @@ from DataRepo.utils.exceptions import (
     AggregatedErrorsSet,
     AllMissingSamples,
     AllMissingTissues,
-    MissingRecords,
     MissingTissues,
     MissingTreatments,
     NoSamples,
@@ -183,7 +182,7 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertTrue(
             aess.aggregated_errors_dict[
                 "study_missing_data.xlsx"
-            ].exception_type_exists(MissingRecords)
+            ].exception_type_exists(NoSamples)
         )
 
         self.assertEqual(
