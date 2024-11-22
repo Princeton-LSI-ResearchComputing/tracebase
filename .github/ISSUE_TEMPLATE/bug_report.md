@@ -8,16 +8,20 @@ assignees: ''
 ---
 
 <!-- markdownlint-disable-next-line first-line-heading -->
-## BUG DESCRIPTION
-
-### Problem
+## ISSUE SUBMITTER SECTION
+<!-- All sections except the comment section are required. -->
+### Problem Description
 <!-- A bird's-eye summation of what the problem is. -->
 None provided
 
 ### Steps to reproduce
+<!-- Numbered steps.  E.g.
 
-1. Numbered
-2. Steps
+1. Go to development site
+2. Click menu X
+3. Submit file Y
+-->
+None provided
 
 ### Current behavior
 <!-- A clear and concise description of what happens when you perform the steps
@@ -40,29 +44,43 @@ None
 -----
 
 ## ISSUE OWNER SECTION
-
+<!-- All sections are required. -->
 ### Assumptions
+<!-- List of assumptions that the code will not explicitly address/check. E.g.
 
-1. List of assumptions made WRT the code
-2. E.g. We will assume input is correct (explaining why there is no validation)
+1. The input is correct
+-->
+None provided
 
 ### Limitations
+<!-- A list of things this work will specifically not do. E.g.
 
-1. A list of things this work will specifically not do
-2. E.g. This feature will only handle the most frequent use case X
+1. This feature will only handle the most frequent use case X.
+2. This feature will not handle edge case Y.
+-->
+None provided
 
 ### Affected Components
-<!-- A list of repository items, dependencies, etc, labeled with add, delete,
-or change.  One item per line.  (Mostly, this will be a list of files.) -->
-- change: File path or DB table ...
-- add: Environment variable or server setting
-- delete: External executable or cron job
+<!-- A tentative list of anticipated repository items that will be changed,
+labeled with "add", "delete", or "change".  One item per line.  Components can
+be anything, like files, environment variables, cron jobs, etc. E.g.
+
+- change: `path/to/code.py`
+- add: `DATABASE_HOST` environment variable
+- delete: cron job to backup the database
+-->
+None provided
 
 ### Requirements
+<!-- A hierarchical list of discrete requirements for the feature. List numbers
+are for reference & checkboxes for progress tracking. E.g.
 
-- [ ] 1. List of numbered conditions to be met for the feature
-- [ ] 2. E.g. Every column/row must display a value, i.e. cannot be empty
-- [ ] 3. Numbers for reference & checkboxes for progress tracking
+- [ ] `1.` Every column/row must display a value, i.e. cannot be empty
+- [ ] `2.` Column X must link to the referenced record
+  - [ ] `2.1.` Raise an error if column X's value is None
+  - [ ] `2.2.` The link must not be line-wrapped
+-->
+None provided
 
 ### DESIGN
 
@@ -75,7 +93,9 @@ None provided
 None provided
 
 #### Tests
+<!-- A description of at least one test for each requirement above. Numbers are
+for reference & checkboxes for progress tracking. E.g.
 
-- [ ] 1. A description of at least one test for each requirement above.
-- [ ] 2. E.g. Test for req 2 that there's an exception when display value is ''
-- [ ] 3. Numbers for reference & checkboxes for progress tracking
+- [ ] `1.` Test that there's an exception when display value is ''
+-->
+None provided
