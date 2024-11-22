@@ -960,6 +960,9 @@ class ConvertedTableLoader(TableLoader, ABC):
         if self.nan_filldown_columns is not None and len(self.nan_filldown_columns) > 0:
             for col in self.nan_filldown_columns:
                 if col in outdf.columns:
+                    # To fill down, empty strings must be converted to NaN
+                    outdf[col].replace("", pd.NA, inplace=True)
+                    # Fill down (replaces NaNs only)
                     outdf[col].ffill(inplace=True)
                     # In case an empty value was left at the top...
                     outdf[col].bfill(inplace=True)
