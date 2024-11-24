@@ -21,6 +21,8 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     FEMALE = "F"
     MALE = "M"
     SEX_CHOICES = [(FEMALE, "female"), (MALE, "male")]
+    INFUSION_RATE_SIGNIFICANT_FIGURES = 3
+    BODY_WEIGHT_SIGNIFICANT_FIGURES = 3
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)

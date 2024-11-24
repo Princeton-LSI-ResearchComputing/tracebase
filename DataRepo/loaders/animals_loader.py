@@ -25,6 +25,7 @@ from DataRepo.utils.exceptions import (
     RollbackException,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
+from DataRepo.utils.text_utils import sigfig, sigfigrange
 
 AnimalStudy = Animal.studies.through
 
@@ -333,22 +334,35 @@ class AnimalsLoader(TableLoader):
             "genotype": genotype,
             "infusate": infusate,
         }
+        qry_dict = rec_dict.copy()
 
         errored = False
 
         # Optional fields
         if infusion_rate is not None:
             # TODO: Make it possible to parse and use units for infusion_rate
-            rec_dict["infusion_rate"] = infusion_rate
+            rec_dict["infusion_rate"] = sigfig(
+                infusion_rate, Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
+            )
+            qry_dict["infusion_rate__range"] = sigfigrange(
+                infusion_rate, Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
+            )
         if genotype is not None:
             rec_dict["genotype"] = genotype
+            qry_dict["genotype"] = genotype
         if weight is not None:
             # TODO: Make it possible to parse and use units for weight
-            rec_dict["body_weight"] = weight
+            rec_dict["body_weight"] = sigfig(
+                weight, Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
+            )
+            qry_dict["body_weight"] = sigfigrange(
+                weight, Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
+            )
         if age is not None:
             try:
                 # TODO: Make it possible to parse and use units for age(/duration)
                 rec_dict["age"] = timedelta(weeks=age)
+                qry_dict["age"] = rec_dict["age"]
             except Exception as e:
                 self.buffer_infile_exception(e, column=self.headers.AGE)
                 errored = True
@@ -356,19 +370,30 @@ class AnimalsLoader(TableLoader):
         if sex is not None:
             try:
                 rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
+                qry_dict["sex"] = rec_dict["sex"]
             except Exception as e:
                 self.buffer_infile_exception(e, column=self.headers.SEX)
                 errored = True
                 # Press on to find more errors...
         if diet is not None:
             rec_dict["diet"] = diet
+            qry_dict["diet"] = diet
         if feeding_status is not None:
             rec_dict["feeding_status"] = feeding_status
+            qry_dict["feeding_status"] = feeding_status
         if treatment is not None:
             rec_dict["treatment"] = treatment
+            qry_dict["treatment"] = treatment
 
         try:
-            rec, created = Animal.objects.get_or_create(**rec_dict)
+            # First, quyery to account for floating point precision issue matches (see infusion_rate and body_weight
+            # above)
+            qs = Animal.objects.filter(**qry_dict)
+            if qs.count() == 1:
+                rec = qs.first()
+            else:
+                rec, created = Animal.objects.get_or_create(**rec_dict)
+
             if errored:
                 self.errored(Animal.__name__)
             elif created:
