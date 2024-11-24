@@ -1978,17 +1978,24 @@ class AggregatedErrorsSet(Exception):
         self.is_error = False
         if len(self.aggregated_errors_dict.keys()) > 0:
             for aes_key in self.aggregated_errors_dict.keys():
-                if self.aggregated_errors_dict[aes_key].num_errors > 0:
-                    self.num_errors += 1
-                elif self.aggregated_errors_dict[aes_key].num_warnings > 0:
-                    self.num_warnings += 1
-                else:
-                    # Remove AggregatedErrors objects that have been completely gutted
-                    del self.aggregated_errors_dict[aes_key]
                 if self.aggregated_errors_dict[aes_key].is_fatal:
                     self.is_fatal = True
                 if self.aggregated_errors_dict[aes_key].is_error:
                     self.is_error = True
+
+                if self.aggregated_errors_dict[aes_key].num_errors > 0:
+                    # The number of contained AggregatedErrors objects with at least 1 error
+                    self.num_errors += 1
+                elif self.aggregated_errors_dict[aes_key].num_warnings > 0:
+                    # The number of contained AggregatedErrors objects with at least 1 warning
+                    self.num_warnings += 1
+                else:
+                    # Remove AggregatedErrors objects that have been completely gutted.  An AggregatedErrors object
+                    # should only exist if there was at least 1 exception.  Previous individual exceptions could have
+                    # been removed from any such object, but here's where we blank out the AggregatedErrors object
+                    # itself.
+                    del self.aggregated_errors_dict[aes_key]
+
         self.custom_message = False
         if message:
             self.custom_message = True
