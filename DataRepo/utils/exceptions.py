@@ -1977,7 +1977,8 @@ class AggregatedErrorsSet(Exception):
         self.is_fatal = False
         self.is_error = False
         if len(self.aggregated_errors_dict.keys()) > 0:
-            for aes_key in self.aggregated_errors_dict.keys():
+            aes_keys = self.aggregated_errors_dict.keys()
+            for aes_key in aes_keys:
                 if self.aggregated_errors_dict[aes_key].is_fatal:
                     self.is_fatal = True
                 if self.aggregated_errors_dict[aes_key].is_error:
