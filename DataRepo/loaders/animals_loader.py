@@ -340,24 +340,34 @@ class AnimalsLoader(TableLoader):
 
         # Optional fields
         if infusion_rate is not None:
-            # TODO: Make it possible to parse and use units for infusion_rate
-            rec_dict["infusion_rate"] = sigfig(
-                infusion_rate, Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
-            )
-            qry_dict["infusion_rate__range"] = sigfigrange(
-                infusion_rate, Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
-            )
+            try:
+                # TODO: Make it possible to parse and use units for infusion_rate
+                rec_dict["infusion_rate"] = sigfig(
+                    float(infusion_rate), Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
+                )
+                qry_dict["infusion_rate__range"] = sigfigrange(
+                    float(infusion_rate), Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
+                )
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
+                errored = True
+                # Press on to find more errors...
         if genotype is not None:
             rec_dict["genotype"] = genotype
             qry_dict["genotype"] = genotype
         if weight is not None:
-            # TODO: Make it possible to parse and use units for weight
-            rec_dict["body_weight"] = sigfig(
-                weight, Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
-            )
-            qry_dict["body_weight__range"] = sigfigrange(
-                weight, Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
-            )
+            try:
+                # TODO: Make it possible to parse and use units for weight
+                rec_dict["body_weight"] = sigfig(
+                    float(weight), Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
+                )
+                qry_dict["body_weight__range"] = sigfigrange(
+                    float(weight), Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
+                )
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.WEIGHT)
+                errored = True
+                # Press on to find more errors...
         if age is not None:
             try:
                 # TODO: Make it possible to parse and use units for age(/duration)

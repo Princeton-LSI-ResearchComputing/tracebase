@@ -59,8 +59,24 @@ def is_number(val):
     return True
 
 
-def sigfig(num, figures=3) -> str:
-    """Return the supplied num with the significant number of figures/digits."""
+def sigfig(num: Union[int, float], figures=3) -> str:
+    """Return the supplied num with the significant number of figures/digits.
+
+    Examples:
+        sigfig(123.45678, 4)  # 123.5
+        sigfig(12345678, 4)  # 12350000
+        sigfig(1234312, 4)  # 12340000
+        sigfig(12, 4)  # 12
+    Args:
+        num (Union[int, float]): A number with any number of digits/figures.  May have a sign and optionally be in
+            scientific notation.
+        figures (int): A number of significant digits in num
+    Exceptions:
+        None
+    Returns:
+        (str): Formatted number containing only significant figures/digits
+    """
+    # TODO: Add support for trailing significant zeroes (with the python g format specifier removes)
     return f"{num:.{figures}g}"
 
 
@@ -108,7 +124,7 @@ def sigfigfloor(num, figures: int = 3) -> Union[float, int]:
         sigfigfloor(12345678, 4)  # 12340000
         sigfigfloor(12, 4)  # 12.01  # The last of 4 significant digits is incremented
     Args:
-        num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
+        num (Union[str, float, int]): A number with any number of digits/figures.  May have a sign and optionally be in
             scientific notation.
         figures (int): A number of significant digits in num
     Exceptions:
@@ -186,12 +202,13 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
         sigfigceil(120, 4)  # 120.1
         sigfigceil(12000000, 4)  # 12010000
         TODO: sigfigceil("0.0000000", 4)  # planned: 0.0000001 current: 1.
+            A description of support for significant zeros (which python's format specifier (g) removes...
             Sig digs should count from left-most non-zero, rightward.  If all are 0, count is from right-most, leftward.
             There should also be a type consideration.  If the type is a string, leading zeroes in a decimal could be
             considered significant if there are trailing zeroes and fewer non-zero digits than the number of significant
             digits, because scientists write as many trailing zeroes as are significant.
     Args:
-        num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
+        num (Union[str, float, int]): A number with any number of digits/figures.  May have a sign and optionally be in
             scientific notation.
         figures (int): A number of significant digits in num
     Exceptions:

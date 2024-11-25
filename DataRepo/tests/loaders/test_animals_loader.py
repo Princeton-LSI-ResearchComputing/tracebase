@@ -7,7 +7,6 @@ from DataRepo.models import Animal, Compound, Infusate, Protocol, Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    InfileDatabaseError,
     InfileError,
     MissingRecords,
     MissingTreatments,
@@ -155,17 +154,19 @@ class AnimalsLoaderTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             al.load_data()
         aes = ar.exception
-        self.assertEqual(4, len(aes.exceptions))
+        self.assertEqual(5, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], InfileError)
-        self.assertIn("timedelta", str(aes.exceptions[0]))
+        self.assertIn("could not convert string to float", str(aes.exceptions[0]))
         self.assertIsInstance(aes.exceptions[1], InfileError)
+        self.assertIn("could not convert string to float", str(aes.exceptions[1]))
+        self.assertIsInstance(aes.exceptions[2], InfileError)
+        self.assertIn("timedelta", str(aes.exceptions[2]))
+        self.assertIsInstance(aes.exceptions[3], InfileError)
         self.assertIn(
-            "must be one of [('F', 'female'), ('M', 'male')]", str(aes.exceptions[1])
+            "must be one of [('F', 'female'), ('M', 'male')]", str(aes.exceptions[3])
         )
-        self.assertIsInstance(aes.exceptions[2], InfileDatabaseError)
-        self.assertIn("Field 'body_weight' expected a number", str(aes.exceptions[2]))
-        self.assertIsInstance(aes.exceptions[3], MissingRecords)
-        self.assertIn("Study", str(aes.exceptions[3]))
+        self.assertIsInstance(aes.exceptions[4], MissingRecords)
+        self.assertIn("Study", str(aes.exceptions[4]))
         self.assertEqual(0, Animal.objects.count())
         self.assertDictEqual(
             {
