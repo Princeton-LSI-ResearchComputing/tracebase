@@ -355,7 +355,7 @@ class AnimalsLoader(TableLoader):
             rec_dict["body_weight"] = sigfig(
                 weight, Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
             )
-            qry_dict["body_weight"] = sigfigrange(
+            qry_dict["body_weight__range"] = sigfigrange(
                 weight, Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
             )
         if age is not None:
