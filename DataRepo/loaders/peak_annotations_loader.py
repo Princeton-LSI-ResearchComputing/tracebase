@@ -494,6 +494,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         if self.df is None:
             return
 
+        # The accucor files in un-merged csv format do not have a formula and don't need a C12 PARENT check because it
+        # will be automatically created from the X_Label column.  (The formula column will also be added from existing
+        # records in the DB)
+        if self.headers.FORMULA not in self.df.columns:
+            return
+
         # Create a dataframe with just the relevant data needed to identify missing C12 PARENT rows in the original data
         # We infer this from the fact that a formula from an above compound filled down into the next compound (because
         # its parent was missing)
