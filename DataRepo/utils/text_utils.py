@@ -67,9 +67,14 @@ def sigfig(num, figures=3) -> str:
 def get_num_parts(num):
     """Breaks up a number into sign, number, and exponent.  sign and exponent are optional.
 
+    Examples:
+        get_num_parts("+.122e33")  # "+", ".122", "33"
+        get_num_parts("0.122")  # "", ".122", None
+        get_num_parts("-000.122e+33")  # "-", "000.122", "+33"
+        get_num_parts(-.122E33)  # "-", "1.22", "+32"  # python applies its own rules to scientific notation
     Args:
-        num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
-            scientific notation.
+        num (Union[str, int, float]): A number with any number of digits/figures.  May have a sign (+/-) and optionally
+            be in scientific notation (e.g. 1.0e-10).
     Exceptions:
         None
     Returns:
@@ -99,10 +104,9 @@ def sigfigfloor(num, figures: int = 3) -> Union[float, int]:
     """Truncate a number to the number of significant digits (i.e. do not round)
 
     Examples:
-        sigfigfloor(123.45678, 4)
-        # 123.4
-        sigfigfloor(12345678, 4)
-        # 12340000
+        sigfigfloor(123.45678, 4)  # 123.4
+        sigfigfloor(12345678, 4)  # 12340000
+        sigfigfloor(12, 4)  # 12.01  # The last of 4 significant digits is incremented
     Args:
         num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
             scientific notation.
@@ -175,10 +179,17 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
     significant digits in the supplied num.
 
     Examples:
-        sigfigceil(123.45678, 4)
-        # 123.5
-        sigfigceil(12345678, 4)
-        # 12350000
+        sigfigceil(0.0012345678, 4)  # 0.001235
+        sigfigceil(123.45678, 4)  # 123.5
+        sigfigceil(12345678, 4)  # 12350000
+        sigfigceil(0.0012, 4)  # 0.001201
+        sigfigceil(120, 4)  # 120.1
+        sigfigceil(12000000, 4)  # 12010000
+        TODO: sigfigceil("0.0000000", 4)  # planned: 0.0000001 current: 1.
+            Sig digs should count from left-most non-zero, rightward.  If all are 0, count is from right-most, leftward.
+            There should also be a type consideration.  If the type is a string, leading zeroes in a decimal could be
+            considered significant if there are trailing zeroes and fewer non-zero digits than the number of significant
+            digits, because scientists write as many trailing zeroes as are significant.
     Args:
         num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
             scientific notation.
@@ -191,6 +202,10 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
     Returns:
         ceiled (Union[float, int])
     """
+    # TODO: In a value like 0.000, if there is 1 significant digit, the last 0 is considered to be the significant
+    # digit, so ceil should return 0.001, but right now, it returns 1.  (When there are non-zeroes in the number, the
+    # first significant digit is the highest [left-most] such digit [which is what is currently supported].)
+
     if figures < 1:
         raise ValueError(f"'figures' must be grater than 0.  '{figures}' supplied.")
 
@@ -227,23 +242,34 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
 
         ceiled_str = whl_part + "." + dec_sd_part
     else:
+        # Remove leading zeroes
         dec_sd_part = dec_part.lstrip("0")
+        # Determine the number of leading zeroes
         dec_leader_len = len(dec_part) - len(dec_sd_part)
         if len(dec_sd_part) <= figures:
             dec_sd_part += "0" * (figures - len(dec_sd_part))
 
         # Add 1 (treated as int)
         if int(dec_sd_part) == 0:
-            dec_sd_part = ("0" * (figures - 1)) + "1"
+            # We know that whl_part is 0. When the entire value is 0, the significant digits start with the "0" in the
+            # whl_part
+            if figures == 1:
+                whl_part = "1"
+                dec_sd_part = "0"
+            else:
+                dec_sd_part = ("0" * (figures - 2)) + "1"
         else:
+            # The significant digits start with the first non-0 number in the decimal digits
             dec_sd_part = str(int(dec_sd_part) + 1)
 
         if len(dec_sd_part) > figures:
-            dec_sd_part = dec_sd_part[1:]
-            if whl_part == "":
-                whl_part = "1"
-            else:
-                whl_part = str(int(whl_part) + 1)
+            dec_leader_len -= 1
+            if dec_leader_len < 0:
+                dec_sd_part = dec_sd_part[1:]
+                if whl_part == "":
+                    whl_part = "1"
+                else:
+                    whl_part = str(int(whl_part) + 1)
 
         ceiled_str = whl_part + "." + ("0" * dec_leader_len) + dec_sd_part
 
