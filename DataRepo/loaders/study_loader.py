@@ -325,7 +325,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
         mzxml_dir = kwargs.pop("mzxml_dir", None)
         self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
-        self.exclude_sheets = kwargs.pop("exclude_sheets", [])
+        self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
         clkwa = self.CustomLoaderKwargs._asdict()
         clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
@@ -398,6 +398,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # TODO: Add support for custom sheet names (in addition to default).  This *could* use the overloaded
         # get_headers, but ATM, this only applies to those with a loader class and not the Defaults or Errors sheets,
         # which should also eventually be supported.
+        if not hasattr(self, "exclude_sheets") or self.exclude_sheets is None:
+            return
         ldr_cls_sheet_names = [
             ldrcls.DataSheetName for ldrcls in self.get_loader_classes()
         ]

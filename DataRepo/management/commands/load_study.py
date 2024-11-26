@@ -68,6 +68,7 @@ class Command(LoadTableCommand):
             ),
             nargs="+",
             choices=[lc.DataSheetName for lc in StudyLoader.get_loader_classes()],
+            default=[],
             required=False,
         )
 
