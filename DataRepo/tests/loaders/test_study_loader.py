@@ -285,6 +285,93 @@ class StudyLoaderTests(TracebaseTestCase):
             set(expected), set(sl.CustomLoaderKwargs.HEADERS["mzxml_files"])
         )
 
+    def test_get_loader_classes(self):
+        self.assertEqual(
+            [
+                "StudiesLoader",
+                "CompoundsLoader",
+                "TracersLoader",
+                "InfusatesLoader",
+                "ProtocolsLoader",
+                "AnimalsLoader",
+                "TissuesLoader",
+                "SamplesLoader",
+                "LCProtocolsLoader",
+                "SequencesLoader",
+                "MSRunsLoader",
+                "PeakAnnotationFilesLoader",
+                "PeakGroupConflicts",
+            ],
+            [lc.__name__ for lc in StudyLoader.get_loader_classes()],
+        )
+
+    def test_check_exclude_sheets_valid(self):
+        # No problem
+        sl = StudyV3Loader()
+        sl.exclude_sheets = ["Treatments"]
+        sl.check_exclude_sheets()
+        self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
+
+    def test_check_exclude_sheets_invalid(self):
+        # Invalid sheet
+        sl = StudyV3Loader()
+        sl.exclude_sheets = ["Invalid"]
+        sl.check_exclude_sheets()
+        self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, sl.aggregated_errors_object.num_errors)
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], ValueError)
+        self.assertIn("Invalid", str(sl.aggregated_errors_object.exceptions[0]))
+
+    def test_check_exclude_sheets_called_by_constructor(self):
+        # Called from the constructor
+        sl = StudyV3Loader(exclude_sheets=["Bad"])
+        self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, sl.aggregated_errors_object.num_errors)
+        self.assertIsInstance(sl.aggregated_errors_object.exceptions[0], ValueError)
+        self.assertIn("Bad", str(sl.aggregated_errors_object.exceptions[0]))
+
+    def test_exclude_sheets_excluded_from_load(self):
+        file = (
+            "DataRepo/data/tests/submission_v3/multitracer_v3/study_missing_data.xlsx"
+        )
+        sl = StudyV3Loader(
+            df=read_from_file(file, sheet=None),
+            file=file,
+            exclude_sheets=[
+                # All but Study sheet
+                "Compounds",
+                "Tracers",
+                "Infusates",
+                "Treatments",
+                "Animals",
+                "Tissues",
+                "Samples",
+                "LC Protocols",
+                "Sequences",
+                "Peak Annotation Details",
+                "Peak Annotation Files",
+                "Peak Group Conflicts",
+            ],
+        )
+        sl.load_data()
+        # Errors in the other loaders from the problematic study doc are all skipped
+        self.assertEqual(0, len(sl.aggregated_errors_object.exceptions))
+        # Only the one study record is loaded
+        self.assertDictEqual(
+            {
+                "Study": {
+                    "created": 1,
+                    "deleted": 0,
+                    "errored": 0,
+                    "existed": 0,
+                    "skipped": 0,
+                    "updated": 0,
+                    "warned": 0,
+                },
+            },
+            sl.record_counts,
+        )
+
 
 class StudyV3LoaderTests(TracebaseTestCase):
     def test_convert_df_v3(self):

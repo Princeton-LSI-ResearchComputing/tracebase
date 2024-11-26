@@ -59,6 +59,18 @@ class Command(LoadTableCommand):
             required=False,
         )
 
+        parser.add_argument(
+            "--exclude-sheets",
+            type=str,
+            help=(
+                f"[all] {{{[lc.DataSheetName for lc in StudyLoader.get_loader_classes()]}}} Load all sheets except "
+                "those supplied here.  (Use default sheet names in place of any custom names.)"
+            ),
+            nargs="+",
+            choices=[lc.DataSheetName for lc in StudyLoader.get_loader_classes()],
+            required=False,
+        )
+
         # TODO: Remove this after all dependent code has been updated for the new version of this script
         parser.add_argument(
             # Legacy support - catch this option and issue an error if it is used.
@@ -120,7 +132,7 @@ class Command(LoadTableCommand):
 
         try:
             df = read_from_file(self.get_infile(), sheet=None)
-            self.loader_class = StudyLoader.get_loader_class(
+            self.loader_class = StudyLoader.get_derived_class(
                 df,
                 version=options.get("infile_version"),
             )
@@ -136,6 +148,9 @@ class Command(LoadTableCommand):
             )
 
         # We can now instantiate the StudyV{number}Loader, since we know the study doc version
-        self.init_loader(mzxml_dir=options.get("mzxml_dir"))
+        self.init_loader(
+            mzxml_dir=options.get("mzxml_dir"),
+            exclude_sheets=options.get("exclude_sheets"),
+        )
 
         self.load_data()
