@@ -735,6 +735,8 @@ class InfusatesLoader(TableLoader):
                                         Infusate.CONCENTRATION_SIGNIFICANT_FIGURES,
                                     )
                                 ),
+                                rel_tol=1
+                                * 10**-Infusate.CONCENTRATION_SIGNIFICANT_FIGURES,
                             ) and (
                                 # Ignoring whitespace and case differences
                                 parsed_tracer_name.replace(" ", "").lower()
@@ -1403,7 +1405,11 @@ class InfusatesLoader(TableLoader):
 
             if file_conc is None:
                 bad_tracer_names.append(db_tracer_name)
-            elif not math.isclose(file_conc, db_conc):
+            elif not math.isclose(
+                file_conc,
+                db_conc,
+                rel_tol=1 * 10**-Infusate.CONCENTRATION_SIGNIFICANT_FIGURES,
+            ):
                 bad_concentrations.append(f"{db_tracer_name}: {db_conc}")
 
         if len(bad_tracer_names) > 0:
