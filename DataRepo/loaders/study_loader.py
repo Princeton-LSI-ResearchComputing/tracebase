@@ -300,6 +300,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     with the actual file (the value).
                 mzxml_dir (Optional[str]): A directory under which files containing the case-insensitive suffix '.mzxml'
                     reside.  The directory is walked and all mzXML files are supplied to the MSRunsLoader.
+                exclude_sheets (Optional[List[str]]): A list of default DataSheetNames (i.e. the values in the list must
+                    match the value of the in each of the cls.Loaders' DataSheetName class attribute - not any custom
+                    sheet name, so that it can be scripted on the data repo).
         Exceptions:
             Raises:
                 ProgrammingError
@@ -322,6 +325,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
         mzxml_dir = kwargs.pop("mzxml_dir", None)
         self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
+        self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
         clkwa = self.CustomLoaderKwargs._asdict()
         clkwa["FILES"]["annot_files_dict"] = self.annot_files_dict
@@ -355,6 +359,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             ]
         )
 
+        self.check_exclude_sheets()
         self.check_study_class_attributes()
 
     @classmethod
@@ -374,6 +379,42 @@ class StudyLoader(ConvertedTableLoader, ABC):
         if set(cls.DataTableHeaders._fields) != set(cls.DataSheetDisplayOrder):
             raise ProgrammingError(
                 "DataTableHeaders and DataSheetDisplayOrder must have the same sheet keys"
+            )
+
+    def check_exclude_sheets(self):
+        """This buffers an error if any supplied sheet names to not match any of the loader classes' DataSheetName class
+        attributes.
+
+        Args:
+            None
+        Exceptions:
+            Raises:
+                None
+            Buffers:
+                ValueError
+        Returns:
+            None
+        """
+        # TODO: Add support for custom sheet names (in addition to default).  This *could* use the overloaded
+        # get_headers, but ATM, this only applies to those with a loader class and not the Defaults or Errors sheets,
+        # which should also eventually be supported.
+        if not hasattr(self, "exclude_sheets") or self.exclude_sheets is None:
+            return
+        ldr_cls_sheet_names = [
+            ldrcls.DataSheetName for ldrcls in self.get_loader_classes()
+        ]
+        bad_sheets = [
+            exclude_sheet
+            for exclude_sheet in self.exclude_sheets
+            if exclude_sheet not in ldr_cls_sheet_names
+        ]
+        if len(bad_sheets) > 0:
+            self.aggregated_errors_object.buffer_error(
+                ValueError(
+                    f"Excluded sheet names [{', '.join(bad_sheets)}] must match one of "
+                    f"[{', '.join(ldr_cls_sheet_names)}].  (Note: sheets with custom names can be excluded, but only "
+                    "by supplying their default sheet name.)"
+                )
             )
 
     @MaintainedModel.defer_autoupdates(
@@ -473,7 +514,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
         for loader_key in self.Loaders._fields:
             if loader_key not in loaders.keys():
                 continue
+
             loader: TableLoader = loaders[loader_key]
+
+            # Skip loads that the user has excluded, based on a match of the class attribute DataSheetName
+            if loader.DataSheetName in self.exclude_sheets:
+                continue
+
             try:
                 loader.load_data()
             except Exception as e:
@@ -503,6 +550,15 @@ class StudyLoader(ConvertedTableLoader, ABC):
             delete_all_caches()
 
         # dry_run and defer_rollback are handled by the load_data wrapper
+
+    @classmethod
+    def get_loader_classes(cls):
+        """Return a list of loader classes."""
+        return [
+            ldrcls
+            for ldrcls in list(cls.Loaders)
+            if ldrcls is not None and issubclass(ldrcls, TableLoader)
+        ]
 
     def get_loader_instances(self, sheets_to_make=None):
         """Instantiates the loaders and returns a dict of loader instances keyed on loader keys.
@@ -1069,7 +1125,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         return [str(subcls.version_number) for subcls in StudyLoader.__subclasses__()]
 
     @classmethod
-    def get_loader_class(cls, df_dict, version=None):
+    def get_derived_class(cls, df_dict, version=None):
         """Retrieves the derived class of StudyLoader representing the detected/supplied infile study doc version.
 
         Args:

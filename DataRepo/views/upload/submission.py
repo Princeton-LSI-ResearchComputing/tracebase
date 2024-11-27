@@ -3139,7 +3139,7 @@ class BuildSubmissionView(FormView):
 
         try:
             # This creates the current version StudyLoader.
-            loader_class: Type[StudyLoader] = StudyLoader.get_loader_class(dfd)
+            loader_class: Type[StudyLoader] = StudyLoader.get_derived_class(dfd)
             sl: StudyLoader = loader_class(
                 df=dfd,
                 file=self.study_file,
@@ -3274,7 +3274,7 @@ class BuildSubmissionView(FormView):
         try:
             # Get the StudyLoader for the version of the input file
             df_dict = read_from_file(self.study_file, sheet=None)
-            loader_class = StudyLoader.get_loader_class(df_dict)
+            loader_class = StudyLoader.get_derived_class(df_dict)
             sl: StudyLoader = loader_class(
                 df=df_dict,
                 file=self.study_file,

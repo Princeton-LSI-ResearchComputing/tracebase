@@ -25,6 +25,7 @@ from DataRepo.loaders.peak_annotations_loader import (
 from DataRepo.loaders.protocols_loader import ProtocolsLoader
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.studies_loader import StudiesLoader
+from DataRepo.loaders.study_loader import StudyLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 
@@ -46,6 +47,7 @@ __all__ = [
     "SampleTableLoader",
     "SequencesLoader",
     "StudiesLoader",
+    "StudyLoader",
     "TableLoader",
     "TissuesLoader",
     "TracersLoader",
