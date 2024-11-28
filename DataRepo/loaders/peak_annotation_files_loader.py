@@ -216,7 +216,10 @@ class PeakAnnotationFilesLoader(TableLoader):
         Args:
             None
         Exceptions:
-            None
+            Raises:
+                AggregatedErrorsSet
+            Buffers:
+                None
         Returns:
             None
         """
@@ -277,13 +280,24 @@ class PeakAnnotationFilesLoader(TableLoader):
 
         filename = os.path.basename(filepath_str)
 
+        # Determine the actual filepath.  It can be obtained from self.annot_files_dict if this can from the web
+        # interface, and it will be an ugly temp path.
         if (
             self.annot_files_dict is not None
             and filename in self.annot_files_dict.keys()
         ):
+            # The paths in self.annot_files_dict are assumed to be absolute
             filepath = self.annot_files_dict[filename]
         else:
-            filepath = filepath_str
+            # Check the path relative to the folder self.file is in
+            study_file = self.file
+            study_dir = None if self.file is None else os.path.dirname(study_file)
+
+            if study_dir is not None:
+                filepath = os.path.join(study_dir, filepath_str)
+            else:
+                # We will look relative to the current directory
+                filepath = filepath_str
 
         if not os.path.isfile(filepath):
             self.buffer_infile_exception(
@@ -292,7 +306,7 @@ class PeakAnnotationFilesLoader(TableLoader):
                 column=self.headers.FILE,
             )
             self.add_skip_row_index()
-            return None, None, format_code
+            return filename, None, format_code
 
         matching_formats = PeakAnnotationsLoader.determine_matching_formats(
             # Do not enforce column types when we don't know what columns exist yet
