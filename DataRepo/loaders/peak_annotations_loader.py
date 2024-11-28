@@ -1458,7 +1458,16 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 isotope_label, possible_isotope_observations
             )
         except UnexpectedLabels as olnp:
-            olnp.set_formatted_message(**infile_err_args)
+            suggestion = None
+            if pgrec is not None:
+                suggestion = (
+                    f"Check to make sure animal '{pgrec.msrun_sample.sample.animal.name}' has the correct "
+                    "tracer(s)."
+                )
+            olnp.set_formatted_message(
+                **infile_err_args,
+                suggestion=suggestion,
+            )
             # There might be contamination.  Set is_fatal to true in validate mode to alert the researcher via a raised
             # warning (as opposed to just printing a warning for a curator running the load script on the command line -
             # who shouldn't have to worry about it)

@@ -171,7 +171,6 @@ class BuildSubmissionView(FormView):
             CompoundsLoader.DataSheetName: [
                 CompoundsLoader.DataHeaders.NAME,  # Consumes
                 CompoundsLoader.DataHeaders.FORMULA,  # Consumes
-                CompoundsLoader.DataHeaders.NAME,  # Consumes
             ],
             TracersLoader.DataSheetName: [
                 TracersLoader.DataHeaders.ID,  # Consumes

@@ -204,7 +204,12 @@ class InfileError(Exception):
             insertions = [vdict[k] for k in order]
             message = message % tuple(insertions)
         else:
-            message = message % self.loc
+            try:
+                message = message % self.loc
+            except TypeError:
+                if not message.endswith("\n"):
+                    message += "  "
+                message += "Location: %s."
 
         if suggestion is not None:
             if message.endswith("\n"):
@@ -3296,8 +3301,8 @@ class TracerLabeledElementNotFound(Exception):
 class UnexpectedLabels(InfileError):
     def __init__(self, unexpected, possible, **kwargs):
         message = (
-            f"Observed peak label(s) {unexpected} were not among the expected labels {possible}.  There may be "
-            "contamination."
+            f"Observed peak label(s) {unexpected} were not among the labels in the tracer(s): {possible}.  There may "
+            "be contamination."
         )
         super().__init__(message, **kwargs)
         self.possible = possible
@@ -3935,7 +3940,7 @@ class InfileDatabaseError(InfileError):
     def __init__(self, exception, rec_dict, **kwargs):
         if rec_dict is not None:
             nltab = "\n\t"
-            deets = [f"{k}: {v}" for k, v in rec_dict.items()]
+            deets = [f"{k}: {str(v).replace('%', '%%')}" for k, v in rec_dict.items()]
         message = f"{type(exception).__name__} in %s"
         if rec_dict is not None:
             message += f", creating record:\n\t{nltab.join(deets)}"
