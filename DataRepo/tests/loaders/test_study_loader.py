@@ -270,7 +270,7 @@ class StudyLoaderTests(TracebaseTestCase):
         self.assertEqual(["3.0"], version_list)
 
     def test_mzxml_dir(self):
-        sl = StudyV3Loader(mzxml_dir="DataRepo/data/tests/small_obob")
+        sl = StudyV3Loader(mzxml_dir="DataRepo/data/tests/small_obob_mzxmls")
         expected = [
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",

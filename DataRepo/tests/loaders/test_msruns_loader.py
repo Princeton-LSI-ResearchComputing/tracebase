@@ -1449,7 +1449,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         self.assertEqual(files, mzxml_files)
 
     def test_get_mzxml_files_dir(self):
-        mzxml_files = MSRunsLoader.get_mzxml_files(dir="DataRepo/data/tests/small_obob")
+        mzxml_files = MSRunsLoader.get_mzxml_files(dir="DataRepo/data/tests/small_obob_mzxmls")
         expected = [
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
