@@ -1079,8 +1079,8 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             mzxml_files=[
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
             ],
         )
 
@@ -1176,7 +1176,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def test_get_or_create_raw_file(self):
-        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         adl = self.create_AccuCorDataLoader_object()
         mz_dict, _ = MSRunsLoader.parse_mzxml(Path(fn))
 
@@ -1252,7 +1252,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         """
         If a file exists and a checksum is provided, an exception should be raised when that checksum does not match.
         """
-        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         adl = self.create_AccuCorDataLoader_object()
         with self.assertRaises(ValueError) as ar:
             adl.get_or_create_archive_file(

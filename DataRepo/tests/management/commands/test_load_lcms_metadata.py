@@ -1118,8 +1118,14 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unmatching_mzxmls.tsv",
                 mzxml_files=[
-                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
-                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+                    (
+                        "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/"
+                        "BAT-xz971_pos.mzXML"
+                    ),
+                    (
+                        "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/"
+                        "Br-xz971_pos.mzXML"
+                    ),
                 ],
                 # This is a warning in any case, but in validate mode, the exception is raised
                 validate=True,
@@ -1140,7 +1146,13 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unmatching_mzxmls.tsv",
             mzxml_files=[
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+                (
+                    "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/"
+                    "BAT-xz971_pos.mzXML"
+                ),
+                (
+                    "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/"
+                    "Br-xz971_pos.mzXML"
+                ),
             ],
         )

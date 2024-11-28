@@ -32,7 +32,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         call_command(
             "load_msruns",
             mzxml_files=[
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
             ],
             operator="George Santos",
             date="2024-05-02",
@@ -52,7 +52,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         call_command(
             "load_msruns",
             mzxml_files=[
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
             ],
             defaults_file="DataRepo/data/tests/submission_v3/defaults.tsv",
         )
@@ -64,7 +64,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
             call_command(
                 "load_msruns",
                 mzxml_files=[
-                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+                    "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
                 ],
                 operator="George Santos",
                 date="2024-05-02",
@@ -104,7 +104,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         seq = MSRunSequence.objects.get()
         call_command(
             "load_msruns",
-            mzxml_dir="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/",
+            mzxml_dir="DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/",
             operator="Kamala Harris",
             date="2024-11-05",
             lc_protocol_name="polar-HILIC-25-min",
@@ -119,7 +119,7 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_msruns",
-                mzxml_dir="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/",
+                mzxml_dir="DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls/",
                 operator="Kamala Harris",
                 date="2024-11-05",
                 lc_protocol_name="polar-HILIC-25-min",

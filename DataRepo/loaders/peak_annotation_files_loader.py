@@ -294,7 +294,22 @@ class PeakAnnotationFilesLoader(TableLoader):
             study_dir = None if self.file is None else os.path.dirname(study_file)
 
             if study_dir is not None:
-                filepath = os.path.join(study_dir, filepath_str)
+                if os.path.isabs(filepath_str):
+                    # In case the path is absolute
+                    filepath = filepath_str
+                elif os.path.isfile(os.path.join(study_dir, filepath_str)):
+                    # In case the path is relative to the study doc
+                    filepath = os.path.join(study_dir, filepath_str)
+                elif os.path.isfile(os.path.join(study_dir, filename)):
+                    # Check the joined the path of the study doc's directory with the supplied filename
+                    filepath = os.path.join(study_dir, filename)
+                elif os.path.isfile(filepath_str):
+                    # In case the path is relative to the current directory
+                    filepath = filepath_str
+                else:
+                    # Make the forthcoming error show the path relative to the study doc, which we should encourange
+                    # users to use.
+                    filepath = os.path.join(study_dir, filepath_str)
             else:
                 # We will look relative to the current directory
                 filepath = filepath_str
