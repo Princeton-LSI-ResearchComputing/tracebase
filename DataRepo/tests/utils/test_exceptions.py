@@ -1259,8 +1259,7 @@ class ExceptionTests(TracebaseTestCase):
     def test_UnexpectedLabels(self):
         exc = UnexpectedLabels(["D"], ["C", "N"])
         self.assertIn(
-            "label(s) ['D'] were not among the labels in the tracer(s): ['C', 'N']",
-            str(exc),
+            "label(s) ['D'] were not among the labels in the tracer(s): ['C', 'N']", str(exc)
         )
 
     def test_MzxmlSampleHeaderMismatch(self):
