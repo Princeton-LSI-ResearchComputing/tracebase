@@ -1,6 +1,6 @@
 # Contributing to the TraceBase project
 
-This document described the basics of how to set up the TraceBase Project
+This document describes the basics of how to set up the TraceBase Project
 repository in order to start developing/contributing.
 
 ## Getting Started
@@ -70,21 +70,21 @@ Create a virtual environment (from a bash shell) and activate it, for example:
     python3 -m venv .venv
     source .venv/bin/activate
 
+#### Install dependencies in the virtual environment
+
 Install Django and psycopg2 dependencies as well as linters and other
 development related tools. Use `requirements/prod.txt` for production
 dependencies.
 
-    python -m pip install -U pip  # Upgrade pip
-    python -m pip install -r requirements/dev.txt  # Install requirements
+    python -m pip install -U pip
+    python -m pip install -r requirements/dev.txt
 
 #### Verify Installations
 
 Django:
 
-    python
-    > import django
-    > print(django.get_version())
-    3.2.4
+    python3 -m django --version
+    4.2.16
 
 ### Configure TraceBase
 
@@ -96,7 +96,7 @@ Database and secret key information should not be stored directly in settings
 that are published to the repository.  We use environment variables to store
 configuration data.  This makes it possible to easily change between
 environments of a deployed application (see [The Twelve-Factor
-App](https://www.12factor.net/config)).  The .env file you create here is pre-
+App](https://www.12factor.net/config)).  The `.env` file you create here is pre-
 configured to be ignored by the repository, so do not explicitly check it in.
 
 Copy the TraceBase environment example:
@@ -111,28 +111,6 @@ Set up the project's postgres database:
     python manage.py migrate
     python manage.py createcachetable
 
-### (Optional) Load Some Example Data
-
-    python manage.py loaddata data_types data_formats lc_methods
-    python manage.py load_compounds --infile DataRepo/data/examples/compounds/consolidated_tracebase_compound_list.tsv
-    python manage.py load_tissues --infile DataRepo/data/examples/tissues/tissues.tsv
-    python manage.py legacy_load_animals_and_samples --sample-table-filename DataRepo/data/examples/obob_fasted/obob_samples_table.tsv --animal-table-filename DataRepo/data/examples/obob_fasted/obob_animals_table.tsv --table-headers DataRepo/data/examples/obob_fasted/sample_and_animal_tables_headers.yaml
-    python manage.py legacy_load_accucor_msruns --lc-protocol-name "unknown" --instrument "unknown" --polarity "unknown" --accucor-file DataRepo/data/examples/obob_fasted/obob_maven_6eaas_inf.xlsx --date 2021-04-29 --researcher "Anon" --new-researcher
-
-### Start TraceBase
-
-Make sure the project's postgres database is current:
-
-    python manage.py migrate
-
-Verify you can run the development server.  Run:
-
-    python manage.py runserver
-
-Then go to this site in your web browser:
-
-    http://127.0.0.1:8000/
-
 ### Create an Admin User
 
 To be able to access the admin page, on the command-line, run:
@@ -140,6 +118,30 @@ To be able to access the admin page, on the command-line, run:
     python manage.py createsuperuser
 
 and supply your desired account credentials for testing.
+
+### Load Some Example Data (Optional)
+
+#### Load underlying data needed by the example studies
+
+    python manage.py loaddata data_types data_formats
+    python manage.py load_study --infile DataRepo/data/examples/compounds_tissues_treatments_lcprotocols/study.xlsx
+
+#### Load the example studies
+
+    python manage.py load_study --infile DataRepo/data/examples/13C_Valine_and_PI3Ki_in_flank_KPC_mice/study.xlsx
+    python manage.py load_study --infile DataRepo/data/examples/obob_fasted/study.xlsx
+    python manage.py load_study --infile DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/study.xlsx
+    python manage.py load_study --infile DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/study.xlsx
+
+### Start TraceBase
+
+To run the development server in your sandbox, execute:
+
+    python manage.py runserver
+
+Then go to this site in your web browser:
+
+    http://127.0.0.1:8000/
 
 ## Pull Requests
 
@@ -150,12 +152,7 @@ All pull requests must pass linting prior to being merged.
 Currently, all pushes are linted using [GitHub's
 Super-Linter](https://github.com/github/super-linter). The configuration files
 for the most used linters have been setup in the project root to facilitate
-linting on developers machines. These include:
-
-* [Markdown-lint](https://github.com/igorshubovych/markdownlint-cli#readme) - `.markdown-lint.yml`
-* [Flake8](https://flake8.pycqa.org/en/latest/) - `.flake8`
-* [Pylint](https://www.pylint.org/) - `.python-lint` -> `.pylintrc`
-* [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
+linting on developers' machines.
 
 #### Linting
 
@@ -168,52 +165,56 @@ For the most commonly used linters (*e.g.* for python, HTML, and Markdown
 files) it is recommended to install linters locally and run them in your
 editor. Some linters that may be useful to install locally include:
 
-* Python
-  * [Flake8](https://flake8.pycqa.org/en/latest/) - python style checker
-  * [Pylint](https://www.pylint.org/) - python code analysis
-  * [Black](https://black.readthedocs.io/en/stable/) - code formatter
-  * [isort](https://pycqa.github.io/isort/) - sort imports
-  * [mypy](https://mypy.readthedocs.io/) - static type checker
-* HTML
-  * [HTMLHint](https://htmlhint.com/) - static analysis for HTML
-* Markdown
-  * [Markdown-lint](https://github.com/igorshubovych/markdownlint-cli#readme)
-    \- style checker for Markdown
-* General
-  * [jscpd](https://github.com/kucherenko/jscpd) - Copy/paste detector for
-    programming source code
-  * [standard](https://standardjs.com) - JavaScript linting
-  * [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
-    \- Config linting
-  * [stylelint](https://stylelint.io) - CSS linting
-  * [textlint](https://github.com/textlint/textlint) - Natural language linting
+- Code
+  - [jscpd](https://github.com/kucherenko/jscpd)
+- Python
+  - [flake8](https://flake8.pycqa.org/en/latest/)
+  - [pylint](https://www.pylint.org/)
+  - [black](https://black.readthedocs.io/en/stable/)
+  - [isort](https://pycqa.github.io/isort/)
+  - [mypy](https://mypy.readthedocs.io/)
+- Javascript
+  - [standard](https://standardjs.com)
+- HTML
+  - [HTMLHint](https://htmlhint.com/)
+- CSS
+  - [stylelint](https://stylelint.io)
+- Markdown
+  - [markdownlint](https://github.com/igorshubovych/markdownlint-cli#readme)
+  - [textlint](https://github.com/textlint/textlint)
+- Config
+  - [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
 
 It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
-developing, you can run these example linting commands on the command-line:
+developing, you can run these example linting commands on the command-line,
+using each linter's config that we've set up for superlinter:
 
-    black --exclude 'migrations|.venv' .
-    isort --skip migrations --skip .venv .
-    markdownlint .
-    flake8 .
-    pylint -d E1101 TraceBase DataRepo *.py
-    mypy .
-    dotenv-linter TraceBase DataRepo
+    black --exclude '\.git|__pycache__|migrations|\.venv' .
+    isort --sp .isort.cfg -c -s migrations -s .venv -s .git -s __pycache__ .
+    markdownlint --config .markdown-lint.yml .
+    flake8 --config .flake8 --extend-exclude migrations,.venv .
+    pylint --rcfile .pylintrc --load-plugins pylint_django \
+        --django-settings-module TraceBase.settings -d E1101 \
+        TraceBase DataRepo *.py
+    mypy --config-file .mypy.ini --disable-error-code annotation-unchecked .
+    editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
     find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.js" \) \
         -exec standard --fix --verbose {} \;
     find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
         -not -path "*__pycache__*" \) -exec jscpd {} \;
-    find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
-        -not -path "*__pycache__*" \) -exec editorconfig-checker {} \;
-    npx stylelint **/*.css
-    npx textlint **/*.md
+    stylelint --config .stylelintrc.json --ip '**/bootstrap*' **/*.css
+    textlint -c .textlintrc.json **/*.md
+
+Note, some of these linter installs can be rather finicky, so if you have
+trouble, consider running Super-Linter locally, as described below.
 
 ##### Superlinter
 
 In addition to linting files as you write them, developers may wish to [run
 Superlinter on the entire repository
 locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
-This is most easily accomplished using [Docker](https://docs.docker.com/get-docker/)].
+This is most easily accomplished using [Docker](https://docs.docker.com/get-docker/).
 Create a script outside of the repository that runs superlinter via docker and run it
 from the repository root directory. Example script:
 
@@ -242,21 +243,19 @@ the TestCase framework.
 
 See these resources for help implementing tests:
 
-* [Testing in Django (Part 1) - Best Practices and
+- [Testing in Django (Part 1) - Best Practices and
   Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
-* [Django Tutorial Part 10: Testing a Django web
+- [Django Tutorial Part 10: Testing a Django web
   application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
-
-All pull requests must pass all previous and new tests:
-
-    python manage.py test
 
 #### Quality Control
 
-All pull requests must pass new and all previous tests before merging.  Run the
-following locally before submitting a pull request:
+All pull requests must pass new and all previous tests, and pass a migration
+check before merging.  Run the following locally before submitting a pull
+request:
 
     python manage.py test
+    python manage.py makemigrations --check --dry-run
 
 ### Model Updates
 
