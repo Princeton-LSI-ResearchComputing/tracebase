@@ -440,27 +440,11 @@ class BuildSubmissionView(FormView):
                     optional_mode=True
                 )
 
-                try:
-                    df = read_from_file(
-                        self.study_file,
-                        sheet=PeakAnnotationFilesLoader.DataSheetName,
-                        dtype=dtypes,
-                    )
-                except InvalidDtypeDict as idd:
-                    if (
-                        StudyLoader.ConversionHeading
-                        not in self.load_status_data.statuses.keys()
-                    ):
-                        self.load_status_data.set_load_exception(
-                            idd,
-                            StudyLoader.ConversionHeading,
-                            top=True,
-                            default_is_error=False,
-                        )
-                    # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-                    df = read_from_file(
-                        self.study_file, sheet=PeakAnnotationFilesLoader.DataSheetName
-                    )
+                df = self.read_from_file(
+                    self.study_file,
+                    sheet=PeakAnnotationFilesLoader.DataSheetName,
+                    dtype=dtypes,
+                )
 
                 pafl = PeakAnnotationFilesLoader(
                     df=df,
@@ -468,6 +452,7 @@ class BuildSubmissionView(FormView):
                     filename=self.study_filename,
                 )
                 pafl.aggregated_errors_object.merge_aggregated_errors_object(aes)
+
                 for _, row in pafl.df.iterrows():
                     if pafl.is_row_empty(row):
                         continue
@@ -649,6 +634,43 @@ class BuildSubmissionView(FormView):
                         pal.aggregated_errors_object,
                         peak_annot_filename,
                     )
+
+    def read_from_file(
+        self, file, sheet=None, dtype=None, top=True, default_is_error=False
+    ):
+        """Wraps read_from_file in a try block.
+
+        Args:
+            file (str)
+            sheet (str)
+            dtype (dict): Types keyed by header.  At least 1 header must be present in the file.
+            top (bool) [True]
+            default_is_error (bool) [False]
+        Exceptions:
+            Buffered:
+                InvalidDtypeDict
+            Raises:
+                None
+        Returns:
+            df [Union[DataFrame, Dict[str, DataFrame]]
+        """
+        try:
+            df = read_from_file(file, sheet=sheet, dtype=dtype)
+        except InvalidDtypeDict as idd:
+            if (
+                StudyLoader.ConversionHeading
+                not in self.load_status_data.statuses.keys()
+            ):
+                self.load_status_data.set_load_exception(
+                    idd,
+                    StudyLoader.ConversionHeading,
+                    top=top,
+                    default_is_error=default_is_error,
+                )
+            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
+            df = read_from_file(file, sheet=sheet)
+
+        return df
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1377,25 +1399,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = AnimalsLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=AnimalsLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(self.study_file, sheet=AnimalsLoader.DataSheetName)
+        df = self.read_from_file(
+            self.study_file,
+            sheet=AnimalsLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = AnimalsLoader(
             df=df,
@@ -1582,25 +1590,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = SamplesLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=SamplesLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(self.study_file, sheet=SamplesLoader.DataSheetName)
+        df = self.read_from_file(
+            self.study_file,
+            sheet=SamplesLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = SamplesLoader(
             df=df,
@@ -1612,6 +1606,7 @@ class BuildSubmissionView(FormView):
             "tissues": defaultdict(dict),
             "animals": defaultdict(dict),
         }
+
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
                 continue
@@ -1643,27 +1638,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = PeakAnnotationFilesLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=PeakAnnotationFilesLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(
-                self.study_file, sheet=PeakAnnotationFilesLoader.DataSheetName
-            )
+        df = self.read_from_file(
+            self.study_file,
+            sheet=PeakAnnotationFilesLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = PeakAnnotationFilesLoader(
             df=df,
@@ -1675,6 +1654,7 @@ class BuildSubmissionView(FormView):
             "sequences": defaultdict(dict),
             "lcprotocols": defaultdict(dict),
         }
+
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
                 continue
@@ -1739,25 +1719,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = MSRunsLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=MSRunsLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(self.study_file, sheet=MSRunsLoader.DataSheetName)
+        df = self.read_from_file(
+            self.study_file,
+            sheet=MSRunsLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = MSRunsLoader(
             df=df,
@@ -1765,6 +1731,7 @@ class BuildSubmissionView(FormView):
             filename=self.study_filename,
         )
         loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
+
         # We're going to ignore the sample column.  It's way more likely it will have been auto-filled itself, and the
         # samples sheet is populated at the same time, so doing that here is just wasted cycles.  Instead, we're looking
         # for manually filled-in data to autofill elsewhere.
@@ -1772,6 +1739,7 @@ class BuildSubmissionView(FormView):
             "sequences": defaultdict(dict),
             "lcprotocols": defaultdict(dict),
         }
+
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
                 continue
@@ -1867,25 +1835,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = InfusatesLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=InfusatesLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(self.study_file, sheet=InfusatesLoader.DataSheetName)
+        df = self.read_from_file(
+            self.study_file,
+            sheet=InfusatesLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = InfusatesLoader(
             df=df,
@@ -1901,6 +1855,7 @@ class BuildSubmissionView(FormView):
             "tracers": defaultdict(dict),
             "compounds": defaultdict(dict),
         }
+
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
                 continue
@@ -1929,25 +1884,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = TracersLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=TracersLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(self.study_file, sheet=TracersLoader.DataSheetName)
+        df = self.read_from_file(
+            self.study_file,
+            sheet=TracersLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = TracersLoader(
             df=df,
@@ -1955,7 +1896,9 @@ class BuildSubmissionView(FormView):
             filename=self.study_filename,
         )
         loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
+
         seen = {"compounds": defaultdict(dict)}
+
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
                 continue
@@ -1976,25 +1919,11 @@ class BuildSubmissionView(FormView):
         # solution is comprehensive before I refactor this code (more)
         dtypes, aes = SequencesLoader._get_column_types(optional_mode=True)
 
-        try:
-            df = read_from_file(
-                self.study_file,
-                sheet=SequencesLoader.DataSheetName,
-                dtype=dtypes,
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                self.load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid exception by not supplying dtypes & let pandas decide types (which can cause date problems)
-            df = read_from_file(self.study_file, sheet=SequencesLoader.DataSheetName)
+        df = self.read_from_file(
+            self.study_file,
+            sheet=SequencesLoader.DataSheetName,
+            dtype=dtypes,
+        )
 
         loader = SequencesLoader(
             df=df,
@@ -2002,7 +1931,9 @@ class BuildSubmissionView(FormView):
             filename=self.study_filename,
         )
         loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
+
         seen = {"lcprotocols": defaultdict(dict)}
+
         for _, row in loader.df.iterrows():
             if loader.is_row_empty(row):
                 continue
@@ -3265,30 +3196,16 @@ class BuildSubmissionView(FormView):
         """
         load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
-        try:
-            # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet how
-            # to address a type error from pandas when it encounters empty cells.  I have a comment in other code that
-            # says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think about it.  But
-            # not setting types works for now.  I might need to explicitly set str in some places to avoid accidental
-            # int types...
-            dfd = read_from_file(
-                self.study_file,
-                sheet=None,
-                dtype=self.get_study_dtypes_dict(),
-            )
-        except InvalidDtypeDict as idd:
-            if (
-                StudyLoader.ConversionHeading
-                not in self.load_status_data.statuses.keys()
-            ):
-                load_status_data.set_load_exception(
-                    idd,
-                    StudyLoader.ConversionHeading,
-                    top=True,
-                    default_is_error=False,
-                )
-            # Avoid the exception by not supplying dtypes & let pandas decide the types (which can cause date problems)
-            dfd = read_from_file(self.study_file, sheet=None)
+        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet how
+        # to address a type error from pandas when it encounters empty cells.  I have a comment in other code that
+        # says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think about it.  But
+        # not setting types works for now.  I might need to explicitly set str in some places to avoid accidental
+        # int types...
+        dfd = self.read_from_file(
+            self.study_file,
+            sheet=None,
+            dtype=self.get_study_dtypes_dict(),
+        )
 
         dfs_dict = None
 
