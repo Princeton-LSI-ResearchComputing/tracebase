@@ -173,7 +173,7 @@ editor. Some linters that may be useful to install locally include:
   - [black](https://black.readthedocs.io/en/stable/)
   - [isort](https://pycqa.github.io/isort/)
   - [mypy](https://mypy.readthedocs.io/)
-- Javascript
+- JavaScript
   - [standard](https://standardjs.com)
 - HTML
   - [HTMLHint](https://htmlhint.com/)
@@ -190,21 +190,22 @@ automatically before submitting a PR, but if you want a quick check while
 developing, you can run these example linting commands on the command-line,
 using each linter's config that we've set up for superlinter:
 
-    black --exclude '\.git|__pycache__|migrations|\.venv' .
-    isort --sp .isort.cfg -c -s migrations -s .venv -s .git -s __pycache__ .
-    markdownlint --config .markdown-lint.yml .
+    find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
+        -not -path "*__pycache__*" \) -exec jscpd {} \;
     flake8 --config .flake8 --extend-exclude migrations,.venv .
     pylint --rcfile .pylintrc --load-plugins pylint_django \
         --django-settings-module TraceBase.settings -d E1101 \
         TraceBase DataRepo *.py
+    black --exclude '\.git|__pycache__|migrations|\.venv' .
+    isort --sp .isort.cfg -c -s migrations -s .venv -s .git -s __pycache__ .
     mypy --config-file .mypy.ini --disable-error-code annotation-unchecked .
-    editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
     find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.js" \) \
         -exec standard --fix --verbose {} \;
-    find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
-        -not -path "*__pycache__*" \) -exec jscpd {} \;
+    htmlhint -c .htmlhintrc .
     stylelint --config .stylelintrc.json --ip '**/bootstrap*' **/*.css
+    markdownlint --config .markdown-lint.yml .
     textlint -c .textlintrc.json **/*.md
+    editorconfig-checker -v -exclude '__pycache__|\.DS_Store|\~\$.*' TraceBase DataRepo
 
 Note, some of these linter installs can be rather finicky, so if you have
 trouble, consider running Super-Linter locally, as described below.
