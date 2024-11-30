@@ -1,5 +1,5 @@
 import textwrap
-from typing import Union
+from typing import Optional, Union
 
 
 def autowrap(text: str, default_width: int = 80, **kwargs):
@@ -120,9 +120,18 @@ def sigfigfloor(num, figures: int = 3) -> Union[float, int]:
     """Truncate a number to the number of significant digits (i.e. do not round)
 
     Examples:
+        sigfigfloor(0.0012345678, 4)  # 0.001234
         sigfigfloor(123.45678, 4)  # 123.4
         sigfigfloor(12345678, 4)  # 12340000
-        sigfigfloor(12, 4)  # 12.01  # The last of 4 significant digits is incremented
+        sigfigfloor(123.45678, 4)  # 123.4
+        sigfigfloor(12345678, 4)  # 12340000
+        sigfigfloor(12, 4)  # 12
+        sigfigfloor(-0.0012345678, 4)  # -0.001235
+        sigfigfloor(-123.45678, 4)  # -123.5
+        sigfigfloor(-12345678, 4)  # -12350000
+        sigfigfloor(-123.45678, 4)  # -123.5
+        sigfigfloor(-12345678, 4)  # -12350000
+        sigfigfloor(-12, 4)  # -12.01  # The last of 4 significant digits is incremented
     Args:
         num (Union[str, float, int]): A number with any number of digits/figures.  May have a sign and optionally be in
             scientific notation.
@@ -136,9 +145,12 @@ def sigfigfloor(num, figures: int = 3) -> Union[float, int]:
         floored (Union[float, int])
     """
     if figures < 1:
-        raise ValueError(f"'figures' must be grater than 0.  '{figures}' supplied.")
+        raise ValueError(f"'figures' must be greater than 0.  '{figures}' supplied.")
 
-    sign, num_str, exp = get_num_parts(num)
+    if str(num).startswith("-"):
+        return -1 * sigfigceil(str(num).lstrip("-"), figures=figures)
+
+    _, num_str, exp = get_num_parts(num)
 
     if "." in num_str:
         whl_part, dec_part = num_str.split(".")
@@ -177,17 +189,17 @@ def sigfigfloor(num, figures: int = 3) -> Union[float, int]:
 
     if exp is None:
         if "." in floored_str:
-            return float(sign + floored_str)
+            return float(floored_str)
         else:
-            return int(sign + floored_str)
+            return int(floored_str)
     else:
         cased_e = "e"
         if "E" in str(num):
             cased_e = "E"
         if "." in floored_str:
-            return float(sign + floored_str + cased_e + exp)
+            return float(floored_str + cased_e + exp)
         else:
-            return int(sign + floored_str + cased_e + exp)
+            return int(floored_str + cased_e + exp)
 
 
 def sigfigceil(num, figures: int = 3) -> Union[float, int]:
@@ -201,6 +213,12 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
         sigfigceil(0.0012, 4)  # 0.001201
         sigfigceil(120, 4)  # 120.1
         sigfigceil(12000000, 4)  # 12010000
+        sigfigceil(-0.0012345678, 4)  # -0.001234
+        sigfigceil(-123.45678, 4)  # -123.4
+        sigfigceil(-12345678, 4)  # -12340000
+        sigfigceil(-0.0012, 4)  # -0.0012
+        sigfigceil(-120, 4)  # -120
+        sigfigceil(-12000000, 4)  # -12000000
         TODO: sigfigceil("0.0000000", 4)  # planned: 0.0000001 current: 1.
             A description of support for significant zeros (which python's format specifier (g) removes...
             Sig digs should count from left-most non-zero, rightward.  If all are 0, count is from right-most, leftward.
@@ -224,11 +242,14 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
     # first significant digit is the highest [left-most] such digit [which is what is currently supported].)
 
     if figures < 1:
-        raise ValueError(f"'figures' must be grater than 0.  '{figures}' supplied.")
+        raise ValueError(f"'figures' must be greater than 0.  '{figures}' supplied.")
+
+    if str(num).startswith("-"):
+        return -1 * sigfigfloor(str(num).lstrip("-"), figures=figures)
 
     floored = sigfigfloor(num, figures)
 
-    sign, num_str, exp = get_num_parts(floored)
+    _, num_str, exp = get_num_parts(floored)
 
     if "." in num_str:
         whl_part, dec_part = num_str.split(".")
@@ -292,37 +313,195 @@ def sigfigceil(num, figures: int = 3) -> Union[float, int]:
 
     if exp is None:
         if "." in ceiled_str:
-            return float(sign + ceiled_str)
+            return float(ceiled_str)
         else:
-            return int(sign + ceiled_str)
+            return int(ceiled_str)
     else:
         cased_e = "e"
         if "E" in str(floored):
             cased_e = "E"
         if "." in ceiled_str:
-            return float(sign + ceiled_str + cased_e + exp)
+            return float(ceiled_str + cased_e + exp)
         else:
-            return int(sign + ceiled_str + cased_e + exp)
+            return int(ceiled_str + cased_e + exp)
 
 
-def sigfigrange(num, figures: int = 3) -> tuple:
-    """Takes a number and a number of significant figures and returns a tuple, representing a range, that can be used
-    in a greater than or equal to and less than query for numbers matching num.
+def iswhole(num):
+    """Returns true if the number is a whole number (i.e. has no decimal value).
 
-    Example:
-        start, stop = sigfigrange(123.45678, 4)
-        # start = 123.4
-        # stop = 123.5
-        testnum = 123.456
-        if testnum >= start and testnum < stop:
-            # Match! - The numbers are assumed to be the same and only differ by precision
+    Examples:
+        iswhole(0)  # True
+        iswhole(0.1)  # False
+        iswhole(1.0)  # True
+        iswhole(1.0e0)  # True
+        iswhole(1.0e1)  # True
+        iswhole(10e-2)  # False
+        iswhole(0001e-1)  # False
+        iswhole(10)  # True
     Args:
         num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
             scientific notation.
-        figures (int): A number of significant digits in num
     Exceptions:
         None
     Returns:
-        range (Tuple[float, float])
+        (bool)
     """
-    return sigfigfloor(num, figures), sigfigceil(num, figures)
+    _, num_str, exp = get_num_parts(num)
+    if exp is None:
+        if "." not in num_str:
+            return True
+        whl, dec = num_str.split(".")
+        return int(dec) == 0
+    exp = exp.lstrip("+")
+    if "." in num_str:
+        whl, dec = num_str.split(".")
+    else:
+        whl = num_str
+        dec = ""
+    whl = whl.lstrip("0")
+    if int(exp) < 0:
+        if len(whl) == abs(int(exp)):
+            dec = whl + dec
+        elif len(whl) < abs(int(exp)):
+            dec = ("0" * (abs(int(exp)) - len(whl))) + whl + dec
+        else:
+            dec = whl[len(whl) - abs(int(exp)):] + dec
+    else:
+        if len(dec) == abs(int(exp)):
+            dec = ""
+        elif len(dec) < abs(int(exp)):
+            dec = ""
+        else:
+            dec = dec[int(exp):]
+    return dec == "" or int(dec) == 0
+
+
+def getsigfig(num):
+    """Returns the number of significant figures.  Ignores trailing whole number zeroes if there is no decimal.  Ignores
+    leading whole number zeroes.  Does not ignore trailing decimal zeroes (i.e. assumes significant zeroes).  Ignores
+    leading decimal zeroes is the whole number part is equal to 0.
+
+    WARNING: Python doesn't preserve or respect significant zeroes, so you must supply string versions of numbers to get
+    the correct number of significant digits.  E.g.
+
+        getsigfig(1.000e-7)    # 1  # WRONG, because python represents 1.000e-7 as 1e-7
+        getsigfig(1e7)         # 9  # WRONG, because python represents 1e7 as 10000000.0
+
+    Supply a string instead:
+
+        getsigfig("1.000e-7")  # 4
+        getsigfig("1e7")       # 1
+
+    Examples:
+        getsigfig(0.00012345)  # 5
+        getsigfig(0.000123450)  # 6
+        getsigfig(1.00012345)  # 9
+        getsigfig(1.000123450)  # 10
+        getsigfig(10.00)  # 4
+        getsigfig(0010)  # 1
+        getsigfig(0010.)  # 2
+        getsigfig(1.000e7)  # 4
+        getsigfig("1.000e-7")  # 4
+        getsigfig(1000000)  # 1
+        getsigfig("1e7")  # 1
+        getsigfig(1.0e7)  # 2
+    Args:
+        num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
+            scientific notation.
+    Exceptions:
+        None
+    Returns:
+        (int)
+    """
+    _, num_str, _ = get_num_parts(num)
+    whl, dec = num_str.split(".") if "." in num_str else (num_str, "")
+    whl = whl.lstrip("0")
+    if dec == "" and "." not in num_str:
+        return len(whl.rstrip("0"))
+    if whl == "" or int(whl) == 0:
+        return len(dec.lstrip("0"))
+    return len(whl) + len(dec)
+
+
+def sigfigfilter(
+    num: Union[int, float],
+    fieldname: str,
+    figures: int = 3,
+    query: Optional[dict] = None,
+    update=False,
+) -> dict:
+    """Returns and/or updates a dict that can be used as a django ORM lookup filter to find numbers exactly matching the
+    given num, when converted to the given number of significant figures.
+
+    Specifically, it returns a dict like:
+
+        If num >= 0:
+
+            {
+                f"{fieldname}__gte": sigfigfloor(num),
+                f"{fieldname}__lt": sigfigceil(num),
+            }
+
+        If num < 0:
+
+            {
+                f"{fieldname}__gt": sigfigfloor(num),
+                f"{fieldname}__lte": sigfigceil(num),
+            }
+
+    Examples:
+        sigfigfilter(1.444, "field")  # {"field__gte": 1.44, "field__lt": 1.45}
+        sigfigfilter(-1.444, "field")  # {"field__gt": -1.45, "field__lte": -1.44}
+        sigfigfilter(1.445, "field")  # {"field__gte": 1.44, "field__lt": 1.45}
+        sigfigfilter(-1.445, "field")  # {"field__gt": -1.45, "field__lte": -1.44}
+    Args:
+        num (Any): a number with any number of digits/figures.  May be str, int, float with sign and optionally in
+            scientific notation.
+        fieldname (str): The name of a django model field (or field path, e.g. "foreignkey__fieldname")
+        figures (int): A number of significant figures/digits to be applied in the django ORM search for num.  I.e. if
+            num is 3.3333, and we're looking for values in the database that match within 3 significant figures, then we
+            want to find any number greater than or equal to 3.33 and less than 3.34.
+        query (Optional[dict]): An existing query dict that will be supplied to a django ORM queryset "filter", e.g. the
+            `query` dict in `Model.objects.filter(**query)`.
+        update (bool): Supply True if you would like to overwrite pre-existing keys in `query` without error.
+    Exceptions:
+        ValueError
+    Returns:
+        query_dict (dict)
+    """
+    if fieldname == "":
+        raise ValueError("fieldname must not be an empty string.")
+
+    if num < 0:
+        lower_bound_key = f"{fieldname}__gt"
+        upper_bound_key = f"{fieldname}__lte"
+    else:
+        lower_bound_key = f"{fieldname}__gte"
+        upper_bound_key = f"{fieldname}__lt"
+
+    if query is not None:
+        query_dict = query
+
+        if update is False:
+            existing_keys = []
+            if lower_bound_key in query_dict.keys():
+                existing_keys.append(lower_bound_key)
+            if upper_bound_key in query_dict.keys():
+                existing_keys.append(upper_bound_key)
+            if len(existing_keys) > 0:
+                raise ValueError(
+                    f"The supplied query dict {query} must not contain the key(s) {existing_keys} when update is "
+                    "False."
+                )
+    else:
+        query_dict = {}
+
+    floor = sigfigfloor(num, figures)
+    ceil = sigfigceil(num, figures)
+
+    lesser_value, greater_value = (floor, ceil) if floor <= ceil else (ceil, floor)
+
+    query_dict[lower_bound_key] = lesser_value
+    query_dict[upper_bound_key] = greater_value
+
+    return query_dict

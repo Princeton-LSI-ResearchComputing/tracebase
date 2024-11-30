@@ -2,10 +2,12 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.text_utils import (
     autowrap,
     get_num_parts,
+    getsigfig,
+    iswhole,
     sigfig,
     sigfigceil,
+    sigfigfilter,
     sigfigfloor,
-    sigfigrange,
 )
 
 
@@ -90,7 +92,7 @@ class TextUtilsTests(TracebaseTestCase):
         self.assertEqual(120, sigfigfloor("120", 4))
         self.assertEqual(1200, sigfigfloor("1200", 4))
         # * python applies its own rules to scientific notation
-        self.assertEqual(-1.234e-13, sigfigfloor("-0.0012345E-10", 4))
+        self.assertEqual(-1.235e-13, sigfigfloor("-0.0012345E-10", 4))
 
     def test_sigfigceil(self):
         self.assertEqual(0.001235, sigfigceil("0.0012345", 4))
@@ -116,7 +118,7 @@ class TextUtilsTests(TracebaseTestCase):
         self.assertEqual(12.01, sigfigceil("12", 4))
         self.assertEqual(120.1, sigfigceil("120", 4))
         self.assertEqual(1201, sigfigceil("1200", 4))
-        self.assertEqual(-0.001235e-10, sigfigceil("-0.0012345E-10", 4))
+        self.assertEqual(-0.001234e-10, sigfigceil("-0.0012345E-10", 4))
 
         # Increments carry over
         self.assertEqual(0.01, sigfigceil("0.0099999", 4))
@@ -140,5 +142,51 @@ class TextUtilsTests(TracebaseTestCase):
         with self.assertRaises(ValueError):
             sigfigceil(1, 0)
 
-    def test_sigfigrange(self):
-        self.assertEqual((0.001, 0.00101), sigfigrange(0.001))
+    def test_iswhole(self):
+        self.assertTrue(iswhole(0))
+        self.assertFalse(iswhole(0.1))
+        self.assertTrue(iswhole(1.0))
+        self.assertTrue(iswhole(1.0e0))
+        self.assertTrue(iswhole(1.0e1))
+        self.assertFalse(iswhole(10e-2))
+        self.assertFalse(iswhole("0001e-1"))
+        self.assertTrue(iswhole(10))
+
+    def test_getsigfig(self):
+        self.assertEqual(5, getsigfig(0.00012345))
+        self.assertEqual(6, getsigfig("0.000123450"))
+        self.assertEqual(9, getsigfig(1.00012345))
+        self.assertEqual(10, getsigfig("1.000123450"))
+        self.assertEqual(4, getsigfig("10.00"))
+        self.assertEqual(1, getsigfig("0010"))
+        self.assertEqual(2, getsigfig("0010."))
+        self.assertEqual(4, getsigfig("1.000e7"))
+        self.assertEqual(1, getsigfig(1000000))
+        self.assertEqual(1, getsigfig("1e7"))
+        self.assertEqual(2, getsigfig("1.0e7"))
+
+        # The following are technically wrong, because python doesn't preserve or respect significant zeroes
+        self.assertEqual(
+            1, getsigfig(1.000e-7)
+        )  # Because python represents 1.000e-7 as 1e-7
+        self.assertEqual(
+            9, getsigfig(1e7)
+        )  # Because python represents 1e7 as 10000000.0
+
+    def test_sigfigfilter(self):
+        self.assertDictEqual(
+            {"field__gte": 1.44, "field__lt": 1.45},
+            sigfigfilter(1.444, "field", figures=3),
+        )
+        self.assertDictEqual(
+            {"field__gt": -1.45, "field__lte": -1.44},
+            sigfigfilter(-1.444, "field", figures=3),
+        )
+        self.assertDictEqual(
+            {"field__gte": 1.44, "field__lt": 1.45},
+            sigfigfilter(1.445, "field", figures=3),
+        )
+        self.assertDictEqual(
+            {"field__gt": -1.45, "field__lte": -1.44},
+            sigfigfilter(-1.445, "field", figures=3),
+        )

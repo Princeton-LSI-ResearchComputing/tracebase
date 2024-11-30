@@ -25,7 +25,7 @@ from DataRepo.utils.exceptions import (
     RollbackException,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
-from DataRepo.utils.text_utils import sigfig, sigfigrange
+from DataRepo.utils.text_utils import sigfigfilter
 
 AnimalStudy = Animal.studies.through
 
@@ -342,11 +342,13 @@ class AnimalsLoader(TableLoader):
         if infusion_rate is not None:
             try:
                 # TODO: Make it possible to parse and use units for infusion_rate
-                rec_dict["infusion_rate"] = sigfig(
-                    float(infusion_rate), Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
-                )
-                qry_dict["infusion_rate__range"] = sigfigrange(
-                    float(infusion_rate), Animal.INFUSION_RATE_SIGNIFICANT_FIGURES
+                rec_dict["infusion_rate"] = float(infusion_rate)
+                qry_dict.update(
+                    sigfigfilter(
+                        infusion_rate,
+                        "infusion_rate",
+                        figures=Animal.INFUSION_RATE_SIGNIFICANT_FIGURES,
+                    )
                 )
             except Exception as e:
                 self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
@@ -358,11 +360,13 @@ class AnimalsLoader(TableLoader):
         if weight is not None:
             try:
                 # TODO: Make it possible to parse and use units for weight
-                rec_dict["body_weight"] = sigfig(
-                    float(weight), Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
-                )
-                qry_dict["body_weight__range"] = sigfigrange(
-                    float(weight), Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES
+                rec_dict["body_weight"] = float(weight)
+                qry_dict.update(
+                    sigfigfilter(
+                        weight,
+                        "body_weight",
+                        figures=Animal.BODY_WEIGHT_SIGNIFICANT_FIGURES,
+                    )
                 )
             except Exception as e:
                 self.buffer_infile_exception(e, column=self.headers.WEIGHT)
