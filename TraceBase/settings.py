@@ -39,6 +39,12 @@ SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 # serve those files).  See https://stackoverflow.com/a/5836728/2057516
 DEBUG = env.bool("DEBUG", default=False)
 
+# Setting READONLY to True disables the upload page, among other potential things.  Set it to True if the site is
+# accessible by the public and you don't want the public to be able to submit upload data, i.e. the site's only purpose
+# is to "publish" data.  If you want both private and public access simultaneously, that is not currently supported.
+# You can achive this by having 2 sites: a public one and a private one.
+READONLY = env.bool("READONLY", default=False)
+
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # Application definition
@@ -77,7 +83,7 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
-                "DataRepo.context_processors.debug",
+                "DataRepo.context_processors.globals",
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
