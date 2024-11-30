@@ -365,14 +365,16 @@ def iswhole(num):
         elif len(whl) < abs(int(exp)):
             dec = ("0" * (abs(int(exp)) - len(whl))) + whl + dec
         else:
-            dec = whl[len(whl) - abs(int(exp)):] + dec
+            start = len(whl) - abs(int(exp))
+            dec = whl[start:] + dec
     else:
         if len(dec) == abs(int(exp)):
             dec = ""
         elif len(dec) < abs(int(exp)):
             dec = ""
         else:
-            dec = dec[int(exp):]
+            start = int(exp)
+            dec = dec[start:]
     return dec == "" or int(dec) == 0
 
 
