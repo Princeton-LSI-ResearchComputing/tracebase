@@ -990,11 +990,7 @@ class ExceptionTests(TracebaseTestCase):
         ve = ValueError("unconverted data remains:  00:00:00")
         dpe = DateParseError("a date", ve, "a format")
         self.assertEqual(
-            (
-                "The date string a date obtained from the file did not match the pattern supplied a format.  This is "
-                "likely the result of excel converting a string to a date.  Try editing the data type of the column in "
-                "the load file data.\nOriginal error: ValueError: unconverted data remains:  00:00:00"
-            ),
+            "The date string 'a date' found in the load file data did not match the pattern 'a format'.",
             str(dpe),
         )
 

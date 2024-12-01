@@ -3723,7 +3723,7 @@ class DateParseError(InfileError):
             if any(char.isdigit() for char in str(string))
             else ""
         )
-        message = f"The date string '{string}' found in %s did not match the pattern '{format}'.{sugg}\n"
+        message = f"The date string '{string}' found in %s did not match the pattern '{format}'.{sugg}"
         super().__init__(message, **kwargs)
         self.string = string
         self.ve_exc = ve_exc
