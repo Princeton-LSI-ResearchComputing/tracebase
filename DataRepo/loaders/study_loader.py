@@ -1682,10 +1682,14 @@ class StudyV2Loader(StudyLoader):
             for idx, date_str in dfs_dict[sheet][date_header].items():
                 if idx in blank_row_idxs or date_str in self.none_vals:
                     continue
-                # Ensure what we get is a string, then convert it to a date (not a datetime)
-                dfs_dict[sheet][date_header][idx] = datetime_to_string(
-                    string_to_date(str(date_str))
-                )
+
+                try:
+                    # Convert the provided value (as a string) to a date (not a datetime)
+                    dfs_dict[sheet][date_header][idx] = datetime_to_string(
+                        string_to_date(str(date_str))
+                    )
+                except Exception as e:
+                    self.buffer_infile_exception(e)
 
             # Rename Animal ID -> Animal
             old_header = "Animal ID"

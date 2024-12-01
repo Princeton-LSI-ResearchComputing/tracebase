@@ -3714,15 +3714,29 @@ class InvalidDtypeKeys(InfileError):
 class DateParseError(InfileError):
     def __init__(self, string, ve_exc, format, **kwargs):
         format = format.replace("%", "%%")
-        message = (
-            f"The date string {string} obtained from the file did not match the pattern supplied {format}.  This is "
-            "likely the result of excel converting a string to a date.  Try editing the data type of the column in "
-            f"%s.\nOriginal error: {type(ve_exc).__name__}: {ve_exc}"
+        # If the string has any number in it, suggest that the issue could be excel
+        sugg = (
+            (
+                "  This may be the result of excel converting a string to a date.  If so, try editing the data type of "
+                "the column in %s."
+            )
+            if any(char.isdigit() for char in str(string))
+            else ""
         )
+        message = f"The date string '{string}' found in %s did not match the pattern '{format}'.{sugg}\n"
         super().__init__(message, **kwargs)
         self.string = string
         self.ve_exc = ve_exc
         self.format = format
+
+
+class DurationError(InfileError):
+    def __init__(self, string, units, exc, **kwargs):
+        message = f"The duration '{string}' found in %s must be a number of {units}.\n"
+        super().__init__(message, **kwargs)
+        self.string = string
+        self.exc = exc
+        self.units = units
 
 
 class InvalidMSRunName(InfileError):
