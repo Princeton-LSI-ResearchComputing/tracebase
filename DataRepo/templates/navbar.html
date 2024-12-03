@@ -30,9 +30,13 @@
                     {% endfor %}
                 </ul>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{% url 'submission' %}">Upload</a>
-            </li>
+
+            {% if not READONLY %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'submission' %}">Upload</a>
+                </li>
+            {% endif %}
+
             <li class="nav-item dropdown">
                 <a class="nav-link" href="https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913={{ request.get_full_path }}" target="_blank">
                     Feedback
@@ -45,17 +49,14 @@
             </li>
         </ul>
 
-        <!-- Commenting to leave as a placeholder until this is implemented.
-        <form class="d-flex">
-            <input class="form-control me-2" type="search" placeholder="Text Search" aria-label="Search">
-            <button class="btn btn-outline-success me-2" type="submit">Search</button>
-        </form>
-        -->
-        <ul class="navbar-nav mr-auto" style="margin-left: 1rem;">
-            <li class="nav-item mr-auto">
-                <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
-            </li>
-        </ul>
+        {% if not READONLY %}
+            <ul class="navbar-nav mr-auto" style="margin-left: 1rem;">
+                <li class="nav-item mr-auto">
+                    <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
+                </li>
+            </ul>
+        {% endif %}
+
         <a role="button" class="btn btn-outline-success nobr" href="{% url 'search_advanced' %}">Advanced Search</a>
     </div>
 </nav>
