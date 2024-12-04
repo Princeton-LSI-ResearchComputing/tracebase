@@ -53,7 +53,7 @@ class ArchiveFileTests(TracebaseTestCase):
         self.assertEqual(accucor_file.filename, self.accucor_file.filename)
 
     def test_hash_file(self):
-        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         expected_hash = "c95f714d690bdd2ad069a7a0345dee9cb7cc1e23"
         self.assertEqual(expected_hash, ArchiveFile.hash_file(Path(fn)))
 
@@ -62,7 +62,7 @@ class ArchiveFileTests(TracebaseTestCase):
         self.assertTrue(ArchiveFile.file_is_binary(fn))
 
     def test_file_is_binary_false(self):
-        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         self.assertFalse(ArchiveFile.file_is_binary(fn))
 
 
@@ -159,7 +159,7 @@ class ArchiveFileArchiveTests(TracebaseArchiveTestCase):
         randomized hash string appended to file_location.  but it also tests the conveniences (takes a path string,
         extracts the file name, generates a hash, and takes the codes for DataType and DataFormat).
         """
-        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         rec_dict = {
             # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
             # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create

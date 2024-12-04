@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
@@ -223,7 +224,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         ERRORS=None,
     )
 
-    # NOTE: The instance copies this and adds to the copy
+    # NOTE: The constructor copies this and adds to it
     CustomLoaderKwargs = DataTableHeaders(
         STUDY={},
         ANIMALS={},
@@ -299,7 +300,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     temporary path.  This dict associates the user's readable filename parsed from the infile (the key)
                     with the actual file (the value).
                 mzxml_dir (Optional[str]): A directory under which files containing the case-insensitive suffix '.mzxml'
-                    reside.  The directory is walked and all mzXML files are supplied to the MSRunsLoader.
+                    reside.  The directory is walked and all mzXML files are supplied to the MSRunsLoader.  Defaults to
+                    the directory in which `file` resides.
                 exclude_sheets (Optional[List[str]]): A list of default DataSheetNames (i.e. the values in the list must
                     match the value of the in each of the cls.Loaders' DataSheetName class attribute - not any custom
                     sheet name, so that it can be scripted on the data repo).
@@ -323,7 +325,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.df_dict = None
 
         self.annot_files_dict = kwargs.pop("annot_files_dict", {})
-        mzxml_dir = kwargs.pop("mzxml_dir", None)
+
+        # Before the superclass constructor is called, we want to use the file path to get its enclosing directory as a
+        # default for the (custom derived class argument:) mzxml_dir
+        study_file = kwargs.get("file")
+        study_dir = None if study_file is None else os.path.dirname(study_file)
+        mzxml_dir = kwargs.pop("mzxml_dir", study_dir)
+
         self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
         self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
@@ -344,8 +352,8 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.load_statuses = MultiLoadStatus()
 
         self.derived_loaders = {}
-        for loader_class in StudyLoader.__subclasses__():
-            self.derived_loaders[loader_class.__name__] = loader_class
+        for derived_class in StudyLoader.__subclasses__():
+            self.derived_loaders[derived_class.__name__] = derived_class
 
         # Convert the supplied df using the derived class.
         # Cannot call super().__init__() because ABC.__init__() takes a custom argument
@@ -445,21 +453,20 @@ class StudyLoader(ConvertedTableLoader, ABC):
         if self.file is None:
             raise AggregatedErrors().buffer_error(
                 ValueError(
-                    f"The [file] argument to {type(self).__name__}() is required for stats tracking and error "
-                    "reporting."
+                    f"The [file] argument to {type(self).__name__}() is required to load data."
                 )
             )
         elif not is_excel(self.file):
             raise AggregatedErrors().buffer_error(
                 ValueError(
-                    f"'{self.file}' is not an excel file.  StudyLoader's file argument requires excel."
+                    f"'{self.file}' is not an excel file.  {type(self).__name__}'s file argument requires excel."
                 )
             )
 
         if self.df_dict is not None and not isinstance(self.df_dict, dict):
             raise self.aggregated_errors_object.buffer_error(
                 ProgrammingError(
-                    "The [df] argument to {type(self).__name__}() must be a dict of DataFrames, not "
+                    f"The [df] argument to {type(self).__name__}() must be a dict of DataFrames, not "
                     f"'{type(self.df_dict).__name__}'.  (This is necessary in order to convert to the latest study doc "
                     "version via convert_df called from the constructor.)  Hint: if you are using read_from_file() to "
                     "create the value for the df argument, you must set sheet=None."
