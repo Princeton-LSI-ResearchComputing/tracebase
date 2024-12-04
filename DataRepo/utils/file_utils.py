@@ -4,9 +4,10 @@ from collections import defaultdict
 from typing import Optional
 from zipfile import BadZipFile
 
-import dateutil
 import pandas as pd
 import yaml
+from dateutil.parser import ParserError as DateParserError
+from dateutil.parser import parse as parsedate
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.core.management import CommandError
 from openpyxl.utils.exceptions import InvalidFileException
@@ -44,13 +45,11 @@ def read_from_file(
         dropna (bool): Whether to drop na
         na_values (bool): The na_values arg to pandas
         expected_headers (List(str)): List of all expected header names
-
-    Raises:
-        CommandError
-
+    Exceptions:
+        None
     Returns:
-        Pandas dataframe of parsed and processed infile data.
-        Or, if the filetype is yaml, returns a python object.
+        DateParserError (Union[DataFrame, object]): Pandas dataframe of parsed and processed infile data or, if the
+            filetype is yaml, returns a python object (dict, list, etc).
     """
     filetype = _get_file_type(filepath, filetype=filetype)
     retval = None
@@ -134,12 +133,10 @@ def read_headers_from_file(
         sheet (str): Name of excel sheet
         filetype (str): Enumeration ["csv", "tsv", "excel", "yaml"]
         expected_headers (List(str)): List of all expected header names
-
-    Raises:
+    Exceptions:
         CommandError
-
     Returns:
-        headers (list of string)
+        headers (list of strings)
     """
     filetype = _get_file_type(filepath, filetype=filetype)
     retval = None
@@ -401,13 +398,11 @@ def validate_headers(filepath, headers, expected_headers=None):
         filepath (str): Path to infile
         headers (List(str)): List of present header names
         expected_headers (List(str)): List of all expected header names
-
-    Raises:
+    Exceptions:
         DuplicateHeaders
         InvalidHeaders
-
     Returns:
-        Nothing
+        None
     """
     not_unique, nuniqs, nall = _headers_are_not_unique(headers)
 
@@ -487,10 +482,8 @@ def headers_are_as_expected(expected, headers):
     Args:
         expected (List(str)): List of all expected header names
         headers (List(str)): List of present header names
-
-    Raises:
-        Nothing
-
+    Exceptions:
+        None
     Returns:
         bool: Whether headers are valid or not
     """
@@ -502,12 +495,8 @@ def get_sheet_names(filepath):
 
     Args:
         filepath (str): Path to infile
-
-    Raises:
-        InvalidFileException
-        ValueError
-        BadZipFile
-
+    Exceptions:
+        None, but pd.ExcelFile can raise InvalidFileException, ValueError, or BadZipFile
     Returns:
         List(str): Sheet names
     """
@@ -519,10 +508,8 @@ def is_excel(filepath):
 
     Args:
         filepath (str): Path to infile
-
-    Raises:
-        Nothing
-
+    Exceptions:
+        None
     Returns:
         bool: Whether the file is an excel file or not
     """
@@ -539,12 +526,10 @@ def merge_dataframes(left, right, on):
         left (str): Name of excel sheet
         right (str): Name of excel sheet
         on (str): Name of column in both the left and right sheets
-
     Raises:
-        Nothing
-
+        None
     Returns:
-        Pandas dataframe of merged sheet data
+        (DataFrame) Pandas dataframe of merged sheet data
     """
     return pd.merge(left=left, right=right, on=on)
 
@@ -565,7 +550,8 @@ def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
         data (DataFrame or list of dicts): The table data parsed from a file.
         unique_col_keys (list of column name strings): Column names whose combination must be unique.
         ignore_row_idxs (list of integers): Rows to ignore.
-
+    Exceptions:
+        None
     Returns:
         1. A dict keyed on the composite duplicate value (with embedded header names).  The value is a dict with
         the keys "rowidxs" and "vals". rowidxs has a list of indexes of the rows containing the combo value and vals
@@ -631,13 +617,15 @@ def string_to_date(
     except ValueError as ve:
         try:
             # Fallback to try dateutil
-            dt = dateutil.parser.parse(date_str).date()
-        except TypeError:
+            dt = parsedate(date_str).date()
+        except (TypeError, DateParserError):
             try:
                 # Fallback to the possibility pandas detected and assigned a datetime-like type
                 dt = date_in.date()
             except Exception:
-                if "unconverted data remains" in str(ve):
+                if "unconverted data remains" in str(
+                    ve
+                ) or "does not match format" in str(ve):
                     raise DateParseError(
                         date_str,
                         ve,

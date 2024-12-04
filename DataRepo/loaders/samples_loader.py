@@ -1,5 +1,5 @@
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from typing import Dict
 
 from django.db import transaction
@@ -16,6 +16,7 @@ from DataRepo.models.researcher import (
 )
 from DataRepo.utils.exceptions import (
     DateParseError,
+    DurationError,
     MissingTissues,
     NewResearcher,
     NoTracers,
@@ -23,7 +24,8 @@ from DataRepo.utils.exceptions import (
     RollbackException,
 )
 from DataRepo.utils.file_utils import datetime_to_string, string_to_date
-from DataRepo.utils.text_utils import is_number
+
+today = date.today
 
 
 class SamplesLoader(TableLoader):
@@ -290,22 +292,21 @@ class SamplesLoader(TableLoader):
 
         date_str = self.get_row_val(row, self.headers.DATE)
         try:
-            # A None value will cause a skip (at the is_skip_row check) below, since the field is required
+            # A None value will have already caused a skip since the field is required (which will be checked by calling
+            # is_skip_row below), but we're going to try this anyway here/now, despite the potential skip, so we can
+            # check for more errors, in case it does have a value.
             if date_str is not None:
                 date = string_to_date(date_str)
         except DateParseError as dpe:
-            # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
+            # This is a required field, so since we're buffering an exception, let's set a placeholder value and see if
             # we can catch more errors
-            date = datetime.now()
+            date = today()
             dpe.set_formatted_message(
                 file=self.friendly_file,
                 sheet=self.sheet,
                 rownum=self.rownum,
                 column=self.headers.DATE,
-                suggestion=(
-                    f"Setting a placeholder value of {date}, for now.  Note, this could cause a "
-                    f"ConflictingValueError.  If so, you can ignore the {self.headers.DATE} conflicts."
-                ),
+                suggestion=f"Setting '{date}' temporarily.",
             )
             self.aggregated_errors_object.buffer_exception(
                 dpe,
@@ -314,38 +315,36 @@ class SamplesLoader(TableLoader):
         except ValueError as ve:
             # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
             # we can catch more errors
-            date = datetime.now()
+            date = today()
             self.buffer_infile_exception(
                 ve,
                 column=self.headers.DATE,
-                suggestion=(
-                    f"Setting a default value of {date}.  If this causes a ConflictingValueError in the "
-                    f"'{self.headers.DATE}' column, but you're OK with the default, you can ignore it."
-                ),
+                suggestion=f"Setting '{date}' temporarily.",
             )
 
         time_collected_str = str(self.get_row_val(row, self.headers.DAYS_INFUSED))
         try:
             time_collected = None
-            # A None value will cause a skip (at the is_skip_row check) below, since the field is required
+            # A None value will have already caused a skip since the field is required (which will be checked by calling
+            # is_skip_row below), but we're going to try this anyway here/now, despite the potential skip, so we can
+            # check for more errors, in case it does have a value.
             if time_collected_str not in self.none_vals:
-                if is_number(time_collected_str):
-                    time_collected = timedelta(minutes=float(time_collected_str))
-                else:
-                    raise ValueError(
-                        f"Invalid time_collected: '{time_collected_str}'.  Must be numeric."
-                    )
+                time_collected = timedelta(minutes=float(time_collected_str))
         except Exception as e:
-            # This is a required field, so since we've buffered an exception, let's set a placeholder value and see if
+            # This is a required field, so since we're buffering an exception, let's set a placeholder value and see if
             # we can catch more errors
             phv = 0
             time_collected = timedelta(minutes=phv)
-            self.buffer_infile_exception(
-                e,
-                column=self.headers.DAYS_INFUSED,
-                suggestion=(
-                    f"Setting a default value of {phv} minutes.  If this causes a ConflictingValueError in the "
-                    f"'{self.headers.DAYS_INFUSED}' column, but you're OK with the default, you can ignore it."
+            self.aggregated_errors_object.buffer_error(
+                DurationError(
+                    time_collected_str,
+                    "minutes",
+                    e,
+                    file=self.friendly_file,
+                    sheet=self.DataSheetName,
+                    rownum=self.rownum,
+                    column=self.headers.DAYS_INFUSED,
+                    suggestion=f"Setting a default of {phv} minutes.",
                 ),
             )
 

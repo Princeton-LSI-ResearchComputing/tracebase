@@ -181,12 +181,12 @@ class SamplesLoaderTests(TracebaseTestCase):
         )
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[1], InfileError)
         self.assertIn(
-            "Unknown string format: invalid  Location: column [Date Collected]",
+            "date string 'invalid' found in column [Date Collected] in the load file data did not match the pattern",
             str(sl.aggregated_errors_object.exceptions[1]),
         )
         self.assertIsInstance(sl.aggregated_errors_object.exceptions[2], InfileError)
         self.assertIn(
-            "Must be numeric.",
+            "must be a number of minutes",
             str(sl.aggregated_errors_object.exceptions[2]),
         )
         self.assertIsInstance(
