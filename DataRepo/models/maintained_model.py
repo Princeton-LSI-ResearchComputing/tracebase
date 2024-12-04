@@ -720,7 +720,9 @@ class MaintainedModel(Model):
                 f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}"
             )
             # Trigger an auto-update
-            rec.save(fields_to_autoupdate=lazy_update_fields, via_query=True)
+            rec.save(  # pylint: disable=unexpected-keyword-arg
+                fields_to_autoupdate=lazy_update_fields, via_query=True
+            )
 
         return rec
 

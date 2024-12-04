@@ -523,10 +523,15 @@ class MSRunsLoader(TableLoader):
     )
     def load_data(self):
         """Loads the MSRunSample table from the dataframe.
+
         Args:
             None
         Exceptions:
-            None
+            Buffers:
+                ConditionallyRequiredArgs
+                MzXMLSkipRowError
+            Raises:
+                None
         Returns:
             None
         """
@@ -723,7 +728,7 @@ class MSRunsLoader(TableLoader):
 
         self.report_discrepant_headers()
 
-        # If there were any exceptions (i.e. a rollback of everything will be triggered)
+        # If there were any exceptions (i.e. a rollback of everything will be triggered from the wrapper)
         if self.aggregated_errors_object.should_raise():
             self.clean_up_created_mzxmls_in_archive()
 
