@@ -499,8 +499,8 @@ class FileFromInputNotFound(InfileError):
     def __init__(self, filepath: str, message=None, tmpfile=None, **kwargs):
         if message is None:
             msg = ""
-            if filepath != tmpfile:
-                msg = f" (using temporary file path: '{filepath}')"
+            if tmpfile is not None and filepath != tmpfile:
+                msg = f" (using temporary file path: '{tmpfile}')"
             message = f"File not found: '{filepath}'{msg}, as parsed from %s."
         super().__init__(message, **kwargs)
         self.filepath = filepath

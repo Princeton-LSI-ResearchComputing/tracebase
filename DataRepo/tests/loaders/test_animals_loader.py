@@ -122,7 +122,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(RequiredHeadersError, type(aes.exceptions[0]))
         self.assertIn(
-            "missing: Animal Name, Genotype, Infusate, Study",
+            "missing: Animal Name, Genotype, Study",
             str(aes.exceptions[0]),
         )
         self.assertEqual(0, Animal.objects.count())
