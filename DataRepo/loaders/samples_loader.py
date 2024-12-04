@@ -221,7 +221,11 @@ class SamplesLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
-            if sample is not None and sample._is_serum_sample():
+            if (
+                sample is not None
+                and sample._is_serum_sample()
+                and sample.animal.infusate is not None
+            ):
                 count = 0
                 for tracer in sample.animal.infusate.tracers.all():
                     for label in tracer.labels.all():

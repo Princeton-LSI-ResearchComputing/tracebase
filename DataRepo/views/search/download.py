@@ -291,7 +291,8 @@ class RecordToMzxmlTSV(ABC):
             msrsrec.sample.animal.diet,
             msrsrec.sample.animal.feeding_status,
             msrsrec.sample.animal.treatment.name,
-            msrsrec.sample.animal.infusate.name,
+            # Relies on Infusate.__str__ and intentionally can return "None"
+            str(msrsrec.sample.animal.infusate),
             msrsrec.msrun_sequence.researcher,
             msrsrec.msrun_sequence.instrument,
             msrsrec.msrun_sequence.lc_method.name,
