@@ -39,7 +39,6 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.hier_cached_model import set_cache
-from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
@@ -53,6 +52,7 @@ from DataRepo.utils import (
     MissingCompoundsError,
     MissingSamplesError,
     MissingTissue,
+    NoCommonLabel,
     ObservedIsotopeParsingError,
     RequiredSampleValuesError,
     SheetMergeError,
