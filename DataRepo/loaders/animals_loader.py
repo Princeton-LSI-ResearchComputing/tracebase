@@ -397,7 +397,7 @@ class AnimalsLoader(TableLoader):
                 # Press on to find more errors...
         else:
             # If the record exists, it must not have a weight, because this script will not add it
-            qry_dict["weight__isnull"] = True
+            qry_dict["body_weight__isnull"] = True
 
         if age is not None:
             try:
