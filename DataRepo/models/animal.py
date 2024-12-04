@@ -35,8 +35,8 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     infusate = models.ForeignKey(
         to="DataRepo.Infusate",
         on_delete=models.RESTRICT,
-        null=False,
-        blank=False,
+        null=True,
+        blank=True,
         related_name="animals",
         help_text="The solution infused into the animal containing 1 or more tracer compounds at specific "
         "concentrations.",
@@ -110,6 +110,10 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     @property  # type: ignore
     @cached_function
     def tracers(self):
+        from DataRepo.models.tracer import Tracer
+
+        if self.infusate is None:
+            return Tracer.objects.none()
         if self.infusate.tracers.count() == 0:
             warnings.warn(f"Animal [{self.name}] has no tracers.")
         return self.infusate.tracers.all()
@@ -188,6 +192,16 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
 
         return PeakGroup.objects.filter(id__in=last_serum_peakgroup_ids)
 
+    @property  # type: ignore
+    @cached_function
+    def tracer_links(self):
+        """Returns a queryset of InfusateTracer records."""
+        from DataRepo.models.infusate_tracer import InfusateTracer
+
+        if self.infusate is None:
+            return InfusateTracer.objects.none()
+        return self.infusate.tracer_links.all()
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
@@ -199,12 +213,18 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)
 
-        if self.treatment is not None:
-            if self.treatment.category != Protocol.ANIMAL_TREATMENT:
-                raise ValidationError(
-                    "Protocol category for an Animal must be of type "
-                    f"{Protocol.ANIMAL_TREATMENT}"
-                )
+        if (
+            self.treatment is not None
+            and self.treatment.category != Protocol.ANIMAL_TREATMENT
+        ):
+            raise ValidationError(
+                f"Protocol.category for animal '{self.name}' must be '{Protocol.ANIMAL_TREATMENT}'."
+            )
+        if self.infusion_rate is not None and self.infusate is None:
+            raise ValidationError(
+                f"Infusion rate '{self.infusion_rate}' for animal '{self.name}' requires an "
+                "infusate."
+            )
 
     def get_or_create_study_link(self, study):
         """Get or create a peakgroup_compound record (so that it can be used in record creation stats).

@@ -23,6 +23,7 @@ from DataRepo.utils.exceptions import (
     MissingTreatments,
     RecordDoesNotExist,
     RollbackException,
+    UnexpectedInput,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.utils.text_utils import sigfigfilter
@@ -82,7 +83,7 @@ class AnimalsLoader(TableLoader):
     )
 
     # List of required header keys
-    DataRequiredHeaders = [NAME_KEY, GENOTYPE_KEY, INFUSATE_KEY, STUDY_KEY]
+    DataRequiredHeaders = [NAME_KEY, GENOTYPE_KEY, STUDY_KEY]
 
     # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
@@ -324,7 +325,7 @@ class AnimalsLoader(TableLoader):
         diet = self.get_row_val(row, self.headers.DIET)
         feeding_status = self.get_row_val(row, self.headers.FEEDINGSTATUS)
 
-        if infusate is None or self.is_skip_row():
+        if self.is_skip_row():
             self.skipped(Animal.__name__)
             return rec, created
 
@@ -332,14 +333,19 @@ class AnimalsLoader(TableLoader):
         rec_dict = {
             "name": name,
             "genotype": genotype,
-            "infusate": infusate,
         }
         qry_dict = rec_dict.copy()
 
         errored = False
 
         # Optional fields
-        if infusion_rate is not None:
+        if infusate is not None:
+            rec_dict["infusate"] = infusate
+            qry_dict["infusate"] = infusate
+        else:
+            qry_dict["infusate__isnull"] = True
+
+        if infusate is not None and infusion_rate is not None:
             try:
                 # TODO: Make it possible to parse and use units for infusion_rate
                 rec_dict["infusion_rate"] = float(infusion_rate)
@@ -354,9 +360,26 @@ class AnimalsLoader(TableLoader):
                 self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
                 errored = True
                 # Press on to find more errors...
+        elif infusion_rate is not None:
+            if infusate is None:
+                self.buffer_infile_exception(
+                    UnexpectedInput(
+                        f"Infusion rate '{infusion_rate}' supplied without an '{self.headers.INFUSATE}' in %s."
+                    ),
+                    column=self.headers.INFUSIONRATE,
+                    is_error=False,
+                    is_fatal=self.validate,
+                )
+            # If the record exists, it must not have an infusion rate, because this script will not add it
+            qry_dict["infusate__isnull"] = True
+
         if genotype is not None:
             rec_dict["genotype"] = genotype
             qry_dict["genotype"] = genotype
+        else:
+            # If the record exists, it must not have a genotype, because this script will not add it
+            qry_dict["genotype__isnull"] = True
+
         if weight is not None:
             try:
                 # TODO: Make it possible to parse and use units for weight
@@ -372,6 +395,10 @@ class AnimalsLoader(TableLoader):
                 self.buffer_infile_exception(e, column=self.headers.WEIGHT)
                 errored = True
                 # Press on to find more errors...
+        else:
+            # If the record exists, it must not have a weight, because this script will not add it
+            qry_dict["weight__isnull"] = True
+
         if age is not None:
             try:
                 # TODO: Make it possible to parse and use units for age(/duration)
@@ -381,6 +408,9 @@ class AnimalsLoader(TableLoader):
                 self.buffer_infile_exception(e, column=self.headers.AGE)
                 errored = True
                 # Press on to find more errors...
+        else:
+            # If the record exists, it must not have an age, because this script will not add it
+            qry_dict["age__isnull"] = True
         if sex is not None:
             try:
                 rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
@@ -389,15 +419,30 @@ class AnimalsLoader(TableLoader):
                 self.buffer_infile_exception(e, column=self.headers.SEX)
                 errored = True
                 # Press on to find more errors...
+        else:
+            # If the record exists, it must not have a sex, because this script will not add it
+            qry_dict["sex__isnull"] = True
+
         if diet is not None:
             rec_dict["diet"] = diet
             qry_dict["diet"] = diet
+        else:
+            # If the record exists, it must not have a diet, because this script will not add it
+            qry_dict["diet__isnull"] = True
+
         if feeding_status is not None:
             rec_dict["feeding_status"] = feeding_status
             qry_dict["feeding_status"] = feeding_status
+        else:
+            # If the record exists, it must not have a feeding_status, because this script will not add it
+            qry_dict["feeding_status__isnull"] = True
+
         if treatment is not None:
             rec_dict["treatment"] = treatment
             qry_dict["treatment"] = treatment
+        else:
+            # If the record exists, it must not have a treatment, because this script will not add it
+            qry_dict["treatment__isnull"] = True
 
         try:
             # First, quyery to account for floating point precision issue matches (see infusion_rate and body_weight
@@ -443,7 +488,7 @@ class AnimalsLoader(TableLoader):
         name = self.get_row_val(row, self.headers.INFUSATE)
 
         if name is None:
-            # There should have been a RequiredColumnHeader/Value error already, if we get here, so just return None
+            # Infusate is optional, so just return None.  If there was an error, it would have been buffered.
             return rec
 
         query_dict = {"name": name}

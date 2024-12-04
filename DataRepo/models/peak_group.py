@@ -106,9 +106,17 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     @property
     @cached_function
     def tracer_labeled_elements(self):
+        """This method returns a unique list of the labeled elements that exist among the tracers.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            tracer_labeled_elements (List[str])
         """
-        This method returns a unique list of the labeled elements that exist among the tracers.
-        """
+        if self.msrun_sample.sample.animal.infusate is None:
+            return []
         return self.msrun_sample.sample.animal.infusate.tracer_labeled_elements
 
     # @cached_function is *slower* than uncached
@@ -150,6 +158,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         from DataRepo.utils.infusate_name_parser import ObservedIsotopeData
 
         possible_observations = []
+
+        if self.msrun_sample.sample.animal.infusate is None:
+            return possible_observations
+
         tracer_labels = (
             TracerLabel.objects.filter(
                 tracer__infusates__id=self.msrun_sample.sample.animal.infusate.id
@@ -157,6 +169,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             .order_by("element")
             .distinct("element")
         )
+
         if self.compounds.count() > 0:
             for compound_rec in self.compounds.all():
                 for tracer_label in tracer_labels:
@@ -188,6 +201,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                             parent=True,
                         )
                     )
+
         return possible_observations
 
     def save(self, *args, **kwargs):
