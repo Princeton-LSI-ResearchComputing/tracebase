@@ -44,7 +44,6 @@ from DataRepo.utils.exceptions import (
     MultiplePeakGroupRepresentation,
     NoSamples,
     NoTracerLabeledElements,
-    NoTracers,
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
     RecordDoesNotExist,
@@ -947,19 +946,6 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.handle_load_db_errors(e, PeakGroup, rec_dict)
             self.errored(PeakGroup.__name__)
             raise RollbackException()
-
-        if len(rec.tracer_labeled_elements) == 0:
-            self.add_skip_row_index()
-            if not self.aggregated_errors_object.exception_exists(
-                NoTracers, "animal", msrun_sample.sample.animal
-            ):
-                self.aggregated_errors_object.buffer_error(
-                    NoTracers(
-                        msrun_sample.sample.animal,
-                        file=self.friendly_file,
-                        sheet=self.sheet,
-                    )
-                )
 
         return rec, created
 

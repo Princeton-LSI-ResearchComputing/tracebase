@@ -257,15 +257,12 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Returns:
             None
         """
-        from DataRepo.utils.exceptions import (
-            NoTracerLabeledElements,
-            NoTracers,
-        )
+        from DataRepo.utils.exceptions import NoTracerLabeledElements
 
-        if len(self.tracer_labeled_elements) == 0:
-            raise NoTracers(self.animal)
-
-        if len(self.peak_labeled_elements) == 0:
+        if (
+            self.msrun_sample.sample.animal.infusate is not None
+            and len(self.peak_labeled_elements) == 0
+        ):
             raise NoTracerLabeledElements(
                 self.name,
                 self.tracer_labeled_elements,
@@ -293,7 +290,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
 
         # Error check the labeled elements shared between the peak group's compound(s) and the tracers before creating
         # the record
-        if len(self.peak_labeled_elements) == 0:
+        if (
+            self.msrun_sample.sample.animal.infusate is not None
+            and len(self.peak_labeled_elements) == 0
+        ):
             raise NoTracerLabeledElements(
                 self.name,
                 self.tracer_labeled_elements,
