@@ -106,9 +106,17 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     @property
     @cached_function
     def tracer_labeled_elements(self):
+        """This method returns a unique list of the labeled elements that exist among the tracers.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            tracer_labeled_elements (List[str])
         """
-        This method returns a unique list of the labeled elements that exist among the tracers.
-        """
+        if self.msrun_sample.sample.animal.infusate is None:
+            return []
         return self.msrun_sample.sample.animal.infusate.tracer_labeled_elements
 
     # @cached_function is *slower* than uncached
@@ -150,6 +158,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         from DataRepo.utils.infusate_name_parser import ObservedIsotopeData
 
         possible_observations = []
+
+        if self.msrun_sample.sample.animal.infusate is None:
+            return possible_observations
+
         tracer_labels = (
             TracerLabel.objects.filter(
                 tracer__infusates__id=self.msrun_sample.sample.animal.infusate.id
@@ -157,6 +169,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             .order_by("element")
             .distinct("element")
         )
+
         if self.compounds.count() > 0:
             for compound_rec in self.compounds.all():
                 for tracer_label in tracer_labels:
@@ -188,6 +201,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
                             parent=True,
                         )
                     )
+
         return possible_observations
 
     def save(self, *args, **kwargs):
@@ -243,15 +257,12 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Returns:
             None
         """
-        from DataRepo.utils.exceptions import (
-            NoTracerLabeledElements,
-            NoTracers,
-        )
+        from DataRepo.utils.exceptions import NoTracerLabeledElements
 
-        if len(self.tracer_labeled_elements) == 0:
-            raise NoTracers(self.animal)
-
-        if len(self.peak_labeled_elements) == 0:
+        if (
+            self.msrun_sample.sample.animal.infusate is not None
+            and len(self.peak_labeled_elements) == 0
+        ):
             raise NoTracerLabeledElements(
                 self.name,
                 self.tracer_labeled_elements,
@@ -279,7 +290,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
 
         # Error check the labeled elements shared between the peak group's compound(s) and the tracers before creating
         # the record
-        if len(self.peak_labeled_elements) == 0:
+        if (
+            self.msrun_sample.sample.animal.infusate is not None
+            and len(self.peak_labeled_elements) == 0
+        ):
             raise NoTracerLabeledElements(
                 self.name,
                 self.tracer_labeled_elements,

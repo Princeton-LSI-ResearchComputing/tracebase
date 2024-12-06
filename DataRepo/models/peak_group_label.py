@@ -59,6 +59,7 @@ class PeakGroupLabel(HierCachedModel):
         """
         from DataRepo.models.peak_data import PeakData
         from DataRepo.models.peak_data_label import PeakDataLabel
+        from DataRepo.utils.exceptions import NoCommonLabel
 
         enrichment_fraction = None
         warning = False
@@ -180,7 +181,8 @@ class PeakGroupLabel(HierCachedModel):
             ).serum_tracers_enrichment_fraction
 
             if (
-                self.animal.infusate.tracers.count() > 0
+                self.animal.infusate is not None
+                and self.animal.infusate.tracers.count() > 0
                 and self.enrichment_fraction is not None
                 and serum_tracers_enrichment_fraction is not None
             ):
@@ -208,21 +210,30 @@ class PeakGroupLabel(HierCachedModel):
     @property  # type: ignore
     @cached_function
     def tracer(self):
-        """
-        If this peakgroup's compounds contains a compound that is among the tracers for this animal, it returns the
-        tracer record, otherwidse None
+        """If this peakgroup's compounds contains a compound that is among the tracers for this animal, it returns the
+        tracer record, otherwise None.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            this_tracer (Optional[Tracer])
         """
         from DataRepo.models.tracer import Tracer
 
-        try:
-            # This gets the tracer for this peakgroup (based on the compounds)
-            this_tracer = self.animal.infusate.tracers.get(
-                compound__id__in=list(
-                    self.peak_group.compounds.values_list("id", flat=True)
-                ),
-            )
-        except Tracer.DoesNotExist:
+        if self.animal.infusate is None:
             this_tracer = None
+        else:
+            try:
+                # This gets the tracer for this peakgroup (based on the compounds)
+                this_tracer = self.animal.infusate.tracers.get(
+                    compound__id__in=list(
+                        self.peak_group.compounds.values_list("id", flat=True)
+                    ),
+                )
+            except Tracer.DoesNotExist:
+                this_tracer = None
 
         return this_tracer
 
@@ -245,7 +256,9 @@ class PeakGroupLabel(HierCachedModel):
     @property  # type: ignore
     @cached_function
     def tracer_concentration(self):
-        # This gets the supplied tracer's tracer_label with this element, and returns its count
+        """This returns this tracer's concentration."""
+        if self.animal.infusate is None:
+            return None
         return self.animal.infusate.tracer_links.get(
             tracer__exact=self.tracer
         ).concentration
@@ -596,15 +609,3 @@ class PeakGroupLabel(HierCachedModel):
             return None
 
         return self.rate_appearance_average_per_gram * self.animal.body_weight
-
-
-class NoCommonLabel(Exception):
-    def __init__(self, peakgrouplabel):
-        msg = (
-            f"PeakGroup {peakgrouplabel.peak_group.name} found associated with peak group formula: "
-            f"[{peakgrouplabel.peak_group.formula}] that does not contain the labeled element "
-            f"{peakgrouplabel.element} that is associated via PeakGroupLabel (from the tracers in the infusate "
-            f"[{peakgrouplabel.peak_group.msrun_sample.sample.animal.infusate.name}])."
-        )
-        super().__init__(msg)
-        self.peak_group_label = peakgrouplabel

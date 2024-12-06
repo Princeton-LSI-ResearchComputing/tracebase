@@ -17,9 +17,6 @@ from django.db.models import Q
 from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
-from DataRepo.models.animal import Animal
-from DataRepo.models.researcher import get_researchers
-
 if TYPE_CHECKING:
     from DataRepo.models.archive_file import ArchiveFile
     from DataRepo.models.msrun_sample import MSRunSample
@@ -502,8 +499,8 @@ class FileFromInputNotFound(InfileError):
     def __init__(self, filepath: str, message=None, tmpfile=None, **kwargs):
         if message is None:
             msg = ""
-            if filepath != tmpfile:
-                msg = f" (using temporary file path: '{filepath}')"
+            if tmpfile is not None and filepath != tmpfile:
+                msg = f" (using temporary file path: '{tmpfile}')"
             message = f"File not found: '{filepath}'{msg}, as parsed from %s."
         super().__init__(message, **kwargs)
         self.filepath = filepath
@@ -723,6 +720,8 @@ class NewResearcher(InfileError, SummarizableError):
     SummarizerExceptionClass = NewResearchers
 
     def __init__(self, researcher: str, known=None, message=None, **kwargs):
+        from DataRepo.models.researcher import get_researchers
+
         if known is None:
             existing = "\n\t".join(get_researchers())
         else:
@@ -1384,6 +1383,21 @@ class NoSamples(MissingSamples):
                 "database before they can be loaded from the mass spec data files."
             )
         super().__init__(exceptions, message=message, suggestion=suggestion, **kwargs)
+
+
+class UnexpectedInput(InfileError):
+    def __init__(
+        self,
+        value,
+        message=None,
+        **kwargs,
+    ):
+        if message is None:
+            message = (
+                f"Unexpected input supplied: '{str(value).replace('%', '%%')}' in %s."
+            )
+        super().__init__(message, **kwargs)
+        self.value = value
 
 
 class UnexpectedSamples(InfileError):
@@ -2936,6 +2950,8 @@ class NoTracerLabeledElements(InfileError, SummarizableError):
 
 
 class NoTracers(InfileError):
+    from DataRepo.models.animal import Animal
+
     def __init__(self, animal: Optional[Animal] = None, message=None, **kwargs):
         if message is None:
             animal_str = f" [{animal}]"
@@ -3307,6 +3323,19 @@ class UnexpectedLabels(InfileError):
         super().__init__(message, **kwargs)
         self.possible = possible
         self.unexpected = unexpected
+
+
+class NoCommonLabel(Exception):
+    from DataRepo.models.peak_group_label import PeakGroupLabel
+
+    def __init__(self, peakgrouplabel: PeakGroupLabel):
+        msg = (
+            f"PeakGroupLabel '{peakgrouplabel.element}' for PeakGroup '{peakgrouplabel.peak_group.name}' (from "
+            f"infusate '{peakgrouplabel.peak_group.msrun_sample.sample.animal.infusate}') not present in the peak "
+            f"group's formula '{peakgrouplabel.peak_group.formula}'."
+        )
+        super().__init__(msg)
+        self.peak_group_label = peakgrouplabel
 
 
 class SampleIndexNotFound(Exception):
@@ -4036,6 +4065,7 @@ class AllMultiplePeakGroupRepresentations(Exception):
         mpgr_dict: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
         )
+        mpgr: MultiplePeakGroupRepresentation
         for mpgr in exceptions:
             seq_key = str(mpgr.sequence)
             for file in mpgr.filenames:
@@ -4214,6 +4244,9 @@ class MultiplePeakGroupRepresentation(SummarizableError):
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
+        from DataRepo.models.msrun_sequence import MSRunSequence
+        from DataRepo.models.sample import Sample
+
         filenames = [new_rec.peak_annotation_file.filename]
         filenames.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
         files_str = "\n\t".join(filenames)
@@ -4234,10 +4267,10 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         super().__init__(message)
         self.new_rec = new_rec
         self.existing_recs = existing_recs
-        self.filenames = filenames
-        self.compound = new_rec.name
-        self.sequence = new_rec.msrun_sample.msrun_sequence
-        self.sample = new_rec.msrun_sample.sample
+        self.filenames: List[str] = filenames
+        self.compound: str = new_rec.name
+        self.sequence: MSRunSequence = new_rec.msrun_sample.msrun_sequence
+        self.sample: Sample = new_rec.msrun_sample.sample
         self.suggestion = suggestion
         self.orig_message = message
         self.message = message
