@@ -335,7 +335,6 @@ class StudyLoader(ConvertedTableLoader, ABC):
             mzxml_dir = study_dir
 
         self.mzxml_files = MSRunsLoader.get_mzxml_files(dir=mzxml_dir)
-        print(f"study_dir: '{study_dir}' study_file: '{study_file}'  mzxml dir: '{mzxml_dir}' files: {self.mzxml_files} kwargs: {kwargs}")
         self.exclude_sheets = kwargs.pop("exclude_sheets", []) or []
 
         clkwa = self.CustomLoaderKwargs._asdict()
