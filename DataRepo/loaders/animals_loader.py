@@ -334,33 +334,50 @@ class AnimalsLoader(TableLoader):
             "name": name,
             "genotype": genotype,
         }
-        qry_dict = rec_dict.copy()
 
         errored = False
 
         # Optional fields
+        if genotype is not None:
+            rec_dict["genotype"] = genotype
+
+        if age is not None:
+            try:
+                # TODO: Make it possible to parse and use units for age(/duration)
+                rec_dict["age"] = timedelta(weeks=age)
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.AGE)
+                errored = True
+                # Press on to find more errors...
+
+        if sex is not None:
+            try:
+                rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.SEX)
+                errored = True
+                # Press on to find more errors...
+
+        if diet is not None:
+            rec_dict["diet"] = diet
+
+        if feeding_status is not None:
+            rec_dict["feeding_status"] = feeding_status
+
+        if treatment is not None:
+            rec_dict["treatment"] = treatment
+
+        # Copy the exact query filters from the rec_dict accumulated thus far
+        qry_dict = rec_dict.copy()
+        # Then add approximate search filters to qry_dict that account for precision issues and infusateless animals...
+
         if infusate is not None:
             rec_dict["infusate"] = infusate
             qry_dict["infusate"] = infusate
         else:
             qry_dict["infusate__isnull"] = True
 
-        if infusate is not None and infusion_rate is not None:
-            try:
-                # TODO: Make it possible to parse and use units for infusion_rate
-                rec_dict["infusion_rate"] = float(infusion_rate)
-                qry_dict.update(
-                    sigfigfilter(
-                        infusion_rate,
-                        "infusion_rate",
-                        figures=Animal.INFUSION_RATE_SIGNIFICANT_FIGURES,
-                    )
-                )
-            except Exception as e:
-                self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
-                errored = True
-                # Press on to find more errors...
-        elif infusion_rate is not None:
+        if infusion_rate is not None:
             if infusate is None:
                 self.buffer_infile_exception(
                     UnexpectedInput(
@@ -370,20 +387,28 @@ class AnimalsLoader(TableLoader):
                     is_error=False,
                     is_fatal=self.validate,
                 )
-            # If the record exists, it must not have an infusion rate, because this script will not add it
-            qry_dict["infusate__isnull"] = True
-
-        if genotype is not None:
-            rec_dict["genotype"] = genotype
-            qry_dict["genotype"] = genotype
-        else:
-            # If the record exists, it must not have a genotype, because this script will not add it
-            qry_dict["genotype__isnull"] = True
+            else:
+                try:
+                    # TODO: Make it possible to parse and use units for infusion_rate
+                    rec_dict["infusion_rate"] = float(infusion_rate)
+                    # Add a couple filtering parameters to account for precision
+                    qry_dict.update(
+                        sigfigfilter(
+                            infusion_rate,
+                            "infusion_rate",
+                            figures=Animal.INFUSION_RATE_SIGNIFICANT_FIGURES,
+                        )
+                    )
+                except Exception as e:
+                    self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
+                    errored = True
+                    # Press on to find more errors...
 
         if weight is not None:
             try:
                 # TODO: Make it possible to parse and use units for weight
                 rec_dict["body_weight"] = float(weight)
+                # Add a couple filtering parameters to account for precision
                 qry_dict.update(
                     sigfigfilter(
                         weight,
@@ -395,63 +420,11 @@ class AnimalsLoader(TableLoader):
                 self.buffer_infile_exception(e, column=self.headers.WEIGHT)
                 errored = True
                 # Press on to find more errors...
-        else:
-            # If the record exists, it must not have a weight, because this script will not add it
-            qry_dict["body_weight__isnull"] = True
-
-        if age is not None:
-            try:
-                # TODO: Make it possible to parse and use units for age(/duration)
-                rec_dict["age"] = timedelta(weeks=age)
-                qry_dict["age"] = rec_dict["age"]
-            except Exception as e:
-                self.buffer_infile_exception(e, column=self.headers.AGE)
-                errored = True
-                # Press on to find more errors...
-        else:
-            # If the record exists, it must not have an age, because this script will not add it
-            qry_dict["age__isnull"] = True
-        if sex is not None:
-            try:
-                rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
-                qry_dict["sex"] = rec_dict["sex"]
-            except Exception as e:
-                self.buffer_infile_exception(e, column=self.headers.SEX)
-                errored = True
-                # Press on to find more errors...
-        else:
-            # If the record exists, it must not have a sex, because this script will not add it
-            qry_dict["sex__isnull"] = True
-
-        if diet is not None:
-            rec_dict["diet"] = diet
-            qry_dict["diet"] = diet
-        else:
-            # If the record exists, it must not have a diet, because this script will not add it
-            qry_dict["diet__isnull"] = True
-
-        if feeding_status is not None:
-            rec_dict["feeding_status"] = feeding_status
-            qry_dict["feeding_status"] = feeding_status
-        else:
-            # If the record exists, it must not have a feeding_status, because this script will not add it
-            qry_dict["feeding_status__isnull"] = True
-
-        if treatment is not None:
-            rec_dict["treatment"] = treatment
-            qry_dict["treatment"] = treatment
-        else:
-            # If the record exists, it must not have a treatment, because this script will not add it
-            qry_dict["treatment__isnull"] = True
 
         try:
-            # First, quyery to account for floating point precision issue matches (see infusion_rate and body_weight
-            # above)
-            qs = Animal.objects.filter(**qry_dict)
-            if qs.count() == 1:
-                rec = qs.first()
-            else:
-                rec, created = Animal.objects.get_or_create(**rec_dict)
+            # qry_dict is used to 1. match values despite floating point precision issues (see infusion_rate and weight
+            # above) and 2. to explicitly find an infusateless animal (if infusate is None)
+            rec, created = Animal.objects.get_or_create(**qry_dict, defaults=rec_dict)
 
             if errored:
                 self.errored(Animal.__name__)
