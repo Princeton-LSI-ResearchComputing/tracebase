@@ -581,60 +581,66 @@
                         {% get_many_related_rec rec.serum_sample.animal.studies rec.study as studies %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
-                            {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% endfor %}
+                            {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% empty %}None{% endfor %}
                         </div>
 
-                        {% for study in studies %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
+                        {% for study in studies %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% empty %}None{% endfor %}
                     </td>
 
                     <!-- Animal -->
                     <td>
-                        <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ rec.serum_sample.animal.name }}</div>
-
-                        <a href="{% url 'animal_detail' rec.serum_sample.animal.id %}">
-                            {{ rec.serum_sample.animal.name }}
-                        </a>
+                        {% if rec.serum_sample.animal is None %}
+                            None
+                        {% else %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ rec.serum_sample.animal.name }}</div>
+                            <a href="{% url 'animal_detail' rec.serum_sample.animal.id %}">
+                                {{ rec.serum_sample.animal.name|default_if_none:"None" }}
+                            </a>
+                        {% endif %}
                     </td>
 
                     <!-- Serum Sample -->
                     <td>
-                        <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ rec.serum_sample.name }}</div>
-
-                        <a href="{% url 'sample_detail' rec.serum_sample.id %}">
-                            {{ rec.serum_sample.name }}
-                        </a>
+                        {% if rec.serum_sample is None %}
+                            None
+                        {% else %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ rec.serum_sample.name }}</div>
+                            <a href="{% url 'sample_detail' rec.serum_sample.id %}">
+                                {{ rec.serum_sample.name|default_if_none:"None" }}
+                            </a>
+                        {% endif %}
                     </td>
 
                     <!-- Genotype -->
                     <td>
-                        {{ rec.serum_sample.animal.genotype }}
+                        {{ rec.serum_sample.animal.genotype|default_if_none:"None" }}
                     </td>
 
                     <!-- Body Weight (g) -->
                     <td class="text-end">
-                        {{ rec.serum_sample.animal.body_weight }}
+                        {{ rec.serum_sample.animal.body_weight|default_if_none:"None" }}
                     </td>
 
                     <!-- Age (weeks) -->
                     <td class="text-end">
-                        <p title="{{ rec.serum_sample.animal.age }} (d-hh:mm:ss)">{{ rec.serum_sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
+                        <p title="{{ rec.serum_sample.animal.age }} (d-hh:mm:ss)">{{ rec.serum_sample.animal.age|durationToWeeks|decimalPlaces:2|default_if_none:"None" }}</p>
                     </td>
 
                     <!-- Sex -->
                     <td>
-                        {{ rec.serum_sample.animal.sex }}
+                        {{ rec.serum_sample.animal.sex|default_if_none:"None" }}
                     </td>
 
                     <!-- Diet -->
                     <td>
-                        {{ rec.serum_sample.animal.diet }}
+                        {{ rec.serum_sample.animal.diet|default_if_none:"None" }}
                     </td>
 
                     <!-- Feeding Status -->
                     <td>
-                        {{ rec.serum_sample.animal.feeding_status }}
+                        {{ rec.serum_sample.animal.feeding_status|default_if_none:"None" }}
                     </td>
 
                     <!-- Treatment -->
@@ -643,45 +649,52 @@
                             None
                         {% else %}
                             <!-- Put displayed link text first for sorting -->
-                            <div style="display:none;">{{ rec.serum_sample.animal.treatment.name }}</div>
+                            <div style="display:none;">{{ rec.serum_sample.animal.treatment.name|default_if_none:"None" }}</div>
 
                             <a href="{% url 'protocol_detail' rec.serum_sample.animal.treatment.id %}">
-                                {{ rec.serum_sample.animal.treatment.name }}
+                                {{ rec.serum_sample.animal.treatment.name|default_if_none:"None" }}
                             </a>
                         {% endif %}
                     </td>
 
                     <!-- Tracer -->
                     <td>
-                        <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ rec.tracer.name }}</div>
-
-                        <a href="{% url 'compound_detail' rec.tracer.compound.id %}">
-                            <div class="nobr">{{ rec.tracer.name }}</div>
-                        </a>
+                        {% if rec.tracer is None %}
+                            None
+                        {% else %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ rec.tracer.name|default_if_none:"None" }}</div>
+                            <a href="{% url 'compound_detail' rec.tracer.compound.id %}">
+                                <div class="nobr">{{ rec.tracer.name|default_if_none:"None" }}</div>
+                            </a>
+                        {% endif %}
                     </td>
 
                     <!-- Labeled Element -->
                     <td>
-                        {{ rec.element }}
+                        {{ rec.element|default_if_none:"None" }}
                     </td>
 
                     <!-- Infusion Rate (ul/m/g) -->
                     <td class="text-end">
-                        {{ rec.serum_sample.animal.infusion_rate }}
+                        {{ rec.serum_sample.animal.infusion_rate|default_if_none:"None" }}
                     </td>
 
                     <!-- Tracer Concentration (mM) -->
                     <td class="text-end">
                         <!-- This will get all tracer_link records for every tracer in the infusate, so we need to filter those for the tracer in this FCirc record -->
-                        <!-- This is not effectively a many to many relationship because of the override of getRootQuerySet in fluxcirc_dataformat.py, which forces the FCirc.tracer to match FCirc.serum_sample.animal.infusate.tracer_links.tracer -->
-                        {% get_many_related_rec rec.serum_sample.animal.infusate.tracer_links.all rec.tracer_link as tracer_links %}
-                        {% for tracer_link in tracer_links %}{% if not forloop.first %},<br>{% endif%}{{ tracer_link.concentration }}{% endfor %}
+                        <!-- This is not effectively a many to many relationship because of the override of getRootQuerySet in fluxcirc_dataformat.py, which forces the FCirc.tracer to match FCirc.serum_sample.animal.tracer_links.tracer -->
+                        {% if rec.serum_sample.animal.infusate is None %}
+                            None
+                        {% else %}
+                            {% get_many_related_rec rec.serum_sample.animal.tracer_links.all rec.tracer_link as tracer_links %}
+                            {% for tracer_link in tracer_links %}{% if not forloop.first %},<br>{% endif%}{{ tracer_link.concentration }}{% empty %}None{% endfor %}
+                        {% endif %}
                     </td>
 
                     <!-- Time Collected (m) -->
                     <td class="text-end">
-                        <p title="{{ rec.serum_sample.time_collected }} (h:m:s)">{{ rec.serum_sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
+                        <p title="{{ rec.serum_sample.time_collected }} (h:m:s)">{{ rec.serum_sample.time_collected|durationToMins|decimalPlaces:2|default_if_none:"None" }}</p>
                     </td>
 
                     <!-- Average Ra (nmol/min/g) -->

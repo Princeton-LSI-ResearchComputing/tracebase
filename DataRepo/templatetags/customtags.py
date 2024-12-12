@@ -170,7 +170,8 @@ def obj_hyperlink(id_name_list, obj, newline=False):
     for x in id_name_list:
         if x is not None and x != qs2df.null_rpl_str:
             k, v = x.split("||")
-            id_name_dict[k] = v
+            if k != qs2df.na_str:
+                id_name_dict[k] = v
 
     if newline is True:
         obj_format_html = (

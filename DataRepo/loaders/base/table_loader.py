@@ -1666,7 +1666,7 @@ class TableLoader(ABC):
             None
         Exceptions:
             Raises:
-                None
+                ProgrammingError
             Buffers:
                 DuplicateValues
         Returns:
@@ -1696,7 +1696,12 @@ class TableLoader(ABC):
                 dupes, row_idxs = self.get_one_column_dupes(df, unique_combo[0])
             else:
                 dupes, row_idxs = get_column_dupes(df, unique_combo)
-            self.add_skip_row_index(index_list=row_idxs)
+
+            if len(row_idxs) > 0:
+                self.add_skip_row_index(index_list=row_idxs)
+            elif len(dupes) > 0:
+                raise ProgrammingError("Duplicates returned with no row indexes.")
+
             if len(dupes) > 0:
                 self.aggregated_errors_object.buffer_error(
                     DuplicateValues(

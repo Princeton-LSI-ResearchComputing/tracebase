@@ -250,6 +250,7 @@ class GlobalCacheTests(TracebaseTestCase):
             "Animal": [
                 "tracers",
                 "last_serum_tracer_peak_groups",
+                "tracer_links",
             ],
             "AnimalLabel": [
                 "tracers",

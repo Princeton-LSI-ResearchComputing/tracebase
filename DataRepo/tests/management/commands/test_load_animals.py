@@ -277,6 +277,6 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
             msg="1 row with missing required values",
         )
         self.assertIn(
-            "[Genotype, Infusate, Study] on rows: ['3']",
+            "[Genotype, Study] on rows: ['3']",
             str(aes.exceptions[0]),
         )

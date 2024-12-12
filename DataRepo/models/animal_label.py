@@ -45,10 +45,15 @@ class AnimalLabel(HierCachedModel):
     @property  # type: ignore
     @cached_function
     def tracers(self):
-        # Get every tracer's compound that contains this element
-        tracers = self.animal.infusate.tracers.filter(
-            labels__element__exact=self.element
-        )
+        from DataRepo.models.tracer import Tracer
+
+        if self.animal.infusate is None:
+            tracers = Tracer.objects.none()
+        else:
+            # Get every tracer's compound that contains this element
+            tracers = self.animal.infusate.tracers.filter(
+                labels__element__exact=self.element
+            )
         if tracers.count() == 0:
             warnings.warn(
                 f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}]."

@@ -122,7 +122,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(RequiredHeadersError, type(aes.exceptions[0]))
         self.assertIn(
-            "missing: Animal Name, Genotype, Infusate, Study",
+            "missing: Animal Name, Genotype, Study",
             str(aes.exceptions[0]),
         )
         self.assertEqual(0, Animal.objects.count())
@@ -147,7 +147,9 @@ class AnimalsLoaderTests(TracebaseTestCase):
                 # are occluded by the DB error for body_weight
                 # TODO: Add type and enum checks in check_dataframe_values.
                 AnimalsLoader.DataHeaders.SEX: ["XY"],  # type error (from code)
-                AnimalsLoader.DataHeaders.INFUSIONRATE: ["6.0mM"],  # no error (yet)
+                AnimalsLoader.DataHeaders.INFUSIONRATE: [
+                    "6.0mM"
+                ],  # type error (from code)
             }
         )
         al = AnimalsLoader(df=df)
@@ -156,14 +158,23 @@ class AnimalsLoaderTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(5, len(aes.exceptions))
         self.assertIsInstance(aes.exceptions[0], InfileError)
-        self.assertIn("could not convert string to float", str(aes.exceptions[0]))
+        self.assertIn(
+            "unsupported type for timedelta weeks component: str  Location: column [Age]",
+            str(aes.exceptions[0]),
+        )
         self.assertIsInstance(aes.exceptions[1], InfileError)
-        self.assertIn("could not convert string to float", str(aes.exceptions[1]))
+        self.assertIn(
+            "must be one of [('F', 'female'), ('M', 'male')]", str(aes.exceptions[1])
+        )
         self.assertIsInstance(aes.exceptions[2], InfileError)
-        self.assertIn("timedelta", str(aes.exceptions[2]))
+        self.assertIn(
+            "could not convert string to float: '6.0mM'  Location: column [Infusion Rate]",
+            str(aes.exceptions[2]),
+        )
         self.assertIsInstance(aes.exceptions[3], InfileError)
         self.assertIn(
-            "must be one of [('F', 'female'), ('M', 'male')]", str(aes.exceptions[3])
+            "could not convert string to float: '5g'  Location: column [Weight]",
+            str(aes.exceptions[3]),
         )
         self.assertIsInstance(aes.exceptions[4], MissingRecords)
         self.assertIn("Study", str(aes.exceptions[4]))
