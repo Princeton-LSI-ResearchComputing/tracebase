@@ -224,7 +224,7 @@ class PeakAnnotationFilesLoader(TableLoader):
             None
         """
         for _, row in self.df.iterrows():
-            if self.is_skip_row():
+            if self.is_skip_row(row.name):
                 continue
 
             # Determine the format
@@ -319,6 +319,14 @@ class PeakAnnotationFilesLoader(TableLoader):
                 FileFromInputNotFound(filepath_str, tmpfile=filepath),
                 suggestion="Skipping load.",
                 column=self.headers.FILE,
+                is_error=(
+                    not self.validate
+                    or (
+                        self.annot_files_dict is not None
+                        and len(self.annot_files_dict.keys()) > 0
+                    )
+                ),
+                is_fatal=True,
             )
             self.add_skip_row_index()
             return filename, None, format_code

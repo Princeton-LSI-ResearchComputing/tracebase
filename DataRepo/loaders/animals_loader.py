@@ -23,6 +23,7 @@ from DataRepo.utils.exceptions import (
     MissingTreatments,
     RecordDoesNotExist,
     RollbackException,
+    UnexpectedInput,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.utils.text_utils import sigfigfilter
@@ -82,7 +83,7 @@ class AnimalsLoader(TableLoader):
     )
 
     # List of required header keys
-    DataRequiredHeaders = [NAME_KEY, GENOTYPE_KEY, INFUSATE_KEY, STUDY_KEY]
+    DataRequiredHeaders = [NAME_KEY, GENOTYPE_KEY, STUDY_KEY]
 
     # List of header keys for columns that require a value
     DataRequiredValues = DataRequiredHeaders
@@ -324,7 +325,7 @@ class AnimalsLoader(TableLoader):
         diet = self.get_row_val(row, self.headers.DIET)
         feeding_status = self.get_row_val(row, self.headers.FEEDINGSTATUS)
 
-        if infusate is None or self.is_skip_row():
+        if self.is_skip_row():
             self.skipped(Animal.__name__)
             return rec, created
 
@@ -332,35 +333,82 @@ class AnimalsLoader(TableLoader):
         rec_dict = {
             "name": name,
             "genotype": genotype,
-            "infusate": infusate,
         }
-        qry_dict = rec_dict.copy()
 
         errored = False
 
         # Optional fields
-        if infusion_rate is not None:
-            try:
-                # TODO: Make it possible to parse and use units for infusion_rate
-                rec_dict["infusion_rate"] = float(infusion_rate)
-                qry_dict.update(
-                    sigfigfilter(
-                        infusion_rate,
-                        "infusion_rate",
-                        figures=Animal.INFUSION_RATE_SIGNIFICANT_FIGURES,
-                    )
-                )
-            except Exception as e:
-                self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
-                errored = True
-                # Press on to find more errors...
         if genotype is not None:
             rec_dict["genotype"] = genotype
-            qry_dict["genotype"] = genotype
+
+        if age is not None:
+            try:
+                # TODO: Make it possible to parse and use units for age(/duration)
+                rec_dict["age"] = timedelta(weeks=age)
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.AGE)
+                errored = True
+                # Press on to find more errors...
+
+        if sex is not None:
+            try:
+                rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
+            except Exception as e:
+                self.buffer_infile_exception(e, column=self.headers.SEX)
+                errored = True
+                # Press on to find more errors...
+
+        if diet is not None:
+            rec_dict["diet"] = diet
+
+        if feeding_status is not None:
+            rec_dict["feeding_status"] = feeding_status
+
+        if treatment is not None:
+            rec_dict["treatment"] = treatment
+
+        # Copy the exact query filters from the rec_dict accumulated thus far
+        qry_dict = rec_dict.copy()
+        # Then add approximate search filters to qry_dict that account for precision issues and infusateless animals...
+
+        if infusate is not None:
+            rec_dict["infusate"] = infusate
+            qry_dict["infusate"] = infusate
+        else:
+            qry_dict["infusate__isnull"] = True
+
+        if infusion_rate is not None:
+            if infusate is None:
+                self.buffer_infile_exception(
+                    UnexpectedInput(
+                        f"Infusion rate '{infusion_rate}' supplied without an '{self.headers.INFUSATE}' in %s."
+                    ),
+                    column=self.headers.INFUSIONRATE,
+                    is_error=False,
+                    is_fatal=self.validate,
+                )
+            else:
+                try:
+                    # TODO: Make it possible to parse and use units for infusion_rate
+                    rec_dict["infusion_rate"] = float(infusion_rate)
+                    # Add a couple filtering parameters to account for precision
+                    qry_dict.update(
+                        sigfigfilter(
+                            infusion_rate,
+                            "infusion_rate",
+                            figures=Animal.INFUSION_RATE_SIGNIFICANT_FIGURES,
+                        )
+                    )
+                except Exception as e:
+                    self.buffer_infile_exception(e, column=self.headers.INFUSIONRATE)
+                    errored = True
+                    # Press on to find more errors...
+
         if weight is not None:
             try:
                 # TODO: Make it possible to parse and use units for weight
                 rec_dict["body_weight"] = float(weight)
+                # Add a couple filtering parameters to account for precision
                 qry_dict.update(
                     sigfigfilter(
                         weight,
@@ -372,41 +420,11 @@ class AnimalsLoader(TableLoader):
                 self.buffer_infile_exception(e, column=self.headers.WEIGHT)
                 errored = True
                 # Press on to find more errors...
-        if age is not None:
-            try:
-                # TODO: Make it possible to parse and use units for age(/duration)
-                rec_dict["age"] = timedelta(weeks=age)
-                qry_dict["age"] = rec_dict["age"]
-            except Exception as e:
-                self.buffer_infile_exception(e, column=self.headers.AGE)
-                errored = True
-                # Press on to find more errors...
-        if sex is not None:
-            try:
-                rec_dict["sex"] = value_from_choices_label(sex, Animal.SEX_CHOICES)
-                qry_dict["sex"] = rec_dict["sex"]
-            except Exception as e:
-                self.buffer_infile_exception(e, column=self.headers.SEX)
-                errored = True
-                # Press on to find more errors...
-        if diet is not None:
-            rec_dict["diet"] = diet
-            qry_dict["diet"] = diet
-        if feeding_status is not None:
-            rec_dict["feeding_status"] = feeding_status
-            qry_dict["feeding_status"] = feeding_status
-        if treatment is not None:
-            rec_dict["treatment"] = treatment
-            qry_dict["treatment"] = treatment
 
         try:
-            # First, quyery to account for floating point precision issue matches (see infusion_rate and body_weight
-            # above)
-            qs = Animal.objects.filter(**qry_dict)
-            if qs.count() == 1:
-                rec = qs.first()
-            else:
-                rec, created = Animal.objects.get_or_create(**rec_dict)
+            # qry_dict is used to 1. match values despite floating point precision issues (see infusion_rate and weight
+            # above) and 2. to explicitly find an infusateless animal (if infusate is None)
+            rec, created = Animal.objects.get_or_create(**qry_dict, defaults=rec_dict)
 
             if errored:
                 self.errored(Animal.__name__)
@@ -443,7 +461,7 @@ class AnimalsLoader(TableLoader):
         name = self.get_row_val(row, self.headers.INFUSATE)
 
         if name is None:
-            # There should have been a RequiredColumnHeader/Value error already, if we get here, so just return None
+            # Infusate is optional, so just return None.  If there was an error, it would have been buffered.
             return rec
 
         query_dict = {"name": name}

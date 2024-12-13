@@ -34,7 +34,7 @@
                 <td>
                 {% if animal.infusate_id %}
                     <a href="{% url 'infusate_detail' animal.infusate_id %}">
-                        {{ animal.infusate.name }}
+                        {{ animal.infusate }}
                     </a>
                 {% else %}
                     None

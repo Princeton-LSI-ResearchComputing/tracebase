@@ -94,6 +94,7 @@ class QuerysetToPandasDataFrame:
     # the string for replacing null value for treatment, infusate, tracer
     # prefer to use "None" as it's consistent with null value displayed on webpage
     null_rpl_str = "None"
+    na_str = "<NA>"
 
     @staticmethod
     def qs_to_df(qs, qry_to_df_fields):
