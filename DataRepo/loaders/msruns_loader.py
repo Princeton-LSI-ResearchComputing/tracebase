@@ -2337,6 +2337,8 @@ class MSRunsLoader(TableLoader):
             return files
         if dir is None:
             return []
+        if dir == "":
+            dir = os.getcwd()
         return [
             os.path.join(p, fl)
             for p, _, fs in os.walk(dir)
