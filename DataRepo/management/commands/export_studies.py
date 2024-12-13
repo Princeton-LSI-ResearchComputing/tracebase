@@ -1,3 +1,5 @@
+import os
+
 from django.core.management import BaseCommand
 
 from DataRepo.utils.studies_exporter import StudiesExporter
@@ -11,7 +13,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--outdir",
             required=True,
-            default=".",
+            default=os.getcwd(),
             help="Directory to create and save exported files.",
         )
         parser.add_argument(
