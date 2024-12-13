@@ -2182,7 +2182,12 @@ class MSRunsLoader(TableLoader):
         for mzxml_name in self.mzxml_dict.keys():
             for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
                 for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
-                    if mzxml_metadata["added"] is False:
+                    if mzxml_metadata["added"] is False and (
+                        # TODO: Also check if a skip exists without the directory having been added.
+                        mzxml_name not in self.skip_msrunsample_by_mzxml.keys()
+                        or mzxml_dir
+                        not in self.skip_msrunsample_by_mzxml[mzxml_name].keys()
+                    ):
                         return True
         return False
 
