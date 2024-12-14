@@ -801,31 +801,51 @@ class MSRunsLoader(TableLoader):
                 fn = os.path.basename(mzxml_path)
                 sh = os.path.splitext(fn)[0]
 
+            modded_sh = sh
+            if not self.exact_mode:
+                modded_sh = sh.replace("-", "_")
+
             # If we haven't seen an mzXML by this name before or we haven't see its directory before
-            if sh not in expected_mzxmls.keys() or dr not in expected_mzxmls[sh].keys():
-                expected_mzxmls[sh][dr] = {"sample_name": sample_name, "skip": skip}
+            if (
+                modded_sh not in expected_mzxmls.keys()
+                or dr not in expected_mzxmls[sh].keys()
+            ):
+                expected_mzxmls[modded_sh][dr] = {
+                    "sample_header": sh,
+                    "sample_name": sample_name,
+                    "skip": skip,
+                }
 
         # Now go through the actual supplied mzXML files and see if any are totally unaccounted for.
         for actual_mzxml_file in self.mzxml_files:
             dr = os.path.dirname(actual_mzxml_file)
             fn = os.path.basename(actual_mzxml_file)
-            sh = os.path.splitext(fn)[0]
-            sn = self.guess_sample_name(sh)
-            if sh in expected_mzxmls.keys():
+            sh = str(os.path.splitext(fn)[0])
+
+            modded_sh = sh
+            if not self.exact_mode:
+                modded_sh = sh.replace("-", "_")
+
+            sn = self.guess_sample_name(modded_sh)
+
+            if modded_sh in expected_mzxmls.keys():
                 actual_rel_dir = os.path.relpath(dr, self.mzxml_dir)
                 if (
-                    actual_rel_dir not in expected_mzxmls[sh].keys()
-                    and "" not in expected_mzxmls[sh].keys()
+                    actual_rel_dir not in expected_mzxmls[modded_sh].keys()
+                    and "" not in expected_mzxmls[modded_sh].keys()
                 ):
                     # Neither the explicit path was expected nor an unspecified path was expected
                     if (
                         sn not in expected_samples
-                        and sh not in unexpected_sample_headers
+                        and modded_sh not in unexpected_sample_headers
                     ):
-                        unexpected_sample_headers.append(sh)
+                        unexpected_sample_headers.append(modded_sh)
             else:
-                if sn not in expected_samples and sh not in unexpected_sample_headers:
-                    unexpected_sample_headers.append(sh)
+                if (
+                    sn not in expected_samples
+                    and modded_sh not in unexpected_sample_headers
+                ):
+                    unexpected_sample_headers.append(modded_sh)
 
         die = False
         for unexpected_sample_header in unexpected_sample_headers:
