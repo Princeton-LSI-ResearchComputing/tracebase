@@ -535,9 +535,14 @@ class MSRunsLoader(TableLoader):
         Returns:
             None
         """
-        # Both PeakGroup and MSRunSample models are assicated with cache updates.  Not only does it slow the running
+        # Catch issues with files versus the Peak Annotation Details sheet early, before spending tons of time reading
+        # the files and loading them.
+        self.check_mzxml_files()
+
+        # Both PeakGroup and MSRunSample models are associated with cache updates.  Not only does it slow the running
         # time, but it currently produces a lot of console output, so disable caching updates for the duration of this
         # load, then clear the cache.
+        # TODO: Remove this after implementing issue #1387
         disable_caching_updates()
 
         # 1. Traverse the supplied mzXML files
@@ -732,8 +737,110 @@ class MSRunsLoader(TableLoader):
         if self.aggregated_errors_object.should_raise():
             self.clean_up_created_mzxmls_in_archive()
 
-        enable_caching_updates()
-        delete_all_caches()
+        # This assumes that if rollback is deferred, that the caller has disabled caching updates and that they should
+        # remain disabled so that the caller can enable them when it is done.
+        # TODO: Remove this after implementing issue #1387
+        if not self.defer_rollback:
+            enable_caching_updates()
+            if not self.dry_run and not self.validate:
+                delete_all_caches()
+
+    def check_mzxml_files(self):
+        """Reviews all of the mzXML files against the Peak Annotation Details sheet (if provided).  If any mzXML files
+        are totally unexpected, self.aggregated_errors_object is raised.
+
+        Limitations:
+            1. This method only looks for mzXML files that appear to reference unloaded sample records.  It does not
+            check that there exists precisely 1 row for each mzXML file in the Peak Annotation Details sheet.
+        Assumptions:
+            1. The directory paths supplied for mzXML files in the Peak Annotation Details sheets are relative to
+            self.mzxml_dir.
+        Args:
+            None
+        Exceptions:
+            Buffers:
+                None
+            Raises:
+                AggregatedErrors
+        Returns:
+            None
+        """
+        if self.df is None or self.mzxml_files is None or len(self.mzxml_files) == 0:
+            return
+
+        expected_mzxmls = defaultdict(lambda: defaultdict(dict))
+        expected_samples = []
+        unexpected_sample_headers = []
+
+        # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
+        # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
+        for _, row in self.df.iterrows():
+            sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
+            sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
+            mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
+            skip_str = self.get_row_val(row, self.headers.SKIP)
+            skip = (
+                True
+                if skip_str is not None and skip_str.lower() in self.SKIP_STRINGS
+                else False
+            )
+
+            # Keep track of samples that have been accounted for (skipped or not)
+            if sample_name not in expected_samples:
+                expected_samples.append(sample_name)
+
+            # If an mzXML file has not been explicitly specified
+            if mzxml_path is None:
+                # We don't have a directory, so use empty string
+                dr = ""
+                # The mzXML file should match the recorded sample header
+                sh = sample_header
+            else:
+                # We assume that the directory provided is relatiove to the (specified/deduced) mzXML dir
+                dr = os.path.dirname(mzxml_path)
+                fn = os.path.basename(mzxml_path)
+                sh = os.path.splitext(fn)[0]
+
+            # If we haven't seen an mzXML by this name before or we haven't see its directory before
+            if sh not in expected_mzxmls.keys() or dr not in expected_mzxmls[sh].keys():
+                expected_mzxmls[sh][dr] = {"sample_name": sample_name, "skip": skip}
+
+        # Now go through the actual supplied mzXML files and see if any are totally unaccounted for.
+        for actual_mzxml_file in self.mzxml_files:
+            dr = os.path.dirname(actual_mzxml_file)
+            fn = os.path.basename(actual_mzxml_file)
+            sh = os.path.splitext(fn)[0]
+            sn = self.guess_sample_name(sh)
+            if sh in expected_mzxmls.keys():
+                actual_rel_dir = os.path.relpath(dr, self.mzxml_dir)
+                if (
+                    actual_rel_dir not in expected_mzxmls[sh].keys()
+                    and "" not in expected_mzxmls[sh].keys()
+                ):
+                    # Neither the explicit path was expected nor an unspecified path was expected
+                    if (
+                        sn not in expected_samples
+                        and sh not in unexpected_sample_headers
+                    ):
+                        unexpected_sample_headers.append(sh)
+            else:
+                if sn not in expected_samples and sh not in unexpected_sample_headers:
+                    unexpected_sample_headers.append(sh)
+
+        die = False
+        for unexpected_sample_header in unexpected_sample_headers:
+            guessed_name = self.guess_sample_name(unexpected_sample_header)
+            rec = self.get_sample_by_name(guessed_name, from_mzxml=True)
+            if rec is None:
+                die = True
+
+        if die:
+            # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
+            raise self.aggregated_errors_object
+
+        print("No totally unexpected mzXML files found.")
+
+        self.set_row_index(0)
 
     def check_sample_headers(self):
         """This checks that all identical sample headers all map to the same sample name (database record)."""
@@ -1401,7 +1508,7 @@ class MSRunsLoader(TableLoader):
                         {"name": sample_name},
                         file=file,
                         message=(
-                            f"{Sample.__name__} record matching the mzXML file's basename [{sample_name}] "
+                            f"{Sample.__name__} record matching the mzXML file's basename [{sample_name}] or extracted "
                             "does not exist.  Please identify the associated sample and add a row with it, the "
                             f"matching mzXML file name(s), and the {self.headers.SEQNAME} to %s."
                         ),
