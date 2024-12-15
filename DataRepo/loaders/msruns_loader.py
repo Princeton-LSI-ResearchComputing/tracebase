@@ -578,9 +578,6 @@ class MSRunsLoader(TableLoader):
                     # Exception handling was handled
                     # Continue processing rows to find more errors
                     pass
-                # TODO: DEBUG - REMOVE
-                if row.name >= 5:
-                    break
         self.check_sample_headers()
 
         # 3. Traverse leftover mzXML/ArchiveFile records unassociated with those processed in step 2, using:
@@ -2361,6 +2358,8 @@ class MSRunsLoader(TableLoader):
         Returns
             boolean
         """
+        import json
+        print(f"MZXMLDICT AFTER LOAD:\n{json.dumps(self.mzxml_dict, indent=4)}\nSKIP_MSRUNSAMPLE_BY_MZXML:\n{json.dumps(self.skip_msrunsample_by_mzxml, indent=4)}")
         for mzxml_name in self.mzxml_dict.keys():
             for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
                 for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
