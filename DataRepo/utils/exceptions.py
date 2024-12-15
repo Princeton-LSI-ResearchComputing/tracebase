@@ -2051,7 +2051,13 @@ class AggregatedErrors(Exception):
     # TODO: Prune the simulated stack trace more and add output that makes it clear it's a simulated trace
     # TODO: Don't reset the current exception number when remove_* is used, because it's confusing to see repeated nums
     def __init__(
-        self, message=None, exceptions=None, errors=None, warnings=None, quiet=False
+        self,
+        message=None,
+        exceptions=None,
+        errors=None,
+        warnings=None,
+        quiet=False,
+        debug=False,
     ):
         if not exceptions:
             exceptions = []
@@ -2117,6 +2123,7 @@ class AggregatedErrors(Exception):
 
         self.buffered_tb_str = self.get_buffered_traceback_string()
         self.quiet = quiet
+        self.debug = debug
 
     def merge_aggregated_errors_object(self, aes_object: AggregatedErrors):
         """
@@ -2445,7 +2452,9 @@ class AggregatedErrors(Exception):
         if is_error:
             self.is_error = True
 
-        if not self.quiet:
+        if not self.quiet and (
+            not issubclass(SummarizableError, buffered_exception) or self.debug
+        ):
             self.print_buffered_exception(buffered_exception)
 
         # Update the overview message
@@ -3436,10 +3445,150 @@ class NoMZXMLFiles(Exception):
         super().__init__(message)
 
 
-class NoScans(InfileError):
-    def __init__(self, **kwargs):
-        message = "mzXML File '%s' contains no scans."
+class AllNoScans(Exception):
+    """Takes a list of NoScans exceptions and summarizes them in a single exception."""
+
+    def __init__(self, no_scans_excs, message=None):
+        if not message:
+            loc_msg_default = ", obtained from the indicated file locations,"
+            loc_msg = ""
+            err_dict = defaultdict(lambda: defaultdict(list))
+            for exc in no_scans_excs:
+                if exc.file or exc.sheet or exc.column:
+                    loc_msg = loc_msg_default
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                    column=exc.column,
+                )
+                if exc.rownum is None:
+                    if (
+                        loc not in err_dict.keys()
+                        or exc.mzxml_file not in err_dict[loc].keys()
+                    ):
+                        err_dict[loc][exc.mzxml_file] = []
+                else:
+                    err_dict[loc][exc.mzxml_file].append(exc.rownum)
+                    loc_msg = loc_msg_default
+
+            nltt = "\n\t\t" if loc_msg != "" else "\n\t"
+            mzxml_str = ""
+            for loc in err_dict.keys():
+                if loc_msg != "":
+                    mzxml_str += f"\t{loc}:\n\t\t"
+                else:
+                    mzxml_str += "\t"
+                mzxml_str += (
+                    nltt.join(
+                        [
+                            f"{k} found on row(s): {summarize_int_list(v)}"
+                            for k, v in err_dict[loc].items()
+                        ]
+                    )
+                    + "\n"
+                )
+
+            message = (
+                f"The following mzXML files{loc_msg} were not loaded because they contain no scan data:\n"
+                f"{mzxml_str}"
+            )
+
+        super().__init__(message)
+        self.no_scans_excs = no_scans_excs
+
+
+class NoScans(InfileError, SummarizableError):
+    SummarizerExceptionClass = AllNoScans
+
+    def __init__(self, mzxml_file, **kwargs):
+        from_str = (
+            " (reference in %s)"
+            if kwargs.get("file")
+            or kwargs.get("sheet")
+            or kwargs.get("rownum")
+            or kwargs.get("column")
+            else ""
+        )
+        message = f"mzXML File '{mzxml_file}'{from_str} contains no scans."
         super().__init__(message, **kwargs)
+        self.mzxml_file = mzxml_file
+
+
+class AllMzxmlSequenceUnknown(Exception):
+    """Takes a list of MzxmlSequenceUnknown exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions, message=None):
+        if not message:
+            loc_msg_default = ", obtained from the indicated file locations"
+            loc_msg = ""
+            err_dict = defaultdict(lambda: defaultdict(list))
+            exc: MzxmlSequenceUnknown
+            for exc in exceptions:
+                if exc.file or exc.sheet or exc.column:
+                    loc_msg = loc_msg_default
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                    column=exc.column,
+                )
+                if exc.rownum is None:
+                    if (
+                        loc not in err_dict.keys()
+                        or exc.mzxml_basename not in err_dict[loc].keys()
+                    ):
+                        err_dict[loc][exc.mzxml_basename] = {
+                            "rows": [],
+                            "match_files": exc.match_files,
+                        }
+                else:
+                    err_dict[loc][exc.mzxml_basename]["rows"].append(exc.rownum)
+                    for mf in exc.match_files:
+                        if mf not in err_dict[loc][exc.mzxml_basename]["match_files"]:
+                            err_dict[loc][exc.mzxml_basename]["match_files"].append(mf)
+                    loc_msg = loc_msg_default
+
+            nltt = "\n\t\t" if loc_msg != "" else "\n\t"
+            nlttt = "\n\t\t\t" if loc_msg != "" else "\n\t\t"
+            mzxml_str = ""
+            for loc in err_dict.keys():
+                if loc_msg != "":
+                    mzxml_str += f"\t{loc}:\n\t\t"
+                else:
+                    mzxml_str += "\t"
+                mzxml_str += (
+                    nltt.join(
+                        [
+                            f"{k} found on row(s): {summarize_int_list(v['rows'])}\n"
+                            + nlttt.join(v["match_files"])
+                            for k, v in err_dict[loc].items()
+                        ]
+                    )
+                    + "\n"
+                )
+
+            message = (
+                f"Multiple mzXML files with the same basename{loc_msg}.  Cannot determine the MSRunSequence, so one "
+                "will be attempted to be deduced.  If unsuccessful, an error requiring defaults to be supplied will "
+                f"occur below:\n{mzxml_str}"
+            )
+
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MzxmlSequenceUnknown(InfileError, SummarizableError):
+    SummarizerExceptionClass = AllMzxmlSequenceUnknown
+
+    def __init__(self, mzxml_basename, match_files, **kwargs):
+        message = (
+            f"Multiple mzXML files with the same basename [{mzxml_basename}] found on %s:\n"
+            f"\t{match_files}\n"
+            "Cannot determine the MSRunSequence, so one will be attempted to be deduced.  If unsuccessful, an error "
+            "requiring defaults to be supplied will occur below."
+        )
+        super().__init__(message, **kwargs)
+        self.mzxml_basename = mzxml_basename
+        self.match_files = match_files
 
 
 class MzxmlNotColocatedWithAnnot(InfileError):

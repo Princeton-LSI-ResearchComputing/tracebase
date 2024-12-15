@@ -1438,7 +1438,7 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_NoScans(self):
-        ns = NoScans(file="/abs/path/to/file.mzXML")
+        ns = NoScans("/abs/path/to/file.mzXML")
         self.assertIn("'/abs/path/to/file.mzXML' contains no scans", str(ns))
 
     def test_DefaultSequenceNotFound(self):

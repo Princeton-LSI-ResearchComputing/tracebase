@@ -45,6 +45,7 @@ from DataRepo.utils.exceptions import (
     MzxmlNotColocatedWithAnnot,
     MzxmlParseError,
     MzxmlSampleHeaderMismatch,
+    MzxmlSequenceUnknown,
     MzXMLSkipRowError,
     NoSamples,
     NoScans,
@@ -561,6 +562,13 @@ class MSRunsLoader(TableLoader):
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
+            # TODO: DEBUGGING - REMOVE
+            if mzxml_file == "/tracebase-staging/incoming/perturbative_infusions/e480_wlu_Unknown_20240712-Trp-Acet-tracing/trp-pos-M16-T11.mzXML":
+                break
+
+        # TODO: DEBUGGING - REMOVE
+        self.aggregated_errors_object.buffer_error(ValueError("Debug test"))
+        raise self.aggregated_errors_object
 
         # 2. Traverse the infile
         #    - create MSRunSample records
@@ -582,6 +590,8 @@ class MSRunsLoader(TableLoader):
         # We don't want to complain about no sequence defaults being defined if the the sheet had everything, so let's
         # see if any leftover mzxml files actually exist first.
         if self.leftover_mzxml_files_exist():
+
+            print(f"\nProcessing mzXML files not in the '{self.DataSheetName}' sheet.")
 
             # Get the sequence defined by the defaults (for researcher, protocol, instrument, and date)
             default_msrun_sequence = self.get_msrun_sequence()
@@ -1131,9 +1141,26 @@ class MSRunsLoader(TableLoader):
             rawaf_rec (Optional[ArchiveFile])
             rawaf_created (boolean)
         """
+        print(f"Archiving mzXML: '{mzxml_file}'")
+
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
+        default_suggestion = "The mzXML file will be skipped."
+        raised = False
         errs: AggregatedErrors
-        mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+        try:
+            mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+        except FileNotFoundError as fnfe:
+            self.buffer_infile_exception(fnfe)
+            raised = True
+        except NoScans as ns:
+            self.buffer_infile_exception(
+                ns, is_error=False, suggestion=default_suggestion
+            )
+            raised = True
+        finally:
+            if raised:
+                errs = AggregatedErrors()
+                mzxml_metadata = None
         for exc in errs.exceptions:
             suggestion = None
             if (
@@ -1141,7 +1168,7 @@ class MSRunsLoader(TableLoader):
                 and isinstance(exc, InfileError)
                 and exc.is_error is False
             ):
-                suggestion = "The mzXML file will be skipped."
+                suggestion = default_suggestion
             self.buffer_infile_exception(exc, suggestion=suggestion)
 
         if errs.num_errors > 0:
@@ -1275,6 +1302,11 @@ class MSRunsLoader(TableLoader):
             )
             # Annotation file name is not used in the load of this data.  It is only used when the PeakAnnotationsLoader
             # retrieves metadata for a particular peak annotations file by calling get_loaded_msrun_sample_dict.
+
+            print(
+                f"Loading MSRunSamples from sheet '{self.DataSheetName}', row {self.rownum}",
+                end="\r",
+            )
 
             if self.is_skip_row():
                 self.skipped(MSRunSample.__name__)
@@ -1601,6 +1633,11 @@ class MSRunsLoader(TableLoader):
         if mzxml_metadata["added"] is True or sample is None:
             # If sample is None, get_sample_by_name will have already buffered an error
             return rec, created
+
+        print(
+            f"Loading MSRunSamples from leftover mzXML "
+            f"{os.path.join(mzxml_metadata['mzxml_dir'], mzxml_metadata['mzxml_filename'])}"
+        )
 
         # Now determine the sequence
         msrun_sequence = self.get_msrun_sequence_from_dir(
@@ -2019,20 +2056,8 @@ class MSRunsLoader(TableLoader):
                     for dr in matches
                 ]
             )
-            self.aggregated_errors_object.buffer_warning(
-                InfileError(
-                    (
-                        f"Multiple mzXML files with the same basename [{mzxml_basename}] match row {self.rownum}:\n"
-                        f"\t{match_files}\n"
-                        "The default MSRunSequence will be used if provided.  If this is followed by an error "
-                        "requiring defaults to be supplied, add one of the paths of the above files to the "
-                        f"{self.defaults.MZXMLNAME} column in %s.  All PeakGroups will be linked to a placeholder "
-                        f"MSRunSample record."
-                    ),
-                    file=self.friendly_file,
-                    sheet=self.sheet,
-                    rownum=self.rownum,
-                )
+            self.buffer_infile_exception(
+                MzxmlSequenceUnknown(mzxml_basename, match_files), is_error=False
             )
             self.warned(MSRunSample.__name__)
 
@@ -2168,10 +2193,12 @@ class MSRunsLoader(TableLoader):
             full_dict (boolean): Whether to return the raw/full dict of the mzXML file
         Exceptions:
             Raises:
-                None
+                FileNotFoundError
+                NoScans
             Buffers:
-                MzxmlParseError
+                MixedPolarityErrors
                 ValueError
+                MzxmlParseError
         Returns:
             If mzxml_path is not a real existing file:
                 None
@@ -2186,8 +2213,6 @@ class MSRunsLoader(TableLoader):
             If full_dict=True:
                 xmltodict.parse(xml_content)
         """
-        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
-        errs_buffer = AggregatedErrors()
         raw_file_name = None
         raw_file_sha1 = None
         polarity = None
@@ -2200,10 +2225,9 @@ class MSRunsLoader(TableLoader):
             mzxml_path_obj = Path(mzxml_path)
 
         if not mzxml_path_obj.is_file():
-            errs_buffer.buffer_error(FileNotFoundError(f"File not found: {mzxml_path}"))
             # mzXML files are optional, but the file names are supplied in a file, in which case, we may have a name,
             # but not the file, so just return None if what we have isn't a real file.
-            return None, errs_buffer
+            raise FileNotFoundError(f"File not found: {mzxml_path}")
 
         # Parse the xml content
         with mzxml_path_obj.open(mode="r") as f:
@@ -2211,8 +2235,10 @@ class MSRunsLoader(TableLoader):
         mzxml_dict = xmltodict.parse(xml_content)
 
         if "scan" not in mzxml_dict["mzXML"]["msRun"].keys():
-            errs_buffer.buffer_warning(NoScans(file=mzxml_path))
-            return None, errs_buffer
+            raise NoScans(mzxml_path)
+
+        # In order to use this as a class method, we will buffer the errors in a one-off AggregatedErrors object
+        errs_buffer = AggregatedErrors()
 
         if full_dict:
             return mzxml_dict, errs_buffer
