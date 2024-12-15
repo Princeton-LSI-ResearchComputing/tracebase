@@ -563,7 +563,8 @@ class MSRunsLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
-        print(f"MZXMLDICT:\n{self.mzxml_dict}", flush=True)
+        import json
+        print(f"MZXMLDICT:\n{json.dumps(self.mzxml_dict, indent=4)}", flush=True)
 
         # 2. Traverse the infile
         #    - create MSRunSample records
@@ -1374,6 +1375,7 @@ class MSRunsLoader(TableLoader):
                     self.warned(MSRunSample.__name__)
 
             if sample is None or msrun_sequence is None:
+                print(f"Skipping because sample or sequence is None: {mzxml_metadata}")
                 self.skipped(MSRunSample.__name__)
                 return rec, created
 
@@ -1440,6 +1442,7 @@ class MSRunsLoader(TableLoader):
                 self.existed(MSRunSample.__name__)
 
         except Exception as e:
+            print(f"Skipping because a {type(e).__name__} occurred: {mzxml_metadata}")
             self.handle_load_db_errors(e, MSRunSample, msrs_rec_dict)
             self.errored(MSRunSample.__name__)
             raise RollbackException()
