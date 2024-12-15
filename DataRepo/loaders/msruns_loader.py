@@ -1146,7 +1146,15 @@ class MSRunsLoader(TableLoader):
         raised = False
         errs: AggregatedErrors
         try:
+            # TODO: DEBUG - REMOVE
+            import time
+            import psutil
+            strt = time.time()
+
             mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+
+            t = time.time() - strt
+            print("mzXML PARSE SIZE: %s TIME: %.3f RAM: %s Gb" % (os.path.getsize(mzxml_file), t, psutil.virtual_memory()[3]/1000000000))
         except FileNotFoundError as fnfe:
             self.buffer_infile_exception(fnfe)
             raised = True
