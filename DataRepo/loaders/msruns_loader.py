@@ -1404,6 +1404,8 @@ class MSRunsLoader(TableLoader):
                 "ms_raw_file": mzxml_metadata["rawaf_record"],
                 "ms_data_file": mzxml_metadata["mzaf_record"],
             }
+            import json
+            print(f"MZXMLADDED: {json.dumps(mzxml_metadata, indent=4)}", flush=True)
 
             is_placeholder = mzxml_metadata["mzaf_record"] is None
 
