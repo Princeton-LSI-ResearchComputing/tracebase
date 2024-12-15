@@ -2453,7 +2453,7 @@ class AggregatedErrors(Exception):
             self.is_error = True
 
         if not self.quiet and (
-            not issubclass(SummarizableError, buffered_exception) or self.debug
+            not isinstance(buffered_exception, SummarizableError) or self.debug
         ):
             self.print_buffered_exception(buffered_exception)
 
