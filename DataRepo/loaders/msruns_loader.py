@@ -563,7 +563,7 @@ class MSRunsLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
-        print(f"MZXMLDICT:\n{self.mzxml_dict}")
+        print(f"MZXMLDICT:\n{self.mzxml_dict}", flush=True)
 
         # 2. Traverse the infile
         #    - create MSRunSample records
@@ -589,7 +589,7 @@ class MSRunsLoader(TableLoader):
         # see if any leftover mzxml files actually exist first.
         if self.leftover_mzxml_files_exist():
 
-            print(f"\nProcessing mzXML files not in the '{self.DataSheetName}' sheet.")
+            print(f"\nProcessing mzXML files not in the '{self.DataSheetName}' sheet.", flush=True)
 
             # Get the sequence defined by the defaults (for researcher, protocol, instrument, and date)
             default_msrun_sequence = self.get_msrun_sequence()
@@ -866,7 +866,7 @@ class MSRunsLoader(TableLoader):
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
-        print("No totally unexpected mzXML files found.")
+        print("No totally unexpected mzXML files found.", flush=True)
 
         self.set_row_index(0)
 
@@ -1139,22 +1139,29 @@ class MSRunsLoader(TableLoader):
             rawaf_rec (Optional[ArchiveFile])
             rawaf_created (boolean)
         """
-        print(f"Archiving mzXML: '{mzxml_file}'")
+        print(f"Archiving mzXML: '{mzxml_file}'", flush=True)
 
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         default_suggestion = "The mzXML file will be skipped."
         raised = False
         errs: AggregatedErrors
         try:
-            # TODO: DEBUG - REMOVE
+            # TODO: DEBUG - REMOVE vvv
             import time
             import psutil
             strt = time.time()
+            mzxml_metadata = {
+                "raw_file_name": os.path.basename(mzxml_file) + ".raw",
+                "raw_file_sha1": None,
+                "polarity": "+",
+                "mz_min": 1,
+                "mz_max": 100,
+            }
+            errs = AggregatedErrors()
+            # TODO: DEBUG - REMOVE ^^^
 
-            mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
-
-            t = time.time() - strt
-            print("mzXML PARSE SIZE: %s TIME: %.3f RAM: %s Gb" % (os.path.getsize(mzxml_file), t, psutil.virtual_memory()[3]/1000000000))
+            # TODO: DEBUG - UNCOMMENT
+            # mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
         except FileNotFoundError as fnfe:
             self.buffer_infile_exception(fnfe)
             raised = True
@@ -1164,6 +1171,9 @@ class MSRunsLoader(TableLoader):
             )
             raised = True
         finally:
+            # TODO: DEBUG - REMOVE
+            t = time.time() - strt
+            print("mzXML PARSE SIZE: %s TIME: %.3f RAM: %s Gb" % (os.path.getsize(mzxml_file), t, psutil.virtual_memory()[3]/1000000000), flush=True)
             if raised:
                 errs = AggregatedErrors()
                 mzxml_metadata = None
@@ -1317,7 +1327,7 @@ class MSRunsLoader(TableLoader):
 
             print(
                 f"Loading MSRunSamples from sheet '{self.DataSheetName}', row {self.rownum}",
-                end="\r",
+                end="\r", flush=True
             )
 
             if skip is True:
@@ -1336,7 +1346,7 @@ class MSRunsLoader(TableLoader):
             # We must skip erroneous rows after having updated self.skip_msrunsample_by_mzxml, because self.mzxml_files
             # aren't skipped
             if self.is_skip_row() or skip is True:
-                print(f"Erroneous skip row: {[sample_name, sample_header, mzxml_path, sequence_name, skip_str]}")
+                print(f"Erroneous skip row: {[sample_name, sample_header, mzxml_path, sequence_name, skip_str]}", flush=True)
                 self.skipped(MSRunSample.__name__)
                 return rec, created
 
@@ -1649,8 +1659,10 @@ class MSRunsLoader(TableLoader):
             return rec, created
 
         print(
-            f"Loading MSRunSamples from leftover mzXML "
-            f"{os.path.join(mzxml_metadata['mzxml_dir'], mzxml_metadata['mzxml_filename'])}"
+            (
+                f"Loading MSRunSamples from leftover mzXML "
+                f"{os.path.join(mzxml_metadata['mzxml_dir'], mzxml_metadata['mzxml_filename'])}"
+            ), flush=True
         )
 
         # Now determine the sequence
@@ -2452,7 +2464,7 @@ class MSRunsLoader(TableLoader):
 
             try:
                 os.remove(rec.file_location.path)
-                print(f"DELETED (due to rollback): {rec.file_location.path}")
+                print(f"DELETED (due to rollback): {rec.file_location.path}", flush=True)
                 deleted += 1
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
@@ -2465,8 +2477,10 @@ class MSRunsLoader(TableLoader):
                 failures += 1
 
         print(
-            f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "
-            f"{skipped} expected files did not exist."
+            (
+                f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "
+                f"{skipped} expected files did not exist."
+            ), flush=True
         )
 
     def get_sample_header_from_mzxml_name(self, mzxml_name: str):
