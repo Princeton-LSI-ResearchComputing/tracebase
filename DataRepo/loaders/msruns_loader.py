@@ -1,4 +1,5 @@
 import os
+from posixpath import isabs
 import re
 from collections import defaultdict, namedtuple
 from pathlib import Path
@@ -628,7 +629,8 @@ class MSRunsLoader(TableLoader):
                 # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
                 # an MSRunSample record, you need a Sample record, and we don't create those for blank samples.
                 if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
-                    # There can exist rows in the sheet with the sample mzxml name that are not marked with 'skip'
+                    # There can exist rows in the sheet with the sample mzxml name that are not marked with 'skip', so
+                    # we check each dir to see if it is present among the skipped files
                     dirs = [
                         dir
                         for dir in self.mzxml_dict[mzxml_name_no_ext].keys()
@@ -1231,6 +1233,10 @@ class MSRunsLoader(TableLoader):
 
         mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
 
+        # Make the mzxml_dir be relative to self.mzxml_dir
+        if os.path.isabs(mzxml_dir):
+            mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
+
         # TODO: DEBUG - UNCOMMENT
         # # Get or create an ArchiveFile record for a raw file
         # try:
@@ -1332,6 +1338,8 @@ class MSRunsLoader(TableLoader):
                 self.skipped(MSRunSample.__name__)
                 if mzxml_path is not None:
                     mzxml_dir, mzxml_filename = os.path.split(mzxml_path)
+                    if os.path.isabs(mzxml_dir):
+                        mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
                     mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
                     self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] += 1
                 elif sample_header is not None:
@@ -1404,8 +1412,6 @@ class MSRunsLoader(TableLoader):
                 "ms_raw_file": mzxml_metadata["rawaf_record"],
                 "ms_data_file": mzxml_metadata["mzaf_record"],
             }
-            import json
-            print(f"MZXMLADDED: {json.dumps(mzxml_metadata, indent=4)}", flush=True)
 
             is_placeholder = mzxml_metadata["mzaf_record"] is None
 
