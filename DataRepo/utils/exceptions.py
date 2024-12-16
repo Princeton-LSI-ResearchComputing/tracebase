@@ -2449,8 +2449,10 @@ class AggregatedErrors(Exception):
         if is_error:
             self.is_error = True
 
-        if not self.quiet and not isinstance(buffered_exception, AggregatedErrors) and (
-            not isinstance(buffered_exception, SummarizableError) or self.debug
+        if (
+            not self.quiet
+            and not isinstance(buffered_exception, AggregatedErrors)
+            and (not isinstance(buffered_exception, SummarizableError) or self.debug)
         ):
             self.print_buffered_exception(buffered_exception)
 
@@ -3561,7 +3563,11 @@ class AllMzxmlSequenceUnknown(Exception):
                             else ""
                         )
                         + nlttt
-                        + (nlttt.join(v["match_files"]) if len(v["match_files"]) > 1 else str(v["match_files"][0]))
+                        + (
+                            nlttt.join(v["match_files"])
+                            if len(v["match_files"]) > 1
+                            else str(v["match_files"][0])
+                        )
                         for k, v in err_dict[loc].items()
                     ]
                 )
@@ -3650,13 +3656,19 @@ class AllMzXMLSkipRowErrors(Exception):
             # Build the dict of organized exceptions
             loc_msg_default = ", as obtained from the indicated file locations"
             loc_msg = ""
-            err_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+            err_dict = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+            )
             exc: MzXMLSkipRowError
             for exc in exceptions:
-                err_type = "diff_num" if len(exc.dirs_from_infile) == 0 else "diff_paths"
+                err_type = (
+                    "diff_num" if len(exc.dirs_from_infile) == 0 else "diff_paths"
+                )
                 # The number of rows of the infile with mzxml_name is stored in the dict where the key is an empty
                 # string when there were no paths provided.  This is only used if there was no matching path.
-                num_header_rows = exc.skip_paths_dict[""] if "" in exc.skip_paths_dict.keys() else 0
+                num_header_rows = (
+                    exc.skip_paths_dict[""] if "" in exc.skip_paths_dict.keys() else 0
+                )
                 if exc.file or exc.sheet or exc.column:
                     loc_msg = loc_msg_default
                 loc = generate_file_location_string(
@@ -3678,13 +3690,24 @@ class AllMzXMLSkipRowErrors(Exception):
                         }
                 else:
                     err_dict[err_type][loc][exc.mzxml_name]["rows"].append(exc.rownum)
-                    err_dict[err_type][loc][exc.mzxml_name]["num_header_rows"] = [num_header_rows]
+                    err_dict[err_type][loc][exc.mzxml_name]["num_header_rows"] = [
+                        num_header_rows
+                    ]
                     for ef in exc.existing_files:
-                        if ef not in err_dict[err_type][loc][exc.mzxml_name]["existing_files"]:
-                            err_dict[err_type][loc][exc.mzxml_name]["existing_files"].append(ef)
+                        if (
+                            ef
+                            not in err_dict[err_type][loc][exc.mzxml_name][
+                                "existing_files"
+                            ]
+                        ):
+                            err_dict[err_type][loc][exc.mzxml_name][
+                                "existing_files"
+                            ].append(ef)
                     for dfi in exc.dirs_from_infile:
                         if dfi not in err_dict[loc][exc.mzxml_name]["dirs_from_infile"]:
-                            err_dict[err_type][loc][exc.mzxml_name]["dirs_from_infile"].append(dfi)
+                            err_dict[err_type][loc][exc.mzxml_name][
+                                "dirs_from_infile"
+                            ].append(dfi)
                     loc_msg = loc_msg_default
 
             nltt = "\n\t\t" if loc_msg != "" else "\n\t"
