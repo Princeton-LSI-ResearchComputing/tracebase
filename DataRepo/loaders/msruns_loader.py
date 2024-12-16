@@ -2083,13 +2083,11 @@ class MSRunsLoader(TableLoader):
                 matches.extend(multiple_mzxml_dict[real_dir])
 
         if len(matches) > 1:
-            match_files = "\n\t".join(
-                [
-                    # Not using dr["mzaf_record"].file_location because Django appends a randomized hash string
-                    os.path.join(dr["mzxml_dir"], dr["mzxml_filename"])
-                    for dr in matches
-                ]
-            )
+            match_files = [
+                # Not using dr["mzaf_record"].file_location because Django appends a randomized hash string
+                os.path.join(dr["mzxml_dir"], dr["mzxml_filename"])
+                for dr in matches
+            ]
             self.buffer_infile_exception(
                 MzxmlSequenceUnknown(mzxml_basename, match_files), is_error=False
             )

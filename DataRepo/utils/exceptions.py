@@ -3555,15 +3555,18 @@ class AllMzxmlSequenceUnknown(Exception):
                     mzxml_str += f"\t{loc}:\n\t\t"
                 else:
                     mzxml_str += "\t"
-                mzxml_str += (
-                    nltt.join(
-                        [
-                            f"{k} found on row(s): {summarize_int_list(v['rows'])}\n"
-                            + nlttt.join(v["match_files"])
-                            for k, v in err_dict[loc].items()
-                        ]
-                    )
-                    + "\n"
+                mzxml_str += nltt.join(
+                    [
+                        k
+                        + (
+                            f" found on row(s): {summarize_int_list(v['rows'])}"
+                            if len(v["rows"]) > 0
+                            else ""
+                        )
+                        + nlttt
+                        + (nlttt.join(v["match_files"]) if len(v["match_files"]) > 1 else str(v["match_files"][0]))
+                        for k, v in err_dict[loc].items()
+                    ]
                 )
 
             message = (
@@ -3580,9 +3583,10 @@ class MzxmlSequenceUnknown(InfileError, SummarizableError):
     SummarizerExceptionClass = AllMzxmlSequenceUnknown
 
     def __init__(self, mzxml_basename, match_files, **kwargs):
+        match_files_str = "\n\t".join(match_files)
         message = (
             f"Multiple mzXML files with the same basename [{mzxml_basename}] found on %s:\n"
-            f"\t{match_files}\n"
+            f"\t{match_files_str}\n"
             "Cannot determine the MSRunSequence, so one will be attempted to be deduced.  If unsuccessful, an error "
             "requiring defaults to be supplied will occur below."
         )
