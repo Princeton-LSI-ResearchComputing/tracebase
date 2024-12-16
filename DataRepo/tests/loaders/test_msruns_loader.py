@@ -299,7 +299,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        self.assertTrue(msrl.leftover_mzxml_files_exist())
+        self.assertTrue(msrl.unpaired_mzxml_files_exist())
 
     def test_leftover_mzxml_files_exist_false(self):
         """Tests that leftover_mzxml_files_exist finds the existence of un-added mzXML files (i.e. those that were not
@@ -310,7 +310,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict["BAT_xz971"][
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]["added"] = True
-        self.assertFalse(msrl.leftover_mzxml_files_exist())
+        self.assertFalse(msrl.unpaired_mzxml_files_exist())
 
     def test_parse_mzxml(self):
         """

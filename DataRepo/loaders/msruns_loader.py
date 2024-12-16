@@ -1,5 +1,4 @@
 import os
-from posixpath import isabs
 import re
 from collections import defaultdict, namedtuple
 from pathlib import Path
@@ -564,9 +563,6 @@ class MSRunsLoader(TableLoader):
                 # Continue processing rows to find more errors
                 pass
 
-        import json
-        print(f"MZXMLDICT:\n{json.dumps(self.mzxml_dict, indent=4)}", flush=True)
-
         # 2. Traverse the infile
         #    - create MSRunSample records
         #    - associate them with the mzXML ArchiveFile records and Sample and MSRunSequence records, (keeping track of
@@ -586,9 +582,12 @@ class MSRunsLoader(TableLoader):
         #    - The default researcher, date, lc-protocol-name, instrument supplied (if any were not supplied, error).
         # We don't want to complain about no sequence defaults being defined if the the sheet had everything, so let's
         # see if any leftover mzxml files actually exist first.
-        if self.leftover_mzxml_files_exist():
+        if self.unpaired_mzxml_files_exist():
 
-            print(f"\nProcessing mzXML files not in the '{self.DataSheetName}' sheet.", flush=True)
+            print(
+                f"\nProcessing mzXML files not in the '{self.DataSheetName}' sheet.",
+                flush=True,
+            )
 
             # Get the sequence defined by the defaults (for researcher, protocol, instrument, and date)
             default_msrun_sequence = self.get_msrun_sequence()
@@ -679,11 +678,18 @@ class MSRunsLoader(TableLoader):
                                 column=self.DataHeaders.MZXMLNAME,
                                 rownum=(
                                     None
-                                    if "" not in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
+                                    if ""
+                                    not in self.skip_msrunsample_by_mzxml[
+                                        mzxml_name_no_ext
+                                    ].keys()
                                     else ", ".join(
                                         [
                                             str(n)
-                                            for n in sorted(self.skip_msrunsample_by_mzxml[mzxml_name_no_ext][""])
+                                            for n in sorted(
+                                                self.skip_msrunsample_by_mzxml[
+                                                    mzxml_name_no_ext
+                                                ][""]
+                                            )
                                         ]
                                     )
                                 ),
@@ -1156,22 +1162,7 @@ class MSRunsLoader(TableLoader):
         raised = False
         errs: AggregatedErrors
         try:
-            # TODO: DEBUG - REMOVE vvv
-            import time
-            import psutil
-            strt = time.time()
-            mzxml_metadata = {
-                "raw_file_name": os.path.basename(mzxml_file) + ".raw",
-                "raw_file_sha1": None,
-                "polarity": "+",
-                "mz_min": 1,
-                "mz_max": 100,
-            }
-            errs = AggregatedErrors()
-            # TODO: DEBUG - REMOVE ^^^
-
-            # TODO: DEBUG - UNCOMMENT
-            # mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
+            mzxml_metadata, errs = self.parse_mzxml(mzxml_file)
         except FileNotFoundError as fnfe:
             self.buffer_infile_exception(fnfe)
             raised = True
@@ -1181,9 +1172,6 @@ class MSRunsLoader(TableLoader):
             )
             raised = True
         finally:
-            # TODO: DEBUG - REMOVE
-            t = time.time() - strt
-            print("mzXML PARSE SIZE: %s TIME: %.3f RAM: %s Gb" % (os.path.getsize(mzxml_file), t, psutil.virtual_memory()[3]/1000000000), flush=True)
             if raised:
                 errs = AggregatedErrors()
                 mzxml_metadata = None
@@ -1208,38 +1196,33 @@ class MSRunsLoader(TableLoader):
             # No need to raise, because errors and warnings have been buffered above
             return None, False, None, False
 
-        # TODO: DEBUG - REMOVE
-        mzaf_rec, mzaf_created = None, True
-        rawaf_rec, rawaf_created = None, True
-
-        # TODO: DEBUG - UNCOMMENT
-        # # Get or create the ArchiveFile record for the mzXML
-        # try:
-        #     mz_rec_dict = {
-        #         # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
-        #         # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
-        #         # "imported_timestamp": xxx,  # Gets automatically filled in by the model
-        #         "file_location": mzxml_file,  # Intentionally a string and not a File object
-        #         "data_type": DataType.objects.get(code="ms_data"),
-        #         "data_format": DataFormat.objects.get(code="mzxml"),
-        #     }
-        #     mzaf_rec, mzaf_created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
-        #     if mzaf_created:
-        #         self.created(ArchiveFile.__name__)
-        #         # Save the path to the file in the archive in case of rollback
-        #         self.created_mzxml_archive_file_recs.append(mzaf_rec)
-        #     else:
-        #         self.existed(ArchiveFile.__name__)
-        # except (DataType.DoesNotExist, DataFormat.DoesNotExist) as dne:
-        #     self.aggregated_errors_object.buffer_error(dne)
-        #     self.skipped(ArchiveFile.__name__)
-        #     self.skipped(ArchiveFile.__name__)  # Skipping raw file below
-        #     raise RollbackException()
-        # except Exception as e:
-        #     self.handle_load_db_errors(e, ArchiveFile, mz_rec_dict)
-        #     self.errored(ArchiveFile.__name__)
-        #     self.skipped(ArchiveFile.__name__)  # Skipping raw file below
-        #     raise RollbackException()
+        # Get or create the ArchiveFile record for the mzXML
+        try:
+            mz_rec_dict = {
+                # "filename": xxx,  # Gets automatically filled in by the override of get_or_create
+                # "checksum": xxx,  # Gets automatically filled in by the override of get_or_create
+                # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+                "file_location": mzxml_file,  # Intentionally a string and not a File object
+                "data_type": DataType.objects.get(code="ms_data"),
+                "data_format": DataFormat.objects.get(code="mzxml"),
+            }
+            mzaf_rec, mzaf_created = ArchiveFile.objects.get_or_create(**mz_rec_dict)
+            if mzaf_created:
+                self.created(ArchiveFile.__name__)
+                # Save the path to the file in the archive in case of rollback
+                self.created_mzxml_archive_file_recs.append(mzaf_rec)
+            else:
+                self.existed(ArchiveFile.__name__)
+        except (DataType.DoesNotExist, DataFormat.DoesNotExist) as dne:
+            self.aggregated_errors_object.buffer_error(dne)
+            self.skipped(ArchiveFile.__name__)
+            self.skipped(ArchiveFile.__name__)  # Skipping raw file below
+            raise RollbackException()
+        except Exception as e:
+            self.handle_load_db_errors(e, ArchiveFile, mz_rec_dict)
+            self.errored(ArchiveFile.__name__)
+            self.skipped(ArchiveFile.__name__)  # Skipping raw file below
+            raise RollbackException()
 
         mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
 
@@ -1247,32 +1230,31 @@ class MSRunsLoader(TableLoader):
         if os.path.isabs(mzxml_dir):
             mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
 
-        # TODO: DEBUG - UNCOMMENT
-        # # Get or create an ArchiveFile record for a raw file
-        # try:
-        #     raw_rec_dict = {
-        #         "filename": mzxml_metadata["raw_file_name"],
-        #         "checksum": mzxml_metadata["raw_file_sha1"],
-        #         # "imported_timestamp": xxx,  # Gets automatically filled in by the model
-        #         # "file_location": xxx,  # We do not store raw files
-        #         "data_type": DataType.objects.get(code="ms_data"),
-        #         "data_format": DataFormat.objects.get(code="ms_raw"),
-        #     }
-        #     rawaf_rec, rawaf_created = ArchiveFile.objects.get_or_create(**raw_rec_dict)
-        #     if rawaf_created:
-        #         self.created(ArchiveFile.__name__)
-        #     else:
-        #         self.existed(ArchiveFile.__name__)
-        # except (DataType.DoesNotExist, DataFormat.DoesNotExist) as dne:
-        #     self.aggregated_errors_object.buffer_error(dne)
-        #     self.skipped(ArchiveFile.__name__)
-        #     # Skipping mzXML file above (rolled back)
-        #     self.skipped(ArchiveFile.__name__)
-        #     raise RollbackException()
-        # except Exception as e:
-        #     self.handle_load_db_errors(e, ArchiveFile, raw_rec_dict)
-        #     self.errored(ArchiveFile.__name__)
-        #     raise RollbackException()
+        # Get or create an ArchiveFile record for a raw file
+        try:
+            raw_rec_dict = {
+                "filename": mzxml_metadata["raw_file_name"],
+                "checksum": mzxml_metadata["raw_file_sha1"],
+                # "imported_timestamp": xxx,  # Gets automatically filled in by the model
+                # "file_location": xxx,  # We do not store raw files
+                "data_type": DataType.objects.get(code="ms_data"),
+                "data_format": DataFormat.objects.get(code="ms_raw"),
+            }
+            rawaf_rec, rawaf_created = ArchiveFile.objects.get_or_create(**raw_rec_dict)
+            if rawaf_created:
+                self.created(ArchiveFile.__name__)
+            else:
+                self.existed(ArchiveFile.__name__)
+        except (DataType.DoesNotExist, DataFormat.DoesNotExist) as dne:
+            self.aggregated_errors_object.buffer_error(dne)
+            self.skipped(ArchiveFile.__name__)
+            # Skipping mzXML file above (rolled back)
+            self.skipped(ArchiveFile.__name__)
+            raise RollbackException()
+        except Exception as e:
+            self.handle_load_db_errors(e, ArchiveFile, raw_rec_dict)
+            self.errored(ArchiveFile.__name__)
+            raise RollbackException()
 
         # Add in the ArchiveFile record objects
         mzxml_metadata["mzaf_record"] = mzaf_rec
@@ -1339,11 +1321,6 @@ class MSRunsLoader(TableLoader):
             # Annotation file name is not used in the load of this data.  It is only used when the PeakAnnotationsLoader
             # retrieves metadata for a particular peak annotations file by calling get_loaded_msrun_sample_dict.
 
-            print(
-                f"Loading MSRunSamples from sheet '{self.DataSheetName}', row {self.rownum}",
-                end="\r", flush=True
-            )
-
             if skip is True:
                 self.skipped(MSRunSample.__name__)
                 if mzxml_path is not None:
@@ -1351,18 +1328,31 @@ class MSRunsLoader(TableLoader):
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
                     mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir].append(self.rownum)
+                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir].append(
+                        self.rownum
+                    )
                 elif sample_header is not None:
                     # If there happen to be mzXMLs supplied, but not in the mzXML column, add the sample header to cause
                     # the skip (fingers crossed, there's not some difference - but we can't necessarily know that).
                     # TODO: Account for the dash/underscore issue here.  Isocorr changes dashes in the mzXML name to
                     # underscores, and we haven't accounted for that here...
-                    self.skip_msrunsample_by_mzxml[sample_header][""].append(self.rownum)
+                    self.skip_msrunsample_by_mzxml[sample_header][""].append(
+                        self.rownum
+                    )
 
             # We must skip erroneous rows after having updated self.skip_msrunsample_by_mzxml, because self.mzxml_files
             # aren't skipped
             if self.is_skip_row() or skip is True:
-                print(f"Erroneous skip row: {[sample_name, sample_header, mzxml_path, sequence_name, skip_str]}", flush=True)
+                if skip:
+                    print(
+                        f"Skipping row: {[sample_name, sample_header, mzxml_path, sequence_name, skip_str]}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"Erroneous row: {[sample_name, sample_header, mzxml_path, sequence_name, skip_str]}",
+                        flush=True,
+                    )
                 self.skipped(MSRunSample.__name__)
                 return rec, created
 
@@ -1390,7 +1380,10 @@ class MSRunsLoader(TableLoader):
                     self.warned(MSRunSample.__name__)
 
             if sample is None or msrun_sequence is None:
-                print(f"Skipping because sample or sequence is None: {mzxml_metadata}")
+                print(
+                    "Skipping because sample or sequence not found: "
+                    f"{[sample_name, sample_header, mzxml_path, sequence_name, skip_str]}"
+                )
                 self.skipped(MSRunSample.__name__)
                 return rec, created
 
@@ -1678,9 +1671,10 @@ class MSRunsLoader(TableLoader):
 
         print(
             (
-                f"Loading MSRunSamples from leftover mzXML "
+                f"Loading MSRunSamples from mzXML not paired with a row from the input file: "
                 f"{os.path.join(mzxml_metadata['mzxml_dir'], mzxml_metadata['mzxml_filename'])}"
-            ), flush=True
+            ),
+            flush=True,
         )
 
         # Now determine the sequence
@@ -2360,9 +2354,10 @@ class MSRunsLoader(TableLoader):
             "mz_max": mz_max,
         }, errs_buffer
 
-    def leftover_mzxml_files_exist(self):
+    def unpaired_mzxml_files_exist(self):
         """Traverse self.mzxml_dict and return True if any mzXML files have not yet been added to an MSRunSample record
-        (meaning, it was not listed in the Peak Annotation Details sheet/file).
+        (meaning, it was not listed in the Peak Annotation Details sheet/file or there were multiple files with the same
+        name, not all paths were provided in the input file, and thus, the file could not be paired with a row).
 
         This method exists in order to avoid errors when trying to retrieve default values, if they are not needed, e.g.
         when the infile is complete and all mzXMLs were included in it.
@@ -2374,8 +2369,6 @@ class MSRunsLoader(TableLoader):
         Returns
             boolean
         """
-        import json
-        print(f"MZXMLDICT AFTER LOAD:\n{json.dumps(self.mzxml_dict, indent=4)}\nSKIP_MSRUNSAMPLE_BY_MZXML:\n{json.dumps(self.skip_msrunsample_by_mzxml, indent=4)}")
         for mzxml_name in self.mzxml_dict.keys():
             for mzxml_dir in self.mzxml_dict[mzxml_name].keys():
                 for mzxml_metadata in self.mzxml_dict[mzxml_name][mzxml_dir]:
@@ -2482,7 +2475,9 @@ class MSRunsLoader(TableLoader):
 
             try:
                 os.remove(rec.file_location.path)
-                print(f"DELETED (due to rollback): {rec.file_location.path}", flush=True)
+                print(
+                    f"DELETED (due to rollback): {rec.file_location.path}", flush=True
+                )
                 deleted += 1
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
@@ -2496,9 +2491,10 @@ class MSRunsLoader(TableLoader):
 
         print(
             (
-                f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, and "
-                f"{skipped} expected files did not exist."
-            ), flush=True
+                f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, "
+                f"and {skipped} expected files did not exist."
+            ),
+            flush=True,
         )
 
     def get_sample_header_from_mzxml_name(self, mzxml_name: str):
