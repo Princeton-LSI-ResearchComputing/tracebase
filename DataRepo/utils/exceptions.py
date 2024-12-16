@@ -3709,7 +3709,7 @@ class AllMzXMLSkipRowErrors(Exception):
                                 if len(v["rows"]) > 0
                                 else ""
                             )
-                            + f" ({v['num_header_rows']})"
+                            + f" ({v['num_header_rows'][0]} skipped sample headers from the infile)"
                             + nlttt
                             + (
                                 nlttt.join(v["existing_files"])
