@@ -1972,10 +1972,7 @@ class AggregatedErrorsSet(Exception):
             )
             if not self.is_fatal:
                 message += f"  This exception should not have been raised.{should_raise_message}"
-            message += (
-                f"\n{self.get_summary_string()}\nScroll up to see tracebacks for each exception printed as it was "
-                "encountered."
-            )
+            message += f"\n{self.get_summary_string()}"
         else:
             message = f"AggregatedErrors exception.  No exceptions have been buffered.{should_raise_message}"
         return message
@@ -2452,7 +2449,7 @@ class AggregatedErrors(Exception):
         if is_error:
             self.is_error = True
 
-        if not self.quiet and (
+        if not self.quiet and not isinstance(buffered_exception, AggregatedErrors) and (
             not isinstance(buffered_exception, SummarizableError) or self.debug
         ):
             self.print_buffered_exception(buffered_exception)
@@ -3709,7 +3706,7 @@ class AllMzXMLSkipRowErrors(Exception):
                                 if len(v["rows"]) > 0
                                 else ""
                             )
-                            + f" ({v['num_header_rows'][0]} skipped sample headers from the infile)"
+                            + f" ({len(v['num_header_rows'][0])} skipped sample headers from the infile)"
                             + nlttt
                             + (
                                 nlttt.join(v["existing_files"])
