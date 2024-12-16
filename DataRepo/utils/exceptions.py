@@ -3645,7 +3645,128 @@ class MultipleDefaultSequencesFound(Exception):
         super().__init__(message)
 
 
-class MzXMLSkipRowError(InfileError):
+class AllMzXMLSkipRowErrors(Exception):
+    """Takes a list of MzxmlSequenceUnknown exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions, message=None):
+        if not message:
+            # Build the dict of organized exceptions
+            loc_msg_default = ", as obtained from the indicated file locations"
+            loc_msg = ""
+            err_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+            exc: MzXMLSkipRowError
+            for exc in exceptions:
+                err_type = "diff_num" if len(exc.dirs_from_infile) == 0 else "diff_paths"
+                # The number of rows of the infile with mzxml_name is stored in the dict where the key is an empty
+                # string when there were no paths provided.  This is only used if there was no matching path.
+                num_header_rows = exc.skip_paths_dict[""] if "" in exc.skip_paths_dict.keys() else 0
+                if exc.file or exc.sheet or exc.column:
+                    loc_msg = loc_msg_default
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                    column=exc.column,
+                )
+                if exc.rownum is None:
+                    if (
+                        err_type not in err_dict.keys()
+                        or loc not in err_dict[err_type].keys()
+                        or exc.mzxml_name not in err_dict[err_type][loc].keys()
+                    ):
+                        err_dict[err_type][loc][exc.mzxml_name] = {
+                            "rows": [],
+                            "existing_files": exc.existing_files,
+                            "dirs_from_infile": exc.dirs_from_infile,
+                            "num_header_rows": [num_header_rows],
+                        }
+                else:
+                    err_dict[err_type][loc][exc.mzxml_name]["rows"].append(exc.rownum)
+                    err_dict[err_type][loc][exc.mzxml_name]["num_header_rows"] = [num_header_rows]
+                    for ef in exc.existing_files:
+                        if ef not in err_dict[err_type][loc][exc.mzxml_name]["existing_files"]:
+                            err_dict[err_type][loc][exc.mzxml_name]["existing_files"].append(ef)
+                    for dfi in exc.dirs_from_infile:
+                        if dfi not in err_dict[loc][exc.mzxml_name]["dirs_from_infile"]:
+                            err_dict[err_type][loc][exc.mzxml_name]["dirs_from_infile"].append(dfi)
+                    loc_msg = loc_msg_default
+
+            nltt = "\n\t\t" if loc_msg != "" else "\n\t"
+            nlttt = "\n\t\t\t" if loc_msg != "" else "\n\t\t"
+            nltttt = "\n\t\t\t\t" if loc_msg != "" else "\n\t\t\t"
+            message = ""
+            if "diff_num" in err_dict.keys():
+                diff_num_str = ""
+                for loc in err_dict["diff_num"].keys():
+                    if loc_msg != "":
+                        diff_num_str += f"\t{loc}:\n\t\t"
+                    else:
+                        diff_num_str += "\t"
+                    diff_num_str += nltt.join(
+                        [
+                            k
+                            + (
+                                f" found on row(s): {summarize_int_list(v['rows'])}"
+                                if len(v["rows"]) > 0
+                                else ""
+                            )
+                            + f" ({v['num_header_rows']})"
+                            + nlttt
+                            + (
+                                nlttt.join(v["existing_files"])
+                                if len(v["existing_files"]) > 1
+                                else str(v["existing_files"][0])
+                            )
+                            for k, v in err_dict["diff_num"][loc].items()
+                        ]
+                    )
+
+                message += (
+                    "The number of supplied mzXML files with each of the names below match a different number of "
+                    f"skipped sample headers{loc_msg}:\n{diff_num_str}\n"
+                )
+            if "diff_paths" in err_dict.keys():
+                diff_paths_str = ""
+                for loc in err_dict["diff_paths"].keys():
+                    if loc_msg != "":
+                        diff_paths_str += f"\t{loc}:\n\t\t"
+                    else:
+                        diff_paths_str += "\t"
+                    diff_paths_str += nltt.join(
+                        [
+                            k
+                            + (
+                                f" found on row(s): {summarize_int_list(v['rows'])}"
+                                if len(v["rows"]) > 0
+                                else ""
+                            )
+                            + f"{nlttt}Supplied files:{nltttt}"
+                            + (
+                                nltttt.join(v["existing_files"])
+                                if len(v["existing_files"]) > 1
+                                else str(v["existing_files"][0])
+                            )
+                            + f"{nlttt}Supplied paths from input file:{nltttt}"
+                            + (
+                                nltttt.join(v["dirs_from_infile"])
+                                if len(v["dirs_from_infile"]) > 1
+                                else str(v["dirs_from_infile"][0])
+                            )
+                            for k, v in err_dict["diff_paths"][loc].items()
+                        ]
+                    )
+
+                message += (
+                    "The paths of the following mzXML files with the same indicated sample names do not match the "
+                    f"supplied paths{loc_msg}:\n{diff_paths_str}"
+                )
+
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class MzXMLSkipRowError(InfileError, SummarizableError):
+    SummarizerExceptionClass = AllMzXMLSkipRowErrors
+
     def __init__(
         self,
         mzxml_name: str,
@@ -3670,9 +3791,9 @@ class MzXMLSkipRowError(InfileError):
         # In this instance, we don't have any paths from the infile
         if len(dirs_from_infile) == 0:
             message = (
-                f"The number of supplied mzXML files with the name '{mzxml_name}':\n"
-                f"\t{nlt.join(existing_files)}\n"
-                f"matches a different number of skipped sample headers ({skip_paths_dict['']}) in %s."
+                f"The number of supplied mzXML files with the name '{mzxml_name}' ({len(existing_files)}) matches a "
+                f"different number of skipped sample headers ({skip_paths_dict['']}) in %s:\n"
+                f"\t{nlt.join(existing_files)}"
             )
         else:
             message = (
@@ -3685,6 +3806,7 @@ class MzXMLSkipRowError(InfileError):
         self.mzxml_name = mzxml_name
         self.existing_files = existing_files
         self.skip_paths_dict = skip_paths_dict
+        self.dirs_from_infile = dirs_from_infile
 
 
 class PeakAnnotFileMismatches(Exception):
