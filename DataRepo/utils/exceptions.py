@@ -3521,7 +3521,7 @@ class AllMzxmlSequenceUnknown(Exception):
         if not message:
             loc_msg_default = ", obtained from the indicated file locations"
             loc_msg = ""
-            err_dict = defaultdict(lambda: defaultdict(list))
+            err_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
             exc: MzxmlSequenceUnknown
             for exc in exceptions:
                 if exc.file or exc.sheet or exc.column:
