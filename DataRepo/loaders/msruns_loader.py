@@ -516,7 +516,7 @@ class MSRunsLoader(TableLoader):
 
         # This will prevent creation of MSRunSample records for mzXMLs associated with (e.g.) blanks when leftover
         # mzXMLs are handled (a leftover being an mzXML unassociated with an MSRunSample record).
-        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(int))
+        self.skip_msrunsample_by_mzxml = defaultdict(lambda: defaultdict(list))
 
     # There are maintained fields in the models involved, so deferring autoupdates will make this faster
     @MaintainedModel.defer_autoupdates(
@@ -654,10 +654,10 @@ class MSRunsLoader(TableLoader):
                         and ""
                         in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
                         # The number of rows in the infile indicating that this 'sample header' should be skipped (i.e.
-                        # the count stored in self.skip_msrunsample_by_mzxml[mzxml_name][""]) is equal to the number of
-                        # files with this name (inferred by the number of directory paths)
+                        # the length of the list of rownums in self.skip_msrunsample_by_mzxml[mzxml_name][""]) is equal
+                        # to the number of files with this name (inferred by the number of directory paths)
                         and len(dirs)
-                        == self.skip_msrunsample_by_mzxml[mzxml_name_no_ext][""]
+                        == len(self.skip_msrunsample_by_mzxml[mzxml_name_no_ext][""])
                     ):
                         # We will skip the files that matches the number of infile rows where the sample header was
                         # marked as a skip row even though we haven't confirmed any explicit directory matches.
@@ -677,6 +677,16 @@ class MSRunsLoader(TableLoader):
                                 file=self.friendly_file,
                                 sheet=self.DataSheetName,
                                 column=self.DataHeaders.MZXMLNAME,
+                                rownum=(
+                                    None
+                                    if "" not in self.skip_msrunsample_by_mzxml[mzxml_name_no_ext].keys()
+                                    else ", ".join(
+                                        [
+                                            str(n)
+                                            for n in sorted(self.skip_msrunsample_by_mzxml[mzxml_name_no_ext][""])
+                                        ]
+                                    )
+                                ),
                                 suggestion=(
                                     "The mzXML files listed above will not be loaded.  If all mzXML files named "
                                     f"'{mzxml_name_no_ext}' must be skipped, please ensure that the number of rows in "
@@ -1341,13 +1351,13 @@ class MSRunsLoader(TableLoader):
                     if os.path.isabs(mzxml_dir):
                         mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
                     mzxml_name = self.get_sample_header_from_mzxml_name(mzxml_filename)
-                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir] += 1
+                    self.skip_msrunsample_by_mzxml[mzxml_name][mzxml_dir].append(self.rownum)
                 elif sample_header is not None:
                     # If there happen to be mzXMLs supplied, but not in the mzXML column, add the sample header to cause
                     # the skip (fingers crossed, there's not some difference - but we can't necessarily know that).
                     # TODO: Account for the dash/underscore issue here.  Isocorr changes dashes in the mzXML name to
                     # underscores, and we haven't accounted for that here...
-                    self.skip_msrunsample_by_mzxml[sample_header][""] += 1
+                    self.skip_msrunsample_by_mzxml[sample_header][""].append(self.rownum)
 
             # We must skip erroneous rows after having updated self.skip_msrunsample_by_mzxml, because self.mzxml_files
             # aren't skipped
