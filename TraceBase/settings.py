@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Dict
 
 import environ
+from django.db.backends.postgresql.psycopg_any import IsolationLevel
 
 env = environ.Env()
 # reading .env file
@@ -107,6 +108,21 @@ DATABASES = {
         "PASSWORD": env("DATABASE_PASSWORD"),
         "HOST": env("DATABASE_HOST"),
         "PORT": env("DATABASE_PORT"),
+        # Remove the isolation_level option if your DB does not support IsolationLevel.REPEATABLE_READ.
+        "OPTIONS": {
+            # See: https://www.postgresql.org/docs/13/transaction-iso.html#XACT-REPEATABLE-READ
+            # NOTE: Django's default isolation_level is READ_COMMITTED.  REPEATABLE_READ is a stricter isolation level.
+            # It causes concurrent database writes to not block, and if there is a conflict, the winner is the first one
+            # to write.  The loser encounters a SerializationError upon commit.  The point of making this change is to
+            # allow validation processes to not get blocked by concurrent validations or load processes.  The validation
+            # page never commits any changes, so users will never encounter a SerializationError.  And the only time
+            # admins would encounter the error is if for example, a conflicting edit is made on the admin edit interface
+            # during a load (or during manual concurrent DB manipulations in for examplem the shell).
+            # NOTE: The only database architectures that support REPEATABLE_READ are postgres and MySQL.  The site will
+            # still work in for example, SQLite, but concurrent validations could encounter timeout errors due to
+            # record/row blocking, because the validations can only happen serially.
+            "isolation_level": IsolationLevel.REPEATABLE_READ,
+        },
     }
 }
 
