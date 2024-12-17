@@ -104,9 +104,10 @@ DATABASES = {
         "PORT": env("DATABASE_PORT"),
         # Remove the isolation_level option if your DB does not support IsolationLevel.REPEATABLE_READ.
         "OPTIONS": {
-            # Django's default isolation_level is READ_COMMITTED.  REPEATABLE_READ is a stricter isolation level.  It
-            # causes concurrent database writes to not block, and if there is a conflict, the winner is the first one to
-            # write.  The loser encounters a SerializationError upon commit.  The point of making this change is to
+            # See: https://www.postgresql.org/docs/13/transaction-iso.html#XACT-REPEATABLE-READ
+            # NOTE: Django's default isolation_level is READ_COMMITTED.  REPEATABLE_READ is a stricter isolation level.
+            # It causes concurrent database writes to not block, and if there is a conflict, the winner is the first one
+            # to write.  The loser encounters a SerializationError upon commit.  The point of making this change is to
             # allow validation processes to not get blocked by concurrent validations or load processes.  The validation
             # page never commits any changes, so users will never encounter a SerializationError.  And the only time
             # admins would encounter the error is if for example, a conflicting edit is made on the admin edit interface
