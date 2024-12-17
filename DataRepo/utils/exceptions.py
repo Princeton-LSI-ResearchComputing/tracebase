@@ -1552,13 +1552,14 @@ class MultiLoadStatus(Exception):
     from (for example) load_study will convey the load statuses to the validation interface.
     """
 
-    def __init__(self, load_keys=None):
+    def __init__(self, load_keys=None, debug=False):
         self.statuses = {}
         # Initialize the load status of all load keys (e.g. file names).  Note, you can create arbitrary keys for group
         # statuses, e.g. for AllMissingCompounds errors that consolidate all missing compounds
         if load_keys:
             for load_key in load_keys:
                 self.init_load(load_key)
+        self.debug = debug
 
     def clear_load(self):
         self.statuses = {}
@@ -1687,10 +1688,8 @@ class MultiLoadStatus(Exception):
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
             num_errors (boolean)
         """
@@ -1710,10 +1709,8 @@ class MultiLoadStatus(Exception):
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
             num_warnings (boolean)
         """
@@ -1733,10 +1730,8 @@ class MultiLoadStatus(Exception):
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
             state (string): "PASSED", "WARNING", or "FAILED"
         """
@@ -1755,25 +1750,33 @@ class MultiLoadStatus(Exception):
 
     @property
     def is_valid(self):
-        """Determine the "is_valid" state, but do it on the fly to simplify determination given the new features
-        elsewhere of fixing and removing exceptions.
+        """Determine the "is_valid" state on the fly, to simplify the determination, given the possibility of fixing and
+        removing of exceptions, which means that this can be relied on before having updated the entire object's state.
 
         Args:
             None
-
         Exceptions:
             None
-
         Returns:
             is_valid (boolean)
         """
         for lk in self.statuses.keys():
-            # Any exception (warning or error) results in an invalid load state (either FAILED or WARNING)
+            # Any exception (warning or error) can result in an invalid load state (either FAILED or WARNING), depending
+            # on whether the exception is marked as fatal - and that depends on the validate mode in the load classes.
             if (
                 "aggregated_errors" in self.statuses[lk].keys()
                 and self.statuses[lk]["aggregated_errors"] is not None
-                and len(self.statuses[lk]["aggregated_errors"].exceptions) > 0
+                and self.statuses[lk]["aggregated_errors"].should_raise()
             ):
+                if self.debug:
+                    print(
+                        f"The AggregatedErrorsSet exception is fatal because the '{lk}' load key's AggregatedErrors "
+                        "object contains the following fatal exceptions:"
+                    )
+                    for exc in self.statuses[lk]["aggregated_errors"].exceptions:
+                        print(
+                            f"\t{type(exc).__name__} is_error: {exc.is_error} is_fatal: {exc.is_fatal}"
+                        )
                 return False
         return True
 

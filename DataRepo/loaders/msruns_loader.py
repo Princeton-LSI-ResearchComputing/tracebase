@@ -2093,7 +2093,9 @@ class MSRunsLoader(TableLoader):
                 for dr in matches
             ]
             self.buffer_infile_exception(
-                MzxmlSequenceUnknown(mzxml_basename, match_files), is_error=False
+                MzxmlSequenceUnknown(mzxml_basename, match_files),
+                is_error=False,
+                is_fatal=self.validate,
             )
             self.warned(MSRunSample.__name__)
 
