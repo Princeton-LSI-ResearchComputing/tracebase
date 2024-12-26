@@ -1157,6 +1157,10 @@ class MSRunsLoader(TableLoader):
         """
         print(f"Archiving mzXML: '{mzxml_file}'", flush=True)
 
+        # Set the row index / rownum to None.  We haven't started reading the sheet yet, so clear the index so that
+        # buffer_infile_exception does not inaccurately report row numbers.
+        self.set_row_index(None)
+
         # Parse out the polarity, mz_min, mz_max, raw_file_name, and raw_file_sha1
         default_suggestion = "The mzXML file will be skipped."
         raised = False
