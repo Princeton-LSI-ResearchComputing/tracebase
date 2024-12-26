@@ -148,7 +148,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
         """
         mls = MultiLoadStatus()
         aes = AggregatedErrors()
-        aes.buffer_warning(ValueError("Test warning"))
+        aes.buffer_warning(ValueError("Test warning"), is_fatal=True)
         mls.set_load_exception(aes, "mykey", top=True)
         self.assertEqual(1, len(mls.statuses.keys()))
         self.assertEqual(

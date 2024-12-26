@@ -28,6 +28,7 @@ from DataRepo.tests.tracebase_test_case import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllMzxmlSequenceUnknown,
     InfileError,
     MutuallyExclusiveArgs,
     MzxmlColocatedWithMultipleAnnot,
@@ -1600,8 +1601,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         msrl.load_data()
 
-        self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
-        self.assertEqual(2, msrl.aggregated_errors_object.num_warnings)
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, msrl.aggregated_errors_object.num_warnings)
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], AllMzxmlSequenceUnknown
+        )
+        self.assertIn(
+            "BAT_xz971 found on row(s): ['2-3']",
+            str(msrl.aggregated_errors_object.exceptions[0]),
+        )
 
         self.assertEqual(3, ArchiveFile.objects.count() - af_before)
         self.assertEqual(2, MSRunSample.objects.count() - msrs_before)
