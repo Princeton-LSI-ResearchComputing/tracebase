@@ -1003,6 +1003,7 @@ class FormatsTests(TracebaseTestCase):
     def getExpectedStats(self):
         return {
             "available": True,
+            "based_on": None,
             "data": {
                 "Animals": {
                     "count": 1,
@@ -1076,23 +1077,35 @@ class FormatsTests(TracebaseTestCase):
         """
         basv = SearchGroup()
         qry = self.get_advanced_qry()
-        res, cnt, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
+        _, _, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
         expected_stats = self.getExpectedStats()
         self.assertEqual(expected_stats, stats)
 
-    def test_getQueryStats(self):
+    def test_getQueryStats_full(self):
         """
         Test that getQueryStats returns a correct stats structure
         """
         basv = SearchGroup()
         qry = self.get_advanced_qry()
-        res, cnt, ignore_stats = basv.performQuery(
-            qry, "pgtemplate", generate_stats=True
-        )
-        got = basv.getQueryStats(res, qry["selectedtemplate"])
+        res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
+        got, based_on = basv.getQueryStats(res, qry["selectedtemplate"])
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
         self.assertEqual(expected, got)
+        self.assertIsNone(based_on)
+
+    def test_getQueryStats_truncated(self):
+        """Test that getQueryStats returns truncated results when not enough time"""
+        basv = SearchGroup()
+        qry = self.get_advanced_qry()
+        res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
+        got, based_on = basv.getQueryStats(
+            res, qry["selectedtemplate"], time_limit_secs=0
+        )
+        full_stats = self.getExpectedStats()
+        expected = full_stats["data"]
+        self.assertNotEqual(expected, got)
+        self.assertEqual("* Based on 8.33% of the data (truncated for time)", based_on)
 
     def test_constructAdvancedQuery(self):
         """
