@@ -1,6 +1,7 @@
 import json
+import time
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, Optional
 
 from django.core.exceptions import (
     FieldError,
@@ -18,6 +19,9 @@ from DataRepo.formats.dataformat_group_query import (
     setFirstEmptyQuery,
 )
 from DataRepo.models.utilities import get_model_by_name
+from TraceBase import settings
+
+SAFE_TIMEOUT_SECS = max(settings.GATEWAY_TIMEOUT - 5, 0)
 
 
 class FormatGroup:
@@ -575,7 +579,11 @@ class FormatGroup:
             "available": self.statsAvailable(fmt),
         }
         if generate_stats:
-            stats["data"] = self.getQueryStats(results, fmt)
+            data, based_on = self.getQueryStats(
+                results, fmt, time_limit_secs=SAFE_TIMEOUT_SECS
+            )
+            stats["data"] = data
+            stats["based_on"] = based_on
             stats["show"] = True
 
         # Order by
@@ -646,7 +654,7 @@ class FormatGroup:
 
         return results, cnt, stats
 
-    def getQueryStats(self, res, fmt):
+    def getQueryStats(self, res, fmt, time_limit_secs: Optional[int] = None):
         """
         This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats
         dict keyed on the stat name and containing the counts of the number of unique values for the fields defined in
@@ -670,16 +678,26 @@ class FormatGroup:
         )
         all_fields = all_distinct_fields + stats_fields
         stats = {}
-        cnt_dict = {}
+        cnt_dict: Dict[str, dict] = {}
+        start_time = time.time()
+        loop_count = 0
+        based_on = None
 
         try:
-            # order_by(*all_distinct_fields) and distinct(*all_distinct_fields) are required to get accurate row counts,
-            # otherwise, some duplicates will get counted
-            for rec in (
+            # order_by(*all_distinct_fields) and distinct(*all_distinct_fields) are required to be able to count values
+            # occurring in "unsplit" rows.  E.g. If a field from another table has a M:1 relationship with the rows of
+            # the table, if we didn't make them distinct here, we wouldn't be able to count their values accurately.
+            # And since we are doing extra splitting, we need to be able to accurately count the actual rows of the
+            # results table too, and we do that with the reccombo variable below (which is a unique combination value on
+            # each row).
+            resultsqs = (
                 res.order_by(*all_distinct_fields)
                 .distinct(*all_distinct_fields)
                 .values_list(*all_fields)
-            ):
+            )
+            for rec in resultsqs.all():
+                loop_count += 1
+
                 # This is a combination of field values whose unique count corresponds to the number of output rows of
                 # this format
                 reccombo = ";".join(
@@ -712,25 +730,24 @@ class FormatGroup:
                         cnt_dict[statskey] = {}
 
                     # Update the stats
-                    if params["filter"] is None:
-                        # Count unique and duplicate values
-                        if valcombo not in cnt_dict[statskey]:
+                    if params["filter"] is None or self.meetsAllConditionsByValList(
+                        fmt, rec, params["filter"], all_fields
+                    ):
+                        if valcombo not in cnt_dict[statskey].keys():
                             cnt_dict[statskey][valcombo] = {}
                             cnt_dict[statskey][valcombo][reccombo] = 1
                             stats[statskey]["count"] += 1
                         else:
                             cnt_dict[statskey][valcombo][reccombo] = 1
-                    else:
-                        # Count values meeting a criteria/filter
-                        if self.meetsAllConditionsByValList(
-                            fmt, rec, params["filter"], all_fields
-                        ):
-                            stats[statskey]["count"] += 1
-                            if valcombo not in cnt_dict[statskey]:
-                                cnt_dict[statskey][valcombo] = {}
-                                cnt_dict[statskey][valcombo][reccombo] = 1
-                            else:
-                                cnt_dict[statskey][valcombo][reccombo] = 1
+
+                elapsed_time = time.time() - start_time
+                if time_limit_secs is not None and elapsed_time >= time_limit_secs:
+                    if resultsqs.count() > loop_count:
+                        based_on = (
+                            f"* Based on {loop_count / resultsqs.count() * 100:.2f}% of the data (truncated for "
+                            "time)"
+                        )
+                    break
 
             # For each stats category defined for this format
             for params in params_arrays:
@@ -760,7 +777,7 @@ class FormatGroup:
             else:
                 raise pe
 
-        return stats
+        return stats, based_on
 
     def getDownloadQryList(self):
         """

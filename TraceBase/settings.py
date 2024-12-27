@@ -46,6 +46,9 @@ DEBUG = env.bool("DEBUG", default=False)
 # You can achive this by having 2 sites: a public one and a private one.
 READONLY = env.bool("READONLY", default=False)
 
+# Web Server timout in seconds
+GATEWAY_TIMEOUT = env.int("GATEWAY_TIMEOUT", default=60)
+
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # Application definition
