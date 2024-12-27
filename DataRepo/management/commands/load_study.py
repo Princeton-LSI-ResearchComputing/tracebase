@@ -127,8 +127,8 @@ class Command(LoadTableCommand):
         if options["study_params"] is not None:
             raise CommandError(
                 "By supplying a positional argument, it looks like you're trying to call the old version of this "
-                "script.  This script has been renamed.  Use `pythong manage.py legacy_load_study ...` instead."
-                f"{options}"
+                "script.  This script has been renamed.  Use `python manage.py legacy_load_study ...` to use the old "
+                f"version.  {options}"
             )
 
         try:
