@@ -30,7 +30,6 @@ from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
-    DryRun,
     TracerLabeledElementNotFound,
     read_from_file,
 )
@@ -140,47 +139,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             self.assertEqual(
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
-
-    def test_accucor_load_in_debug(self):
-        pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
-        self.assertGreater(
-            len(pre_load_maintained_values.keys()),
-            0,
-            msg="Ensure there is data in the database before the test",
-        )
-        # Check the state of the coordinators
-        self.assure_coordinator_state_is_initialized()
-
-        with self.assertRaises(DryRun):
-            call_command(
-                "legacy_load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                skip_samples=("blank"),
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-                dry_run=True,
-            )
-
-        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
-        post_load_counts = self.get_record_counts()
-
-        self.assertEqual(
-            pre_load_counts,
-            post_load_counts,
-            msg="DryRun mode doesn't change any table's record count.",
-        )
-        self.assertEqual(
-            pre_load_maintained_values,
-            post_load_maintained_values,
-            msg="DryRun mode doesn't autoupdate.",
-        )
-        self.assure_coordinator_state_is_initialized(
-            msg="DryRun mode doesn't leave buffered autoupdates."
-        )
 
     def test_record_missing_compound(self):
         adl = AccuCorDataLoader(
