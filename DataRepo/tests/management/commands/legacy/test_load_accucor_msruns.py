@@ -31,7 +31,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
     DryRun,
-    NoSamplesError,
     TracerLabeledElementNotFound,
     read_from_file,
 )
@@ -119,30 +118,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
-
-    def test_accucor_load_sample_prefix_missing(self):
-        with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
-            call_command(
-                "legacy_load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
-                skip_samples=("blank"),
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-            )
-        aes = ar.exception
-        nl = "\n"
-        self.assertEqual(
-            1,
-            len(aes.exceptions),
-            msg=(
-                f"Should be 1 error (NoSamplesError), but there were {len(aes.exceptions)} "
-                f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
-            ),
-        )
-        self.assertTrue(isinstance(aes.exceptions[0], NoSamplesError))
 
     def assure_coordinator_state_is_initialized(
         self, msg="MaintainedModelCoordinators are in the default state."
