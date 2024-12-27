@@ -26,6 +26,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     DuplicateFileHeaders,
     MultiplePeakGroupRepresentations,
+    NoSamples,
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
@@ -402,6 +403,29 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_accucor_load_sample_prefix_missing(self):
+        """Loads an accucor with 1 sample, which is missing the prefix "PREFIX_" in the peak annot details sheet"""
+        with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                peak_annotation_details_file=(
+                    "DataRepo/data/tests/small_obob/"
+                    "small_obob_animal_and_sample_table_newsample_missing_prefix.xlsx"
+                ),
+            )
+        aes = ar.exception
+        nl = "\n"
+        self.assertEqual(
+            1,
+            len(aes.exceptions),
+            msg=(
+                f"Should be 1 error (NoSamples), but there were {len(aes.exceptions)} "
+                f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
+            ),
+        )
+        self.assertTrue(isinstance(aes.exceptions[0], NoSamples))
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
