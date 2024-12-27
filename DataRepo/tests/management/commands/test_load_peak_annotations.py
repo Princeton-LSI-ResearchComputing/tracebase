@@ -106,6 +106,20 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+        call_command(
+            "load_sequences",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_msruns",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
         super().setUpTestData()
 
     def assure_coordinator_state_is_initialized(
@@ -369,6 +383,25 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             PEAKDATA_ROWS * SAMPLES_COUNT,
             PeakData.objects.all().count() - pre_peak_data,
         )
+
+    def test_accucor_load_sample_prefix(self):
+        """Loads an accucor with 1 sample, which has a prefix "PREFIX_" in the peak annot details sheet"""
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table_newsample.xlsx"
+            ),
+        )
+        SAMPLES_COUNT = 1
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):

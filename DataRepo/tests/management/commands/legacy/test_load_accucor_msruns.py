@@ -120,27 +120,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             new_researcher=True,
         )
 
-    def test_accucor_load_sample_prefix(self):
-        call_command(
-            "legacy_load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
-            sample_name_prefix="PREFIX_",
-            skip_samples=("blank"),
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
-        SAMPLES_COUNT = 1
-        PEAKDATA_ROWS = 11
-        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
-
-        self.assertEqual(
-            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
-        )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
-
     def test_accucor_load_sample_prefix_missing(self):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
             call_command(
