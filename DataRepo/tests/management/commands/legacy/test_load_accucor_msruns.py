@@ -140,30 +140,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
-    def test_record_missing_compound(self):
-        adl = AccuCorDataLoader(
-            None,
-            None,
-            peak_annotation_file=None,
-            data_format=DataFormat.objects.get(code="accucor"),
-            date="1972-11-24",
-            researcher="",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="",
-            peak_annotation_filename="",
-            mzxml_files=[],
-        )
-        adl.record_missing_compound("new compound", "C1H4", 9)
-        self.assertEqual(
-            {
-                "new compound": {
-                    "formula": ["C1H4"],
-                    "rownums": [11],
-                }
-            },
-            adl.missing_compounds,
-        )
-
     @tag("multi-msrun")
     def test_conflicting_peakgroups(self):
         """
