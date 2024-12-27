@@ -146,94 +146,6 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
-    def test_accucor_load_in_debug(self):
-        # Check the state of the coordinators
-        self.assure_coordinator_state_is_initialized()
-
-        create_test_sequence("Michael Neinast", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": [
-                        "BAT-xz971",
-                        "Br-xz971",
-                        "Dia-xz971",
-                        "gas-xz971",
-                        "gWAT-xz971",
-                        "H-xz971",
-                        "Kid-xz971",
-                        "Liv-xz971",
-                        "Lu-xz971",
-                        "Pc-xz971",
-                        "Q-xz971",
-                        "SI-xz971",
-                        "Sol-xz971",
-                        "Sp-xz971",
-                    ],
-                    "Sample Data Header": [
-                        "BAT-xz971",
-                        "Br-xz971",
-                        "Dia-xz971",
-                        "gas-xz971",
-                        "gWAT-xz971",
-                        "H-xz971",
-                        "Kid-xz971",
-                        "Liv-xz971",
-                        "Lu-xz971",
-                        "Pc-xz971",
-                        "Q-xz971",
-                        "SI-xz971",
-                        "Sol-xz971",
-                        "Sp-xz971",
-                    ],
-                    "mzXML File Name": [None for _ in range(14)],
-                    "Peak Annotation File Name": [
-                        "small_obob_maven_6eaas_inf_blank_sample.xlsx"
-                        for _ in range(14)
-                    ],
-                    "Sequence": [
-                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(14)
-                    ],
-                },
-            ),
-        ).load_data()
-
-        pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
-        self.assertGreater(
-            len(pre_load_maintained_values.keys()),
-            0,
-            msg="Ensure there is data in the database before the test",
-        )
-
-        call_command(
-            "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            operator="Michael Neinast",
-            dry_run=True,
-        )
-
-        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
-        post_load_counts = self.get_record_counts()
-
-        self.assertEqual(
-            pre_load_counts,
-            post_load_counts,
-            msg="DryRun mode doesn't change any table's record count.",
-        )
-        self.assertEqual(
-            pre_load_maintained_values,
-            post_load_maintained_values,
-            msg="DryRun mode doesn't autoupdate.",
-        )
-        self.assure_coordinator_state_is_initialized(
-            msg="DryRun mode doesn't leave buffered autoupdates."
-        )
-
     def test_conflicting_peakgroups(self):
         """
         Test loading two conflicting PeakGroups rasies ConflictingValueErrors
@@ -426,6 +338,44 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             ),
         )
         self.assertTrue(isinstance(aes.exceptions[0], NoSamples))
+
+    def test_accucor_load_in_debug(self):
+        pre_load_counts = self.get_record_counts()
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
+        self.assertGreater(
+            len(pre_load_maintained_values.keys()),
+            0,
+            msg="Ensure there is data in the database before the test",
+        )
+        # Check the state of the coordinators
+        self.assure_coordinator_state_is_initialized()
+
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+            dry_run=True,
+        )
+
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
+        post_load_counts = self.get_record_counts()
+
+        self.assertEqual(
+            pre_load_counts,
+            post_load_counts,
+            msg="DryRun mode doesn't change any table's record count.",
+        )
+        self.assertEqual(
+            pre_load_maintained_values,
+            post_load_maintained_values,
+            msg="DryRun mode doesn't autoupdate.",
+        )
+        self.assure_coordinator_state_is_initialized(
+            msg="DryRun mode doesn't leave buffered autoupdates."
+        )
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
