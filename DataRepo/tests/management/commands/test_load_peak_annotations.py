@@ -7,6 +7,7 @@ from DataRepo.loaders import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
+from DataRepo.loaders.peak_annotations_loader import AccucorLoader
 from DataRepo.models import (
     Animal,
     Infusate,
@@ -21,12 +22,15 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.archive_file import ArchiveFile
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     DuplicateFileHeaders,
+    MultiplePeakGroupRepresentation,
     MultiplePeakGroupRepresentations,
     NoSamples,
+    RollbackException,
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
@@ -145,68 +149,6 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             self.assertEqual(
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
-
-    def test_conflicting_peakgroups(self):
-        """
-        Test loading two conflicting PeakGroups rasies ConflictingValueErrors
-
-        Attempt to load two PeakGroups for the same Compound in the same MSRunSample
-        Note, when there are 2 different peak annotation files, that is an AmbiguousMSRuns error, but when other data
-        differs, it's a ConflictingValueErrors.  The formula for glucose was changed in the conflicting file.
-        """
-
-        create_test_sequence("Michael Neinast", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": ["BAT-xz971", "Br-xz971", "BAT-xz971", "Br-xz971"],
-                    "Sample Data Header": [
-                        "BAT-xz971",
-                        "Br-xz971",
-                        "BAT-xz971",
-                        "Br-xz971",
-                    ],
-                    "mzXML File Name": [None, None, None, None],
-                    "Peak Annotation File Name": [
-                        "small_obob_maven_6eaas_inf_glucose.xlsx",
-                        "small_obob_maven_6eaas_inf_glucose.xlsx",
-                        "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
-                        "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
-                    ],
-                    "Sequence": [
-                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(4)
-                    ],
-                },
-            ),
-        ).load_data()
-
-        call_command(
-            "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            operator="Michael Neinast",
-        )
-
-        # The same PeakGroup, but from a different accucor file
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                operator="Michael Neinast",
-            )
-
-        aes = ar.exception
-        self.assertEqual(1, aes.num_errors)
-        self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
-        # 1 compounds, 2 samples -> 2 PeakGroups
-        # This error occurs on each of 7 rows, twice (once for each sample)
-        self.assertEqual(14, len(aes.exceptions[0].exceptions))
 
     @MaintainedModel.no_autoupdates()
     def test_blank_skip(self):
@@ -376,6 +318,211 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         self.assure_coordinator_state_is_initialized(
             msg="DryRun mode doesn't leave buffered autoupdates."
         )
+
+    @classmethod
+    def load_glucose_data(cls):
+        """Load small_dataset Glucose data"""
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
+        )
+
+    def test_conflicting_peakgroups(self):
+        """
+        Test that loading two conflicting PeakGroups rasies ConflictingValueErrors
+
+        Attempt to load two PeakGroups for the same Compound in the same MSRunSample
+        Note, when there are 2 different peak annotation files, it's a ConflictingValueErrors.  The formula for glucose
+        was changed in the conflicting file.
+        """
+
+        self.load_glucose_data()
+
+        # The same PeakGroup, but from a different accucor file
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
+            )
+
+        aes: AggregatedErrors = ar.exception
+        # This legacy loader doesn't summarize MultiplePeakGroupRepresentation exceptions
+        # 1 compounds, 2 samples -> 2 PeakGroups
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
+        # 1 compounds, 2 samples -> 2 PeakGroups
+        # This error occurs on each of 7 rows, twice (once for each sample)
+        self.assertEqual(14, len(aes.exceptions[0].exceptions))
+
+    def test_duplicate_peak_group(self):
+        """Test inerting two identical PeakGroups raises a MultiplePeakGroupRepresentation error
+
+        This tests the AccuCorDataLoader.get_or_create_peak_group method directly.
+        """
+
+        self.load_glucose_data()
+
+        adl = AccucorLoader()
+        # Get the first PeakGroup, and collect attributes
+        peak_group = PeakGroup.objects.first()
+
+        row = pd.Series(
+            {
+                adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
+                adl.headers.FORMULA: peak_group.formula,
+            }
+        )
+        paf = ArchiveFile(filename="peak_annotation_filename.tsv")
+        crd = {peak_group.name: peak_group.compounds.first()}
+        # Test the instance method "get_or_create_peak_group" buffers an error
+        # when inserting an exact duplicate PeakGroup
+        with self.assertRaises(RollbackException):
+            adl.get_or_create_peak_group(row, paf, crd)
+
+        aes = adl.aggregated_errors_object
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(
+            aes.exceptions[0],
+            MultiplePeakGroupRepresentation,
+            msg=(
+                f"MultiplePeakGroupRepresentation expected. Got [{type(aes.exceptions[0]).__name__}: "
+                f"{aes.exceptions[0]}]."
+            ),
+        )
+
+    def test_conflicting_peak_group(self):
+        """Test inserting two conflicting PeakGroups raises ConflictingValueErrors
+
+        Insert two PeakGroups that differ only in Formula.
+
+        This tests the get_or_create_peak_group method directly.
+        """
+
+        self.load_glucose_data()
+
+        adl = AccucorLoader()
+        # Get the first PeakGroup, and collect attributes
+        peak_group = PeakGroup.objects.first()
+
+        row = pd.Series(
+            {
+                adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
+                adl.headers.FORMULA: peak_group.formula + "S",
+            }
+        )
+        paf = peak_group.peak_annotation_file
+        crd = {peak_group.name: peak_group.compounds.first()}
+
+        with self.assertRaises(RollbackException):
+            adl.get_or_create_peak_group(row, paf, crd)
+
+        aes = adl.aggregated_errors_object
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], MultiplePeakGroupRepresentation)
+
+    def test_multiple_accucor_labels(self):
+        """
+        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
+        error
+        """
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        # Could have just used load_study, instead of calling this separately, but whatever
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
+        )
+
+        # Test peak data labels
+        peak_data = PeakData.objects.filter(peak_group__name="Glycerol").filter(
+            peak_group__msrun_sample__sample__name="M1_mix1_T150"
+        )
+
+        peak_data_labels = []
+        for peakdata in peak_data.all():
+            pdl = peakdata.labels.values("element", "mass_number", "count")
+            peak_data_labels.append(list(pdl))
+
+        expected = [
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 3},
+            ],
+        ]
+
+        self.assertEqual(expected, list(peak_data_labels))
+
+    def test_accucor_bad_label(self):
+        """
+        This tests that a bad label in the accucor file (containing an element not in the tracers) generates a single
+        KeyError about the unsupported label element.
+        """
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor_invalid_label.xlsx",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], KeyError)
+        self.assertIn(
+            "Unsupported accucor isotope element 'O'.  Supported elements are: ['C', 'N', 'D', 'H'].",
+            str(aes.exceptions[0]),
+        )
+
+    def test_multiple_accucor_one_msrun(self):
+        """
+        Test that we can load different compounds in separate data files for the same sample run (MSRunSample)
+        """
+        self.load_glucose_data()
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+        )
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_ambiguous_msruns_error(self):
+        """
+        Tests that an AmbiguousMSRuns exception is raised when a duplicate sample.peak group is encountered and the
+        peak annotation file names differ
+
+        This also tests that we do not allow the same compound to be measured from the
+        same sample run (MSRunSample) more than once
+        """
+        self.load_glucose_data()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+            )
+        # Check second file failed (duplicate compound)
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], MultiplePeakGroupRepresentations))
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
