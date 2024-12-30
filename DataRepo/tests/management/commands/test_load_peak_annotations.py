@@ -1040,9 +1040,72 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
 
 
 class LoadIsoautocorrCommandTests(TracebaseTestCase):
-    # fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-    # TODO: Implement tests after rebase that brings in Lance's isoautocorr test files
-    pass
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc_v3.xlsx",
+            # Loading the peak annot file too
+        )
+        cls.SAMPLES_COUNT = 4
+        cls.PEAKDATA_ROWS = 14
+        cls.MEASURED_COMPOUNDS_COUNT = 2  # L-Serine and Glucose
+
+        super().setUpTestData()
+
+    def test_isoautocorr_load(self):
+        """Load test-isoautocorr data"""
+
+        self.assertEqual(
+            PeakGroup.objects.count(),
+            self.MEASURED_COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+        )
+        self.assertEqual(
+            PeakData.objects.all().count(), self.PEAKDATA_ROWS * self.SAMPLES_COUNT
+        )
+
+    def test_isoautocorr_peakdatalabels(self):
+        """Check peak data labels for isoautocorr loading"""
+
+        peak_data = PeakData.objects.filter(peak_group__name="Glycine").filter(
+            peak_group__msrun_sample__sample__name="His_M3_T02_liv"
+        )
+
+        peak_data_labels = []
+        for peakdata in peak_data.all():
+            pdl = peakdata.labels.values("element", "mass_number", "count")
+            peak_data_labels.append(list(pdl))
+
+        expected = [
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+        ]
+
+        self.assertEqual(expected, list(peak_data_labels))
 
 
 class LoadUnicorrCommandTests(TracebaseTestCase):
