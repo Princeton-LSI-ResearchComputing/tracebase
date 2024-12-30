@@ -169,7 +169,7 @@ class Infusate(MaintainedModel, HierCachedModel):
         # ValueError: "<Infusate: >" needs to have a value for field "id" before this many-to-many relationship can be
         # used.
         if self.id is None or self.tracers is None or self.tracers.count() == 0:
-            return None
+            return self.tracer_group_name
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
 
