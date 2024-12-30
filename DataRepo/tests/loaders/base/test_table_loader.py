@@ -196,7 +196,7 @@ class TableLoaderTests(TracebaseTestCase):
             RequiredValueError, type(tl.aggregated_errors_object.exceptions[0])
         )
         self.assertEqual(
-            "Value required on the load file data.  Record extracted from row: {'name': None, 'choice': '2'}.",
+            "Value required for 'name' in the load file data.  Record extracted from row: 2.",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
 
