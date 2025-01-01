@@ -1,7 +1,10 @@
+from pathlib import Path
+
 from django.core.management import call_command
 
 from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.models.archive_file import ArchiveFile
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.msrun_sample import MSRunSample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
@@ -128,3 +131,67 @@ class LoadMSRunsCommandTests(TracebaseTestCase):
         aes: AggregatedErrors = ar.exception
         self.assertEqual(1, len(aes.exceptions))  # Ensure MissingRecords was removed
         self.assertTrue(aes.exception_type_exists(DefaultSequenceNotFound))
+
+
+# Transferred and converted from test_load_accucor_msruns
+class MSRunSampleSequenceTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/glucose/small_obob_animal_and_sample_table.xlsx",
+        )
+
+        cls.MSRUNSAMPLE_COUNT = 4  # 2 concrete and 2 placeholder
+        cls.MSRUNSEQUENCE_COUNT = 1
+
+        super().setUpTestData()
+
+    @MaintainedModel.no_autoupdates()
+    def test_msrunsample_and_msrunsequence_are_loaded(self):
+        """
+        Issue #712
+        Requirement: 2. accucor_data_loader loads MSRunSample and MSRunSequence
+        NOTE: This should also ensure that ms_data_file and ms_raw_file are loaded and that the files are archived
+        """
+        self.assertEqual(self.MSRUNSAMPLE_COUNT, MSRunSample.objects.count())
+        self.assertEqual(self.MSRUNSEQUENCE_COUNT, MSRunSequence.objects.count())
+
+        # mzXML ArchiveFile records exist
+        ArchiveFile.objects.get(filename="BAT-xz971.mzXML")
+        ArchiveFile.objects.get(filename="Br-xz971.mzXML")
+
+        # Files exist in the archive
+        batmz_rec = ArchiveFile.objects.get(filename="BAT-xz971.mzXML")
+        brmz_rec = ArchiveFile.objects.get(filename="Br-xz971.mzXML")
+        batmz_loc = Path(str(batmz_rec.file_location))
+        brmz_loc = Path(str(brmz_rec.file_location))
+        # Reading the file instead of using .is_file() due to the usage of InMemoryStorage for tests
+        self.assertEqual(
+            829,
+            len(batmz_rec.file_location.read()),
+            msg=f"{str(batmz_loc)} must be a real file",
+        )
+        self.assertEqual(
+            828,
+            len(brmz_rec.file_location.read()),
+            msg=f"{str(brmz_loc)} must be a real file",
+        )
+
+        # RAW ArchiveFile records exist
+        batraw_rec = ArchiveFile.objects.get(filename="BAT-xz971.raw")
+        brraw_rec = ArchiveFile.objects.get(filename="Br-xz971.raw")
+
+        # Checksums are correct
+        self.assertEqual(
+            "31bc554534cf9f1e568529d110caa85f1fd0a8c8", batraw_rec.checksum
+        )
+        self.assertEqual("a129d2228d5a693875d2bb03fb03830becdeecc1", brraw_rec.checksum)
+
+        # Raw files do not exist
+        batraw_loc = Path(str(batraw_rec.file_location))
+        brraw_loc = Path(str(brraw_rec.file_location))
+        self.assertFalse(batraw_loc.is_file())
+        self.assertFalse(brraw_loc.is_file())
