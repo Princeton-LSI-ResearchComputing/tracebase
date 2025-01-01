@@ -132,7 +132,21 @@ class ArchiveFileQuerySet(models.QuerySet):
 
         file_location = kwargs.pop("file_location", None)
 
+        # Fill in the data_type, using the provided value as the code if it is a string
+        data_type = kwargs.get("data_type")
+        if data_type is not None and isinstance(data_type, str):
+            kwargs["data_type"] = DataType.objects.get(code=data_type)
+
+        # Fill in the data_format, using the provided value as the code if it is a string
+        data_format = kwargs.get("data_format")
+        if data_format is not None and isinstance(data_format, str):
+            kwargs["data_format"] = DataFormat.objects.get(code=data_format)
+
         if file_location is None:
+            if kwargs.get("checksum", None) is None:
+                raise ValueError(
+                    "A checksum is required if the supplied file path is not an existing file."
+                )
             return super().get_or_create(**kwargs)
 
         if isinstance(file_location, File):
@@ -165,16 +179,6 @@ class ArchiveFileQuerySet(models.QuerySet):
             )
         elif supplied_checksum is None:
             kwargs["checksum"] = computed_checksum
-
-        # Fill in the data_type, using the provided value as the code if it is a string
-        data_type = kwargs.get("data_type")
-        if data_type is not None and isinstance(data_type, str):
-            kwargs["data_type"] = DataType.objects.get(code=data_type)
-
-        # Fill in the data_format, using the provided value as the code if it is a string
-        data_format = kwargs.get("data_format")
-        if data_format is not None and isinstance(data_format, str):
-            kwargs["data_format"] = DataFormat.objects.get(code=data_format)
 
         # When an ArchiveFile record is get_or_created, and you expect a `get` to occur, the handling of the
         # `file_location` value results in an unexpected outcome.  Instead of `getting` the record, since the

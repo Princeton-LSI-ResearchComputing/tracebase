@@ -1,24 +1,9 @@
-import hashlib
-from pathlib import Path
-
 import pandas as pd
 from django.core.management import call_command
 
-from DataRepo.loaders.legacy.accucor_data_loader import (
-    AccuCorDataLoader,
-    hash_file,
-)
-from DataRepo.loaders.msruns_loader import MSRunsLoader
-from DataRepo.models import (
-    ArchiveFile,
-    DataFormat,
-    Infusate,
-    MaintainedModel,
-    MSRunSample,
-    PeakGroup,
-)
+from DataRepo.loaders.legacy.accucor_data_loader import AccuCorDataLoader
+from DataRepo.models import DataFormat, Infusate, MaintainedModel
 from DataRepo.models.study import Study
-from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import read_from_file
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -73,141 +58,6 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         cls.MSRUNSEQUENCE_COUNT = 1
 
         super().setUpTestData()
-
-    def test_peakgroup_msrunsample_null_is_false(self):
-        """
-        Issue #712
-        Requirement: 3. PeakGroup.msrun_sample.null must be set to False
-        Requirement: 4. Add migration for PeakGroup.msrun_sample change
-        """
-        self.assertFalse(PeakGroup.msrun_sample.__dict__["field"].null)
-
-    # NOTE: Test for Issue #712, Requirement 5 (All broken_until_issue712 test tags must be removed) is unnecessary
-    # NOTE: Test for Issue #712, Requirement 6 is in test_exceptions.py
-
-    def test_polarity_choices_includes_unknown(self):
-        """
-        Issue #712
-        Requirement: 7.1. Add a polarity choices value: "unknown"
-        """
-        choices = [
-            ("unknown", "unknown"),  # This is the one essential for the test
-            ("positive", "positive"),  # The others are a bonus check
-            ("negative", "negative"),
-        ]
-        self.assertEqual(choices, MSRunSample.POLARITY_CHOICES)
-
-    # NOTE: Test for Issue #712, Requirement 7.2 was moved to test_msruns_loader.py
-
-    # NOTE: Test for Issue #712, Requirement 7.3 (A default polarity should be removed from the study submission form)
-    # is unnecessary
-
-    # NOTE: Test for Issue #712, Requirement 7.5 (A default polarity should be removed from the study submission form)
-    # is unnecessary
-
-    def create_AccuCorDataLoader_object(self):
-        return AccuCorDataLoader(
-            None,
-            None,
-            None,
-            data_format=DataFormat.objects.get(code="accucor"),
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="1972-11-24",
-            researcher="Michael Neinast",
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_get_or_create_raw_file(self):
-        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
-        adl = self.create_AccuCorDataLoader_object()
-        mz_dict, _ = MSRunsLoader.parse_mzxml(Path(fn))
-
-        # Test that a new record is created
-        inafs = ArchiveFile.objects.count()
-        afrec = adl.get_or_create_raw_file(mz_dict)
-        self.assertTrue(exists_in_db(afrec))
-        self.assertEqual(inafs + 1, ArchiveFile.objects.count())
-
-        # Test that the record is retrieved (not created)
-        afrec2 = adl.get_or_create_raw_file(mz_dict)
-        self.assertEqual(afrec, afrec2)
-        # Record count is unchanged
-        self.assertEqual(inafs + 1, ArchiveFile.objects.count())
-
-    @MaintainedModel.no_autoupdates()
-    def test_hash_file_allow_missing_true(self):
-        """
-        If a file does not exist and allow_missing is True, hash_file should create a hash based on the file name
-        """
-        fn = "does not exist"
-        hash = hash_file(Path(fn), allow_missing=True)
-        self.assertEqual(hashlib.sha1(fn.encode()).hexdigest(), hash)
-
-    @MaintainedModel.no_autoupdates()
-    def test_hash_file_allow_missing_false(self):
-        """
-        If a file does not exist and allow_missing is False, hash_file should raise a FileNotFoundError
-        """
-        fn = "does not exist"
-        with self.assertRaises(FileNotFoundError):
-            hash_file(Path(fn), allow_missing=False)
-
-    @MaintainedModel.no_autoupdates()
-    def test_get_or_create_archive_file_allow_missing_no_checksum_or_existing_file(
-        self,
-    ):
-        """
-        If a file does not exist and no checksum is provided, a ValueError should be raised.
-        """
-        fn = "does not exist"
-        adl = self.create_AccuCorDataLoader_object()
-        with self.assertRaises(ValueError) as ar:
-            adl.get_or_create_archive_file(
-                Path(fn),
-                "ms_data",
-                "ms_raw",
-            )
-        ve = ar.exception
-        self.assertIn(
-            "A checksum is required if the supplied file path is not an existing file.",
-            str(ve),
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_get_or_create_archive_file_with_checksum(self):
-        """
-        If a checksum is supplied and the file doesn't exist, a record is created
-        """
-        fn = "does not exist"
-        adl = self.create_AccuCorDataLoader_object()
-        afrec = adl.get_or_create_archive_file(
-            Path(fn),
-            "ms_data",
-            "mzxml",
-            checksum="somesuppliedvalue",
-        )
-        self.assertTrue(exists_in_db(afrec))
-        self.assertEqual("somesuppliedvalue", afrec.checksum)
-
-    @MaintainedModel.no_autoupdates()
-    def test_get_or_create_archive_file_allow_missing_file_exists(self):
-        """
-        If a file exists and a checksum is provided, an exception should be raised when that checksum does not match.
-        """
-        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
-        adl = self.create_AccuCorDataLoader_object()
-        with self.assertRaises(ValueError) as ar:
-            adl.get_or_create_archive_file(
-                Path(fn),
-                "ms_data",
-                "mzxml",
-                checksum="somesuppliedvalue",
-            )
-        ve = ar.exception
-        self.assertIn("somesuppliedvalue", str(ve))
-        expected_hash = hash_file(Path(fn))
-        self.assertIn(expected_hash, str(ve))
 
     def create_populated_AccuCorDataLoader_object(self, lcms_file):
         xlsx = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
