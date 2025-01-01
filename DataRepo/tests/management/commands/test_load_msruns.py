@@ -6,6 +6,7 @@ from DataRepo.models import LCMethod, MSRunSequence
 from DataRepo.models.archive_file import ArchiveFile
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.msrun_sample import MSRunSample
+from DataRepo.models.peak_group import PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -195,3 +196,40 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         brraw_loc = Path(str(brraw_rec.file_location))
         self.assertFalse(batraw_loc.is_file())
         self.assertFalse(brraw_loc.is_file())
+
+    def test_peakgroup_msrunsample_null_is_false(self):
+        """
+        Issue #712
+        Requirement: 3. PeakGroup.msrun_sample.null must be set to False
+        Requirement: 4. Add migration for PeakGroup.msrun_sample change
+        """
+        self.assertFalse(PeakGroup.msrun_sample.__dict__["field"].null)
+
+    # NOTE: Test for Issue #712, Requirement 5 (All broken_until_issue712 test tags must be removed) is unnecessary
+    # NOTE: Test for Issue #712, Requirement 6 is in test_exceptions.py
+
+    def test_polarity_choices_includes_unknown(self):
+        """
+        Issue #712
+        Requirement: 7.1. Add a polarity choices value: "unknown"
+        """
+        choices = [
+            ("unknown", "unknown"),  # This is the one essential for the test
+            ("positive", "positive"),  # The others are a bonus check
+            ("negative", "negative"),
+        ]
+        self.assertEqual(choices, MSRunSample.POLARITY_CHOICES)
+
+    # NOTE: Test for Issue #712, Requirement 7.2 was moved to test_msruns_loader.py
+
+    # NOTE: Test for Issue #712, Requirement 7.3 (A default polarity should be removed from the study submission form)
+    # is unnecessary
+
+    # NOTE: Test for Issue #712, Requirement 7.5 (A default polarity should be removed from the study submission form)
+    # is unnecessary
+
+    # NOTE: test_msruns_loader.MSRunsLoaderTests.test_get_or_create_mzxml_and_raw_archive_files_str exists, so I don't
+    # need to transfer test: test_load_accucor_msruns.MSRunSampleSequenceTests.test_get_or_create_raw_file
+
+    # NOTE: test_load_accucor_msruns.MSRunSampleSequenceTests.test_hash_file_allow_missing_true (and _false) are for a
+    # method that moved to the ArchiveFile model class, for which there already exists tests, so no need to transfer.
