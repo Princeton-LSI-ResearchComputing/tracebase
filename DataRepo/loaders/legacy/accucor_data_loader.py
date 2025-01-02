@@ -81,7 +81,7 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanksError,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel
-from DataRepo.utils.lcms_metadata_parser import (
+from DataRepo.utils.legacy.lcms_metadata_parser import (
     lcms_df_to_dict,
     lcms_headers_are_valid,
 )
