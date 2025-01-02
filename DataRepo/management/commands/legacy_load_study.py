@@ -26,7 +26,9 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     NoSamplesError,
 )
-from DataRepo.utils.lcms_metadata_parser import check_peak_annotation_files
+from DataRepo.utils.legacy.lcms_metadata_parser import (
+    check_peak_annotation_files,
+)
 
 
 class Command(BaseCommand):

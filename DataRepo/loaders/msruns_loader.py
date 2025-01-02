@@ -957,6 +957,7 @@ class MSRunsLoader(TableLoader):
                     (s, 0)
                     for sh in self.header_to_sample_name.keys()
                     for s in self.header_to_sample_name[sh].keys()
+                    if not Sample.is_a_blank(s)
                 ).keys()
             )
 
@@ -2462,24 +2463,27 @@ class MSRunsLoader(TableLoader):
             Raises:
                 None
         Returns:
-            None
+            delstats (Dict[str, list]): Lists of deleted, skipped, and errored file deletions.
         """
+        delstats = {
+            "deleted": [],
+            "failures": [],
+            "skipped": [],
+        }
+
         if not self.aggregated_errors_object.should_raise():
             self.aggregated_errors_object.buffer_error(
                 NotImplementedError(
                     "clean_up_created_mzxmls_in_archive is not intended for use when an exception has not been raised."
                 )
             )
-            return
+            return delstats
 
-        deleted = 0
-        failures = 0
-        skipped = 0
         for rec in self.created_mzxml_archive_file_recs:
             # If there was no associated file, or the file wasn't actually created, there's nothing to delete, so
             # continue
             if not rec.file_location or not os.path.isfile(rec.file_location.path):
-                skipped += 1
+                delstats["skipped"].append(rec.file_location.path)
                 continue
 
             try:
@@ -2487,7 +2491,7 @@ class MSRunsLoader(TableLoader):
                 print(
                     f"DELETED (due to rollback): {rec.file_location.path}", flush=True
                 )
-                deleted += 1
+                delstats["deleted"].append(rec.file_location.path)
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
                     OSError(
@@ -2496,15 +2500,18 @@ class MSRunsLoader(TableLoader):
                     ),
                     orig_exception=e,
                 )
-                failures += 1
+                delstats["failures"].append(rec.file_location.path)
 
         print(
             (
-                f"mzXML file rollback disk archive clean up stats: {deleted} deleted, {failures} failed to be deleted, "
-                f"and {skipped} expected files did not exist."
+                f"mzXML file rollback disk archive clean up stats: {len(delstats['deleted'])} deleted, "
+                f"{len(delstats['failures'])} failed to be deleted, and {len(delstats['skipped'])} expected files did "
+                "not exist."
             ),
             flush=True,
         )
+
+        return delstats
 
     def get_sample_header_from_mzxml_name(self, mzxml_name: str):
         """This turns an mzxml file- or base-name into a sample header.  Uses self.exact_mode to decide whether to
