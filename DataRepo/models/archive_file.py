@@ -123,8 +123,12 @@ class ArchiveFileQuerySet(models.QuerySet):
             is_binary (boolean): An optional way to indicate if the file is binary or not, overriding the automatic
                 guess/determination.
         Exceptions:
-            FileNotFoundError
-            ValueError
+            FileNotFoundError: if file_location is supplied and its file does not exist.
+            ValueError: if both file_location and checksum are None or unsupplied.
+            ValueError: if the computed checksum does not match the supplied checksum.
+            TypeError: if file_location is not (str|Path|File).
+            DataType.DoesNotExist: if data_type is a string that doesn't exist as a DataType.code in the DB.
+            DataFormat.DoesNotExist: if data_format is a string that doesn't exist as a DataFormat.code in the DB.
         Returns:
             archivefile_rec (ArchiveFile)
             created (boolean)
@@ -158,7 +162,7 @@ class ArchiveFileQuerySet(models.QuerySet):
         elif isinstance(file_location, str):
             path_obj = Path(file_location)
         else:
-            raise ValueError(
+            raise TypeError(
                 f"file_location must be either a Path object or string, not {type(file_location).__name__}."
             )
 
@@ -180,8 +184,8 @@ class ArchiveFileQuerySet(models.QuerySet):
         elif supplied_checksum is None:
             kwargs["checksum"] = computed_checksum
 
-        # When an ArchiveFile record is get_or_created, and you expect a `get` to occur, the handling of the
-        # `file_location` value results in an unexpected outcome.  Instead of `getting` the record, since the
+        # When an ArchiveFile record is get_or_create'd, and you expect a `get` to occur, the handling of the
+        # `file_location` value results in an unexpected outcome.  Instead of `get`ting the record, since the
         # path and name is the same, the Django code appends a short random hash value to the file name before the
         # file extension.  This results in the `get_or_create` method trying to "create" a record, because one
         # of the field values differ.  This then results in a unique constraint violation, because the hash must
@@ -207,7 +211,9 @@ class ArchiveFileQuerySet(models.QuerySet):
                     # file_location) in order to generate the expected/usual exception about a unique-constraint
                     # violation
                     kwargs["file_location"] = tmp_file_location
-                    archivefile_rec = super().get_or_create(**kwargs)
+                    archivefile_rec, created = super().get_or_create(**kwargs)
+                    if created:
+                        archivefile_rec.full_clean()
 
         return archivefile_rec, created
 
