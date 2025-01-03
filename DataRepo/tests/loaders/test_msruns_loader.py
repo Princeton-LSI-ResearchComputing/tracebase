@@ -1,4 +1,5 @@
 import os
+import re
 from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -29,11 +30,16 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
+    MissingSamples,
     MutuallyExclusiveArgs,
     MzxmlColocatedWithMultipleAnnot,
     MzxmlNotColocatedWithAnnot,
+    NoSamples,
+    PossibleDuplicateSamples,
+    RecordDoesNotExist,
     RequiredColumnValue,
     RollbackException,
+    UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -68,25 +74,25 @@ class MSRunsLoaderTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.anml, cls.tsu = create_animal_and_tissue_records()
-        smpl = Sample.objects.create(
+        cls.smpl = Sample.objects.create(
             name="Sample Name",
             tissue=cls.tsu,
             animal=cls.anml,
             researcher="John Doe",
             date=datetime.now(),
         )
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+        cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
 
         cls.seq = MSRunSequence.objects.create(
             researcher="John Doe",
             date=datetime.strptime("1991-5-7", "%Y-%m-%d"),
             instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
-            lc_method=lcm,
+            lc_method=cls.lcm,
         )
         cls.seq.full_clean()
         cls.msr = MSRunSample.objects.create(
             msrun_sequence=cls.seq,
-            sample=smpl,
+            sample=cls.smpl,
             polarity=None,  # Placeholder
             ms_raw_file=None,  # Placeholder
             ms_data_file=None,  # Placeholder
@@ -1746,6 +1752,121 @@ class MSRunsLoaderTests(TracebaseTestCase):
             )
         )
 
+    def test_get_scan_pattern(self):
+        sp1 = MSRunsLoader.get_scan_pattern()
+        self.assertEqual(
+            re.compile(
+                "([\\-_]pos(?=[\\-_]|$)|[\\-_]neg(?=[\\-_]|$)|[\\-_]scan[0-9]+(?=[\\-_]|$))+"
+            ),
+            sp1,
+        )
+        sp2 = MSRunsLoader.get_scan_pattern(scan_patterns=["positive"])
+        self.assertEqual(
+            re.compile(
+                "([\\-_]pos(?=[\\-_]|$)|[\\-_]neg(?=[\\-_]|$)|[\\-_]scan[0-9]+(?=[\\-_]|$)|[\\-_]positive(?=[\\-_]|"
+                "$))+"
+            ),
+            sp2,
+        )
+        sp3 = MSRunsLoader.get_scan_pattern(
+            scan_patterns=["positive", "negative"], add_patterns=False
+        )
+        self.assertEqual(
+            re.compile("([\\-_]positive(?=[\\-_]|$)|[\\-_]negative(?=[\\-_]|$))+"), sp3
+        )
+
+    # NOTE: check_reassign_peak_groups is tested indirectly by the test_get_or_create_msrun_sample_from_row_* tests
+
+    def test_report_discrepant_headers_nosamples(self):
+        """Tests that report_discrepant_headers removes RecordDoesNotExist exceptions for the Sample model and
+        summarizes them in NoSamples and UnskippedBlanks exceptions."""
+        msrl = MSRunsLoader()
+        msrl.header_to_sample_name = {
+            "a_blank": {"a_blank": 0},
+            "s1_pos": {"s1": 0},
+            "s1_neg": {"s1": 0},
+            "s2": {"s2": 0},
+        }
+        msrl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "a_blank"},
+            )
+        )
+        msrl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s1"},
+            )
+        )
+        msrl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s2"},
+            )
+        )
+        msrl.report_discrepant_headers()
+        self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], NoSamples)
+        self.assertEqual(
+            ["s1", "s2"], msrl.aggregated_errors_object.exceptions[0].search_terms
+        )
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[1], UnskippedBlanks
+        )
+        self.assertEqual(
+            ["a_blank"], msrl.aggregated_errors_object.exceptions[1].search_terms
+        )
+
+    def test_report_discrepant_headers_missingsamples(self):
+        """Tests that report_discrepant_headers removes RecordDoesNotExist exceptions for the Sample model and
+        summarizes them in a MissingSamples exception."""
+        msrl = MSRunsLoader()
+        msrl.header_to_sample_name = {
+            "s1_pos": {"s1": 0},
+            "s1_neg": {"s1": 0},
+            "s2": {"s2": 0},
+            "s3": {"s3": 0},
+        }
+        msrl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s1"},
+            )
+        )
+        msrl.aggregated_errors_object.buffer_error(
+            RecordDoesNotExist(
+                Sample,
+                {"name": "s2"},
+            )
+        )
+        msrl.report_discrepant_headers()
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], MissingSamples
+        )
+        self.assertEqual(
+            ["s1", "s2"], msrl.aggregated_errors_object.exceptions[0].search_terms
+        )
+
+    def test_check_sample_headers(self):
+        """Tests that check_sample_headers catches cases where the same sample headers in different peak annotation
+        files link to different samples, which suggests duplicate sample records."""
+        msrl = MSRunsLoader()
+        msrl.header_to_sample_name = {
+            "s1": {
+                "s1_pos": [2],
+                "s1_neg": [3],
+            },
+        }
+        msrl.check_sample_headers()
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], PossibleDuplicateSamples
+        )
+        self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_error)
+        self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_fatal)
+
 
 class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
@@ -1754,9 +1875,6 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         """This tests loading JUST the mzxml files with just the files themselves and defaults arguments (/command line
         options).  I.e. no dataframe (/infile)."""
 
-        # For some reason, doing this in a setUpTestData method caused errors on lines below that referenced self.anml
-        # and self.tsu, so I put the call directly in the test.
-        # TODO: Figure out how to put this call in classmethod: setUpTestData
         anml, tsu = create_animal_and_tissue_records()
 
         seq = MSRunSequence.objects.create(
@@ -1896,3 +2014,44 @@ class MSRunsLoaderArchiveTests(TracebaseArchiveTestCase):
         }
 
         self.assertDictEqual(expected, msrsd)
+
+    def test_clean_up_created_mzxmls_in_archive(self):
+        msrl = MSRunsLoader()
+        fl = "DataRepo/data/tests/same_name_mzxmls/mzxmls/BAT-xz971.mzXML"
+        afr, created = ArchiveFile.objects.get_or_create(
+            file_location=fl,
+            data_type=DataType.objects.get(code="ms_data"),
+            data_format=DataFormat.objects.get(code="mzxml"),
+        )
+        self.assertTrue(created)
+        self.assertTrue(os.path.isfile(afr.file_location.path))
+        afp = afr.file_location.path
+        msrl.created_mzxml_archive_file_recs = [afr]
+
+        delstatslists = msrl.clean_up_created_mzxmls_in_archive()
+        self.assertDictEqual(
+            {
+                "deleted": [],
+                "failures": [],
+                "skipped": [],
+            },
+            delstatslists,
+            msg="Deletions should fail if no fatal errors have been buffered.",
+        )
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], NotImplementedError
+        )
+
+        msrl.aggregated_errors_object.buffer_error(ValueError("Test"))
+        delstatslists = msrl.clean_up_created_mzxmls_in_archive()
+        self.assertDictEqual(
+            {
+                "deleted": [afp],
+                "failures": [],
+                "skipped": [],
+            },
+            delstatslists,
+            msg="Deletions should succeed if fatal errors have been buffered.",
+        )
+        self.assertFalse(os.path.isfile(afr.file_location.path))

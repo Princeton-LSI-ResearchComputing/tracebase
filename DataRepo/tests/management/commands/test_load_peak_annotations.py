@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 from django.core.management import CommandError, call_command
 
-from DataRepo.loaders import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
@@ -34,9 +33,6 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
-
-# TODO: Swap out all of the calls to legacy_load_animals_and_samples and legacy_load_samples once those loaders are
-# refactored to inherit from TableLoader.
 
 
 def create_test_sequence(researcher, date):
@@ -346,8 +342,6 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             )
 
         aes: AggregatedErrors = ar.exception
-        # This legacy loader doesn't summarize MultiplePeakGroupRepresentation exceptions
-        # 1 compounds, 2 samples -> 2 PeakGroups
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
         # 1 compounds, 2 samples -> 2 PeakGroups
@@ -550,10 +544,9 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT = 0
 
         call_command(
-            "legacy_load_animals_and_samples",
-            sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
-            table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
+            # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
 
         # from DataRepo/data/tests/small_obob2/obob_samples_table.tsv, not counting the header and BLANK samples
@@ -564,10 +557,9 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT += 1
 
         call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table.xlsx",
+            # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
         # from DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 5
@@ -608,41 +600,14 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
-            ),
+            "load_study",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
-        # Load a sequence and all the MSRunSamples
-        create_test_sequence("anonymous", "2022-08-18")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": [
-                        "M1_mix1_T150",
-                        "M2_mix1_T150",
-                        "M3_glycerol_T150",
-                        "M4_glycerol_T150",
-                    ],
-                    "Sample Data Header": [
-                        "M1_mix1_T150",
-                        "M2_mix1_T150",
-                        "M3_glycerol_T150",
-                        "M4_glycerol_T150",
-                    ],
-                    "mzXML File Name": [None for _ in range(4)],
-                    "Peak Annotation File Name": ["accucor.xlsx" for _ in range(4)],
-                    "Sequence": [
-                        "anonymous, polar-HILIC-25-min, unknown, 2022-08-18"
-                        for _ in range(4)
-                    ],
-                },
-            ),
-        ).load_data()
         super().setUpTestData()
 
     def test_multiple_accucor_labels(self):
@@ -655,7 +620,7 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
-            date="2022-08-18",
+            date="2021-04-29",
             operator="anonymous",
         )
 
@@ -667,58 +632,31 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/protocols/loading.yaml",
-            verbosity=2,
+            "load_protocols",
+            infile="DataRepo/data/tests/protocols/protocols.tsv",
         )
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/tissues/loading.yaml",
-            verbosity=2,
+            "load_tissues",
+            infile="DataRepo/data/tests/tissues/tissues.tsv",
         )
         call_command(
             "load_compounds",
             infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
-
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/singly_labeled_isocorr/animals_samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
-
-        create_test_sequence("Michael Neinast", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": ["t0_a146", "t90_a146", "t120_a146"],
-                    "Sample Data Header": ["t0_a146", "t90_a146", "t120_a146"],
-                    "mzXML File Name": [None for _ in range(3)],
-                    "Peak Annotation File Name": [
-                        "small_cor.csv",
-                        "small_cor.csv",
-                        "small_cor.csv",
-                    ],
-                    # TODO: Just realized that we either should not allow commas in names or change the seq name delim
-                    "Sequence": [
-                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(3)
-                    ],
-                },
-            ),
-        ).load_data()
-
         super().setUpTestData()
 
     @MaintainedModel.no_autoupdates()
     def load_multitracer_data(self):
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_tracers/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         num_samples = 4
@@ -726,33 +664,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_infusatetracers = 3
         num_tracers = 6
         num_tracerlabels = 12
-
-        # Load a sequence and all the MSRunSamples
-        create_test_sequence("Xianfeng Zeng", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": ["xz971_bat", "xz971_br", "xz1079_bat", "xz1079_br"],
-                    "Sample Data Header": [
-                        "xz971_bat",
-                        "xz971_br",
-                        "xz1079_bat",
-                        "xz1079_br",
-                    ],
-                    "mzXML File Name": [None for _ in range(4)],
-                    "Peak Annotation File Name": [
-                        "6eaafasted1_cor.xlsx",
-                        "6eaafasted1_cor.xlsx",
-                        "bcaafasted_cor.xlsx",
-                        "bcaafasted_cor.xlsx",
-                    ],
-                    "Sequence": [
-                        "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(4)
-                    ],
-                },
-            ),
-        ).load_data()
 
         return (
             num_samples,
@@ -765,11 +676,9 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def load_multilabel_data(self):
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         num_samples = 5
@@ -777,44 +686,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_infusatetracers = 2
         num_tracers = 2
         num_tracerlabels = 3
-
-        # Load a sequence and all the MSRunSamples
-        create_test_sequence("Xianfeng Zeng", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": [
-                        "xzl5_t",
-                        "xzl5_panc",
-                        "xzl4_t",
-                        "xzl4_sp",
-                        "xzl1_brain",
-                        "xzl1_brownFat",
-                    ],
-                    "Sample Data Header": [
-                        "xzl5_t",
-                        "xzl5_panc",
-                        "xzl4_t",
-                        "xzl4_sp",
-                        "xzl1_brain",
-                        "xzl1_brownFat",
-                    ],
-                    "mzXML File Name": [None for _ in range(6)],
-                    "Peak Annotation File Name": [
-                        "alafasted_cor.xlsx",
-                        "alafasted_cor.xlsx",
-                        "alafasted_cor.xlsx",
-                        "alafasted_cor.xlsx",
-                        "glnfasted_cor.xlsx",
-                        "glnfasted_cor.xlsx",
-                    ],
-                    "Sequence": [
-                        "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(6)
-                    ],
-                },
-            ),
-        ).load_data()
 
         return (
             num_samples,
@@ -904,9 +775,9 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         ) = self.get_model_counts()
 
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_tracers/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         (
@@ -1053,11 +924,9 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         ) = self.get_model_counts()
 
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         (
@@ -1171,9 +1040,72 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
 
 
 class LoadIsoautocorrCommandTests(TracebaseTestCase):
-    # fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-    # TODO: Implement tests after rebase that brings in Lance's isoautocorr test files
-    pass
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc_v3.xlsx",
+            # Loading the peak annot file too
+        )
+        cls.SAMPLES_COUNT = 4
+        cls.PEAKDATA_ROWS = 14
+        cls.MEASURED_COMPOUNDS_COUNT = 2  # L-Serine and Glucose
+
+        super().setUpTestData()
+
+    def test_isoautocorr_load(self):
+        """Load test-isoautocorr data"""
+
+        self.assertEqual(
+            PeakGroup.objects.count(),
+            self.MEASURED_COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+        )
+        self.assertEqual(
+            PeakData.objects.all().count(), self.PEAKDATA_ROWS * self.SAMPLES_COUNT
+        )
+
+    def test_isoautocorr_peakdatalabels(self):
+        """Check peak data labels for isoautocorr loading"""
+
+        peak_data = PeakData.objects.filter(peak_group__name="Glycine").filter(
+            peak_group__msrun_sample__sample__name="His_M3_T02_liv"
+        )
+
+        peak_data_labels = []
+        for peakdata in peak_data.all():
+            pdl = peakdata.labels.values("element", "mass_number", "count")
+            peak_data_labels.append(list(pdl))
+
+        expected = [
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+        ]
+
+        self.assertEqual(expected, list(peak_data_labels))
 
 
 class LoadUnicorrCommandTests(TracebaseTestCase):
