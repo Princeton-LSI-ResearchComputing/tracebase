@@ -1100,7 +1100,11 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
         got, based_on = basv.getQueryStats(
-            res, qry["selectedtemplate"], time_limit_secs=0
+            res,
+            qry["selectedtemplate"],
+            # A time limit of 0 seconds will produce 1 result because the elapsed time if checked at the bottom of the
+            # for loop that iterates over the queryset
+            time_limit_secs=0,
         )
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
