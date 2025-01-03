@@ -28,6 +28,7 @@ from DataRepo.tests.tracebase_test_case import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllMzxmlSequenceUnknown,
     InfileError,
     MutuallyExclusiveArgs,
     MzxmlColocatedWithMultipleAnnot,
@@ -299,7 +300,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         """
         msrl = MSRunsLoader()
         msrl.mzxml_dict = deepcopy(self.MOCK_MZXML_DICT)
-        self.assertTrue(msrl.leftover_mzxml_files_exist())
+        self.assertTrue(msrl.unpaired_mzxml_files_exist())
 
     def test_leftover_mzxml_files_exist_false(self):
         """Tests that leftover_mzxml_files_exist finds the existence of un-added mzXML files (i.e. those that were not
@@ -310,7 +311,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.mzxml_dict["BAT_xz971"][
             "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_glucose_mzxmls"
         ][0]["added"] = True
-        self.assertFalse(msrl.leftover_mzxml_files_exist())
+        self.assertFalse(msrl.unpaired_mzxml_files_exist())
 
     def test_parse_mzxml(self):
         """
@@ -1600,8 +1601,15 @@ class MSRunsLoaderTests(TracebaseTestCase):
 
         msrl.load_data()
 
-        self.assertEqual(2, len(msrl.aggregated_errors_object.exceptions))
-        self.assertEqual(2, msrl.aggregated_errors_object.num_warnings)
+        self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, msrl.aggregated_errors_object.num_warnings)
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], AllMzxmlSequenceUnknown
+        )
+        self.assertIn(
+            "BAT_xz971 found on row(s): ['2-3']",
+            str(msrl.aggregated_errors_object.exceptions[0]),
+        )
 
         self.assertEqual(3, ArchiveFile.objects.count() - af_before)
         self.assertEqual(2, MSRunSample.objects.count() - msrs_before)

@@ -635,6 +635,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             None
         """
         # There are cached fields in the models involved, so disabling cache updates will make this faster.
+        # TODO: Remove this after implementing issue #1387
         disable_caching_updates()
 
         try:
@@ -710,8 +711,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         # better.
         self.handle_file_exceptions()
 
-        enable_caching_updates()
-        delete_all_caches()
+        # This assumes that if rollback is deferred, that the caller has disabled caching updates and that they should
+        # remain disabled so that the caller can enable them when it is done.
+        # TODO: Remove this after implementing issue #1387
+        if not self.defer_rollback:
+            enable_caching_updates()
+            if not self.dry_run and not self.validate:
+                delete_all_caches()
 
     @transaction.atomic
     def get_or_create_annot_file(self):

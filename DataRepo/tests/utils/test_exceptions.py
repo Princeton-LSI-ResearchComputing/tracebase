@@ -148,7 +148,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
         """
         mls = MultiLoadStatus()
         aes = AggregatedErrors()
-        aes.buffer_warning(ValueError("Test warning"))
+        aes.buffer_warning(ValueError("Test warning"), is_fatal=True)
         mls.set_load_exception(aes, "mykey", top=True)
         self.assertEqual(1, len(mls.statuses.keys()))
         self.assertEqual(
@@ -1438,7 +1438,7 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_NoScans(self):
-        ns = NoScans(file="/abs/path/to/file.mzXML")
+        ns = NoScans("/abs/path/to/file.mzXML")
         self.assertIn("'/abs/path/to/file.mzXML' contains no scans", str(ns))
 
     def test_DefaultSequenceNotFound(self):
