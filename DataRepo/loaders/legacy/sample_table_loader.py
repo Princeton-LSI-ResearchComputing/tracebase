@@ -54,7 +54,7 @@ from DataRepo.utils.exceptions import (
     UnitsWrong,
     UnknownHeadersError,
 )
-from DataRepo.utils.lcms_metadata_parser import (
+from DataRepo.utils.legacy.lcms_metadata_parser import (
     lcms_df_to_dict,
     lcms_metadata_to_samples,
 )
