@@ -1096,6 +1096,67 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             PeakAnnotationsLoader.get_supported_formats(),
         )
 
+    def test_check_c12_parents(self):
+        il = IsocorrLoader()
+        il.df = pd.DataFrame.from_dict(
+            {
+                "IsotopeLabel": [
+                    "C12 PARENT",
+                    "C13-label-1",
+                    "C13-label-2",
+                    "C12 PARENT",
+                    "C13-label-1",
+                    "C13-label-2",
+                    "C13-label-3",
+                ],
+                "Compound": [
+                    "2-keto-isovalerate",
+                    "2-keto-isovalerate",
+                    "2-keto-isovalerate",
+                    "3-hydroxyisobutyrate",
+                    "3-hydroxyisobutyrate",
+                    "3-hydroxyisobutyrate",
+                    "3-hydroxyisobutyrate",
+                ],
+                "Formula": [
+                    "C5H8O3",
+                    "C5H8O3",
+                    "C5H8O3",
+                    "C5H8O3",  # <-- WRONG.  See check_c12_parents docstring.
+                    "C5H8O3",  # <-- WRONG.  See check_c12_parents docstring.
+                    "C5H8O3",  # <-- WRONG.  See check_c12_parents docstring.
+                    "C4H8O3",
+                ],
+            },
+        )
+        il.check_c12_parents()
+        self.assertEqual(1, len(il.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            il.aggregated_errors_object.exceptions[0], MissingC12ParentPeak
+        )
+
+    def test_get_compound(self):
+        """Tests that the compound_lookup buffer is used to return non-results for compounds previously searcher for and
+        not found"""
+        al = AccucorLoader()
+        expected = (
+            None,
+            RecordDoesNotExist(Compound, {"name": "L-Lysine"}),
+            Compound.get_name_query_expression("L-Lysine"),
+        )
+        al.compound_lookup["L-Lysine"] = expected
+        rec = al.get_compound("L-Lysine")
+        self.assertIsNone(rec)
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], RecordDoesNotExist
+        )
+        self.assertEqual(al.aggregated_errors_object.exceptions[0].model, Compound)
+
+    def test_is_selected_peak_group(self):
+        # TODO: Implement test
+        pass
+
 
 class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
     ABSO_DICT = {
