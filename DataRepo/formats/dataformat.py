@@ -1056,9 +1056,11 @@ class Format:
         .distinct() requires them to be present.  Otherwise, you will encounter an exception when the queryset is made
         distinct on the returned fields.  Only a single order_by field is supported.
 
-        assume_distinct - This assumes (when split_rows is False) that all records are distinct/not-identical.  In that
-        case, this method returns an empty list (as the parameters to .distinct()).  This is the default behavior.  If
-        that assumption is false, supply assume_distinct=False.
+        assume_distinct - When True (and split_rows is False) all records are assumed to be distinct/not-identical (even
+        though they appear to be identical because there are multiple unsplit records).  This method will return an
+        empty list (to be supplied to .distinct()).  This is the default behavior.  If false, and no fields are
+        determined to need to be "distinct", "pk" is added to the list of distinct fields returned to force records to
+        be distinct.
         """
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:

@@ -1,6 +1,9 @@
 {% load customtags %}
 <div id="resultstats" style="font-size: 12px !important; width: 30% !important; margin-left: 16px; float: right;" class="collapse{% if stats.show %} show{% endif %}">
     {% if stats.populated %}
+        {% if stats.based_on %}
+            {{ stats.based_on }}
+        {% endif %}
         <table class="table table-condensed table-striped text-xsmall" style="padding: 2px;">
             <tr>
                 <th class="col-sm-1 text-end" style="padding: 1px 5px !important;">#</th>
