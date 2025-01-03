@@ -9,6 +9,7 @@ from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
 from DataRepo.models import Infusate, InfusateTracer, MaintainedModel, Tracer
 from DataRepo.models.compound import Compound
+from DataRepo.models.utilities import exists_in_db
 from DataRepo.utils.exceptions import (
     InfileError,
     RollbackException,
@@ -483,6 +484,7 @@ class InfusatesLoader(TableLoader):
                         continue
 
                     # Now, get or create the labels
+                    it_errored = False
                     for infusate_tracer_dict in self.infusates_dict[infusate_number][
                         "tracers"
                     ]:
@@ -498,6 +500,7 @@ class InfusatesLoader(TableLoader):
                                 infusate_tracer_dict, infusate_rec
                             )
                         except RollbackException:
+                            it_errored = True
                             pass
 
                     if infusate_created:
@@ -513,14 +516,21 @@ class InfusatesLoader(TableLoader):
                             # Now that the exception has been handled, trigger a rollback of this record load attempt
                             raise e
 
-                    # Only mark as created after this final check (which raises an exception)
-                    self.check_infusate_name_consistent(infusate_rec, infusate_dict)
-
                     # Refresh the count with the actual existing records (i.e. in case tracer data wasn't provided)
-                    num_tracers = infusate_rec.tracers.count()
+                    if infusate_rec.tracers is not None:
+                        num_tracers = infusate_rec.tracers.count()
 
-                    self.created(Infusate.__name__)
-                    self.created(InfusateTracer.__name__, num=num_tracers)
+                    # We cannot check the record name against the supplied name if the linked records failed to be
+                    # created
+                    if it_errored:
+                        self.errored(Infusate.__name__)
+                        self.errored(InfusateTracer.__name__, num=num_tracers)
+                    else:
+                        # Only mark as created after this final check (which raises an exception)
+                        self.check_infusate_name_consistent(infusate_rec, infusate_dict)
+
+                        self.created(Infusate.__name__)
+                        self.created(InfusateTracer.__name__, num=num_tracers)
             except Exception as e:
                 if (
                     not validation_handled
@@ -1324,7 +1334,23 @@ class InfusatesLoader(TableLoader):
         rowidxs = [rd["row_index"] for rd in infusate_dict["tracers"]]
         rowidxs.append(infusate_dict["row_index"])
 
-        if not rec.infusate_name_equal(supplied_name, supplied_concentrations):
+        if not exists_in_db(rec) or rec.tracers is None or rec.tracers.count() == 0:
+            data_rownums = summarize_int_list(
+                [rd["rownum"] for rd in infusate_dict["tracers"]]
+            )
+            exc = InfileError(
+                (
+                    f"The database record for the infusate '{supplied_name}' and tracer concentrations "
+                    f"{supplied_concentrations} defined on row(s) {data_rownums} in %s was not created."
+                ),
+                file=self.friendly_file,
+                sheet=self.sheet,
+                rownum=infusate_dict["rownum"],
+            )
+            self.add_skip_row_index(index_list=rowidxs)
+            self.aggregated_errors_object.buffer_error(exc)
+            raise exc
+        elif not rec.infusate_name_equal(supplied_name, supplied_concentrations):
             data_rownums = summarize_int_list(
                 [rd["rownum"] for rd in infusate_dict["tracers"]]
             )

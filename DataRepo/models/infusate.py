@@ -193,17 +193,15 @@ class Infusate(MaintainedModel, HierCachedModel):
         corresponding tracer order.
 
         Args:
-            None:
-
+            None
         Exceptions:
             None
-
         Returns:
             name (string): Same as returned from _name(), but without the concentrations
             concentrations (list of floats): Concentrations in the order of the names (not significant digits)
         """
         if self.id is None or self.tracers is None or self.tracers.count() == 0:
-            return self.tracer_group_name
+            return self.tracer_group_name, []
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
 
@@ -257,10 +255,8 @@ class Infusate(MaintainedModel, HierCachedModel):
         Args:
             supplied_name (string)
             supplied_concs (list of floats)
-
         Exceptions:
             None
-
         Returns:
             equal (boolean): Whether the supplied name and concentration are equivalent to the record.
         """
@@ -274,6 +270,9 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         # Any infusate name string (e.g. as supplied from a file) may not have the tracers in the same order
         rec_name, rec_concentrations = self.name_and_concentrations()
+
+        if rec_name is None:
+            return False
 
         rec_data = parse_infusate_name(rec_name, rec_concentrations)
         try:

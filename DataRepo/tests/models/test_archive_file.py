@@ -7,6 +7,7 @@ from django.db import transaction
 from django.test import override_settings
 
 from DataRepo.models import ArchiveFile, DataFormat, DataType
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import (
     TracebaseArchiveTestCase,
@@ -65,18 +66,73 @@ class ArchiveFileTests(TracebaseTestCase):
         fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
         self.assertFalse(ArchiveFile.file_is_binary(fn))
 
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_allow_missing_no_checksum_or_existing_file(
+        self,
+    ):
+        """
+        If a file does not exist and no checksum is provided, a ValueError should be raised.
+        """
+        fn = "does not exist"
+        with self.assertRaises(ValueError) as ar:
+            ArchiveFile.objects.get_or_create(
+                filename=fn,
+                data_type="ms_data",
+                data_format="ms_raw",
+            )
+        ve = ar.exception
+        self.assertIn(
+            "A checksum is required if the supplied file path is not an existing file.",
+            str(ve),
+        )
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_with_checksum(self):
+        """
+        If a checksum is supplied and the file doesn't exist, a record is created
+        """
+        fn = "does not exist"
+        afrec, created = ArchiveFile.objects.get_or_create(
+            filename=fn,
+            data_type="ms_data",
+            data_format="mzxml",
+            checksum="somesuppliedvalue",
+        )
+        afrec.full_clean()
+        afrec.save()
+        self.assertTrue(created)
+        self.assertTrue(exists_in_db(afrec))
+        self.assertEqual("somesuppliedvalue", afrec.checksum)
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_allow_missing_file_exists(self):
+        """
+        If a file exists and a checksum is provided, an exception should be raised when that checksum does not match.
+        """
+        fn = "DataRepo/data/tests/small_obob_mzxmls/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        with self.assertRaises(ValueError) as ar:
+            ArchiveFile.objects.get_or_create(
+                file_location=Path(fn),
+                data_type="ms_data",
+                data_format="mzxml",
+                checksum="somesuppliedvalue",
+            )
+        ve = ar.exception
+        self.assertIn("somesuppliedvalue", str(ve))
+        expected_hash = ArchiveFile.hash_file(Path(fn))
+        self.assertIn(expected_hash, str(ve))
+
 
 class ArchiveFileArchiveTests(TracebaseArchiveTestCase):
-    record_id = None
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     @classmethod
     def setUpTestData(cls):
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
         path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
-        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
-        accucor_format = DataFormat.objects.get(code="accucor")
         cls.rec_dict = {
             "filename": "small_obob_maven_6eaas_inf.xlsx",
             "file_location": myfile,

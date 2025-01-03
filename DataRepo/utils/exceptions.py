@@ -353,9 +353,9 @@ class RequiredValueError(InfileError, SummarizableError):
         **kwargs,
     ):
         if not message:
-            message = "Value required on %s."
-            if rec_dict is not None:
-                message += f"  Record extracted from row: {str(rec_dict)}."
+            message = f"Value required for '{field_name}' in %s."
+            if rownum is not None:
+                message += f"  Record extracted from row: {rownum}."
         super().__init__(message, **kwargs)
         self.column = column
         self.rownum = rownum

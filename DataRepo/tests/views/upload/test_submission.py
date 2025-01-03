@@ -377,7 +377,6 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
                 "File Format": {},
                 "Peak Annotation File": {},
             },
-            "Infusions": None,  # Ignoring this one
             "Peak Group Conflicts": {
                 "Peak Group Conflict": {},
                 "Selected Peak Annotation File": {},

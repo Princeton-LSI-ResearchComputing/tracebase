@@ -22,8 +22,8 @@ class AutoupdateLoadingTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
 
     def tearDown(self):
@@ -72,27 +72,14 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
             call_command(
                 "load_animals",
-                infile=(
-                    "DataRepo/data/tests/small_obob/"
-                    "small_obob_animal_and_sample_table.xlsx"
-                ),
+                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
             )
             call_command(
                 "load_samples",
-                infile=(
-                    "DataRepo/data/tests/small_obob/"
-                    "small_obob_animal_and_sample_table.xlsx"
-                ),
+                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
             )
-            # call_command(
-            #     "legacy_load_animals_and_samples",
-            #     animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
-            #     "small_obob_animal_and_sample_table.xlsx",
-            #     # No longer need the defer_autoupdates option.  That is handled by a context manager.
-            #     # defer_autoupdates=True,
-            # )
 
-            # Assure that the legacy_load_animals_and_samples decorator's coordinator passed up it's buffer before
+            # Assure that the loaders' decorator's coordinator passed up it's buffer to the parent_coordinator before
             # exiting.
             bs1 = parent_coordinator.buffer_size()
             self.assertGreater(bs1, 0)
@@ -106,14 +93,16 @@ class AutoupdateLoadingTests(TracebaseTestCase):
             child_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
             with MaintainedModel.custom_coordinator(child_coordinator):
                 call_command(
-                    "legacy_load_accucor_msruns",
-                    accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                    skip_samples=("blank"),
-                    lc_protocol_name="polar-HILIC-25-min",
-                    instrument="unknown",
-                    date="2021-04-29",
-                    researcher="Michael Neinast",
-                    new_researcher=True,
+                    "load_sequences",
+                    infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                )
+                call_command(
+                    "load_msruns",
+                    infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
+                )
+                call_command(
+                    "load_peak_annotation_files",
+                    infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_blank_sample.xlsx",
                 )
 
                 # Since autoupdates were defered (and we did not run perform_buffered_updates)
@@ -134,41 +123,47 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                 parent_coordinator._peek_update_buffer(0),
             )
 
-    # TODO: Fix this test (make it use study_loader)
-    # def test_defer_autoupdates_sample(self):
-    #     self.assert_no_names_to_start()
-    #     self.assert_no_fcirc_data_to_start()
+    def test_defer_autoupdates_sample(self):
+        self.assert_no_names_to_start()
+        self.assert_no_fcirc_data_to_start()
 
-    #     self.assert_coordinator_state_is_initialized()
-    #     # We need a parent coordinator to catch and test the buffered changes.  Otherwise, the deferred coordinator
-    #     # would perform the mass auto-update
-    #     parent_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
-    #     with MaintainedModel.custom_coordinator(parent_coordinator):
-    #         call_command(
-    #             "legacy_load_samples",
-    #             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-    #             sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-    #             defer_autoupdates=True,
-    #         )
+        self.assert_coordinator_state_is_initialized()
+        # We need a parent coordinator to catch and test the buffered changes.  Otherwise, the deferred coordinator
+        # would perform the mass auto-update
+        parent_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
+        with MaintainedModel.custom_coordinator(parent_coordinator):
+            call_command(
+                "load_study",
+                infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+                exclude_sheets=[
+                    "Sequences",
+                    "Peak Annotation Files",
+                    "Peak Annotation Details",
+                ],
+            )
 
-    #         # Since autoupdates were defered (and we did not run perform_buffered_updates)
-    #         self.assert_names_are_unupdated()
-    #         self.assert_fcirc_data_is_unupdated()
+            # Since autoupdates were defered (and we did not run perform_buffered_updates)
+            self.assert_names_are_unupdated()
+            self.assert_fcirc_data_is_unupdated()
 
-    # TODO: Fix this test (make it use study_loader)
-    # def test_load_study_runs_autoupdates(self):
-    #     self.assert_coordinator_state_is_initialized()
-    #     self.assert_no_names_to_start()
-    #     self.assert_no_fcirc_data_to_start()
+    def test_load_study_runs_autoupdates(self):
+        self.assert_coordinator_state_is_initialized()
+        self.assert_no_names_to_start()
+        self.assert_no_fcirc_data_to_start()
 
-    #     call_command(
-    #         "legacy_load_study",
-    #         "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
-    #     )
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
+            exclude_sheets=[
+                "Sequences",
+                "Peak Annotation Files",
+                "Peak Annotation Details",
+            ],
+        )
 
-    #     self.assert_names_are_unupdated(False)
-    #     self.assert_fcirc_data_is_unupdated(False)
-    #     self.assert_coordinator_state_is_initialized()
+        self.assert_names_are_unupdated(False)
+        self.assert_fcirc_data_is_unupdated(False)
+        self.assert_coordinator_state_is_initialized()
 
     def assert_no_names_to_start(self):
         num_orig_infusates = Infusate.objects.count()

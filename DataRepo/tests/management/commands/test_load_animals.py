@@ -102,10 +102,9 @@ class LoadAnimalsSmallObobTests(TracebaseTestCase):
         Study.objects.create(name="Small OBOB")
         Study.objects.create(name="test_labeled_elements")
 
-        # TODO: This will need to change once the submission process refactor is done
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         super().setUpTestData()
 
@@ -176,7 +175,7 @@ class LoadAnimalsAutoupdateTests(TracebaseTestCase):
 
         if 0 != all_coordinators[0].buffer_size():
             raise ValueError(
-                f"legacy_load_study left {all_coordinators[0].buffer_size()} items in the buffer."
+                f"A previous load left {all_coordinators[0].buffer_size()} items in the buffer."
             )
 
         super().setUpTestData()
