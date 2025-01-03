@@ -801,7 +801,7 @@ class MSRunsLoader(TableLoader):
         for _, row in self.df.iterrows():
             sample_name = self.get_row_val(row, self.headers.SAMPLENAME)
             sample_header = self.get_row_val(row, self.headers.SAMPLEHEADER)
-            mzxml_path = self.get_row_val(row, self.headers.MZXMLNAME)
+            mzxml_name_with_opt_path = self.get_row_val(row, self.headers.MZXMLNAME)
             skip_str = self.get_row_val(row, self.headers.SKIP)
             skip = (
                 True
@@ -813,16 +813,19 @@ class MSRunsLoader(TableLoader):
             if sample_name not in expected_samples:
                 expected_samples.append(sample_name)
 
-            # If an mzXML file has not been explicitly specified
-            if mzxml_path is None:
+            # If an mzXML file has not been explicitly specified, set:
+            # - dr (str): a directory that is either a path relative to the study directory or an empty string
+            # - sh (str): an assumed sample header whose dashes will be replaced with underscores (unless exact_mode is
+            #   True).  It is assumed that sample headers will never have a dash (unless exact_mode is True).
+            if mzxml_name_with_opt_path is None:
                 # We don't have a directory, so use empty string
                 dr = ""
                 # The mzXML file should match the recorded sample header
                 sh = sample_header
             else:
-                # We assume that the directory provided is relatiove to the (specified/deduced) mzXML dir
-                dr = os.path.dirname(mzxml_path)
-                fn = os.path.basename(mzxml_path)
+                # We assume that the optionally provided directory is relative to the (specified/deduced) mzXML dir
+                dr = os.path.dirname(mzxml_name_with_opt_path)
+                fn = os.path.basename(mzxml_name_with_opt_path)
                 sh = os.path.splitext(fn)[0]
 
             modded_sh = sh
