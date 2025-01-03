@@ -42,6 +42,7 @@ from DataRepo.utils.exceptions import (
     MissingCompounds,
     MissingSamples,
     MultiplePeakGroupRepresentation,
+    MultipleRecordsReturned,
     NoSamples,
     NoTracerLabeledElements,
     ObservedIsotopeParsingError,
@@ -1249,9 +1250,30 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 ):
                     self.aggregated_errors_object.buffer_error(not_enough_defaults_exc)
             else:
-                # TODO: After rebase on main, convert this into a MultipleRecordsReturned exception
                 try:
                     msrun_samples.get()
+                except MSRunSample.MultipleObjectsReturned as mor:
+                    self.aggregated_errors_object.buffer_error(
+                        MultipleRecordsReturned(
+                            MSRunSample,
+                            query_dict,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            rownum=self.rownum,
+                        ),
+                        orig_exception=mor,
+                    )
+                except MSRunSample.DoesNotExist as dne:
+                    self.aggregated_errors_object.buffer_error(
+                        RecordDoesNotExist(
+                            MSRunSample,
+                            query_dict,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            rownum=self.rownum,
+                        ),
+                        orig_exception=dne,
+                    )
                 except Exception as e:
                     self.aggregated_errors_object.buffer_error(
                         InfileError(
