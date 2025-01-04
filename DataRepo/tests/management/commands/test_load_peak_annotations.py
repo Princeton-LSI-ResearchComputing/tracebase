@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 import pandas as pd
 from django.core.management import CommandError, call_command
 
-from DataRepo.loaders import MSRunsLoader
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
 )
+from DataRepo.loaders.peak_annotations_loader import AccucorLoader
 from DataRepo.models import (
     Animal,
     Infusate,
@@ -21,17 +21,18 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.archive_file import ArchiveFile
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     DuplicateFileHeaders,
+    MultiplePeakGroupRepresentation,
     MultiplePeakGroupRepresentations,
+    NoSamples,
+    RollbackException,
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
-
-# TODO: Swap out all of the calls to legacy_load_animals_and_samples and legacy_load_samples once those loaders are
-# refactored to inherit from TableLoader.
 
 
 def create_test_sequence(researcher, date):
@@ -106,6 +107,20 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+        call_command(
+            "load_sequences",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+        call_command(
+            "load_msruns",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
         super().setUpTestData()
 
     def assure_coordinator_state_is_initialized(
@@ -130,156 +145,6 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             self.assertEqual(
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
-
-    def test_accucor_load_in_debug(self):
-        # Check the state of the coordinators
-        self.assure_coordinator_state_is_initialized()
-
-        create_test_sequence("Michael Neinast", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": [
-                        "BAT-xz971",
-                        "Br-xz971",
-                        "Dia-xz971",
-                        "gas-xz971",
-                        "gWAT-xz971",
-                        "H-xz971",
-                        "Kid-xz971",
-                        "Liv-xz971",
-                        "Lu-xz971",
-                        "Pc-xz971",
-                        "Q-xz971",
-                        "SI-xz971",
-                        "Sol-xz971",
-                        "Sp-xz971",
-                    ],
-                    "Sample Data Header": [
-                        "BAT-xz971",
-                        "Br-xz971",
-                        "Dia-xz971",
-                        "gas-xz971",
-                        "gWAT-xz971",
-                        "H-xz971",
-                        "Kid-xz971",
-                        "Liv-xz971",
-                        "Lu-xz971",
-                        "Pc-xz971",
-                        "Q-xz971",
-                        "SI-xz971",
-                        "Sol-xz971",
-                        "Sp-xz971",
-                    ],
-                    "mzXML File Name": [None for _ in range(14)],
-                    "Peak Annotation File Name": [
-                        "small_obob_maven_6eaas_inf_blank_sample.xlsx"
-                        for _ in range(14)
-                    ],
-                    "Sequence": [
-                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(14)
-                    ],
-                },
-            ),
-        ).load_data()
-
-        pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
-        self.assertGreater(
-            len(pre_load_maintained_values.keys()),
-            0,
-            msg="Ensure there is data in the database before the test",
-        )
-
-        call_command(
-            "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            operator="Michael Neinast",
-            dry_run=True,
-        )
-
-        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
-        post_load_counts = self.get_record_counts()
-
-        self.assertEqual(
-            pre_load_counts,
-            post_load_counts,
-            msg="DryRun mode doesn't change any table's record count.",
-        )
-        self.assertEqual(
-            pre_load_maintained_values,
-            post_load_maintained_values,
-            msg="DryRun mode doesn't autoupdate.",
-        )
-        self.assure_coordinator_state_is_initialized(
-            msg="DryRun mode doesn't leave buffered autoupdates."
-        )
-
-    def test_conflicting_peakgroups(self):
-        """
-        Test loading two conflicting PeakGroups rasies ConflictingValueErrors
-
-        Attempt to load two PeakGroups for the same Compound in the same MSRunSample
-        Note, when there are 2 different peak annotation files, that is an AmbiguousMSRuns error, but when other data
-        differs, it's a ConflictingValueErrors.  The formula for glucose was changed in the conflicting file.
-        """
-
-        create_test_sequence("Michael Neinast", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": ["BAT-xz971", "Br-xz971", "BAT-xz971", "Br-xz971"],
-                    "Sample Data Header": [
-                        "BAT-xz971",
-                        "Br-xz971",
-                        "BAT-xz971",
-                        "Br-xz971",
-                    ],
-                    "mzXML File Name": [None, None, None, None],
-                    "Peak Annotation File Name": [
-                        "small_obob_maven_6eaas_inf_glucose.xlsx",
-                        "small_obob_maven_6eaas_inf_glucose.xlsx",
-                        "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
-                        "small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
-                    ],
-                    "Sequence": [
-                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(4)
-                    ],
-                },
-            ),
-        ).load_data()
-
-        call_command(
-            "load_peak_annotations",
-            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            operator="Michael Neinast",
-        )
-
-        # The same PeakGroup, but from a different accucor file
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_peak_annotations",
-                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                operator="Michael Neinast",
-            )
-
-        aes = ar.exception
-        self.assertEqual(1, aes.num_errors)
-        self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
-        # 1 compounds, 2 samples -> 2 PeakGroups
-        # This error occurs on each of 7 rows, twice (once for each sample)
-        self.assertEqual(14, len(aes.exceptions[0].exceptions))
 
     @MaintainedModel.no_autoupdates()
     def test_blank_skip(self):
@@ -370,6 +235,289 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             PeakData.objects.all().count() - pre_peak_data,
         )
 
+    def test_accucor_load_sample_prefix(self):
+        """Loads an accucor with 1 sample, which has a prefix "PREFIX_" in the peak annot details sheet"""
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table_newsample.xlsx"
+            ),
+        )
+        SAMPLES_COUNT = 1
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_accucor_load_sample_prefix_missing(self):
+        """Loads an accucor with 1 sample, which is missing the prefix "PREFIX_" in the peak annot details sheet"""
+        with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                peak_annotation_details_file=(
+                    "DataRepo/data/tests/small_obob/"
+                    "small_obob_animal_and_sample_table_newsample_missing_prefix.xlsx"
+                ),
+            )
+        aes = ar.exception
+        nl = "\n"
+        self.assertEqual(
+            1,
+            len(aes.exceptions),
+            msg=(
+                f"Should be 1 error (NoSamples), but there were {len(aes.exceptions)} "
+                f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
+            ),
+        )
+        self.assertTrue(isinstance(aes.exceptions[0], NoSamples))
+
+    def test_accucor_load_in_debug(self):
+        pre_load_counts = self.get_record_counts()
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
+        self.assertGreater(
+            len(pre_load_maintained_values.keys()),
+            0,
+            msg="Ensure there is data in the database before the test",
+        )
+        # Check the state of the coordinators
+        self.assure_coordinator_state_is_initialized()
+
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            peak_annotation_details_file=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+            dry_run=True,
+        )
+
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
+        post_load_counts = self.get_record_counts()
+
+        self.assertEqual(
+            pre_load_counts,
+            post_load_counts,
+            msg="DryRun mode doesn't change any table's record count.",
+        )
+        self.assertEqual(
+            pre_load_maintained_values,
+            post_load_maintained_values,
+            msg="DryRun mode doesn't autoupdate.",
+        )
+        self.assure_coordinator_state_is_initialized(
+            msg="DryRun mode doesn't leave buffered autoupdates."
+        )
+
+    @classmethod
+    def load_glucose_data(cls):
+        """Load small_dataset Glucose data"""
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
+        )
+
+    def test_conflicting_peakgroups(self):
+        """
+        Test that loading two conflicting PeakGroups rasies ConflictingValueErrors
+
+        Attempt to load two PeakGroups for the same Compound in the same MSRunSample
+        Note, when there are 2 different peak annotation files, it's a ConflictingValueErrors.  The formula for glucose
+        was changed in the conflicting file.
+        """
+
+        self.load_glucose_data()
+
+        # The same PeakGroup, but from a different accucor file
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
+            )
+
+        aes: AggregatedErrors = ar.exception
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(MultiplePeakGroupRepresentations, type(aes.exceptions[0]))
+        # 1 compounds, 2 samples -> 2 PeakGroups
+        # This error occurs on each of 7 rows, twice (once for each sample)
+        self.assertEqual(14, len(aes.exceptions[0].exceptions))
+
+    def test_duplicate_peak_group(self):
+        """Test inerting two identical PeakGroups raises a MultiplePeakGroupRepresentation error
+
+        This tests the AccuCorDataLoader.get_or_create_peak_group method directly.
+        """
+
+        self.load_glucose_data()
+
+        adl = AccucorLoader()
+        # Get the first PeakGroup, and collect attributes
+        peak_group = PeakGroup.objects.first()
+
+        row = pd.Series(
+            {
+                adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
+                adl.headers.FORMULA: peak_group.formula,
+            }
+        )
+        paf = ArchiveFile(filename="peak_annotation_filename.tsv")
+        crd = {peak_group.name: peak_group.compounds.first()}
+        # Test the instance method "get_or_create_peak_group" buffers an error
+        # when inserting an exact duplicate PeakGroup
+        with self.assertRaises(RollbackException):
+            adl.get_or_create_peak_group(row, paf, crd)
+
+        aes = adl.aggregated_errors_object
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(
+            aes.exceptions[0],
+            MultiplePeakGroupRepresentation,
+            msg=(
+                f"MultiplePeakGroupRepresentation expected. Got [{type(aes.exceptions[0]).__name__}: "
+                f"{aes.exceptions[0]}]."
+            ),
+        )
+
+    def test_conflicting_peak_group(self):
+        """Test inserting two conflicting PeakGroups raises ConflictingValueErrors
+
+        Insert two PeakGroups that differ only in Formula.
+
+        This tests the get_or_create_peak_group method directly.
+        """
+
+        self.load_glucose_data()
+
+        adl = AccucorLoader()
+        # Get the first PeakGroup, and collect attributes
+        peak_group = PeakGroup.objects.first()
+
+        row = pd.Series(
+            {
+                adl.headers.SAMPLEHEADER: peak_group.msrun_sample.sample.name,
+                adl.headers.FORMULA: peak_group.formula + "S",
+            }
+        )
+        paf = peak_group.peak_annotation_file
+        crd = {peak_group.name: peak_group.compounds.first()}
+
+        with self.assertRaises(RollbackException):
+            adl.get_or_create_peak_group(row, paf, crd)
+
+        aes = adl.aggregated_errors_object
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], MultiplePeakGroupRepresentation)
+
+    def test_multiple_accucor_labels(self):
+        """
+        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
+        error
+        """
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        # Could have just used load_study, instead of calling this separately, but whatever
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
+        )
+
+        # Test peak data labels
+        peak_data = PeakData.objects.filter(peak_group__name="Glycerol").filter(
+            peak_group__msrun_sample__sample__name="M1_mix1_T150"
+        )
+
+        peak_data_labels = []
+        for peakdata in peak_data.all():
+            pdl = peakdata.labels.values("element", "mass_number", "count")
+            peak_data_labels.append(list(pdl))
+
+        expected = [
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 3},
+            ],
+        ]
+
+        self.assertEqual(expected, list(peak_data_labels))
+
+    def test_accucor_bad_label(self):
+        """
+        This tests that a bad label in the accucor file (containing an element not in the tracers) generates a single
+        KeyError about the unsupported label element.
+        """
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor_invalid_label.xlsx",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], KeyError)
+        self.assertIn(
+            "Unsupported accucor isotope element 'O'.  Supported elements are: ['C', 'N', 'D', 'H'].",
+            str(aes.exceptions[0]),
+        )
+
+    def test_multiple_accucor_one_msrun(self):
+        """
+        Test that we can load different compounds in separate data files for the same sample run (MSRunSample)
+        """
+        self.load_glucose_data()
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+        )
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_ambiguous_msruns_error(self):
+        """
+        Tests that an AmbiguousMSRuns exception is raised when a duplicate sample.peak group is encountered and the
+        peak annotation file names differ
+
+        This also tests that we do not allow the same compound to be measured from the
+        same sample run (MSRunSample) more than once
+        """
+        self.load_glucose_data()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+            )
+        # Check second file failed (duplicate compound)
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], MultiplePeakGroupRepresentations))
+
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
@@ -396,10 +544,9 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT = 0
 
         call_command(
-            "legacy_load_animals_and_samples",
-            sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
-            table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
+            # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
 
         # from DataRepo/data/tests/small_obob2/obob_samples_table.tsv, not counting the header and BLANK samples
@@ -410,10 +557,9 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT += 1
 
         call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table.xlsx",
+            # I removed the Peak Annotation Files sheet from this one, so no exclude_sheets argument is necessary
         )
         # from DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 5
@@ -454,41 +600,14 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
-            ),
+            "load_study",
+            infile="DataRepo/data/tests/accucor_with_multiple_labels/samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
-        # Load a sequence and all the MSRunSamples
-        create_test_sequence("anonymous", "2022-08-18")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": [
-                        "M1_mix1_T150",
-                        "M2_mix1_T150",
-                        "M3_glycerol_T150",
-                        "M4_glycerol_T150",
-                    ],
-                    "Sample Data Header": [
-                        "M1_mix1_T150",
-                        "M2_mix1_T150",
-                        "M3_glycerol_T150",
-                        "M4_glycerol_T150",
-                    ],
-                    "mzXML File Name": [None for _ in range(4)],
-                    "Peak Annotation File Name": ["accucor.xlsx" for _ in range(4)],
-                    "Sequence": [
-                        "anonymous, polar-HILIC-25-min, unknown, 2022-08-18"
-                        for _ in range(4)
-                    ],
-                },
-            ),
-        ).load_data()
         super().setUpTestData()
 
     def test_multiple_accucor_labels(self):
@@ -501,7 +620,7 @@ class LoadAccucorWithMultipleTracersLabelsCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/accucor_with_multiple_labels/accucor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
-            date="2022-08-18",
+            date="2021-04-29",
             operator="anonymous",
         )
 
@@ -513,58 +632,31 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/protocols/loading.yaml",
-            verbosity=2,
+            "load_protocols",
+            infile="DataRepo/data/tests/protocols/protocols.tsv",
         )
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/tissues/loading.yaml",
-            verbosity=2,
+            "load_tissues",
+            infile="DataRepo/data/tests/tissues/tissues.tsv",
         )
         call_command(
             "load_compounds",
             infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
-
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/singly_labeled_isocorr/animals_samples_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
-
-        create_test_sequence("Michael Neinast", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": ["t0_a146", "t90_a146", "t120_a146"],
-                    "Sample Data Header": ["t0_a146", "t90_a146", "t120_a146"],
-                    "mzXML File Name": [None for _ in range(3)],
-                    "Peak Annotation File Name": [
-                        "small_cor.csv",
-                        "small_cor.csv",
-                        "small_cor.csv",
-                    ],
-                    # TODO: Just realized that we either should not allow commas in names or change the seq name delim
-                    "Sequence": [
-                        "Michael Neinast, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(3)
-                    ],
-                },
-            ),
-        ).load_data()
-
         super().setUpTestData()
 
     @MaintainedModel.no_autoupdates()
     def load_multitracer_data(self):
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_tracers/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         num_samples = 4
@@ -572,33 +664,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_infusatetracers = 3
         num_tracers = 6
         num_tracerlabels = 12
-
-        # Load a sequence and all the MSRunSamples
-        create_test_sequence("Xianfeng Zeng", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": ["xz971_bat", "xz971_br", "xz1079_bat", "xz1079_br"],
-                    "Sample Data Header": [
-                        "xz971_bat",
-                        "xz971_br",
-                        "xz1079_bat",
-                        "xz1079_br",
-                    ],
-                    "mzXML File Name": [None for _ in range(4)],
-                    "Peak Annotation File Name": [
-                        "6eaafasted1_cor.xlsx",
-                        "6eaafasted1_cor.xlsx",
-                        "bcaafasted_cor.xlsx",
-                        "bcaafasted_cor.xlsx",
-                    ],
-                    "Sequence": [
-                        "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(4)
-                    ],
-                },
-            ),
-        ).load_data()
 
         return (
             num_samples,
@@ -611,11 +676,9 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def load_multilabel_data(self):
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         num_samples = 5
@@ -623,44 +686,6 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         num_infusatetracers = 2
         num_tracers = 2
         num_tracerlabels = 3
-
-        # Load a sequence and all the MSRunSamples
-        create_test_sequence("Xianfeng Zeng", "2021-04-29")
-        MSRunsLoader(
-            df=pd.DataFrame.from_dict(
-                {
-                    "Sample Name": [
-                        "xzl5_t",
-                        "xzl5_panc",
-                        "xzl4_t",
-                        "xzl4_sp",
-                        "xzl1_brain",
-                        "xzl1_brownFat",
-                    ],
-                    "Sample Data Header": [
-                        "xzl5_t",
-                        "xzl5_panc",
-                        "xzl4_t",
-                        "xzl4_sp",
-                        "xzl1_brain",
-                        "xzl1_brownFat",
-                    ],
-                    "mzXML File Name": [None for _ in range(6)],
-                    "Peak Annotation File Name": [
-                        "alafasted_cor.xlsx",
-                        "alafasted_cor.xlsx",
-                        "alafasted_cor.xlsx",
-                        "alafasted_cor.xlsx",
-                        "glnfasted_cor.xlsx",
-                        "glnfasted_cor.xlsx",
-                    ],
-                    "Sequence": [
-                        "Xianfeng Zeng, polar-HILIC-25-min, unknown, 2021-04-29"
-                        for _ in range(6)
-                    ],
-                },
-            ),
-        ).load_data()
 
         return (
             num_samples,
@@ -750,9 +775,9 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         ) = self.get_model_counts()
 
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_tracers/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         (
@@ -899,11 +924,9 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
         ) = self.get_model_counts()
 
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
 
         (
@@ -1017,9 +1040,72 @@ class LoadIsocorrCommandTests(TracebaseTestCase):
 
 
 class LoadIsoautocorrCommandTests(TracebaseTestCase):
-    # fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
-    # TODO: Implement tests after rebase that brings in Lance's isoautocorr test files
-    pass
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/isoautocorr/test-isoautocorr-study/test-isoautocorr-studydoc_v3.xlsx",
+            # Loading the peak annot file too
+        )
+        cls.SAMPLES_COUNT = 4
+        cls.PEAKDATA_ROWS = 14
+        cls.MEASURED_COMPOUNDS_COUNT = 2  # L-Serine and Glucose
+
+        super().setUpTestData()
+
+    def test_isoautocorr_load(self):
+        """Load test-isoautocorr data"""
+
+        self.assertEqual(
+            PeakGroup.objects.count(),
+            self.MEASURED_COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+        )
+        self.assertEqual(
+            PeakData.objects.all().count(), self.PEAKDATA_ROWS * self.SAMPLES_COUNT
+        )
+
+    def test_isoautocorr_peakdatalabels(self):
+        """Check peak data labels for isoautocorr loading"""
+
+        peak_data = PeakData.objects.filter(peak_group__name="Glycine").filter(
+            peak_group__msrun_sample__sample__name="His_M3_T02_liv"
+        )
+
+        peak_data_labels = []
+        for peakdata in peak_data.all():
+            pdl = peakdata.labels.values("element", "mass_number", "count")
+            peak_data_labels.append(list(pdl))
+
+        expected = [
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 0},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+                {"element": "N", "mass_number": 15, "count": 0},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 1},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+            [
+                {"element": "C", "mass_number": 13, "count": 2},
+                {"element": "N", "mass_number": 15, "count": 1},
+            ],
+        ]
+
+        self.assertEqual(expected, list(peak_data_labels))
 
 
 class LoadUnicorrCommandTests(TracebaseTestCase):

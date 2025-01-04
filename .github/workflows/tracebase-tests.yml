@@ -55,20 +55,14 @@ jobs:
         run: python manage.py createcachetable
       - name: Run tests
         run: python manage.py test
-      - name: Load lcmethod fixtures
+      - name: Load fixtures
         run: |
           python manage.py loaddata \
-          "DataRepo/fixtures/lc_methods.yaml"
-      - name: Load initial tissue records
+          "DataRepo/fixtures/lc_methods.yaml" \
+          "DataRepo/fixtures/data_formats.yaml" \
+          "DataRepo/fixtures/data_types.yaml"
+      - name: Load example study doc
         run: |
-          python manage.py legacy_load_study \
-          "DataRepo/data/tests/tissues/loading.yaml"
-      - name: Load example compounds
-        run: |
-          python manage.py load_compounds \
+          python manage.py load_study \
           --infile \
-          "DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv"
-      - name: Load example sample table
-        run: |
-          python manage.py legacy_load_samples \
-          "DataRepo/data/tests/small_obob2/obob_animal_sample_table.tsv"
+          "DataRepo/data/tests/small_obob/glucose/small_obob_animal_and_sample_table.xlsx"
