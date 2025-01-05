@@ -2349,8 +2349,8 @@ class BuildSubmissionView(FormView):
                 # Modify exceptions of exc_class in the AggregatedErrors object because they are going to be fixed, and
                 # the user will be confused if they see a missing Tissues warning associated with a file and then see a
                 # passed status of "All tissues are in the database".
-                for exc in self.load_status_data.modify_exception_type(
-                    load_key, exc_class, status_message=message, is_error=False
+                for exc in self.load_status_data.get_exception_type(
+                    load_key, exc_class
                 ):
                     # If this is an error (as opposed to a warning)
                     if not hasattr(exc, "is_error") or exc.is_error:
@@ -2363,7 +2363,19 @@ class BuildSubmissionView(FormView):
                             "warnings"
                         ].append(exc)
 
-                    self.extract_all_missing_values(exc, sheet, header)
+                    # A missing value is only extracted and inserted into the autofill_dict if that row is not already
+                    # present in the dfs_dict (which can happen if there was an error creating the record), so only set
+                    # the status message as "fixed" if the autofill was at all populated
+                    status_message = None
+                    if self.extract_all_missing_values(exc, sheet, header):
+                        status_message = message
+
+                    # We will set it as a warning in any case because either it was autofilled or some other error
+                    # prevented its creation and the missing sample error was the result of another error.  We draw
+                    # attention to the original error by making this one a warning.
+                    self.load_status_data.modify_exception(
+                        load_key, exc, status_message=status_message, is_error=False
+                    )
 
     def extract_all_missing_values(self, exc, sheet, header):
         """Extracts autofill data from supplied AllMissing* exception and puts it in self.autofill_dict.
@@ -2387,8 +2399,9 @@ class BuildSubmissionView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            added (bool): Whether the missing value was added to the autofill dict.
         """
+        added = False
         for unique_val in exc.search_terms:
             # Check that the dfs_dict doesn't already have a row for this value.  The dfs_dict is structured like this:
             # {sheet: {header1: {0: rowindex0_value, 1: rowindex1_value}}}
@@ -2401,7 +2414,10 @@ class BuildSubmissionView(FormView):
                 or header not in self.dfs_dict[sheet].keys()
                 or unique_val not in self.dfs_dict[sheet][header].values()
             ):
+                added = True
                 self.autofill_dict[sheet][unique_val] = {header: unique_val}
+
+        return added
 
     def add_extracted_autofill_data(self):
         """Appends new rows from self.autofill_dict to self.dfs_dict.

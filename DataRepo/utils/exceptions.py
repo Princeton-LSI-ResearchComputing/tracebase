@@ -1807,6 +1807,27 @@ class MultiLoadStatus(Exception):
         self.update_state(load_key)
         return removed_exceptions
 
+    def get_exception_type(self, load_key, *args, **kwargs):
+        """An interface to AggregatedErrors.get_exception_type.  Call this instead of calling
+        obj.statuses[load_key]["aggregated_errors"].get_exception_type().
+
+        Args:
+            load_key (string): Key into self.statuses dict where each aggregated errors object is stored.
+            args (list): Positional arguments to the AggregatedErrors.get_exception_type() method.
+                exception_class (Exception): Required.  See AggregatedErrors.get_exception_type().
+            kwargs (dict): Keyword arguments to the AggregatedErrors.get_exception_type() method.
+        Exceptions:
+            None
+        Returns:
+            retrieved_exceptions (list of Exception): The return of AggregatedErrors.modify_exception_type()
+        """
+        retrieved_exceptions = []
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            retrieved_exceptions = self.statuses[load_key][
+                "aggregated_errors"
+            ].get_exception_type(*args, **kwargs)
+        return retrieved_exceptions
+
     def modify_exception_type(self, load_key, *args, **kwargs):
         """An interface to AggregatedErrors.modify_exception_type that keeps the "state" of the load_key in the statuses
         member up-to-date.  Call this instead of calling
@@ -1816,7 +1837,7 @@ class MultiLoadStatus(Exception):
         Args:
             load_key (string): Key into self.statuses dict where each aggregated errors object is stored.
             args (list): Positional arguments to the AggregatedErrors.modify_exception_type() method.
-                exception_class (Exception): Required.  See AggregatedErrors.modify_exception_type().
+                exception_class (Type[Exception]): Required.  See AggregatedErrors.modify_exception_type().
             kwargs (dict): Keyword arguments to the AggregatedErrors.modify_exception_type() method.
                 modify (boolean): See AggregatedErrors.modify_exception_type().
         Exceptions:
@@ -1831,6 +1852,29 @@ class MultiLoadStatus(Exception):
             ].modify_exception_type(*args, **kwargs)
         self.update_state(load_key)
         return modified_exceptions
+
+    def modify_exception(self, load_key, *args, **kwargs):
+        """An interface to AggregatedErrors.modify_exception that keeps the "state" of the load_key in the statuses
+        member up-to-date.  Call this instead of calling
+        obj.statuses[load_key]["aggregated_errors"].modify_exception().  If you do that, you must manually handle
+        keeping obj.statuses[load_key]["state"] up to date.
+
+        Assumptions:
+            1. self.statuses[load_key]["aggregated_errors"] is not None because the exception supplied is assumed to
+            exist
+        Args:
+            load_key (string): Key into self.statuses dict where each aggregated errors object is stored.
+            args (list): Positional arguments to the AggregatedErrors.modify_exception() method.
+                exception (Exception): Required.  See AggregatedErrors.modify_exception().
+            kwargs (dict): Keyword arguments to the AggregatedErrors.modify_exception() method.
+                modify (boolean): See AggregatedErrors.modify_exception().
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        self.statuses[load_key]["aggregated_errors"].modify_exception(*args, **kwargs)
+        self.update_state(load_key)
 
     def update_state(self, load_key):
         """Set the state of an individual load key on the fly to simplify determination given the new features
@@ -2157,15 +2201,26 @@ class AggregatedErrors(Exception):
         if aes_object.quiet:
             self.quiet = aes_object.quiet
 
-    def get_exception_type(self, exception_class, remove=False, modify=True):
+    def get_exception_type(
+        self,
+        exception_class,
+        remove=False,
+        modify=True,
+        attr_name=None,
+        attr_val=None,
+    ):
         """
         This method is provided to retrieve exceptions (if they exist in the exceptions list) from this object and
         return them.
 
         Args:
-            exception_class (Exception): The class of exceptions to remove
+            exception_class (Exception): The class of exceptions to return (and optionally remove/modify)
             remove (boolean): Whether to remove matching exceptions from this object
             modify (boolean): Whether the convert a removed exception to a warning
+            attr_name (str): An attribute required to be in the exception in order to match
+            attr_val (object): The value of attr_name required to match in the exception
+        Returns:
+            matched_exceptions (List[Exception]): Exceptions from self.exception that matched the search criteria
         """
         matched_exceptions = []
         unmatched_exceptions = []
@@ -2176,7 +2231,9 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if self.exception_matches(exception, exception_class):
+            if self.exception_matches(
+                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+            ):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
                     exception.is_error = False
@@ -2225,7 +2282,17 @@ class AggregatedErrors(Exception):
         If is_fatal is not None, the exception's is_fatal is changed to the supplied boolean value.
         If is_error is not None, the exception's is_error is changed to the supplied boolean value.
 
-        It is assumed that a separate exception will be created that is an error.
+        Assumptions:
+            1. A separate exception will be created that is an error.
+        Args:
+            exception_class (Exception): The class of exceptions to modify
+            is_fatal (bool): Change matching exceptions' is_fatal attribute to this value
+            is_error (bool): Change matching exceptions' is_error attribute to this value
+            status_message (str): Change matching exceptions' aes_status_message attribute to this value
+            attr_name (str): An attribute required to be in the exception in order to match
+            attr_val (object): The value of attr_name required to match in the exception
+        Returns:
+            matched_exceptions (List[Exception]): Exceptions from self.exception that matched the search criteria
         """
         matched_exceptions = []
         num_errors = 0
@@ -2270,6 +2337,65 @@ class AggregatedErrors(Exception):
 
         # Return removed exceptions
         return matched_exceptions
+
+    def modify_exception(
+        self,
+        exception,
+        is_fatal=None,
+        is_error=None,
+        status_message=None,
+    ):
+        """Modifies a supplied exception and updates the metadata.
+
+        If is_fatal is not None, the exception's is_fatal is changed to the supplied boolean value.
+        If is_error is not None, the exception's is_error is changed to the supplied boolean value.
+
+        Assumptions:
+            1. A separate exception will be created that is an error.
+            2. Changing exception changes the occurrence of the exception in self.exceptions (because it's a reference).
+        Args:
+            exception_class (Exception): The class of exceptions to modify
+            is_fatal (bool): Change matching exceptions' is_fatal attribute to this value
+            is_error (bool): Change matching exceptions' is_error attribute to this value
+            status_message (str): Change matching exceptions' aes_status_message attribute to this value
+            attr_name (str): An attribute required to be in the exception in order to match
+            attr_val (object): The value of attr_name required to match in the exception
+        Returns:
+            matched_exceptions (List[Exception]): Exceptions from self.exception that matched the search criteria
+        """
+        # Look for exceptions to modify and recompute new object values
+        if exception not in self.exceptions:
+            raise ProgrammingError(
+                f"Exception not found in buffer: {type(exception).__name__}: {exception}"
+            )
+
+        if is_error is not None:
+            if exception.is_error != is_error:
+                exception.is_error = is_error
+                exception.exc_type_str = "Error" if is_error else "Warning"
+                if is_error:
+                    self.num_errors += 1
+                    self.num_warnings -= 1
+                else:
+                    self.num_errors -= 1
+                    self.num_warnings += 1
+                self.is_error = self.num_errors > 0
+
+        if is_fatal is not None:
+            if exception.is_fatal != is_fatal:
+                exception.is_fatal = is_fatal
+                self.is_fatal = len([e for e in self.exceptions if e.is_fatal]) > 0
+
+        if status_message is not None:
+            exception.aes_status_message = status_message
+        elif not hasattr(exception, "aes_status_message"):
+            # TODO: This was added as a safety precaution, to ensure it's present for the submission template.
+            # This should be handled via buffer_exception and the constructor that takes a list of exceptions.
+            exception.aes_status_message = None
+
+        # Reinitialize this object
+        if not self.custom_message:
+            super().__init__(self.get_default_message())
 
     def remove_exception_type(self, exception_class, modify=True):
         """
