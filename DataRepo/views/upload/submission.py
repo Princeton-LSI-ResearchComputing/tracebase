@@ -2352,13 +2352,8 @@ class BuildSubmissionView(FormView):
                 for exc in self.load_status_data.get_exception_type(
                     load_key, exc_class
                 ):
-                    # If this is an error (as opposed to a warning)
-                    if not hasattr(exc, "is_error") or exc.is_error:
-                        if retain_as_warnings:
-                            self.extracted_exceptions[exc_class.__name__][
-                                "errors"
-                            ].append(exc)
-                    elif retain_as_warnings:
+                    # Every matched exception will be made into a warning
+                    if retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
