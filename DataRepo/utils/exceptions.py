@@ -765,6 +765,9 @@ class MissingRecords(InfileError):
         exceptions_by_model_query_and_loc: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
         )
+        exceptions_by_model_loc_and_query: Dict[str, dict] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(list))
+        )
         for inst in exceptions:
             q_str = inst._get_query_stub()
             exceptions_by_model_and_fields[inst.model.__name__][q_str].append(inst)
@@ -778,6 +781,9 @@ class MissingRecords(InfileError):
             )
             exceptions_by_model_query_and_loc[inst.model.__name__][search_terms][
                 inst_loc
+            ].append(inst)
+            exceptions_by_model_loc_and_query[inst.model.__name__][inst_loc][
+                search_terms
             ].append(inst)
 
         for mdl_name in exceptions_by_model_and_fields.keys():
@@ -820,6 +826,7 @@ class MissingRecords(InfileError):
         self.exceptions = exceptions
         self.exceptions_by_model_and_query = exceptions_by_model_and_query
         self.exceptions_by_model_query_and_loc = exceptions_by_model_query_and_loc
+        self.exceptions_by_model_loc_and_query = exceptions_by_model_loc_and_query
 
 
 class MissingModelRecords(MissingRecords, ABC):
@@ -900,7 +907,7 @@ class MissingModelRecords(MissingRecords, ABC):
 
 
 class MissingModelRecordsByFile(MissingRecords, ABC):
-    """Keeps tract of missing records for one model across multiple files"""
+    """Keeps track of missing records for one model across multiple files"""
 
     _one_source = False
 
@@ -933,26 +940,27 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
         if message is None:
             nltt = "\n\t\t"
             summary = ""
-            for terms in sorted(
-                self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
-                key=str.casefold,
-            ):
-                loc_dict = self.exceptions_by_model_query_and_loc[self.ModelName][terms]
-                summary += "\n\t"
-                summary += f"{terms}{nltt}"
-                if succinct:
-                    # Every exception is from the same file, given the loc_dict key is the file location
-                    files = [
-                        (
-                            (os.path.split(exc_lst[0].file))[1]
-                            if exc_lst[0].file is not None
-                            else ""
-                        )
-                        for exc_lst in loc_dict.values()
-                    ]
-                    # Cannot use casefold when a file can be None
-                    summary += nltt.join(sorted(files, key=str.casefold))
-                else:
+            total = 0
+            if succinct:
+                for loc in sorted(
+                    self.exceptions_by_model_loc_and_query[self.ModelName].keys(),
+                    key=str.casefold,
+                ):
+                    terms_dict: dict = self.exceptions_by_model_loc_and_query[
+                        self.ModelName
+                    ][loc]
+                    total += len(terms_dict.keys())
+                    summary += f"\n\t{len(terms_dict.keys())} {self.ModelName} records missing from {loc}"
+            else:
+                for terms in sorted(
+                    self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
+                    key=str.casefold,
+                ):
+                    loc_dict: dict = self.exceptions_by_model_query_and_loc[
+                        self.ModelName
+                    ][terms]
+                    summary += "\n\t"
+                    summary += f"{terms}{nltt}"
                     summary += nltt.join(
                         [
                             f"{loc}, row(s): ["
@@ -966,10 +974,13 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                         ]
                     )
             if succinct:
-                message = (
-                    f"{len(exceptions)} {self.ModelName} records missing in the database:{summary}\nwhile processing "
-                    "%s."
-                )
+                if len(exceptions) != total:
+                    message = f"{len(exceptions)} total {self.ModelName} records missing in the database:"
+                else:
+                    message = (
+                        f"{self.ModelName} record searches not found in the database:"
+                    )
+                message += f"{summary}\nwhile processing %s."
             else:
                 message = (
                     f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
