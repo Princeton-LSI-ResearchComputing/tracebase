@@ -800,7 +800,7 @@ class MSRunsLoader(TableLoader):
 
         expected_mzxmls = defaultdict(lambda: defaultdict(dict))
         expected_samples = []
-        unexpected_sample_headers = []
+        unexpected_sample_headers = {}
 
         # Take an accounting of all expected samples and mzXML files.  Note that in the absence of an explicitly entered
         # mzXML file, the sample header is used as a stand-in for the mzXML file's name (minus extension).
@@ -860,6 +860,7 @@ class MSRunsLoader(TableLoader):
                 modded_sh = sh.replace("-", "_")
 
             sn = self.guess_sample_name(modded_sh)
+            actual_rel_file = os.path.relpath(actual_mzxml_file, self.mzxml_dir)
 
             if modded_sh in expected_mzxmls.keys():
                 actual_rel_dir = os.path.relpath(dr, self.mzxml_dir)
@@ -870,24 +871,25 @@ class MSRunsLoader(TableLoader):
                     # Neither the explicit path was expected nor an unspecified path was expected
                     if (
                         sn not in expected_samples
-                        and modded_sh not in unexpected_sample_headers
+                        and modded_sh not in unexpected_sample_headers.keys()
                     ):
-                        unexpected_sample_headers.append(modded_sh)
+                        # NOTE: We only need one such example (for the error) among multiple files with the same name
+                        unexpected_sample_headers[modded_sh] = actual_rel_file
             else:
                 if (
                     sn not in expected_samples
-                    and modded_sh not in unexpected_sample_headers
+                    and modded_sh not in unexpected_sample_headers.keys()
                 ):
-                    unexpected_sample_headers.append(modded_sh)
+                    # NOTE: We only need one such example (for the error) among multiple files with the same name
+                    unexpected_sample_headers[modded_sh] = actual_rel_file
 
         die = False
-        for unexpected_sample_header in unexpected_sample_headers:
+        for unexpected_sample_header in unexpected_sample_headers.keys():
             guessed_name = self.guess_sample_name(unexpected_sample_header)
-            arbitrary_key = next(iter(self.mzxml_dict[unexpected_sample_header]))
-            mzxml_filepath = self.mzxml_dict[unexpected_sample_header][arbitrary_key][
-                0
-            ]["mzxml_filepath"]
-            rec = self.get_sample_by_name(guessed_name, from_mzxml=mzxml_filepath)
+            rec = self.get_sample_by_name(
+                guessed_name,
+                from_mzxml=unexpected_sample_headers[unexpected_sample_header],
+            )
             if rec is None:
                 die = True
 

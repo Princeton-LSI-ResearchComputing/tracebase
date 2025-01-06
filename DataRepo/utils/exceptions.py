@@ -765,9 +765,6 @@ class MissingRecords(InfileError):
         exceptions_by_model_query_and_loc: Dict[str, dict] = defaultdict(
             lambda: defaultdict(lambda: defaultdict(list))
         )
-        exceptions_by_model_loc_and_query: Dict[str, dict] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict(list))
-        )
         for inst in exceptions:
             q_str = inst._get_query_stub()
             exceptions_by_model_and_fields[inst.model.__name__][q_str].append(inst)
@@ -781,9 +778,6 @@ class MissingRecords(InfileError):
             )
             exceptions_by_model_query_and_loc[inst.model.__name__][search_terms][
                 inst_loc
-            ].append(inst)
-            exceptions_by_model_loc_and_query[inst.model.__name__][inst_loc][
-                search_terms
             ].append(inst)
 
         for mdl_name in exceptions_by_model_and_fields.keys():
@@ -826,7 +820,6 @@ class MissingRecords(InfileError):
         self.exceptions = exceptions
         self.exceptions_by_model_and_query = exceptions_by_model_and_query
         self.exceptions_by_model_query_and_loc = exceptions_by_model_query_and_loc
-        self.exceptions_by_model_loc_and_query = exceptions_by_model_loc_and_query
 
 
 class MissingModelRecords(MissingRecords, ABC):
@@ -937,30 +930,23 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
         # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
         super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
+        num_examples = 3
         if message is None:
             nltt = "\n\t\t"
             summary = ""
-            total = 0
-            if succinct:
-                for loc in sorted(
-                    self.exceptions_by_model_loc_and_query[self.ModelName].keys(),
-                    key=str.casefold,
-                ):
-                    terms_dict: dict = self.exceptions_by_model_loc_and_query[
-                        self.ModelName
-                    ][loc]
-                    total += len(terms_dict.keys())
-                    summary += f"\n\t{len(terms_dict.keys())} {self.ModelName} records missing from {loc}"
-            else:
-                for terms in sorted(
+            for i, terms_str in enumerate(
+                sorted(
                     self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
                     key=str.casefold,
-                ):
-                    loc_dict: dict = self.exceptions_by_model_query_and_loc[
-                        self.ModelName
-                    ][terms]
-                    summary += "\n\t"
-                    summary += f"{terms}{nltt}"
+                )
+            ):
+                loc_dict: dict = self.exceptions_by_model_query_and_loc[self.ModelName][
+                    terms_str
+                ]
+                summary += "\n\t"
+                summary += terms_str
+                if not succinct:
+                    summary += nltt
                     summary += nltt.join(
                         [
                             f"{loc}, row(s): ["
@@ -973,14 +959,18 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                             for loc in sorted(loc_dict.keys(), key=str.casefold)
                         ]
                     )
+                elif i >= num_examples - 1:
+                    break
             if succinct:
-                if len(exceptions) != total:
-                    message = f"{len(exceptions)} total {self.ModelName} records missing in the database:"
-                else:
-                    message = (
-                        f"{self.ModelName} record searches not found in the database:"
-                    )
-                message += f"{summary}\nwhile processing %s."
+                message = (
+                    f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
+                    f"database while processing %s:{summary}"
+                )
+                if num_examples < len(
+                    self.exceptions_by_model_query_and_loc[self.ModelName].keys()
+                ):
+                    message += "\n\t..."
+                message += f"\nSee exceptions below for all missing {self.ModelName} record details."
             else:
                 message = (
                     f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
