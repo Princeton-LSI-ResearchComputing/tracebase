@@ -218,8 +218,7 @@ class AnimalsLoaderTests(TracebaseTestCase):
 
     def test_animals_loader_get_infusate_int(self):
         al = AnimalsLoader()
-        row = pd.Series({AnimalsLoader.DataHeaders.INFUSATE: "Leucine-[1,2-13C2][1]"})
-        rec = al.get_infusate(row)
+        rec = al.get_infusate("Leucine-[1,2-13C2][1]")
         self.assertIsNotNone(rec)
         self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
 
@@ -246,13 +245,11 @@ class AnimalsLoaderTests(TracebaseTestCase):
         self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
 
         # Now get the infusate using the Infusate.CONCENTRATION_SIGNIFICANT_FIGURES (3), i.e. 149
-        row = pd.Series({AnimalsLoader.DataHeaders.INFUSATE: "Leucine-[13C6][149]"})
-        rec = al.get_infusate(row)
+        rec = al.get_infusate("Leucine-[13C6][149]")
         self.assertEqual(inf, rec)
 
         # Now get the infusate using the number supplied by the user, i.e. 148.88
-        row = pd.Series({AnimalsLoader.DataHeaders.INFUSATE: "Leucine-[13C6][148.88]"})
-        rec2 = al.get_infusate(row)
+        rec2 = al.get_infusate("Leucine-[13C6][148.88]")
         self.assertEqual(inf, rec2)
 
     def test_animals_loader_get_treatment(self):
