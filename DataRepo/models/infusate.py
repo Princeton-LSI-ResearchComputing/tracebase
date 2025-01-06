@@ -28,28 +28,37 @@ class InfusateQuerySet(models.QuerySet):
 
         # Matching record not found, create new record
         if infusate is None:
-            # create infusate
-            infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
-
-            # create tracers
-            Tracer = get_model_by_name("Tracer")
-            InfusateTracer = get_model_by_name("InfusateTracer")
-            for infusate_tracer in infusate_data["tracers"]:
-                tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
-                if tracer is None:
-                    (tracer, _) = Tracer.objects.get_or_create_tracer(
-                        infusate_tracer["tracer"],
-                    )
-                # associate tracers with specific conectrations
-                InfusateTracer.objects.create(
-                    infusate=infusate,
-                    tracer=tracer,
-                    concentration=infusate_tracer["concentration"],
-                )
-            infusate.full_clean()
-            infusate.save()
+            infusate = self.create_infusate(infusate_data)
             created = True
-        return (infusate, created)
+
+        return infusate, created
+
+    def create_infusate(
+        self,
+        infusate_data: InfusateData,
+    ) -> Infusate:
+        """Create a new infusate"""
+        infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
+
+        # create tracers
+        Tracer = get_model_by_name("Tracer")
+        InfusateTracer = get_model_by_name("InfusateTracer")
+        for infusate_tracer in infusate_data["tracers"]:
+            tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
+            if tracer is None:
+                (tracer, _) = Tracer.objects.get_or_create_tracer(
+                    infusate_tracer["tracer"],
+                )
+            # associate tracers with specific conectrations
+            InfusateTracer.objects.create(
+                infusate=infusate,
+                tracer=tracer,
+                concentration=infusate_tracer["concentration"],
+            )
+        infusate.full_clean()
+        infusate.save()
+
+        return infusate
 
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
         """Get Infusate matching the infusate_data"""

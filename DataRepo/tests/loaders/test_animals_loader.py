@@ -37,12 +37,12 @@ class AnimalsLoaderTests(TracebaseTestCase):
         )
 
         # Test create
-        rec, cre = al.get_or_create_animal(row, self.infusate)
+        rec, cre = al.get_or_create_animal(row, infusate=self.infusate)
         self.assertTrue(cre)
         self.assertEqual("anml1", rec.name)
 
         # Test get
-        rec2, cre2 = al.get_or_create_animal(row, self.infusate)
+        rec2, cre2 = al.get_or_create_animal(row, infusate=self.infusate)
         self.assertFalse(cre2)
         self.assertEqual("anml1", rec2.name)
 
@@ -63,7 +63,9 @@ class AnimalsLoaderTests(TracebaseTestCase):
         treatment = Protocol.objects.create(
             name="test", category=Protocol.ANIMAL_TREATMENT
         )
-        rec, cre = al.get_or_create_animal(row, self.infusate, treatment)
+        rec, cre = al.get_or_create_animal(
+            row, infusate=self.infusate, treatment=treatment
+        )
         self.assertTrue(cre)
         self.assertEqual("anml1", rec.name)
         self.assertEqual("WT", rec.genotype)
@@ -75,7 +77,9 @@ class AnimalsLoaderTests(TracebaseTestCase):
         self.assertEqual("test", rec.treatment.name)
 
         # Test get
-        rec2, cre2 = al.get_or_create_animal(row, self.infusate, treatment)
+        rec2, cre2 = al.get_or_create_animal(
+            row, infusate=self.infusate, treatment=treatment
+        )
         self.assertFalse(cre2)
         self.assertEqual("anml1", rec2.name)
 
