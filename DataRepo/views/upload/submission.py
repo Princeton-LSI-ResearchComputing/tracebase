@@ -2264,30 +2264,12 @@ class BuildSubmissionView(FormView):
         This produces a dict named autofill_dict keyed on sheet name.
 
         This method detects:
-        - AllMissingSamplesError
-          - Error exceptions
-            - Removes the exception
-            - Puts {unique_record_key: {header: sample_name}} in the Samples sheet key of autofill_dict
-            - Puts {unique_record_key: {sample_hdr: sample_name, header_hdr: header_name, peak_annot_hdr: peak_annot}}
-                in Peak Annotation Details sheet
-            - Puts {unique_record_key: {peak_annot_hdr: peak_annot, filetype_hdr: filetype}} in Peak Annotation Files
-                sheet
-          - Warning exceptions
-            - Removes the exception
+        - AllMissingSamples
         - AllMissingTissues
-          - Error exceptions
-            - Removes the exception
-            - Puts {unique_record_key: {header: tissue_name}} in the Tissues sheet key of autofill_dict
-          - Warning exceptions
-            - Removes the exception
         - AllMissingTreatments
-          - Error exceptions
-            - Removes the exception
-            - Puts {unique_record_key: {header: treatment_name}} in the Treatments sheet key of autofill_dict
-          - Warning exceptions
-            - Removes the exception
-        - In any of the above cases:
-          - If the load key's value ends up empty, the load key is removed
+        - AllMissingCompounds
+        - AllMissingStudies
+        - NoSamples
 
         Args:
             retain_as_warnings (boolean): Track extracted error and warning exceptions as warnings.  If False, no pre-
@@ -2367,21 +2349,28 @@ class BuildSubmissionView(FormView):
                 # Modify exceptions of exc_class in the AggregatedErrors object because they are going to be fixed, and
                 # the user will be confused if they see a missing Tissues warning associated with a file and then see a
                 # passed status of "All tissues are in the database".
-                for exc in self.load_status_data.modify_exception_type(
-                    load_key, exc_class, status_message=message, is_error=False
+                for exc in self.load_status_data.get_exception_type(
+                    load_key, exc_class
                 ):
-                    # If this is an error (as opposed to a warning)
-                    if not hasattr(exc, "is_error") or exc.is_error:
-                        if retain_as_warnings:
-                            self.extracted_exceptions[exc_class.__name__][
-                                "errors"
-                            ].append(exc)
-                    elif retain_as_warnings:
+                    # Every matched exception will be made into a warning
+                    if retain_as_warnings:
                         self.extracted_exceptions[exc_class.__name__][
                             "warnings"
                         ].append(exc)
 
-                    self.extract_all_missing_values(exc, sheet, header)
+                    # A missing value is only extracted and inserted into the autofill_dict if that row is not already
+                    # present in the dfs_dict (which can happen if there was an error creating the record), so only set
+                    # the status message as "fixed" if the autofill was at all populated
+                    status_message = None
+                    if self.extract_all_missing_values(exc, sheet, header):
+                        status_message = message
+
+                    # We will set it as a warning in any case because either it was autofilled or some other error
+                    # prevented its creation and the missing sample error was the result of another error.  We draw
+                    # attention to the original error by making this one a warning.
+                    self.load_status_data.modify_exception(
+                        load_key, exc, status_message=status_message, is_error=False
+                    )
 
     def extract_all_missing_values(self, exc, sheet, header):
         """Extracts autofill data from supplied AllMissing* exception and puts it in self.autofill_dict.
@@ -2392,6 +2381,12 @@ class BuildSubmissionView(FormView):
                 "Tissues": defaultdict(dict),
                 "Treatments": defaultdict(dict),
             }
+        Assumptions:
+            1. `exc.search_terms` is a list of singular unique values because the database query that hit an error was
+            searching using a single unique field.  Note that if some other query were performed (e.g. using a non-
+            unique field or a combination of fields or the search term was a substring of a record's value for the
+            field), then this will be wrong.  If there are code changes that cause that to happen, the construction of
+            the exceptions will have to be refactored.
         Args:
             exc (MissingModelRecordsByFile): An exception object containing data about missing records from a model.
             sheet (str)
@@ -2399,15 +2394,25 @@ class BuildSubmissionView(FormView):
         Exceptions:
             None
         Returns:
-            None
+            added (bool): Whether the missing value was added to the autofill dict.
         """
-        # NOTE: `exc.search_terms` is only a list of unique values because the database query that hit an error was
-        # searching using a unique field.  In other words, if some other query were performed (e.g. using a non-unique
-        # field or a combination of fields or the search term was a substring of a record's value for the field), then
-        # this will be wrong.  If there are code changes that cause that to happen, the construction of the exceptions
-        # will have to be refactored.
+        added = False
         for unique_val in exc.search_terms:
-            self.autofill_dict[sheet][unique_val] = {header: unique_val}
+            # Check that the dfs_dict doesn't already have a row for this value.  The dfs_dict is structured like this:
+            # {sheet: {header1: {0: rowindex0_value, 1: rowindex1_value}}}
+            # where you must check all values of the inner dict.  Note that records can be reported as missing even if
+            # the rows are present (which is why this check is necessary) if the row for the record could not be loaded
+            # due to an error.  E.g. A sample could not be created because the animal could not be created because the
+            # infusate selected was a mismatch for the infusate in the infusates sheet.
+            if (
+                sheet not in self.dfs_dict.keys()
+                or header not in self.dfs_dict[sheet].keys()
+                or unique_val not in self.dfs_dict[sheet][header].values()
+            ):
+                added = True
+                self.autofill_dict[sheet][unique_val] = {header: unique_val}
+
+        return added
 
     def add_extracted_autofill_data(self):
         """Appends new rows from self.autofill_dict to self.dfs_dict.
@@ -2419,7 +2424,10 @@ class BuildSubmissionView(FormView):
         Args:
             None
         Exceptions:
-            None
+            Buffers:
+                MissingDataAdded
+            Raises:
+                None
         Returns:
             None
         """
@@ -2465,9 +2473,7 @@ class BuildSubmissionView(FormView):
 
         if data_added and not self.autofill_only_mode:
             # Add a warning about added data
-            added_warning = MissingDataAdded(
-                addition_notes=data_added, file=self.output_study_filename
-            )
+            added_warning = MissingDataAdded(file=self.output_study_filename)
             self.load_status_data.set_load_exception(
                 added_warning,
                 "Autofill Note",
@@ -2484,13 +2490,12 @@ class BuildSubmissionView(FormView):
         - self.autofill_dict[sheet] is structured like {unique_key_str: {header1: value1, header2: value2}}
         - self.dfs_dict[sheet] is structured like {header1: {0: rowindex0_value, 1: rowindex1_value}}
 
-        Note: It assumes a few things:
-        - sheet is a key in both self.dfs_dict and self.autofill_dict.
-        - self.dfs_dict[sheet] and self.autofill_dict[sheet] each contain a dict.
-        - None of the data in self.autofill_dict[sheet] is already present on an existing row.
-        - The keys in the self.dfs_dict[sheet] dict are contiguous integers starting from 0 (which must be true at the
-            time of implementation).
-
+        Assumptions:
+            1. sheet is a key in both self.dfs_dict and self.autofill_dict.
+            2. self.dfs_dict[sheet] and self.autofill_dict[sheet] each contain a dict.
+            3. None of the data in self.autofill_dict[sheet] is already present on an existing row.
+            4. The keys in the self.dfs_dict[sheet] dict are contiguous integers starting from 0 (which must be true at
+            the time of implementation).
         Args:
             sheet (string): The name of the sheet, which is the first key in both the self.autofill_dict and
                 self.dfs_dict.
@@ -2608,10 +2613,10 @@ class BuildSubmissionView(FormView):
         """This uses the compound names in the Compounds sheet to query the database for tracers that include those
         compounds and populate the Tracers sheet with potentially useful data for the user.
 
-        NOTE: This assumes that the Tracer Name column is automatically filled in via excel formula.
-
+        Assumptions:
+            1. This assumes that the Tracer Name column is automatically filled in via excel formula.
         Limitations:
-            - This will not work with partially manually filled in tracer data - only with fully filled in rows.
+            1. This will not work with partially manually filled in tracer data - only with fully filled in rows.
         Args:
             None
         Exceptions:
@@ -2680,10 +2685,10 @@ class BuildSubmissionView(FormView):
         """This uses the tracer data in the Tracers sheet to query the database for infusates that include those
         tracers and populate the Infusates sheet with potentially useful data for the user.
 
-        NOTE: This assumes that the Infusate Name column is automatically filled in via excel formula.
-
+        Assumptions:
+            1. This assumes that the Infusate Name column is automatically filled in via excel formula.
         Limitations:
-            - This will not work with partially manually filled in infusate data - only with fully filled in rows.
+            1. This will not work with partially manually filled in infusate data - only with fully filled in rows.
         Args:
             None
         Exceptions:
@@ -2861,6 +2866,7 @@ class BuildSubmissionView(FormView):
 
     def header_to_cell(self, sheet, header, letter_only=False):
         """Convert a sheet name and header string into the corresponding excel cell location, e.g. "A1".
+
         Args:
             sheet (string): Name of the target sheet
             header (string): Name of the column header
@@ -2868,6 +2874,8 @@ class BuildSubmissionView(FormView):
         Exceptions:
             Raises:
                 ValueError
+            Buffers:
+                None
         Returns:
             (string): Cell location or column letter
         """
@@ -2908,8 +2916,8 @@ class BuildSubmissionView(FormView):
     def get_next_row_index(self, sheet):
         """Retrieves the next row index from self.dfs_dict[sheet] (from the first arbitrary column).
 
-        Note: This assumes each column has the same number of rows
-
+        Assumptions:
+            1. This assumes each column has the same number of rows
         Args:
             sheet (string): Name of the sheet to get the last row from
         Exceptions:
@@ -2959,8 +2967,9 @@ class BuildSubmissionView(FormView):
         Treatments and tissues dataframes are populated using all of the data in the database for their models.
         Animals and Samples dataframes are not populated.
 
-        Missing data is not attempted to be auto-filled by this method.  Nor are unrecognized sheets or columns removed.
-
+        Limitations:
+            1. Missing data is not attempted to be auto-filled by this method.
+            2. Unrecognized sheets or columns are not removed.
         Args:
             dfs_dict (dict of dicts): Supply this if you want to "fill in" missing sheets only.
         Exceptions:
@@ -3156,8 +3165,8 @@ class BuildSubmissionView(FormView):
         dict by which to check the completeness of the data in the dfs_dict, and modifies the dfs_dict to add
         missing columns (with the same number of rows as the existing data).
 
-        Assumes that the dfs_dict has at least 1 defined column.
-
+        Assumptions:
+            1. The dfs_dict has at least 1 defined column.
         Args:
             dfs_dict (dict of dicts): This is a dict presumed to have been parsed from a file
             sheet (string): Name of the sheet key in the dfs_dict that the template corresponds to.  The sheet is

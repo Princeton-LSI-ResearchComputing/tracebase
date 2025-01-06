@@ -1,5 +1,6 @@
 import base64
 import os
+from copy import deepcopy
 from io import BytesIO
 
 from django.core.management import call_command
@@ -729,6 +730,35 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
             PeakGroupConflicts.DataSheetName: {},
         }
         self.assertDictEqual(expected, vo.autofill_dict)
+
+    def test_extract_all_missing_values_does_not_overwrite(self):
+        """This tests that the extract_all_missing_values method does not add autofill data from an exception if a row
+        for that sample already exists - and that the following call to add_extracted_autofill_data does not wipe out
+        the data already in the dfs_dict."""
+        vo = BuildSubmissionView()
+        vo.autofill_only_mode = False
+        # Set the data for the samples sheet as if it had been read from a submitted sheet
+        vo.dfs_dict["Samples"] = {
+            "Sample": {0: "s1"},
+            "Date Collected": {0: "2025-01-04"},
+            "Researcher Name": {0: "Howard the Duck"},
+            "Tissue": {0: "bill"},
+            "Collection Time": {0: 0},
+            "Animal": {0: "duck1"},
+        }
+        expected_dfs_dict_samples = deepcopy(vo.dfs_dict["Samples"])
+        vo.extract_all_missing_values(
+            AllMissingSamples(
+                [RecordDoesNotExist(Sample, {"name": "s1"}, file="accucor1.xlsx")]
+            ),
+            "Samples",
+            "Sample",
+        )
+        self.assertEqual(
+            0, len([d for d in vo.autofill_dict.values() if len(d.keys()) > 0])
+        )
+        vo.add_extracted_autofill_data()
+        self.assertDictEqual(expected_dfs_dict_samples, vo.dfs_dict["Samples"])
 
     def get_autofilled_study_dfs_dict(self):
         return {
