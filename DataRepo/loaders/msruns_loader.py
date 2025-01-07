@@ -505,7 +505,7 @@ class MSRunsLoader(TableLoader):
         self.exact_mode = exact_mode
 
         # This will contain metadata parsed from the mzXML files (and the created ArchiveFile records to be added to
-        # MSRunSample records
+        # MSRunSample records)
         self.mzxml_dict = defaultdict(lambda: defaultdict(list))
 
         # This will contain the sample header mapped to the sample name in the database.  It will be used to map

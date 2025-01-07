@@ -1153,9 +1153,293 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         )
         self.assertEqual(al.aggregated_errors_object.exceptions[0].model, Compound)
 
-    def test_is_selected_peak_group(self):
-        # TODO: Implement test
-        pass
+    def test_is_selected_peak_group_no_selection(self):
+        """Test no source peak annotation file selection exists in the Peak Group Conflicts sheet.
+        create:
+          pgname = Serine
+          msrun_sample = cls.msrs_ts1
+          peak_annot_file = create ArchiveFile for "accucor1.xlsx"
+          al: AccucorLoader with:
+            al.peak_group_selections = {}
+              assert al.is_selected_peak_group returns True
+              assert no stat is incremented
+              assert no buffered exceptions
+        """
+        al = AccucorLoader()
+        al.peak_group_selections = {}
+        expected_counts = deepcopy(al.record_counts)
+        pgname = "Serine"
+        msrun_sample = self.msrs_ts1
+        paf_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        peak_annot_file, _ = ArchiveFile.objects.get_or_create(**paf_dict)
+        ispg = al.is_selected_peak_group(pgname, peak_annot_file, msrun_sample)
+        self.assertTrue(ispg)
+        self.assertDictEqual(
+            expected_counts,
+            al.record_counts,
+            msg="No counts should have been incremented",
+        )
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+    def test_is_selected_peak_group_none_selected(self):
+        """Test source peak annotation file selection exists in the Peak Group Conflicts sheet, but no selection made.
+        create:
+          pgname = Serine
+          msrun_sample = cls.msrs_ts1
+          peak_annot_file = create ArchiveFile for "accucor1.xlsx"
+          al: AccucorLoader with:
+            al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["filename"] = None
+              assert al.is_selected_peak_group returns False
+              assert errored stat is incremented
+              assert only 1 buffered exception
+              assert that ProgrammingError is buffered
+              assert first buffered exception is equal to "Expected DuplicatePeakGroupResolutions exception missing."
+        """
+        pgname = "Serine"
+        msrun_sample = self.msrs_ts1
+        paf_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        peak_annot_file, _ = ArchiveFile.objects.get_or_create(**paf_dict)
+        al = AccucorLoader()
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+            "filename"
+        ] = None
+        expected_counts = deepcopy(al.record_counts)
+        expected_counts["PeakGroup"]["errored"] = 1
+        ispg = al.is_selected_peak_group(pgname, peak_annot_file, msrun_sample)
+        self.assertFalse(ispg)
+        self.assertDictEqual(
+            expected_counts,
+            al.record_counts,
+            msg="PeakGroup[errored] should have been incremented",
+        )
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0],
+            ProgrammingError,
+        )
+        self.assertEqual(
+            "Expected DuplicatePeakGroupResolutions exception missing.",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_is_selected_peak_group_no_conflict_and_none_selected(self):
+        """Test source peak annotation file selection exists, no selection made, and conflict exists.
+        create:
+          pgname = Serine
+          msrun_sample = cls.msrs_ts1
+          peak_annot_file = create ArchiveFile for "accucor1.xlsx"
+          al: AccucorLoader with:
+            al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["filename"] = None
+              assert al.is_selected_peak_group returns False
+              assert errored stat is incremented
+              assert only 1 buffered exception
+        """
+        pgname = "Serine"
+        msrun_sample = self.msrs_ts1
+        paf_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        peak_annot_file, _ = ArchiveFile.objects.get_or_create(**paf_dict)
+        al = AccucorLoader()
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+            "filename"
+        ] = None
+        expected_counts = deepcopy(al.record_counts)
+        expected_counts["PeakGroup"]["errored"] = 1
+        ispg = al.is_selected_peak_group(pgname, peak_annot_file, msrun_sample)
+        self.assertFalse(ispg)
+        self.assertDictEqual(
+            expected_counts,
+            al.record_counts,
+            msg="PeakGroup[errored] should have been incremented",
+        )
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0],
+            ProgrammingError,
+        )
+        self.assertEqual(
+            "Expected DuplicatePeakGroupResolutions exception missing.",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_is_selected_peak_group_other_selected(self):
+        """Test source peak annotation file selection differs.
+        create:
+          pgname = Serine
+          msrun_sample = cls.msrs_ts1
+          peak_annot_file = create ArchiveFile for "accucor1.xlsx"
+          peak_annot_file.filename = "accucor1.xlsx"
+          al: AccucorLoader with:
+            al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["filename"] = "does_not_match.xlsx"
+            al.aggregated_errors.buffer_error(DuplicatePeakGroupResolutions())
+              assert al.is_selected_peak_group returns False
+              assert skipped stat is 1
+              assert no buffered exceptions added
+        """
+        pgname = "Serine"
+        msrun_sample = self.msrs_ts1
+        paf_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        peak_annot_file, _ = ArchiveFile.objects.get_or_create(**paf_dict)
+        al = AccucorLoader()
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+            "filename"
+        ] = "does_not_match.xlsx"
+        al.aggregated_errors_object.buffer_error(
+            DuplicatePeakGroupResolutions("whatever", ["whatever"])
+        )
+        expected_counts = deepcopy(al.record_counts)
+        expected_counts["PeakGroup"]["skipped"] = 1
+        ispg = al.is_selected_peak_group(pgname, peak_annot_file, msrun_sample)
+        self.assertFalse(ispg)
+        self.assertDictEqual(
+            expected_counts,
+            al.record_counts,
+            msg="PeakGroup[skipped] should have been incremented",
+        )
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+
+    def test_is_selected_peak_group_conflict_and_other_selected(self):
+        """Test source peak annotation file selection differs, but a conflict exists.
+        create:
+          pgname = Serine
+          msrun_sample = cls.msrs_ts1
+          peak_annot_file = create ArchiveFile for "accucor1.xlsx"
+          peak_annot_file.filename = "accucor1.xlsx"
+          Create conflicting peakgroup: bpg = PeakGroup.objects.create(
+              msrun_sample=msrun_sample,
+              name=pgname,
+              peak_annotation_file=peak_annot_file,
+          )
+          al: AccucorLoader with:
+            al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["filename"] = "does_not_match.xlsx"
+              assert al.is_selected_peak_group returns False
+              assert deleted stat is incremented
+              assert ReplacingPeakGroupRepresentation is buffered
+              assert bpg is deleted
+        """
+        pgname = "Serine"
+        msrun_sample = self.msrs_ts1
+        paf_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        peak_annot_file, _ = ArchiveFile.objects.get_or_create(**paf_dict)
+        PeakGroup.objects.create(
+            name=pgname,
+            formula="C3H7NO3",
+            msrun_sample=self.msrs_ts1,
+            peak_annotation_file=peak_annot_file,
+        )
+        al = AccucorLoader()
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+            "filename"
+        ] = "does_not_match.xlsx"
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["rownum"] = 5
+        expected_counts = deepcopy(al.record_counts)
+        expected_counts["PeakGroup"]["deleted"] = 1
+        ispg = al.is_selected_peak_group(pgname, peak_annot_file, msrun_sample)
+        self.assertFalse(ispg)
+        self.assertDictEqual(
+            expected_counts,
+            al.record_counts,
+            msg="PeakGroup[deleted] should have been incremented",
+        )
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], ReplacingPeakGroupRepresentation
+        )
+        self.assertIn(
+            "Replacing PeakGroup Serine",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "(previously loaded from file 'accucor1.xlsx') with the version from file 'does_not_match.xlsx'",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "Peak Group Conflict resolution selected on row [5]",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertEqual(
+            0,
+            PeakGroup.objects.filter(
+                msrun_sample__sample__name=msrun_sample.sample.name,
+                name__iexact=pgname,
+                peak_annotation_file=peak_annot_file,
+            ).count(),
+        )
+
+    def test_is_selected_peak_group_selected(self):
+        """Test source peak annotation file selection matches.
+        create:
+          pgname = Serine
+          msrun_sample = cls.msrs_ts1
+          peak_annot_file = create ArchiveFile for "accucor1.xlsx"
+          peak_annot_file.filename = "accucor1.xlsx"
+          Create exist peakgroup: bpg = PeakGroup.objects.create(
+              msrun_sample=msrun_sample,
+              name=pgname,
+              peak_annotation_file=peak_annot_file,
+          )
+          al: AccucorLoader with:
+            al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["filename"] = "accucor1.xlsx"
+              assert al.is_selected_peak_group returns True
+              assert nothing is incremented
+              assert no exceptions are buffered
+              assert bpg was not deleted
+        """
+        pgname = "Serine"
+        msrun_sample = self.msrs_ts1
+        paf_dict = {
+            "file_location": "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "data_type": "ms_peak_annotation",
+            "data_format": "accucor",
+        }
+        peak_annot_file, _ = ArchiveFile.objects.get_or_create(**paf_dict)
+        PeakGroup.objects.create(
+            name=pgname,
+            formula="C3H7NO3",
+            msrun_sample=self.msrs_ts1,
+            peak_annotation_file=peak_annot_file,
+        )
+        al = AccucorLoader()
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()][
+            "filename"
+        ] = peak_annot_file.filename
+        al.peak_group_selections[msrun_sample.sample.name][pgname.lower()]["rownum"] = 5
+        expected_counts = deepcopy(al.record_counts)
+        ispg = al.is_selected_peak_group(pgname, peak_annot_file, msrun_sample)
+        self.assertTrue(ispg)
+        self.assertDictEqual(
+            expected_counts,
+            al.record_counts,
+            msg="PeakGroup[deleted] should have been incremented",
+        )
+        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+        self.assertEqual(
+            1,
+            PeakGroup.objects.filter(
+                msrun_sample__sample__name=msrun_sample.sample.name,
+                name__iexact=pgname,
+                peak_annotation_file=peak_annot_file,
+            ).count(),
+        )
 
 
 class IsocorrLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
