@@ -175,7 +175,7 @@ class PeakGroupConflicts(TableLoader):
                         "rownum": rownum,
                     }
         """
-        selected_representations = defaultdict(lambda: defaultdict(str))
+        selected_representations = defaultdict(lambda: defaultdict(dict))
 
         if self.df is None:
             return selected_representations
