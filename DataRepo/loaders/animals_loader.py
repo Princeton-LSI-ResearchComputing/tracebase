@@ -263,12 +263,18 @@ class AnimalsLoader(TableLoader):
             animal = None
 
             # Get the existing infusate and treatment
-            infusate = self.get_infusate(row)
+            infusate_name = self.get_row_val(row, self.headers.INFUSATE)
+            infusate = self.get_infusate(infusate_name)
             treatment = self.get_treatment(row)
 
             # Get or create the animal record
             try:
-                animal, _ = self.get_or_create_animal(row, infusate, treatment)
+                animal, _ = self.get_or_create_animal(
+                    row,
+                    infusate=infusate,
+                    treatment=treatment,
+                    infusate_name=infusate_name,
+                )
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -296,14 +302,20 @@ class AnimalsLoader(TableLoader):
 
     @transaction.atomic
     def get_or_create_animal(
-        self, row, infusate: Infusate, treatment: Optional[Protocol] = None
+        self,
+        row,
+        infusate: Optional[Infusate] = None,
+        treatment: Optional[Protocol] = None,
+        infusate_name: Optional[str] = None,
     ):
         """Get or create an Animal record.
 
         Args:
             row (pd.Series)
-            infusate (Infusate)
+            infusate (Optional[Infusate])
             treatment (Optional[Protocol])
+            infusate_name (Optional[str]): Only needed for error reporting.  If this value is None, and infusion_rate is
+                not None, an UnexpectedInput error will be buffered.
         Exceptions:
             Raises:
                 RollbackException
@@ -379,14 +391,19 @@ class AnimalsLoader(TableLoader):
 
         if infusion_rate is not None:
             if infusate is None:
-                self.buffer_infile_exception(
-                    UnexpectedInput(
-                        f"Infusion rate '{infusion_rate}' supplied without an '{self.headers.INFUSATE}' in %s."
-                    ),
-                    column=self.headers.INFUSIONRATE,
-                    is_error=False,
-                    is_fatal=self.validate,
-                )
+                if infusate_name is None:
+                    # We will assume that this is on the same row that produced the RecordDoesNotExist exception for the
+                    # infusate
+                    self.buffer_infile_exception(
+                        UnexpectedInput(
+                            f"Infusion rate '{infusion_rate}' supplied without an '{self.headers.INFUSATE}' in %s."
+                        ),
+                        column=self.headers.INFUSIONRATE,
+                        is_error=False,
+                        is_fatal=self.validate,
+                    )
+                # We cannot add the infusion rate or we would hit a ValidationError about an infusion rate requiring an
+                # infusate
             else:
                 try:
                     # TODO: Make it possible to parse and use units for infusion_rate
@@ -447,18 +464,17 @@ class AnimalsLoader(TableLoader):
 
         return rec, created
 
-    def get_infusate(self, row):
+    def get_infusate(self, name):
         """Get an Infusate record.
 
         Args:
-            row (pd.Series)
+            name (str): Infusate name
         Exceptions:
             None
         Returns:
             rec (Optional[Infusate])
         """
         rec = None
-        name = self.get_row_val(row, self.headers.INFUSATE)
 
         if name is None:
             # Infusate is optional, so just return None.  If there was an error, it would have been buffered.
@@ -472,22 +488,23 @@ class AnimalsLoader(TableLoader):
             rec = Infusate.objects.get(**query_dict)
         except Exception as e:
             try:
-                # The names from the sheet are populated by the database, but the user can enter their own.  The
-                # database enters concentrations using significant figures (see
-                # Infusate.CONCENTRATION_SIGNIFICANT_FIGURES).  If the user entered their own data, they could have used
-                # more than the significant digits than were saved in the name when the infusates were loaded, so this
-                # is a fallback that uses the number entered in the name compared to the actual data in the database (as
-                # opposed to the formatted name in the database).
+                # The infusate name can have a value that doesn't follow the format using significant figures (see
+                # Infusate.CONCENTRATION_SIGNIFICANT_FIGURES).  This is a fallback method to use the number entered in
+                # the name compared to the actual data in the database, thus avoiding the issue of significant figures.
                 infusate_data = parse_infusate_name_with_concs(name)
                 rec = Infusate.objects.get_infusate(infusate_data)
                 if rec is None:
                     self.handle_load_db_errors(e, Infusate, query_dict)
-                    self.add_skip_row_index()
             except Exception as e2:
                 # Package errors (like IntegrityError and ValidationError) with relevant details
-                # This also updates the skip row indexes
                 self.handle_load_db_errors(e2, Infusate, query_dict)
-                self.add_skip_row_index()
+
+            # Infusate is not a required field, so no need to add to skip rows.  We could attempt to create an infusate
+            # from the name, temporarily, to avoid errors, but there are 2 reasons not to do this:
+            # 1. We would not get a full accounting of all rows with this missing infusate issue
+            # 2. This will be solved in the validation step on the website, which does not load the peak annotations,
+            # where errors about an absent infusate (e.g. unexpected isotopes / contamination) would come from.
+
         return rec
 
     def get_treatment(self, row):
