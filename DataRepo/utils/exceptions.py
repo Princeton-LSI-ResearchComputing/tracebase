@@ -900,7 +900,7 @@ class MissingModelRecords(MissingRecords, ABC):
 
 
 class MissingModelRecordsByFile(MissingRecords, ABC):
-    """Keeps tract of missing records for one model across multiple files"""
+    """Keeps track of missing records for one model across multiple files"""
 
     _one_source = False
 
@@ -930,29 +930,23 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
         # This sets self.loc, self.file, and self.sheet, which we need below. Then we'll set the message.
         super().__init__(exceptions, **kwargs)
         message = kwargs.pop("message", None)
+        num_examples = 3
         if message is None:
             nltt = "\n\t\t"
             summary = ""
-            for terms in sorted(
-                self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
-                key=str.casefold,
+            for i, terms_str in enumerate(
+                sorted(
+                    self.exceptions_by_model_query_and_loc[self.ModelName].keys(),
+                    key=str.casefold,
+                )
             ):
-                loc_dict = self.exceptions_by_model_query_and_loc[self.ModelName][terms]
+                loc_dict: dict = self.exceptions_by_model_query_and_loc[self.ModelName][
+                    terms_str
+                ]
                 summary += "\n\t"
-                summary += f"{terms}{nltt}"
-                if succinct:
-                    # Every exception is from the same file, given the loc_dict key is the file location
-                    files = [
-                        (
-                            (os.path.split(exc_lst[0].file))[1]
-                            if exc_lst[0].file is not None
-                            else ""
-                        )
-                        for exc_lst in loc_dict.values()
-                    ]
-                    # Cannot use casefold when a file can be None
-                    summary += nltt.join(sorted(files, key=str.casefold))
-                else:
+                summary += terms_str
+                if not succinct:
+                    summary += nltt
                     summary += nltt.join(
                         [
                             f"{loc}, row(s): ["
@@ -965,11 +959,18 @@ class MissingModelRecordsByFile(MissingRecords, ABC):
                             for loc in sorted(loc_dict.keys(), key=str.casefold)
                         ]
                     )
+                elif i >= num_examples - 1:
+                    break
             if succinct:
                 message = (
-                    f"{len(exceptions)} {self.ModelName} records missing in the database:{summary}\nwhile processing "
-                    "%s."
+                    f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
+                    f"database while processing %s:{summary}"
                 )
+                if num_examples < len(
+                    self.exceptions_by_model_query_and_loc[self.ModelName].keys()
+                ):
+                    message += "\n\t..."
+                message += f"\nSee exceptions below for all missing {self.ModelName} record details."
             else:
                 message = (
                     f"{len(exceptions)} {self.ModelName} records matching the following values were not found in the "
