@@ -15,9 +15,8 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    ConflictingValueError,
+    ConflictingValueErrors,
     MissingRecords,
-    NewResearcher,
     NewResearchers,
     RequiredColumnValues,
 )
@@ -146,23 +145,23 @@ class LoadSamplesSmallObob2Tests(TracebaseTestCase):
     def test_ls_new_researcher_confirmed(self):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
-                "legacy_load_samples",
-                "DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo.tsv",
-                sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-                skip_researcher_check=True,
+                "load_samples",
+                infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table_han_solo_v3.tsv",
+                headers="DataRepo/data/tests/small_obob2/sample_table_headers_v3.yaml",
             )
         aes = ar.exception
         # Test that no researcher exception occurred
-        ures = [e for e in aes.exceptions if isinstance(e, NewResearcher)]
-        self.assertEqual(0, len(ures))
-        # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
-        cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueError)]
+        ures = [e for e in aes.exceptions if isinstance(e, NewResearchers)]
+        self.assertEqual(1, len(ures))
+        cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueErrors)]
         self.assertIn("Han Solo", str(cves[0]))
-        self.assertEqual(5, len(cves))
-        # There are 24 expected errors total
-        self.assertEqual(5, len(aes.exceptions))
+        self.assertEqual(1, len(cves))
+        # There are 5 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
+        self.assertEqual(5, len(cves[0].conflicting_value_errors))
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertEqual(1, aes.num_warnings)
         self.assertIn(
-            "5 exceptions occurred, including type(s): [ConflictingValueError].",
+            "2 exceptions occurred, including type(s): [NewResearchers, ConflictingValueErrors].",
             str(ar.exception),
         )
 
@@ -174,8 +173,8 @@ class LoadSamplesSmallObobTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         Study.objects.create(name="Small OBOB")
         Infusate.objects.get_or_create_infusate(

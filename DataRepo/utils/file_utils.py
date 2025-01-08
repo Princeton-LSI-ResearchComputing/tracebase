@@ -48,7 +48,7 @@ def read_from_file(
     Exceptions:
         None
     Returns:
-        DateParserError (Union[DataFrame, object]): Pandas dataframe of parsed and processed infile data or, if the
+        retval (Union[DataFrame, object]): Pandas dataframe of parsed and processed infile data or, if the
             filetype is yaml, returns a python object (dict, list, etc).
     """
     filetype = _get_file_type(filepath, filetype=filetype)
