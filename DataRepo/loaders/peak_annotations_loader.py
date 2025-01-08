@@ -357,7 +357,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             instrument=kwargs.pop("instrument", None),
         )
 
-        # Example: self.peak_group_selections[sample][pgname.lower()] = selected_peak_annotation_filename
+        # Example: self.peak_group_selections[sample][pgname.lower()]["filename"] = selected_peak_annotation_filename
         self.peakgroupconflicts = PeakGroupConflicts(
             file=self.peak_group_conflicts_file,
             data_sheet=self.peak_group_conflicts_sheet,
@@ -971,12 +971,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         __init__ method.
 
         Args:
-            pgname (str): The name of the peak group to be loaded.  peak_annot_file (ArchiveFile): The peak annotation
-            file that the peak group to be loaded came from.  msrun_sample (MSRunSample): The MSRunSample of the peak
-            group to be loaded.
+            pgname (str): The name of the peak group to be loaded.
+            peak_annot_file (ArchiveFile): The peak annotation file that the peak group to be loaded came from.
+            msrun_sample (MSRunSample): The MSRunSample of the peak group to be loaded.
         Exceptions:
             Buffers:
-                ProgrammingError ReplacingPeakGroupRepresentation
+                ProgrammingError
+                ReplacingPeakGroupRepresentation
             Raises:
                 None
         Returns:
@@ -998,13 +999,10 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 ]
                 is None
             ):
-                if (
-                    self.peakgroupconflicts.aggregated_errors_object.exception_exists(
-                        DuplicatePeakGroupResolutions,
-                        attr_name="conflicting",
-                        attr_val=True,
-                    )
-                    == 0
+                if not self.peakgroupconflicts.aggregated_errors_object.exception_exists(
+                    DuplicatePeakGroupResolutions,
+                    attr_name="conflicting",
+                    attr_val=True,
                 ):
                     self.aggregated_errors_object.buffer_error(
                         ProgrammingError(

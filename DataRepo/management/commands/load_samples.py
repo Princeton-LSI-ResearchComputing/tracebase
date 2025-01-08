@@ -51,16 +51,19 @@ class Command(LoadTableCommand):
         Args:
             options (dict): Values provided on the command line.
         Exceptions:
-            None
+            CommandError
         Returns:
             None
         """
-        # TODO: Remove this after all dependent code has been updated for the new version of this script
         if options["sample_table_filename"] is not None:
             raise CommandError(
                 "By supplying --sample-table-filename, it looks like you're trying to call the old version of this "
-                "script.  This script has been renamed.  Use `pythong manage.py legacy_load_samples ...` instead."
-                f"{options}"
+                "script.  The interface has changed.  Please use --help to see the new options."
+            )
+        elif options["animal_and_sample_table_filename"] is not None:
+            raise CommandError(
+                "By supplying --animal-and-sample-table-filename, it looks like you're trying to call the old version "
+                "of this script.  The interface has changed.  Please use --help to see the new options."
             )
 
         self.load_data()

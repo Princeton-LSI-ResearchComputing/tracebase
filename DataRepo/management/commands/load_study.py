@@ -123,12 +123,10 @@ class Command(LoadTableCommand):
         Returns:
             None
         """
-        # TODO: Remove this after all dependent code has been updated for the new version of this script
         if options["study_params"] is not None:
             raise CommandError(
                 "By supplying a positional argument, it looks like you're trying to call the old version of this "
-                "script.  This script has been renamed.  Use `python manage.py legacy_load_study ...` to use the old "
-                f"version.  {options}"
+                "script.  The interface has changed.  Please use --help to see the new options."
             )
 
         try:
