@@ -266,6 +266,7 @@ class TableLoader(ABC):
         # File data
         self.df = df
         self.defaults_df = defaults_df
+        self.df_checked = False
 
         # For retrieving data from df
         self.user_headers = user_headers
@@ -1409,6 +1410,7 @@ class TableLoader(ABC):
         headers_passed = self.check_dataframe_headers()
         values_passed = self.check_dataframe_values()
         uniques_passed = self.check_unique_constraints()
+        self.df_checked = True
         return headers_passed and values_passed and uniques_passed
 
     def check_dataframe_headers(self, reading_defaults=False, error=True):
@@ -2242,7 +2244,9 @@ class TableLoader(ABC):
                 aes_set = None
                 with transaction.atomic():
                     try:
-                        self.check_dataframe()
+                        # Caller may have already manually checked the dataframes
+                        if not self.df_checked:
+                            self.check_dataframe()
 
                         retval = fn(*args, **kwargs)
 
@@ -2628,7 +2632,15 @@ class TableLoader(ABC):
         differences = {}
         for field, new_value in rec_dict.items():
             orig_value = getattr(rec, field)
-            if orig_value != new_value:
+            if (
+                (type(orig_value) is type(new_value) and orig_value != new_value)
+                # Sometimes the types differ because of etheir excel and/or pandas treating, for example, a string field
+                # as a number or a date because the value *looks* like a certain type of value.
+                or (
+                    type(orig_value) is not type(new_value)
+                    and str(orig_value) != str(new_value)
+                )
+            ):
                 differences[field] = {
                     "orig": orig_value,
                     "new": new_value,

@@ -2,6 +2,7 @@ import os
 from collections import defaultdict, namedtuple
 from typing import Dict, List
 
+from django.db import ProgrammingError
 from django.db.models import Model
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
@@ -237,6 +238,11 @@ class PeakGroupConflicts(TableLoader):
 
         if self.df is None:
             return all_representations
+
+        # This is automatically called in the load_data wrapper from TableLoader, but other loaders call this method to
+        # get the processed data, in which case, the dataframe needs to be checked to avoid issues.
+        if not self.df_checked:
+            self.check_dataframe()
 
         for _, row in self.df.iterrows():
             # Grab the values from each column
