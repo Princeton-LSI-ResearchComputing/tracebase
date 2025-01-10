@@ -835,7 +835,7 @@ class MSRunsLoader(TableLoader):
                 sh = os.path.splitext(fn)[0]
 
             modded_sh = sh
-            if not self.exact_mode:
+            if mzxml_name_with_opt_path is not None and not self.exact_mode:
                 modded_sh = sh.replace("-", "_")
 
             # If we haven't seen an mzXML by this name before or we haven't see its directory before
@@ -844,7 +844,7 @@ class MSRunsLoader(TableLoader):
                 or dr not in expected_mzxmls[sh].keys()
             ):
                 expected_mzxmls[modded_sh][dr] = {
-                    "sample_header": sh,
+                    "sample_header": sample_header if sample_header is not None else sh,
                     "sample_name": sample_name,
                     "skip": skip,
                 }
@@ -1383,23 +1383,40 @@ class MSRunsLoader(TableLoader):
             sample = self.get_sample_by_name(sample_name)
             msrun_sequence = self.get_msrun_sequence(name=sequence_name)
 
-            if mzxml_path is not None and sample_header is not None:
+            if mzxml_path is not None:
                 mzxml_name = self.get_sample_header_from_mzxml_name(
                     os.path.basename(mzxml_path)
                 )
-                sample_header_name = self.get_sample_header_from_mzxml_name(
-                    sample_header
-                )
-                if sample_header_name != mzxml_name:
-                    self.aggregated_errors_object.buffer_exception(
-                        MzxmlSampleHeaderMismatch(sample_header, mzxml_path),
-                        is_error=False,  # This is always a warning.
-                        # This exception will be fatal/raised in validate mode (but only printed in curator mode).
-                        # I.e. This can be ignored by a curator, but it should be brought to the attention of an
-                        # unprivileged user.
-                        is_fatal=self.validate,
+
+                if mzxml_name[0].isdigit() and sample_header != mzxml_name:
+                    # The leftover mzXMLs code uses self.header_to_sample_name to lookup the DB sample name.  The peak
+                    # correction software does not allow sample names to start with a number, and we don't want that
+                    # lookup to fail and raise an error, so we're going to throw it in there.  It doesn't matter that
+                    # the sample header version was already set.  It differs from the mzxml name.
+                    self.header_to_sample_name[mzxml_name][sample_name].append(
+                        self.rownum
                     )
-                    self.warned(MSRunSample.__name__)
+
+                if sample_header is not None:
+                    # We're going to check to see if the sample_header and mzxml_name differ and issue a warning for
+                    # users to double-check things in case they accidentally mismatches an mzXML and a sample header in
+                    # the peak annotation details sheet.
+                    sample_header_name = self.get_sample_header_from_mzxml_name(
+                        sample_header
+                    )
+                    if sample_header_name != mzxml_name and (
+                        # mzxmls that start with a digit must be changed due to peak correction software requirements
+                        not mzxml_name[0].isdigit()
+                        or mzxml_name not in sample_header_name
+                    ):
+                        self.aggregated_errors_object.buffer_warning(
+                            MzxmlSampleHeaderMismatch(sample_header, mzxml_path),
+                            # This exception will be fatal/raised in validate mode (but only printed in curator mode).
+                            # I.e. This can be ignored by a curator, but it should be brought to the attention of an
+                            # unprivileged user.
+                            is_fatal=self.validate,
+                        )
+                        self.warned(MSRunSample.__name__)
 
             if sample is None or msrun_sequence is None:
                 print(
@@ -1601,6 +1618,7 @@ class MSRunsLoader(TableLoader):
             rec = Sample.objects.get(name=sample_name)
         except Sample.DoesNotExist as dne:
             if from_mzxml is not None:
+
                 # Let's see if this is a "dash" issue
                 sample_name_nodash = self.get_sample_header_from_mzxml_name(sample_name)
                 if sample_name_nodash != sample_name:
@@ -1609,15 +1627,57 @@ class MSRunsLoader(TableLoader):
                     except Sample.DoesNotExist:
                         # Ignore this attempt and press on with processing the original exception
                         pass
+
+                if sample_name[0].isdigit():
+                    try:
+                        # Some peak correction tools disallow sample names that start with a number, so let's
+                        # see if the user potentially prepended the sample name and the rest of it happens to be
+                        # unique
+                        rec = Sample.objects.get(name__endswith=sample_name)
+
+                        # Buffer an error that says that we're going to proceed assuming the found sample is a
+                        # match
+                        self.aggregated_errors_object.buffer_error(
+                            RecordDoesNotExist(
+                                Sample,
+                                {"name": sample_name},
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                column=self.headers.MZXMLNAME,
+                                rownum="no row - sample name was derived from an mzXML filename",
+                                message=(
+                                    f"{Sample.__name__} record matching the mzXML file's basename [{sample_name}] does "
+                                    "not exist, but the filename starts with a number and happens to otherwise "
+                                    f"uniquely match sample '{rec.name}'.  Please identify the associated sample(s) "
+                                    f"and add a the file '{from_mzxml}' to %s.  If no such row exists and this is an "
+                                    f"unanalyzed mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
+                                ),
+                                suggestion=(
+                                    "Proceeding with the assumption that the mzXML-derived sample name "
+                                    f"'{sample_name}' is intended to match sample '{rec.name}'."
+                                ),
+                            ),
+                            orig_exception=dne,
+                        )
+
+                        return rec
+                    except Sample.DoesNotExist or Sample.MultipleObjectsReturned:
+                        # Ignore this attempt and press on with processing the original exception
+                        pass
+
                 self.aggregated_errors_object.buffer_error(
                     RecordDoesNotExist(
                         Sample,
                         {"name": sample_name},
-                        file=from_mzxml,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                        column=self.headers.MZXMLNAME,
+                        rownum="no row - sample name was derived from an mzXML filename",
                         message=(
                             f"{Sample.__name__} record matching the mzXML file's{' exact' if self.exact_mode else ''} "
-                            f"basename [{sample_name}] does not exist.  Please identify the associated sample and add "
-                            f"a row with it, the matching mzXML file name(s), and the {self.headers.SEQNAME} to %s."
+                            f"basename [{sample_name}] does not exist.  Please identify the associated sample(s) and "
+                            f"add a the file '{from_mzxml}' to %s.  If no such row exists and this is an unanalyzed "
+                            f"mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
                         ),
                     ),
                     orig_exception=dne,

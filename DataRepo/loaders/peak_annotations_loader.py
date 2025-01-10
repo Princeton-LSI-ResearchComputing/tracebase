@@ -1673,15 +1673,16 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # See if *any* samples were found in the headers of the peak annotation file that weren't in the Peak Annotation
         # Details sheet.
-        unexpected_samples = [
+        sample_headers_in_details_sheet_not_in_peak_annot_file = [
             uss
             for uss in self.msrun_sample_dict.keys()
             if self.msrun_sample_dict[uss]["seen"] is False
+            and not Sample.is_a_blank(uss)
         ]
-        if len(unexpected_samples) > 0:
+        if len(sample_headers_in_details_sheet_not_in_peak_annot_file) > 0:
             self.aggregated_errors_object.buffer_error(
                 UnexpectedSamples(
-                    unexpected_samples,
+                    sample_headers_in_details_sheet_not_in_peak_annot_file,
                     file=self.friendly_file,
                     rel_file=self.msrunsloader.friendly_file,
                     rel_sheet=self.msrunsloader.DataSheetName,
@@ -1690,6 +1691,27 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                         f"and {self.msrunsloader.DataHeaders.ANNOTNAME}"
                     ),
                 )
+            )
+
+        possible_blanks_in_details_sheet_not_in_peak_annot_file = [
+            uss
+            for uss in self.msrun_sample_dict.keys()
+            if self.msrun_sample_dict[uss]["seen"] is False and Sample.is_a_blank(uss)
+        ]
+        if len(possible_blanks_in_details_sheet_not_in_peak_annot_file) > 0:
+            self.aggregated_errors_object.buffer_warning(
+                UnexpectedSamples(
+                    possible_blanks_in_details_sheet_not_in_peak_annot_file,
+                    file=self.friendly_file,
+                    rel_file=self.msrunsloader.friendly_file,
+                    rel_sheet=self.msrunsloader.DataSheetName,
+                    rel_column=(
+                        f"{self.msrunsloader.DataHeaders.SAMPLEHEADER} "
+                        f"and {self.msrunsloader.DataHeaders.ANNOTNAME}"
+                    ),
+                    possible_blanks=True,
+                ),
+                is_fatal=self.validate,
             )
 
     def handle_file_exceptions(self):
