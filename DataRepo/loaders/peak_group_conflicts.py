@@ -71,8 +71,10 @@ class PeakGroupConflicts(TableLoader):
     }
 
     # Combinations of columns whose values must be unique in the file
+    # ANNOTFILE_KEY was added so that conflicting peak group resolutions could be more appropriately handled using the
+    # DuplicatePeakGroupResolutions exception
     DataUniqueColumnConstraints = [
-        [PEAKGROUP_KEY, SAMPLES_KEY],
+        [PEAKGROUP_KEY, ANNOTFILE_KEY, SAMPLES_KEY],
     ]
 
     # A mapping of database field to column.  Only set when 1 field maps to 1 column.  Omit others.
@@ -237,6 +239,11 @@ class PeakGroupConflicts(TableLoader):
 
         if self.df is None:
             return all_representations
+
+        # This is automatically called in the load_data wrapper from TableLoader, but other loaders call this method to
+        # get the processed data, in which case, the dataframe needs to be checked to avoid issues.
+        if not self.df_checked:
+            self.check_dataframe()
 
         for _, row in self.df.iterrows():
             # Grab the values from each column

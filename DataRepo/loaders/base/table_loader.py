@@ -266,6 +266,7 @@ class TableLoader(ABC):
         # File data
         self.df = df
         self.defaults_df = defaults_df
+        self.df_checked = False
 
         # For retrieving data from df
         self.user_headers = user_headers
@@ -1409,6 +1410,7 @@ class TableLoader(ABC):
         headers_passed = self.check_dataframe_headers()
         values_passed = self.check_dataframe_values()
         uniques_passed = self.check_unique_constraints()
+        self.df_checked = True
         return headers_passed and values_passed and uniques_passed
 
     def check_dataframe_headers(self, reading_defaults=False, error=True):
@@ -2242,7 +2244,9 @@ class TableLoader(ABC):
                 aes_set = None
                 with transaction.atomic():
                     try:
-                        self.check_dataframe()
+                        # Caller may have already manually checked the dataframes
+                        if not self.df_checked:
+                            self.check_dataframe()
 
                         retval = fn(*args, **kwargs)
 
@@ -2628,7 +2632,58 @@ class TableLoader(ABC):
         differences = {}
         for field, new_value in rec_dict.items():
             orig_value = getattr(rec, field)
-            if orig_value != new_value:
+            differs = False
+            if type(orig_value) is type(new_value) and orig_value != new_value:
+                differs = True
+            elif type(orig_value) is not type(new_value):
+                # Sometimes the types differ because of either excel and/or pandas treating, for example, a string field
+                # as a number or a date because the value *looks* like a certain type of value.
+
+                # Check if we have a column type
+                expected_type = self.model_field_to_column_type(
+                    type(rec).__name__, field
+                )
+                if (
+                    # There is a type defined for the table column corresponding to this field
+                    expected_type is not None
+                    # The type of the value from the column does not match the type defined for that column
+                    and type(new_value) is not expected_type
+                    # Finally, when the values are cast to the column type, they are still not equal
+                    # (We cast both because the field type may not precisely be the column type.)
+                    and expected_type(orig_value) != expected_type(new_value)
+                ):
+                    differs = True
+                elif expected_type is None:
+                    if str(orig_value) != str(new_value):
+                        differs = True
+                        # In case the researcher sees this difference and it doesn't make sense, provide this warning to
+                        # potentially explain it.
+                        self.aggregated_errors_object.buffer_warning(
+                            ProgrammingError(
+                                f"Could not map model field '{type(rec).__name__}.{field}' to a column type to "
+                                f"accurately compare values that differ by type '{orig_value}' (a "
+                                f"'{type(orig_value).__name__}' from the database) and '{new_value}' (a "
+                                f"'{type(new_value).__name__}' from the file), so both were cast to a string to "
+                                "compare and found to differ.  If they should not differ, make sure to include the "
+                                "model field in 'FieldToDataHeaderKey' and the type in 'DataColumnTypes'."
+                            ),
+                            is_fatal=self.validate,
+                        )
+                    elif orig_value != new_value:
+                        # The string-cast versions were found to be equal, but their actual values (that differ by type)
+                        # would be considered differing.  Let the curators know.
+                        self.aggregated_errors_object.buffer_warning(
+                            ProgrammingError(
+                                f"Could not map model field '{type(rec).__name__}.{field}' to a column type to "
+                                f"accurately compare values that differ by type '{orig_value}' (a "
+                                f"'{type(orig_value).__name__}' from the database) and '{new_value}' (a "
+                                f"'{type(new_value).__name__}' from the file), so both were cast to a string to "
+                                "compare and found to be equal.  If they should differ, make sure to include the model "
+                                "field in 'FieldToDataHeaderKey' and the type in 'DataColumnTypes'."
+                            ),
+                        )
+
+            if differs:
                 differences[field] = {
                     "orig": orig_value,
                     "new": new_value,
@@ -2649,6 +2704,36 @@ class TableLoader(ABC):
                 is_fatal=is_fatal,
             )
         return found_errors
+
+    def model_field_to_column_type(
+        self, mdl_name: str, fld_name: str
+    ) -> Optional[Type]:
+        """Takes a model name and field name and returns the type expected from the corresponding table column.
+
+        Args:
+            mdl_name (str)
+            fld_name (str)
+        Exceptions:
+            None
+        Returns:
+            (Optional[Type])
+        """
+        if (
+            # Types for the table columns are defined
+            self.DataColumnTypes is not None
+            # The model has fields mapped to columns
+            and mdl_name in self.FieldToDataHeaderKey.keys()
+            # The model field is mapped to a table column (giving us a header key)
+            and fld_name in self.FieldToDataHeaderKey[mdl_name].keys()
+            # The header key shows there is a type defined for the table column
+            and self.FieldToDataHeaderKey[mdl_name][fld_name]
+            in self.DataColumnTypes.keys()
+        ):
+            # Return the type defined for the table column that corresponds to the field
+            header_key = self.FieldToDataHeaderKey[mdl_name][fld_name]
+            return self.DataColumnTypes[header_key]
+
+        return None
 
     def buffer_infile_exception(
         self, exception, is_error=None, is_fatal=None, column=None, suggestion=None

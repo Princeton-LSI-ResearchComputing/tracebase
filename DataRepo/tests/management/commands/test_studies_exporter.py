@@ -26,8 +26,8 @@ class StudiesExporterTestBase(TracebaseTestCase):
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         Study.objects.create(name="Small OBOB")
         Infusate.objects.get_or_create_infusate(
@@ -47,11 +47,6 @@ class StudiesExporterTestBase(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
-        # call_command(
-        #     "legacy_load_animals_and_samples",
-        #     animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
-        #     "small_obob_animal_and_sample_table.xlsx",
-        # )
 
 
 class StudiesExporterTests(StudiesExporterTestBase):
@@ -59,13 +54,11 @@ class StudiesExporterTests(StudiesExporterTestBase):
     def setUpTestData(cls):
         super().setUpTestData()
         call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=True,
-            instrument="unknown",
+            "load_study",
+            infile=(
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/"
+                "small_obob_sample_table_serum_only.xlsx"
+            ),
         )
 
     def test_all_studies_all_types(self):

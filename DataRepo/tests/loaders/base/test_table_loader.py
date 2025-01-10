@@ -262,7 +262,7 @@ class TableLoaderTests(TracebaseTestCase):
             AttributeError, type(tl.aggregated_errors_object.exceptions[0])
         )
 
-    def test_check_for_inconsistencies(self):
+    def test_check_for_inconsistencies_case1(self):
         """Ensures that check_for_inconsistencies correctly packages conflicts"""
         tl = self.TestLoader()
         # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
@@ -289,6 +289,64 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(
             "2", tl.aggregated_errors_object.exceptions[0].differences["choice"]["orig"]
         )
+
+    def test_check_for_inconsistencies_case2(self):
+        """Ensures that check_for_inconsistencies correctly packages conflicts despite type differences, even if the
+        field is not mapped or the type is not recorded."""
+        tl = self.TestLoader()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        tl.set_row_index(0)  # Converted to row 2 (header line is 1)
+        recdict = {"name": "test2", "choice": "2"}
+        self.TestModel.objects.create(**recdict)
+        rec = self.TestModel.objects.get(**recdict)
+        # The loading code automatically casts, but when check_for_inconsistencies runs, it gets the uncast value,
+        # where Excel or pandas autodetected a type (inaccurately)
+        recdict["choice"] = 2
+        errfound = tl.check_for_inconsistencies(rec, recdict)
+        self.assertFalse(errfound)
+        self.assertEqual(1, len(tl.aggregated_errors_object.exceptions))
+        self.assertEqual(1, tl.aggregated_errors_object.num_warnings)
+        self.assertFalse(tl.aggregated_errors_object.is_fatal)
+        self.assertFalse(tl.aggregated_errors_object.exceptions[0].is_fatal)
+        self.assertIsInstance(
+            tl.aggregated_errors_object.exceptions[0], ProgrammingError
+        )
+        self.assertIn(
+            "'2' (a 'str' from the database) and '2' (a 'int' from the file)",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "cast to a string to compare and found to be equal",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+
+    def test_check_for_inconsistencies_case3(self):
+        """Ensures that check_for_inconsistencies correctly packages conflicts despite type differences without warning
+        if the field is mapped and the type is recorded."""
+        tl = self.TestUCLoader()
+        # Circumventing the need to call load_data, set what is needed to call handle_load_db_errors...
+        tl.set_row_index(0)  # Converted to row 2 (header line is 1)
+        recdict = {"name": "test2", "uf1": "2"}
+        self.TestUCModel.objects.create(**recdict)
+        rec = self.TestUCModel.objects.get(**recdict)
+        # The loading code automatically casts, but when check_for_inconsistencies runs, it gets the uncast value,
+        # where Excel or pandas autodetected a type (inaccurately)
+        recdict["uf1"] = 2
+        errfound = tl.check_for_inconsistencies(rec, recdict)
+        self.assertFalse(errfound)
+        # No error when the field is mapped to a column and the column's type is recorded
+        self.assertEqual(0, len(tl.aggregated_errors_object.exceptions))
+
+    def test_model_field_to_column_type(self):
+        tucl = self.TestUCLoader()
+        type_returned = tucl.model_field_to_column_type(
+            self.TestUCModel.__name__, "name"
+        )
+        self.assertEqual(str, type_returned)
+        type_returned2 = tucl.model_field_to_column_type(
+            self.TestUCModel.__name__, "unrecorded_field"
+        )
+        self.assertIsNone(type_returned2)
 
     # Method tests
     def test_get_load_stats(self):
