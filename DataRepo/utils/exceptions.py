@@ -1054,8 +1054,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                 model = inst.model
             elif inst.model != model:
                 raise ProgrammingError(
-                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
-                    f"model.  {inst.model} != {model}"
+                    "The instances argument must be a list of RecordDoesNotExist exceptions generated from queries of "
+                    f"the same model.  {inst.model} != {model}"
                 )
 
             if _one_source:
@@ -1068,8 +1068,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                     loc_args = cur_loc_args
                 elif cur_loc_args != loc_args:
                     raise ProgrammingError(
-                        "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
-                        f"file/column.  {cur_loc_args} != {loc_args}"
+                        "The instances argument must be a list of RecordDoesNotExist exceptions generated from queries "
+                        f"of the same file/column.  {cur_loc_args} != {loc_args}"
                     )
 
             query_fields_str = inst._get_query_stub()
@@ -1078,8 +1078,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                 fields_str = query_fields_str
             elif fields_str != query_fields_str:
                 raise ProgrammingError(
-                    "instances must be a list of RecordDoesNotExist exceptions generated from queries using the same "
-                    f"search fields (and comparators).  {fields_str} != {query_fields_str}"
+                    "The instances argument must be a list of RecordDoesNotExist exceptions generated from queries "
+                    f"using the same search fields (and comparators).  {fields_str} != {query_fields_str}"
                 )
 
             query_values_str = inst._get_query_values_str()

@@ -1618,6 +1618,9 @@ class MSRunsLoader(TableLoader):
             rec = Sample.objects.get(name=sample_name)
         except Sample.DoesNotExist as dne:
             if from_mzxml is not None:
+                orig_mzxml_sample_name = os.path.splitext(os.path.basename(from_mzxml))[
+                    0
+                ]
 
                 # Let's see if this is a "dash" issue
                 sample_name_nodash = self.get_sample_header_from_mzxml_name(sample_name)
@@ -1627,43 +1630,65 @@ class MSRunsLoader(TableLoader):
                     except Sample.DoesNotExist:
                         # Ignore this attempt and press on with processing the original exception
                         pass
+                else:
+                    # It's possible the dash was already replaced in sample_name, but the researcher manually included
+                    # the dash in the DB sample name, so try WITH the dash.
+                    if orig_mzxml_sample_name != sample_name:
+                        try:
+                            return Sample.objects.get(name=orig_mzxml_sample_name)
+                        except Sample.DoesNotExist:
+                            # Ignore this attempt and press on with processing the original exception
+                            pass
 
                 if sample_name[0].isdigit():
+                    sample_name_used = sample_name
                     try:
                         # Some peak correction tools disallow sample names that start with a number, so let's
                         # see if the user potentially prepended the sample name and the rest of it happens to be
                         # unique
                         rec = Sample.objects.get(name__endswith=sample_name)
-
-                        # Buffer an error that says that we're going to proceed assuming the found sample is a
-                        # match
-                        self.aggregated_errors_object.buffer_error(
-                            RecordDoesNotExist(
-                                Sample,
-                                {"name": sample_name},
-                                file=self.friendly_file,
-                                sheet=self.sheet,
-                                column=self.headers.MZXMLNAME,
-                                rownum="no row - sample name was derived from an mzXML filename",
-                                message=(
-                                    f"{Sample.__name__} record matching the mzXML file's basename [{sample_name}] does "
-                                    "not exist, but the filename starts with a number and happens to otherwise "
-                                    f"uniquely match sample '{rec.name}'.  Please identify the associated sample(s) "
-                                    f"and add a the file '{from_mzxml}' to %s.  If no such row exists and this is an "
-                                    f"unanalyzed mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
-                                ),
-                                suggestion=(
-                                    "Proceeding with the assumption that the mzXML-derived sample name "
-                                    f"'{sample_name}' is intended to match sample '{rec.name}'."
-                                ),
-                            ),
-                            orig_exception=dne,
-                        )
-
-                        return rec
                     except Sample.DoesNotExist or Sample.MultipleObjectsReturned:
-                        # Ignore this attempt and press on with processing the original exception
-                        pass
+                        # It's possible the dash was already replaced in sample_name, but the researcher manually
+                        # included the dash in the DB sample name, so try WITH the dash.
+                        if orig_mzxml_sample_name != sample_name:
+                            try:
+                                rec = Sample.objects.get(
+                                    name__endswith=orig_mzxml_sample_name
+                                )
+                                sample_name_used = orig_mzxml_sample_name
+                            except Sample.DoesNotExist:
+                                # Ignore this attempt and press on with processing the original exception
+                                pass
+                    finally:
+                        if rec is not None:
+
+                            # Buffer an error that says that we're going to proceed assuming the found sample is a
+                            # match
+                            self.aggregated_errors_object.buffer_error(
+                                RecordDoesNotExist(
+                                    Sample,
+                                    {"name": sample_name},
+                                    file=self.friendly_file,
+                                    sheet=self.sheet,
+                                    column=self.headers.MZXMLNAME,
+                                    rownum="no row - sample name was derived from an mzXML filename",
+                                    message=(
+                                        f"{Sample.__name__} record matching the mzXML file's basename "
+                                        f"[{sample_name_used}] does not exist, but the filename starts with a number "
+                                        f"and happens to otherwise uniquely match sample '{rec.name}'.  Please "
+                                        f"identify the associated sample(s) and add a the file '{from_mzxml}' to %s.  "
+                                        "If no such row exists and this is an unanalyzed mzXML file, add a row and "
+                                        f"fill in the '{self.headers.SKIP}' column."
+                                    ),
+                                    suggestion=(
+                                        "Proceeding with the assumption that the mzXML-derived sample name "
+                                        f"'{sample_name}' is intended to match sample '{rec.name}'."
+                                    ),
+                                ),
+                                orig_exception=dne,
+                            )
+
+                            return rec
 
                 self.aggregated_errors_object.buffer_error(
                     RecordDoesNotExist(
