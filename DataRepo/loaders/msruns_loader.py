@@ -1886,6 +1886,7 @@ class MSRunsLoader(TableLoader):
             common_dir = os.path.commonpath([mzxml_dir, annot_dir])
             norm_common_dir = os.path.normpath(common_dir)
             norm_annot_dir = os.path.normpath(annot_dir)
+            print(f"COMPARING mzxml_dir {mzxml_dir} annot_dir {annot_dir} GOT COMMON DIR {norm_common_dir} =? ANNOT DIR {norm_annot_dir}")
             if norm_annot_dir == norm_common_dir:
                 for seqname in self.annotdir_to_seq_dict[annot_dir]:
                     if seqname not in msrun_sequence_names:
