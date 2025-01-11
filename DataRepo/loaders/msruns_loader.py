@@ -358,7 +358,24 @@ class MSRunsLoader(TableLoader):
                 )
             # Since we have annotation file paths, we should make sure we have a directory for the mzXML files
             if self.mzxml_dir is None:
-                self.mzxml_dir = os.path.commonpath(self.mzxml_files)
+                if self.file is None:
+                    # If we don't have a study file path (we only have the dataframe), all we can do is get the common
+                    # path of the mzXML files, which could be a problem.
+                    # # TODO: An alternative could be to look at the paths of the peak annotation files.
+                    self.mzxml_dir = os.path.commonpath(self.mzxml_files)
+                else:
+                    study_file = os.path.abspath(self.file)
+                    study_dir = os.path.dirname(study_file)
+                    all_files = [study_file]
+                    all_files.extend([os.path.abspath(mzxf) for mzxf in self.mzxml_files])
+                    common_dir = os.path.commonpath(all_files)
+                    if study_dir in common_dir:
+                        # The mzxml files are under the study directory
+                        self.mzxml_dir = study_dir
+                    else:
+                        # The mzxml files are outside the study directory, so use the common directory of the mzXML
+                        # files
+                        self.mzxml_dir = os.path.commonpath(self.mzxml_files)
 
         # We are going to use defaults from the SequencesLoader if no dataframe (i.e. --infile) was provided
         seqloader = SequencesLoader(
@@ -585,7 +602,10 @@ class MSRunsLoader(TableLoader):
         if self.unpaired_mzxml_files_exist():
 
             print(
-                f"\nProcessing mzXML files not in the '{self.DataSheetName}' sheet.",
+                (
+                    "\nProcessing mzXML files either not in or could not be paired 1:1 with rows in the "
+                    f"'{self.DataSheetName}' sheet."
+                ),
                 flush=True,
             )
 
@@ -596,7 +616,10 @@ class MSRunsLoader(TableLoader):
             # if we couldn't associate these files with rows in the infile)
             if (
                 default_msrun_sequence is None
-                and self.annotdir_to_seq_dict is None
+                and (
+                    self.annotdir_to_seq_dict is None
+                    or len(self.annotdir_to_seq_dict.keys()) == 0
+                )
                 and (
                     self.operator_default is None
                     or self.instrument_default is None
@@ -1844,7 +1867,10 @@ class MSRunsLoader(TableLoader):
         Returns:
             msrun_sequence (Optional[MSRunSequence]): The MSRunSequence record that the mzXML file belongs to.
         """
-        if self.annotdir_to_seq_dict is None:
+        if (
+            self.annotdir_to_seq_dict is None
+            or len(self.annotdir_to_seq_dict.keys()) == 0
+        ):
             return default_msrun_sequence
 
         msrun_sequence = None
@@ -1858,8 +1884,9 @@ class MSRunsLoader(TableLoader):
         # path to the mzXML
         for annot_dir in self.annotdir_to_seq_dict.keys():
             common_dir = os.path.commonpath([mzxml_dir, annot_dir])
+            norm_common_dir = os.path.normpath(common_dir)
             norm_annot_dir = os.path.normpath(annot_dir)
-            if norm_annot_dir == common_dir:
+            if norm_annot_dir == norm_common_dir:
                 for seqname in self.annotdir_to_seq_dict[annot_dir]:
                     if seqname not in msrun_sequence_names:
                         msrun_sequence_names.append(seqname)
@@ -1874,19 +1901,50 @@ class MSRunsLoader(TableLoader):
                     )
                 )
                 msrun_sequence = default_msrun_sequence
+            else:
+                self.aggregated_errors_object.buffer_error(
+                    MzxmlNotColocatedWithAnnot(
+                        file=os.path.join(mzxml_dir, mzxml_name),
+                        suggestion=(
+                            "Either fill in default sequences for the peak annotation files in the "
+                            f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet or move "
+                            f"'{os.path.join(mzxml_dir, mzxml_name)}' and its peak annotation file(s) into a common "
+                            "directory (and don't forget to update path in the "
+                            f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' column in the "
+                            f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet)."
+                        ),
+                    )
+                )
         elif len(msrun_sequence_names) > 1:  # If multiple are found
             suggestion = None
+            is_error = False
+            is_fatal = False
             if default_msrun_sequence is not None:
                 suggestion = f"Using the default sequence '{default_msrun_sequence.sequence_name}'."
                 msrun_sequence = default_msrun_sequence
-            self.aggregated_errors_object.buffer_warning(
+                is_fatal = self.validate
+            else:
+                nlt = "\n\t"
+                suggestion = (
+                    "Move the peak annotation files associated with these sequences:\n\t"
+                    f"{nlt.join(msrun_sequence_names)}\ninto a directory containing all of their mzXML files (and "
+                    f"don't forget to update path in the '{PeakAnnotationFilesLoader.DataHeaders.FILE}' column in the "
+                    f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet)."
+                )
+                is_error = True
+                is_fatal = True
+
+            self.aggregated_errors_object.buffer_exception(
                 MzxmlColocatedWithMultipleAnnot(
                     msrun_sequence_names,
                     file=os.path.join(mzxml_dir, mzxml_name),
                     suggestion=suggestion,
-                )
+                ),
+                is_error=is_error,
+                is_fatal=is_fatal,
             )
         else:  # One was found
+            # This intentionally might return None (but buffer an error)
             msrun_sequence = self.get_msrun_sequence(msrun_sequence_names[0])
 
         return msrun_sequence
