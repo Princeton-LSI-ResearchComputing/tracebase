@@ -367,7 +367,9 @@ class MSRunsLoader(TableLoader):
                     study_file = os.path.abspath(self.file)
                     study_dir = os.path.dirname(study_file)
                     all_files = [study_file]
-                    all_files.extend([os.path.abspath(mzxf) for mzxf in self.mzxml_files])
+                    all_files.extend(
+                        [os.path.abspath(mzxf) for mzxf in self.mzxml_files]
+                    )
                     common_dir = os.path.commonpath(all_files)
                     if study_dir in common_dir:
                         # The mzxml files are under the study directory
@@ -1813,6 +1815,7 @@ class MSRunsLoader(TableLoader):
             mzxml_name,
             mzxml_dir,
             default_msrun_sequence,
+            mzxml_filename=mzxml_metadata['mzxml_filename'],
         )
 
         if msrun_sequence is None:
@@ -1852,15 +1855,17 @@ class MSRunsLoader(TableLoader):
         mzxml_name,
         mzxml_dir,
         default_msrun_sequence: Optional[MSRunSequence],
+        mzxml_filename=None,
     ):
         """Uses the self.annotdir_to_seq_dict to assign the peak annotation file's sequence to mzXML files that have a
         common path.
 
         Args:
-            mzxml_name (str): Basename of the mzXML file.
+            mzxml_name (str): Basename of the mzXML file, potentially modified to adhere to sample header strictures.
             mzxml_dir (str): Path to directory of the mzXML file.
             default_msrun_sequence (Optional[MSRunSequence]): Default sequence to use if there are no or multiple
                 sequences.
+            mzxml_filename (Optional[str]): Used for error reporting.
         Exceptions:
             Raises:
                 None
@@ -1879,6 +1884,9 @@ class MSRunsLoader(TableLoader):
         msrun_sequence = None
         msrun_sequence_names = []
 
+        if mzxml_filename is None:
+            mzxml_filename = mzxml_name
+
         # The paths in self.annotdir_to_seq_dict are relative paths, so make the mzXML path relative as well
         if os.path.isabs(mzxml_dir):
             mzxml_dir = os.path.relpath(mzxml_dir, start=self.mzxml_dir)
@@ -1889,7 +1897,9 @@ class MSRunsLoader(TableLoader):
             common_dir = os.path.commonpath([mzxml_dir, annot_dir])
             norm_common_dir = os.path.normpath(common_dir)
             norm_annot_dir = os.path.normpath(annot_dir)
-            print(f"COMPARING mzxml_dir {mzxml_dir} annot_dir {annot_dir} GOT COMMON DIR {norm_common_dir} =? ANNOT DIR {norm_annot_dir}")
+            print(
+                f"COMPARING mzxml_dir {mzxml_dir} annot_dir {annot_dir} GOT COMMON DIR {norm_common_dir} =? ANNOT DIR {norm_annot_dir}"
+            )
             if norm_annot_dir == norm_common_dir:
                 for seqname in self.annotdir_to_seq_dict[annot_dir]:
                     if seqname not in msrun_sequence_names:
@@ -1900,7 +1910,7 @@ class MSRunsLoader(TableLoader):
             if default_msrun_sequence is not None:
                 self.aggregated_errors_object.buffer_warning(
                     MzxmlNotColocatedWithAnnot(
-                        file=os.path.join(mzxml_dir, mzxml_name),
+                        file=os.path.join(mzxml_dir, mzxml_filename),
                         suggestion=f"Using the default sequence '{default_msrun_sequence.sequence_name}'.",
                     )
                 )
@@ -1908,12 +1918,12 @@ class MSRunsLoader(TableLoader):
             else:
                 self.aggregated_errors_object.buffer_error(
                     MzxmlNotColocatedWithAnnot(
-                        file=os.path.join(mzxml_dir, mzxml_name),
+                        file=os.path.join(mzxml_dir, mzxml_filename),
                         suggestion=(
                             "Either fill in default sequences for the peak annotation files in the "
                             f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet or move "
-                            f"'{os.path.join(mzxml_dir, mzxml_name)}' and its peak annotation file(s) into a common "
-                            "directory (and don't forget to update path in the "
+                            f"'{os.path.join(mzxml_dir, mzxml_filename)}' and its peak annotation file(s) into a "
+                            "common directory (and don't forget to update path in the "
                             f"'{PeakAnnotationFilesLoader.DataHeaders.FILE}' column in the "
                             f"'{PeakAnnotationFilesLoader.DataSheetName}' sheet)."
                         ),
@@ -1941,7 +1951,7 @@ class MSRunsLoader(TableLoader):
             self.aggregated_errors_object.buffer_exception(
                 MzxmlColocatedWithMultipleAnnot(
                     msrun_sequence_names,
-                    file=os.path.join(mzxml_dir, mzxml_name),
+                    file=os.path.join(mzxml_dir, mzxml_filename),
                     suggestion=suggestion,
                 ),
                 is_error=is_error,
