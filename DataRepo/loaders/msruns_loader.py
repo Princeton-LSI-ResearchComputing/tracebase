@@ -1269,9 +1269,12 @@ class MSRunsLoader(TableLoader):
 
         mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
 
+        abs_mzxml_dir = os.path.abspath(mzxml_dir)
+        print(f"MZXML DIR ORIGINAL {abs_mzxml_dir}")
         # Make the mzxml_dir be relative to self.mzxml_dir
-        if os.path.isabs(mzxml_dir):
-            mzxml_dir = os.path.relpath(mzxml_dir, self.mzxml_dir)
+        # if os.path.isabs(mzxml_dir):
+        mzxml_dir = os.path.relpath(abs_mzxml_dir, self.mzxml_dir)
+        print(f"MZXML DIR RELATIVE TO {self.mzxml_dir}: {mzxml_dir}")
 
         # Get or create an ArchiveFile record for a raw file
         try:
