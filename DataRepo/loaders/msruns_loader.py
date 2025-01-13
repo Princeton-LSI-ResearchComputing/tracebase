@@ -361,7 +361,7 @@ class MSRunsLoader(TableLoader):
                 if self.file is None:
                     # If we don't have a study file path (we only have the dataframe), all we can do is get the common
                     # path of the mzXML files, which could be a problem.
-                    # # TODO: An alternative could be to look at the paths of the peak annotation files.
+                    # TODO: An alternative could be to look at the paths of the peak annotation files.
                     self.mzxml_dir = os.path.commonpath(self.mzxml_files)
                 else:
                     study_file = os.path.abspath(self.file)
@@ -1272,11 +1272,8 @@ class MSRunsLoader(TableLoader):
         mzxml_dir, mzxml_filename = os.path.split(mzxml_file)
 
         abs_mzxml_dir = os.path.abspath(mzxml_dir)
-        print(f"MZXML DIR ORIGINAL {abs_mzxml_dir}")
         # Make the mzxml_dir be relative to self.mzxml_dir
-        # if os.path.isabs(mzxml_dir):
         mzxml_dir = os.path.relpath(abs_mzxml_dir, self.mzxml_dir)
-        print(f"MZXML DIR RELATIVE TO {self.mzxml_dir}: {mzxml_dir}")
 
         # Get or create an ArchiveFile record for a raw file
         try:

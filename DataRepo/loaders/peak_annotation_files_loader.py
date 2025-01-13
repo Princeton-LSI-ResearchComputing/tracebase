@@ -594,6 +594,9 @@ class PeakAnnotationFilesLoader(TableLoader):
         determining that the mzXML file's path contains the peak annotation file's path (because peak annotation files
         are required to be co-located with the mzXML files of a sequence).
 
+        Assumptions:
+            1. If the peak annotation file is not found to exist, it is assumed that it is supposed to be relative to
+                the study directory, thus it does not raise an error for missing files.  (That happens elsewhere.)
         Limitations:
             1. Currently excises "./" from the beginning of relative paths because they're unsightly and the submission
                page does not support them because it doesn't know the study directory structure.  This means that only
@@ -624,21 +627,27 @@ class PeakAnnotationFilesLoader(TableLoader):
                 continue
 
             # Get the relative path of the peak annotation file
-            dir: str
             abs_file = os.path.abspath(file)
             study_dir = self.get_study_dir()
-            rel_file = os.path.relpath(abs_file, study_dir)
-            dir = os.path.dirname(rel_file)
 
-            if dir.startswith("./"):
-                # See Limitations in docstring
-                dir.replace("./", 1)
+            # Determine the path relative to the study directory
+            rel_dir: str
+            if os.path.isfile(os.path.join(os.getcwd(), file)):
+                rel_file = os.path.relpath(abs_file, study_dir)
+                rel_dir = os.path.dirname(rel_file)
+            else:
+                rel_dir = os.path.dirname(file)
 
+            # See Limitations in docstring
+            if rel_dir.startswith("./"):
+                rel_dir.replace("./", 1)
+
+            # Add dir to seqname item to dict
             if (
-                dir not in dir_to_sequence_dict.keys()
-                or seqname not in dir_to_sequence_dict[dir]
+                rel_dir not in dir_to_sequence_dict.keys()
+                or seqname not in dir_to_sequence_dict[rel_dir]
             ):
-                dir_to_sequence_dict[dir].append(seqname)
+                dir_to_sequence_dict[rel_dir].append(seqname)
 
         # Restore the original row index
         self.set_row_index(save_row_index)
