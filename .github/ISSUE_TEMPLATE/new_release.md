@@ -20,6 +20,7 @@ None
   - [ ] Edit `changelog.md` to get it ready for release
     - [ ] Replace the existing `Unreleased` header with the new tag and current date
     - [ ] `git log [PREVIOUS_TAG]..HEAD` - Review the log to summarize changes since the last release
+      - Tip/example: `git log --reverse v3.1.2-beta..HEAD | grep "^    " | cut -b 5- | grep . | grep -v -E "^Details:|^Merge pull request|^Files checked in|skip ci"`
     - [ ] `markdownlint --config .markdown-lint.yml CHANGELOG.md`
     - [ ] `npx textlint CHANGELOG.md`
     - [ ] `git commit`
@@ -30,7 +31,6 @@ None
   - [ ] `git push origin v[TAG_NAME]`
   - [ ] Follow steps to [create a release on GitHub](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release)
   - [ ] Edit `changelog.md` to add back the *Unreleased* section
-    - [ ] Replace the existing `Unreleased` section with the new tag and current date
     - [ ] `markdownlint --config .markdown-lint.yml CHANGELOG.md`
     - [ ] `npx textlint CHANGELOG.md`
     - [ ] `git commit`
