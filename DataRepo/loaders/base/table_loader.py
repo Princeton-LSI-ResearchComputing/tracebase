@@ -2772,7 +2772,7 @@ class TableLoader(ABC):
         ):
             is_fatal = exception.is_fatal
         elif is_fatal is None:
-            is_fatal = True
+            is_fatal = is_error
 
         if hasattr(exception, "file") and exception.file is not None:
             file = exception.file

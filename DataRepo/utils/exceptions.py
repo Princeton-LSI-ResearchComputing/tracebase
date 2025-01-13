@@ -1054,8 +1054,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                 model = inst.model
             elif inst.model != model:
                 raise ProgrammingError(
-                    "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
-                    f"model.  {inst.model} != {model}"
+                    "The instances argument must be a list of RecordDoesNotExist exceptions generated from queries of "
+                    f"the same model.  {inst.model} != {model}"
                 )
 
             if _one_source:
@@ -1068,8 +1068,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                     loc_args = cur_loc_args
                 elif cur_loc_args != loc_args:
                     raise ProgrammingError(
-                        "instances must be a list of RecordDoesNotExist exceptions generated from queries of the same "
-                        f"file/column.  {cur_loc_args} != {loc_args}"
+                        "The instances argument must be a list of RecordDoesNotExist exceptions generated from queries "
+                        f"of the same file/column.  {cur_loc_args} != {loc_args}"
                     )
 
             query_fields_str = inst._get_query_stub()
@@ -1078,8 +1078,8 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
                 fields_str = query_fields_str
             elif fields_str != query_fields_str:
                 raise ProgrammingError(
-                    "instances must be a list of RecordDoesNotExist exceptions generated from queries using the same "
-                    f"search fields (and comparators).  {fields_str} != {query_fields_str}"
+                    "The instances argument must be a list of RecordDoesNotExist exceptions generated from queries "
+                    f"using the same search fields (and comparators).  {fields_str} != {query_fields_str}"
                 )
 
             query_values_str = inst._get_query_values_str()
@@ -1409,6 +1409,7 @@ class UnexpectedSamples(InfileError):
         rel_sheet,
         rel_column,
         suggestion=None,
+        possible_blanks=False,
         **kwargs,
     ):
         if missing_samples is None or len(missing_samples) == 0:
@@ -1422,11 +1423,13 @@ class UnexpectedSamples(InfileError):
             rel_loc = generate_file_location_string(
                 file=rel_file, sheet=rel_sheet, column=rel_column
             )
+            blnkmsg = ", that appear to possibly be blanks," if possible_blanks else ""
             message = (
-                f"According to the values in {rel_loc} the following sample data headers should be in %s, but they "
-                f"were not there: {missing_samples}.  This can likely be fixed by changing the file associated with "
-                f"the headers in {rel_loc}."
+                f"According to the values in {rel_loc}, the following sample data headers{blnkmsg} should be in %s, "
+                f"but they were not there: {missing_samples}."
             )
+            if not possible_blanks:
+                message += "  This can likely be fixed by changing the file associated with the headers."
         if suggestion is not None:
             message += f"  {suggestion}"
         super().__init__(message, **kwargs)
@@ -3648,7 +3651,7 @@ class AllMzxmlSequenceUnknown(Exception):
 
     def __init__(self, exceptions, message=None):
         if not message:
-            loc_msg_default = ", obtained from the indicated file locations"
+            loc_msg_default = ""
             loc_msg = ""
             err_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
             exc: MzxmlSequenceUnknown
@@ -3703,9 +3706,9 @@ class AllMzxmlSequenceUnknown(Exception):
                 )
 
             message = (
-                f"Multiple mzXML files with the same basename{loc_msg}.  Cannot determine the MSRunSequence, so one "
-                "will be attempted to be deduced.  If unsuccessful, an error requiring defaults to be supplied will "
-                f"occur below:\n{mzxml_str}"
+                f"Multiple mzXML files with the same basename{loc_msg}.  Cannot determine the MSRunSequence without a "
+                "row for each, so one will be attempted to be deduced.  If unsuccessful, an error requiring defaults "
+                f"to be supplied will occur below:\n{mzxml_str}"
             )
 
         super().__init__(message)
@@ -3859,7 +3862,8 @@ class AllMzXMLSkipRowErrors(Exception):
                                 if len(v["rows"]) > 0
                                 else ""
                             )
-                            + f" ({len(v['num_header_rows'][0])} skipped sample headers from the infile)"
+                            + f" ({len(v['num_header_rows'][0])} sample header(s) from the infile [that is/are "
+                            + f"skipped] and {len(v['existing_files'])} mzXML files)"
                             + nlttt
                             + (
                                 nlttt.join(v["existing_files"])
