@@ -594,12 +594,16 @@ class PeakAnnotationFilesLoader(TableLoader):
         determining that the mzXML file's path contains the peak annotation file's path (because peak annotation files
         are required to be co-located with the mzXML files of a sequence).
 
+        Limitations:
+            1. Currently excises "./" from the beginning of relative paths because they're unsightly and the submission
+               page does not support them because it doesn't know the study directory structure.  This means that only
+               POSIX paths are supported.  Other systems may experience path issues.
         Args:
             None
         Exceptions:
             None
         Returns:
-            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"/path/to/peakannot/dir": ["sequence name"]}
+            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"rel/path/from/study/to/annot/dir": ["sequence name"]}
         """
         dir_to_sequence_dict = defaultdict(list)
 
@@ -614,10 +618,22 @@ class PeakAnnotationFilesLoader(TableLoader):
         for _, row in self.df.iterrows():
             file = self.get_row_val(row, self.headers.FILE)
             seqname = self.get_row_val(row, self.headers.SEQNAME)
+
             if file is None or seqname is None:
+                # Errors about required missing values are handled elsewhere
                 continue
+
+            # Get the relative path of the peak annotation file
             dir: str
-            dir = os.path.dirname(file)
+            abs_file = os.path.abspath(file)
+            study_dir = self.get_study_dir()
+            rel_file = os.path.relpath(abs_file, study_dir)
+            dir = os.path.dirname(rel_file)
+
+            if dir.startswith("./"):
+                # See Limitations in docstring
+                dir.replace("./", 1)
+
             if (
                 dir not in dir_to_sequence_dict.keys()
                 or seqname not in dir_to_sequence_dict[dir]

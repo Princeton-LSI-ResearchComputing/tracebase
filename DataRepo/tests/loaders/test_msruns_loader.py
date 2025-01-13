@@ -1735,7 +1735,9 @@ class MSRunsLoaderTests(TracebaseTestCase):
         )
         self.assertIsNone(seq)
         self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
-        self.assertIsInstance(msrl.aggregated_errors_object.exceptions[0], MzxmlNotColocatedWithAnnot)
+        self.assertIsInstance(
+            msrl.aggregated_errors_object.exceptions[0], MzxmlNotColocatedWithAnnot
+        )
 
     def test_get_msrun_sequence_from_dir_default(self):
         msrl = MSRunsLoader()
