@@ -587,19 +587,26 @@ class PeakAnnotationFilesLoader(TableLoader):
             self.update_load_stats(peak_annot_loader.get_load_stats())
 
     def get_dir_to_sequence_dict(self):
-        """This traverses self.df to return a dict that maps the peak annotation file's directory path to a list of
-        sequence names.
+        """This traverses self.df to return a dict that maps the peak annotation file's directory path (relative to the
+        study directory) to a list of sequence names.
 
         This is intended to be used by the MSRunsLoader to associate an mzXML file with the sequence it came from by
         determining that the mzXML file's path contains the peak annotation file's path (because peak annotation files
         are required to be co-located with the mzXML files of a sequence).
 
+        Assumptions:
+            1. If the peak annotation file is not found to exist, it is assumed that it is supposed to be relative to
+                the study directory, thus it does not raise an error for missing files.  (That happens elsewhere.)
+        Limitations:
+            1. Currently excises "./" from the beginning of relative paths because they're unsightly and the submission
+               page does not support them because it doesn't know the study directory structure.  This means that only
+               POSIX paths are supported.  Other systems may experience path issues.
         Args:
             None
         Exceptions:
             None
         Returns:
-            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"/path/to/peakannot/dir": ["sequence name"]}
+            dir_to_sequence_dict (Dict[str, List[str]]): E.g. {"rel/path/from/study/to/annot/dir": ["sequence name"]}
         """
         dir_to_sequence_dict = defaultdict(list)
 
@@ -614,17 +621,58 @@ class PeakAnnotationFilesLoader(TableLoader):
         for _, row in self.df.iterrows():
             file = self.get_row_val(row, self.headers.FILE)
             seqname = self.get_row_val(row, self.headers.SEQNAME)
+
             if file is None or seqname is None:
+                # Errors about required missing values are handled elsewhere
                 continue
-            dir: str
-            dir = os.path.dirname(file)
+
+            # Get the relative path of the peak annotation file
+            abs_file = os.path.abspath(file)
+            study_dir = self.get_study_dir()
+
+            # Determine the path relative to the study directory
+            rel_dir: str
+            if os.path.isfile(os.path.join(os.getcwd(), file)):
+                rel_file = os.path.relpath(abs_file, study_dir)
+                rel_dir = os.path.dirname(rel_file)
+            else:
+                rel_dir = os.path.dirname(file)
+
+            # See Limitations in docstring
+            if rel_dir.startswith("./"):
+                rel_dir.replace("./", 1)
+
+            # Add dir to seqname item to dict
             if (
-                dir not in dir_to_sequence_dict.keys()
-                or seqname not in dir_to_sequence_dict[dir]
+                rel_dir not in dir_to_sequence_dict.keys()
+                or seqname not in dir_to_sequence_dict[rel_dir]
             ):
-                dir_to_sequence_dict[dir].append(seqname)
+                dir_to_sequence_dict[rel_dir].append(seqname)
 
         # Restore the original row index
         self.set_row_index(save_row_index)
 
         return dir_to_sequence_dict
+
+    def get_study_dir(self):
+        """Obtains the absolute path of the encompassing directory of self.file, if set.  If not set, assumes the
+        current working director.
+
+        Limitations:
+            1. Does not try to deduce the directory based on the paths provided for peak annotation or mzXML files.
+            2. Does not take into account possibly differing directories for self.peak_annotation_details_file or
+            self.peak_group_conflicts_file
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            study_dir (str)
+        """
+        # TODO: Figure out a place to put this where other loader classes can access it.  I would put it in the
+        # TableLoader superclass is that class knew about study directories, which it does not.  This is complicated by
+        # the fact that there also exists potentially separate files for the peak_annotation_details_file and
+        # peak_group_conflicts_file
+        if self.file is None:
+            return os.getcwd()
+        return os.path.dirname(os.path.abspath(self.file))
