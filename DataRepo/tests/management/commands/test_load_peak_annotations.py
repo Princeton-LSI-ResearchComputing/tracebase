@@ -1105,7 +1105,13 @@ class LoadIsoautocorrCommandTests(TracebaseTestCase):
             ],
         ]
 
-        self.assertEqual(expected, list(peak_data_labels))
+        # Sorted to avoid variability of the queryset order
+        self.assertEqual(
+            sorted(expected, key=lambda x: str(x[0]["count"]) + str(x[1]["count"])),
+            sorted(
+                peak_data_labels, key=lambda x: str(x[0]["count"]) + str(x[1]["count"])
+            ),
+        )
 
 
 class LoadUnicorrCommandTests(TracebaseTestCase):
