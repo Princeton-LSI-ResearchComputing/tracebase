@@ -1910,6 +1910,7 @@ class MSRunsLoader(TableLoader):
             if default_msrun_sequence is not None:
                 self.aggregated_errors_object.buffer_warning(
                     MzxmlNotColocatedWithAnnot(
+                        annot_dirs=list(self.annotdir_to_seq_dict.keys()),
                         file=os.path.join(mzxml_dir, mzxml_filename),
                         suggestion=f"Using the default sequence '{default_msrun_sequence.sequence_name}'.",
                     )
@@ -1918,6 +1919,7 @@ class MSRunsLoader(TableLoader):
             else:
                 self.aggregated_errors_object.buffer_error(
                     MzxmlNotColocatedWithAnnot(
+                        annot_dirs=list(self.annotdir_to_seq_dict.keys()),
                         file=os.path.join(mzxml_dir, mzxml_filename),
                         suggestion=(
                             "Either fill in default sequences for the peak annotation files in the "

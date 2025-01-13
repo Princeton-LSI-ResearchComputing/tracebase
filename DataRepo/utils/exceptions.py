@@ -3732,11 +3732,14 @@ class MzxmlSequenceUnknown(InfileError, SummarizableError):
 
 
 class MzxmlNotColocatedWithAnnot(InfileError):
-    def __init__(self, **kwargs):
+    def __init__(self, annot_dirs=None, **kwargs):
+        if annot_dirs is None:
+            annot_dirs = ["No peak annotation directories supplied."]
         message = (
-            "mzXML file '%s' does not share a common path with a peak annotation file from the peak annotation files "
-            "sheet.\nCo-location of mzXML files with peak annotation files is what allows mzXML files to be linked to "
-            "an MSRunSequence, based on the Default Sequence column in the Peak Annotation Files sheet."
+            f"mzXML file '%s' does not share a common path with a peak annotation file ({annot_dirs}) from the peak "
+            "annotation files sheet.\n"
+            "Co-location of mzXML files with peak annotation files is what allows mzXML files to be linked to an "
+            "MSRunSequence, based on the Default Sequence column in the Peak Annotation Files sheet."
         )
         super().__init__(message, **kwargs)
 
