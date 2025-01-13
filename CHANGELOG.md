@@ -6,15 +6,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [v3.1.3-beta] - 2025-01-13
 
 ### Fixed
 
+- Overlooked errors (related to neighboring loader method calls) are now reported in the validation interface.
+- Set the database "isolation_level" to REPEATABLE_READ to prevent random timeouts of the validation interface during an active load.
+- Fixed errors about mismatching infusates due to mismatches between tracer concentrations with and without significant figures applied.
+- Fixed a bug where formulas in accucor files were not getting filled down during universal format conversion.
+- Fixed an edge-case bug that prevented loading of an accucor corrected sheet in csv format.
+- Fixed various uncaught exceptions on the submission interface.
+- Fixed minor issues with `ArchiveFile` record creation.
+- Fixed a bug where the `Peak Group Conflicts` sheet was not being checked for missing required values.
+
 ### Added
+
+- Missing PARENT C12 rows in peak annotation files are now detected and reported as errors.
+- Added the ability to skip sheet loads using `--exclude-sheets` in `load_study`
+- Defaulted the study directory to the enclosing directory of the study doc, and applied that to mzXML and peak annotation files.
+- Added explicit support for finding files from the study doc by looking in the study directory, current directory, or by absolute path.
+- Added a suggestion to the `UnexpectedLabels` error to make it clearer how to solve the problem.
+- Added an environment variable (READONLY) that controls whether the site is public or not (to disable uploading and editing).
+- We now allow animals to have no infusate.
+- All "None" values now universally display as "None" in the advanced search results.
+- Added a check of whether an mzXML has been explicitly skipped when checking if leftover mzXMLs exist.
+- Added a check to catch mzXML file related errors and exit quickly (since loading them is slow).
+- Added the ability to associate mzXML files containg dashes in their name with corresponding sample headers with underscores.
+- Added the ability to associate mzXML filenames, starting with a number, with corresponding sample headers that otherwise uniquely match.
+- Added custom errors/warnings related to mzXML file issues.
+- Added summarized errors/warnings for errors and warnings that tend to recur.
+- Added status prints during slow mzXML loading operations.
+- Added a time limit to the computation of advanced search results stats that truncates the stats if it is close to timing out.
+- Added the ability to check for existing values in a study doc sheet before autofilling (which was a feature previously limited to the submission start page).
+- Added the ability to correctly check matching previously loaded values versus input values where Excel incorrectly inferred the type.
+  - Added the selected annotation file column to the unique column constraint in order to issue more precise errors about duplicate differing selections.
 
 ### Changed
 
-## [3.1.2-beta] - 2024-11-13
+- Improved validation errors/warnings.
+- Updated the CONTRIBUTING.md doc and updated the example datasets to work with version 3.
+  - Changed study, animal, and sample names to prepend "demo_" so that nothing conflicts with actual studies.
+  - Updated common records to not conflict with published data.
+  - Added details about linting tools.
+  - Updated the django version referenced in the doc.
+  - Added a migration check command in the section that talks about requirements for merging a PR.
+- Removed "FIXED" message added to errors if none of the missing records are autofilled.
+- Mitigated a cascade of validation errors stemming from a manually mismatched infusate entered into the animals sheet.
+- Removed reference to the legacy scripts from load_study and load_samples.
+
+## [v3.1.2-beta] - 2024-11-13
 
 ### Fixed
 
@@ -29,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed the advanced search download button to additionally contain "TSV" to distinguish it from the mzXMLs download button.
 
-## [3.1.1-beta] - 2024-11-13
+## [v3.1.1-beta] - 2024-11-13
 
 ### Fixed
 
@@ -92,7 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the ability to sort by mzXML filenames.
 - Made duplicate sample errors based on peak annotation headers into a warning (to account for sample headers that are the same between multiple peak annotation files).
 
-## [3.1.0-beta] - 2024-09-12
+## [v3.1.0-beta] - 2024-09-12
 
 ### Fixed
 
@@ -148,7 +188,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Many exception summarization and streamlining improvements were made.
 - Removed cache retrieval print.
 
-## [3.0.2-beta] - 2024-07-30
+## [v3.0.2-beta] - 2024-07-30
 
 ### Fixed
 
@@ -164,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MSRunSample records now enforce only a single placeholder record for any sequence and sample combo.
 
-## [3.0.1-beta] - 2024-04-08
+## [v3.0.1-beta] - 2024-04-08
 
 ### Added
 
@@ -181,7 +221,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Obscured references to edge-cases where an extra file is needed when submitting data, to simplify and streamline the process.
 
-## [3.0.0-beta] - 2024-03-13
+## [v3.0.0-beta] - 2024-03-13
 
 ### Fixed
 
@@ -204,13 +244,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-## [2.0.6] - 2023-12-08
+## [v2.0.6] - 2023-12-08
 
 ### Added
 
-- Added `export_studies` management command. This command exports all of the
-  data for the specified studies which consists of the PeakData, PeakGroup, and
-  FCirc formats.
+- Added `export_studies` management command. This command exports all of the data for the specified studies which consists of the PeakData, PeakGroup, and FCirc formats.
 
 ## [2.0.5] - 2023-10-10
 
@@ -218,7 +256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated to use Django 4.2
 
-## [2.0.3] - 2023-07-07
+## [v2.0.3] - 2023-07-07
 
 ### Added
 
@@ -227,8 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- PeakGroups table now displays "None" when erichment fraction or enrichment
-  abundance cannot be calculated. Previously was blank. (Issue #611).
+- PeakGroups table now displays "None" when erichment fraction or enrichment abundance cannot be calculated. Previously was blank. (Issue #611).
 
 ### Changed
 
@@ -270,15 +307,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validation database
 - All references to the validation database
 
-## [2.0.2] - 2023-02-10
+## [v2.0.2] - 2023-02-10
 
 ### Added
 
 - Pages/views
   - Created CSS file "bootstrap_table_cus1.css" to customize table options with Bootstrap-table plugin.
   - Created JavaScript "setTableHeight.js" to set table height dynamically with Bootstrap-table plugin.
-- Documentation now in the repository and hosted on GitHub pages at
-  [https://princeton-lsi-researchcomputing.github.io/tracebase/](https://princeton-lsi-researchcomputing.github.io/tracebase/)
+- Documentation now in the repository and hosted on GitHub pages at [https://princeton-lsi-researchcomputing.github.io/tracebase/](https://princeton-lsi-researchcomputing.github.io/tracebase/)
 
 ### Changed
 
@@ -308,7 +344,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced the assertion using the debug parameter with a raise/catch of the DryRun exception in both sample and accucor loaders.
   - Streamlined the validation view.
 
-## [2.0.1] - 2023-01-05
+## [v2.0.1] - 2023-01-05
 
 ### Added
 
