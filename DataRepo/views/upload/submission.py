@@ -110,6 +110,11 @@ class BuildSubmissionView(FormView):
     ]
 
     def __init__(self):
+        if settings.READONLY:
+            raise PermissionError(
+                "The ability to upload data is restricted on this site."
+            )
+
         super().__init__()
 
         self.autofill_dict = defaultdict(lambda: defaultdict(dict))
