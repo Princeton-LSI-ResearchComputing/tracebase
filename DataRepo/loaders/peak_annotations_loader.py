@@ -1201,8 +1201,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         # At this point, there are multiple results.  That means 1 of 3 things.  Either:
         # 1. There exists a mix of concrete and placeholder MSRunSample records
-        # 2. This sample was included in multiple sequnces, which would mean we could solve it by including the sequence
-        #    in the query and that defaults for the sequence are required in order to proceed, so check them.
+        # 2. This sample was included in multiple sequnces, which would mean we could solve it by including the
+        #    sequence in the query and that defaults for the sequence are required in order to proceed, so check them.
         # 3. This sample was included in multiple sequences AND there exist both placeholder and concrete records.
 
         # Keep track of whether we have all sequence metadata defaults
