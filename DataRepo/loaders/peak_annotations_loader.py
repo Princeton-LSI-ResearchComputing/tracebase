@@ -1247,7 +1247,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 f"defaults supplied were used to create the following query: {query_dict}."
             )
 
-            if len(query_dict.keys()) == 1:  # Only the sample name exists, set above
+            if num_sequence_defaults == 0:
                 # Only buffer this error once
                 if not self.aggregated_errors_object.exception_type_exists(
                     ConditionallyRequiredArgs
