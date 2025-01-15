@@ -180,8 +180,20 @@ class ConvertedTableLoader(TableLoader, ABC):
         defined on previous rows.  Be sure to define sort_columns.
         Example:
             ["formula"]
+
+        See nan_filldown_stop_str below to configure a row that stops the fill down and prompts a fill up.
         """
         pass
+
+    # If you don't want to fill nans in column A down through a row because column B has a specific value, use a lambda
+    # for nan_defaults_dict that inserts this value.  The filldown method will then fill up and replace this and any
+    # empty values.  E.g.
+    #   Lysine, C-label-5, C2H4
+    #   Asparagine, C12 PARENT, NaN
+    #   Asparagine, C-label-1, C5N2H9
+    # The result here will ne that the NaN is initially filled with BACKFILL in the nan_defaults_dict step, and filled
+    # with C5N2H9 in the nan_filldown_columns step
+    nan_filldown_stop_str = "BACKFILL"
 
     @property
     @abstractmethod
@@ -964,6 +976,10 @@ class ConvertedTableLoader(TableLoader, ABC):
                     outdf[col].replace("", pd.NA, inplace=True)
                     # Fill down (replaces NaNs only)
                     outdf[col].ffill(inplace=True)
+
+                    # The user may have used the nan_filldown_stop_str to prevent filldown on specific rows
+                    # Now we revert that and fill up.  This solves the issue of missing C12 PARENT rows
+                    outdf[col].replace(self.nan_filldown_stop_str, pd.NA, inplace=True)
                     # In case an empty value was left at the top...
                     outdf[col].bfill(inplace=True)
         return outdf

@@ -232,13 +232,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
     def __init__(self, *args, multrep_suggestion=None, **kwargs):
         """Constructor.
 
-        Limitations:
-            Custom headers for the peak annotation details file are not (yet) supported.  Only the class defaults of the
-                MSRunsLoader are allowed.
-
         *NOTE: This constructor requires the file argument (which is an optional argument to the superclass) if the df
         argument is supplied.
 
+        Limitations:
+            1. Custom headers for the peak annotation details file are not (yet) supported.  Only the class defaults of
+                the MSRunsLoader are allowed.
         Args:
             Superclass Args:
                 df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
@@ -395,8 +394,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             )
             self.df.reset_index(inplace=True, drop=True)
 
-        # Check that every compound has a valid C12 PARENT row.
-        self.check_c12_parents()
+        # Check that every compound has a valid C12 PARENT row.  Must do this after conversion in order to have an
+        # aggregated_errors_object attribute to buffer warnings in
+        self.check_c12_parents(self.orig_df)
 
         # Initialize the MSRun Sample and Sequence data (obtained from self.msrunsloader)
         self.operator_default = None
@@ -450,128 +450,29 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.peakgroupconflicts.aggregated_errors_object
         )
 
-    def check_c12_parents(self):
-        """This method ensures that every compound in the original peak annotations file had a row for the C12 PARENT.
-        It does this by looking through the sorted compounds and formulas in the unicorr converted dataframe and
-        inferring that if the compound does not change, but the formula changes, then the formula was filled down from
-        the preceding compound because the left-join had a C_Label row for 0 labels in the corrected sheet and there was
-        not a row for the C12 PARENT in the original sheet (because the researcher failed to pick that peak).
+    @abstractmethod
+    def check_c12_parents(self, orig_df):
+        """This is an abstract method that must be implemented in the derived class.  It should look for compounds that
+        are missing a C12 PARENT row.
 
-        This check is performed on all peak annotation files, but currently the only possible errors it catches come
-        from the AccucorLoader.
-
-        Example:
-            Originals sheet missing a C12 PARENT row for 3-hydroxyisobutyrate:
-                C12 PARENT	2-keto-isovalerate	C5H8O3
-                C13-label-2	2-keto-isovalerate	C5H8O3
-                C13-label-3	3-hydroxyisobutyrate	C4H8O3
-            Data after the merge (before the fill-down):
-                C12 PARENT	2-keto-isovalerate	C5H8O3
-                C13-label-1	2-keto-isovalerate	None
-                C13-label-2	2-keto-isovalerate	C5H8O3
-                C12 PARENT	3-hydroxyisobutyrate	None
-                C13-label-1	3-hydroxyisobutyrate	None
-                C13-label-2	3-hydroxyisobutyrate	None
-                C13-label-3	3-hydroxyisobutyrate	C4H8O3
-            Data after the fill-down is applied for the formula:
-                C12 PARENT	2-keto-isovalerate	C5H8O3
-                C13-label-1	2-keto-isovalerate	C5H8O3
-                C13-label-2	2-keto-isovalerate	C5H8O3
-                C12 PARENT	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
-                C13-label-1	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
-                C13-label-2	3-hydroxyisobutyrate	C5H8O3  # <-- WRONG
-                C13-label-3	3-hydroxyisobutyrate	C4H8O3
         Args:
-            None
+            orig_df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
         Exceptions:
-            Raised:
+            Raises:
                 None
-            Buffered:
-                MissingC12ParentPeak
+            Buffers:
+                MissingC12ParentPeak: Example:
+                    self.aggregated_errors_object.buffer_error(
+                        MissingC12ParentPeak(
+                            compound,
+                            file=self.friendly_file,
+                            # The sheet, column, and row numbers are irrelevant in the converted format
+                        )
+                    )
         Returns:
             None
         """
-        if self.df is None:
-            return
-
-        # The accucor files in un-merged csv format do not have a formula and don't need a C12 PARENT check because it
-        # will be automatically created from the X_Label column.  (The formula column will also be added from existing
-        # records in the DB)
-        if self.headers.FORMULA not in self.df.columns:
-            return
-
-        # Create a dataframe with just the relevant data needed to identify missing C12 PARENT rows in the original data
-        # We infer this from the fact that a formula from an above compound filled down into the next compound (because
-        # its parent was missing)
-        compounds_and_formulas = self.df[[self.headers.COMPOUND, self.headers.FORMULA]]
-
-        # Create a column containing the original indexes - we will use this to mark skip rows
-        compounds_and_formulas["INDEX"] = compounds_and_formulas.index
-
-        # Get the unique compound and formula combos, and make the INDEX column be a list of original indexes
-        compounds_and_formulas = (
-            compounds_and_formulas.groupby(
-                [self.headers.COMPOUND, self.headers.FORMULA]
-            )["INDEX"]
-            .apply(list)
-            .reset_index()
-        )
-
-        # Sort the indexes so that we're comparing formulas for the same sample when we sort the rows by the first index
-        compounds_and_formulas["INDEX"] = compounds_and_formulas["INDEX"].apply(sorted)
-
-        # In order to sort by compound and then the first row index, we must create another column to contain the first
-        # row index.
-        compounds_and_formulas["FIRSTINDEX"] = compounds_and_formulas["INDEX"].apply(
-            lambda lst: lst[0]
-        )
-
-        # The above groupby does not preserve the row order that existed before the fill down (which was sorted by
-        # compound and isotope), so this re-sorts by the compound and original first row index (to represent the first
-        # isotope).
-        # Note also that these compound/formula combos repeat for every sample, so the indexes will be chunks or
-        # contiguous rows.
-        compounds_and_formulas.sort_values(
-            by=[self.headers.COMPOUND, "FIRSTINDEX"],
-            inplace=True,
-        )
-
-        # Keep track of the previous row values
-        previous_formula = None
-        previous_compound = None
-        previous_row_indexes = None
-
-        # Cycle through the unique compound and formula combos
-        for _, row in compounds_and_formulas.iterrows():
-            # Get the values from this row
-            compound = row[self.headers.COMPOUND]
-            formula = row[self.headers.FORMULA]
-            row_indexes = list(row["INDEX"])
-
-            # If the compound has not changed but the formula has, we will assume this was a fill-down error because
-            # the C12 PARENT row was missing, so buffer an error.
-            if (
-                previous_compound is not None
-                and compound == previous_compound
-                and formula != previous_formula
-            ):
-                self.aggregated_errors_object.buffer_error(
-                    MissingC12ParentPeak(
-                        compound,
-                        file=self.friendly_file,
-                        # The sheet, column, and row numbers are irrelevant in the converted format
-                    )
-                )
-
-                # Mark the rows of the previous chunk as skip rows
-                self.add_skip_row_index(index_list=previous_row_indexes)
-                # Mark the rows of the current chunk as skip rows
-                self.add_skip_row_index(index_list=row_indexes)
-
-            # Update the previous row vars
-            previous_formula = formula
-            previous_compound = compound
-            previous_row_indexes = row_indexes
+        pass
 
     def initialize_msrun_data(self):
         """Initializes the msrun_sample_dict (a dict of MSRunSample records keyed on sample header), if a PeakAnnotation
@@ -1989,6 +1890,11 @@ class IsocorrLoader(PeakAnnotationsLoader):
         "parent",
     ]
 
+    def check_c12_parents(self, _):
+        """Not implemented yet (because it doesn't cause a problem, e.g. it doesn't fill the formula down)"""
+        # TODO: Look for missing C12 PARENT rows in the Isocorr format
+        return
+
 
 class AccucorLoader(PeakAnnotationsLoader):
     """Derived class of PeakAnnotationsLoader that just defines how to convert an accucor excel file to the format
@@ -2225,6 +2131,20 @@ class AccucorLoader(PeakAnnotationsLoader):
                 axis=1,
             )
         ),
+        # This sets formula (when formula is a NaN) to the ConvertedTableLoader.nan_filldown_stop_str (which is
+        # "BACKFILL") so that when nan_filldown_columns is processed, the formula from the compound above will not fill
+        # down through the parent is the C12 PARENT row is missing.  It then (as a builtin feature) fills *up* and
+        # replaces the BACKFILL value in the process.  See ConvertedTableLoader.fill_down_nan_columns.
+        "formula": lambda df: (
+            df.apply(
+                lambda row: (
+                    AccucorLoader.nan_filldown_stop_str
+                    if row[AccucorLoader.get_accucor_label_column_name(df)] == 0
+                    else ""
+                ),
+                axis=1,
+            )
+        ),
     }
 
     sort_columns = ["Sample Header", "Compound", "isotopeLabel"]
@@ -2257,6 +2177,97 @@ class AccucorLoader(PeakAnnotationsLoader):
         "H_Label",
         "D_Label",
     ]
+
+    def check_c12_parents(self, orig_df):
+        """This method ensures that every compound in the original peak annotations file had a row for the C12 PARENT.
+
+        Args:
+            orig_df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
+        Exceptions:
+            Raised:
+                None
+            Buffered:
+                MissingC12ParentPeak
+        Returns:
+            None
+        """
+        if orig_df is None:
+            return
+
+        if isinstance(orig_df, dict) and "Original" in orig_df.keys():
+            self.check_c12_parents_original(orig_df["Original"])
+
+        return
+
+    def check_c12_parents_original(self, df: pd.DataFrame):
+        """This method ensures that every compound in the original peak annotations file's Original sheet had a row for
+        the C12 PARENT.
+
+        Args:
+            df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
+        Exceptions:
+            Raised:
+                None
+            Buffered:
+                MissingC12ParentPeak
+        Returns:
+            None
+        """
+        # The accucor files in un-merged csv format do not have a formula and don't need a C12 PARENT check because it
+        # will be automatically created from the X_Label column.  (The formula column will also be added from existing
+        # records in the DB)
+        if self.OrigDataHeaders.FORMULA not in df.columns:
+            return
+
+        # Create a dataframe with just the relevant data needed to identify missing C12 PARENT rows in the original data
+        # We infer this from the fact that a formula from an above compound filled down into the next compound (because
+        # its parent was missing)
+        parent_compounds: pd.DataFrame = df[
+            df[self.OrigDataHeaders.ISOTOPELABEL] == "C12 PARENT"
+        ]
+        parent_compounds = parent_compounds[self.OrigDataHeaders.COMPOUNDID]
+        parent_compounds = parent_compounds.drop_duplicates()
+        uniq_parent_compounds: list = parent_compounds.to_list()
+
+        labeled_compounds: pd.DataFrame = df[
+            df[self.OrigDataHeaders.ISOTOPELABEL] != "C12 PARENT"
+        ]
+
+        # This creates a column named "index" (and resets the actual index)
+        labeled_compounds = labeled_compounds.reset_index()
+
+        # Get unique compound list with their original row index (in an added "index" column)
+        # See https://saturncloud.io/blog/how-to-get-the-first-row-of-each-group-in-a-pandas-dataframe/
+        labeled_compounds = labeled_compounds.groupby(
+            self.OrigDataHeaders.COMPOUNDID, as_index=False
+        ).first()
+
+        # Now filter those compounds to only those that are not in the C12 PARENT compounds
+        missing_parent_compounds = labeled_compounds[
+            ~labeled_compounds[self.OrigDataHeaders.COMPOUNDID].isin(
+                uniq_parent_compounds
+            )
+        ]
+
+        # Create a method that we will apply to the missing_parent_compounds
+        def buffer_missing_parents(compound, row_index):
+            self.aggregated_errors_object.buffer_warning(
+                MissingC12ParentPeak(
+                    compound,
+                    file=self.friendly_file,
+                    sheet="Original",
+                    column=self.OrigDataHeaders.ISOTOPELABEL,
+                    rownum=row_index + 2,
+                ),
+                is_fatal=self.validate,
+            )
+
+        missing_parent_compounds.apply(
+            lambda row: buffer_missing_parents(
+                row[self.OrigDataHeaders.COMPOUNDID], row["index"]
+            ),
+            axis=1,
+        )
 
 
 class IsoautocorrLoader(PeakAnnotationsLoader):
@@ -2409,6 +2420,11 @@ class IsoautocorrLoader(PeakAnnotationsLoader):
         "parent",
     ]
 
+    def check_c12_parents(self, _):
+        """Not implemented yet (because it doesn't cause a problem, e.g. it doesn't fill the formula down)"""
+        # TODO: Look for missing C12 PARENT rows in the Isoautocorr format
+        return
+
 
 class UnicorrLoader(PeakAnnotationsLoader):
     """Derived class of PeakAnnotationsLoader that defines the universal format.
@@ -2439,3 +2455,8 @@ class UnicorrLoader(PeakAnnotationsLoader):
     nan_filldown_columns = None
     merged_column_rename_dict = None
     merged_drop_columns_list = None
+
+    def check_c12_parents(self, _):
+        """Not implemented yet (because it doesn't cause a problem, e.g. it doesn't fill the formula down)"""
+        # TODO: Look for missing C12 PARENT rows in the Unicorr format
+        return

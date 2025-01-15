@@ -21,7 +21,7 @@ from DataRepo.utils.exceptions import (
     InvalidHeaderCrossReferenceError,
     IsotopeStringDupe,
     MissingC12ParentPeak,
-    MissingC12ParentPeakErrors,
+    MissingC12ParentPeaks,
     MissingColumnGroup,
     MissingCompounds,
     MissingDataAdded,
@@ -1459,7 +1459,7 @@ class ExceptionTests(TracebaseTestCase):
 
     def test_MissingC12ParentPeakErrors(self):
         mcpp = MissingC12ParentPeak("lysine")
-        mcppe = MissingC12ParentPeakErrors([mcpp])
+        mcppe = MissingC12ParentPeaks([mcpp])
         # Check problem described
         self.assertIn("C12 PARENT peak row is missing", str(mcppe))
         # Check data included
