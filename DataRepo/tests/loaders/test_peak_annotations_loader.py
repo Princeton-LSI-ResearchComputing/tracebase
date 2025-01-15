@@ -79,6 +79,7 @@ class DerivedPeakAnnotationsLoaderTestCase(TracebaseTestCase):
     ORIG_DICT = {
         **COMMON_DICT,
         **RAW_SAMPLES,
+        "compoundId": ["Serine", "Serine", "Glycine", "Glycine"],
     }
     CORR_DICT = {
         "Compound": ["Serine", "Serine", "Glycine", "Glycine"],
@@ -1096,45 +1097,6 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             PeakAnnotationsLoader.get_supported_formats(),
         )
 
-    def test_check_c12_parents(self):
-        il = IsocorrLoader()
-        il.df = pd.DataFrame.from_dict(
-            {
-                "IsotopeLabel": [
-                    "C12 PARENT",
-                    "C13-label-1",
-                    "C13-label-2",
-                    "C12 PARENT",
-                    "C13-label-1",
-                    "C13-label-2",
-                    "C13-label-3",
-                ],
-                "Compound": [
-                    "2-keto-isovalerate",
-                    "2-keto-isovalerate",
-                    "2-keto-isovalerate",
-                    "3-hydroxyisobutyrate",
-                    "3-hydroxyisobutyrate",
-                    "3-hydroxyisobutyrate",
-                    "3-hydroxyisobutyrate",
-                ],
-                "Formula": [
-                    "C5H8O3",
-                    "C5H8O3",
-                    "C5H8O3",
-                    "C5H8O3",  # <-- WRONG.  See check_c12_parents docstring.
-                    "C5H8O3",  # <-- WRONG.  See check_c12_parents docstring.
-                    "C5H8O3",  # <-- WRONG.  See check_c12_parents docstring.
-                    "C4H8O3",
-                ],
-            },
-        )
-        il.check_c12_parents()
-        self.assertEqual(1, len(il.aggregated_errors_object.exceptions))
-        self.assertIsInstance(
-            il.aggregated_errors_object.exceptions[0], MissingC12ParentPeak
-        )
-
     def test_get_compound(self):
         """Tests that the compound_lookup buffer is used to return non-results for compounds previously searcher for and
         not found"""
@@ -1490,7 +1452,7 @@ class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         corrected_df = pd.DataFrame.from_dict(corrected_dict)
         self.assertEqual("H2", AccucorLoader.get_accucor_isotope_string(corrected_df))
 
-    def test_check_c12_parents(self):
+    def test_check_c12_parents_called(self):
         """Checks that check_c12_parents (called from the constructor, buffers a MissingC12ParentPeak for each sample
         where the C12 parent row is missing.  Here is what happens...
 
@@ -1524,6 +1486,7 @@ class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             "medRt": [12.73, 12.722, 12.614],
             "isotopeLabel": ["C12 PARENT", "C13-label-1", "C13-label-1"],
             "compound": ["Serine", "Serine", "Glycine"],
+            "compoundId": ["Serine", "Serine", "Glycine"],
             "formula": ["C3H7NO3", "C3H7NO3", "C2H5NO2"],
             "blank_1_404020": [1, 2, 4],
             "072920_XXX1_1_TS1": [5, 6, 8],
@@ -1545,6 +1508,38 @@ class AccucorLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
         self.assertTrue(
             al.aggregated_errors_object.exception_type_exists(MissingC12ParentPeak)
+        )
+
+    def test_check_c12_parents_works(self):
+        al = AccucorLoader()
+        df = {
+            "Original": pd.DataFrame.from_dict(
+                {
+                    "isotopeLabel": [
+                        "C12 PARENT",
+                        "C13-label-1",
+                        "C13-label-2",
+                        "C13-label-3",  # PROBLEM: Compound changed & there was no C12 PARENT row before this
+                    ],
+                    "compoundId": [
+                        "2-keto-isovalerate",
+                        "2-keto-isovalerate",
+                        "2-keto-isovalerate",
+                        "3-hydroxyisobutyrate",  # NOTE: Compound changed
+                    ],
+                    "formula": [
+                        "C5H8O3",
+                        "C5H8O3",
+                        "C5H8O3",
+                        "C4H8O3",  # RESULT: The filldown will fill the generated C12 PARENT and labels with C5H8O3
+                    ],
+                },
+            ),
+        }
+        al.check_c12_parents(df)
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], MissingC12ParentPeak
         )
 
 

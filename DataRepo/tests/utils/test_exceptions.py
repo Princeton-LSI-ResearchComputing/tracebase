@@ -1464,8 +1464,11 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("C12 PARENT peak row is missing", str(mcppe))
         # Check data included
         self.assertIn("lysine", str(mcppe))
-        # Check suggestion exists
-        self.assertIn("Please re-pick peaks", str(mcppe))
+        # Check suggestions exists
+        self.assertIn("neglect to include the C12 PARENT peak", str(mcppe))
+        self.assertIn(
+            "ignore this error if the peak is below the detection threshold", str(mcppe)
+        )
 
     def test_MissingC12ParentPeak(self):
         mcpp = MissingC12ParentPeak("lysine", file="accucor.xlsx")
@@ -1474,8 +1477,12 @@ class ExceptionTests(TracebaseTestCase):
             "C12 PARENT peak row missing for compound 'lysine' in 'accucor.xlsx'.",
             str(mcpp),
         )
-        # Check suggestion exists
-        self.assertIn("Please re-pick the peaks", str(mcpp))
+        # Check suggestions exists
+        self.assertIn(
+            "ignore this error if the peak is below the detection threshold",
+            str(mcpp),
+        )
+        self.assertIn("neglect to include the C12 PARENT peak", str(mcpp))
 
     def test_PossibleDuplicateSamplesError(self):
         pds = PossibleDuplicateSamples("s1", ["s1_pos", "s1_neg"])

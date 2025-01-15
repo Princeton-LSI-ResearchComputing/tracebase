@@ -1100,10 +1100,24 @@ class MSRunsLoaderTests(TracebaseTestCase):
         Result: Concrete record created, placeholder deleted, and peak groups moved to concrete record
         """
 
+        path = Path(
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx"
+        )
+        with path.open(mode="rb") as f:
+            myfile = File(f, name=path.name)
+            tmp_accucor_file = ArchiveFile.objects.create(
+                filename="small_obob_maven_6eaas_inf_lactate.xlsx",
+                file_location=myfile,
+                checksum="558ea654d7f2914ca4527580edf4fac11bd151c9",
+                data_type=DataType.objects.get(code="ms_peak_annotation"),
+                data_format=DataFormat.objects.get(code="accucor"),
+            )
+            tmp_accucor_file.save()
+
         # Change the accucor file in the second peak group to be the same as the first so that all peak groups in the
         # existing placeholder record (created in setUpTestData) will **NOT** match the added mzXML file / concrete
         # msrun_sample record
-        self.pg2.peak_annotation_file = self.accucor_file1
+        self.pg2.peak_annotation_file = tmp_accucor_file
         self.pg2.save()
 
         # Set up the loader object

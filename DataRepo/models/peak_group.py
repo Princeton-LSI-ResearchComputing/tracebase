@@ -223,6 +223,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         Returns:
             None
         """
+        from DataRepo.models.utilities import exists_in_db
         from DataRepo.utils.exceptions import MultiplePeakGroupRepresentation
 
         if (
@@ -238,6 +239,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,
         ).exclude(peak_annotation_file=self.peak_annotation_file)
+
+        # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
+        if exists_in_db(self):
+            conflicts = conflicts.exclude(pk=self.pk)
 
         if conflicts.count() > 0:
             raise MultiplePeakGroupRepresentation(self, conflicts)

@@ -2178,11 +2178,11 @@ class AccucorLoader(PeakAnnotationsLoader):
         "D_Label",
     ]
 
-    def check_c12_parents(self, orig_df):
+    def check_c12_parents(self, df):
         """This method ensures that every compound in the original peak annotations file had a row for the C12 PARENT.
 
         Args:
-            orig_df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
+            df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
         Exceptions:
             Raised:
                 None
@@ -2191,11 +2191,11 @@ class AccucorLoader(PeakAnnotationsLoader):
         Returns:
             None
         """
-        if orig_df is None:
+        if df is None:
             return
 
-        if isinstance(orig_df, dict) and "Original" in orig_df.keys():
-            self.check_c12_parents_original(orig_df["Original"])
+        if isinstance(df, dict) and "Original" in df.keys():
+            self.check_c12_parents_original(df["Original"])
 
         return
 

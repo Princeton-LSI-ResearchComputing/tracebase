@@ -3156,7 +3156,7 @@ class MissingC12ParentPeak(InfileError, SummarizableError):
     def __init__(self, compound: str, **kwargs):
         message = (
             f"C12 PARENT peak row missing for compound '{compound}' in '%s'.\n"
-            "Please make sure you didn't neglect to include the C12 PARENT peak for these compounds.  You may safely "
+            "Please make sure you didn't neglect to include the C12 PARENT peak for this compound.  You may safely "
             "ignore this error if the peak is below the detection threshold."
         )
         super().__init__(message, **kwargs)
