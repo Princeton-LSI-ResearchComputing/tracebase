@@ -4,6 +4,7 @@ from copy import deepcopy
 from io import BytesIO
 
 from django.core.management import call_command
+from django.test import override_settings
 from django.urls import reverse
 
 from DataRepo.loaders import ProtocolsLoader, TissuesLoader
@@ -1019,6 +1020,11 @@ class DataValidationViewTests1(TracebaseTransactionTestCase):
         # Invalid sheet name
         with self.assertRaises(ValueError):
             result2 = dvv.header_to_cell("Invalid", "Age")
+
+    @override_settings(READONLY=True)
+    def test_readonly_exception(self):
+        with self.assertRaises(PermissionError):
+            BuildSubmissionView()
 
     def test_get_existing_dfs_index(self):
         # TODO: Implement test
