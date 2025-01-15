@@ -2262,12 +2262,13 @@ class AccucorLoader(PeakAnnotationsLoader):
                 is_fatal=self.validate,
             )
 
-        missing_parent_compounds.apply(
-            lambda row: buffer_missing_parents(
-                row[self.OrigDataHeaders.COMPOUNDID], row["index"]
-            ),
-            axis=1,
-        )
+        if not missing_parent_compounds.empty:
+            missing_parent_compounds.apply(
+                lambda row: buffer_missing_parents(
+                    row[self.OrigDataHeaders.COMPOUNDID], row["index"]
+                ),
+                axis=1,
+            )
 
 
 class IsoautocorrLoader(PeakAnnotationsLoader):
