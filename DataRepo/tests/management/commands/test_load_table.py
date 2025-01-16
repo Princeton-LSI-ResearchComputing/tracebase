@@ -18,6 +18,7 @@ from DataRepo.utils.exceptions import (
     OptionsNotAvailable,
     RequiredOptions,
 )
+from TraceBase import settings
 
 
 # Class (Model) used for testing
@@ -70,6 +71,7 @@ class LoadTableCommandTests(TracebaseTestCase):
         "data_sheet": "test sheet",
         "verbosity": 0,
         "defaults_file": None,
+        "debug": settings.DEBUG,
     }
 
     def test_init_required_optnames_default_infile(self):
@@ -84,6 +86,7 @@ class LoadTableCommandTests(TracebaseTestCase):
                 data_sheet=None,
                 verbosity=0,
                 defaults_file=None,
+                debug=settings.DEBUG,
             )
         exc = ar.exception
         self.assertEqual("Missing required options: ['infile'].", str(exc))
@@ -99,6 +102,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             data_sheet=None,
             verbosity=0,
             defaults_file=None,
+            debug=settings.DEBUG,
         )
         # No exception = successful test
 
@@ -113,6 +117,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             data_sheet=None,
             verbosity=0,
             defaults_file="DataRepo/data/tests/load_table/defaults.tsv",
+            debug=settings.DEBUG,
         )
 
     def test_init_required_optname_groups_error(self):
@@ -127,6 +132,7 @@ class LoadTableCommandTests(TracebaseTestCase):
                 data_sheet=None,
                 verbosity=0,
                 defaults_file=None,
+                debug=settings.DEBUG,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -262,6 +268,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             defaults_sheet=None,
             defaults_file=None,
             user_headers=None,
+            debug=settings.DEBUG,
         )
         self.assertTrue(hasattr(tc, "loader"))
 
@@ -303,6 +310,7 @@ class LoadTableCommandTests(TracebaseTestCase):
                 "dry_run": False,
                 "defer_rollback": False,
                 "verbosity": 1,
+                "debug": settings.DEBUG,
             }
 
             tc.init_loader()
@@ -352,6 +360,7 @@ class LoadTableCommandTests(TracebaseTestCase):
                 "dry_run": True,
                 "defer_rollback": False,
                 "verbosity": 1,
+                "debug": settings.DEBUG,
             }
 
             tc.init_loader()
@@ -406,6 +415,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             "dry_run": False,
             "defer_rollback": False,
             "verbosity": 0,
+            "debug": settings.DEBUG,
         }
         tc.handle(**opts)
         self.assertEqual("MyDefaults", tc.get_defaults_sheet())
@@ -421,6 +431,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             "dry_run": False,
             "defer_rollback": False,
             "verbosity": 0,
+            "debug": settings.DEBUG,
         }
         tc.handle(**opts)
         self.assertIsNone(tc.get_defaults_sheet())
@@ -436,6 +447,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             "dry_run": False,
             "defer_rollback": False,
             "verbosity": 0,
+            "debug": settings.DEBUG,
         }
         tc.handle(**opts)
         self.assertEqual({"TEST": "Test2"}, tc.get_user_headers())
@@ -463,6 +475,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             "headers": None,
             "dry_run": False,
             "defer_rollback": False,
+            "debug": settings.DEBUG,
             "verbosity": 0,
         }
         tc.handle(**opts)
@@ -487,6 +500,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             "dry_run": False,
             "defer_rollback": False,
             "verbosity": 0,
+            "debug": settings.DEBUG,
         }
         tc.handle(**opts)
         ud_df_as_dict = tc.get_user_defaults().to_dict("records")
@@ -510,6 +524,7 @@ class LoadTableCommandTests(TracebaseTestCase):
             "defer_rollback": False,
             "verbosity": 1,
             "defaults_file": None,
+            "debug": settings.DEBUG,
         }
         tc.init_loader()
 
