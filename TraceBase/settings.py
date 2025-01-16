@@ -150,14 +150,14 @@ AUTH_PASSWORD_VALIDATORS = [
 # Security
 # https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
-SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
-SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
-CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=False)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=False)
 
 # This tells browsers to refuse to connect to your domain via an insecure connection for a given period of time
 # https://docs.djangoproject.com/en/5.1/ref/middleware/#http-strict-transport-security
 
-SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=3600)
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
 
 
 # Internationalization
