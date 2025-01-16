@@ -119,10 +119,8 @@ class Command(LoadTableCommand):
 
         Args:
             options (dict of strings): String values provided on the command line by option name.
-
         Exceptions:
-            None (See LoadTableCommand._handler for exceptions in the wrapper)
-
+            None
         Returns:
             None
         """

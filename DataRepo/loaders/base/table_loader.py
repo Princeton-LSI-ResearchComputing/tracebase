@@ -80,8 +80,8 @@ class TableLoader(ABC):
             detailed examples (required headers are similar to required values).
         FieldToHeader (dict of dicts of strings): Header names by model and field.
         unique_constraints (list of lists of strings): Header key combos whose columns must be unique.
-        dry_run (boolean) [False]: Dry Run mode.
-        defer_rollback (boolean) [False]: Defer rollback mode.
+        dry_run (bool) [False]: Dry Run mode.
+        defer_rollback (bool) [False]: Defer rollback mode.
         sheet (str): Name of excel sheet to be loaded.
         file (str): Name of file to be loaded.
     """
@@ -208,6 +208,7 @@ class TableLoader(ABC):
         *args,
         df=None,
         dry_run=False,
+        debug=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
         file=None,
         filename=None,  # In case file is a temp file with a nonsense name
@@ -227,8 +228,10 @@ class TableLoader(ABC):
 
         Args:
             df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
-            dry_run (Optional[boolean]) [False]: Dry run mode.
-            defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
+            dry_run (Optional[bool]) [False]: Dry run mode.
+            debug (bool) [False]: Debug mode causes all buffered exception traces to be printed.  Normally, if an
+                exception is a subclass of SummarizableError, the printing of its trace is suppressed.
+            defer_rollback (Optional[bool]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT MUST
                 HANDLE THE ROLLBACK.
             data_sheet (Optional[str]): Sheet name (for error reporting).
             defaults_sheet (Optional[str]): Sheet name (for error reporting).
@@ -251,7 +254,7 @@ class TableLoader(ABC):
             None
         """
         if len(args) > 0:
-            raise AggregatedErrors().buffer_error(
+            raise AggregatedErrors(debug=debug).buffer_error(
                 ProgrammingError(
                     f"The TableLoader constructor expects 0 positional arguments, but got: {len(args)}."
                 ),
@@ -273,6 +276,7 @@ class TableLoader(ABC):
 
         # Running Modes
         self.dry_run = dry_run
+        self.debug = debug
         self.defer_rollback = defer_rollback
 
         if dry_run and defer_rollback:
@@ -285,7 +289,7 @@ class TableLoader(ABC):
 
         # Error tracking
         self.skip_row_indexes = []
-        self.aggregated_errors_object = AggregatedErrors()
+        self.aggregated_errors_object = AggregatedErrors(debug=self.debug)
 
         # Controls error behavior (for privileged vs. unprivileged users)
         self.validate = _validate
@@ -395,7 +399,7 @@ class TableLoader(ABC):
         Exceptions:
             None
         Returns:
-            boolean: Whether the row should be skipped or not
+            (bool): Whether the row should be skipped or not
         """
         check_index = index if index is not None else self.row_index
         return check_index in self.get_skip_row_indexes()
@@ -582,18 +586,18 @@ class TableLoader(ABC):
 
         Args:
             headers (namedtuple of TableHeaders) [self.get_headers()]: Header names by header key
-            markers (boolean) [True]: Whether required headers should have an appended asterisk.  Note, this does not
+            markers (bool) [True]: Whether required headers should have an appended asterisk.  Note, this does not
                 apply to the 1 of any markers (^).  Note that setting markers to False turns off the legend as well
                 (effectively).
-            legend (boolean) [True]: Whether to append a legend.  Note, a legend will always be included if there are
+            legend (bool) [True]: Whether to append a legend.  Note, a legend will always be included if there are
                 any groups of headers where 1 of the group is required (^).  While it may be easy to infer an asterisk
                 to mean required, an ^ to mean any of a group is required is assumed to not be intuitive.
-            reqd_only (boolean) [False]: Whether to include optional headers in the result
+            reqd_only (bool) [False]: Whether to include optional headers in the result
             reqd_spec (N-dimensional list of strings) [self.header_keys_to_names(self.DataRequiredHeaders, headers)]:
                 Required header *names* where each dimension alternates between all required and 1 of any required.
                 Note that the default uses the current self.headers.  If the names differ from the current defaults, you
                 must supply headers.
-            all_reqd (boolean) [True]: Whether the first dimension of reqd_spec is all required or not (1 of any
+            all_reqd (bool) [True]: Whether the first dimension of reqd_spec is all required or not (1 of any
                 required)
         Exceptions:
             None
@@ -654,9 +658,9 @@ class TableLoader(ABC):
         Args:
             reqd_headers (N-dimensional list of strings): Required header names
             delim (string) [, ]: Delimiter
-            _first_dim (boolean) [True]: Private.  Whether this is the first dimension or not.
-            _anded (boolean) [True]: Private.  Whether all or 1 of the header items in this dimension are required
-            markers (boolean) [True]: Whether to include "all required" annotations appended to items (*) and
+            _first_dim (bool) [True]: Private.  Whether this is the first dimension or not.
+            _anded (bool) [True]: Private.  Whether all or 1 of the header items in this dimension are required
+            markers (bool) [True]: Whether to include "all required" annotations appended to items (*) and
                 parenthases around the outer group.
         Exceptions:
             None
@@ -831,7 +835,7 @@ class TableLoader(ABC):
         return final_defaults
 
     @classmethod
-    def check_class_attributes(cls):
+    def check_class_attributes(cls, debug=False):
         """Checks that the class and instance attributes are properly defined and initialize optional ones.
 
         Checks the type of:
@@ -849,7 +853,7 @@ class TableLoader(ABC):
         Fills in default None values for header keys in DataDefaultValues.
 
         Args:
-            None
+            debug (bool) [False]: Print traces of all buffered exceptions.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -860,7 +864,7 @@ class TableLoader(ABC):
             None
         """
         # We create an aggregated errors object in class methods because we may not have an instance with one
-        aes = AggregatedErrors()
+        aes = AggregatedErrors(debug=debug)
         # Error check the derived class for required attributes
         typeerrs = []
 
@@ -1127,7 +1131,7 @@ class TableLoader(ABC):
         Exceptions:
             None
         Returns:
-            boolean
+            (bool))
         """
         return (
             isinstance(obj, tuple)
@@ -1146,7 +1150,7 @@ class TableLoader(ABC):
         Exceptions:
             None
         Returns:
-            boolean
+            (bool))
         """
         return (
             isinstance(obj, type)
@@ -1184,7 +1188,9 @@ class TableLoader(ABC):
         return types
 
     @classmethod
-    def _get_column_types(cls, headers=None, optional_mode=False, pandas_mode=True):
+    def _get_column_types(
+        cls, headers=None, optional_mode=False, pandas_mode=True, debug=False
+    ):
         """Returns a dict of column types by header name (not header key).
 
         Args:
@@ -1199,7 +1205,7 @@ class TableLoader(ABC):
             dtypes (dict): Types by header name (instead of by header key)
             aes (AggregatedErrors)
         """
-        aes = AggregatedErrors()
+        aes = AggregatedErrors(debug=debug)
 
         # TODO: Make optional mode have the ability to consider the required state for the column
         if cls.DataColumnTypes is None:
@@ -1284,7 +1290,7 @@ class TableLoader(ABC):
         return hidden_column_names
 
     @classmethod
-    def header_key_to_name(cls, indict, headers=None):
+    def header_key_to_name(cls, indict, headers=None, debug=False):
         """Returns the supplied indict, but its keys are changed from header key to header name.
 
         This class method is used to obtain a dtypes dict to be able to supply to read_from_file.  You can supply it
@@ -1293,6 +1299,7 @@ class TableLoader(ABC):
         Args:
             indict (dict of objects): Any objects by header key
             headers (DataTableHeaders namedtuple of strings): Customized header names by header key.
+            debug (bool) [False]: Print traces of all buffered exceptions.
         Exceptions:
             Raises:
                 AggregatedErrors
@@ -1311,7 +1318,7 @@ class TableLoader(ABC):
         elif not cls.isnamedtuple(headers):
             # Immediately raise programming related errors
             # We create an aggregated errors object in class methods because we may not have an instance with one
-            raise AggregatedErrors().buffer_error(
+            raise AggregatedErrors(debug=debug).buffer_error(
                 TypeError(
                     f"Invalid headers. namedtuple required, {type(headers)} supplied"
                 )
@@ -1417,7 +1424,7 @@ class TableLoader(ABC):
         """Error-checks the headers in the dataframe.
 
         Args:
-            reading_defaults (boolean) [False]: Whether defaults data is being read or not
+            reading_defaults (bool) [False]: Whether defaults data is being read or not
             error (bool) [True]: Buffers/raises errors is True
         Exceptions:
             Raises:
@@ -1533,16 +1540,16 @@ class TableLoader(ABC):
         Args:
             supd_headers (list of strings): Supplied/present header names.
             reqd_headers (list of strings and lists): N-dimensional list of required header names.  See above.
-            _anded (boolean) [True]: Whether the outer reqd_headers dimension items are all-required (and'ed) or
+            _anded (bool) [True]: Whether the outer reqd_headers dimension items are all-required (and'ed) or
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
-            _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
+            _first (bool) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
                 recursion.  Do not supply.
         Exceptions:
             None
         Returns:
             missing (list of strings and lists): an N-dimensional list of missing headers where every dimension deeper
                 alternates between all required and 1 of any required
-            all (boolean): Whether the first dimension is all required or not
+            all (bool): Whether the first dimension is all required or not
         """
         if _first and reqd_headers is None:
             reqd_headers = self.reqd_headers
@@ -1836,17 +1843,17 @@ class TableLoader(ABC):
             row (pandas dataframe row)
             reqd_values (list of strings and lists): N-dimensional list of required values by header name.
             headers (namedtuple of TableHeaders): Header names by header keys.
-            reading_defaults (boolean): Whether the defaults sheet is being read.
-            _anded (boolean) [True]: Whether the outer reqd_values dimension items are all-required (and'ed) or
+            reading_defaults (bool): Whether the defaults sheet is being read.
+            _anded (bool) [True]: Whether the outer reqd_values dimension items are all-required (and'ed) or
                 any-required (or'ed).  Private argument.  Used in recursion.  Do not supply.
-            _first (boolean) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
+            _first (bool) [True]: Whether this is the first or a recursive call or not.  Private argument.  Used in
                 recursion.  Do not supply.
         Exceptions:
             None
         Returns:
             missing (list of strings and lists): an N-dimensional list of headers that have missing required values on
                 the row where every dimension deeper alternates between all required and 1 of any required
-            all (boolean): Whether the first dimension is all required or not
+            all (bool): Whether the first dimension is all required or not
         """
         if _first and reqd_values is None:
             reqd_values = self.reqd_values
@@ -1936,8 +1943,8 @@ class TableLoader(ABC):
         Args:
             row (row of a dataframe): Row of data.
             header (str): Column header name.
-            strip (boolean) [True]: Whether to strip leading and trailing spaces.
-            reading_defaults (boolean) [False]: Whether defaults data is currently being read.  Only 2 different files
+            strip (bool) [True]: Whether to strip leading and trailing spaces.
+            reading_defaults (bool) [False]: Whether defaults data is currently being read.  Only 2 different files
                 or sheets are supported, the ones for the data being loaded and the defaults.
         Exceptions:
             Raises:
@@ -2260,7 +2267,7 @@ class TableLoader(ABC):
                     except AggregatedErrorsSet as aess:
                         # If an AggregatedErrorsSet exception is being raised by a TableLoader class, there are 2
                         # possibilities:
-                        # 1. A file was being loader by this instance we're in right now, but it also called other child
+                        # 1. A file was being loaded by this instance we're in right now, but it also called other child
                         #    loaders, in which case the exceptions raised in this class need to be summarized (and the
                         #    sub-loaders would already have been summarized).
                         # 2. The loader was only running sub-loaders and there is no file that was being loaded to
@@ -2268,8 +2275,8 @@ class TableLoader(ABC):
                         #    can also be nothing to summarize, because it wasn't iterating over a file.
                         # In either case, we need to process the aggregated_errors_object associated with this loader
                         # and then raise the AggregatedErrorsSet exception.
-                        # The self.aggregated_errors_object by be contained in aess.  If it is not, we add it, and if it
-                        # is, the operations on it below will be updated in the set object as well.
+                        # The self.aggregated_errors_object may be contained in aess.  If it is not, we add it, and if
+                        # it is, the operations on it below will be updated in the aes_set object as well.
                         aes_set = aess
                     except AggregatedErrors as aes:
                         if aes != self.aggregated_errors_object:
@@ -2626,7 +2633,7 @@ class TableLoader(ABC):
             Buffers:
                 ConflictingValueError
         Returns:
-            found_errors (boolean)
+            found_errors (bool)
         """
         found_errors = False
         differences = {}
@@ -2864,7 +2871,7 @@ class TableLoader(ABC):
                 ConflictingValueError
                 RequiredValueError
         Returns:
-            boolean indicating whether an error was handled(/buffered).
+            (bool): Indicates whether an error was handled(/buffered).
         """
         # We may or may not use estr and exc, but we're pre-making them here to reduce code duplication
         estr = str(exception)
@@ -3238,7 +3245,7 @@ class TableLoader(ABC):
         Exceptions:
             None
         Returns:
-            boolean: Whether the fld is in fld_names
+            (bool): Whether the fld is in fld_names
         """
         # Relation fields do not have "name" attributes.  Instead, they have "field_name" attributes.  The values of
         # both are the attributes of the model object that we are after (because they can be used in queries).  It is
@@ -3255,8 +3262,8 @@ class TableLoader(ABC):
         with data from multiple models.
 
         Args:
-            all (boolean) [False]: Whether to include all headers (that are mapped to a field).
-            populate (boolean) [False]: Whether to add all of the database data to the dataframe.
+            all (bool) [False]: Whether to include all headers (that are mapped to a field).
+            populate (bool) [False]: Whether to add all of the database data to the dataframe.
             filter (dict): A dict of field names and values to filter on.
         Exceptions:
             NotImplementedError
@@ -3336,7 +3343,7 @@ class TableLoader(ABC):
         basing it on the current order in self.DataTableHeaders is the safest way to ensure the desired/current order.
 
         Args:
-            all (boolean) [False]: Whether to return all ordered current headers (or just those without class defaults)
+            all (bool) [False]: Whether to return all ordered current headers (or just those without class defaults)
         Exceptions:
             None
         Returns:

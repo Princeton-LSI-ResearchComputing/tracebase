@@ -453,13 +453,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # use something like "study doc" in place of the actual name.  This facilitates testing where the name doesn't
         # matter.
         if self.file is None:
-            raise AggregatedErrors().buffer_error(
+            raise self.aggregated_errors_object.buffer_error(
                 ValueError(
                     f"The [file] argument to {type(self).__name__}() is required to load data."
                 )
             )
         elif not is_excel(self.file):
-            raise AggregatedErrors().buffer_error(
+            raise self.aggregated_errors_object.buffer_error(
                 ValueError(
                     f"'{self.file}' is not an excel file.  {type(self).__name__}'s file argument requires excel."
                 )
@@ -930,7 +930,10 @@ class StudyLoader(ConvertedTableLoader, ABC):
         Args:
             df_dict (Dict[str,pd.DataFrame]|pd.DataFrame)
         Exceptions:
-            None
+            Raises:
+                ProgrammingError
+            Buffers:
+                None
         Returns:
             matching_version_numbers (List[str]): Version numbers of the matching study doc versions.
             version_match_data (dict): Details of the sheets and headers that do and don't match every study doc version

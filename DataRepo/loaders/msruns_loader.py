@@ -2667,14 +2667,20 @@ class MSRunsLoader(TableLoader):
                 )
                 delstats["failures"].append(rec.file_location.path)
 
-        print(
-            (
-                f"mzXML file rollback disk archive clean up stats: {len(delstats['deleted'])} deleted, "
-                f"{len(delstats['failures'])} failed to be deleted, and {len(delstats['skipped'])} expected files did "
-                "not exist."
-            ),
-            flush=True,
-        )
+        if len(self.created_mzxml_archive_file_recs) == 0:
+            print(
+                "No archived mzXML files to clean up from the disk archive.",
+                flush=True,
+            )
+        else:
+            print(
+                (
+                    f"mzXML file rollback disk archive clean up stats: {len(delstats['deleted'])} deleted, "
+                    f"{len(delstats['failures'])} failed to be deleted, and {len(delstats['skipped'])} expected files "
+                    "did not exist."
+                ),
+                flush=True,
+            )
 
         return delstats
 
