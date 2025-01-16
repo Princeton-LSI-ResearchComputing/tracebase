@@ -2031,6 +2031,15 @@ class AggregatedErrorsSet(Exception):
     def should_raise(self):
         return self.is_fatal
 
+    def get_num_errors(self):
+        return self.num_errors
+
+    def get_num_warnings(self):
+        return self.num_warnings
+
+    def print_summary(self):
+        print(self.get_summary_string())
+
     def get_summary_string(self):
         smry_str = ""
         for aes_key in self.aggregated_errors_dict.keys():

@@ -31,7 +31,7 @@ class Command(LoadTableCommand):
 
         Args:
             options (dict of strings): String values provided on the command line by option name.
-        Raises:
+        Exceptions:
             None
         Returns:
             None

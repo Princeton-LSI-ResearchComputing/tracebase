@@ -51,7 +51,10 @@ class Command(LoadTableCommand):
         Args:
             options (dict): Values provided on the command line.
         Exceptions:
-            CommandError
+            Raises:
+                CommandError
+            Buffers:
+                None
         Returns:
             None
         """

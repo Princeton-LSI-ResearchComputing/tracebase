@@ -319,7 +319,7 @@ class ConvertedTableLoader(TableLoader, ABC):
             if hdr not in outdf.columns:
                 missing.append(hdr)
         if len(missing) > 0:
-            raise AggregatedErrors().buffer_error(
+            raise AggregatedErrors(debug=self.debug).buffer_error(
                 RequiredHeadersError(self.revert_headers(missing))
             )
 
@@ -459,7 +459,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                         id_vars=existing_static_columns,
                     )
                 except Exception as e:
-                    raise AggregatedErrors().buffer_error(e)
+                    raise AggregatedErrors(debug=self.debug).buffer_error(e)
             # Else, we will assume the user did the conversion themselves
         elif isinstance(in_df, dict):
             check_sheets_consistent = True
@@ -480,7 +480,7 @@ class ConvertedTableLoader(TableLoader, ABC):
                         id_vars=existing_static_columns,
                     )
                 except Exception as e:
-                    raise AggregatedErrors().buffer_error(e)
+                    raise AggregatedErrors(debug=self.debug).buffer_error(e)
         else:
             raise TypeError("df must be either a pandas.DataFrame or a dict.")
 

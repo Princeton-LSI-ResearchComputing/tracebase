@@ -333,7 +333,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             or self.peak_annotation_details_df is not None
             or self.peak_group_conflicts_df is not None
         ):
-            raise AggregatedErrors().buffer_error(
+            debug = kwargs.get("debug") or False
+            raise AggregatedErrors(debug=debug).buffer_error(
                 ConditionallyRequiredArgs(
                     "The [file] argument is required if either the [df], [peak_annotation_details_df], or "
                     "[peak_group_conflicts_df] argument is supplied."

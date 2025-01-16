@@ -39,12 +39,10 @@ class Command(LoadTableCommand):
 
         Args:
             options (dict of strings): String values provided on the command line by option name.
-
-        Raises:
-            Nothing (See LoadTableCommand._handler for exceptions in the wrapper)
-
+        Exceptions:
+            None
         Returns:
-            Nothing
+            None
         """
         # The CompoundsLoader class constructor has 1 custom argument
         # The TableLoader superclass arguments are controlled by the LoadTableCommand superclass

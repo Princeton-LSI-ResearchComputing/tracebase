@@ -17,6 +17,7 @@ from DataRepo.utils import (
     read_from_file,
 )
 from DataRepo.utils.exceptions import (
+    AggregatedErrorsSet,
     ConditionallyRequiredOptions,
     NotATableLoader,
 )
@@ -120,6 +121,7 @@ class LoadTableCommand(ABC, BaseCommand):
             ),
             "headers": opt_defaults.get("headers", None),
             "dry_run": opt_defaults.get("dry_run", False),
+            "debug": opt_defaults.get("debug", False),
             "defer_rollback": opt_defaults.get("defer_rollback", False),
         }
 
@@ -170,6 +172,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 "defaults_file",
                 "defaults_sheet",
                 "dry_run",
+                "debug",
                 "defer_rollback",
             ]
             disallowed_args = []
@@ -206,6 +209,7 @@ class LoadTableCommand(ABC, BaseCommand):
 
             # Modes
             kwargs["dry_run"] = self.options["dry_run"]
+            kwargs["debug"] = self.options["debug"]
             kwargs["defer_rollback"] = self.options["defer_rollback"]
 
             # Intermediate loader state (needed before calling get_dataframe, because it performs checks on the sheet,
@@ -317,6 +321,16 @@ class LoadTableCommand(ABC, BaseCommand):
         )
 
         parser.add_argument(
+            "--debug",
+            action="store_true",
+            default=self.opt_defaults.get("debug"),
+            help=(
+                "If supplied, all buffered exceptions' traces will be printed.  By default, only traces of exceptions "
+                "that are NOT a subclass of 'SummarizableError' are printed."
+            ),
+        )
+
+        parser.add_argument(
             "--defer-rollback",  # DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE THE ROLLBACK.
             action="store_true",
             default=self.opt_defaults.get("defer_rollback"),
@@ -349,12 +363,17 @@ class LoadTableCommand(ABC, BaseCommand):
 
         Adds a wrapper to handle the common tasks amongst all the classes that provide load commands.
 
-        This method is provate because it is automatically applied to handle methods of the derived classes in __init__.
+        This method is private because it is automatically applied to handle methods of the derived classes in __init__.
 
         Args:
             fn (function)
         Exceptions:
-            AggregatedErrors
+            Raises:
+                AggregatedErrors
+                AggregatedErrorsSet
+                RequiredOptions
+            Buffers:
+                ConditionallyRequiredOptions
         Returns:
             handle_wrapper (function)
                 Args:
@@ -394,7 +413,7 @@ class LoadTableCommand(ABC, BaseCommand):
                 cond_reqd_opt_sets_str = "\n\t".join(
                     [", ".join([f"{cros}" for cros in failed_cond_reqd_opt_sets])]
                 )
-                raise AggregatedErrors().buffer_error(
+                raise AggregatedErrors(debug=self.options["debug"]).buffer_error(
                     ConditionallyRequiredOptions(
                         f"One of each of the following sets of options is required:\n\t{cond_reqd_opt_sets_str}"
                     )
@@ -413,10 +432,12 @@ class LoadTableCommand(ABC, BaseCommand):
                 pass
             except AggregatedErrors as aes:
                 self.saved_aes = aes
+            except AggregatedErrorsSet as aess:
+                self.saved_aes = aess
             except Exception as e:
-                # Add this error (which wasn't added to the aggregated errors, because it was unanticipated) to the
-                # other buffered errors
-                self.saved_aes = AggregatedErrors()
+                # Add this error (which wasn't added to the aggregated errors, because it was unanticipated) to a
+                # new AggregatedErrors instance
+                self.saved_aes = AggregatedErrors(debug=self.options["debug"])
                 self.saved_aes.buffer_error(e)
 
             if not self.options.get("help"):
@@ -434,14 +455,8 @@ class LoadTableCommand(ABC, BaseCommand):
         """Creates loader_class object in self.loader and calls self.loader.load_data().
 
         Args:
-            df (pandas dataframe):
-            headers (TableLoader.DataTableHeaders): Custom header names by header key.
-            defaults (TableLoader.DataTableHeaders): Custom default values by header key.
-            dry_run (boolean): Dry Run mode.
-            defer_rollback (boolean): Defer rollback mode.   DO NOT USE MANUALLY.  A PARENT SCRIPT MUST HANDLE ROLLBACK.
-            sheet (str): Name of the sheet to load (for error reporting only).
-            file (str): Name of the file to load (for error reporting only).
-            **kwargs (key/value pairs): Any custom args for the derived loader class, e.g. compound synonyms delimiter
+            **kwargs (key/value pairs): A mix of all of the default args of the loader set by the TableLoader superclass
+                plus any custom args for the derived loader class, e.g. compound synonyms delimiter.
         Exceptions:
             None
         Returns:
@@ -458,7 +473,11 @@ class LoadTableCommand(ABC, BaseCommand):
         Args:
             None
         Exceptions:
-            None
+            Raises:
+                AggregatedErrors
+                CommandError
+            Buffers:
+                ProgrammingError
         Returns:
             None
         """
@@ -476,7 +495,7 @@ class LoadTableCommand(ABC, BaseCommand):
                     "[{updated}], skipped [{skipped}], errored: [{errored}], and warned: [{warned}].\n"
                 ).format(mdl_name, **load_stats[mdl_name])
             except KeyError as ke:
-                raise AggregatedErrors().buffer_error(
+                raise AggregatedErrors(debug=self.options["debug"]).buffer_error(
                     ProgrammingError(
                         f"Encountered uninitialized record stats for model [{mdl_name}] in loader "
                         f"{self.loader_class.__name__}.  Please make sure all model record count increment method "
@@ -514,7 +533,10 @@ class LoadTableCommand(ABC, BaseCommand):
         Args:
             None
         Exceptions:
-            None
+            Raises:
+                OptionsNotAvailable
+            Buffers:
+                None
         Returns:
             defaults_sheet (str)
         """
@@ -531,7 +553,10 @@ class LoadTableCommand(ABC, BaseCommand):
             typing (bool): Doesn't pass dtype to read_from_file even if its available.  Useful when trying to determine
                 file type.
         Exceptions:
-            None
+            Raises:
+                OptionsNotAvailable
+            Buffers:
+                None
         Returns:
             df (pandas DataFrame)
         """
@@ -573,7 +598,10 @@ class LoadTableCommand(ABC, BaseCommand):
         Args:
             None
         Exceptions:
-            None
+            Raises:
+                OptionsNotAvailable
+            Buffers:
+                None
         Returns:
             headers (namedtuple of TableLoader.DataTableHeaders containing strings of header names)
         """
@@ -655,14 +683,18 @@ class LoadTableCommand(ABC, BaseCommand):
         return self.loader.set_defaults(custom_defaults)
 
     def get_user_defaults(self):
-        """Retrieves defaults dataframe from the defaults file.
+        """Retrieves defaults DataFrame from the defaults file.
 
         Args:
             None
         Exceptions:
-            None
+            Raises:
+                OptionsNotAvailable
+                MutuallyExclusiveOptions
+            Buffers:
+                None
         Returns:
-            user_defaults (pandas dataframe)
+            user_defaults (pandas DataFrame)
         """
         if self.options is None:
             raise OptionsNotAvailable()
@@ -698,7 +730,10 @@ class LoadTableCommand(ABC, BaseCommand):
         Args:
             None
         Exceptions:
-            None
+            Raises:
+                OptionsNotAvailable
+            Buffers:
+                None
         Returns:
             infile (str)
         """

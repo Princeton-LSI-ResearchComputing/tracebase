@@ -34,6 +34,9 @@ class Command(LoadTableCommand):
             custom_loader_init=True,
             **kwargs,
         )
+        self.study_doc_sheets = [
+            lc.DataSheetName for lc in StudyLoader.get_loader_classes()
+        ]
 
     def add_arguments(self, parser):
         # Add the options provided by the superclass
@@ -63,11 +66,11 @@ class Command(LoadTableCommand):
             "--exclude-sheets",
             type=str,
             help=(
-                f"[all] {{{[lc.DataSheetName for lc in StudyLoader.get_loader_classes()]}}} Load all sheets except "
+                f"[all] {{{self.study_doc_sheets}}} Load all sheets except "
                 "those supplied here.  (Use default sheet names in place of any custom names.)"
             ),
             nargs="+",
-            choices=[lc.DataSheetName for lc in StudyLoader.get_loader_classes()],
+            choices=self.study_doc_sheets,
             default=[],
             required=False,
         )
@@ -129,6 +132,28 @@ class Command(LoadTableCommand):
                 "script.  The interface has changed.  Please use --help to see the new options."
             )
 
+        exclude_sheets = options.get("exclude_sheets")
+        if exclude_sheets is not None and len(exclude_sheets) > 0:
+            invalid = []
+            for exclude_sheet in exclude_sheets:
+                if exclude_sheet not in self.study_doc_sheets:
+                    invalid.append(exclude_sheet)
+            if (
+                len(invalid) > 0
+                and len(invalid) == len(exclude_sheets)
+                # Each sheet is a single character
+                and len([s for s in exclude_sheets if len(s) == 1])
+                == len(exclude_sheets)
+            ):
+                raise CommandError(
+                    "--exclude-sheets must be of type 'list of strings', but it appears that a string was supplied: "
+                    f"[{exclude_sheets}]."
+                )
+            elif len(invalid) > 0:
+                raise CommandError(
+                    f"Invalid sheets: {invalid}.  Must be one of {self.study_doc_sheets}."
+                )
+
         try:
             df = read_from_file(self.get_infile(), sheet=None)
             self.loader_class = StudyLoader.get_derived_class(
@@ -149,7 +174,7 @@ class Command(LoadTableCommand):
         # We can now instantiate the StudyV{number}Loader, since we know the study doc version
         self.init_loader(
             mzxml_dir=options.get("mzxml_dir"),
-            exclude_sheets=options.get("exclude_sheets"),
+            exclude_sheets=exclude_sheets,
         )
 
         self.load_data()
