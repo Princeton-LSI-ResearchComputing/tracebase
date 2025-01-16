@@ -71,9 +71,8 @@ class InfusateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/tissues/loading.yaml",
-            verbosity=2,
+            "load_tissues",
+            infile="DataRepo/data/tests/tissues/tissues.tsv",
         )
         call_command(
             "load_compounds",
@@ -219,9 +218,8 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
     def setUpTestData(cls):
         # Load compounds, tissues, and protocol data before any of the tests run
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
-            verbosity=2,
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         super().setUpTestData()
 
@@ -359,9 +357,8 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
     def setUpTestData(cls):
         # Load data before any of the tests run
         call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
-            verbosity=2,
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_study_prerequisites.xlsx",
         )
         super().setUpTestData()
 
@@ -445,14 +442,6 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
-        # call_command(
-        #     "legacy_load_animals_and_samples",
-        #     animal_and_sample_table_filename=(
-        #         "DataRepo/data/tests/small_obob/"
-        #         "small_obob_animal_and_sample_table.xlsx"
-        #     ),
-        #     dry_run=False,
-        # )
         self.assert_coordinator_state_is_initialized()
 
     def test_error_when_buffer_not_clear(self):
