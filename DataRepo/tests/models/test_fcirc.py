@@ -44,27 +44,12 @@ class FCircTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
-        )
-        call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table_serum_only.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-        )
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file=(
+            "load_study",
+            infile=(
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/"
-                "small_obob_maven_6eaas_serum.xlsx"
+                "small_obob_sample_table_serum_only.xlsx"
             ),
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=True,
         )
 
         cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
