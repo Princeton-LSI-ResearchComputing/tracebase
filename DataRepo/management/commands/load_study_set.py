@@ -27,7 +27,7 @@ class Command(BaseCommand):
         studies_loaded = list()
         studies_skipped = list()
         studies_failed = list()
-        study_set_dir = os.path.dirname(os.path.realpath(set_file_handle.name))
+        study_set_dir = os.path.dirname(os.path.realpath(set_file))
         with set_file_handle as study_set:
             study_doc_str: str
             for study_doc_str in study_set:
