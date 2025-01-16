@@ -33,8 +33,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG=False WARNING: If you want to test what you would see in production when DEBUG=False, you must start the server
-# with:
+# NOTE: If you want to test what you would see in production when DEBUG=False, you must start the server with:
 #     python manage.py runserver --insecure
 # because runserver will not load static files without it (whereas in a production environment, the web server would
 # serve those files).  See https://stackoverflow.com/a/5836728/2057516
@@ -148,17 +147,26 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# Security
+# https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=False)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=False)
+
+# This tells browsers to refuse to connect to your domain via an insecure connection for a given period of time
+# https://docs.djangoproject.com/en/5.1/ref/middleware/#http-strict-transport-security
+
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "America/New_York"
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = True
 
 
@@ -259,7 +267,7 @@ elif CACHES_SETTING != "PROD_CACHES":
 TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
-# Note, to print SQL, DEBUG must be True, and to print SQL during a particular test, each test method must be decorated
+# NOTE: to print SQL, DEBUG must be True, and to print SQL during a particular test, each test method must be decorated
 # with: `@override_settings(DEBUG=True)`
 SQL_LOGGING = env.bool("SQL_LOGGING", default=False)
 if SQL_LOGGING is True:

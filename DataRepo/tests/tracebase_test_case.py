@@ -25,6 +25,9 @@ def test_case_class_factory(base_class) -> Type[TestCase]:
     Class creation factory where the base class is an argument.  Note, it must receive a TestCase-compatible class.
     """
 
+    # The default django test client will cause a 301 error for every get/post when SECURE_SSL_REDIRECT=True
+    # https://stackoverflow.com/questions/49626899/
+    @override_settings(SECURE_SSL_REDIRECT=False)
     class TracebaseTestCaseTemplate(base_class):
         """
         This wrapper of both TestCase and TransactionTestCase makes the necessary/desirable settings for all test
@@ -120,6 +123,9 @@ TracebaseTransactionTestCase: TestCase = test_case_class_factory(TransactionTest
     CACHES=settings.TEST_CACHES,
     STORAGES=settings.TEST_FILE_STORAGES,
     MEDIA_ROOT=settings.TEST_MEDIA_ROOT,
+    # The default django test client will cause a 301 error for every get/post when SECURE_SSL_REDIRECT=True
+    # https://stackoverflow.com/questions/49626899/
+    SECURE_SSL_REDIRECT=False,
 )
 class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
     ARCHIVE_DIR = settings.TEST_MEDIA_ROOT
