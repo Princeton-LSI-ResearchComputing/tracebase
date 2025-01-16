@@ -1096,6 +1096,11 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         be unique and the database sample name cannot match the header, in which case, you would need a Peak Annotation
         Details sheet/file.
 
+        Assumptions:
+            1. If a placeholder record exists, then there are multiple concrete records.  This is in reference to the
+               business logic in the MSRunsLoader that says that if there is only 1 concrete record, PeakGroup records
+               will link directly to it.  Otherwise, a placeholder record is created and PeakGroup records link to it
+               for any particular sample.
         Args:
             sample_header (str)
         Exceptions:
@@ -1168,7 +1173,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         sample = samples.get()
 
         # Now try to get the MSRunSample record using the sample
-        msrun_samples = MSRunSample.objects.filter(sample=sample)
+        query_dict = {"sample__name": sample.name}
+        msrun_samples = MSRunSample.objects.filter(**query_dict)
 
         # Check if there were too few or exactly 1 results.
         if msrun_samples.count() == 0:
@@ -1193,43 +1199,65 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             ] = msrun_samples.get()
             return self.msrun_sample_dict[sample_header][MSRunSample.__name__]
 
-        # At this point, there are multiple results.  That means that defaults for the sequence are required in order to
-        # proceed, so check them.
+        # At this point, there are multiple results.  That means 1 of 3 things.  Either:
+        # 1. There exists a mix of concrete and placeholder MSRunSample records
+        # 2. This sample was included in multiple sequnces, which would mean we could solve it by including the
+        #    sequence in the query and that defaults for the sequence are required in order to proceed, so check them.
+        # 3. This sample was included in multiple sequences AND there exist both placeholder and concrete records.
 
-        # First, build a query dict with only the sequence defaults we have values for (NOTE: just the researcher or
-        # date, for example, may be enough).
-        query_dict = {}
-        if self.operator_default is not None:
-            query_dict["msrun_sequence__researcher"] = self.operator_default
-        if self.lc_protocol_name_default is not None:
-            query_dict["msrun_sequence__lc_method__name"] = (
-                self.lc_protocol_name_default
+        # Keep track of whether we have all sequence metadata defaults
+        num_sequence_defaults = 0
+        has_all_sequence_defaults = False
+
+        # First, let's account for placeholder versus concrete by checking for a placeholder.  Note, code in the
+        # MSRunsLoader conditionally links to concrete records if there is only 1 concrete record, but we are going to
+        # assume that if a placeholder exists, then there are multiple concrete records.
+        placeholder_query_dict = query_dict.copy()
+        placeholder_query_dict["ms_data_file__isnull"] = True
+        placeholder_msrun_samples = msrun_samples.filter(**placeholder_query_dict)
+        if placeholder_msrun_samples.count() == 1:
+            msrun_samples = placeholder_msrun_samples
+        else:
+            # Now, add the sequence defaults we have to the query dict (NOTE: just the researcher or date, for example,
+            # may be enough).
+            if self.operator_default is not None:
+                query_dict["msrun_sequence__researcher"] = self.operator_default
+                num_sequence_defaults += 1
+            if self.lc_protocol_name_default is not None:
+                query_dict["msrun_sequence__lc_method__name"] = (
+                    self.lc_protocol_name_default
+                )
+                num_sequence_defaults += 1
+            if self.instrument_default is not None:
+                query_dict["msrun_sequence__instrument"] = self.instrument_default
+                num_sequence_defaults += 1
+            if self.date_default is not None:
+                query_dict["msrun_sequence__date"] = self.date_default
+                num_sequence_defaults += 1
+
+            if num_sequence_defaults == 4:
+                has_all_sequence_defaults = True
+
+            # Create this exception object (without buffering) to use in 2 possible buffering locations
+            not_enough_defaults_exc = ConditionallyRequiredArgs(
+                "The arguments supplied to the constructor were insufficient to identify the MS Run Sequence that 1 or "
+                "more of the samples belong to.  Either peak_annotation_details_df can be supplied with a sequence "
+                "name for every MSRunSample record or the following defaults can be supplied via file_defaults of "
+                f"explicit arguments: [operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} "
+                f"defaults supplied were used to create the following query: {query_dict}."
             )
-        if self.instrument_default is not None:
-            query_dict["msrun_sequence__instrument"] = self.instrument_default
-        if self.date_default is not None:
-            query_dict["msrun_sequence__date"] = self.date_default
 
-        # Create this exception object (without buffering) to use in 2 possible buffering locations
-        not_enough_defaults_exc = ConditionallyRequiredArgs(
-            "The arguments supplied to the constructor were insufficient to identify the MS Run Sequence that 1 or "
-            "more of the samples belong to.  Either peak_annotation_details_df can be supplied with a sequence name "
-            "for every MSRunSample record or the following defaults can be supplied via file_defaults of explicit "
-            f"arguments: [operator, lc_protocol_name, instrument, and/or date].  {len(query_dict.keys())} defaults "
-            f"supplied were used to create the following query: {query_dict}."
-        )
+            if num_sequence_defaults == 0:
+                # Only buffer this error once
+                if not self.aggregated_errors_object.exception_type_exists(
+                    ConditionallyRequiredArgs
+                ):
+                    self.aggregated_errors_object.buffer_error(not_enough_defaults_exc)
+                self.missing_headers_as_samples.append(sample_header)
+                return None
 
-        if len(query_dict.keys()) == 0:
-            # Only buffer this error once
-            if not self.aggregated_errors_object.exception_type_exists(
-                ConditionallyRequiredArgs
-            ):
-                self.aggregated_errors_object.buffer_error(not_enough_defaults_exc)
-            self.missing_headers_as_samples.append(sample_header)
-            return None
-
-        # Let's see if the results can be narrowed to a single record using the sequence defaults we've been provided.
-        msrun_samples = msrun_samples.filter(**query_dict)
+            # Let's see if the results can be narrowed to a single record using the sequence defaults.
+            msrun_samples = msrun_samples.filter(**query_dict)
 
         # Check if there were too few or too many results.
         if msrun_samples.count() == 0:
@@ -1248,48 +1276,56 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             self.missing_headers_as_samples.append(sample_header)
             return None
         elif msrun_samples.count() > 1:
-            if len(query_dict.keys()) < 4:
-                if not self.aggregated_errors_object.exception_type_exists(
-                    ConditionallyRequiredArgs
-                ):
-                    self.aggregated_errors_object.buffer_error(not_enough_defaults_exc)
+            # Now check if this case is both that this sample was in multiple sequences and has both placeholder and
+            # concrete records
+            placeholder_msrun_samples = msrun_samples.filter(**placeholder_query_dict)
+            if placeholder_msrun_samples.count() == 1:
+                msrun_samples = placeholder_msrun_samples
             else:
-                try:
-                    msrun_samples.get()
-                except MSRunSample.MultipleObjectsReturned as mor:
-                    self.aggregated_errors_object.buffer_error(
-                        MultipleRecordsReturned(
-                            MSRunSample,
-                            query_dict,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                            rownum=self.rownum,
-                        ),
-                        orig_exception=mor,
-                    )
-                except MSRunSample.DoesNotExist as dne:
-                    self.aggregated_errors_object.buffer_error(
-                        RecordDoesNotExist(
-                            MSRunSample,
-                            query_dict,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                            rownum=self.rownum,
-                        ),
-                        orig_exception=dne,
-                    )
-                except Exception as e:
-                    self.aggregated_errors_object.buffer_error(
-                        InfileError(
-                            str(e),
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                            rownum=self.rownum,
-                        ),
-                        orig_exception=e,
-                    )
+                if not has_all_sequence_defaults:
+                    if not self.aggregated_errors_object.exception_type_exists(
+                        ConditionallyRequiredArgs
+                    ):
+                        self.aggregated_errors_object.buffer_error(
+                            not_enough_defaults_exc
+                        )
+                else:
+                    try:
+                        msrun_samples.get()
+                    except MSRunSample.MultipleObjectsReturned as mor:
+                        self.aggregated_errors_object.buffer_error(
+                            MultipleRecordsReturned(
+                                MSRunSample,
+                                query_dict,
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                rownum=self.rownum,
+                            ),
+                            orig_exception=mor,
+                        )
+                    except MSRunSample.DoesNotExist as dne:
+                        self.aggregated_errors_object.buffer_error(
+                            RecordDoesNotExist(
+                                MSRunSample,
+                                query_dict,
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                rownum=self.rownum,
+                            ),
+                            orig_exception=dne,
+                        )
+                    except Exception as e:
+                        self.aggregated_errors_object.buffer_error(
+                            InfileError(
+                                str(e),
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                rownum=self.rownum,
+                            ),
+                            orig_exception=e,
+                        )
 
-            return None
+                return None
 
         self.msrun_sample_dict[sample_header][
             MSRunSample.__name__

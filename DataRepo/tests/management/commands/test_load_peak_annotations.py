@@ -242,7 +242,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
             infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
             peak_annotation_details_file=(
                 "DataRepo/data/tests/small_obob/"
-                "small_obob_animal_and_sample_table_newsample.xlsx"
+                "small_obob_peak_annot_deets_with_newsample.xlsx"
             ),
         )
         SAMPLES_COUNT = 1
