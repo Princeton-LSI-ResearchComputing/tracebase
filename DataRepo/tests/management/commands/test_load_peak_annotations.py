@@ -25,6 +25,7 @@ from DataRepo.models.archive_file import ArchiveFile
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
     DuplicateFileHeaders,
     MultiplePeakGroupRepresentation,
     MultiplePeakGroupRepresentations,
@@ -412,12 +413,12 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
 
         aes = adl.aggregated_errors_object
         self.assertEqual(1, len(aes.exceptions))
-        self.assertIsInstance(aes.exceptions[0], MultiplePeakGroupRepresentation)
+        self.assertIsInstance(aes.exceptions[0], ConflictingValueError)
 
     def test_multiple_accucor_labels(self):
         """
         The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
-        error
+        error.
         """
         call_command(
             "load_study",

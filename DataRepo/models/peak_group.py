@@ -233,11 +233,12 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             # This cannot be a multiple representation issue if no peak annotation file is provided
             return None
 
-        # Look for peak groups with the same name (i.e. compound) for the same sample
+        # Look for peak groups with the same name (i.e. compound) for the same sample, coming from a different peak
+        # annotation file
         conflicts = PeakGroup.objects.filter(
             name=self.name,
             msrun_sample__sample__pk=self.msrun_sample.sample.pk,
-        )
+        ).exclude(peak_annotation_file=self.peak_annotation_file)
 
         # If the record already exists (e.g. doing an update), exclude self.  (self.pk is None otherwise.)
         if exists_in_db(self):

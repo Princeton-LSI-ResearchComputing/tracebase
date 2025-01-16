@@ -3117,7 +3117,7 @@ class IsotopeStringDupe(InfileError):
         self.parent = parent
 
 
-class MissingC12ParentPeakErrors(SummarizedInfileError, Exception):
+class MissingC12ParentPeaks(SummarizedInfileError, Exception):
     """Summary of all MissingC12ParentPeak errors
 
     Attributes:
@@ -3144,18 +3144,20 @@ class MissingC12ParentPeakErrors(SummarizedInfileError, Exception):
             loc = " in " + list(self.file_dict.keys())[0]
         message = (
             f"The C12 PARENT peak row is missing for the following compounds{loc}:\n{compounds_str}"
-            "Please re-pick peaks to include the C12 PARENT peaks for these compounds."
+            "Please make sure you didn't neglect to include the C12 PARENT peak for these compounds.  You may safely "
+            "ignore this error if the peak is below the detection threshold."
         )
         Exception.__init__(self, message)
 
 
 class MissingC12ParentPeak(InfileError, SummarizableError):
-    SummarizerExceptionClass = MissingC12ParentPeakErrors
+    SummarizerExceptionClass = MissingC12ParentPeaks
 
     def __init__(self, compound: str, **kwargs):
         message = (
             f"C12 PARENT peak row missing for compound '{compound}' in '%s'.\n"
-            "Please re-pick the peaks to include the C12 PARENT."
+            "Please make sure you didn't neglect to include the C12 PARENT peak for this compound.  You may safely "
+            "ignore this error if the peak is below the detection threshold."
         )
         super().__init__(message, **kwargs)
         self.compound = compound
