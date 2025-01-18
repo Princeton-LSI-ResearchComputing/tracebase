@@ -789,7 +789,10 @@ class FormatsTests(TracebaseTestCase):
         qs = PeakGroup.objects.all().prefetch_related(
             "msrun_sample__sample__animal__studies"
         )
-        tval = str(qs[0].msrun_sample.sample.animal.studies.all()[0].id)
+        study_name = "Small OBOB"
+        tval = str(
+            qs[0].msrun_sample.sample.animal.studies.filter(name=study_name)[0].id
+        )
         empty_tree = {
             "type": "group",
             "val": "all",
@@ -822,7 +825,7 @@ class FormatsTests(TracebaseTestCase):
                                 "static": False,
                                 "ncmp": "iexact",
                                 "fld": "msrun_sample__sample__animal__studies__name",
-                                "val": "Small OBOB",
+                                "val": study_name,
                                 "units": "identity",
                             }
                         ],
@@ -1008,10 +1011,13 @@ class FormatsTests(TracebaseTestCase):
                 "Measured Compounds": {
                     "count": 2,
                     "filter": None,
-                    "sample": [
-                        {"cnt": 1, "val": "glucose"},
-                        {"cnt": 1, "val": "lactate"},
-                    ],
+                    "sample": sorted(
+                        [
+                            {"cnt": 1, "val": "glucose"},
+                            {"cnt": 1, "val": "lactate"},
+                        ],
+                        key=lambda d: d["val"],
+                    ),
                 },
                 "Samples": {
                     "count": 1,
@@ -1021,10 +1027,13 @@ class FormatsTests(TracebaseTestCase):
                 "Studies": {
                     "count": 2,
                     "filter": None,
-                    "sample": [
-                        {"cnt": 2, "val": "Small OBOB"},
-                        {"cnt": 2, "val": "obob_fasted"},
-                    ],
+                    "sample": sorted(
+                        [
+                            {"cnt": 2, "val": "Small OBOB"},
+                            {"cnt": 2, "val": "obob_fasted"},
+                        ],
+                        key=lambda d: d["val"],
+                    ),
                 },
                 "Tissues": {
                     "count": 1,
@@ -1053,8 +1062,12 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         qry = self.get_advanced_qry()
         _, _, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
+        for mdl in stats["data"].keys():
+            stats["data"][mdl]["sample"] = sorted(
+                stats["data"][mdl]["sample"], key=lambda d: d["val"]
+            )
         expected_stats = self.getExpectedStats()
-        self.assertEqual(expected_stats, stats)
+        self.assertDictEqual(expected_stats, stats)
 
     def test_getQueryStats_full(self):
         """
@@ -1064,6 +1077,8 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
         got, based_on = basv.getQueryStats(res, qry["selectedtemplate"])
+        for mdl in got.keys():
+            got[mdl]["sample"] = sorted(got[mdl]["sample"], key=lambda d: d["val"])
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
         self.assertEqual(expected, got)
