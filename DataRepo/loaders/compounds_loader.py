@@ -237,13 +237,17 @@ class CompoundsLoader(TableLoader):
             ):
                 # This is caused by trying to create a synonym that is already associated with a different compound
                 # We want a better error to describe this situation than we would get from handle_load_db_errors
-                self.aggregated_errors_object.buffer_error(
-                    CompoundExistsAsMismatchedSynonym(
-                        rec_dict["name"],
-                        rec_dict,
-                        CompoundSynonym.objects.get(name__exact=rec_dict["name"]),
+                try:
+                    self.aggregated_errors_object.buffer_error(
+                        CompoundExistsAsMismatchedSynonym(
+                            rec_dict["name"],
+                            rec_dict,
+                            CompoundSynonym.objects.get(name__exact=rec_dict["name"]),
+                        ),
+                        orig_exception=e,
                     )
-                )
+                except Exception:
+                    self.handle_load_db_errors(e, Compound, rec_dict)
             else:
                 self.handle_load_db_errors(e, Compound, rec_dict)
             self.errored(Compound.__name__)

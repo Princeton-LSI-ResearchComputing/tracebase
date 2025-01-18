@@ -1,10 +1,3 @@
----
-name: New Release
-about: Create a new release of TraceBase
-title: ''
-labels: 'priority:3-medium, effort:5-under1day'
-assignees: ''
----
 <!-- markdownlint-disable-next-line first-line-heading -->
 ## Summary Change Description
 <!-- Briefly describe the changes (leaving details to the issue(s)). -->

@@ -28,7 +28,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class FormatsTests(TracebaseTestCase):
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
 
@@ -39,42 +39,14 @@ class FormatsTests(TracebaseTestCase):
     @classmethod
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
-        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
         )
         call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-        )
-        call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table_2ndstudy.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-        )
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file=(
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/"
-                "small_obob_maven_6eaas_serum.xlsx"
-            ),
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=False,
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample_2ndstudy.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
         basv = SearchGroup()
         for fmt in basv.modeldata.keys():
@@ -817,7 +789,10 @@ class FormatsTests(TracebaseTestCase):
         qs = PeakGroup.objects.all().prefetch_related(
             "msrun_sample__sample__animal__studies"
         )
-        tval = str(qs[0].msrun_sample.sample.animal.studies.all()[0].id)
+        study_name = "Small OBOB"
+        tval = str(
+            qs[0].msrun_sample.sample.animal.studies.filter(name=study_name)[0].id
+        )
         empty_tree = {
             "type": "group",
             "val": "all",
@@ -850,7 +825,7 @@ class FormatsTests(TracebaseTestCase):
                                 "static": False,
                                 "ncmp": "iexact",
                                 "fld": "msrun_sample__sample__animal__studies__name",
-                                "val": "obob_fasted",
+                                "val": study_name,
                                 "units": "identity",
                             }
                         ],
@@ -893,7 +868,7 @@ class FormatsTests(TracebaseTestCase):
         val = tval
         dfld, dval = basv_metadata.searchFieldToDisplayField(mdl, fld, val, qry)
         self.assertEqual(dfld, "name")
-        self.assertEqual(dval, "obob_fasted")
+        self.assertEqual(dval, "Small OBOB")
 
     def get_advanced_qry(self):
         """
@@ -1036,10 +1011,13 @@ class FormatsTests(TracebaseTestCase):
                 "Measured Compounds": {
                     "count": 2,
                     "filter": None,
-                    "sample": [
-                        {"cnt": 1, "val": "glucose"},
-                        {"cnt": 1, "val": "lactate"},
-                    ],
+                    "sample": sorted(
+                        [
+                            {"cnt": 1, "val": "glucose"},
+                            {"cnt": 1, "val": "lactate"},
+                        ],
+                        key=lambda d: d["val"],
+                    ),
                 },
                 "Samples": {
                     "count": 1,
@@ -1049,10 +1027,13 @@ class FormatsTests(TracebaseTestCase):
                 "Studies": {
                     "count": 2,
                     "filter": None,
-                    "sample": [
-                        {"cnt": 2, "val": "obob_fasted"},
-                        {"cnt": 2, "val": "small_obob"},
-                    ],
+                    "sample": sorted(
+                        [
+                            {"cnt": 2, "val": "Small OBOB"},
+                            {"cnt": 2, "val": "obob_fasted"},
+                        ],
+                        key=lambda d: d["val"],
+                    ),
                 },
                 "Tissues": {
                     "count": 1,
@@ -1081,8 +1062,12 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         qry = self.get_advanced_qry()
         _, _, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
+        for mdl in stats["data"].keys():
+            stats["data"][mdl]["sample"] = sorted(
+                stats["data"][mdl]["sample"], key=lambda d: d["val"]
+            )
         expected_stats = self.getExpectedStats()
-        self.assertEqual(expected_stats, stats)
+        self.assertDictEqual(expected_stats, stats)
 
     def test_getQueryStats_full(self):
         """
@@ -1092,6 +1077,8 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         res, _, _ = basv.performQuery(qry, "pgtemplate", generate_stats=True)
         got, based_on = basv.getQueryStats(res, qry["selectedtemplate"])
+        for mdl in got.keys():
+            got[mdl]["sample"] = sorted(got[mdl]["sample"], key=lambda d: d["val"])
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
         self.assertEqual(expected, got)
@@ -1112,7 +1099,7 @@ class FormatsTests(TracebaseTestCase):
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
         self.assertNotEqual(expected, got)
-        self.assertEqual("* Based on 8.33% of the data (truncated for time)", based_on)
+        self.assertEqual("* Based on 5.56% of the data (truncated for time)", based_on)
 
     def test_constructAdvancedQuery(self):
         """
@@ -1422,40 +1409,8 @@ class FormatsTests(TracebaseTestCase):
         """
         # Make sure there are multiple tracers
         call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
-            verbosity=2,
-        )
-        call_command(
-            "load_protocols",
-            infile="DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx",
-        )
-        call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx"
-            ),
-            skip_researcher_check=True,
-        )
-        call_command(
-            "legacy_load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Xianfeng Zeng",
-            new_researcher=False,
-            isocorr_format=True,
-        )
-        call_command(
-            "legacy_load_accucor_msruns",
-            accucor_file="DataRepo/data/tests/small_multitracer/bcaafasted_cor.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            date="2021-04-29",
-            researcher="Xianfeng Zeng",
-            new_researcher=False,
-            isocorr_format=True,
+            "load_study",
+            infile="DataRepo/data/tests/small_multitracer/study.xlsx",
         )
 
         format = "fctemplate"
@@ -1468,7 +1423,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual("tracer_link", annotfld)
 
         # Perform the query
-        (qs, junk1, junk2) = sg.performQuery(fmt=format)
+        qs, _, _ = sg.performQuery(fmt=format)
 
         # Make sure there are results
         self.assertTrue(qs.count() > 0)

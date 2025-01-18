@@ -83,7 +83,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
 
     def test_pafl_get_file_and_format_none(self):
         pafl = PeakAnnotationFilesLoader()
-        exp_file = "DataRepo/data/tests/small_multitracer/study.xlsx"
+        exp_file = "DataRepo/data/tests/small_multitracer/study_partial_file.xlsx"
         row = pd.Series(
             {
                 PeakAnnotationFilesLoader.DataHeaders.FILE: exp_file,
@@ -92,7 +92,7 @@ class PeakAnnotationFilesLoaderTests(TracebaseTestCase):
         )
         name, file, fmt = pafl.get_file_and_format(row)
         self.assertIsNone(fmt)
-        self.assertEqual("study.xlsx", name)
+        self.assertEqual("study_partial_file.xlsx", name)
         self.assertEqual(exp_file, file)
         self.assertEqual(1, len(pafl.aggregated_errors_object.exceptions))
         self.assertIsInstance(pafl.aggregated_errors_object.exceptions[0], InfileError)

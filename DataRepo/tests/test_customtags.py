@@ -11,33 +11,28 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class CustomTagsTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     @classmethod
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
-        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample_2ndstudy.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
         )
         call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table_2ndstudy.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-        )
-        call_command(
-            "legacy_load_accucor_msruns",
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="unknown",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=True,
+            operator="Michael Neinast",
         )
         super().setUpTestData()
 
@@ -55,7 +50,7 @@ class CustomTagsTests(TracebaseTestCase):
     def test_get_many_related_rec_value(self):
         """Ensure the one record matching the pk is returned in a 1-member list."""
         pgs = PeakGroup.objects.filter(
-            msrun_sample__sample__animal__studies__name__iexact="small_obob"
+            msrun_sample__sample__animal__studies__name__iexact="Small OBOB"
         )[0:1]
         of = Study.objects.get(name__iexact="obob_fasted")
         recs = get_many_related_rec(pgs[0].msrun_sample.sample.animal.studies, of.pk)
@@ -64,13 +59,15 @@ class CustomTagsTests(TracebaseTestCase):
     def test_get_many_related_rec_novalue(self):
         """Ensure the supplied records are returned if pk is empty."""
         pgs = PeakGroup.objects.filter(
-            msrun_sample__sample__animal__studies__name__iexact="small_obob"
+            msrun_sample__sample__animal__studies__name__iexact="Small OBOB"
         )[0:1]
         of = Study.objects.filter(name__icontains="obob")
         recs = get_many_related_rec(pgs[0].msrun_sample.sample.animal.studies, "")
         self.assertEqual(recs.count(), of.count())
         self.assertEqual(recs.count(), 2)
-        self.assertEqual([recs[0].name, recs[1].name], ["obob_fasted", "small_obob"])
+        self.assertEqual(
+            set([recs[0].name, recs[1].name]), set(["obob_fasted", "Small OBOB"])
+        )
 
     def test_display_filter(self):
         filter = {
