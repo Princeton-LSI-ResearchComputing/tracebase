@@ -42,7 +42,7 @@ from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.views.upload.submission import BuildSubmissionView
 
 
-class DataValidationViewTests1(TracebaseTransactionTestCase):
+class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
     LCMS_DICT = {
         "a": {
             "sort level": 0,
@@ -1047,7 +1047,7 @@ def assert_coordinator_state_is_initialized():
         raise UncleanBufferError()
 
 
-class DataValidationViewTests2(TracebaseTransactionTestCase):
+class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
     related model managers produce the following error:

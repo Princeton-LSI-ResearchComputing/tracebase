@@ -28,7 +28,7 @@ from DataRepo.utils.infusate_name_parser import (
 )
 
 
-class InfusateTest(TracebaseTestCase):
+class InfusateTestData(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.isotope_data_13c6 = IsotopeData(
@@ -147,7 +147,7 @@ class InfusateTest(TracebaseTestCase):
 
 
 @tag("parsing")
-class InfusateParsingTests(InfusateTest):
+class InfusateParsingTests(InfusateTestData):
     def test_isotope_parsing_single(self):
         """Test parsing a single isotope string"""
         isotope_string = "13C6"
@@ -303,7 +303,7 @@ class InfusateParsingTests(InfusateTest):
         self.assertEqual(148.88, conc)
 
 
-class InfusateValidationTests(InfusateTest):
+class InfusateValidationTests(InfusateTestData):
     def test_tracer_creation(self):
         """Test creation of a valid tracer object from TracerData"""
         (tracer, created) = Tracer.objects.get_or_create_tracer(
