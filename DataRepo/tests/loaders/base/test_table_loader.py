@@ -1823,7 +1823,7 @@ class TableLoaderTests(TracebaseTestCase):
         )
 
 
-class TableLoaderUtilitiesTests(TracebaseTestCase):
+class MainTests(TracebaseTestCase):
     def test_flatten(self):
         """The applied use of this flatten method was/is to flatten ValidationError objects (which are iterable), but it
         can work on any (non-string/non-byte) iterable."""

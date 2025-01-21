@@ -137,7 +137,7 @@ class TableColumnTests(TracebaseTestCase):
         self.assertEqual([("1", "1"), ("2", "2")], tcn.value.static_choices)
 
 
-class TableColumnUtilityMethodsTests(TracebaseTestCase):
+class MainTests(TracebaseTestCase):
     def test_make_title(self):
         self.assertEqual("CamelCase Test", make_title("CamelCase", "test"))
         self.assertEqual("Uppercase Test", make_title("UPPERCASE", "test"))

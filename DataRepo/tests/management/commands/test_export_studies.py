@@ -10,7 +10,7 @@ from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.utils.studies_exporter import BadQueryTerm
 
 
-class StudiesExporterTestBase(TracebaseTestCase):
+class ExportStudiesTestBase(TracebaseTestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmpdir_obj = tempfile.TemporaryDirectory()
@@ -49,7 +49,7 @@ class StudiesExporterTestBase(TracebaseTestCase):
         )
 
 
-class StudiesExporterTests(StudiesExporterTestBase):
+class ExportStudiesTests(ExportStudiesTestBase):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
@@ -114,7 +114,7 @@ class StudiesExporterTests(StudiesExporterTestBase):
             )
 
 
-class MissingDataTests(StudiesExporterTestBase):
+class ExportStudiesMissingDataTests(ExportStudiesTestBase):
     def test_no_data_study_exists(self):
         """
         Should not raise exception when no data is available and study exists

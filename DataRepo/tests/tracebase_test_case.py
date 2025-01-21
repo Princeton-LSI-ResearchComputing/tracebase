@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
+from collections import defaultdict
 from typing import Type
 
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -10,6 +11,28 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from DataRepo.models.utilities import get_all_models
 from TraceBase import settings
 
+try:
+    import importlib
+    import inspect
+    import pathlib
+    import pkgutil
+
+    IMPORT_ERROR = None
+except ImportError:
+    IMPORT_ERROR = ImportError(
+        "pkgutil, importlib, and inspect modules are all required to generate tests"
+    )
+
+TEST_GENERATION_IGNORE_MODULES = [
+    "DataRepo.apps",
+    "DataRepo.context_processors",
+    "DataRepo.multiforms",
+    "DataRepo.urls",
+    "DataRepo.tests",
+    "DataRepo.migrations",
+    "DataRepo.formats.search_group",  # covered by dataformat_group
+]
+TEST_MODULE_REPLACEMENT = ("DataRepo", "DataRepo.tests")
 LONG_TEST_THRESH_SECS = 20
 LONG_TEST_ALERT_STR = f" [ALERT > {LONG_TEST_THRESH_SECS}]"
 
@@ -143,3 +166,271 @@ class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
     def tearDown(self):
         shutil.rmtree(self.ARCHIVE_DIR, ignore_errors=True)
         super().tearDown()
+
+
+def _generate_test_stubs(package, verbose=0):
+    """Takes a package (e.g. the name output of pkgutil.iter_modules) and prints test classes with stub test methods for
+    every method (including class constructors) hard-coded into that package (i.e. not methods from a superclass defined
+    in a separate file).
+
+    Test stub construction is done in 2 steps:
+
+    1. Populate a test_classes dict, structured like this:
+           {test_class_name: {"python_path": str, "class_name": str, "methods": [method_names]}}
+       using a default class name for methods to test in __main__: "MainTests".  All other classes are named
+       "<class name>Tests".
+       Lastly, if the only test in a test class is the class's constructor, the test is moved to the "MainTests" class
+       (and the empty test class removed).
+
+    2. The test_classes dict is traversed and the test method stubs are printed.  The "MainTests" class is given a
+       custom name based on the package name.  A search is conducted for existing test methods.  If an existing test's
+       name starts with the automatically constructed name, the test stub for that method is not printed.  NOTE: If a
+       method's name is contained in another method being tested, the existing test method name must exactly match to
+       not be printed.
+
+    Limitations:
+        1. Methods starting with "__" (except __init__) will not get test stubs generated for them.
+    Assumptions:
+        1. package is not a tests package.
+    Args:
+        package (str): a python path to a package (file), e.g. DataRepo.loaders
+        verbose (int)
+    Exceptions:
+        None
+    Returns:
+        None
+    """
+    if IMPORT_ERROR is not None:
+        raise IMPORT_ERROR
+
+    # A dict to contain the test classes and their methods
+    # Example:
+    # test_classes = {test_class_name: {"python_path": str, "class_name": str, "methods": [method_names]}}
+    test_classes = defaultdict(dict)
+
+    # Use a class for all tests of methods in __main__.  This generates a titlecase version from the package name.
+    # Package names are typically underscore-delimited lower-cased words.  This package_name will then be used to name
+    # the class for testing methods in __main__.
+    # E.g. DataRepo.context_processors -> ContextProcessors
+    package_name = to_title_case(package.__name__.split(".")[-1])
+    # In the meantime, we will use a static string in order to check how many methods it has without having to worry
+    # about a dynamically determined name
+    test_mainclass_name = "MainTests"
+    test_classes[test_mainclass_name] = {
+        "python_path": package.__name__,
+        "class_name": "__main__",
+        "methods": [],
+    }
+
+    test_package_name = "test_" + package.__name__.split(".")[-1]
+    test_package = str(package.__name__).replace(*TEST_MODULE_REPLACEMENT)
+    test_package = ".".join(test_package.split(".")[:-1]) + "." + test_package_name
+    try:
+        test_module = importlib.import_module(test_package)
+        if verbose > 1:
+            print(f"Test package {test_package} exists.")
+    except ImportError as ie:
+        if verbose > 1:
+            print(f"Test package {test_package} does not exist.  {ie}")
+        test_module = None
+
+    # This loop populates the test_classes dict.  In this first phase, we populate that dict so that we can avoid having
+    # many test classes with only 1 test method (the constructor).
+    for name, obj in inspect.getmembers(package):
+        # If this is a class that is defined in this module
+        if (
+            inspect.isclass(obj)
+            and hasattr(obj, "__module__")
+            and package.__name__ == obj.__module__
+        ):
+            test_class_name = f"{name}Tests"
+            test_classes[test_class_name] = {
+                "python_path": obj.__module__,
+                "class_name": name,
+                "methods": [],
+            }
+            for method_name, method_obj in inspect.getmembers(obj):
+                if (
+                    inspect.isfunction(method_obj)
+                    and method_obj.__module__ == package.__name__
+                    and not method_name.startswith("__")
+                ):
+                    if verbose > 2:
+                        print(f"Adding class method {test_class_name} {method_name}")
+                    test_classes[test_class_name]["methods"].append(method_name)
+                elif verbose > 2 and inspect.isfunction(method_obj):
+                    print(
+                        f"Not a target method because not in module?: {method_obj.__module__} == {package.__name__} or "
+                        f"has dunderscore: {method_name}"
+                    )
+                elif verbose > 2:
+                    print(f"Not a target method because not a method: {method_name}")
+
+            # Add a test for the constructor
+            if len(test_classes[test_class_name]["methods"]) == 0:
+                # ...to MainTests if there are no other methods to test
+                test_classes[test_mainclass_name]["methods"].append(name)
+                del test_classes[test_class_name]
+                if verbose > 2:
+                    print(
+                        f"Putting constructor for {name} in __main__ tests ({test_mainclass_name} and removing from "
+                        f"{test_class_name}): {test_classes[test_mainclass_name]}."
+                    )
+            else:
+                if verbose > 2:
+                    print(f"Putting constructor for {name} in {test_class_name} tests.")
+                test_classes[test_class_name]["methods"].insert(0, name)
+
+        elif (
+            inspect.isfunction(obj)
+            and obj.__module__ == package.__name__
+            and not name.startswith("__")
+        ):
+            if verbose > 2:
+                print(
+                    f"Adding method from __main__: {name} module.__name__ == obj.__module__: {package.__name__} == "
+                    f"{obj.__module__}"
+                )
+            test_classes[test_mainclass_name]["methods"].append(name)
+        elif verbose > 2:
+            print(
+                f"Not a class in this module or not a method: {name} {type(obj).__name__}"
+            )
+
+    # Remove any test classes that have no methods, e.g. an exception class the relies solely on the class name and has
+    # no methods of its own
+    if len(test_classes[test_mainclass_name]["methods"]) == 0:
+        del test_classes[test_mainclass_name]
+
+    for test_class_name in test_classes.keys():
+        if test_class_name == test_mainclass_name:
+            # Customize the name for the test class if it is for __main__
+            test_class_pretty_name = f"{package_name}MainTests"
+        else:
+            test_class_pretty_name = test_class_name
+        test_class_def = (
+            f"class {test_class_pretty_name}(TracebaseTestCase):\n"
+            f'    """Test class for {test_classes[test_class_name]["python_path"]}.'
+            f'{test_classes[test_class_name]["class_name"]}"""\n'
+        )
+
+        existing_test_method_names = []
+        if test_module is not None:
+            try:
+                for test_method_name, _ in inspect.getmembers(
+                    getattr(test_module, test_class_pretty_name)
+                ):
+                    existing_test_method_names.append(test_method_name)
+            except AttributeError:
+                pass
+
+        created = 0
+        existed = 0
+        for method_name in test_classes[test_class_name]["methods"]:
+            test_method_name = f"test_{method_name}"
+            # If a test matching this method does not already exist
+            if (
+                # Any existing test method starts with the test name (but not because the name of the method being
+                # tested is the start of another method being tested)
+                not any(
+                    item != method_name and item.startswith(method_name)
+                    for item in test_classes[test_class_name]["methods"]
+                )
+                and any(
+                    item.startswith(test_method_name)
+                    for item in existing_test_method_names
+                )
+            ) or (
+                # Any existing test method matches an existing test name
+                # NOTE: We could filter the existing test method names for ones matching other methods, but that's a
+                # bit more complex than I want to be RN
+                test_method_name
+                in existing_test_method_names
+            ):
+                if verbose > 1:
+                    print(
+                        f"Test method {test_classes[test_class_name]['class_name']}.{test_method_name} already exists"
+                    )
+                existed += 1
+            else:
+                if test_class_def is not None:
+                    print(test_class_def)
+                    test_class_def = None
+                print(
+                    f"    def {test_method_name}(self):\n"
+                    f'        """Test {test_classes[test_class_name]["class_name"]}.{method_name}"""\n'
+                    f"        # TODO: Implement test\n"
+                    "        pass\n"
+                )
+                created += 1
+
+        return created, existed
+
+
+def generate_test_stubs(module_name: str = "DataRepo", verbose=0):
+    """Takes a module name in the form of a python path and recursively traverses all submodules to call
+    _generate_test_stubs on every package to generate test stubs for methods that don't already have test stubs.
+
+    Modules whose names are in TEST_GENERATION_IGNORE_MODULES are skipped.
+
+    Assumptions:
+        1. Existing tests follow the same directory/file structure.
+        2. Existing tests are located in DataRepo.tests.
+        3. Directories under DataRepo/tests exactly match the directory names of the submodules being tested.
+        4. Test file names have "test_" prepended compared to the package's file names.
+        5. "DataRepo/tests" is the path of the tests module and that the CWD contains "DataRepo".
+    Args:
+        module_name (str) ["DataRepo"]: Python path
+        verbose (int)
+    Exceptions:
+        None
+    Returns:
+        created (int): Count of the number of test stubs printed.
+        existed (int): Count of the number of pre-existing tests.
+    """
+
+    if IMPORT_ERROR is not None:
+        raise IMPORT_ERROR
+
+    total_created = 0
+    total_existed = 0
+
+    for filepath, member_name, ispkg in pkgutil.iter_modules(
+        path=[os.path.join(os.getcwd(), *module_name.split("."))]
+    ):
+        if f"{module_name}.{member_name}" in TEST_GENERATION_IGNORE_MODULES:
+            if verbose > 0:
+                print(f"Skipping {filepath} {module_name}.{member_name}")
+            continue
+
+        if ispkg:
+            if verbose > 0:
+                dir = os.path.join(filepath.path, member_name)  # type: ignore
+                print(f"Recursing into {dir} {module_name}.{member_name}")
+            created, existed = generate_test_stubs(
+                module_name=f"{module_name}.{member_name}", verbose=verbose
+            )
+        else:
+            submodule = importlib.import_module(f"{module_name}.{member_name}")
+            module_file_path = os.path.relpath(str(submodule.__file__), os.getcwd())
+            po = pathlib.Path(module_file_path)
+            test_module_file_path = os.path.join(
+                "DataRepo", "tests", *po.parts[1:-1], "_".join(["test", po.parts[-1]])
+            )
+            print(f"{test_module_file_path} ({module_name}.{member_name})")
+            created, existed = _generate_test_stubs(submodule, verbose=verbose)
+
+        total_created += created
+        total_existed += existed
+
+    return total_created, total_existed
+
+
+def generate_tracebase_test_stubs(verbose=0):
+    created, existed = generate_test_stubs(verbose=verbose)
+    print(f"Done. Test stubs created: {created} existed: {existed}")
+
+
+def to_title_case(text):
+    """Converts an underscore delimited string like title_case to TitleCase."""
+    return "".join(word.title() for word in text.split("_"))
