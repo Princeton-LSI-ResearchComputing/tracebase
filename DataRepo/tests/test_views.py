@@ -42,60 +42,33 @@ def assert_coordinator_state_is_initialized():
 
 
 class ViewTests(TracebaseTestCase):
-    fixtures = ["lc_methods.yaml", "data_formats.yaml"]
+    fixtures = ["lc_methods.yaml", "data_formats.yaml", "data_types.yaml"]
 
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
-        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
-        cls.ALL_TISSUES_COUNT = 37
-
         call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
         )
-        cls.ALL_COMPOUNDS_COUNT = 3
+        cls.ALL_TISSUES_COUNT = 35
+        cls.ALL_COMPOUNDS_COUNT = 51
 
         if not disabled_coordinator:
             # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after
             # itself
             assert_coordinator_state_is_initialized()
 
-        call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-        )
-        # not counting the header and BLANK samples
+        # 15 placeholders and 2 concrete from mzXML files
         cls.ALL_SAMPLES_COUNT = 15
+        cls.ALL_MSRUN_SAMPLES_COUNT = 17
         # not counting the header and the BLANK animal
         cls.ALL_ANIMALS_COUNT = 1
 
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
         cls.INF_PEAKDATA_ROWS = 11
         cls.INF_PEAKGROUP_COUNT = cls.INF_COMPOUNDS_COUNT * cls.INF_SAMPLES_COUNT
 
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file=(
-                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum/"
-                "small_obob_maven_6eaas_serum.xlsx"
-            ),
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=False,
-        )
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1
         cls.SERUM_PEAKDATA_ROWS = 13
@@ -200,11 +173,11 @@ class ViewTests(TracebaseTestCase):
 
     @tag("study")
     def test_study_detail(self):
-        obob_fasted = Study.objects.filter(name="obob_fasted").get()
+        obob_fasted = Study.objects.filter(name="Small OBOB").get()
         response = self.client.get(reverse("study_detail", args=[obob_fasted.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/study_detail.html")
-        self.assertEqual(response.context["study"].name, "obob_fasted")
+        self.assertEqual(response.context["study"].name, "Small OBOB")
         self.assertEqual(len(response.context["stats_df"]), 1)
 
     @tag("study")
@@ -228,7 +201,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/animal_detail.html")
         self.assertEqual(response.context["animal"].name, "971")
-        self.assertEqual(len(response.context["df"]), self.ALL_SAMPLES_COUNT)
+        self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
     @tag("animal")
     def test_animal_detail_404(self):
@@ -262,8 +235,8 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get("/DataRepo/samples/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/sample_list.html")
-        self.assertEqual(len(response.context["sample_list"]), self.ALL_SAMPLES_COUNT)
-        self.assertEqual(len(response.context["df"]), self.ALL_SAMPLES_COUNT)
+        self.assertEqual(self.ALL_SAMPLES_COUNT, len(response.context["sample_list"]))
+        self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
     @tag("sample")
     def test_sample_list_per_animal(self):
@@ -272,8 +245,8 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get("/DataRepo/samples/?animal_id=" + str(a1.pk))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/sample_list.html")
-        self.assertEqual(len(response.context["sample_list"]), s1.count())
-        self.assertEqual(len(response.context["df"]), s1.count())
+        self.assertEqual(s1.count(), len(response.context["sample_list"]))
+        self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
     @tag("sample")
     def test_sample_detail(self):
@@ -293,7 +266,9 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("msrunsample_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsample_list.html")
-        self.assertEqual(len(response.context["msrun_samples"]), self.ALL_SAMPLES_COUNT)
+        self.assertEqual(
+            len(response.context["msrun_samples"]), self.ALL_MSRUN_SAMPLES_COUNT
+        )
 
     def test_msrun_sequence_list(self):
         response = self.client.get(reverse("msrunsequence_list"))
@@ -302,7 +277,9 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["sequences"]), self.ALL_SEQUENCES_COUNT)
 
     def test_msrun_sample_detail(self):
-        ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
+        ms1 = MSRunSample.objects.filter(
+            sample__name="BAT-xz971", ms_data_file__isnull=True
+        ).get()
         response = self.client.get(reverse("msrunsample_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsample_detail.html")
@@ -315,13 +292,15 @@ class ViewTests(TracebaseTestCase):
 
     def test_msrun_sequence_detail(self):
         ms1 = MSRunSequence.objects.filter(
-            msrun_samples__sample__name="BAT-xz971"
+            msrun_samples__sample__name="BAT-xz971",
+            msrun_samples__ms_data_file__isnull=True,
         ).get()
         response = self.client.get(reverse("msrunsequence_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsequence_detail.html")
         self.assertEqual(
-            self.ALL_SAMPLES_COUNT, response.context["sequence"].msrun_samples.count()
+            self.ALL_MSRUN_SAMPLES_COUNT,
+            response.context["sequence"].msrun_samples.count(),
         )
 
     def test_msrun_sequence_detail_404(self):
@@ -333,7 +312,8 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("archive_file_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/archive_file_list.html")
-        self.assertEqual(len(response.context["archive_file_list"]), 2)
+        # 2 mzXML's, 2 raw, and 2 peak annotation files
+        self.assertEqual(6, len(response.context["archive_file_list"]))
 
     def test_archive_file_detail(self):
         af1 = ArchiveFile.objects.filter(
@@ -361,7 +341,9 @@ class ViewTests(TracebaseTestCase):
         )
 
     def test_peakgroup_list_per_msrun_sample(self):
-        ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
+        ms1 = MSRunSample.objects.filter(
+            sample__name="BAT-xz971", ms_data_file__isnull=True
+        ).get()
         pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id)
         response = self.client.get(
             "/DataRepo/peakgroups/?msrun_sample_id=" + str(ms1.pk)
@@ -371,7 +353,9 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["peakgroup_list"]), pg1.count())
 
     def test_peakgroup_detail(self):
-        ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
+        ms1 = MSRunSample.objects.filter(
+            sample__name="BAT-xz971", ms_data_file__isnull=True
+        ).get()
         pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id).first()
         response = self.client.get(reverse("peakgroup_detail", args=[pg1.id]))
         self.assertEqual(response.status_code, 200)
