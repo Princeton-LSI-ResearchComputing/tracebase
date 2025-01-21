@@ -850,12 +850,12 @@ class FormatGroup:
 
 
 class UnsupportedDistinctCombo(Exception):
-    def __init__(self, fields):
+    def __init__(self, fields: list):
         message = (
-            f"Unsupported combination of distinct fields: [{', '.join(fields)}].  The problem likely stems from the "
-            "usage of field references that are not real database fields, used in both .distinct() and .order_by().  "
-            "Those methods resolve foreign keys (to database fields) in models differently.  Be sure to supply actual "
-            "database fields and not foreign key object references."
+            f"Unsupported combination of distinct fields: {fields}.  The problem likely stems from the usage of field "
+            "references that are not real database fields, used in both .distinct() and .order_by().  Those methods "
+            "resolve foreign keys (to database fields) in models differently.  Be sure to supply actual database "
+            "fields and not foreign key object references."
         )
         super().__init__(message)
         self.fields = fields

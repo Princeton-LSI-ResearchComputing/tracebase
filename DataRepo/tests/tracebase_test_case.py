@@ -30,6 +30,7 @@ TEST_GENERATION_IGNORE_MODULES = [
     "DataRepo.urls",
     "DataRepo.tests",
     "DataRepo.migrations",
+    "DataRepo.formats.search_group",  # covered by dataformat_group
 ]
 TEST_MODULE_REPLACEMENT = ("DataRepo", "DataRepo.tests")
 LONG_TEST_THRESH_SECS = 20
@@ -167,7 +168,7 @@ class TracebaseArchiveTestCase(TracebaseTransactionTestCase):
         super().tearDown()
 
 
-def _generate_test_stubs(package, verbose=False):
+def _generate_test_stubs(package, verbose=0):
     """Takes a package (e.g. the name output of pkgutil.iter_modules) and prints test classes with stub test methods for
     every method (including class constructors) hard-coded into that package (i.e. not methods from a superclass defined
     in a separate file).
@@ -193,7 +194,7 @@ def _generate_test_stubs(package, verbose=False):
         1. package is not a tests package.
     Args:
         package (str): a python path to a package (file), e.g. DataRepo.loaders
-        verbose (bool)
+        verbose (int)
     Exceptions:
         None
     Returns:
@@ -226,10 +227,10 @@ def _generate_test_stubs(package, verbose=False):
     test_package = ".".join(test_package.split(".")[:-1]) + "." + test_package_name
     try:
         test_module = importlib.import_module(test_package)
-        if verbose:
+        if verbose > 1:
             print(f"Test package {test_package} exists.")
     except ImportError as ie:
-        if verbose:
+        if verbose > 1:
             print(f"Test package {test_package} does not exist.  {ie}")
         test_module = None
 
@@ -254,15 +255,15 @@ def _generate_test_stubs(package, verbose=False):
                     and method_obj.__module__ == package.__name__
                     and not method_name.startswith("__")
                 ):
-                    if verbose:
+                    if verbose > 2:
                         print(f"Adding class method {test_class_name} {method_name}")
                     test_classes[test_class_name]["methods"].append(method_name)
-                elif verbose and inspect.isfunction(method_obj):
+                elif verbose > 2 and inspect.isfunction(method_obj):
                     print(
                         f"Not a target method because not in module?: {method_obj.__module__} == {package.__name__} or "
                         f"has dunderscore: {method_name}"
                     )
-                elif verbose:
+                elif verbose > 2:
                     print(f"Not a target method because not a method: {method_name}")
 
             # Add a test for the constructor
@@ -270,13 +271,13 @@ def _generate_test_stubs(package, verbose=False):
                 # ...to MainTests if there are no other methods to test
                 test_classes[test_mainclass_name]["methods"].append(name)
                 del test_classes[test_class_name]
-                if verbose:
+                if verbose > 2:
                     print(
                         f"Putting constructor for {name} in __main__ tests ({test_mainclass_name} and removing from "
                         f"{test_class_name}): {test_classes[test_mainclass_name]}."
                     )
             else:
-                if verbose:
+                if verbose > 2:
                     print(f"Putting constructor for {name} in {test_class_name} tests.")
                 test_classes[test_class_name]["methods"].insert(0, name)
 
@@ -285,13 +286,13 @@ def _generate_test_stubs(package, verbose=False):
             and obj.__module__ == package.__name__
             and not name.startswith("__")
         ):
-            if verbose:
+            if verbose > 2:
                 print(
                     f"Adding method from __main__: {name} module.__name__ == obj.__module__: {package.__name__} == "
                     f"{obj.__module__}"
                 )
             test_classes[test_mainclass_name]["methods"].append(name)
-        elif verbose:
+        elif verbose > 2:
             print(
                 f"Not a class in this module or not a method: {name} {type(obj).__name__}"
             )
@@ -303,16 +304,12 @@ def _generate_test_stubs(package, verbose=False):
 
     for test_class_name in test_classes.keys():
         if test_class_name == test_mainclass_name:
-            # Try to customize the name for the test class if it is for __main__
-            if f"{package_name}Tests" not in test_classes.keys():
-                test_class_pretty_name = f"{package_name}Tests"
-            else:
-                test_class_pretty_name = f"{package_name}MainTests"
-            print(f"class {test_class_pretty_name}(TracebaseTestCase):")
+            # Customize the name for the test class if it is for __main__
+            test_class_pretty_name = f"{package_name}MainTests"
         else:
             test_class_pretty_name = test_class_name
-            print(f"class {test_class_name}(TracebaseTestCase):")
-        print(
+        test_class_def = (
+            f"class {test_class_pretty_name}(TracebaseTestCase):\n"
             f'    """Test class for {test_classes[test_class_name]["python_path"]}.'
             f'{test_classes[test_class_name]["class_name"]}"""\n'
         )
@@ -332,44 +329,45 @@ def _generate_test_stubs(package, verbose=False):
         for method_name in test_classes[test_class_name]["methods"]:
             test_method_name = f"test_{method_name}"
             # If a test matching this method does not already exist
-            if not (
-                (
-                    # Any existing test method starts with the test name (but not because the name of the method being
-                    # tested is the start of another method being tested)
-                    not any(
-                        item.startswith(method_name)
-                        for item in test_classes[test_class_name]["methods"]
-                    )
-                    and any(
-                        item.startswith(test_method_name)
-                        for item in existing_test_method_names
-                    )
+            if (
+                # Any existing test method starts with the test name (but not because the name of the method being
+                # tested is the start of another method being tested)
+                not any(
+                    item != method_name and item.startswith(method_name)
+                    for item in test_classes[test_class_name]["methods"]
                 )
-                or (
-                    # Any existing test method matches an existing test name
-                    # NOTE: We could filter the existing test method names for ones matching other methods, but that's a
-                    # bit more complex than I want to be RN
-                    test_method_name
-                    in existing_test_method_names
+                and any(
+                    item.startswith(test_method_name)
+                    for item in existing_test_method_names
                 )
+            ) or (
+                # Any existing test method matches an existing test name
+                # NOTE: We could filter the existing test method names for ones matching other methods, but that's a
+                # bit more complex than I want to be RN
+                test_method_name
+                in existing_test_method_names
             ):
+                if verbose > 1:
+                    print(
+                        f"Test method {test_classes[test_class_name]['class_name']}.{test_method_name} already exists"
+                    )
+                existed += 1
+            else:
+                if test_class_def is not None:
+                    print(test_class_def)
+                    test_class_def = None
                 print(
                     f"    def {test_method_name}(self):\n"
-                    f'        """Test {method_name}"""\n'
+                    f'        """Test {test_classes[test_class_name]["class_name"]}.{method_name}"""\n'
                     f"        # TODO: Implement test\n"
                     "        pass\n"
                 )
                 created += 1
-            else:
-                print(
-                    f"Test method {test_class_name}.{test_method_name} already exists"
-                )
-                existed += 1
 
         return created, existed
 
 
-def generate_test_stubs(module_name: str = "DataRepo", verbose=False):
+def generate_test_stubs(module_name: str = "DataRepo", verbose=0):
     """Takes a module name in the form of a python path and recursively traverses all submodules to call
     _generate_test_stubs on every package to generate test stubs for methods that don't already have test stubs.
 
@@ -383,7 +381,7 @@ def generate_test_stubs(module_name: str = "DataRepo", verbose=False):
         5. "DataRepo/tests" is the path of the tests module and that the CWD contains "DataRepo".
     Args:
         module_name (str) ["DataRepo"]: Python path
-        verbose (bool)
+        verbose (int)
     Exceptions:
         None
     Returns:
@@ -401,12 +399,12 @@ def generate_test_stubs(module_name: str = "DataRepo", verbose=False):
         path=[os.path.join(os.getcwd(), *module_name.split("."))]
     ):
         if f"{module_name}.{member_name}" in TEST_GENERATION_IGNORE_MODULES:
-            if verbose:
+            if verbose > 0:
                 print(f"Skipping {filepath} {module_name}.{member_name}")
             continue
 
         if ispkg:
-            if verbose:
+            if verbose > 0:
                 dir = os.path.join(filepath.path, member_name)  # type: ignore
                 print(f"Recursing into {dir} {module_name}.{member_name}")
             created, existed = generate_test_stubs(
@@ -428,7 +426,7 @@ def generate_test_stubs(module_name: str = "DataRepo", verbose=False):
     return total_created, total_existed
 
 
-def generate_tracebase_test_stubs(verbose=False):
+def generate_tracebase_test_stubs(verbose=0):
     created, existed = generate_test_stubs(verbose=verbose)
     print(f"Done. Test stubs created: {created} existed: {existed}")
 
