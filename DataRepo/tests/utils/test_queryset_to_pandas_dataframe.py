@@ -13,8 +13,10 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         # load small set of data
-        call_command("loaddata", "lc_methods")
-        call_command("legacy_load_study", "DataRepo/data/tests/dataframes/loading.yaml")
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/dataframes/animal_sample_table_df_test1_v3.xlsx",
+        )
 
         # define expected data in dictionaries
         cls.study1_dict = {

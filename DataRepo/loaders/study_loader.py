@@ -590,6 +590,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             # loaders it calls.  If you want to run in dry-run mode, that's fine.  Just don't pass that argument to the
             # child loaders.
             # "dry_run": self.dry_run,
+            "debug": self.debug,
             "defer_rollback": True,
             "defaults_sheet": self.defaults_sheet,
             "file": self.file,

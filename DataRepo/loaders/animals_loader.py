@@ -19,6 +19,7 @@ from DataRepo.models import (
 )
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils.exceptions import (
+    DuplicateValues,
     MissingStudies,
     MissingTreatments,
     RecordDoesNotExist,
@@ -728,4 +729,14 @@ class AnimalsLoader(TableLoader):
                         "submission."
                     ),
                 ),
+            )
+
+        dvs = self.aggregated_errors_object.get_exception_type(DuplicateValues)
+        dv: DuplicateValues
+        for dv in dvs:
+            dv.set_formatted_message(
+                suggestion=(
+                    f"If animals belong to multiple studies, be sure to delimit them all with '{self.StudyDelimiter}' "
+                    f"in the '{self.headers.STUDY}' column on 1 row."
+                )
             )

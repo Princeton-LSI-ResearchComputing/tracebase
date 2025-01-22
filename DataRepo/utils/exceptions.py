@@ -215,6 +215,7 @@ class InfileError(Exception):
                 message += f"\n{suggestion}"
 
         self.message = message
+        self.suggestion = suggestion
 
         return self
 
@@ -2910,6 +2911,7 @@ class DuplicateValueErrors(Exception):
     """
 
     def __init__(self, dupe_val_exceptions: list[DuplicateValues], message=None):
+        suggestions = []
         if not message:
             dupe_dict: Dict[str, dict] = defaultdict(
                 lambda: defaultdict(lambda: defaultdict(list))
@@ -2917,6 +2919,8 @@ class DuplicateValueErrors(Exception):
             for dve in dupe_val_exceptions:
                 typ = f" ({dve.addendum})" if dve.addendum is not None else ""
                 dupe_dict[dve.loc][str(dve.colnames)][typ].append(dve)
+                if dve.suggestion is not None and dve.suggestion not in suggestions:
+                    suggestions.append(dve.suggestion)
             message = (
                 "The following unique column(s) (or column combination(s)) were found to have duplicate occurrences "
                 "on the indicated rows:\n"
@@ -2930,8 +2934,20 @@ class DuplicateValueErrors(Exception):
                             message += "\n\t\t\t"
                             message += "\n\t\t\t".join(dve.dupdeets)
                         message += "\n"
+
+        if len(suggestions) > 0:
+            # TODO: This suggestion attribute was added to parallel other exception classes derived from InfileError.
+            # Create a new higher level exception class (e.g. ResolvableException) that InfileError,
+            # MultiplePeakGroupRepresentation and this class should inherit from, which implements the suggestion
+            # attribute and remove this custom suggestion attribute in this class.
+            if message.endswith("\n"):
+                message += "\n".join(suggestions)
+            else:
+                message += "\n" + "\n".join(suggestions)
+
         super().__init__(message)
         self.dupe_val_exceptions = dupe_val_exceptions
+        self.suggestions = suggestions
 
 
 class DuplicateValues(InfileError, SummarizableError):
