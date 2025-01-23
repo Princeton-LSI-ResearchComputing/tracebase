@@ -189,8 +189,8 @@ function disablePeakAnnotForm () {
 
 /**
  * This function clears the file picker input element inside the drop area after having created form rows.  It is called
- * from the drop-area code after all dropped/picked files have been processed.  It intentionally leaves the entries in
- * the sequence metadata inputs for re-use upon additional drops/picks.
+ * from the annot-drop-area code after all dropped/picked files have been processed.  It intentionally leaves the
+ * entries in the sequence metadata inputs for re-use upon additional drops/picks.
  */
 function afterAddingFiles () { // eslint-disable-line no-unused-vars
   dropAreaInput.value = null

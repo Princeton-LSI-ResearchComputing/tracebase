@@ -13,12 +13,44 @@
         <table>
             <tr>
                 <td>
-                    <div id="drop-area">
+                    <div id="annot-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
-                            <input type="file" multiple id="drop-area-input" onchange="handleFiles(this.files);"/>
+                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files);"/>
                             Choose Files
-                        </label>  <span class="drop-area-message">(Drag and drop here)</span>
+                        </label>  <span class="drop-area-message">(Drop peak annotation files here)</span>
+                    </div>
+                </td>
+                <td style="vertical-align: middle;">
+                    <table>
+                        <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
+                            <td style="display: none;" id="fileColumn">
+                                {{ form.peak_annotation_file }}
+                            </td>
+                            <td>
+                                {{ form.operator }}
+                            </td>
+                            <td>
+                                {{ form.instrument }}
+                            </td>
+                            <td>
+                                {{ form.protocol }}
+                            </td>
+                            <td>
+                                {{ form.run_date }}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div id="raw-drop-area">
+                        <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
+                        <label class="btn btn-secondary">
+                            <input type="file" multiple id="raw-drop-area-input" onchange="handleFiles(this.files);"/>
+                            Choose Files
+                        </label>  <span class="drop-area-message">(Drop MS data folder here)</span>
                     </div>
                 </td>
                 <td style="vertical-align: middle;">
@@ -84,7 +116,7 @@
         </span>
 
         <button type="submit" class="btn btn-primary" id="submit">Download Template</button>
-        <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
+        <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('annot-drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
         {% if results %}
             <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
         {% endif %}
