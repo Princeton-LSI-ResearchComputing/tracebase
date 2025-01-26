@@ -5345,6 +5345,37 @@ class MultipleStudyDocVersions(StudyDocVersionException):
         self.matching_version_numbers = matching_version_numbers
 
 
+class MzxmlsWithoutSequences(Exception):
+    def __init__(self, mzxml_filepaths: List[str], sequence_dirs: List[str], suggestion=None):
+        nlt = "\n\t"
+        message = (
+            "None of the supplied sequence directories:\n"
+            f"\t{nlt.join(sequence_dirs)}\n"
+            "matched the following mzXML files:\n"
+            f"\t{nlt.join(mzxml_filepaths)}"
+        )
+        if suggestion is not None:
+            message += f"\n{suggestion}"
+        super().__init__(message)
+        self.mzxml_filepaths = mzxml_filepaths
+        self.sequence_dirs = sequence_dirs
+        self.suggestion = suggestion
+
+
+class SequencesWithoutMzxmls(Exception):
+    def __init__(self, empty_sequence_dirs: List[str], suggestion=None):
+        nlt = "\n\t"
+        message = (
+            "The following sequence directories either didn't exist or contained no mzXML files:\n"
+            f"\t{nlt.join(empty_sequence_dirs)}"
+        )
+        if suggestion is not None:
+            message += f"\n{suggestion}"
+        super().__init__(message)
+        self.empty_sequence_dirs = empty_sequence_dirs
+        self.suggestion = suggestion
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:

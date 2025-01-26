@@ -1,5 +1,6 @@
 import base64
 import os.path
+import posixpath
 import warnings
 from collections import defaultdict
 from io import BytesIO
@@ -66,7 +67,9 @@ from DataRepo.utils.exceptions import (
     MultiLoadStatus,
     MultiplePeakAnnotationFileFormats,
     MultipleStudyDocVersions,
+    MzxmlsWithoutSequences,
     NoSamples,
+    SequencesWithoutMzxmls,
     UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
 )
@@ -269,7 +272,8 @@ class BuildSubmissionView(FormView):
         self.annot_files_dict: Dict[str, str] = {}
         self.peak_annot_files = None
         self.peak_annot_filenames = []
-        self.annot_file_metadata = {}
+        # TODO: Remove.  No longer needed
+        # self.annot_file_metadata = {}
 
         # Data validation (e.g. dropdown menus) will be applied to the last fleshed row plus this offset
         self.validation_offset = 20
@@ -753,8 +757,13 @@ class BuildSubmissionView(FormView):
         study_filename = None
         peak_annot_files = []
         peak_annot_filenames = []
-        self.annot_file_metadata = {}
+        # TODO: Remove. No longer needed
+        # self.annot_file_metadata = {}
+        self.peak_annot_to_mzxml_metadata = defaultdict(dict)
+        self.sequence_metadata = {}
+        self.mzxml_file_to_seq_dir = {}
         rowform: dict
+        self.load_status_data.clear_load()
         for index, rowform in enumerate(formset.cleaned_data):
             # We only need/allow a single mode and study_doc, which is saved only in the first rowform
             if index == 0:
@@ -764,24 +773,129 @@ class BuildSubmissionView(FormView):
                     study_file = study_file_object.temporary_file_path()
                     study_filename = str(study_file_object)
 
-            # Process the peak annotation files
-            peak_annotation_file_object = rowform.get("peak_annotation_file")
-            if peak_annotation_file_object is not None:
-                peak_annot_file = peak_annotation_file_object.temporary_file_path()
-                peak_annot_filename = str(peak_annotation_file_object)
+                # Process the peak annotation files, submitted via a hidden multiple file picker
+                print(f"SEE IF I CAN TELL IF THE MULTIPLE PEAK ANNOTATION FILE LIST IS IN THE FORM DATA: {rowform}")
+                peak_annotation_files_object = rowform.get("peak_annotation_files")
+                if peak_annotation_files_object is not None:
+                    peak_annot_file = peak_annotation_files_object.temporary_file_path()
+                    peak_annot_filename = str(peak_annotation_files_object)
 
-                peak_annot_files.append(peak_annot_file)
-                peak_annot_filenames.append(peak_annot_filename)
+                    peak_annot_files.append(peak_annot_file)
+                    peak_annot_filenames.append(peak_annot_filename)
 
-                self.annot_file_metadata[peak_annot_filename] = {
-                    "operator": rowform.get("operator"),
-                    "protocol": rowform.get("protocol"),
-                    "instrument": rowform.get("instrument"),
-                    # Date key is selected to be compatible with MSRunSequence.create_sequence_name
-                    "date": rowform.get("run_date"),
-                }
+                    # The peak_annot_to_mzxml_metadata form field is a JSONField that contains data that maps each peak
+                    # annotation file name to the sequence folder and scan subfolder containing mzXML files.  This is an
+                    # optional field for the researcher to fill out.  If we have it, then we can know which MSRunSample
+                    # record (containing a specific mzXML) to link PeakGroup records to using the sample name (derived
+                    # from the mzXML filename and the peak annotation header) and the sequence (via the selected
+                    # directory)
+                    self.peak_annot_to_mzxml_metadata = rowform.get("peak_annot_to_mzxml_metadata")
 
-        self.load_status_data.clear_load()
+                    # Masterlist of mzXML filepaths
+                    mzxml_file_list = rowform.get("mzxml_file_list")
+                    for mzxml_filepath in mzxml_file_list:
+                        if mzxml_filepath in self.mzxml_file_to_seq_dir.keys():
+                            raise ProgrammingError(
+                                "Looks like we need to check if a filepath exists - probably due to not having a "
+                                f"path.  mzxml_filepath: {mzxml_filepath}"
+                            )
+                        self.mzxml_file_to_seq_dir[mzxml_filepath] = {
+                            "sequence_dir": None,
+                            "scan_dir": None,
+                        }
+
+            # self.annot_file_metadata[peak_annot_filename] = {
+            #     "operator": rowform.get("operator"),
+            #     "protocol": rowform.get("protocol"),
+            #     "instrument": rowform.get("instrument"),
+            #     # Date key is selected to be compatible with MSRunSequence.create_sequence_name
+            #     "date": rowform.get("run_date"),
+            # }
+
+            sequence_dir = rowform.get("sequence_dir")
+            operator = rowform.get("operator")
+            protocol = rowform.get("protocol")
+            instrument = rowform.get("instrument")
+            run_date = rowform.get("run_date")
+
+            if sequence_dir is not None:
+                self.sequence_metadata[sequence_dir]["operator"] = operator
+                self.sequence_metadata[sequence_dir]["protocol"] = protocol
+                self.sequence_metadata[sequence_dir]["instrument"] = instrument
+                self.sequence_metadata[sequence_dir]["run_date"] = run_date
+
+        mzxml_filepath: str
+        seq_dir: str
+        mzxmls_without_seqdirs = []
+        seqdirs_with_mzxmls = []
+        for mzxml_filepath in mzxml_file_list:
+            sequence_found = False
+            for seq_dir in self.mzxml_file_to_seq_dir.keys():
+                # Note that the javascript webkit functionality that supplies the path info ALWAYS use a "/" delimiter
+                while seq_dir.endswith(posixpath.sep):
+                    seq_dir = seq_dir[:-1]
+
+                if seq_dir == "":
+                    sep = ""
+                else:
+                    sep = posixpath.sep
+
+                if mzxml_filepath.startswith(f"{seq_dir}{sep}"):
+                    sequence_found = True
+                    if seq_dir not in seqdirs_with_mzxmls:
+                        seqdirs_with_mzxmls.append(seq_dir)
+
+                    # Set the sequence directory.  This is different from the sequence_dir field from the form.  That
+                    # one is for the Sequences sheet.  This one is for the MS Files sheet.
+                    self.mzxml_file_to_seq_dir[mzxml_filepath]["sequence_dir"] = seq_dir
+
+                    # Set the scan subdirectory
+                    scan_dir: str = posixpath.dirname(mzxml_filepath)
+                    scan_dir = scan_dir.replace(f"{seq_dir}{sep}", "")
+                    while scan_dir.endswith(posixpath.sep):
+                        scan_dir = scan_dir[:-1]
+                    self.mzxml_file_to_seq_dir[mzxml_filepath]["scan_dir"] = scan_dir
+
+            if not sequence_found:
+                mzxmls_without_seqdirs.append(mzxml_filepath)
+
+        if len(mzxmls_without_seqdirs) > 0:
+            missing_seqdirs = MzxmlsWithoutSequences(
+                mzxmls_without_seqdirs,
+                list(self.sequence_metadata.keys()),
+                suggestion=(
+                    "These files will be set as 'skipped'.  Sequence directories must match the beginning of an mzXML "
+                    "relative path from the study directory."
+                ),
+            )
+            self.load_status_data.set_load_exception(
+                missing_seqdirs,
+                "Sequences Check",
+                top=True,
+                default_is_error=False,
+                default_is_fatal=True,
+            )
+
+        seqdirs_without_mzxmls = []
+        for seq_dir in self.mzxml_file_to_seq_dir.keys():
+            if seq_dir not in seqdirs_with_mzxmls:
+                seqdirs_without_mzxmls.append(seq_dir)
+
+        if len(seqdirs_without_mzxmls) > 0:
+            missing_mzxmls = SequencesWithoutMzxmls(
+                seqdirs_without_mzxmls,
+                suggestion=(
+                    "These sequences will be empty.  Sequence directories must match the beginning of an mzXML "
+                    "relative path from the study directory."
+                ),
+            )
+            self.load_status_data.set_load_exception(
+                missing_mzxmls,
+                "mzXML Check",
+                top=True,
+                default_is_error=False,
+                default_is_fatal=True,
+            )
 
         self.set_files(
             study_file,
@@ -1633,161 +1747,163 @@ class BuildSubmissionView(FormView):
         if PeakAnnotationFilesLoader.DataSheetName not in self.study_file_sheets:
             return
 
-        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
-        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
-        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
-        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
-        # in order to avoid accidental int(/etc) types...
-        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
-        # solution is comprehensive before I refactor this code (more)
-        dtypes, aes = PeakAnnotationFilesLoader._get_column_types(optional_mode=True)
+        # TODO: I don't think there's anything to extract for autofill from this sheet any longer.  Remove this method.
+        # # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # # in order to avoid accidental int(/etc) types...
+        # # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # # solution is comprehensive before I refactor this code (more)
+        # dtypes, aes = PeakAnnotationFilesLoader._get_column_types(optional_mode=True)
 
-        df = self.read_from_file(
-            self.study_file,
-            sheet=PeakAnnotationFilesLoader.DataSheetName,
-            dtype=dtypes,
-        )
+        # df = self.read_from_file(
+        #     self.study_file,
+        #     sheet=PeakAnnotationFilesLoader.DataSheetName,
+        #     dtype=dtypes,
+        # )
 
-        loader = PeakAnnotationFilesLoader(
-            df=df,
-            file=self.study_file,
-            filename=self.study_filename,
-        )
-        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
-        seen = {
-            "sequences": defaultdict(dict),
-            "lcprotocols": defaultdict(dict),
-        }
+        # loader = PeakAnnotationFilesLoader(
+        #     df=df,
+        #     file=self.study_file,
+        #     filename=self.study_filename,
+        # )
+        # loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
+        # seen = {
+        #     "sequences": defaultdict(dict),
+        #     "lcprotocols": defaultdict(dict),
+        # }
 
-        for _, row in loader.df.iterrows():
-            if loader.is_row_empty(row):
-                continue
+        # for _, row in loader.df.iterrows():
+        #     if loader.is_row_empty(row):
+        #         continue
 
-            annot_file = loader.get_row_val(row, loader.headers.FILE)
-            seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
-            (
-                operator,
-                protocol,
-                instrument,
-                date,
-            ) = self.extract_autofill_from_sequence_name(seq_name, seen)
+        #     annot_file = loader.get_row_val(row, loader.headers.FILE)
+        #     seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
+        #     (
+        #         operator,
+        #         protocol,
+        #         instrument,
+        #         date,
+        #     ) = self.extract_autofill_from_sequence_name(seq_name, seen)
 
-            if annot_file is not None:
-                annot_name = (os.path.split(annot_file))[1]
+        #     if annot_file is not None:
+        #         annot_name = (os.path.split(annot_file))[1]
 
-                if annot_name not in self.annot_file_metadata.keys():
-                    self.annot_file_metadata = {
-                        "operator": None,
-                        "protocol": None,
-                        "instrument": None,
-                        "date": None,
-                    }
+        #         if annot_name not in self.annot_file_metadata.keys():
+        #             self.annot_file_metadata = {
+        #                 "operator": None,
+        #                 "protocol": None,
+        #                 "instrument": None,
+        #                 "date": None,
+        #             }
 
-                # The values in self.annot_file_metadata[annot_name] already are from the web form.  Those values trump
-                # what we might find in the file already, so we only update with what we find in the file if it's not
-                # set by the web form already.
-                if (
-                    self.annot_file_metadata[annot_name].get("operator") is None
-                    or self.annot_file_metadata[annot_name].get("operator") == ""
-                ):
-                    self.annot_file_metadata[annot_name]["operator"] = operator
+        #         # The values in self.annot_file_metadata[annot_name] already are from the web form.  Those values trump
+        #         # what we might find in the file already, so we only update with what we find in the file if it's not
+        #         # set by the web form already.
+        #         if (
+        #             self.annot_file_metadata[annot_name].get("operator") is None
+        #             or self.annot_file_metadata[annot_name].get("operator") == ""
+        #         ):
+        #             self.annot_file_metadata[annot_name]["operator"] = operator
 
-                if (
-                    self.annot_file_metadata[annot_name].get("protocol") is None
-                    or self.annot_file_metadata[annot_name].get("protocol") == ""
-                ):
-                    self.annot_file_metadata[annot_name]["protocol"] = protocol
+        #         if (
+        #             self.annot_file_metadata[annot_name].get("protocol") is None
+        #             or self.annot_file_metadata[annot_name].get("protocol") == ""
+        #         ):
+        #             self.annot_file_metadata[annot_name]["protocol"] = protocol
 
-                if (
-                    self.annot_file_metadata[annot_name].get("instrument") is None
-                    or self.annot_file_metadata[annot_name].get("instrument") == ""
-                ):
-                    self.annot_file_metadata[annot_name]["instrument"] = instrument
+        #         if (
+        #             self.annot_file_metadata[annot_name].get("instrument") is None
+        #             or self.annot_file_metadata[annot_name].get("instrument") == ""
+        #         ):
+        #             self.annot_file_metadata[annot_name]["instrument"] = instrument
 
-                if (
-                    self.annot_file_metadata[annot_name].get("date") is None
-                    or self.annot_file_metadata[annot_name].get("date") == ""
-                ):
-                    self.annot_file_metadata[annot_name]["date"] = date
+        #         if (
+        #             self.annot_file_metadata[annot_name].get("date") is None
+        #             or self.annot_file_metadata[annot_name].get("date") == ""
+        #         ):
+        #             self.annot_file_metadata[annot_name]["date"] = date
 
     def extract_autofill_from_peak_annot_details_sheet(self):
         if MSRunsLoader.DataSheetName not in self.study_file_sheets:
             return
 
-        # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
-        # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
-        # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
-        # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
-        # in order to avoid accidental int(/etc) types...
-        # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
-        # solution is comprehensive before I refactor this code (more)
-        dtypes, aes = MSRunsLoader._get_column_types(optional_mode=True)
+        # TODO: Replace this commented code with a usage of self.peak_annot_to_mzxml_metadata to autofill the MS Files sheet.
+        # # TODO: I would like to provide dtypes to manage the types we get back, but I have not figured out yet
+        # # how to address a type error from pandas when it encounters empty cells.  I have a comment in other
+        # # code that says that supplying keep_default_na=True fixes it, but that didn't work.  I have to think
+        # # about it.  But not setting types works for now.  Setting optional_mode=True explicitly sets str types
+        # # in order to avoid accidental int(/etc) types...
+        # # 11/1/2024 - I figured out a good part of this to solve a different problem, but I still need to make sure this
+        # # solution is comprehensive before I refactor this code (more)
+        # dtypes, aes = MSRunsLoader._get_column_types(optional_mode=True)
 
-        df = self.read_from_file(
-            self.study_file,
-            sheet=MSRunsLoader.DataSheetName,
-            dtype=dtypes,
-        )
+        # df = self.read_from_file(
+        #     self.study_file,
+        #     sheet=MSRunsLoader.DataSheetName,
+        #     dtype=dtypes,
+        # )
 
-        loader = MSRunsLoader(
-            df=df,
-            file=self.study_file,
-            filename=self.study_filename,
-        )
-        loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
+        # loader = MSRunsLoader(
+        #     df=df,
+        #     file=self.study_file,
+        #     filename=self.study_filename,
+        # )
+        # loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
 
-        # We're going to ignore the sample column.  It's way more likely it will have been auto-filled itself, and the
-        # samples sheet is populated at the same time, so doing that here is just wasted cycles.  Instead, we're looking
-        # for manually filled-in data to autofill elsewhere.
-        seen = {
-            "sequences": defaultdict(dict),
-            "lcprotocols": defaultdict(dict),
-        }
+        # # We're going to ignore the sample column.  It's way more likely it will have been auto-filled itself, and the
+        # # samples sheet is populated at the same time, so doing that here is just wasted cycles.  Instead, we're looking
+        # # for manually filled-in data to autofill elsewhere.
+        # seen = {
+        #     "sequences": defaultdict(dict),
+        #     "lcprotocols": defaultdict(dict),
+        # }
 
-        for _, row in loader.df.iterrows():
-            if loader.is_row_empty(row):
-                continue
+        # for _, row in loader.df.iterrows():
+        #     if loader.is_row_empty(row):
+        #         continue
 
-            seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
-            self.extract_autofill_from_sequence_name(seq_name, seen)
+        #     seq_name = loader.get_row_val(row, loader.headers.SEQNAME)
+        #     self.extract_autofill_from_sequence_name(seq_name, seen)
 
-            # We can actually fill in any missing seqnames in this sheet based on the file (and sample header)
-            # columns...
-            sample_header = loader.get_row_val(row, loader.headers.SAMPLEHEADER)
-            file = loader.get_row_val(row, loader.headers.ANNOTNAME)
-            if file in self.none_vals or sample_header in self.none_vals:
-                continue
-            filename = os.path.basename(file)
+        #     # We can actually fill in any missing seqnames in this sheet based on the file (and sample header)
+        #     # columns...
+        #     sample_header = loader.get_row_val(row, loader.headers.SAMPLEHEADER)
+        #     file = loader.get_row_val(row, loader.headers.ANNOTNAME)
+        #     if file in self.none_vals or sample_header in self.none_vals:
+        #         continue
+        #     filename = os.path.basename(file)
 
-            # If there's no seqname for this row, but we have a complete seqname in self.annot_file_metadata
-            # We have enough for autofill
-            if seq_name in self.none_vals and (
-                filename in self.annot_file_metadata.keys()
-                and None not in self.annot_file_metadata[filename].values()
-                and "" not in self.annot_file_metadata[filename].values()
-            ):
-                # Get the unique key used to identify this row
-                unique_annot_deets_key = self.row_key_delim.join(
-                    [sample_header, filename]
-                )
+        #     # If there's no seqname for this row, but we have a complete seqname in self.annot_file_metadata
+        #     # We have enough for autofill
+        #     if seq_name in self.none_vals and (
+        #         filename in self.annot_file_metadata.keys()
+        #         and None not in self.annot_file_metadata[filename].values()
+        #         and "" not in self.annot_file_metadata[filename].values()
+        #     ):
+        #         # Get the unique key used to identify this row
+        #         unique_annot_deets_key = self.row_key_delim.join(
+        #             [sample_header, filename]
+        #         )
 
-                # If the autofill_dict hasn't been filled in already (i.e. don't overwrite what the user entered in the
-                # web form)
-                if (
-                    unique_annot_deets_key
-                    not in self.autofill_dict[MSRunsLoader.DataSheetName].keys()
-                    or self.autofill_dict[MSRunsLoader.DataSheetName][
-                        unique_annot_deets_key
-                    ].get(MSRunsLoader.DataHeaders.SEQNAME)
-                    is None
-                ):
-                    self.autofill_dict[MSRunsLoader.DataSheetName][
-                        unique_annot_deets_key
-                    ][
-                        MSRunsLoader.DataHeaders.SEQNAME
-                    ] = MSRunSequence.create_sequence_name(
-                        **self.annot_file_metadata[filename]
-                    )
+        #         # If the autofill_dict hasn't been filled in already (i.e. don't overwrite what the user entered in the
+        #         # web form)
+        #         if (
+        #             unique_annot_deets_key
+        #             not in self.autofill_dict[MSRunsLoader.DataSheetName].keys()
+        #             or self.autofill_dict[MSRunsLoader.DataSheetName][
+        #                 unique_annot_deets_key
+        #             ].get(MSRunsLoader.DataHeaders.SEQNAME)
+        #             is None
+        #         ):
+        #             self.autofill_dict[MSRunsLoader.DataSheetName][
+        #                 unique_annot_deets_key
+        #             ][
+        #                 MSRunsLoader.DataHeaders.SEQNAME
+        #             ] = MSRunSequence.create_sequence_name(
+        #                 **self.annot_file_metadata[filename]
+        #             )
 
     def extract_autofill_from_sequence_name(self, seq_name, seen):
         if seq_name is not None and seq_name not in seen["sequences"].keys():
@@ -1957,19 +2073,21 @@ class BuildSubmissionView(FormView):
         Returns:
             None
         """
-        for seq_data in self.annot_file_metadata.values():
-            # This unique key is based on SequencesLoader.DataUniqueColumnConstraints
-            seqname = MSRunSequence.create_sequence_name(**seq_data)
-            # Note, this intentionally does not look for subsets of data, e.g. is N rows only have the operator (all the
-            # same) and M rows have the same operator and same instrument, the result is 2 rows in the sequences sheet.
-            # This assumes that the user has filled out as much information as they can in each case, and having those
-            # rows represented in the Sequences sheet will prevent them from having to duplicate them.
-            self.autofill_dict[SequencesLoader.DataSheetName][seqname] = {
-                SequencesLoader.DataHeaders.OPERATOR: seq_data["operator"],
-                SequencesLoader.DataHeaders.LCNAME: seq_data["protocol"],
-                SequencesLoader.DataHeaders.INSTRUMENT: seq_data["instrument"],
-                SequencesLoader.DataHeaders.DATE: seq_data["date"],
-            }
+        # TODO: Replace this commented code with a usage of self.mzxml_file_to_seq_dir to autofill the Sequences sheet.
+        pass
+        # for seq_data in self.annot_file_metadata.values():
+        #     # This unique key is based on SequencesLoader.DataUniqueColumnConstraints
+        #     seqname = MSRunSequence.create_sequence_name(**seq_data)
+        #     # Note, this intentionally does not look for subsets of data, e.g. is N rows only have the operator (all the
+        #     # same) and M rows have the same operator and same instrument, the result is 2 rows in the sequences sheet.
+        #     # This assumes that the user has filled out as much information as they can in each case, and having those
+        #     # rows represented in the Sequences sheet will prevent them from having to duplicate them.
+        #     self.autofill_dict[SequencesLoader.DataSheetName][seqname] = {
+        #         SequencesLoader.DataHeaders.OPERATOR: seq_data["operator"],
+        #         SequencesLoader.DataHeaders.LCNAME: seq_data["protocol"],
+        #         SequencesLoader.DataHeaders.INSTRUMENT: seq_data["instrument"],
+        #         SequencesLoader.DataHeaders.DATE: seq_data["date"],
+        #     }
 
     def extract_autofill_from_peak_annotation_files_forms(self):
         """Extracts data from multiple peak annotation files and the accompanying form sequence metadata that can be
@@ -1993,13 +2111,14 @@ class BuildSubmissionView(FormView):
         sample_dupes_exist = False
         for i in range(len(self.peak_annot_files)):
             peak_annot_filename = self.peak_annot_filenames[i]
-            seq_data: dict = self.annot_file_metadata.get(peak_annot_filename, {})
-            partial_seqname = None
-            if len([v for v in seq_data.values() if v not in self.none_vals]) > 0:
-                partial_seqname = MSRunSequence.create_sequence_name(**seq_data)
-            complete_seqname = None
-            if "" not in seq_data.values() and None not in seq_data.values():
-                complete_seqname = partial_seqname
+            # TODO: This commented code isn't needed any longer.  Remove it.
+            # seq_data: dict = self.annot_file_metadata.get(peak_annot_filename, {})
+            # partial_seqname = None
+            # if len([v for v in seq_data.values() if v not in self.none_vals]) > 0:
+            #     partial_seqname = MSRunSequence.create_sequence_name(**seq_data)
+            # complete_seqname = None
+            # if "" not in seq_data.values() and None not in seq_data.values():
+            #     complete_seqname = partial_seqname
 
             # If the file format could not be determined, the loader will be None
             if self.peak_annotations_loaders[i] is None:
@@ -2019,8 +2138,9 @@ class BuildSubmissionView(FormView):
                     if peak_annot_filename not in self.files_with_format_errors
                     else None
                 ),
-                # Always fill in what we have of the seqname
-                PeakAnnotationFilesLoader.DataHeaders.SEQNAME: partial_seqname,
+                # TODO: This commented code isn't needed any longer.  Remove it.
+                # # Always fill in what we have of the seqname
+                # PeakAnnotationFilesLoader.DataHeaders.SEQNAME: partial_seqname,
             }
 
             # Extracting samples - using vectorized access of the dataframe because it's faster and we don't need error
@@ -2070,12 +2190,14 @@ class BuildSubmissionView(FormView):
                 ] = {
                     MSRunsLoader.DataHeaders.SAMPLEHEADER: sample_header,
                     MSRunsLoader.DataHeaders.SAMPLENAME: sample_name,
+                    # TODO: We can use the data in self.peak_annot_to_mzxml_metadata and self.mzxml_file_to_seq_dir to autofill the mzXML File now.  Uncomment the MZXMLNAME line below.
                     # No point in entering the mzXML. It will default to this in its loader:
                     # MSRunsLoader.DataHeaders.MZXMLNAME: f"{sample_header}.mzXML",
                     MSRunsLoader.DataHeaders.ANNOTNAME: peak_annot_filename,
-                    # This only fills in the seqname if it is complete, so it can be autofilled if the researcher fills
-                    # in the rest of the Peak Annotation Files sheet's seqname values
-                    MSRunsLoader.DataHeaders.SEQNAME: complete_seqname,
+                    # TODO: This commented code isn't needed any longer.  Remove it.
+                    # # This only fills in the seqname if it is complete, so it can be autofilled if the researcher fills
+                    # # in the rest of the Peak Annotation Files sheet's seqname values
+                    # MSRunsLoader.DataHeaders.SEQNAME: complete_seqname,
                     MSRunsLoader.DataHeaders.SKIP: skip,
                 }
 

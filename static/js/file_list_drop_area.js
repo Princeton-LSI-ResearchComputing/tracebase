@@ -31,7 +31,11 @@ function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-lin
   dropArea.addEventListener('drop', handleDrop, false)
 
   globalThis.dropArea = dropArea
-  globalThis.fileFunc = fileFunc
+  if (typeof fileFunc !== 'undefined' && fileFunc) {
+    globalThis.fileFunc = fileFunc
+  } else {
+    globalThis.fileFunc = null
+  }
   if (typeof postDropFunc !== 'undefined' && postDropFunc) {
     globalThis.postDropFunc = postDropFunc
   } else {
@@ -76,36 +80,12 @@ function handleFiles (files) { // eslint-disable-line no-unused-vars
       // See: https://stackoverflow.com/questions/8006715/
       const dT = new DataTransfer() // eslint-disable-line no-undef
       dT.items.add(files.item(i))
-      fileFunc(dT)
+      if (typeof fileFunc !== 'undefined' && fileFunc) {
+        fileFunc(dT)
+      }
     }
     if (typeof postDropFunc !== 'undefined' && postDropFunc) {
-      postDropFunc()
+      postDropFunc(files)
     }
   }
-}
-
-/**
- * This takes a FileList object and creates a string of all the file names for display.
- * @param {*} files [FileList]
- * @param {*} curstring [string]
- * @returns fileNamesString [string]
- */
-function getFileNamesString (files, curstring) { // eslint-disable-line no-unused-vars
-  let fileNamesString = ''
-  let cumulativeFileList = []
-  // If the current string is populated and we're not clearing the file list
-  if (typeof curstring !== 'undefined' && curstring && files.length > 0) {
-    cumulativeFileList = curstring.split('\n')
-  }
-  for (let i = 0; i < files.length; ++i) {
-    cumulativeFileList.push(files.item(i).name)
-  }
-  fileNamesString = cumulativeFileList.sort((a, b) => {
-    const itemA = a.toUpperCase() // ignore case
-    const itemB = b.toUpperCase()
-    if (itemA < itemB) { return -1 }
-    if (itemA > itemB) { return 1 }
-    return 0
-  }).join('\n')
-  return fileNamesString
 }

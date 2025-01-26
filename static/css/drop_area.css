@@ -37,3 +37,29 @@
     vertical-align: middle;
     height: 100%;
 }
+
+#raw-drop-area {
+  border: 2px dashed #ccc;
+  border-radius: 20px;
+  width: 510px;
+  height: 130px;
+  font-family: sans-serif;
+  margin: 10px;
+  padding: 20px;
+}
+
+#raw-drop-area.highlight {
+  border-color: purple;
+}
+
+#raw-drop-area-input {
+  display: none;
+}
+
+/* This vertically centers the file button and raw-drop-area text in the dash raw-drop-area */
+#raw-drop-area::before {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  height: 100%;
+}

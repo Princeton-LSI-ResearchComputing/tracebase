@@ -28,7 +28,20 @@
                 initDropArea(
                     document.getElementById('annot-drop-area'),
                     addPeakAnnotFileToUpload,
-                    afterAddingFiles
+                    afterAddingPeakAnnotFiles
+                );
+                initMzxmlMetadataUploads(
+                    document.getElementById('drop-raw-metadata-row-template'),
+                    document.getElementById('sequence-forms-elem'),
+                    document.getElementById('raw-drop-area-input'),
+                    document.getElementById("submission-validation"),
+                    document.getElementById("single-form-elems"),
+                    studyDocInput
+                );
+                initDropArea(
+                    document.getElementById('raw-drop-area'),
+                    null,
+                    refreshMzxmlMetadata
                 );
             })
         </script>

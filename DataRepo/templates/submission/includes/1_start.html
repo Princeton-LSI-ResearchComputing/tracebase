@@ -5,59 +5,30 @@
     <h3>Start a Submission</h3>
     <span class="small text-muted">Generate a Study Submission Template with auto-filled samples and compounds extracted from your peak annotation files (e.g. AccuCor) along with other supporting data from the database.</span><br><br>
     <label for="peak_annotation_file" class="tight-form-label">
-        Peak Annotation Files:
-        <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span>
+        Raw Data Folder:
+        <span class="small"><span class="small text-muted">(containing mzXML files. Other files ignored.)</span></span>
     </label>
-    <!-- The 2 form strategy (the one below for adding (mzXML) file names by drag and drop of the actual files and the one above to just submit their names (because that's all we need, and these files can be numerous and large) is based on https://stackoverflow.com/questions/2175831/is-it-possible-to-use-input-type-file-just-to-post-the-filename-without-actu -->
+
+    <!-- This form section is just for show.  None of thois is actually submitted.  In totally controls/populates the hidden form elements in the form above, namely: form.peak_annotation_files and form.peak_annot_to_mzxml_metadata -->
     <form class="tbform-control">
         <table>
-            <tr>
-                <td>
-                    <div id="annot-drop-area">
-                        <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
-                        <label class="btn btn-secondary">
-                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files);"/>
-                            Choose Files
-                        </label>  <span class="drop-area-message">(Drop peak annotation files here)</span>
-                    </div>
-                </td>
-                <td style="vertical-align: middle;">
-                    <table>
-                        <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
-                            <td style="display: none;" id="fileColumn">
-                                {{ form.peak_annotation_file }}
-                            </td>
-                            <td>
-                                {{ form.operator }}
-                            </td>
-                            <td>
-                                {{ form.instrument }}
-                            </td>
-                            <td>
-                                {{ form.protocol }}
-                            </td>
-                            <td>
-                                {{ form.run_date }}
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
             <tr>
                 <td>
                     <div id="raw-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
                             <input type="file" multiple id="raw-drop-area-input" onchange="handleFiles(this.files);"/>
-                            Choose Files
-                        </label>  <span class="drop-area-message">(Drop MS data folder here)</span>
+                            Choose Folder
+                        </label>  <span class="drop-area-message">(Drop raw data folder)</span>
                     </div>
                 </td>
                 <td style="vertical-align: middle;">
                     <table>
-                        <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
-                            <td style="display: none;" id="fileColumn">
-                                {{ form.peak_annotation_file }}
+                        <!-- 'form-set-row' identifies the duplicated row as one belonging to the final submitted formset.  The javascript code in submission_start.js has this value hard-coded inside the code that prepares the formset for submission.  All of the other IDs on this page are initialized using variables as arguments in calls to init methods in submission.html, with a few exceptions. -->
+                        <tr style="vertical-align: middle;" name="form-set-row" id="drop-raw-metadata-row-template">
+                            <td style="display: none;" id="UnHideMe">
+                                <!-- id="sequence_dir_input_id" -->
+                                {{ form.sequence_dir }}
                             </td>
                             <td>
                                 {{ form.operator }}
@@ -88,18 +59,29 @@
         {{ form.run_date_datalist }}
 
         <div class="level-indent">
-            <!-- Peak annotation file forms will be added to this table via javascript -->
-            <table id="peak-annot-forms-elem">
+            <!-- Sequence forms will be added to this table via javascript -->
+            <table id="sequence-forms-elem">
             </table>
         </div>
 
         <div id="single-form-elems" style="display: none;">
+            <!-- These are intentionally hidden and controlled by javascript -->
+
+            <!-- On this page, this is always "autofill" -->
             {{ form.mode }}
 
-            <label for="study_doc" class="tight-form-label">
-                Study doc:
-                <span class="small"><span class="small text-muted">(OPTIONAL <span class="fst-italic">excel</span>, if exists)</span></span>
-            </label>
+            <!-- The JSON data that is a list of mzXML filepaths (relative to the dropped study folder) -->
+            <!-- id="mzxml_file_list_input_id" -->
+            {{ form.mzxml_file_list }}
+
+            <!-- The peak annotation files and their metadata (the default sequence directory containing all of the mzXML files in the sequence and the default scan directory (containing all of the mzXML files that were used to produce the peak annotation file)) -->
+            <!-- id="peak_annotation_files_input_id" -->
+            {{ form.peak_annotation_files }}
+            <!-- id="peak_annot_to_mzxml_metadata_input_id" -->
+            {{ form.peak_annot_to_mzxml_metadata }}
+
+            <!-- The study doc, currently not supported on this page, but will eventually be an option for autofilling an existing study doc -->
+            <!-- id="study_doc_input_id" -->
             {{ form.study_doc }}
         </div>
 
@@ -114,13 +96,67 @@
                 </ul>
             {% endif %}
         </span>
-
-        <button type="submit" class="btn btn-primary" id="submit">Download Template</button>
-        <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('annot-drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
-        {% if results %}
-            <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
-        {% endif %}
     </form>
+
+    <label for="peak_annotation_file" class="tight-form-label">
+        Peak Annotation Files:
+        <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span>
+    </label>
+
+    <!-- This form section is just for show.  None of thois is actually submitted.  In totally controls/populates the hidden form elements in the form above, namely: form.peak_annotation_files and form.peak_annot_to_mzxml_metadata -->
+    <form class="tbform-control">
+        <table>
+            <tr>
+                <td>
+                    <div id="annot-drop-area">
+                        <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
+                        <label class="btn btn-secondary">
+                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files);"/>
+                            Add Files
+                        </label>  <span class="drop-area-message">(Drop peak annotation files)</span>
+                    </div>
+                </td>
+                <td style="vertical-align: middle;">
+                    <table>
+                        <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
+                            <td style="display: none;" id="UnHideMe">
+                                <input type="text" name="peak_annotation_file" id="peak_annotation_file" />
+                            </td>
+                            <td style="display: none;" id="UnHideMe">
+                                <select name="default_sequence_dir" id="default_sequence_dir">
+                                    <!-- Populated and selection made by javascript when a study directory is dropped on the raw data folder input -->
+                                </select>
+                            </td>
+                            <td style="display: none;" id="UnHideMe">
+                                <select name="default_scan_dir" id="default_scan_dir">
+                                    <!-- Populated and selection made by javascript when a study directory is dropped on the raw data folder input -->
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </form>
+
+    <!-- This form is just for javascript -->
+    <form class="tbform-control">
+        <div class="level-indent">
+            <!-- Peak annotation file forms will be added to this table via javascript to update the form.peak_annot_to_mzxml_metadata JSON for selections in default_sequence_dir and default_scan_dir.  Rows are added when peak annotation files are dropped onto the annot-drop-area-input. -->
+            <!-- TODO: A future feature would be to make default selections here based on matching peak annotation file names from the directory walk, but currently, that's not implemented. -->
+            <table id="peak-annot-forms-elem">
+            </table>
+        </div>
+    </form>
+
+    <br>
+
+    <button type="submit" class="btn btn-primary" onclick="document.getElementById('submission-validation').submit();">Download Template</button>
+    <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('annot-drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
+    {% if results %}
+        <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
+    {% endif %}
+
 </div>
 
 

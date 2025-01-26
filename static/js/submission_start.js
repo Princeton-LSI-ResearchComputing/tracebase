@@ -1,9 +1,16 @@
-var templateContainer = null // eslint-disable-line no-var
+var peakAnnotFormTemplateContainer = null // eslint-disable-line no-var
 var peakAnnotFormsTable = null // eslint-disable-line no-var
-var dropAreaInput = null // eslint-disable-line no-var
+var peakAnnotDropAreaInput = null // eslint-disable-line no-var
 var dataSubmissionForm = null // eslint-disable-line no-var
 var singleFormDiv = null // eslint-disable-line no-var
 var studyDocInput = null // eslint-disable-line no-var
+
+var mzxmlFormTemplateContainer = null // eslint-disable-line no-var
+var mzxmlFormsTable = null // eslint-disable-line no-var
+var mzxmlDirDropAreaInput = null // eslint-disable-line no-var
+var mzxmlSubmissionForm = null // eslint-disable-line no-var
+var mzxmlFileListInputElem = null // eslint-disable-line no-var
+var mzxmlFileListDisplayElem = null // eslint-disable-line no-var
 
 /**
  * A method to initialize the peak annotation file form interface.  Dropped files will call addPeakAnnotFileToUpload,
@@ -13,10 +20,10 @@ var studyDocInput = null // eslint-disable-line no-var
  * @param {*} peakAnnotFormsTable [table] The table where the form rows will be added when files are dropped in the drop
  * area.
  */
-function initPeakAnnotUploads (templateContainer, peakAnnotFormsTable, dropAreaInput, dataSubmissionForm, singleFormDiv, studyDocInput) { // eslint-disable-line no-unused-vars
-  globalThis.templateContainer = templateContainer
+function initPeakAnnotUploads (peakAnnotFormTemplateContainer, peakAnnotFormsTable, peakAnnotDropAreaInput, dataSubmissionForm, singleFormDiv, studyDocInput) { // eslint-disable-line no-unused-vars
+  globalThis.peakAnnotFormTemplateContainer = peakAnnotFormTemplateContainer
   globalThis.peakAnnotFormsTable = peakAnnotFormsTable
-  globalThis.dropAreaInput = dropAreaInput
+  globalThis.peakAnnotDropAreaInput = peakAnnotDropAreaInput
   globalThis.dataSubmissionForm = dataSubmissionForm
   globalThis.singleFormDiv = singleFormDiv
   globalThis.studyDocInput = studyDocInput
@@ -26,8 +33,20 @@ function initPeakAnnotUploads (templateContainer, peakAnnotFormsTable, dropAreaI
     enablePeakAnnotForm()
   })
 
-  // Disable the form submission button to start (because there are no peak annotation form rows yet.
+  // Disable the form submission button to start (because there are no peak annotation form rows yet).
   disablePeakAnnotForm()
+}
+
+function initMzxmlMetadataUploads (mzxmlFormTemplateContainer, mzxmlFormsTable, mzxmlDirDropAreaInput, mzxmlSubmissionForm, singleFormDiv, studyDocInput) { // eslint-disable-line no-unused-vars
+  globalThis.mzxmlFormTemplateContainer = mzxmlFormTemplateContainer
+  globalThis.mzxmlFormsTable = mzxmlFormsTable
+  globalThis.mzxmlDirDropAreaInput = mzxmlDirDropAreaInput
+  globalThis.mzxmlSubmissionForm = mzxmlSubmissionForm
+  // TODO: Add support for supplying a study doc to "update". These study doc elements are placeholders that came from
+  // TODO: copying the start page but in this context (mzxml autofill), they are vestigial.
+  globalThis.singleFormDiv = singleFormDiv
+  globalThis.studyDocInput = studyDocInput
+  // TODO: Add ability to disable/enable the submit button
 }
 
 /**
@@ -35,11 +54,12 @@ function initPeakAnnotUploads (templateContainer, peakAnnotFormsTable, dropAreaI
  * form for a single file input along with sequence metadata inputs and un-hides the file input.
  * @param {*} dT [DataTransfer]: A DataTransfer object containing a single file for upload
  */
-function addPeakAnnotFileToUpload (dT, template) { // eslint-disable-line no-unused-vars
-  const newRow = createPeakAnnotFormRow(template)
+function addPeakAnnotFileToUpload (dT) { // eslint-disable-line no-unused-vars
+  const newRow = createPeakAnnotFormRow()
   makeFormModifications(dT, newRow)
   peakAnnotFormsTable.appendChild(newRow)
 }
+// TODO: There needs to exist a way to add mzxml form rows, but it cannot be per file.  The directory picker does not result in a selected directory for upload, it selects all files under the directory for upload, so what is needed is a way to compute each first directory that contains mzXML files and a form row for each directory must be created.  So we need a "addMzxmlDirsToUpload" that determines the directories, calls createPeakAnnotFormRow for each one, and calls refreshMzxmlMetadata for each one
 
 /**
  * This function clones a tr row containing the form elements for a peak annotation file.
@@ -48,10 +68,11 @@ function addPeakAnnotFileToUpload (dT, template) { // eslint-disable-line no-unu
  */
 function createPeakAnnotFormRow (template) {
   if (typeof template === 'undefined' || !template) {
-    template = templateContainer
+    template = peakAnnotFormTemplateContainer
   }
   return template.cloneNode(true)
 }
+// TODO: Create a createMzxmlFormRow function
 
 /**
  * Un-hide the file input column and set the files of the file input.
@@ -59,12 +80,12 @@ function createPeakAnnotFormRow (template) {
  * @param {*} formRow - The row element containing the form.
  */
 function makeFormModifications (dT, formRow) {
-  // Un-hide the file column
-  const fileTd = formRow.querySelector('#fileColumn')
+  // Un-hide the columns with the UnHideMe id
+  const fileTd = formRow.querySelector('#UnHideMe')
   fileTd.style = null
   // Set the file for the file input
-  const fileInput = formRow.querySelector('input[name="peak_annotation_file"]')
-  fileInput.files = dT.files
+  const annotFileNameInput = formRow.querySelector('input[name="peak_annotation_file"]')
+  annotFileNameInput.value = dT.files[0].name
   // Remove the ID (which is what is used to identify the row template)
   formRow.removeAttribute('id')
 }
@@ -168,7 +189,7 @@ function insertFormsetManagementInputs (numForms) {
  * @returns all tr elements containing an individual (cloned) form.
  */
 function getFormRows () {
-  return peakAnnotFormsTable.querySelectorAll('tr[name="drop-annot-metadata-row"]')
+  return peakAnnotFormsTable.querySelectorAll('tr[name="form-set-row"]')
 }
 
 /**
@@ -191,19 +212,132 @@ function disablePeakAnnotForm () {
  * This function clears the file picker input element inside the drop area after having created form rows.  It is called
  * from the annot-drop-area code after all dropped/picked files have been processed.  It intentionally leaves the
  * entries in the sequence metadata inputs for re-use upon additional drops/picks.
+ * @param {*} dT [DataTransfer]: A DataTransfer object containing a single file for upload - unused for this function
  */
-function afterAddingFiles () { // eslint-disable-line no-unused-vars
-  dropAreaInput.value = null
+function afterAddingPeakAnnotFiles (dT) { // eslint-disable-line no-unused-vars
+  peakAnnotDropAreaInput.value = null
   enablePeakAnnotForm()
+}
+
+function refreshMzxmlMetadata () { // eslint-disable-line no-unused-vars
+  mzxmlFileListInputElem.value = getMzxmlFileNamesString(mzxmlFileListInputElem.value);
+  refreshMzxmlDisplayList()
 }
 
 /**
  * This function clears all of the previously added peak annotation form rows.
  */
 function clearPeakAnnotFiles () { // eslint-disable-line no-unused-vars
-  // tableElems = peakAnnotFormsTable.getElementsByTagName("*");
-  // for (let i = 0; i < tableElems.length; ++i) {
-  //   tableElems[i].remove();
-  // }
   peakAnnotFormsTable.innerHTML = ''
 }
+
+function getMzxmlFileNamesString (curstring) {
+  let fileNamesString = ''
+  let cumulativeFileList = []
+  if (typeof curstring !== 'undefined' && curstring) {
+    cumulativeFileList = curstring.split('\n')
+  }
+  for (let i = 0; i < globalThis.allFiles.length; ++i) {
+    file_obj = globalThis.allFiles.item(i)
+    if (Object.hasOwn(file_obj, 'webkitRelativePath')) {
+      cumulativeFileList.push(file_obj.webkitRelativePath)
+    } else {
+      cumulativeFileList.push(file_obj.name)
+    }
+  }
+  fileNamesString = cumulativeFileList.sort((a, b) => {
+    const itemA = a.toUpperCase() // ignore case
+    const itemB = b.toUpperCase()
+    if (itemA < itemB) { return -1 }
+    if (itemA > itemB) { return 1 }
+    return 0
+  }).join('\n')
+  return fileNamesString
+}
+
+function getAllMzxmlFilePaths(dT) {
+  let allMzxmlFilePathList = []
+  for (let i = 0; i < dT.files.length; ++i) {
+    if (!dT.files[i].name.toLowerCase().endsWith(".mzxml")) {
+      // We only want directories that directly contain mzXML files
+      continue
+    }
+    if (Object.hasOwn(dT.files[i], 'webkitRelativePath')) {
+      filePath = dT.files[i].webkitRelativePath;
+    } else {
+      filePath = dT.files[i].name
+    }
+    allMzxmlFilePathList.push(filePath)
+  }
+  // In case there is no webkitRelativePath attribute
+  if (allMzxmlFilePathList.length == 0) {
+    allMzxmlFilePathList.push('')
+  }
+  return allMzxmlFilePathList
+}
+
+function getAllMzxmlDirectories(dT) {
+  let mzxmlDirList = []
+  for (let i = 0; i < dT.files.length; ++i) {
+    if (Object.hasOwn(dT.files[i], 'webkitRelativePath')) {
+      if (!dT.files[i].name.toLowerCase().endsWith(".mzxml")) {
+        // We only want directories that directly contain mzXML files
+        continue
+      }
+      filePath = dT.files[i].webkitRelativePath;
+      dirname = '';
+      if (filePath.includes("/")) {
+        dirname = filePath.substr(0, filePath.lastIndexOf("/") + 1)
+      }
+      if (!mzxmlDirList.includes(dirname)) {
+        mzxmlDirList.push(dirname)
+      }
+    }
+  }
+  // In case there is no webkitRelativePath attribute
+  if (mzxmlDirList.length == 0) {
+    mzxmlDirList.push('')
+  }
+  return mzxmlDirList
+}
+
+function getParentMzxmlDirectories(allMzxmlDirList) {
+  let parentMzxmlDirList = []
+  for (i=0;i<allMzxmlDirList.length;i++) {
+    candidate = allMzxmlDirList[i];
+    // If the candidate directory path does not start with any other path in the directory list
+    if (!allMzxmlDirList.some(function(dir) {dir !== candidate && candidate.startsWith(dir)})) {
+      parentMzxmlDirList.push(candidate)
+    }
+  }
+  return parentMzxmlDirList
+}
+
+function refreshMzxmlDisplayList () {
+  listdispelem.innerHTML = listformelem.value
+}
+
+function getMzxmlsInDirectory(allMzxmlFilePathList, parentDir) {
+  let childMzxmls = []
+  for (let i = 0; i < allMzxmlFilePathList.length; ++i) {
+    filePath = allMzxmlFilePathList[i];
+    if (filePath.startsWith(parentDir)) {
+      childMzxmls.push(filePath)
+    }
+  }
+  return childMzxmls
+}
+
+// TODO:
+// 1. When a directory is dropped/selected:
+//    1. getAllMzxmlFilePaths
+//    2. getAllMzxmlDirectories  // Change this to take a list of strings from step 1
+//    3. getParentMzxmlDirectories
+//    4. For each parent directory
+//       1. Create a form row (duplicating the template form)
+//       2. Populate the parent directory in mzxml_dir form elem
+//       3. getMzxmlsInDirectory
+//       4. Construct string (using .join()) of filepaths - use to populate the mzxml_metadata form elem
+// 2. Move the peak annot file inputs into the single form elem inputs and make it a multiple file input (unassociated with sequence metadata)
+// 3. Merge the 2 forms (RawDataSubmissionForm and DataSubmissionForm) into 1 form
+// 4. Make the Start page accept study doc, annot files, and the study dir... In fact, just take the study dir and find all the files...???!!!
