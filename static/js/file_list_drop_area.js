@@ -1,8 +1,9 @@
-var dropArea = null // eslint-disable-line no-var
-var fileFunc = null // eslint-disable-line no-var
-var postDropFunc = null // eslint-disable-line no-var
-const allFiles = [] // eslint-disable-line no-unused-vars
-const newFiles = [] // eslint-disable-line no-unused-vars
+// A dictionary of dropArea info, e.g. dropAreas["dropAreakKey"] = {
+//     "dropArea": dropArea,
+//     "fileFunc": fileFunc,
+//     "postDropFunc": postDropFunc
+// }
+var dropAreas = {} // eslint-disable-line no-unused-vars
 
 // This code is based on the following article:
 // https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/
@@ -15,34 +16,34 @@ const newFiles = [] // eslint-disable-line no-unused-vars
  * @param {*} postDropFunc is an optional function without arguments that is called after all the files have been
  *   processed.
  */
-function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-line no-unused-vars
+function initDropArea (dropAreaKey, dropArea, fileFunc, postDropFunc) { // eslint-disable-line no-unused-vars
   ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, preventDefaults, false)
   })
 
   ;['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, highlight, false)
+    dropArea.addEventListener(eventName, highlight, false,)
   })
 
   ;['dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, unhighlight, false)
   })
 
-  dropArea.addEventListener('drop', handleDrop, false)
+  dropArea.addEventListener('drop', function (e) {handleDrop(e, dropAreaKey)}, false)
 
-  globalThis.dropArea = dropArea
+  globalThis.dropAreas[dropAreaKey] = {
+    "dropArea": dropArea,
+    "fileFunc": null,
+    "postDropFunc": null
+  }
+
   if (typeof fileFunc !== 'undefined' && fileFunc) {
-    globalThis.fileFunc = fileFunc
-  } else {
-    globalThis.fileFunc = null
+    globalThis.dropAreas[dropAreaKey]["fileFunc"] = fileFunc
   }
+  
   if (typeof postDropFunc !== 'undefined' && postDropFunc) {
-    globalThis.postDropFunc = postDropFunc
-  } else {
-    globalThis.postDropFunc = null
+    globalThis.dropAreas[dropAreaKey]["postDropFunc"] = postDropFunc
   }
-
-  handleFiles(null)
 }
 
 function preventDefaults (e) { // eslint-disable-line no-unused-vars
@@ -51,32 +52,29 @@ function preventDefaults (e) { // eslint-disable-line no-unused-vars
 }
 
 function highlight (e) {
-  dropArea.classList.add('highlight')
+  this.classList.add('highlight')
 }
 
 function unhighlight (e) {
-  dropArea.classList.remove('highlight')
+  this.classList.remove('highlight')
 }
 
-function handleDrop (e) {
-  const dt = e.dataTransfer
+function handleDrop (event, dropAreaKey) {
+  const dt = event.dataTransfer
   const files = dt.files
-  handleFiles(files)
+  handleFiles(files, dropAreaKey)
 }
 
 /**
- * This method initializes and maintains a global list of all and new files and creates a DataTransfer object for every
- * individual dropped/picked file and calls the fileFunc that was initialized by the initDropArea function.
- * @param {*} files - An optional array of file objects.  If null, the global lists are emptied.
+ * This method calls the fileFunc that was initialized by the initDropArea function on each file and then calls the
+ * postDropFunc, passing all files.
+ * @param {*} files - An optional array of file objects.
  */
-function handleFiles (files) { // eslint-disable-line no-unused-vars
-  if (typeof files === 'undefined' || !files) {
-    globalThis.allFiles = []
-    globalThis.newFiles = []
-  } else {
-    globalThis.newFiles = files
+function handleFiles (files, dropAreaKey) { // eslint-disable-line no-unused-vars
+  fileFunc = dropAreas[dropAreaKey]["fileFunc"];
+  postDropFunc = dropAreas[dropAreaKey]["postDropFunc"];
+  if (typeof files !== 'undefined' && files) {
     for (let i = 0; i < files.length; ++i) {
-      globalThis.allFiles.push(files.item(i))
       // See: https://stackoverflow.com/questions/8006715/
       const dT = new DataTransfer() // eslint-disable-line no-undef
       dT.items.add(files.item(i))

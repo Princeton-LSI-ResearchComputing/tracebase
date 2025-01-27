@@ -1,4 +1,5 @@
 import base64
+import json
 import os.path
 import posixpath
 import warnings
@@ -789,10 +790,10 @@ class BuildSubmissionView(FormView):
                     # record (containing a specific mzXML) to link PeakGroup records to using the sample name (derived
                     # from the mzXML filename and the peak annotation header) and the sequence (via the selected
                     # directory)
-                    self.peak_annot_to_mzxml_metadata = rowform.get("peak_annot_to_mzxml_metadata")
+                    self.peak_annot_to_mzxml_metadata = json.loads(rowform.get("peak_annot_to_mzxml_metadata"))
 
-                    # Masterlist of mzXML filepaths
-                    mzxml_file_list = rowform.get("mzxml_file_list")
+                    # Masterlist of mzXML filepaths containing relative paths from the study(/mzxml) folder
+                    mzxml_file_list = json.loads(rowform.get("mzxml_file_list"))
                     for mzxml_filepath in mzxml_file_list:
                         if mzxml_filepath in self.mzxml_file_to_seq_dir.keys():
                             raise ProgrammingError(

@@ -17,28 +17,33 @@
             document.addEventListener("DOMContentLoaded", function(){
                 let tmpElems = document.getElementsByName("study_doc");
                 let studyDocInput = tmpElems[0];
+                tmpElems = document.getElementsByName("peak_annotation_files");
+                let annotFilesInput = tmpElems[0];
                 initPeakAnnotUploads(
                     document.getElementById('drop-annot-metadata-row-template'),
                     document.getElementById('peak-annot-forms-elem'),
                     document.getElementById('annot-drop-area-input'),
-                    document.getElementById("submission-validation"),
-                    document.getElementById("single-form-elems"),
-                    studyDocInput
+                    document.getElementById('submission-validation'),
+                    document.getElementById('single-form-elems'),
+                    studyDocInput,
+                    annotFilesInput
                 );
                 initDropArea(
+                    'annot',  // Key used to store/access drop area data
                     document.getElementById('annot-drop-area'),
-                    addPeakAnnotFileToUpload,
+                    null,
                     afterAddingPeakAnnotFiles
                 );
                 initMzxmlMetadataUploads(
                     document.getElementById('drop-raw-metadata-row-template'),
                     document.getElementById('sequence-forms-elem'),
                     document.getElementById('raw-drop-area-input'),
-                    document.getElementById("submission-validation"),
-                    document.getElementById("single-form-elems"),
+                    document.getElementById('submission-validation'),
+                    document.getElementById('single-form-elems'),
                     studyDocInput
                 );
                 initDropArea(
+                    'raw',  // Key used to store/access drop area data
                     document.getElementById('raw-drop-area'),
                     null,
                     refreshMzxmlMetadata

@@ -4,6 +4,7 @@ var peakAnnotDropAreaInput = null // eslint-disable-line no-var
 var dataSubmissionForm = null // eslint-disable-line no-var
 var singleFormDiv = null // eslint-disable-line no-var
 var studyDocInput = null // eslint-disable-line no-var
+var annotFilesInput = null // eslint-disable-line no-var
 
 var mzxmlFormTemplateContainer = null // eslint-disable-line no-var
 var mzxmlFormsTable = null // eslint-disable-line no-var
@@ -20,13 +21,14 @@ var mzxmlFileListDisplayElem = null // eslint-disable-line no-var
  * @param {*} peakAnnotFormsTable [table] The table where the form rows will be added when files are dropped in the drop
  * area.
  */
-function initPeakAnnotUploads (peakAnnotFormTemplateContainer, peakAnnotFormsTable, peakAnnotDropAreaInput, dataSubmissionForm, singleFormDiv, studyDocInput) { // eslint-disable-line no-unused-vars
+function initPeakAnnotUploads (peakAnnotFormTemplateContainer, peakAnnotFormsTable, peakAnnotDropAreaInput, dataSubmissionForm, singleFormDiv, studyDocInput, annotFilesInput) { // eslint-disable-line no-unused-vars
   globalThis.peakAnnotFormTemplateContainer = peakAnnotFormTemplateContainer
   globalThis.peakAnnotFormsTable = peakAnnotFormsTable
   globalThis.peakAnnotDropAreaInput = peakAnnotDropAreaInput
   globalThis.dataSubmissionForm = dataSubmissionForm
   globalThis.singleFormDiv = singleFormDiv
   globalThis.studyDocInput = studyDocInput
+  globalThis.annotFilesInput = annotFilesInput
 
   // Add an event listener to the study doc input to enable the submit button
   studyDocInput.addEventListener('change', function () {
@@ -52,11 +54,12 @@ function initMzxmlMetadataUploads (mzxmlFormTemplateContainer, mzxmlFormsTable, 
 /**
  * This method takes a single peak annotation file for upload (inside a DataTransfer object) and clones a file upload
  * form for a single file input along with sequence metadata inputs and un-hides the file input.
- * @param {*} dT [DataTransfer]: A DataTransfer object containing a single file for upload
+ * @param {*} file A file object
  */
-function addPeakAnnotFileToUpload (dT) { // eslint-disable-line no-unused-vars
+function addPeakAnnotFileToUpload (file) { // eslint-disable-line no-unused-vars
+  // Create a row for the metadata inputs associated with each file
   const newRow = createPeakAnnotFormRow()
-  makeFormModifications(dT, newRow)
+  makeAnnotFormModifications(file, newRow)
   peakAnnotFormsTable.appendChild(newRow)
 }
 // TODO: There needs to exist a way to add mzxml form rows, but it cannot be per file.  The directory picker does not result in a selected directory for upload, it selects all files under the directory for upload, so what is needed is a way to compute each first directory that contains mzXML files and a form row for each directory must be created.  So we need a "addMzxmlDirsToUpload" that determines the directories, calls createPeakAnnotFormRow for each one, and calls refreshMzxmlMetadata for each one
@@ -76,18 +79,34 @@ function createPeakAnnotFormRow (template) {
 
 /**
  * Un-hide the file input column and set the files of the file input.
- * @param {*} dT - DataTransfer object containing 1 file in its files attribute.
+ * @param {*} file - A file object.
  * @param {*} formRow - The row element containing the form.
  */
-function makeFormModifications (dT, formRow) {
+function makeAnnotFormModifications (file, formRow) {
   // Un-hide the columns with the UnHideMe id
-  const fileTd = formRow.querySelector('#UnHideMe')
-  fileTd.style = null
+  const fileTds = formRow.querySelectorAll('td')
+  for (let i = 0; i < fileTds.length; i++) {
+    const fileTd = fileTds[i]
+    if (fileTd.classList.contains('UnHideMe')) {
+      fileTd.style = null
+      fileTd.classList.remove('UnHideMe');
+    }
+  }
+
   // Set the file for the file input
-  const annotFileNameInput = formRow.querySelector('input[name="peak_annotation_file"]')
-  annotFileNameInput.value = dT.files[0].name
+  const annotFileNameSpan = formRow.querySelector('span[name="peak_annotation_file"]')
+  annotFileNameSpan.innerHTML = file.name
+
   // Remove the ID (which is what is used to identify the row template)
   formRow.removeAttribute('id')
+
+  // TODO: Attach listeners to the select list elements to make updates to the peak_annot_to_mzxml_metadata JSON field
+  // when the selection changes
+
+  // TODO: Eventually, we could automatically edit the population of the sequence_dir and scan_dir select lists and make
+  // a selection based on colocation of a peak annotation file matching the name of the file here with a sequence/scan
+  // dir it's in.  That would depend on identifying all possible peak annotation files from the direcvtory walk in the
+  // raw file input.  For now though, the lists are manual.
 }
 
 /**
@@ -196,7 +215,7 @@ function getFormRows () {
  * This function enables the form submission button.
  */
 function enablePeakAnnotForm () {
-  const submitInput = dataSubmissionForm.querySelector('#submit')
+  const submitInput = document.querySelector('#submit')
   submitInput.removeAttribute('disabled')
 }
 
@@ -204,7 +223,7 @@ function enablePeakAnnotForm () {
  * This function disables the form submission button.
  */
 function disablePeakAnnotForm () {
-  const submitInput = dataSubmissionForm.querySelector('#submit')
+  const submitInput = document.querySelector('#submit')
   submitInput.disabled = true
 }
 
@@ -212,15 +231,51 @@ function disablePeakAnnotForm () {
  * This function clears the file picker input element inside the drop area after having created form rows.  It is called
  * from the annot-drop-area code after all dropped/picked files have been processed.  It intentionally leaves the
  * entries in the sequence metadata inputs for re-use upon additional drops/picks.
- * @param {*} dT [DataTransfer]: A DataTransfer object containing a single file for upload - unused for this function
+ * @param {*} newFiles [list of files]: The list of files from a DataTransfer object containing the newly dropped/selected files
  */
-function afterAddingPeakAnnotFiles (dT) { // eslint-disable-line no-unused-vars
+function afterAddingPeakAnnotFiles (newFiles) { // eslint-disable-line no-unused-vars
+  
+  // Add the files to the hidden annotFilesInput
+  // See: https://stackoverflow.com/questions/8006715/
+  // Create a new DataTransfer object to contain the merged list of files
+  const newDT = new DataTransfer();
+  let filenames = []
+  let dupes = []
+  // Add the existing files
+  for (i=0;i < globalThis.annotFilesInput.files.length;i++) {
+    if (filenames.includes(globalThis.annotFilesInput.files[i].name)) {
+      dupes.push(globalThis.annotFilesInput.files[i].name)
+    } else {
+      newDT.items.add(globalThis.annotFilesInput.files[i]);
+      filenames.push(globalThis.annotFilesInput.files[i].name)
+    }
+  }
+  // Add the incoming files
+  for (i=0;i < newFiles.length;i++) {
+    if (filenames.includes(newFiles[i].name)) {
+      dupes.push(newFiles[i].name)
+    } else {
+      newDT.items.add(newFiles[i]);
+      filenames.push(newFiles[i].name)
+      addPeakAnnotFileToUpload(newFiles[i])
+    }
+  }
+  // Now replace the input element's old files with the merged new files
+  globalThis.annotFilesInput.files = newDT.files;
+  
+  // Clear the drop area to accept new files
   peakAnnotDropAreaInput.value = null
+
+  if (dupes.length > 0) {
+    alert("Peak annotation filenames must be unique.  Skipped these files with duplicate names:" + dupes)
+  }
+
+  // Enable form submission
   enablePeakAnnotForm()
 }
 
-function refreshMzxmlMetadata () { // eslint-disable-line no-unused-vars
-  mzxmlFileListInputElem.value = getMzxmlFileNamesString(mzxmlFileListInputElem.value);
+function refreshMzxmlMetadata (dT) { // eslint-disable-line no-unused-vars
+  mzxmlFileListInputElem.value = getMzxmlFileNamesString(dT, mzxmlFileListInputElem.value);
   refreshMzxmlDisplayList()
 }
 
@@ -231,20 +286,29 @@ function clearPeakAnnotFiles () { // eslint-disable-line no-unused-vars
   peakAnnotFormsTable.innerHTML = ''
 }
 
-function getMzxmlFileNamesString (curstring) {
+function getMzxmlFileNamesString (newDTFiles, curstring) {
   let fileNamesString = ''
+
   let cumulativeFileList = []
   if (typeof curstring !== 'undefined' && curstring) {
     cumulativeFileList = curstring.split('\n')
   }
-  for (let i = 0; i < globalThis.allFiles.length; ++i) {
-    file_obj = globalThis.allFiles.item(i)
+
+  for (let i = 0; i < newDTFiles.files.length; ++i) {
+
+    file_obj = newDTFiles.files.item(i)
+
     if (Object.hasOwn(file_obj, 'webkitRelativePath')) {
-      cumulativeFileList.push(file_obj.webkitRelativePath)
+      filepath = file_obj.webkitRelativePath
     } else {
-      cumulativeFileList.push(file_obj.name)
+      filepath = file_obj.name
+    }
+
+    if (!cumulativeFileList.includes(filepath)) {
+      cumulativeFileList.push(filepath)
     }
   }
+
   fileNamesString = cumulativeFileList.sort((a, b) => {
     const itemA = a.toUpperCase() // ignore case
     const itemB = b.toUpperCase()
@@ -252,6 +316,7 @@ function getMzxmlFileNamesString (curstring) {
     if (itemA > itemB) { return 1 }
     return 0
   }).join('\n')
+
   return fileNamesString
 }
 

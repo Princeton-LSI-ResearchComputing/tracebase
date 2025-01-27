@@ -360,12 +360,12 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
         # "Study doc" (hidden on the start tab)
         study_doc = FileField(
-            required=False, widget=ClearableFileInput(attrs={"multiple": False, "id": "study_doc_input_id"})
+            required=False, widget=ClearableFileInput(attrs={"multiple": False})
         )
 
         peak_annotation_files = MultipleFileField(
             required=False,
-            widget=MultipleFileInput(attrs={"multiple": True, "id": "peak_annotation_files_input_id"}),
+            widget=MultipleFileInput(attrs={"multiple": True}),
         )
 
         # The following fields are for specifying sequence details for each peak annotation file (and will also be

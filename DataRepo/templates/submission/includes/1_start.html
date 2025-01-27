@@ -17,7 +17,7 @@
                     <div id="raw-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
-                            <input type="file" multiple id="raw-drop-area-input" onchange="handleFiles(this.files);"/>
+                            <input type="file" multiple id="raw-drop-area-input" onchange="handleFiles(this.files, 'raw');"/>
                             Choose Folder
                         </label>  <span class="drop-area-message">(Drop raw data folder)</span>
                     </div>
@@ -64,7 +64,7 @@
             </table>
         </div>
 
-        <div id="single-form-elems" style="display: none;">
+        <div id="single-form-elems"> <!--  style="display: none;"> -->
             <!-- These are intentionally hidden and controlled by javascript -->
 
             <!-- On this page, this is always "autofill" -->
@@ -74,9 +74,11 @@
             <!-- id="mzxml_file_list_input_id" -->
             {{ form.mzxml_file_list }}
 
+NORMALLY HIDDEN PEAK ANNOT FILES vvv
             <!-- The peak annotation files and their metadata (the default sequence directory containing all of the mzXML files in the sequence and the default scan directory (containing all of the mzXML files that were used to produce the peak annotation file)) -->
             <!-- id="peak_annotation_files_input_id" -->
             {{ form.peak_annotation_files }}
+NORMALLY HIDDEN PEAK ANNOT FILES ^^^
             <!-- id="peak_annot_to_mzxml_metadata_input_id" -->
             {{ form.peak_annot_to_mzxml_metadata }}
 
@@ -103,7 +105,7 @@
         <span class="small"><span class="small text-muted">(e.g. AccuCor, IsoCorr, and/or IsoAutoCorr files)</span></span>
     </label>
 
-    <!-- This form section is just for show.  None of thois is actually submitted.  In totally controls/populates the hidden form elements in the form above, namely: form.peak_annotation_files and form.peak_annot_to_mzxml_metadata -->
+    <!-- This form section is just for show.  None of this is actually submitted.  In totally controls/populates the hidden form elements in the form above, namely: form.peak_annotation_files and form.peak_annot_to_mzxml_metadata -->
     <form class="tbform-control">
         <table>
             <tr>
@@ -111,7 +113,7 @@
                     <div id="annot-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
-                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files);"/>
+                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files, 'annot');"/>
                             Add Files
                         </label>  <span class="drop-area-message">(Drop peak annotation files)</span>
                     </div>
@@ -119,18 +121,16 @@
                 <td style="vertical-align: middle;">
                     <table>
                         <tr style="vertical-align: middle;" name="drop-annot-metadata-row" id="drop-annot-metadata-row-template">
-                            <td style="display: none;" id="UnHideMe">
-                                <input type="text" name="peak_annotation_file" id="peak_annotation_file" />
+                            <td style="display: none;" class="UnHideMe">
+                                <span name="peak_annotation_file" id="peak_annotation_file"></span>
                             </td>
-                            <td style="display: none;" id="UnHideMe">
-                                <select name="default_sequence_dir" id="default_sequence_dir">
-                                    <!-- Populated and selection made by javascript when a study directory is dropped on the raw data folder input -->
-                                </select>
+                            <td style="display: none;" class="UnHideMe">
+                                <!-- Populated and selection made by javascript when a study directory is dropped on the raw data folder input -->
+                                <select name="default_sequence_dir" id="default_sequence_dir"></select>
                             </td>
-                            <td style="display: none;" id="UnHideMe">
-                                <select name="default_scan_dir" id="default_scan_dir">
-                                    <!-- Populated and selection made by javascript when a study directory is dropped on the raw data folder input -->
-                                </select>
+                            <td style="display: none;" class="UnHideMe">
+                                <!-- Populated and selection made by javascript when a study directory is dropped on the raw data folder input -->
+                                <select name="default_scan_dir" id="default_scan_dir"></select>
                             </td>
                         </tr>
                     </table>
@@ -151,7 +151,7 @@
 
     <br>
 
-    <button type="submit" class="btn btn-primary" onclick="document.getElementById('submission-validation').submit();">Download Template</button>
+    <button type="submit" class="btn btn-primary" id="submit" onclick="document.getElementById('submission-validation').submit();">Download Template</button>
     <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('annot-drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
     {% if results %}
         <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
