@@ -10,7 +10,6 @@ var mzxmlFormTemplateContainer = null // eslint-disable-line no-var
 var mzxmlFormsTable = null // eslint-disable-line no-var
 var mzxmlDirDropAreaInput = null // eslint-disable-line no-var
 var mzxmlSubmissionForm = null // eslint-disable-line no-var
-var mzxmlFileListInputElem = null // eslint-disable-line no-var
 var mzxmlFileListDisplayElem = null // eslint-disable-line no-var
 
 /**
@@ -83,7 +82,7 @@ function createPeakAnnotFormRow (template) {
  * @param {*} formRow - The row element containing the form.
  */
 function makeAnnotFormModifications (file, formRow) {
-  // Un-hide the columns with the UnHideMe id
+  // Un-hide the columns with the UnHideMe class
   const fileTds = formRow.querySelectorAll('td')
   for (let i = 0; i < fileTds.length; i++) {
     const fileTd = fileTds[i]
@@ -274,9 +273,60 @@ function afterAddingPeakAnnotFiles (newFiles) { // eslint-disable-line no-unused
   enablePeakAnnotForm()
 }
 
-function refreshMzxmlMetadata (dT) { // eslint-disable-line no-unused-vars
-  mzxmlFileListInputElem.value = getMzxmlFileNamesString(dT, mzxmlFileListInputElem.value);
-  refreshMzxmlDisplayList()
+function refreshMzxmlMetadata (files) { // eslint-disable-line no-unused-vars
+  filepaths = getAllMzxmlFilePaths(files)
+  console.log("filepaths:", filepaths)
+
+  // Update the mzxml_file_list form element
+  mzxmlListInput = document.getElementById('mzxml_file_list_input_id')
+  mzxmlListInput.value = JSON.stringify(filepaths)
+
+  mzxmldirpaths = getAllMzxmlDirectories(filepaths)
+  sequencedirpaths = getParentMzxmlDirectories(mzxmldirpaths)
+
+  // TODO: Build a seqdir select list and a series of scandir select lists keyed on seqdir in the loop below
+
+  // For each sequence directory
+  for (i=0;i < sequencedirpaths.length;i++) {
+    seqdirpath = sequencedirpaths[i];
+    // Create a form row (duplicating the template) and populate the parent directory in default_sequence_dir form elem
+    addSequenceFormRow(seqdirpath);
+    // getMzxmlsInDirectory
+    // Construct string (using .join()) of filepaths - use to populate the mzxml_metadata form elem
+  }
+
+  // TODO: Update the peak annotation file row select lists
+
+  // TODO: Populate a list of files for each sequence form row that only display when the user does something (like click a caret or hover or something)
+}
+
+function addSequenceFormRow (seqdirpath) {
+  let newRow = mzxmlFormTemplateContainer.cloneNode(true)
+  makeSequenceFormModifications(newRow, seqdirpath)
+  mzxmlFormsTable.appendChild(newRow)
+}
+
+function makeSequenceFormModifications (formRow, seqdirpath) {
+  // Un-hide the columns with the UnHideMe class
+  const fileTds = formRow.querySelectorAll('td')
+  for (let i = 0; i < fileTds.length; i++) {
+    const fileTd = fileTds[i]
+    if (fileTd.classList.contains('UnHideMe')) {
+      fileTd.style = null
+      fileTd.classList.remove('UnHideMe');
+    }
+  }
+
+  // Set the file for the file input and don't let the user change it
+  const seqDirInput = formRow.querySelector('#sequence_dir_input_id')
+  seqDirInput.value = seqdirpath
+  // seqDirInput.readonly = true
+  seqDirInput.setAttribute('readonly', true)
+
+  console.log("Updated seqdir input:", seqDirInput, "seqdir:", seqdirpath)
+
+  // Remove the ID (which is what is used to identify the row template)
+  formRow.removeAttribute('id')
 }
 
 /**
@@ -286,7 +336,7 @@ function clearPeakAnnotFiles () { // eslint-disable-line no-unused-vars
   peakAnnotFormsTable.innerHTML = ''
 }
 
-function getMzxmlFileNamesString (newDTFiles, curstring) {
+function getMzxmlFileNamesString (newFiles, curstring) {
   let fileNamesString = ''
 
   let cumulativeFileList = []
@@ -294,9 +344,9 @@ function getMzxmlFileNamesString (newDTFiles, curstring) {
     cumulativeFileList = curstring.split('\n')
   }
 
-  for (let i = 0; i < newDTFiles.files.length; ++i) {
+  for (let i = 0; i < newFiles.length; ++i) {
 
-    file_obj = newDTFiles.files.item(i)
+    file_obj = newFiles.item(i)
 
     if (Object.hasOwn(file_obj, 'webkitRelativePath')) {
       filepath = file_obj.webkitRelativePath
@@ -320,43 +370,39 @@ function getMzxmlFileNamesString (newDTFiles, curstring) {
   return fileNamesString
 }
 
-function getAllMzxmlFilePaths(dT) {
+function getAllMzxmlFilePaths(files) {
+  // See: https://stackoverflow.com/a/60538623/2057516
   let allMzxmlFilePathList = []
-  for (let i = 0; i < dT.files.length; ++i) {
-    if (!dT.files[i].name.toLowerCase().endsWith(".mzxml")) {
+  for (let i = 0; i < files.length; ++i) {
+    console.log("Checking out file", files[i].name)
+    if (!files[i].name.toLowerCase().endsWith(".mzxml")) {
       // We only want directories that directly contain mzXML files
       continue
     }
-    if (Object.hasOwn(dT.files[i], 'webkitRelativePath')) {
-      filePath = dT.files[i].webkitRelativePath;
+    if (Object.hasOwn(files[i], 'webkitRelativePath')) {
+      filePath = files[i].webkitRelativePath;
     } else {
-      filePath = dT.files[i].name
+      filePath = files[i].name
     }
     allMzxmlFilePathList.push(filePath)
-  }
-  // In case there is no webkitRelativePath attribute
-  if (allMzxmlFilePathList.length == 0) {
-    allMzxmlFilePathList.push('')
   }
   return allMzxmlFilePathList
 }
 
-function getAllMzxmlDirectories(dT) {
+function getAllMzxmlDirectories(filepaths) {
   let mzxmlDirList = []
-  for (let i = 0; i < dT.files.length; ++i) {
-    if (Object.hasOwn(dT.files[i], 'webkitRelativePath')) {
-      if (!dT.files[i].name.toLowerCase().endsWith(".mzxml")) {
-        // We only want directories that directly contain mzXML files
-        continue
-      }
-      filePath = dT.files[i].webkitRelativePath;
-      dirname = '';
-      if (filePath.includes("/")) {
-        dirname = filePath.substr(0, filePath.lastIndexOf("/") + 1)
-      }
-      if (!mzxmlDirList.includes(dirname)) {
-        mzxmlDirList.push(dirname)
-      }
+  for (let i = 0; i < filepaths.length; ++i) {
+    if (!filepaths[i].toLowerCase().endsWith(".mzxml")) {
+      // We only want directories that directly contain mzXML files
+      continue
+    }
+    filePath =filepaths[i];
+    dirname = '';
+    if (filePath.includes("/")) {
+      dirname = filePath.substr(0, filePath.lastIndexOf("/") + 1)
+    }
+    if (!mzxmlDirList.includes(dirname)) {
+      mzxmlDirList.push(dirname)
     }
   }
   // In case there is no webkitRelativePath attribute
@@ -376,10 +422,6 @@ function getParentMzxmlDirectories(allMzxmlDirList) {
     }
   }
   return parentMzxmlDirList
-}
-
-function refreshMzxmlDisplayList () {
-  listdispelem.innerHTML = listformelem.value
 }
 
 function getMzxmlsInDirectory(allMzxmlFilePathList, parentDir) {

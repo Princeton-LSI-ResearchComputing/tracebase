@@ -13,6 +13,7 @@ from django.forms import (
     JSONField,
     Select,
     TextInput,
+    Textarea,
     ValidationError,
     formset_factory,
 )
@@ -454,7 +455,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
         # run_date.
         sequence_dir = CharField(
             required=False,
-            widget=TextInput(attrs={"placeholder": "search term", "id": "sequence_dir_input_id"}),
+            widget=TextInput(attrs={"id": "sequence_dir_input_id"}),
         )
 
         # This following fields are for a single file's form, but will be replicated using javascript.  The fields above
@@ -464,7 +465,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
         mzxml_file_list = JSONField(
             decoder="array",
             required=False,
-            widget=HiddenInput(attrs={"id": "mzxml_file_list_input_id"}),
+            # widget=HiddenInput(attrs={"id": "mzxml_file_list_input_id"}),
+            widget=Textarea(attrs={"id": "mzxml_file_list_input_id"}),
         )
 
         # A mapping of peak annotation files to sequence and scan directories they were built from

@@ -17,7 +17,7 @@
                     <div id="raw-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
-                            <input type="file" multiple id="raw-drop-area-input" onchange="handleFiles(this.files, 'raw');"/>
+                            <input type="file" webkitdirectory multiple id="raw-drop-area-input" onchange="handleFiles(this.files, 'raw');"/>
                             Choose Folder
                         </label>  <span class="drop-area-message">(Drop raw data folder)</span>
                     </div>
@@ -26,7 +26,7 @@
                     <table>
                         <!-- 'form-set-row' identifies the duplicated row as one belonging to the final submitted formset.  The javascript code in submission_start.js has this value hard-coded inside the code that prepares the formset for submission.  All of the other IDs on this page are initialized using variables as arguments in calls to init methods in submission.html, with a few exceptions. -->
                         <tr style="vertical-align: middle;" name="form-set-row" id="drop-raw-metadata-row-template">
-                            <td style="display: none;" id="UnHideMe">
+                            <td style="display: none;" class="UnHideMe">
                                 <!-- id="sequence_dir_input_id" -->
                                 {{ form.sequence_dir }}
                             </td>
@@ -67,24 +67,28 @@
         <div id="single-form-elems"> <!--  style="display: none;"> -->
             <!-- These are intentionally hidden and controlled by javascript -->
 
+NORMALLY HIDDEN vvv
             <!-- On this page, this is always "autofill" -->
             {{ form.mode }}
 
+mzXML file list
             <!-- The JSON data that is a list of mzXML filepaths (relative to the dropped study folder) -->
             <!-- id="mzxml_file_list_input_id" -->
             {{ form.mzxml_file_list }}
 
-NORMALLY HIDDEN PEAK ANNOT FILES vvv
+annot files
             <!-- The peak annotation files and their metadata (the default sequence directory containing all of the mzXML files in the sequence and the default scan directory (containing all of the mzXML files that were used to produce the peak annotation file)) -->
             <!-- id="peak_annotation_files_input_id" -->
             {{ form.peak_annotation_files }}
-NORMALLY HIDDEN PEAK ANNOT FILES ^^^
+annot file metadata
             <!-- id="peak_annot_to_mzxml_metadata_input_id" -->
             {{ form.peak_annot_to_mzxml_metadata }}
 
+study doc
             <!-- The study doc, currently not supported on this page, but will eventually be an option for autofilling an existing study doc -->
             <!-- id="study_doc_input_id" -->
             {{ form.study_doc }}
+NORMALLY HIDDEN ^^^
         </div>
 
         <br>

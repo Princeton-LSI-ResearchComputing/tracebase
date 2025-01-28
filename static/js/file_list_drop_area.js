@@ -60,9 +60,75 @@ function unhighlight (e) {
 }
 
 function handleDrop (event, dropAreaKey) {
+  console.log("Trying this out")
+  // See: https://web.dev/patterns/files/drag-and-drop-directories#js
+  const supportsFileSystemAccessAPI = "getAsFileSystemHandle" in DataTransferItem.prototype;
+  const supportsWebkitGetAsEntry = "webkitGetAsEntry" in DataTransferItem.prototype;
+  const fileHandlesPromises = [...event.dataTransfer.items]
+    .filter((item) => item.kind === "file")
+    .map((item) =>
+      supportsFileSystemAccessAPI
+        ? item.getAsFileSystemHandle()
+        : supportsWebkitGetAsEntry
+        ? item.webkitGetAsEntry()
+        : item.getAsFile()
+    );
+
+  console.log("promises:", fileHandlesPromises)
+
+  for (const handle of fileHandlesPromises) {
+    if (handle.kind === "directory" || handle.isDirectory) {
+      console.log(`Directory: ${handle.name}`);
+      console.log("handle:", handle)
+      
+      // See: https://udn.realityripple.com/docs/Web/API/FileSystemDirectoryReader/readEntries
+      // let directoryReader = handle.createReader();
+      // console.log("directoryReader:", directoryReader)
+      // files = directoryReader.readEntries(function(entries) {
+      //     entries.forEach(function(entry) {
+      //       scanFiles(entry, directoryContainer);
+      //   });
+      // });
+      let files = [];
+      scanFiles(handle, files);
+      console.log("files from reading dir:", files)
+      // debug.textContent += `Directory: ${handle.name}\n`;
+    } else {
+      console.log(`File: ${handle.name}`);
+      // debug.textContent += `File: ${handle.name}\n`;
+    }
+  }
+
+  // for await (const handle of fileHandlesPromises) {
+  //   if (handle.kind === "directory" || handle.isDirectory) {
+  //     console.log(`Directory: ${handle.name}`);
+  //     // debug.textContent += `Directory: ${handle.name}\n`;
+  //   } else {
+  //     console.log(`File: ${handle.name}`);
+  //     // debug.textContent += `File: ${handle.name}\n`;
+  //   }
+  // }
+
+
   const dt = event.dataTransfer
   const files = dt.files
   handleFiles(files, dropAreaKey)
+}
+
+// See: https://udn.realityripple.com/docs/Web/API/FileSystemDirectoryReader/readEntries
+function scanFiles(item, container) {
+  if (item.isDirectory) {
+    console.log("directory:", item.fullPath)
+    let directoryReader = item.createReader();
+    directoryReader.readEntries(function(entries) {
+      entries.forEach(function(entry) {
+        scanFiles(entry, container);
+      });
+    });
+  } else {
+    console.log("file:", item.fullPath)
+    container.push(item)
+  }
 }
 
 /**
