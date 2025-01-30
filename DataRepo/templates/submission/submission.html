@@ -29,12 +29,11 @@
                     annotFilesInput
                 );
                 initDropArea(
-                    'annot',  // Key used to store/access drop area data
                     document.getElementById('annot-drop-area'),
                     null,
                     afterAddingPeakAnnotFiles
                 );
-                initMzxmlMetadataUploads(
+                initStudyMetadataUploads(
                     document.getElementById('drop-raw-metadata-row-template'),
                     document.getElementById('sequence-forms-elem'),
                     document.getElementById('raw-drop-area-input'),
@@ -43,10 +42,9 @@
                     studyDocInput
                 );
                 initDropArea(
-                    'raw',  // Key used to store/access drop area data
                     document.getElementById('raw-drop-area'),
                     null,
-                    refreshMzxmlMetadata
+                    refreshStudyMetadata
                 );
             })
         </script>

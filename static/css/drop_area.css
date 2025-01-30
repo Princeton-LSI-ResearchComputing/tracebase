@@ -48,6 +48,10 @@
   padding: 20px;
 }
 
+#sequence_dir_input_id {
+  width: 500px;
+}
+
 #raw-drop-area.highlight {
   border-color: purple;
 }

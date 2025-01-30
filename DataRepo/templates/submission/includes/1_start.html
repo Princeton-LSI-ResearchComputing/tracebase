@@ -17,7 +17,7 @@
                     <div id="raw-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
-                            <input type="file" webkitdirectory multiple id="raw-drop-area-input" onchange="handleFiles(this.files, 'raw');"/>
+                            <input type="file" webkitdirectory id="raw-drop-area-input" onchange="handleFiles(this.files, 'raw-drop-area');"/>
                             Choose Folder
                         </label>  <span class="drop-area-message">(Drop raw data folder)</span>
                     </div>
@@ -117,7 +117,7 @@ NORMALLY HIDDEN ^^^
                     <div id="annot-drop-area">
                         <!-- Hidden form that does not submit - just used as a target to drop files, from which, just their names are extracted to populate the other form's hidden character input -->
                         <label class="btn btn-secondary">
-                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files, 'annot');"/>
+                            <input type="file" multiple id="annot-drop-area-input" onchange="handleFiles(this.files, 'annot-drop-area');"/>
                             Add Files
                         </label>  <span class="drop-area-message">(Drop peak annotation files)</span>
                     </div>
@@ -156,7 +156,7 @@ NORMALLY HIDDEN ^^^
     <br>
 
     <button type="submit" class="btn btn-primary" id="submit" onclick="document.getElementById('submission-validation').submit();">Download Template</button>
-    <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('annot-drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
+    <button type="reset" class="btn btn-secondary" id="clear" onclick="clearSubmissionForm();">Clear</button>
     {% if results %}
         <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Fill%20In" role="button" style="float: right;">Next</a>
     {% endif %}

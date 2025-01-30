@@ -455,7 +455,7 @@ def create_BuildSubmissionForm() -> Type[Form]:
         # run_date.
         sequence_dir = CharField(
             required=False,
-            widget=TextInput(attrs={"id": "sequence_dir_input_id"}),
+            widget=TextInput(attrs={"id": "sequence_dir_input_id", "size": 40}),
         )
 
         # This following fields are for a single file's form, but will be replicated using javascript.  The fields above
@@ -474,7 +474,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
         #   {<peak_annotation_file name>: {"sequence dir": <sequence dir selected>, "scan dir": <scan dir selected>}}
         peak_annot_to_mzxml_metadata = JSONField(
             required=False,
-            widget=HiddenInput(attrs={"id": "peak_annot_to_mzxml_metadata_input_id"}),
+            # widget=HiddenInput(attrs={"id": "peak_annot_to_mzxml_metadata_input_id"}),
+            widget=Textarea(attrs={"id": "peak_annot_to_mzxml_metadata_input_id"}),
         )
 
         @property
