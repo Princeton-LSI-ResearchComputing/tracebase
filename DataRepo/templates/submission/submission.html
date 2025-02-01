@@ -19,6 +19,8 @@
                 let studyDocInput = tmpElems[0];
                 tmpElems = document.getElementsByName("peak_annotation_files");
                 let annotFilesInput = tmpElems[0];
+                tmpElems = document.getElementsByName("peak_annot_to_mzxml_metadata");
+                let annotToMzxmlInput = tmpElems[0];
                 initPeakAnnotUploads(
                     document.getElementById('drop-annot-metadata-row-template'),
                     document.getElementById('peak-annot-forms-elem'),
@@ -26,7 +28,8 @@
                     document.getElementById('submission-validation'),
                     document.getElementById('single-form-elems'),
                     studyDocInput,
-                    annotFilesInput
+                    annotFilesInput,
+                    annotToMzxmlInput
                 );
                 initDropArea(
                     document.getElementById('annot-drop-area'),

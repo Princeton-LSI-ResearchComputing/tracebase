@@ -2,7 +2,6 @@
 //     "dropArea": dropArea,
 //     "fileFunc": fileFunc,
 //     "postDropFunc": postDropFunc,
-//     "filesList": filesList
 // }
 var dropAreas = {} // eslint-disable-line no-unused-vars
 
@@ -36,20 +35,19 @@ function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-lin
     "dropArea": dropArea,
     "fileFunc": null,
     "postDropFunc": null,
-    "filesList": []
   }
 
   if (typeof fileFunc !== 'undefined' && fileFunc) {
     globalThis.dropAreas[dropAreaKey]["fileFunc"] = fileFunc
   }
-  
+
   if (typeof postDropFunc !== 'undefined' && postDropFunc) {
     globalThis.dropAreas[dropAreaKey]["postDropFunc"] = postDropFunc
   }
 
   // dropArea.addEventListener('drop', function (e) {handleDrop(e, dropAreaKey)}, false)
   console.log("Attaching drop area listener to:", dropArea)
-  dropArea.addEventListener('drop', onDropItems, false)
+  dropArea.addEventListener('drop', function(e) {onDropItems(e, dropArea)}, false)
 }
 
 function preventDefaults (e) { // eslint-disable-line no-unused-vars
@@ -84,7 +82,7 @@ function handleDrop (event, dropAreaKey) {
     if (handle.kind === "directory" || handle.isDirectory) {
       console.log(`Directory: ${handle.name}`);
       console.log("handle:", handle)
-      
+
       // See: https://udn.realityripple.com/docs/Web/API/FileSystemDirectoryReader/readEntries
       // let directoryReader = handle.createReader();
       // console.log("directoryReader:", directoryReader)
@@ -140,13 +138,14 @@ const supportsWebkitGetAsEntry = "webkitGetAsEntry" in DataTransferItem.prototyp
 
 // See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
 // This is an experiment to see if I can handle both drag and drop directories and input file directory selection
-const onDropItems = async (e) => {
+const onDropItems = async (e, dropArea) => {
   // Prevent navigation.
   e.preventDefault();
 
   // Check for file system access capabilities
   if (!supportsFileSystemAccessAPI && !supportsWebkitGetAsEntry) {
     // Cannot handle directories.
+    alert("Your browser does not support folder relative path access.")
     return;
   }
 
@@ -155,7 +154,7 @@ const onDropItems = async (e) => {
   console.log("Results here dude!!! : ", flattenFiles);
   console.log("Here is 'e':", e)
   // Added "this" to refer to the drop-area.  We use its id as a key to the dropAreas data structure.
-  setResults(flattenFiles, e.target.parentElement);
+  setResults(flattenFiles, dropArea);
 };
 
 // See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
@@ -241,22 +240,34 @@ function setResults(files, dropArea) {
  * This method calls the fileFunc that was initialized by the initDropArea function on each file and then calls the
  * postDropFunc, passing all files.
  * @param {*} files - An optional array of file objects.
+ * @param {*} dropAreaKey - A string identifying the specific drop area
  */
 function handleFiles (files, dropAreaKey) { // eslint-disable-line no-unused-vars
+
   console.log("key:", dropAreaKey, "files", files, "dropAreas[dropAreaKey]:", dropAreas[dropAreaKey]);
-  fileFunc = dropAreas[dropAreaKey]["fileFunc"];
-  postDropFunc = dropAreas[dropAreaKey]["postDropFunc"];
+
+  try {
+    fileFunc = dropAreas[dropAreaKey]["fileFunc"];
+    postDropFunc = dropAreas[dropAreaKey]["postDropFunc"];
+  } catch (error) {
+    console.error(error);
+    console.log("dropAreaKey", dropAreaKey, "dropAreas", dropAreas);
+    alert("Your browser appears to be busy and is not ready to handle new files.  Please try again.");
+    return;
+  }
+
   if (typeof files !== 'undefined' && files) {
-    for (let i = 0; i < files.length; ++i) {
+    if (typeof fileFunc !== 'undefined' && fileFunc) {
+      for (let i = 0; i < files.length; ++i) {
       // See: https://stackoverflow.com/questions/8006715/
       const dT = new DataTransfer() // eslint-disable-line no-undef
       dT.items.add(files[i])
-      if (typeof fileFunc !== 'undefined' && fileFunc) {
         fileFunc(dT)
       }
     }
     if (typeof postDropFunc !== 'undefined' && postDropFunc) {
-      postDropFunc(files)
+      // This small delay should allow the processing message to update the page
+      setTimeout(function() { postDropFunc(files) }, 1);
     }
   }
 }

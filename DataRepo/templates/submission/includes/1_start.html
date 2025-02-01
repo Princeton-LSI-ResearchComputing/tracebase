@@ -1,6 +1,8 @@
 {% load customtags %}
 {% load static %}
 
+<div id="overlay"></div>
+<div id="popup"></div>
 <div>
     <h3>Start a Submission</h3>
     <span class="small text-muted">Generate a Study Submission Template with auto-filled samples and compounds extracted from your peak annotation files (e.g. AccuCor) along with other supporting data from the database.</span><br><br>
@@ -64,31 +66,30 @@
             </table>
         </div>
 
-        <div id="single-form-elems"> <!--  style="display: none;"> -->
+        <div id="single-form-elems" style="display: none;">
             <!-- These are intentionally hidden and controlled by javascript -->
 
-NORMALLY HIDDEN vvv
             <!-- On this page, this is always "autofill" -->
             {{ form.mode }}
 
-mzXML file list
+            mzXML file list
             <!-- The JSON data that is a list of mzXML filepaths (relative to the dropped study folder) -->
             <!-- id="mzxml_file_list_input_id" -->
             {{ form.mzxml_file_list }}
 
-annot files
+            annot files
             <!-- The peak annotation files and their metadata (the default sequence directory containing all of the mzXML files in the sequence and the default scan directory (containing all of the mzXML files that were used to produce the peak annotation file)) -->
             <!-- id="peak_annotation_files_input_id" -->
             {{ form.peak_annotation_files }}
-annot file metadata
+
+            annot file metadata
             <!-- id="peak_annot_to_mzxml_metadata_input_id" -->
             {{ form.peak_annot_to_mzxml_metadata }}
 
-study doc
+            study doc
             <!-- The study doc, currently not supported on this page, but will eventually be an option for autofilling an existing study doc -->
             <!-- id="study_doc_input_id" -->
             {{ form.study_doc }}
-NORMALLY HIDDEN ^^^
         </div>
 
         <br>
@@ -154,6 +155,10 @@ NORMALLY HIDDEN ^^^
     </form>
 
     <br>
+
+    Debug:
+    <button type="button" onclick="document.getElementById('single-form-elems').style.display = 'block';">Show</button>
+    <button type="button" onclick="document.getElementById('single-form-elems').style.display = 'none';">Hide</button><br><br>
 
     <button type="submit" class="btn btn-primary" id="submit" onclick="document.getElementById('submission-validation').submit();">Download Template</button>
     <button type="reset" class="btn btn-secondary" id="clear" onclick="clearSubmissionForm();">Clear</button>

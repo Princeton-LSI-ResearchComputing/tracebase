@@ -361,7 +361,8 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
         # "Study doc" (hidden on the start tab)
         study_doc = FileField(
-            required=False, widget=ClearableFileInput(attrs={"multiple": False})
+            required=False,
+            widget=ClearableFileInput(attrs={"multiple": False})
         )
 
         peak_annotation_files = MultipleFileField(
