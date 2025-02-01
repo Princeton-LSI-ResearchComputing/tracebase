@@ -14,8 +14,10 @@ class ProtocolViewTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
-        call_command("legacy_load_study", "DataRepo/data/tests/dataframes/loading.yaml")
+        call_command(
+            "load_protocols",
+            infile="DataRepo/data/tests/dataframes/protocols.tsv",
+        )
 
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))
