@@ -9,11 +9,7 @@ from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
 
-from DataRepo.loaders import (
-    AccuCorDataLoader,
-    IsotopeObservationData,
-    SampleTableLoader,
-)
+from DataRepo.loaders import SampleTableLoader
 from DataRepo.management.commands.legacy_load_study import Command as LSCommand
 from DataRepo.models import (
     Animal,
@@ -47,13 +43,11 @@ from DataRepo.utils import (
     AllMissingSamplesError,
     AllMissingTissuesErrors,
     ConflictingValueError,
-    DupeCompoundIsotopeCombos,
     IsotopeParsingError,
     MissingCompoundsError,
     MissingSamplesError,
     MissingTissue,
     NoCommonLabel,
-    ObservedIsotopeParsingError,
     RequiredSampleValuesError,
     SheetMergeError,
     get_column_dupes,
@@ -2268,137 +2262,6 @@ class StudyLoadingTests(TracebaseTestCase):
         call_command(
             "legacy_load_study",
             "DataRepo/data/tests/multiple_labels/loading.yaml",
-        )
-
-
-@override_settings(CACHES=settings.TEST_CACHES)
-@tag("load_study")
-class ParseIsotopeLabelTests(TracebaseTestCase):
-    @classmethod
-    @MaintainedModel.no_autoupdates()
-    def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
-        call_command(
-            "legacy_load_study",
-            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
-        )
-
-        call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-        )
-
-        super().setUpTestData()
-
-    def get_labeled_elements(self):
-        return [
-            IsotopeObservationData(
-                element="C",
-                mass_number=13,
-                count=0,
-                parent=True,
-            )
-        ]
-
-    def test_parse_parent_isotope_label(self):
-        tracer_labeled_elements = self.get_labeled_elements()
-        self.assertEqual(
-            AccuCorDataLoader.parse_isotope_string(
-                "C12 PARENT", tracer_labeled_elements
-            ),
-            [{"element": "C", "count": 0, "mass_number": 13, "parent": True}],
-        )
-
-    def test_parse_isotope_label(self):
-        tracer_labeled_elements = self.get_labeled_elements()
-        self.assertEqual(
-            AccuCorDataLoader.parse_isotope_string(
-                "C13-label-5",
-                tracer_labeled_elements,
-            ),
-            [{"element": "C", "count": 5, "mass_number": 13, "parent": False}],
-        )
-
-    def test_parse_isotope_label_bad(self):
-        tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(ObservedIsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_string(
-                "label-5",
-                tracer_labeled_elements,
-            )
-
-    def test_parse_isotope_label_empty(self):
-        tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(ObservedIsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_string(
-                "",
-                tracer_labeled_elements,
-            )
-
-    def test_parse_isotope_label_none(self):
-        tracer_labeled_elements = self.get_labeled_elements()
-        with self.assertRaises(TypeError):
-            AccuCorDataLoader.parse_isotope_string(
-                None,
-                tracer_labeled_elements,
-            )
-
-    def test_parse_isotope_label_no_carbon(self):
-        tracer_labeled_elements = [
-            IsotopeObservationData(element="N", mass_number=14, count=2, parent=True),
-            IsotopeObservationData(element="O", mass_number=16, count=1, parent=True),
-        ]
-        self.assertEqual(
-            AccuCorDataLoader.parse_isotope_string(
-                "C12 PARENT", tracer_labeled_elements
-            ),
-            tracer_labeled_elements,
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_dupe_compound_isotope_pairs(self):
-        # Error must contain:
-        #   all compound/isotope pairs that were dupes
-        #   all line numbers the dupes were on
-        exp_err = (
-            "The following duplicate compound/isotope combinations were found in the data:\n"
-            "\toriginal sheet:\n"
-            "\t\tCompound: [glucose], Label: [C12 PARENT] on row(s): ['2-3']\n"
-            "\t\tCompound: [lactate], Label: [C12 PARENT] on row(s): ['4-5']\n"
-            "\tcorrected sheet:\n"
-            "\t\tCompound: [glucose], C_Label: [0] on row(s): ['2-3']\n"
-            "\t\tCompound: [lactate], C_Label: [0] on row(s): ['4-5']"
-        )
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "legacy_load_accucor_msruns",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
-                date="2021-06-03",
-                researcher="Xianfeng Zeng",
-            )
-        aes = ar.exception
-        aes.print_summary()
-        aes.print_all_buffered_exceptions()
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], DupeCompoundIsotopeCombos))
-        self.assertTrue("original" in aes.exceptions[0].dupe_dict.keys())
-        self.assertTrue("corrected" in aes.exceptions[0].dupe_dict.keys())
-        self.assertEqual(exp_err, str(aes.exceptions[0]), msg=str(aes.exceptions[0]))
-        # Data was not loaded
-        self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
-        self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
-
-    def test_multiple_labeled_elements(self):
-        dual_label = "C13N15-label-1-2"
-        self.assertEqual(
-            AccuCorDataLoader.parse_isotope_string(dual_label),
-            [
-                {"element": "C", "count": 1, "mass_number": 13, "parent": False},
-                {"element": "N", "count": 2, "mass_number": 15, "parent": False},
-            ],
         )
 
 

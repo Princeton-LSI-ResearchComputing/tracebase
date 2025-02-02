@@ -304,6 +304,13 @@ class InfusateParsingTests(InfusateTestData):
 
 
 class InfusateValidationTests(InfusateTestData):
+    tracer_labeled_elements = ObservedIsotopeData(
+        element="C",
+        mass_number=13,
+        count=0,
+        parent=True,
+    )
+
     def test_tracer_creation(self):
         """Test creation of a valid tracer object from TracerData"""
         (tracer, created) = Tracer.objects.get_or_create_tracer(
@@ -489,6 +496,20 @@ class InfusateValidationTests(InfusateTestData):
         obs = parse_isotope_label(label, possible_obs)
         self.assertEqual(expected, obs)
 
+    def test_parse_isotope_label_no_carbon(self):
+        tracer_labeled_elements = [
+            ObservedIsotopeData(element="N", mass_number=14, count=2, parent=True),
+            ObservedIsotopeData(element="O", mass_number=16, count=1, parent=True),
+        ]
+        expected_tracer_labeled_elements = [
+            ObservedIsotopeData(element="N", mass_number=14, count=0, parent=True),
+            ObservedIsotopeData(element="O", mass_number=16, count=0, parent=True),
+        ]
+        self.assertEqual(
+            expected_tracer_labeled_elements,
+            parse_isotope_label("C12 PARENT", tracer_labeled_elements),
+        )
+
     def test_parse_isotope_label_adds_possible_zero_counts(self):
         label = "C13-label-3"
         possible_obs = [
@@ -549,3 +570,24 @@ class InfusateValidationTests(InfusateTestData):
         label = "nonsense"
         with self.assertRaises(ObservedIsotopeParsingError):
             parse_isotope_label(label)
+
+    def test_parse_isotope_label_no_isotope(self):
+        with self.assertRaises(ObservedIsotopeParsingError):
+            parse_isotope_label(
+                "label-5",
+                self.tracer_labeled_elements,
+            )
+
+    def test_parse_isotope_label_empty(self):
+        with self.assertRaises(ObservedIsotopeParsingError):
+            parse_isotope_label(
+                "",
+                self.tracer_labeled_elements,
+            )
+
+    def test_parse_isotope_label_none(self):
+        with self.assertRaises(TypeError):
+            parse_isotope_label(
+                None,
+                self.tracer_labeled_elements,
+            )
