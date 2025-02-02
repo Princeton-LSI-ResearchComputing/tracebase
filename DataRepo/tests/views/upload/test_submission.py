@@ -3,6 +3,7 @@ import os
 from copy import deepcopy
 from io import BytesIO
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
@@ -40,7 +41,6 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.views.upload.submission import BuildSubmissionView
-from TraceBase import settings
 
 
 class BuildSubmissionViewTests1(TracebaseTransactionTestCase):

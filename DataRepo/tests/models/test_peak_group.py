@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.core.files import File
+from django.core.management import call_command
 
 from DataRepo.models import (
     Animal,
@@ -18,6 +19,7 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.compound import Compound
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     MultiplePeakGroupRepresentation,
@@ -199,3 +201,42 @@ class PeakGroupTests(TracebaseTestCase):
         rec, cre = self.pg.get_or_create_compound_link(cmpd)
         self.assertFalse(cre)
         self.assertIsNotNone(rec)
+
+
+class MultiLabelPeakGroupTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
+
+    @classmethod
+    @MaintainedModel.no_autoupdates()
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/multiple_labels/animal_sample_table_v3.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+        )
+
+        super().setUpTestData()
+
+    @MaintainedModel.no_autoupdates()
+    def test_peak_labeled_elements_one(self):
+        # succinate has no nitrogen
+        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+            name="succinate"
+        )
+        output = pg.peak_labeled_elements
+        # One common element
+        expected = ["C"]
+        self.assertEqual(expected, output)
+
+    @MaintainedModel.no_autoupdates()
+    def test_peak_labeled_elements_two(self):
+        pg = PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc").get(
+            name="glutamine"
+        )
+        output = pg.peak_labeled_elements
+        expected = ["C", "N"]
+        self.assertEqual(expected, output)

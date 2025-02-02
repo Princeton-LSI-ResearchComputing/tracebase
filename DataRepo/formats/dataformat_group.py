@@ -3,6 +3,7 @@ import time
 from copy import deepcopy
 from typing import Dict, Optional
 
+from django.conf import settings
 from django.core.exceptions import (
     FieldError,
     ObjectDoesNotExist,
@@ -19,7 +20,6 @@ from DataRepo.formats.dataformat_group_query import (
     setFirstEmptyQuery,
 )
 from DataRepo.models.utilities import get_model_by_name
-from TraceBase import settings
 
 SAFE_TIMEOUT_SECS = max(settings.GATEWAY_TIMEOUT - 5, 0)
 

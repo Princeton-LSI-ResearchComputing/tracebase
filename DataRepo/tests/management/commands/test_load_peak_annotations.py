@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
+from django.conf import settings
 from django.core.management import CommandError, call_command
+from django.test import override_settings
 
 from DataRepo.loaders.peak_annotation_files_loader import (
     PeakAnnotationFilesLoader,
@@ -27,6 +29,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DuplicateFileHeaders,
+    DuplicateValueErrors,
     MultiplePeakGroupRepresentation,
     MultiplePeakGroupRepresentations,
     NoSamples,
@@ -518,6 +521,51 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], MultiplePeakGroupRepresentations))
+
+
+@override_settings(CACHES=settings.TEST_CACHES)
+class DuplicatePeakAnnotationRowsTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+
+    @classmethod
+    @MaintainedModel.no_autoupdates()
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+
+        super().setUpTestData()
+
+    @MaintainedModel.no_autoupdates()
+    def test_dupe_compound_isotope_pairs(self):
+        # Error must contain:
+        #   compound/isotope pairs that were dupes
+        #   line numbers the dupes were on
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_peak_annotations",
+                infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
+            )
+        aes = ar.exception
+        aes.print_summary()
+        aes.print_all_buffered_exceptions()
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIsInstance(aes.exceptions[0], DuplicateValueErrors)
+        # First one:
+        self.assertIn(
+            "Sample Header: [BAT-xz971], Compound: [glucose], IsotopeLabel: [C12 PARENT] (rows*: 2-5)",
+            str(aes.exceptions[0]),
+        )
+        # Last one:
+        self.assertIn(
+            "Sample Header: [gas-xz971], Compound: [lactate], IsotopeLabel: [C12 PARENT] (rows*: 110-113)",
+            str(aes.exceptions[0]),
+        )
+        # Data was not loaded
+        self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
+        self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
 
 
 class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):

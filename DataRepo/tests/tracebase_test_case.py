@@ -6,10 +6,10 @@ import time
 from collections import defaultdict
 from typing import Type
 
+from django.conf import settings
 from django.test import TestCase, TransactionTestCase, override_settings
 
 from DataRepo.models.utilities import get_all_models
-from TraceBase import settings
 
 try:
     import importlib
