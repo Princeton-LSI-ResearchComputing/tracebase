@@ -181,6 +181,11 @@ class InfusateTests(TracebaseTestCase):
             )
         )
 
+    def test_tracer_labeled_elements(self):
+        expected = ["C", "O"]
+        output = self.INFUSATE1.tracer_labeled_elements
+        self.assertEqual(expected, output)
+
     def test_name_from_data(self):
         # TODO: Implement test
         pass

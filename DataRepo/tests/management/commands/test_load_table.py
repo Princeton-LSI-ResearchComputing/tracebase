@@ -2,6 +2,7 @@ import io
 import sys
 from collections import namedtuple
 
+from django.conf import settings
 from django.db import ProgrammingError
 from django.db.models import AutoField, CharField, Model
 from django.test.utils import isolate_apps
@@ -18,7 +19,6 @@ from DataRepo.utils.exceptions import (
     OptionsNotAvailable,
     RequiredOptions,
 )
-from TraceBase import settings
 
 
 # Class (Model) used for testing
