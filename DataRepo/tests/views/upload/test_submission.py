@@ -40,6 +40,7 @@ from DataRepo.utils.exceptions import (
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 from DataRepo.views.upload.submission import BuildSubmissionView
+from TraceBase import settings
 
 
 class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
@@ -1087,7 +1088,10 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         assert_coordinator_state_is_initialized()
 
         call_command("loaddata", "lc_methods", "data_types", "data_formats")
-        call_command("legacy_load_study", "DataRepo/data/tests/tissues/loading.yaml")
+        call_command(
+            "load_tissues",
+            infile="DataRepo/data/tests/tissues/tissues.tsv",
+        )
         call_command(
             "load_compounds",
             infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
@@ -1128,243 +1132,148 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "submission/submission.html")
 
-    # TODO: Add this test back in once the peak annotation details sheet is included.
-    # def test_validate_files_good(self):
-    #     """
-    #     Do a file validation test
-    #     """
-    #     # Load the necessary records for a successful test
-    #     call_command("loaddata", "lc_methods")
-    #     call_command(
-    #         "load_compounds",
-    #         infile="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
-    #     )
+    def test_validate_files_good(self):
+        """
+        Do a file validation test
+        """
+        # Files/inputs we will test
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good_v3.xlsx"
+        afs = [
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+        ]
 
-    #     Study.objects.create(name="Serine synthesis from glucose in control vs ser/gly-free diet")
-    #     Tissue.objects.create(name="serum_plasma_unspecified_location")
-    #     Tissue.objects.create(name="brain")
-    #     Infusate.objects.get_or_create_infusate(
-    #         parse_infusate_name_with_concs("glucose-[13C6][200]")
-    #     )
-    #     Infusate.objects.get_or_create_infusate(
-    #         parse_infusate_name_with_concs("glucose-[13C6][800]")
-    #     )
-    #     lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-    #     MSRunSequence.objects.create(
-    #         researcher="Anonymous",
-    #         date=string_to_datetime("1972-11-24"),
-    #         instrument="unknown",
-    #         lc_method=lcm,
-    #     )
+        sfkey = "animal_sample_good_v3.xlsx"
+        af1key = "accucor1.xlsx"
+        af2key = "accucor2.xlsx"
 
-    #     # Files/inputs we will test
-    #     sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
-    #     afs = [
-    #         "DataRepo/data/tests/data_submission/accucor1.xlsx",
-    #         "DataRepo/data/tests/data_submission/accucor2.xlsx",
-    #     ]
+        # Test the get_validation_results function
+        # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
+        # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
+        [results, valid, exceptions, _, _] = self.validate_some_files(sf, afs)
 
-    #     sfkey = "animal_sample_good.xlsx"
-    #     af1key = "accucor1.xlsx"
-    #     af2key = "accucor2.xlsx"
+        # There is a researcher named "anonymous", but that name is ignored
+        self.assertTrue(
+            valid, msg=f"There should be no errors in any file: {exceptions}"
+        )
 
-    #     # Test the get_validation_results function
-    #     # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
-    #     # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
-    #     [results, valid, exceptions, _, _] = self.validate_some_files(sf, afs)
+        # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
+        # researchers named "anonymous" (case-insensitive)
+        self.assertEqual("PASSED", results[sfkey])
+        self.assertEqual(0, len(exceptions[sfkey]))
 
-    #     # There is a researcher named "anonymous", but that name is ignored
-    #     self.assertTrue(
-    #         valid, msg=f"There should be no errors in any file: {exceptions}"
-    #     )
-
-    #     # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
-    #     # researchers named "anonymous" (case-insensitive)
-    #     self.assertEqual("PASSED", results[sfkey])
-    #     self.assertEqual(0, len(exceptions[sfkey]))
-
-    #     # Check the accucor file details
-    #     self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
+        # Check the accucor file details
+        self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
 
     # TODO: Uncomment when the peak annotation details is included in validation (cannot have a successful load without
     # TODO: MSRunSample records
-    # @override_settings(DEBUG=True)
-    # def test_validate_files_with_sample_warning(self):
-    #     """
-    #     Do a file validation test
-    #     """
-    #     self.initialize_databases()
+    @override_settings(DEBUG=True)
+    def test_validate_files_with_sample_warning(self):
+        """
+        Do a file validation test
+        """
+        call_command("loaddata", "data_types", "data_formats")
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_no_newsample.xlsx",
+            exclude_sheets=["Peak Annotation Files"],
+        )
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
+        )
 
-    #     # Load some data that should cause a researcher warning during validation (an unknown researcher error will
-    #     # not be raised if there are no researchers loaded in the database)
-    #     call_command("loaddata", "lc_methods")
-    #     call_command(
-    #         "legacy_load_samples",
-    #         "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-    #         sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-    #         validate=True,
-    #     )
-    #     call_command(
-    #         "legacy_load_accucor_msruns",
-    #         lc_protocol_name="polar-HILIC-25-min",
-    #         instrument="unknown",
-    #         accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
-    #         date="2021-06-03",
-    #         researcher="Michael Neinast",
-    #         new_researcher=True,
-    #         validate=True,
-    #         # TODO: Uncomment (and make it actual files) when #814 is implemented
-    #         # mzxml_files=[
-    #         #     "BAT-xz971.mzxml",
-    #         #     "Br-xz971.mzxml",
-    #         #     "Dia-xz971.mzxml",
-    #         #     "gas-xz971.mzxml",
-    #         #     "gWAT-xz971.mzxml",
-    #         #     "H-xz971.mzxml",
-    #         #     "Kid-xz971.mzxml",
-    #         #     "Liv-xz971.mzxml",
-    #         #     "Lu-xz971.mzxml",
-    #         #     "Pc-xz971.mzxml",
-    #         #     "Q-xz971.mzxml",
-    #         #     "SI-xz971.mzxml",
-    #         #     "Sol-xz971.mzxml",
-    #         #     "Sp-xz971.mzxml",
-    #         # ],
-    #     )
+        # Files/inputs we will test
+        sf = "DataRepo/data/tests/data_submission/animal_sample_unknown_researcher_v3.xlsx"
+        afs = [
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+        ]
 
-    #     # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after
-    #     itself self.assert_coordinator_state_is_initialized()
+        sfkey = "animal_sample_unknown_researcher_v3.xlsx"
+        af1key = "accucor1.xlsx"
+        af2key = "accucor2.xlsx"
 
-    #     Study.objects.create(name="Serine synthesis from glucose in control vs ser/gly-free diet")
-    #     Infusate.objects.get_or_create_infusate(
-    #         parse_infusate_name_with_concs("glucose-[13C6][200]")
-    #     )
-    #     Infusate.objects.get_or_create_infusate(
-    #         parse_infusate_name_with_concs("glucose-[13C6][800]")
-    #     )
-    #     lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-    #     MSRunSequence.objects.create(
-    #         researcher="Anonymous",
-    #         date=string_to_datetime("1972-11-24"),
-    #         instrument="unknown",
-    #         lc_method=lcm,
-    #     )
+        # Test the get_validation_results function
+        [
+            results,
+            valid,
+            exceptions,
+            num_errors,
+            num_warnings,
+        ] = self.validate_some_files(sf, afs)
 
-    #     # Files/inputs we will test
-    #     sf = "DataRepo/data/tests/data_submission/animal_sample_unknown_researcher.xlsx"
-    #     afs = [
-    #         "DataRepo/data/tests/data_submission/accucor1.xlsx",
-    #         "DataRepo/data/tests/data_submission/accucor2.xlsx",
-    #     ]
+        if settings.DEBUG:
+            print(
+                f"VALID: {valid}\nALL RESULTS: {results}\nALL EXCEPTIONS: {exceptions}"
+            )
 
-    #     sfkey = "animal_sample_unknown_researcher.xlsx"
-    #     af1key = "accucor1.xlsx"
-    #     af2key = "accucor2.xlsx"
+        # NOTE: When the unknown researcher error is raised, the sample table load would normally be rolled back.  The
+        # subsequent accucor load would then fail (to find any more errors), because it can't find the same names in
+        # the database.  Sample table loader needs to raise the exception to communicate the issues to the validate
+        # interface, so in validation mode, it raises the exception outside of the atomic transaction block, which
+        # won't rollback the erroneous load, so the validation code wraps everything in an outer atomic transaction
+        # and rolls back everything at the end.
 
-    #     # Test the get_validation_results function
-    #     [
-    #         results,
-    #         valid,
-    #         exceptions,
-    #         num_errors,
-    #         num_warnings,
-    #     ] = self.validate_some_files(sf, afs)
+        # There is a researcher named "George Costanza" that should be unknown, making the overall status false.  Any
+        # error or warning will cause is_valid to be false
+        self.assertFalse(
+            valid,
+            msg=(
+                "Should be valid. The 'George Costanza' researcher should cause a warning, so there should be 1 "
+                f"warning: [{exceptions}] for the sample file."
+            ),
+        )
 
-    #     if settings.DEBUG:
-    #         print(
-    #             f"VALID: {valid}\nALL RESULTS: {results}\nALL EXCEPTIONS: {exceptions}"
-    #         )
+        # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
+        # researchers named "anonymous" (case-insensitive)
+        self.assertEqual(
+            "WARNING",
+            results[sfkey],
+            msg=f"There should only be 1 warning for file {sfkey}: {exceptions[sfkey]}",
+        )
+        self.assertEqual(0, num_errors[sfkey])
+        self.assertEqual(1, num_warnings[sfkey])
+        self.assertEqual("NewResearchers", exceptions[sfkey][0]["type"])
 
-    #     # NOTE: When the unknown researcher error is raised, the sample table load would normally be rolled back.  The
-    #     # subsequent accucor load would then fail (to find any more errors), because it can't find the same names in
-    #     # the database.  Sample table loader needs to raise the exception to communicate the issues to the validate
-    #     # interface, so in validation mode, it raises the exception outside of the atomic transaction block, which
-    #     # won't rollback the erroneous load, so the validation code wraps everything in an outer atomic transaction
-    #     # and rolls back everything at the end.
+        # Check the accucor file details
+        self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
 
-    #     # There is a researcher named "George Costanza" that should be unknown, making the overall status false.  Any
-    #     # error or warning will cause is_valid to be false
-    #     self.assertFalse(
-    #         valid,
-    #         msg=(
-    #             "Should be valid. The 'George Costanza' researcher should cause a warning, so there should be 1 "
-    #             f"warning: [{exceptions}] for the sample file."
-    #         ),
-    #     )
+    def test_databases_unchanged(self):
+        """
+        Test to ensure that validating user submitted data does not change the database
+        """
+        # Get initial record counts for all models
+        tb_init_counts = self.get_record_counts()
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
 
-    #     # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
-    #     # researchers named "anonymous" (case-insensitive)
-    #     self.assertEqual(
-    #         "WARNING",
-    #         results[sfkey],
-    #         msg=f"There should only be 1 warning for file {sfkey}: {exceptions[sfkey]}",
-    #     )
-    #     self.assertEqual(0, num_errors[sfkey])
-    #     self.assertEqual(1, num_warnings[sfkey])
-    #     self.assertEqual("NewResearchers", exceptions[sfkey][0]["type"])
+        sample_file = "DataRepo/data/tests/data_submission/animal_sample_good_v3.xlsx"
+        accucor_files = [
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
+        ]
 
-    #     # Check the accucor file details
-    #     self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
+        [
+            _,
+            valid,
+            _,
+            _,
+            _,
+        ] = self.validate_some_files(sample_file, accucor_files)
 
-    # TODO: Uncomment when the peak annotation details is included in validation (cannot have a successful load without
-    # TODO: MSRunSample records
-    # def test_databases_unchanged(self):
-    #     """
-    #     Test to ensure that validating user submitted data does not change the database
-    #     """
-    #     # self.clear_database()
-    #     # self.initialize_databases()
-    #     Study.objects.create(name="Serine synthesis from glucose in control vs ser/gly-free diet")
-    #     Tissue.objects.create(name="serum_plasma_unspecified_location")
-    #     Tissue.objects.create(name="brain")
-    #     Compound.objects.create(name="Serine", formula="C3H7NO3", hmdb_id="HMDB0000187")
-    #     Compound.objects.create(name="Glycine", formula="C2H5NO2", hmdb_id="HMDB0000123")
-    #     Compound.objects.create(name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122")
-    #     Infusate.objects.get_or_create_infusate(
-    #         parse_infusate_name_with_concs("glucose-[13C6][200]")
-    #     )
-    #     Infusate.objects.get_or_create_infusate(
-    #         parse_infusate_name_with_concs("glucose-[13C6][800]")
-    #     )
-    #     lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-    #     MSRunSequence.objects.create(
-    #         researcher="Anonymous",
-    #         date=string_to_datetime("1972-11-24"),
-    #         instrument="unknown",
-    #         lc_method=lcm,
-    #     )
+        # Test case is for passing data, so it only works if it passes
+        self.assertTrue(valid)
 
-    #     # Get initial record counts for all models
-    #     tb_init_counts = self.get_record_counts()
-    #     pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
-    #         "DataRepo.models"
-    #     )
+        # Get record counts for all models
+        tb_post_counts = self.get_record_counts()
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
 
-    #     sample_file = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
-    #     accucor_files = [
-    #         "DataRepo/data/tests/data_submission/accucor1.xlsx",
-    #         "DataRepo/data/tests/data_submission/accucor2.xlsx",
-    #     ]
-
-    #     [
-    #         results,
-    #         valid,
-    #         exceptions,
-    #         num_errors,
-    #         num_warnings,
-    #     ] = self.validate_some_files(sample_file, accucor_files)
-
-    #     # Test case is for passing data, so it only works if it passes
-    #     self.assertTrue(valid)
-
-    #     # Get record counts for all models
-    #     tb_post_counts = self.get_record_counts()
-    #     post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
-    #         "DataRepo.models"
-    #     )
-
-    #     self.assertListEqual(tb_init_counts, tb_post_counts)
-    #     self.assertEqual(pre_load_maintained_values, post_load_maintained_values)
+        self.assertListEqual(tb_init_counts, tb_post_counts)
+        self.assertEqual(pre_load_maintained_values, post_load_maintained_values)
 
     def test_accucor_validation_error(self):
         self.clear_database()
