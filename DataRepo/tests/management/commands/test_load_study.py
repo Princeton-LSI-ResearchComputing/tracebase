@@ -10,7 +10,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class LoadStudyTests(TracebaseTestCase):
-    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     @classmethod
     def get_record_counts(cls):
@@ -65,6 +65,10 @@ class LoadStudyTests(TracebaseTestCase):
         # only needed to load the peak annotation files.
 
     def test_load_small_obob_study(self):
+        call_command(
+            "load_lcprotocols",
+            infile="DataRepo/data/tests/study_doc_versions/study_v3.xlsx",
+        )
         call_command(
             "load_study",
             infile=(

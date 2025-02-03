@@ -355,7 +355,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
     def test_duplicate_peak_group(self):
         """Test inerting two identical PeakGroups raises a MultiplePeakGroupRepresentation error
 
-        This tests the AccuCorDataLoader.get_or_create_peak_group method directly.
+        This tests the get_or_create_peak_group method directly.
         """
 
         self.load_glucose_data()

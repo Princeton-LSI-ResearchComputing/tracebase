@@ -21,10 +21,15 @@ class ResearcherTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table_blank_sample.xlsx"
             ),
         )
+        cls.COMPOUNDS_COUNT = 2
+        cls.MSRUN_SAMPLES_COUNT = 14
         super().setUpTestData()
 
     def test_could_be_variant_researcher_none_exist(self):
-        self.assertFalse(Researcher.could_be_variant_researcher("Gail"))
+        self.assertFalse(Researcher.could_be_variant_researcher("Gail", []))
+
+    def test_could_be_variant_researcher_defaults_exist(self):
+        self.assertTrue(Researcher.could_be_variant_researcher("Gail"))
 
     def test_could_be_variant_researcher_match_exists(self):
         self.assertFalse(Researcher.could_be_variant_researcher("Gail", ["Gail"]))
@@ -43,7 +48,7 @@ class ResearcherTests(TracebaseTestCase):
             "peakgroups_leaderboard": [
                 (
                     Researcher(name="Xianfeng Zeng"),
-                    self.COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+                    self.COMPOUNDS_COUNT * self.MSRUN_SAMPLES_COUNT,
                 ),
             ],
         }
