@@ -709,67 +709,26 @@ class PropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
-            "load_compounds",
-            infile="DataRepo/data/tests/small_obob2/compounds.tsv",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob2/obob_animal_sample_table_v3.xlsx",
         )
         call_command(
-            "load_tissues",
-            infile="DataRepo/data/tests/small_obob2/tissues.tsv",
-        )
-        call_command(
-            "load_protocols",
-            infile="DataRepo/data/tests/small_obob2/protocols.tsv",
+            "load_study",
+            infile="DataRepo/data/tests/small_obob2/serum_lactate_sample_table.xlsx",
         )
 
         call_command(
-            "legacy_load_animals_and_samples",
-            sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
-            table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
+        )
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
         )
 
-        call_command(
-            "legacy_load_samples",
-            "DataRepo/data/tests/small_obob2/serum_lactate_sample_table.tsv",
-            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
-            skip_researcher_check=True,
-        )
-
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-        )
-
-        call_command(
-            "legacy_load_accucor_msruns",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="unknown",
-            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-        )
         cls.SERUM_COMPOUNDS_COUNT = 13
 
         cls.N_PEAKGROUP_LABELS = 66
-        # test load CSV file of corrected data, with no "original counterpart"
-        # TODO: Skipping because the new PeakGroup unique constraint that removes MSRunSequence causes
-        # MultiplePeakGroupRepresentation exceptions in the setUpTestData load for these tests
-        # @tag("broken")
-        # @skip("violates_new_peakgroup_unique_constraint")
-        # call_command(
-        #     "legacy_load_accucor_msruns",
-        #     lc_protocol_name="polar-HILIC-25-min",
-        #     instrument="unknown",
-        #     accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
-        #     data_format="accucor",
-        #     date="2021-10-14",
-        #     researcher="Michael Neinast",
-        # )
-        # cls.N_PEAKGROUP_LABELS += 14
 
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
@@ -777,6 +736,7 @@ class PropertyTests(TracebaseTestCase):
         super().setUpTestData()
 
     @tag("serum")
+    @tag("animal_label")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
@@ -794,6 +754,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(sample_tracer_peak_groups.get().id, pg.id)
 
     @tag("fcirc", "serum")
+    @tag("animal_label")
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
@@ -830,6 +791,7 @@ class PropertyTests(TracebaseTestCase):
                 0,
             )
 
+    @tag("peak_group_label")
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -853,12 +815,18 @@ class PropertyTests(TracebaseTestCase):
             peak_group.labels.first().normalized_labeling, 0.009119978074
         )
 
-    # TODO: Skipping because the new PeakGroup unique constraint that removes MSRunSequence causes
-    # MultiplePeakGroupRepresentation exceptions in the setUpTestData load for these tests
     @tag("broken")
-    @skip("violates_new_peakgroup_unique_constraint")
+    @tag("peak_group_label")
     def test_peak_group_peak_data_4(self):
-        # null original data
+        # Remove existing peak groups so that we can load alternate data that has no original sheet.
+        PeakGroup.objects.filter(msrun_sample__sample__name="BAT-xz971").delete()
+        PeakGroup.objects.filter(msrun_sample__sample__name="Liv-xz982").delete()
+        # Load alternate data
+        call_command(
+            "load_peak_annotations",
+            infile="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
+        )
+        # Get one of the peak groups that has no original data
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun_sample__sample__name="BAT-xz971")
@@ -885,6 +853,7 @@ class PropertyTests(TracebaseTestCase):
             peak_group.labels.first().normalized_labeling, 0.009119978074
         )
 
+    @tag("peak_group_label")
     def test_peak_group_peak_data_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -905,29 +874,19 @@ class PropertyTests(TracebaseTestCase):
         )
         self.assertAlmostEqual(peak_group.labels.first().normalized_labeling, 1)
 
+    @tag("peak_group_label")
     @MaintainedModel.no_autoupdates()
     def test_no_peak_labeled_elements(self):
-        # This creates an animal with a notrogen-labeled tracer (among others)
+        # This creates an animal with a nitrogen-labeled tracer (among others)
         call_command(
-            "legacy_load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements.xlsx"
-            ),
-            skip_researcher_check=True,
+            "load_study",
+            infile="DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements_v3.xlsx",
         )
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
         sample = Sample.objects.get(name__exact="test_animal_2_sample_1")
-        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-
-        seq = MSRunSequence(
-            researcher="george",
-            date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
-            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][0],
-            lc_method=lcm,
-        )
-        seq.full_clean()
-        seq.save()
+        # Get the sequence created by the load
+        seq = MSRunSequence.objects.get(researcher="george")
 
         mstype = DataType.objects.get(code="ms_data")
         rawfmt = DataFormat.objects.get(code="ms_raw")
@@ -1000,6 +959,7 @@ class PropertyTests(TracebaseTestCase):
         ):
             pg.labels.first().enrichment_fraction  # pylint: disable=no-member
 
+    @tag("peak_group_label")
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1010,6 +970,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.labels.first().enrichment_fraction)
 
+    @tag("peak_group_label")
     def test_enrichment_fraction_missing_bad_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1020,6 +981,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertRaises(NoCommonLabel):
             peak_group.labels.first().enrichment_fraction
 
+    @tag("peak_group_label")
     def test_enrichment_fraction_missing_labeled_element(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1035,6 +997,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.labels.first().enrichment_fraction)
 
+    @tag("peak_group")
     def test_peak_group_peak_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1044,6 +1007,7 @@ class PropertyTests(TracebaseTestCase):
 
         self.assertEqual(["C"], peak_group.peak_labeled_elements)
 
+    @tag("infusate")
     def test_peak_group_tracer_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1056,6 +1020,7 @@ class PropertyTests(TracebaseTestCase):
             peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements,
         )
 
+    @tag("peak_group_label")
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1164,6 +1129,7 @@ class PropertyTests(TracebaseTestCase):
             peak_group.labels.first().normalized_labeling, 3.455355083
         )
 
+    @tag("peak_group_label")
     def test_normalized_labeling_latest_serum_no_peakgroup(self):
         """
         The calculation of any peak group's normalized labeling utilizes the serum's enrichment fraction of each of the
@@ -1305,15 +1271,18 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.labels.first().normalized_labeling)
 
+    @tag("animal_label")
     def test_animal_label_populated(self):
         """
         Ensure there is an animal label for every animal and labeled element combo (regardless of tracers/infusates)
         """
         self.assertEqual(AnimalLabel.objects.count(), 8)
 
+    @tag("peak_group_label")
     def test_peak_group_label_populated(self):
         self.assertEqual(PeakGroupLabel.objects.count(), self.N_PEAKGROUP_LABELS)
 
+    @tag("peak_group_label")
     def test_normalized_labeling_missing_serum_peak_group(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1332,6 +1301,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.labels.first().normalized_labeling)
 
+    @tag("peak_group_label")
     def test_normalized_labeling_missing_serum_sample(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1350,6 +1320,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.labels.first().normalized_labeling)
 
+    @tag("peak_data")
     def test_peak_data_fraction(self):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1361,10 +1332,8 @@ class PropertyTests(TracebaseTestCase):
         )
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
-    # TODO: Skipping because the new PeakGroup unique constraint that removes MSRunSequence causes
-    # MultiplePeakGroupRepresentation exceptions in the setUpTestData load for these tests
     @tag("broken")
-    @skip("violates_new_peakgroup_unique_constraint")
+    @tag("peak_group_label")
     def test_peak_group_total_abundance_zero(self):
         # Test various calculations do not raise exceptions when total_abundance is zero
         peak_group = (
@@ -1452,6 +1421,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_is_tracer_label_compound_group_false(self):
         # get a non tracer compound from a serum sample
         sample = Sample.objects.get(name="serum-xz971")
@@ -1464,6 +1434,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertFalse(pgl.is_tracer_label_compound_group)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_tracer_label_rates_true(self):
         # get a tracer compound from a  sample
         sample = Sample.objects.get(name="serum-xz971")
@@ -1472,6 +1443,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertTrue(pgl.can_compute_tracer_label_rates)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_tracer_label_rates_false_no_rate(self):
         # get a tracer compound from a  sample
         sample = Sample.objects.get(name="serum-xz971")
@@ -1490,6 +1462,7 @@ class PropertyTests(TracebaseTestCase):
         animal.save()
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_tracer_label_rates_false_no_conc(self):
         # get a tracer compound from a sample
         sample = Sample.objects.get(name="serum-xz971")
@@ -1504,6 +1477,7 @@ class PropertyTests(TracebaseTestCase):
             self.assertFalse(pglf.can_compute_intact_tracer_label_rates)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_body_weight_intact_tracer_label_rates_true(self):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.last_serum_tracer_peak_groups.first()
@@ -1511,6 +1485,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertTrue(pgl.can_compute_body_weight_intact_tracer_label_rates)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_body_weight_tracer_label_rates_false(self):
         animal = self.MAIN_SERUM_ANIMAL
         orig_bw = animal.body_weight
@@ -1525,6 +1500,7 @@ class PropertyTests(TracebaseTestCase):
         animal.save()
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_intact_tracer_label_rates_true(self):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.last_serum_tracer_peak_groups.first()
@@ -1532,6 +1508,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertTrue(pgl.can_compute_intact_tracer_label_rates)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_intact_tracer_label_rates_false(self):
         animal = self.MAIN_SERUM_ANIMAL
         tracer = animal.infusate.tracers.first()
@@ -1554,6 +1531,7 @@ class PropertyTests(TracebaseTestCase):
         intact_peakdata_label.save()
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_average_tracer_label_rates_true(self):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.last_serum_tracer_peak_groups.first()
@@ -1561,6 +1539,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertTrue(pgl.can_compute_average_tracer_label_rates)
 
     @tag("fcirc")
+    @tag("peak_group_label")
     def test_peakgroup_can_compute_average_tracer_label_rates_false(self):
         # need to invalidate the computed/cached enrichment_fraction, somehow
         animal = self.MAIN_SERUM_ANIMAL
