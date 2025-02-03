@@ -104,7 +104,7 @@ class PeakDataData(TracebaseTestCase):
             msrun_sample=msr,
             peak_annotation_file=accucor_file,
         )
-        PeakData.objects.create(
+        self.pd = PeakData.objects.create(
             raw_abundance=1000.0,
             corrected_abundance=1000.0,
             peak_group=self.pg,
@@ -155,3 +155,6 @@ class PeakDataTests(PeakDataData):
         rec, cre = PeakData.get_or_create(label_obs, **rec_dict)
         self.assertFalse(cre)
         self.assertIsNotNone(rec)
+
+    def test_fraction(self):
+        self.assertAlmostEqual(self.pd.fraction, 1.0)
