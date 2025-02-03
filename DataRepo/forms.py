@@ -22,9 +22,7 @@ from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.models.lc_method import LCMethod
-from DataRepo.models.msrun_sequence import MSRunSequence
-from DataRepo.models.researcher import get_researchers
+from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.file_utils import date_to_string, is_excel
 from DataRepo.widgets import AutoCompleteTextInput
 
@@ -377,7 +375,11 @@ def create_BuildSubmissionForm() -> Type[Form]:
             required=False,
             widget=AutoCompleteTextInput(
                 "operators_datalist",
-                get_researchers() if len(get_researchers()) > 0 else ["Anonymous"],
+                (
+                    Researcher.get_researchers()
+                    if len(Researcher.get_researchers()) > 0
+                    else ["Anonymous"]
+                ),
                 datalist_manual=True,
                 attrs={
                     "title": "Mass Spec Operator, e.g. 'John Doe'",

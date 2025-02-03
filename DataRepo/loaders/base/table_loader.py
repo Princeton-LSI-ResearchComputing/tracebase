@@ -36,8 +36,8 @@ from DataRepo.utils.exceptions import (
     RequiredHeadersError,
     RequiredValueError,
     SummarizableError,
-    UnknownHeaderError,
-    UnknownHeadersError,
+    UnknownHeader,
+    UnknownHeaders,
     generate_file_location_string,
 )
 from DataRepo.utils.file_utils import (
@@ -1431,7 +1431,7 @@ class TableLoader(ABC):
                 AggregatedErrors
                 ValueError
             Buffers:
-                UnknownHeadersError
+                UnknownHeaders
                 RequiredHeadersError
         Returns:
             passed (bool)
@@ -1497,8 +1497,9 @@ class TableLoader(ABC):
             if len(unknown_headers) > 0:
                 if not reading_defaults or missing_headers is not None:
                     if error:
-                        self.aggregated_errors_object.buffer_error(
-                            UnknownHeadersError(unknown_headers, file=file, sheet=sheet)
+                        self.aggregated_errors_object.buffer_warning(
+                            UnknownHeaders(unknown_headers, file=file, sheet=sheet),
+                            is_fatal=self.validate,
                         )
                     passed = False
 
@@ -1975,7 +1976,7 @@ class TableLoader(ABC):
         ):
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
-            raise UnknownHeaderError(
+            raise UnknownHeader(
                 header,
                 self.all_headers,
                 file=self.friendly_file,
@@ -1988,7 +1989,7 @@ class TableLoader(ABC):
         elif reading_defaults and header not in self.DefaultsHeaders._asdict().values():
             # Missing headers are addressed way before this. If we get here, it's a programming issue, so raise instead
             # of buffer
-            raise UnknownHeaderError(
+            raise UnknownHeader(
                 header,
                 list(self.DefaultsHeaders._asdict().values()),
                 file=(
@@ -3127,7 +3128,7 @@ class TableLoader(ABC):
             ignore_row_idxs (list of integers): Rows to ignore.
         Exceptions:
             Raises:
-                UnknownHeadersError
+                UnknownHeaders
             Buffers:
                 None
         Returns:
@@ -3148,7 +3149,7 @@ class TableLoader(ABC):
             try:
                 vals_dict[row[col_key]].append(rowidx)
             except KeyError:
-                raise UnknownHeadersError([col_key])
+                raise UnknownHeaders([col_key])
 
         for key in vals_dict.keys():
             if len(vals_dict[key]) > 1:

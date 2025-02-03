@@ -542,7 +542,6 @@ def _headers_are_not_unique(headers):
     return False, num_uniq_heads, num_heads
 
 
-# TODO: When the SampleTableLoader is converted to a derived class of TableLoader, remove this method
 def get_column_dupes(data, unique_col_keys, ignore_row_idxs=None):
     """Find combination duplicates from file table data.
 

@@ -1,11 +1,16 @@
+from django.conf import settings
 from django.core.management import call_command
+from django.test import override_settings
 
+from DataRepo.models.peak_data import PeakData
+from DataRepo.models.peak_group import PeakGroup
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@override_settings(CACHES=settings.TEST_CACHES)
 class LoadStudyTests(TracebaseTestCase):
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
 
     @classmethod
     def get_record_counts(cls):
@@ -58,3 +63,20 @@ class LoadStudyTests(TracebaseTestCase):
         # Note, the v2 study doc load will not load peak annotation files, so we don't need to worry about those. Nor
         # does V2 support loading of MSRunSequence or MSRunSample, but we don't need to pre-load those, because they're
         # only needed to load the peak annotation files.
+
+    def test_load_small_obob_study(self):
+        call_command(
+            "load_study",
+            infile=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table_blank_sample.xlsx"
+            ),
+        )
+        COMPOUNDS_COUNT = 2
+        SAMPLES_COUNT = 14
+        PEAKDATA_ROWS = 11
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)

@@ -6,11 +6,7 @@ from django.db import transaction
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.lcprotocols_loader import LCProtocolsLoader
-from DataRepo.models import LCMethod, MSRunSequence
-from DataRepo.models.researcher import (
-    could_be_variant_researcher,
-    get_researchers,
-)
+from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.exceptions import (
     InfileError,
     NewResearcher,
@@ -201,7 +197,7 @@ class SequencesLoader(TableLoader):
         Returns:
             Nothing
         """
-        known_researchers = get_researchers()
+        known_researchers = Researcher.get_researchers()
 
         for _, row in self.df.iterrows():
             note = self.get_row_val(row, self.headers.NOTES)
@@ -229,7 +225,7 @@ class SequencesLoader(TableLoader):
             # Check the researcher being added, and buffer a warning if new
             # Doing this before skipping intentionally, so we check all in the file.
             operator = self.get_row_val(row, self.headers.OPERATOR)
-            if operator is not None and could_be_variant_researcher(
+            if operator is not None and Researcher.could_be_variant_researcher(
                 operator, known_researchers=known_researchers
             ):
                 # Raised if in validate mode (so the web user will see it).  Just printed otherwise.

@@ -7,11 +7,11 @@ from DataRepo.models import (
     Compound,
     LCMethod,
     Protocol,
+    Researcher,
     Sample,
     Study,
     Tissue,
 )
-from DataRepo.utils import leaderboard_data
 
 
 def home(request):
@@ -120,6 +120,6 @@ def home(request):
 
     context = {}
     context["card_grid"] = card_grid
-    context["leaderboards"] = leaderboard_data()
+    context["leaderboards"] = Researcher.leaderboard_data()
 
     return render(request, "home.html", context)

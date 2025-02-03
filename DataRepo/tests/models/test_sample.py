@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import override_settings
 
@@ -49,3 +50,15 @@ class SampleTests(TracebaseTestCase):
     def test_is_a_blank(self):
         self.assertTrue(Sample.is_a_blank("a Blank sample"))
         self.assertFalse(Sample.is_a_blank("sample1"))
+
+    def test_clean_time_collected(self):
+        sample = Sample.objects.first()
+        # test time_collected exceeding MAXIMUM_VALID_TIME_COLLECTED fails
+        with self.assertRaises(ValidationError):
+            sample.time_collected = timedelta(days=91)
+            # validation errors are raised upon cleaning
+            sample.full_clean()
+        # test time_collected exceeding MINIMUM_VALID_TIME_COLLECTED fails
+        with self.assertRaises(ValidationError):
+            sample.time_collected = timedelta(minutes=-2000)
+            sample.full_clean()
