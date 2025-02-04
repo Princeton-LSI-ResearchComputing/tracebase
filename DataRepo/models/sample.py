@@ -116,14 +116,6 @@ class Sample(MaintainedModel, HierCachedModel):
 
         return PeakGroup.objects.filter(id__in=last_peakgroup_ids)
 
-    @property  # type: ignore
-    @cached_function
-    def is_last_serum_sample(self):
-        """
-        Returns true if is serum sample and ID equals Animal.last_serum_sample, false otherwise
-        """
-        return self._is_serum_sample() and self.id == self.animal._last_serum_sample()
-
     class Meta:
         verbose_name = "sample"
         verbose_name_plural = "samples"
@@ -135,7 +127,3 @@ class Sample(MaintainedModel, HierCachedModel):
     @classmethod
     def is_a_blank(cls, sample_name):
         return "blank" in sample_name.lower()
-
-
-class InvalidArgument(ValueError):
-    pass

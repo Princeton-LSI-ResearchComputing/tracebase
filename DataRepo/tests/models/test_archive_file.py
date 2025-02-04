@@ -17,8 +17,6 @@ from DataRepo.tests.tracebase_test_case import (
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class ArchiveFileTests(TracebaseTestCase):
-    record_id = None
-
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     @classmethod
@@ -37,7 +35,6 @@ class ArchiveFileTests(TracebaseTestCase):
                 data_format=cls.accucor_format,
             )
             cls.accucor_file.save()
-            cls.record_id = cls.accucor_file.pk
 
     def test_data_type(self):
         ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")

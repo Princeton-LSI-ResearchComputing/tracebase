@@ -555,7 +555,7 @@ class AnimalsLoader(TableLoader):
             recs.append(None)
             return recs
 
-        for name in names_str.split(self.StudyDelimiter):
+        for name in names_str.split(self.study_delimiter):
             query_dict = {"name": name.strip()}
 
             try:
@@ -736,7 +736,7 @@ class AnimalsLoader(TableLoader):
         for dv in dvs:
             dv.set_formatted_message(
                 suggestion=(
-                    f"If animals belong to multiple studies, be sure to delimit them all with '{self.StudyDelimiter}' "
+                    f"If animals belong to multiple studies, be sure to delimit them all with '{self.study_delimiter}' "
                     f"in the '{self.headers.STUDY}' column on 1 row."
                 )
             )

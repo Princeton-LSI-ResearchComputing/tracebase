@@ -93,12 +93,6 @@ class CompoundLoadingTests(TracebaseTestCase):
 
         cls.COMPOUND_WITH_MANY_NAMES = Compound.objects.get(name="a-ketoglutarate")
 
-        # and do it again, to be able to test the class
-        compounds_df = pd.read_csv(
-            primary_compound_file, sep="\t", keep_default_na=False
-        )
-        cls.LOADER_INSTANCE = CompoundsLoader(df=compounds_df)
-
         super().setUpTestData()
 
     def test_compounds_loaded(self):

@@ -6,7 +6,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class FormatsTestCase(TracebaseTestCase):
     """This base class defines methods that generate some data for use in derived test classes"""
 
-    maxDiff = None
     archive_file_instances = [
         [
             "PeakAnnotationFile",

@@ -71,7 +71,7 @@ class InfusatesLoaderTests(TracebaseTestCase):
         cls.LYSINE = Compound.objects.create(
             name="lysine", formula="C6H14N2O2", hmdb_id="HMDB0000182"
         )
-        cls.LYSINE_TRACER = Tracer.objects.get_or_create_tracer(cls.LYSINE_TRACER_DATA)
+        Tracer.objects.get_or_create_tracer(cls.LYSINE_TRACER_DATA)
         super().setUpTestData()
 
     def test_init_load(self):

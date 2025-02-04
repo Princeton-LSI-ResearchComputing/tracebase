@@ -36,7 +36,6 @@ from DataRepo.utils.exceptions import (
     AllMissingTissues,
     AllMissingTreatments,
     MultiLoadStatus,
-    NonUniqueSampleDataHeader,
     RecordDoesNotExist,
 )
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
@@ -44,33 +43,6 @@ from DataRepo.views.upload.submission import BuildSubmissionView
 
 
 class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
-    LCMS_DICT = {
-        "a": {
-            "sort level": 0,
-            "tracebase sample name": "a",
-            "sample data header": "a",
-            "peak annotation filename": "accucor.xlsx",
-        },
-        "b": {
-            "sort level": 0,
-            "tracebase sample name": "b",
-            "sample data header": "b",
-            "peak annotation filename": "accucor.xlsx",
-        },
-        "d_pos": {
-            "sort level": 0,
-            "tracebase sample name": "d",
-            "sample data header": "d_pos",
-            "peak annotation filename": "accucor.xlsx",
-        },
-        "c": {
-            "sort level": 1,
-            "error": NonUniqueSampleDataHeader("c", {"accucor.xlsx": 2}),
-            "tracebase sample name": "c",
-            "sample data header": "c",
-            "peak annotation filename": "accucor.xlsx",
-        },
-    }
 
     def test_get_or_create_study_dataframes_create(self):
         """

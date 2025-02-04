@@ -272,7 +272,7 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
         with self.assertRaises(ChildException):
             run_parent_during_child_thread(parent_func, child_func)
 
-    def create_tracer_in_disabled_coordinator_works_in_child_thread(self):
+    def test_create_tracer_in_disabled_coordinator_works_in_child_thread(self):
         def child_func():
             disabled = MaintainedModelCoordinator("disabled")
             with MaintainedModel.custom_coordinator(disabled):

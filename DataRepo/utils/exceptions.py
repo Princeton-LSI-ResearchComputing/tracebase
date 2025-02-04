@@ -18,9 +18,10 @@ from django.db.utils import ProgrammingError
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
-    from DataRepo.models.archive_file import ArchiveFile
-    from DataRepo.models.msrun_sample import MSRunSample
+    from DataRepo.models.animal import Animal
+    from DataRepo.models.msrun_sequence import MSRunSequence
     from DataRepo.models.peak_group import PeakGroup
+    from DataRepo.models.peak_group_label import PeakGroupLabel
     from DataRepo.models.sample import Sample
 
 
@@ -404,25 +405,6 @@ class RequiredColumnValue(InfileError, SummarizableError):
         super().__init__(message, column=column, order=["column", "loc"], **kwargs)
 
 
-class RequiredColumnValueWhenNovel(RequiredColumnValue):
-    def __init__(self, column, model_name, **kwargs):
-        message = kwargs.pop("message", None)
-        if message is None:
-            # The 2 %s placeholders are filled in in the superclass
-            message = f"Value required for column [%s] in %s when the [{model_name}] record does not exist."
-        super().__init__(column, **kwargs, message=message)
-        self.model_name = model_name
-
-
-class RequiredColumnValuesWhenNovel(RequiredColumnValues):
-    """Summarizes a list of RequiredColumnValueWhenNovel exceptions of the same model."""
-
-    def __init__(self, required_column_values_when_novel, model_name):
-        msg = f"Value required, when the [{model_name}] record does not exist, for columns on the indicated rows"
-        super().__init__(required_column_values_when_novel, init_message=msg)
-        self.model_name = model_name
-
-
 class MissingColumnGroup(InfileError):
     def __init__(self, group_name, **kwargs):
         message = f"No {group_name} columns found in %s.  At least 1 column of this type is required."
@@ -483,17 +465,6 @@ class RequiredHeadersError(InfileError, HeaderError):
         self.missing = missing
 
 
-class HeaderConfigError(HeaderError):
-    def __init__(self, missing, message=None):
-        if not message:
-            message = (
-                "No header string is configured for the following required column(s): "
-                f"[{', '.join(missing)}]."
-            )
-        super().__init__(message)
-        self.missing = missing
-
-
 class FileFromInputNotFound(InfileError):
     """This is for reporting file names parsed from a file that could not be found."""
 
@@ -507,134 +478,6 @@ class FileFromInputNotFound(InfileError):
         self.filepath = filepath
 
 
-class RequiredValuesError(InfileError):
-    def __init__(self, missing, message=None, **kwargs):
-        if not message:
-            nltab = "\n\t"
-            deets = list(
-                map(
-                    lambda k: f"{str(k)} on row(s): {str(summarize_int_list(missing[k]))}",
-                    missing.keys(),
-                )
-            )
-            message = (
-                f"Missing required values have been detected in %s in the following columns:\n\t"
-                f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
-                "dummy values to avoid this error."
-            )
-            # Row numbers are available, but not very useful given the sheet merge
-        super().__init__(message, **kwargs)
-        self.missing = missing
-
-
-class RequiredSampleValuesError(Exception):
-    """
-    This is the same as RequiredValuesError except that it indicates the animal on the row where required values are
-    missing.  This is explicitly for the sample table loader because the Animal ID is guaranteed to be there.  We know
-    that the animal ID is present, because if it wasn't, the affected rows in this error would be in a SheetMergeError
-    and those row wouldn't have been processed to be able to get into this error.  Adding the Animal can help speed up
-    the search for missing data when the row numbers may be inaccurate (if there was also a sheet merge error).
-    """
-
-    def __init__(self, missing, animal_hdr="animal", message=None):
-        if not message:
-            nltab = "\n\t"
-            deets = list(
-                map(
-                    lambda k: (
-                        f"{str(k)} on row(s): {str(summarize_int_list(missing[k]['rows']))} "
-                        f"for {animal_hdr}(s): {missing[k]['animals']}"
-                    ),
-                    missing.keys(),
-                )
-            )
-            message = (
-                "Missing required values have been detected in the following columns:\n\t"
-                f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
-                "dummy values to avoid this error.  (Note, row numbers could reflect a sheet merge and may be "
-                f"inaccurate.)"
-            )
-            # Row numbers are available, but not very useful given the sheet merge
-        super().__init__(message)
-        self.missing = missing
-        self.animal_hdr = animal_hdr
-
-
-# TODO: Remove this class when the accucor loader is deleted.  A combination of factors, such as performing a
-# get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
-# compound name for the peakgroup name makes this obsolete/unnecessary.
-class DuplicatePeakGroup(Exception):
-    """Duplicate data for the same sample sequence on the same day
-
-    Records duplicate sample compound pairs for a given ms_run
-
-    Attributes:
-        adding_file: The peak annotation file in which the duplicate data was detected
-        msrun_sample: The MSRunSample in which the peak groups were measured
-        sample_name: The name of the sample the duplicated data blongs to
-        peak_group_name (compounds): The name of duplicated peak group
-        existing_peak_annotation_file: The peak annotation file that the previosly existing peak group blongs to
-    """
-
-    def __init__(
-        self,
-        adding_file: str,
-        msrun_sample: MSRunSample,
-        sample: Sample,
-        peak_group_name: str,
-        existing_peak_annotation_file: ArchiveFile,
-    ):
-        """Initializes a DuplicatePeakGroup exception"""
-
-        message = (
-            f"Duplicate peak group data found when loading file [{adding_file}]:\n"
-            f"\tmsrun_sample: {msrun_sample}\n"
-            f"\tsample: {sample}\n"
-            f"\tpeak_group_name: {peak_group_name}\n"
-            f"\texisting_peak_annotation_file: {existing_peak_annotation_file}\n"
-            f"\tWas this file [{adding_file}] loaded previously?\n"
-        )
-        super().__init__(message)
-        self.adding_file = adding_file
-        self.msrun_sample = msrun_sample
-        self.sample = sample
-        self.peak_group_name = peak_group_name
-        self.existing_peak_annotation_file = existing_peak_annotation_file
-
-
-# TODO: Remove this class when the accucor loader is deleted.  A combination of factors, such as performing a
-# get_or_create for PeakGroup, the new clean method that enforces no multiple representations, and using the primary
-# compound name for the peakgroup name makes this obsolete/unnecessary.
-class DuplicatePeakGroups(Exception):
-    """Duplicate peak groups from a given peak annotation file
-
-    Attributes:
-        adding_file: The peak annotation file in which the duplicate data was detected
-        duplicate_peak_groups: A list of DuplicatePeakGroup exceptions
-    """
-
-    def __init__(
-        self,
-        adding_file: str,
-        duplicate_peak_groups: list[DuplicatePeakGroup],
-    ):
-        """Initializes a DuplicatePeakGroups exception"""
-
-        message = (
-            f"Duplicate peak groups data skipped when loading file [{adding_file}]:\n"
-            "\tpeak_groups:\n"
-        )
-        for duplicate_peak_group in duplicate_peak_groups:
-            message += (
-                f"\t\tpeak_group_name: {duplicate_peak_group.peak_group_name} | "
-                f"msrun_sample: {duplicate_peak_group.msrun_sample} | "
-                f"existing_peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
-            )
-        super().__init__(message)
-        self.adding_file = adding_file
-        self.duplicate_peak_groups = duplicate_peak_groups
-
-
 class UnknownHeader(InfileError, HeaderError):
     def __init__(self, unknown, known: Optional[list] = None, message=None, **kwargs):
         if not message:
@@ -644,29 +487,12 @@ class UnknownHeader(InfileError, HeaderError):
         super().__init__(message, **kwargs)
 
 
-# TODO: Once the sample table loader inherits from TableLoader, make this inherit from SummarizableError
 class UnknownHeaders(InfileError, HeaderError):
     def __init__(self, unknowns, message=None, **kwargs):
         if not message:
             message = f"Unknown header(s) encountered: [{', '.join(unknowns)}] in %s."
         super().__init__(message, **kwargs)
         self.unknowns = unknowns
-
-
-class ResearcherNotNew(Exception):
-    def __init__(self, new_researchers, new_flag, existing_researchers):
-        nl = "\n"
-        errstr = f"Researchers {new_researchers} exist."
-        if isinstance(new_researchers, str) or len(new_researchers) == 1:
-            errstr = f"Researcher {new_researchers} exists."
-        message = (
-            f"{errstr}  {new_flag} cannot be used for existing researchers.  Current researchers are:{nl}"
-            f"{nl.join(sorted(existing_researchers))}"
-        )
-        super().__init__(message)
-        self.new_researchers = new_researchers
-        self.new_flag = new_flag
-        self.existing_researchers = existing_researchers
 
 
 class NewResearchers(Exception):
@@ -1191,90 +1017,6 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         return _uniq_vals
 
 
-class AllMissingSamplesError(Exception):
-    """This is a summary of the MissingSamples and NoSamples classes."""
-
-    def __init__(self, missing_samples_dict, message=None):
-        """An exception for all missing samples errors (MissingSamples and NoSamples).
-
-        Args:
-            missing_samples_dict (dict): Example:
-                {
-                    "files_missing_all": {"accucor1.xlsx": ["s1", "s2"]},
-                    "files_missing_some": {
-                        "s3": ["accucor2.xlsx", "accucor3.xlsx"],
-                        "s1": ["accucor4.xlsx"],
-                    },
-                    "all_missing_samples": {
-                        "s1": ["accucor1.xlsx", "accucor4.xlsx"],
-                        "s2": ["accucor1.xlsx"],
-                        "s3": ["accucor2.xlsx", "accucor3.xlsx"],
-                    },
-                }
-
-        Exceptions:
-            None
-
-        Returns:
-            instance
-        """
-        if not message:
-            nltab = "\n\t"
-            smpls_str = ""
-            if len(missing_samples_dict["files_missing_all"].keys()) > 0:
-                smpls_str += (
-                    f"All {len(missing_samples_dict['files_missing_all'].keys())} samples in file(s): "
-                    + nltab.join(missing_samples_dict["files_missing_all"].keys())
-                )
-                if len(missing_samples_dict["files_missing_some"].keys()) > 0:
-                    smpls_str += nltab
-            if len(missing_samples_dict["files_missing_some"].keys()) > 0:
-                smpls_str += nltab.join(
-                    list(
-                        map(
-                            lambda smpl: f"{smpl} in file(s): {missing_samples_dict['files_missing_some'][smpl]}",
-                            missing_samples_dict["files_missing_some"].keys(),
-                        )
-                    )
-                )
-
-            message = (
-                f"{len(missing_samples_dict['all_missing_samples'].keys())} samples are missing in the database/"
-                f"sample-table:{nltab}{smpls_str}\nSamples in the accucor/isocorr files must be present in the "
-                "sample table file and loaded into the database before they can be loaded from the mass spec data "
-                "files."
-            )
-
-        super().__init__(message)
-        self.missing_samples_dict = missing_samples_dict
-
-
-# TODO: Remove this class when the accucor loader is deleted
-class MissingSamplesError(Exception):
-    def __init__(
-        self,
-        missing_samples,
-        suggestion="Samples must be loaded prior to loading mass spec data.",
-        message=None,
-        exceptions: Optional[List[RecordDoesNotExist]] = None,
-    ):
-        if missing_samples is None:
-            missing_samples = []
-        if not message:
-            num_missing = len(missing_samples)
-            nltab = "\n\t"
-            message = (
-                f"{num_missing} samples are missing in the database/sample-table-file:{nltab}"
-                f"{nltab.join(missing_samples)}\n"
-            )
-        if suggestion is not None:
-            message += suggestion
-        super().__init__(message)
-        self.missing_samples = missing_samples
-        self.suggestion = suggestion
-        self.exceptions = exceptions
-
-
 class MissingSamples(MissingModelRecords):
     ModelName = "Sample"
     RecordName = ModelName
@@ -1309,22 +1051,6 @@ class RequiredArgument(Exception):
         self.methodname = methodname
 
 
-# TODO: Remove this class when the accucor loader is deleted
-class UnskippedBlanksError(MissingSamplesError):
-    def __init__(self, sample_names, **kwargs):
-        if sample_names is None or len(sample_names) == 0:
-            raise RequiredArgument(
-                "sample_names",
-                type(self).__name__,
-                message="A non-zero sized list is required.",
-            )
-        message = (
-            f"{len(sample_names)} samples that appear to possibly be blanks are missing in the database: "
-            f"[{', '.join(sample_names)}].  Blank samples should be skipped."
-        )
-        super().__init__(sample_names, message=message, **kwargs)
-
-
 class UnskippedBlanks(MissingSamples):
     def __init__(
         self,
@@ -1347,25 +1073,6 @@ class UnskippedBlanks(MissingSamples):
             )
         self.orig_message = message
         self.set_formatted_message(suggestion=suggestion, **kwargs)
-
-
-# TODO: Remove this class when the accucor loader is deleted
-class NoSamplesError(MissingSamplesError):
-    def __init__(self, sample_names, **kwargs):
-        """An error to abbreviate an error about all samples."""
-        if sample_names is None or len(sample_names) == 0:
-            raise RequiredArgument(
-                "sample_names",
-                type(self).__name__,
-                message="A non-zero sized list is required.",
-            )
-        num_samples = len(sample_names)
-        message = (
-            f"None of the {num_samples} samples were found in the database/sample table file.  Samples "
-            "in the peak annotation files must be present in the sample table file and loaded into the database "
-            "before they can be loaded from the mass spec data files."
-        )
-        super().__init__(sample_names, message=message, **kwargs)
 
 
 class NoSamples(MissingSamples):
@@ -1437,45 +1144,6 @@ class UnexpectedSamples(InfileError):
         self.missing_samples = missing_samples
 
 
-class NoSampleHeaders(InfileError):
-    def __init__(self, **kwargs):
-        message = "No sample headers were found in %s."
-        super().__init__(message, **kwargs)
-
-
-class UnitsWrong(Exception):
-    def __init__(self, units_dict, message=None):
-        if not message:
-            nltab = "\n\t"
-            row_str = nltab.join(
-                list(
-                    (
-                        f"{k} (example: [{units_dict[k]['example_val']}] does not match units: "
-                        f"[{units_dict[k]['expected']}] on row(s): {units_dict[k]['rows']})"
-                    )
-                    for k in units_dict.keys()
-                )
-            )
-            message = (
-                f"Unexpected units were found in {len(units_dict.keys())} columns:{nltab}{row_str}\n"
-                "Units are not allowed, but these also appear to be the wrong units."
-            )
-        super().__init__(message)
-        self.units_dict = units_dict
-
-
-# TODO: Delete when the accucor loader is deleted
-class EmptyColumnsError(Exception):
-    def __init__(self, sheet_name, col_names):
-        message = (
-            f"Sample columns missing headers found in the [{sheet_name}] data sheet. You have [{len(col_names)}] "
-            "columns. Be sure to delete any unused columns."
-        )
-        super().__init__(message)
-        self.sheet_name = sheet_name
-        self.col_names = col_names
-
-
 class EmptyColumns(InfileError):
     def __init__(
         self,
@@ -1503,51 +1171,15 @@ class EmptyColumns(InfileError):
         self.addendum = addendum
 
 
-class SampleColumnInconsistency(Exception):
-    def __init__(self, num_orig_cols, num_corr_cols, orig_only_cols, corr_only_cols):
-        message = (
-            "Samples in the original and corrected sheets differ."
-            f"\nOriginal contains {num_orig_cols} samples | Corrected contains {num_corr_cols} samples"
-            f"\nSamples in original sheet missing from corrected:\n{orig_only_cols}"
-            f"\nSamples in corrected sheet missing from original:\n{corr_only_cols}"
-        )
-        super().__init__(message)
-        self.num_orig_cols = num_orig_cols
-        self.num_corr_cols = num_corr_cols
-        self.orig_only_cols = orig_only_cols
-        self.corr_only_cols = corr_only_cols
-
-
-class MultipleAccucorTracerLabelColumnsError(Exception):
-    def __init__(self, columns):
-        message = (
-            f"Multiple tracer label columns ({','.join(columns)}) in Accucor corrected data is not currently "
-            "supported.  See --isocorr-format."
-        )
-        super().__init__(message)
-        self.columns = columns
-
-
 class DryRun(Exception):
     """
     Exception thrown during dry-run to ensure atomic transaction is not committed
     """
 
-    # TODO: Figure out a way to suppress the trace (and optionally the exception string) when this is raised.
-    # Could possibly use sys.excepthook:
-    # stackoverflow.com/questions/20714644/python-sys-excepthook-and-logging-uncaught-exceptions-across-multiple-modules
     def __init__(self, message=None):
         if message is None:
             message = "Dry Run Complete."
         super().__init__(message)
-
-
-class LoadingError(Exception):
-    """
-    Exception thrown if any errors encountered during loading
-    """
-
-    pass
 
 
 class MultiLoadStatus(Exception):
@@ -2105,7 +1737,6 @@ class AggregatedErrors(Exception):
         exc_type_str    - a string ("Warning" or "Error") that can be used in custom reporting.
     """
 
-    # TODO: Figure out how to suppress exception prints during buffer_exception so that you don't see them during tests
     # TODO: Prune the simulated stack trace more and add output that makes it clear it's a simulated trace
     # TODO: Don't reset the current exception number when remove_* is used, because it's confusing to see repeated nums
     def __init__(
@@ -2877,34 +2508,6 @@ class ConflictingValueError(InfileError, SummarizableError):
         self.differences = differences
 
 
-class SaveError(Exception):
-    def __init__(self, model_name, rec_name, e):
-        message = f"Error saving {model_name} {rec_name}: {type(e).__name__}: {str(e)}"
-        super().__init__(message)
-        self.model_name = model_name
-        self.rec_name = rec_name
-        self.orig_err = e
-
-
-class DupeCompoundIsotopeCombos(Exception):
-    def __init__(self, dupe_dict):
-        nltab = "\n\t"
-        nltabtab = f"{nltab}\t"
-        message = "The following duplicate compound/isotope combinations were found in the data:"
-        for source in dupe_dict:
-            message += f"{nltab}{source} sheet:{nltabtab}"
-            message += nltabtab.join(
-                list(
-                    map(
-                        lambda c: f"{c} on row(s): {summarize_int_list(dupe_dict[source][c])}",
-                        dupe_dict[source].keys(),
-                    )
-                )
-            )
-        super().__init__(message)
-        self.dupe_dict = dupe_dict
-
-
 class DuplicateValueErrors(Exception):
     """
     Summary of DuplicateValues exceptions
@@ -3116,7 +2719,6 @@ class NoTracerLabeledElements(InfileError, SummarizableError):
 
 
 class NoTracers(InfileError):
-    from DataRepo.models.animal import Animal
 
     def __init__(self, animal: Optional[Animal] = None, message=None, **kwargs):
         if message is None:
@@ -3188,184 +2790,6 @@ class MissingC12ParentPeak(InfileError, SummarizableError):
         self.compound = compound
 
 
-class UnexpectedIsotopes(Exception):
-    def __init__(self, detected_isotopes, labeled_isotopes, compounds):
-        message = (
-            f"Unexpected isotopes detected ({detected_isotopes}) that are not among the tracer labeled elements "
-            f"({labeled_isotopes}) for compounds ({compounds}).  There could be contamination."
-        )
-        super().__init__(message)
-        self.detected_isotopes = detected_isotopes
-        self.labeled_isotopes = labeled_isotopes
-        self.compounds = compounds
-
-
-class AllMissingTissuesErrors(Exception):
-    """
-    Takes a list of MissingTissue exceptions and a list of existing tissue names.
-    """
-
-    def __init__(self, missing_tissue_errors, message=None):
-        if not message:
-            err_dict = defaultdict(lambda: defaultdict(list))
-            for tissue_error in missing_tissue_errors:
-                loc = generate_file_location_string(
-                    file=tissue_error.file,
-                    sheet=tissue_error.sheet,
-                    column=tissue_error.column,
-                )
-                err_dict[loc][tissue_error.tissue_name].append(tissue_error.rownum)
-
-            nltt = "\n\t\t"
-            tissues_str = ""
-            for loc in err_dict.keys():
-                tissues_str += (
-                    f"\t{loc}:\n\t\t"
-                    + nltt.join(
-                        [
-                            f"{k} on row(s): {summarize_int_list(v)}"
-                            for k, v in err_dict[loc].items()
-                        ]
-                    )
-                    + "\n"
-                )
-
-            message = (
-                f"The following tissues, obtained from the indicated file locations, were not found in the database:\n"
-                f"{tissues_str}"
-                "Please check these against the existing tissues.  If any tissue cannot be renamed to one of the "
-                "existing tissues, it will have to be added to the database."
-            )
-
-        super().__init__(message)
-        self.missing_tissue_errors = missing_tissue_errors
-
-
-# TODO: Create an AllInfileErrors class using AllMissingTreatments and AllMissingTissues as a template
-class AllMissingTreatmentsErrors(Exception):
-    """
-    Takes a list of MissingTreatment exceptions and a list of existing treatment names.
-    """
-
-    def __init__(self, missing_treatment_errors, message=None):
-        if not message:
-            err_dict = defaultdict(lambda: defaultdict(list))
-            for treatment_error in missing_treatment_errors:
-                loc = generate_file_location_string(
-                    file=treatment_error.file,
-                    sheet=treatment_error.sheet,
-                    column=treatment_error.column,
-                )
-                err_dict[loc][treatment_error.treatment_name].append(
-                    treatment_error.rownum
-                )
-
-            nltt = "\n\t\t"
-            treatments_str = ""
-            for loc in err_dict.keys():
-                treatments_str += (
-                    f"\t{loc}:\n\t\t"
-                    + nltt.join(
-                        [
-                            f"{k} on row(s): {summarize_int_list(v)}"
-                            for k, v in err_dict[loc].items()
-                        ]
-                    )
-                    + "\n"
-                )
-
-            message = (
-                f"The following treatments, obtained from the indicated file locations, were not found in the "
-                "database:\n"
-                f"{treatments_str}"
-                "Please check these against the existing treatments.  If any treatment cannot be renamed to one of the "
-                "existing treatments, it will have to be added to the database."
-            )
-
-        super().__init__(message)
-        self.missing_treatment_errors = missing_treatment_errors
-
-
-class AllMissingCompoundsErrors(Exception):
-    """
-    This is the same as the MissingCompounds class, but it takes a 3D dict that is used to report every file (and rows
-    in that file) where each missing compound exists.
-    """
-
-    def __init__(self, compounds_dict, message=None):
-        """
-        Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
-        strings and indexes/list-of-ints.
-        """
-        if not message:
-            nltab = "\n\t"
-            nltt = f"{nltab}\t"
-            cmdps_str = ""
-            for compound in compounds_dict.keys():
-                if cmdps_str != "":
-                    cmdps_str += nltab
-                cmdps_str += (
-                    f"Compound: [{compound}], Formula: [{compounds_dict[compound]['formula']}], located in the "
-                    f"following file(s):{nltt}"
-                )
-                cmdps_str += nltt.join(
-                    list(
-                        map(
-                            lambda fl: f"{fl} on row(s): {summarize_int_list(compounds_dict[compound]['files'][fl])}",
-                            compounds_dict[compound]["files"].keys(),
-                        )
-                    )
-                )
-            message = (
-                f"{len(compounds_dict.keys())} compounds were not found in the database:{nltab}{cmdps_str}\n"
-                "Compounds referenced in the accucor/isocorr files must be loaded into the database before "
-                "the accucor/isocorr files can be loaded.  Please take note of the compounds, select a primary name, "
-                "any synonyms, and find an HMDB ID associated with the compound to provide with your submission.  "
-                "Note, a warning about the missing compounds is cross-referenced under the status of each affected "
-                "individual load file containing 1 or more of these compounds."
-            )
-        super().__init__(message)
-        self.compounds_dict = compounds_dict
-
-
-class MissingCompoundsError(Exception):
-    def __init__(self, compounds_dict, message=None):
-        """
-        Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
-        strings and indexes/list-of-ints.
-        """
-        if not message:
-            nltab = "\n\t"
-            cmdps_str = nltab.join(
-                list(
-                    map(
-                        lambda c: (
-                            f"{c} {compounds_dict[c]['formula']} on row(s): "
-                            f"{summarize_int_list(compounds_dict[c]['rownums'])}"
-                        ),
-                        compounds_dict.keys(),
-                    )
-                )
-            )
-            message = (
-                f"{len(compounds_dict.keys())} compounds were not found in the database:{nltab}{cmdps_str}\n"
-                "Compounds referenced in the accucor/isocorr files must be loaded into the database before "
-                "the accucor/isocorr files can be loaded.  Please take note of the compounds, select a primary name, "
-                "any synonyms, and find an HMDB ID associated with the compound to provide with your submission."
-            )
-        super().__init__(message)
-        self.compounds_dict = compounds_dict
-
-
-# TODO: Delete when sample_table_loader is removed
-class MissingTissue(InfileError):
-    def __init__(self, tissue_name, message=None, **kwargs):
-        if not message:
-            message = f"Tissue '{tissue_name}' in %s was not found in the database"
-        super().__init__(message, **kwargs)
-        self.tissue_name = tissue_name
-
-
 class MissingTissues(MissingModelRecords):
     ModelName = "Tissue"
     RecordName = ModelName
@@ -3386,17 +2810,6 @@ class AllMissingStudies(MissingModelRecordsByFile):
     RecordName = ModelName
 
 
-# TODO: Delete when sample_table_loader is removed
-class MissingTreatment(InfileError):
-    def __init__(self, treatment_name, message=None, **kwargs):
-        if not message:
-            message = (
-                f"Treatment '{treatment_name}' in %s was not found in the database.\n"
-            )
-        super().__init__(message, **kwargs)
-        self.treatment_name = treatment_name
-
-
 class MissingTreatments(MissingModelRecords):
     ModelName = "Protocol"
     RecordName = "Treatment"
@@ -3405,19 +2818,6 @@ class MissingTreatments(MissingModelRecords):
 class AllMissingTreatments(MissingModelRecordsByFile):
     ModelName = "Protocol"
     RecordName = "Treatment"
-
-
-class LCMethodFixturesMissing(Exception):
-    def __init__(self, message=None, err=None):
-        if message is None:
-            message = (
-                "The LCMethod fixtures defined in [DataRepo/fixtures/lc_methods.yaml] appear to have not been "
-                "loaded."
-            )
-        if err is not None:
-            message += f"  The triggering exception was: [{err}]."
-        super().__init__(message)
-        self.err = err
 
 
 class ParsingError(Exception):
@@ -3455,33 +2855,6 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
         self.label = label
 
 
-class MultipleMassNumbers(Exception):
-    def __init__(self, labeled_element, mass_numbers):
-        message = (
-            f"Labeled element [{labeled_element}] exists among the tracer(s) with multiple mass numbers: "
-            f"[{','.join(mass_numbers)}]."
-        )
-        super().__init__(message)
-        self.labeled_element = labeled_element
-        self.mass_numbers = mass_numbers
-
-
-class MassNumberNotFound(Exception):
-    def __init__(self, labeled_element, tracer_labeled_elements):
-        message = (
-            f"Labeled element [{labeled_element}] could not be found among the tracer(s) to retrieve its mass "
-            "number.  Tracer labeled elements: "
-            f"[{', '.join([x['element'] + x['mass_number'] for x in tracer_labeled_elements])}]."
-        )
-        super().__init__(message)
-        self.labeled_element = labeled_element
-        self.tracer_labeled_elements = tracer_labeled_elements
-
-
-class TracerLabeledElementNotFound(Exception):
-    pass
-
-
 class UnexpectedLabels(InfileError):
     def __init__(self, unexpected, possible, **kwargs):
         message = (
@@ -3494,7 +2867,6 @@ class UnexpectedLabels(InfileError):
 
 
 class NoCommonLabel(Exception):
-    from DataRepo.models.peak_group_label import PeakGroupLabel
 
     def __init__(self, peakgrouplabel: PeakGroupLabel):
         msg = (
@@ -3504,104 +2876,6 @@ class NoCommonLabel(Exception):
         )
         super().__init__(msg)
         self.peak_group_label = peakgrouplabel
-
-
-class SampleIndexNotFound(Exception):
-    def __init__(self, sheet_name, num_cols, non_sample_colnames):
-        message = (
-            f"Sample columns could not be identified in the [{sheet_name}] sheet.  There were {num_cols} columns.  At "
-            "least one column with one of the following names must immediately preceed the sample columns: "
-            f"[{','.join(non_sample_colnames)}]."
-        )
-        super().__init__(message)
-        self.sheet_name = sheet_name
-        self.num_cols = num_cols
-
-
-# TODO: Once the accucor loader is deleted, delete this class.
-class CorrectedCompoundHeaderMissing(Exception):
-    def __init__(self):
-        message = (
-            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
-            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
-            "on the command line)."
-        )
-        super().__init__(message)
-
-
-class LCMSDefaultsRequired(Exception):
-    def __init__(
-        self,
-        missing_defaults_list,
-        affected_sample_headers_list=None,
-    ):
-        nlt = "\n\t"
-        if (
-            affected_sample_headers_list is None
-            or len(affected_sample_headers_list) == 0
-        ):
-            message = (
-                "Either an LCMS metadata dataframe or these missing defaults must be provided:\n\n\t"
-                f"{nlt.join(missing_defaults_list)}"
-            )
-        else:
-            message = (
-                f"These missing defaults are required:\n\n\t"
-                f"{nlt.join(missing_defaults_list)}\n\n"
-                "because the following sample data headers are missing data in at least 1 of the corresponding "
-                "columns:\n\n\t"
-                f"{nlt.join(affected_sample_headers_list)}"
-            )
-        super().__init__(message)
-        self.missing_defaults_list = missing_defaults_list
-        self.affected_sample_headers_list = affected_sample_headers_list
-
-
-# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
-class UnexpectedLCMSSampleDataHeaders(Exception):
-    def __init__(self, unexpected, peak_annot_file):
-        message = (
-            "The following sample data headers in the LCMS metadata were not found among the peak annotation file "
-            f"[{peak_annot_file}] headers: [{unexpected}].  Note that if this header is in a different peak annotation "
-            "file, that file must be indicated in the peak annotation column (the default is the current file)."
-        )
-        super().__init__(message)
-        self.unexpected = unexpected
-        self.peak_annot_file = peak_annot_file
-
-
-# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
-class MissingLCMSSampleDataHeaders(Exception):
-    def __init__(self, missing, peak_annot_file, missing_defaults):
-        using_defaults = len(missing_defaults) == 0
-        message = (
-            f"The following sample data headers in the peak annotation file [{peak_annot_file}], were not found in the "
-            f"LCMS metadata supplied: {missing}.  "
-        )
-        if using_defaults:
-            message += "Falling back to supplied defaults."
-        else:
-            message += (
-                "Either add the sample data headers to the LCMS metadata or provide default values for: "
-                f"{missing_defaults}."
-            )
-        super().__init__(message)
-        self.missing = missing
-        self.peak_annot_file = peak_annot_file
-        self.missing_defaults = missing_defaults
-
-
-class MissingMZXMLFiles(Exception):
-    def __init__(self, mzxml_files):
-        message = f"The following mzXML files listed in the LCMS metadata file were not supplied: {mzxml_files}."
-        super().__init__(message)
-        self.mzxml_files = mzxml_files
-
-
-class NoMZXMLFiles(Exception):
-    def __init__(self):
-        message = "mzXML files are required for new uploads."
-        super().__init__(message)
 
 
 class AllNoScans(Exception):
@@ -3993,47 +3267,6 @@ class MzXMLSkipRowError(InfileError, SummarizableError):
         self.dirs_from_infile = dirs_from_infile
 
 
-class PeakAnnotFileMismatches(Exception):
-    def __init__(self, incorrect_pgs_files, peak_annotation_filename):
-        bad_files_str = "\n\t".join(
-            [
-                k + f" [{incorrect_pgs_files[k]} != {peak_annotation_filename}]"
-                for k in incorrect_pgs_files.keys()
-            ]
-        )
-        message = (
-            "The following sample headers' peak annotation files in the LCMS metadata file do not match the supplied "
-            f"peak annotation file [{peak_annotation_filename}]:\n\t{bad_files_str}\n\nPlease ensure that the sample "
-            "row in the LCMS metadata matches the supplied peak annotation file."
-        )
-        super().__init__(message)
-        self.incorrect_pgs_files = incorrect_pgs_files
-        self.peak_annotation_filename = peak_annotation_filename
-
-
-class PeakAnnotationParseError(Exception):
-    def __init__(
-        self, message="Unknown problem attempting to parse peak annotation file"
-    ):
-        self.message = message
-        super().__init__(self.message)
-
-
-# TODO: Delete this exception class when the accucor loader is removed.  It is obsolete.
-class MismatchedSampleHeaderMZXML(Exception):
-    def __init__(self, mismatching_mzxmls):
-        message = (
-            "The following sample data headers do not match any mzXML file names.  No mzXML files will be loaded for "
-            "these columns in the peak annotation file:\n\n"
-            "\tSample Data Header\tmzXML File Name"
-        )
-        tab = "\t"
-        for details in mismatching_mzxmls:
-            message += f"\n\t{tab.join(str(li) for li in details)}"
-        super().__init__(message)
-        self.mismatching_mzxmls = mismatching_mzxmls
-
-
 class MzxmlSampleHeaderMismatch(InfileError):
     def __init__(self, header, mzxml_file, **kwargs):
         mzxml_basename, _ = os.path.splitext(os.path.basename(mzxml_file))
@@ -4046,65 +3279,6 @@ class MzxmlSampleHeaderMismatch(InfileError):
         self.header = header
         self.mzxml_basename = mzxml_basename
         self.mzxml_file = mzxml_file
-
-
-# TODO: Delete once the accucor and accompanying lcms code is deleted
-class DuplicateSampleDataHeaders(Exception):
-    def __init__(self, dupes, lcms_metadata, samples):
-        cs = ", "
-        dupes_str = "\n\t".join(
-            [f"{k} rows: [{cs.join(dupes[k])}]" for k in dupes.keys()]
-        )
-        message = (
-            "The following sample data headers were found to have duplicates on the LCMS metadata file on the "
-            "indicated rows:\n\n"
-            f"\t{dupes_str}"
-        )
-        super().__init__(message)
-        self.dupes = dupes
-        # used by code that catches this exception
-        self.lcms_metadata = lcms_metadata
-        self.samples = samples
-
-
-class NonUniqueSampleDataHeaders(Exception):
-    def __init__(self, nusdh_list: list[NonUniqueSampleDataHeader]):
-        """Takes a dupes dict for duplicate sample data headers across 1 or more peak annotation files.
-
-        Args:
-            dupes = {
-                <value>: {}
-                    "<filename> (sheet <sheetname>)": count,
-                }
-            }
-        """
-        dupes_str = ""
-        for nusdh in nusdh_list:
-            dupes_str += f"\t{nusdh.header}\n"
-            for file in nusdh.dupes.keys():
-                dupes_str += f"\t\tOccurs {nusdh.dupes[file]} times in {file}\n"
-        message = (
-            "The following sample data headers are not unique across all supplied peak annotation files:\n"
-            f"{dupes_str}"
-        )
-        super().__init__(message)
-        self.nusdh_list = nusdh_list
-
-
-class NonUniqueSampleDataHeader(SummarizableError):
-    SummarizerExceptionClass = NonUniqueSampleDataHeaders
-
-    def __init__(self, header, dupes):
-        dupes_str = ""
-        for file in dupes.keys():
-            dupes_str += f"\n\tOccurs {dupes[file]} times in {file}"
-        message = (
-            f"Sample data header '{header}' is not unique across all supplied peak annotation files:"
-            f"{dupes_str}"
-        )
-        super().__init__(message)
-        self.dupes = dupes
-        self.header = header
 
 
 class InvalidHeaders(InfileError, ValidationError):
@@ -4133,16 +3307,6 @@ class InvalidHeaders(InfileError, ValidationError):
         self.expected_headers = expected_headers
         self.missing = missing
         self.unexpected = unexpected
-
-
-class InvalidLCMSHeaders(InvalidHeaders):
-    def __init__(self, headers, expected_headers=None, file=None):
-        super().__init__(
-            headers,
-            expected_headers=expected_headers,
-            file=file,
-            fileformat="LCMS metadata",
-        )
 
 
 class DuplicateHeaders(ValidationError):
@@ -4236,56 +3400,6 @@ class InvalidMSRunName(InfileError):
     pass
 
 
-class MissingRequiredLCMSValues(Exception):
-    def __init__(self, header_rownums_dict):
-        head_rows_str = ""
-        cs = ", "
-        for header in header_rownums_dict.keys():
-            head_rows_str += f"\n\t{header}: {cs.join([str(i) for i in header_rownums_dict[header]])}"
-        message = f"The following required values are missing on the indicated rows:\n{head_rows_str}"
-        super().__init__(message)
-        self.header_rownums_dict = header_rownums_dict
-
-
-class MissingPeakAnnotationFiles(Exception):
-    def __init__(
-        self, missing_peak_annot_files, unmatching_peak_annot_files=None, lcms_file=None
-    ):
-        nlt = "\n\t"
-        message = (
-            f"The following peak annotation files:\n\n"
-            f"\t{nlt.join(missing_peak_annot_files)}\n\n"
-        )
-        if lcms_file is not None:
-            message += f"from the LCMS metadata file:\n\n\t{lcms_file}\n\n"
-        message += "were not supplied."
-        if (
-            unmatching_peak_annot_files is not None
-            and len(unmatching_peak_annot_files) > 0
-        ):
-            message += (
-                "  The following unaccounted-for peak annotation files in the LCMS metadata were also found:\n"
-                f"\t\t{nlt.join(unmatching_peak_annot_files)}\n\nPerhaps there is a typo?"
-            )
-        super().__init__(message)
-        self.missing_peak_annot_files = missing_peak_annot_files
-        self.unmatching_peak_annot_files = unmatching_peak_annot_files
-        self.lcms_file = lcms_file
-
-
-class WrongExcelSheet(Exception):
-    def __init__(self, file_type, sheet_name, expected_sheet_name, sheet_num):
-        message = (
-            f"Expected [{file_type}] Excel sheet [{sheet_num}] to be named [{expected_sheet_name}], but got "
-            f"[{sheet_name}]."
-        )
-        super().__init__(message)
-        self.file_type = file_type
-        self.sheet_name = sheet_name
-        self.expected_sheet_name = expected_sheet_name
-        self.sheet_num = sheet_num
-
-
 class ExcelSheetNotFound(InfileError):
     def __init__(self, sheet, file, all_sheets=None):
         avail_msg = "" if all_sheets is None else f"  Available sheets: {all_sheets}."
@@ -4367,39 +3481,6 @@ class InvalidHeaderCrossReferenceError(Exception):
         self.target_headers = target_headers
 
 
-class NoConcentrations(Exception):
-    pass
-
-
-class UnanticipatedError(Exception):
-    def __init__(self, type, e):
-        message = f"{type}: {str(e)}"
-        super().__init__(message)
-
-
-class SampleError(UnanticipatedError):
-    pass
-
-
-class TissueError(UnanticipatedError):
-    pass
-
-
-class TreatmentError(UnanticipatedError):
-    pass
-
-
-class LCMSDBSampleMissing(Exception):
-    def __init__(self, lcms_samples_missing):
-        nlt = "\n\t"
-        message = (
-            "The following sample names from the LCMS metadata are missing in the animal sample table:\n\t"
-            f"{nlt.join(lcms_samples_missing)}"
-        )
-        super().__init__(message)
-        self.lcms_samples_missing = lcms_samples_missing
-
-
 class MixedPolarityErrors(Exception):
     def __init__(self, mixed_polarity_dict):
         deets = []
@@ -4415,27 +3496,6 @@ class MixedPolarityErrors(Exception):
         )
         super().__init__(message)
         self.mixed_polarity_dict = mixed_polarity_dict
-
-
-class MzxmlConflictErrors(Exception):
-    def __init__(self, mzxml_conflicts):
-        deets = []
-        for mzxml_file in mzxml_conflicts.keys():
-            val = f"{mzxml_file}:\n"
-            for var in mzxml_conflicts[mzxml_file].keys():
-                val += (
-                    f"\t\t{var}: {mzxml_conflicts[mzxml_file][var]['mzxml_value']} vs LCMS "
-                    f"row [{mzxml_conflicts[mzxml_file][var]['sample_header']}]: "
-                    f"{mzxml_conflicts[mzxml_file][var]['lcms_value']}\n"
-                )
-            deets.append(val)
-        nlt = "\n\t"
-        message = (
-            "The following mzXML files have al least 1 value that differs from the value supplied in the LCMS metadata "
-            f"file:\n\t{nlt.join(deets)}"
-        )
-        super().__init__(message)
-        self.mzxml_conflicts = mzxml_conflicts
 
 
 class InfileDatabaseError(InfileError):
@@ -4454,58 +3514,6 @@ class InfileDatabaseError(InfileError):
 
 class MzxmlParseError(Exception):
     pass
-
-
-# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
-# having only a single peak group representation of a compound per sequence/sample
-class AmbiguousMSRun(InfileError):
-    def __init__(self, pg_rec, peak_annot1, peak_annot2, **kwargs):
-        message = (
-            f"When processing the peak data located in %s for sample [{pg_rec.msrun_sample.sample}] and compound(s) "
-            f"{pg_rec.name}, a duplicate peak group was found that was linked to MSRunSample: "
-            f"{model_to_dict(pg_rec.msrun_sample)}, but the peak annotation file it was loaded from [{peak_annot1}] "
-            f"was not the same as the current load file: [{peak_annot2}].  Either this is true duplicate peak data and "
-            "should be removed from this file or this data is a different scan (polarity and/or scan range), in which "
-            "case, both files should be loaded with a distinct polarity, mz_min, and mz_max.  If the mzXML file is "
-            "unavailable, mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr "
-            "data."
-        )
-        super().__init__(message, **kwargs)
-        self.pg_rec = pg_rec
-        self.peak_annot1 = peak_annot1
-        self.peak_annot2 = peak_annot2
-
-
-# TODO: Delete this exception class when the accucor loader is removed.  Errors in this situation are now presented as
-# having only a single peak group representation of a compound per sequence/sample
-class AmbiguousMSRuns(Exception):
-    def __init__(self, ambig_dict, infile):
-        deets = ""
-        for orig_file in ambig_dict.keys():
-            deets += f"\tAmbiguous MSRun details between current [{infile}] and original [{orig_file}] load files:\n"
-            for amsre in ambig_dict[orig_file].values():
-                deets += (
-                    f"\t\tSample [{amsre.pg_rec.msrun_sample.sample}] "
-                    f"PeakGroup [{amsre.pg_rec.name}] "
-                    f"MSRun Polarity [{amsre.pg_rec.msrun_sample.polarity}] "
-                    f"MSRun MZ Min [{amsre.pg_rec.msrun_sample.mz_min}] "
-                    f"MSRun MZ Max [{amsre.pg_rec.msrun_sample.mz_max}]\n"
-                )
-        message = (
-            f"When processing the peak data located in {infile}, duplicate peak groups were found that link to "
-            "existing MSRunSample records, but the peak annotation file the original peak groups were loaded from were "
-            "not the same as the current load file.  Either they are true duplicate peak groups and should be removed "
-            "from this file or this data represents a different scan (polarity and/or scan range), in which case, both "
-            "files should be loaded with a distinct polarity or mz_min and mz_max.  If the mzXML file is unavailable, "
-            "mz_min and mz_max can be approximated by using the medMz column from the accucor or isocorr data.  The "
-            "conflicting MSRunSample records below were encountered associated with the following table data:\n"
-            f"{deets}"
-            "Use --polarity, --mz-min, and --mz-max to set different MSRun characteristics for an entire peak "
-            "annotations file or set per sample (header) values in the --lcms-file."
-        )
-        super().__init__(message)
-        self.ambig_dict = ambig_dict
-        self.infile = infile
 
 
 class AllMultiplePeakGroupRepresentations(Exception):
@@ -4703,8 +3711,6 @@ class MultiplePeakGroupRepresentation(SummarizableError):
             new_rec (PeakGroup): An uncommitted record.
             existing_recs (PeakGroup.QuerySet)
         """
-        from DataRepo.models.msrun_sequence import MSRunSequence
-        from DataRepo.models.sample import Sample
 
         filenames = [new_rec.peak_annotation_file.filename]
         filenames.extend([r.peak_annotation_file.filename for r in existing_recs.all()])
@@ -4829,13 +3835,6 @@ class DuplicatePeakGroupResolutions(InfileError):
         self.pgname = pgname
         self.selected_files = selected_files
         self.conflicting = conflicting
-
-
-class CompoundSynonymExists(Exception):
-    def __init__(self, syn):
-        message = f"CompoundSynonym [{syn}] already exists."
-        super().__init__(message)
-        self.syn = syn
 
 
 class CompoundExistsAsMismatchedSynonym(Exception):

@@ -51,14 +51,6 @@ def autowrap(text: str, default_width: int = 80, **kwargs):
     return wrapped[:-1], nlines, max_width
 
 
-def is_number(val):
-    try:
-        float(str(val))
-    except Exception:
-        return False
-    return True
-
-
 def sigfig(num: Union[int, float], figures=3) -> str:
     """Return the supplied num with the significant number of figures/digits.
 

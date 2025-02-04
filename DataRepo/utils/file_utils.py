@@ -519,21 +519,6 @@ def is_excel(filepath):
         return False
 
 
-def merge_dataframes(left, right, on):
-    """Merges 2 sheets using a common column.
-
-    Args:
-        left (str): Name of excel sheet
-        right (str): Name of excel sheet
-        on (str): Name of column in both the left and right sheets
-    Raises:
-        None
-    Returns:
-        (DataFrame) Pandas dataframe of merged sheet data
-    """
-    return pd.merge(left=left, right=right, on=on)
-
-
 def _headers_are_not_unique(headers):
     num_uniq_heads = len(pd.unique(headers))
     num_heads = len(headers)
