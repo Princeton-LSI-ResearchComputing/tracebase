@@ -13,7 +13,7 @@ from DataRepo.utils import (
     DuplicateValueErrors,
     DuplicateValues,
     SynonymExistsAsMismatchedCompound,
-    UnknownHeadersError,
+    UnknownHeaders,
 )
 
 
@@ -36,7 +36,7 @@ class LoadCompoundsTests(TracebaseTestCase):
             len(aes.exceptions),
             msg=f"Should be 2 exceptions, but got: {', '.join([type(exc).__name__ for exc in aes.exceptions])}",
         )
-        self.assertEqual(UnknownHeadersError, type(aes.exceptions[0]))
+        self.assertEqual(UnknownHeaders, type(aes.exceptions[0]))
         self.assertEqual(["m/z", "RT"], aes.exceptions[0].unknowns)
         self.assertEqual(DuplicateValueErrors, type(aes.exceptions[1]))
         self.assertIn("lactate", str(aes.exceptions[1]))

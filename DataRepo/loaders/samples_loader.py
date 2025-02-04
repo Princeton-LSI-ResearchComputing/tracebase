@@ -8,12 +8,8 @@ from DataRepo.loaders.animals_loader import AnimalsLoader
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
-from DataRepo.models import Animal, MaintainedModel, Sample, Tissue
+from DataRepo.models import Animal, MaintainedModel, Researcher, Sample, Tissue
 from DataRepo.models.fcirc import FCirc
-from DataRepo.models.researcher import (
-    could_be_variant_researcher,
-    get_researchers,
-)
 from DataRepo.utils.exceptions import (
     DateParseError,
     DurationError,
@@ -193,7 +189,7 @@ class SamplesLoader(TableLoader):
         Returns:
             None
         """
-        self.known_researchers = get_researchers()
+        self.known_researchers = Researcher.get_researchers()
         super().__init__(*args, **kwargs)
 
     @MaintainedModel.defer_autoupdates()
@@ -277,7 +273,7 @@ class SamplesLoader(TableLoader):
         name = self.get_row_val(row, self.headers.SAMPLE)
 
         researcher = self.get_row_val(row, self.headers.HANDLER)
-        if researcher is not None and could_be_variant_researcher(
+        if researcher is not None and Researcher.could_be_variant_researcher(
             researcher, known_researchers=self.known_researchers
         ):
             # Raised if in validate mode (so the web user will see it).  Just printed otherwise.

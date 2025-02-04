@@ -46,3 +46,7 @@ class TracerTests(TracebaseTestCase):
         coordinator = MaintainedModel._get_current_coordinator()
         self.assertTrue(coordinator.are_immediate_updates_enabled())
         self.assertEqual("glucose-[2,3-13C2,4-17O1]", to.name)
+
+    def test__name(self):
+        to = create_tracer_record()
+        self.assertEqual(to.name, to._name())

@@ -635,7 +635,7 @@ class DuplicatePeakGroups(Exception):
         self.duplicate_peak_groups = duplicate_peak_groups
 
 
-class UnknownHeaderError(InfileError, HeaderError):
+class UnknownHeader(InfileError, HeaderError):
     def __init__(self, unknown, known: Optional[list] = None, message=None, **kwargs):
         if not message:
             message = f"Unknown header encountered: [{unknown}] in %s."
@@ -645,7 +645,7 @@ class UnknownHeaderError(InfileError, HeaderError):
 
 
 # TODO: Once the sample table loader inherits from TableLoader, make this inherit from SummarizableError
-class UnknownHeadersError(InfileError, HeaderError):
+class UnknownHeaders(InfileError, HeaderError):
     def __init__(self, unknowns, message=None, **kwargs):
         if not message:
             message = f"Unknown header(s) encountered: [{', '.join(unknowns)}] in %s."
@@ -721,10 +721,10 @@ class NewResearcher(InfileError, SummarizableError):
     SummarizerExceptionClass = NewResearchers
 
     def __init__(self, researcher: str, known=None, message=None, **kwargs):
-        from DataRepo.models.researcher import get_researchers
+        from DataRepo.models.researcher import Researcher
 
         if known is None:
-            existing = "\n\t".join(get_researchers())
+            existing = "\n\t".join(Researcher.get_researchers())
         else:
             existing = "\n\t".join(known)
         message = f"A new researcher [{researcher}] is being added (parsed from %s)."

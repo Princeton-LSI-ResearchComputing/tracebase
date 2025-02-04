@@ -66,7 +66,7 @@ from DataRepo.utils.exceptions import (
     UnexpectedLabels,
     UnexpectedSamples,
     UnitsWrong,
-    UnknownHeaderError,
+    UnknownHeader,
     UnskippedBlanks,
     generate_file_location_string,
     summarize_int_list,
@@ -1183,7 +1183,7 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_UnknownHeaderError(self):
-        exc = UnknownHeaderError("C", ["A", "B"])
+        exc = UnknownHeader("C", ["A", "B"])
         self.assertEqual(
             "Unknown header encountered: [C] in the load file data.  Must be one of ['A', 'B'].",
             str(exc),

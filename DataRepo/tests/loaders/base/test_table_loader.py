@@ -24,7 +24,7 @@ from DataRepo.utils.exceptions import (
     RequiredHeadersError,
     RequiredValueError,
     RequiredValueErrors,
-    UnknownHeadersError,
+    UnknownHeaders,
 )
 
 
@@ -1215,7 +1215,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(2, len(aes.exceptions))
         self.assertEqual(RequiredHeadersError, type(aes.exceptions[0]))
         self.assertIn("Name", str(aes.exceptions[0]))
-        self.assertEqual(UnknownHeadersError, type(aes.exceptions[1]))
+        self.assertEqual(UnknownHeaders, type(aes.exceptions[1]))
         self.assertIn("Wrong", str(aes.exceptions[1]))
 
         tl2 = self.TestLoader()
@@ -1240,7 +1240,7 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(2, len(aes.exceptions))
         self.assertEqual(RequiredHeadersError, type(aes.exceptions[0]))
         self.assertIn("Default Value", str(aes.exceptions[0]))
-        self.assertEqual(UnknownHeadersError, type(aes.exceptions[1]))
+        self.assertEqual(UnknownHeaders, type(aes.exceptions[1]))
         self.assertIn("Wrong header", str(aes.exceptions[1]))
 
     def test_get_user_defaults(self):

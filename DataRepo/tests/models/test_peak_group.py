@@ -3,6 +3,7 @@ from pathlib import Path
 
 from django.core.files import File
 from django.core.management import call_command
+from django.db import IntegrityError
 
 from DataRepo.models import (
     Animal,
@@ -201,6 +202,17 @@ class PeakGroupTests(TracebaseTestCase):
         rec, cre = self.pg.get_or_create_compound_link(cmpd)
         self.assertFalse(cre)
         self.assertIsNotNone(rec)
+
+    def test_total_abundance(self):
+        self.assertAlmostEqual(self.pg.total_abundance, 3000)
+
+    def test_unique_constraint(self):
+        self.assertRaises(
+            IntegrityError,
+            lambda: PeakGroup.objects.create(
+                name=self.pg.name, msrun_sample=self.pg.msrun_sample
+            ),
+        )
 
 
 class MultiLabelPeakGroupTests(TracebaseTestCase):

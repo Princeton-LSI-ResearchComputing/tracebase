@@ -14,27 +14,27 @@ class CompoundTests(TracebaseTestCase):
             name="alanine", formula="C3H7NO2", hmdb_id="HMDB0000161"
         )
 
-    def test_compound_name(self):
+    def test_name(self):
         """Compound lookup by name"""
         alanine = Compound.objects.get(name="alanine")
         self.assertEqual(alanine.name, "alanine")
 
-    def test_compound_hmdb_url(self):
+    def test_hmdb_url(self):
         """Compound hmdb url"""
         alanine = Compound.objects.get(name="alanine")
         self.assertEqual(alanine.hmdb_url, f"{Compound.HMDB_CPD_URL}/{alanine.hmdb_id}")
 
-    def test_compound_atom_count(self):
+    def test_atom_count_3(self):
         """Compound atom_count"""
         alanine = Compound.objects.get(name="alanine")
         self.assertEqual(alanine.atom_count("C"), 3)
 
-    def test_compound_atom_count_zero(self):
+    def test_atom_count_zero(self):
         """Compound atom_count"""
         alanine = Compound.objects.get(name="alanine")
         self.assertEqual(alanine.atom_count("F"), 0)
 
-    def test_compound_atom_count_invalid(self):
+    def test_atom_count_invalid(self):
         """Compound atom_count"""
         alanine = Compound.objects.get(name="alanine")
         with self.assertWarns(UserWarning):
