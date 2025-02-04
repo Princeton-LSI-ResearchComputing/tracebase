@@ -49,12 +49,10 @@ class ModelViewTests(TracebaseTestCase):
 
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
-        cls.INF_PEAKDATA_ROWS = 11
         cls.INF_PEAKGROUP_COUNT = cls.INF_COMPOUNDS_COUNT * cls.INF_SAMPLES_COUNT
 
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1
-        cls.SERUM_PEAKDATA_ROWS = 13
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
         cls.ALL_SEQUENCES_COUNT = 1

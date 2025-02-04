@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pandas as pd
 from django.conf import settings
@@ -13,9 +13,7 @@ from DataRepo.models import (
     Animal,
     Infusate,
     InfusateTracer,
-    LCMethod,
     MaintainedModel,
-    MSRunSequence,
     PeakData,
     PeakGroup,
     Sample,
@@ -37,17 +35,6 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import read_from_file
-
-
-def create_test_sequence(researcher, date):
-    # Load a sequence and all the MSRunSamples
-    lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-    MSRunSequence.objects.create(
-        researcher=researcher,
-        date=datetime.strptime(date, "%Y-%m-%d"),
-        instrument="unknown",
-        lc_method=lcm,
-    )
 
 
 class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
@@ -590,7 +577,6 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         # initialize some sample-table-dependent counters
         cls.ALL_SAMPLES_COUNT = 0
         cls.ALL_ANIMALS_COUNT = 0
-        cls.ALL_STUDIES_COUNT = 0
 
         call_command(
             "load_study",
@@ -603,7 +589,6 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         # not counting the header and the BLANK animal
         cls.ALL_OBOB_ANIMALS_COUNT = 7
         cls.ALL_ANIMALS_COUNT += cls.ALL_OBOB_ANIMALS_COUNT
-        cls.ALL_STUDIES_COUNT += 1
 
         call_command(
             "load_study",
@@ -614,7 +599,6 @@ class LoadAccucorSmallObob2CommandTests(TracebaseTestCase):
         cls.ALL_SAMPLES_COUNT += 5
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 1
-        cls.ALL_STUDIES_COUNT += 1
 
     @MaintainedModel.no_autoupdates()
     def test_dupe_sample_load_fails(self):

@@ -255,7 +255,6 @@ class GlobalCacheTests(TracebaseTestCase):
             ],
             "Sample": [
                 "last_tracer_peak_groups",
-                "is_last_serum_sample",
             ],
             "Infusate": ["tracer_labeled_elements"],
             "PeakGroup": [

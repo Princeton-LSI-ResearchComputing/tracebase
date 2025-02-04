@@ -133,7 +133,7 @@ class AdvancedSearchViewTests(ModelViewTests):
         qs = PeakGroup.objects.filter(
             msrun_sample__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun_sample__sample__animal__studies")
-        [filledform, qry, ignore] = self.get_advanced_search_inputs()
+        [filledform, qry, _] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
@@ -144,7 +144,7 @@ class AdvancedSearchViewTests(ModelViewTests):
         """
         Do a simple advanced search and make sure the results are correct
         """
-        [invalidform, qry, ignore] = self.get_advanced_search_inputs()
+        [invalidform, qry, _] = self.get_advanced_search_inputs()
         # Make the form invalid
         invalidform.pop("form-0-val", None)
         # Expected response difference:

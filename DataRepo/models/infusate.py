@@ -131,7 +131,7 @@ class Infusate(MaintainedModel, HierCachedModel):
     objects: InfusateQuerySet = InfusateQuerySet().as_manager()
 
     CONCENTRATION_SIGNIFICANT_FIGURES = 3
-    TRACER_DELIMETER = ";"
+    TRACER_DELIMITER = ";"
     TRACERS_LEFT_BRACKET = "{"
     TRACERS_RIGHT_BRACKET = "}"
 
@@ -182,7 +182,7 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
 
-        name = self.TRACER_DELIMETER.join(
+        name = self.TRACER_DELIMITER.join(
             sorted(
                 map(
                     lambda o: o.tracer._name()
@@ -219,7 +219,7 @@ class Infusate(MaintainedModel, HierCachedModel):
             key=lambda item: item[0],
         )
 
-        name = self.TRACER_DELIMETER.join(
+        name = self.TRACER_DELIMITER.join(
             [item[0] for item in tracer_names_and_concentrations]
         )
         if self.tracer_group_name is not None:
@@ -234,7 +234,7 @@ class Infusate(MaintainedModel, HierCachedModel):
         """Build an infusate name (not in the database) from an InfusateData object."""
         from DataRepo.models.tracer import Tracer
 
-        name = self.TRACER_DELIMETER.join(
+        name = self.TRACER_DELIMITER.join(
             sorted(
                 map(
                     lambda o: Tracer.name_from_data(o["tracer"])
@@ -381,7 +381,7 @@ class Infusate(MaintainedModel, HierCachedModel):
 
         if display_name:
             display_name = display_name.replace(
-                self.TRACER_DELIMETER, f"{self.TRACER_DELIMETER}\n"
+                self.TRACER_DELIMITER, f"{self.TRACER_DELIMITER}\n"
             )
             display_name = display_name.replace(
                 self.TRACERS_LEFT_BRACKET, f"{self.TRACERS_LEFT_BRACKET}\n"

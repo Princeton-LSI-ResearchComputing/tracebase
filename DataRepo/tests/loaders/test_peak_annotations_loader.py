@@ -234,7 +234,7 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         cls.SERINE = Compound.objects.create(
             name="Serine", formula="C3H7NO3", hmdb_id="HMDB0000187"
         )
-        cls.GLYSINE = Compound.objects.create(
+        Compound.objects.create(
             name="Glycine", formula="C2H5NO2", hmdb_id="HMDB0000123"
         )
         Compound.objects.create(

@@ -36,7 +36,7 @@ class InfusatesLoader(TableLoader):
     NAME_KEY = "NAME"
     CONC_KEY = "TRACERCONC"
 
-    TRACER_DELIMETER = Infusate.TRACER_DELIMETER
+    TRACER_DELIMITER = Infusate.TRACER_DELIMITER
 
     DataSheetName = "Infusates"
 
@@ -244,7 +244,8 @@ class InfusatesLoader(TableLoader):
                 f"IF(ROWS(_xlfn._xlws.FILTER({{{ID_KEY}}}:{{{ID_KEY}}},{{{ID_KEY}}}:{{{ID_KEY}}}="
                 f'INDIRECT("{{{ID_KEY}}}" & ROW()),""))>1,"{{{{",""),'
                 # Join the sorted tracers (from multiple rows) using a ';' delimiter, (mapping the names and concs)
-                '_xlfn.TEXTJOIN(";",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
+                # TODO: Figure out how to use self.tracer_delimiter instead of cls.TRACER_DELIMITER
+                f'_xlfn.TEXTJOIN("{TRACER_DELIMITER}",TRUE,_xlfn._xlws.SORT(_xlfn.MAP('
                 # Filter all tracers to get ones whose tracer row group ID is the same as as this row's group ID
                 f"_xlfn._xlws.FILTER({{{TRACER_NAME_KEY}}}:{{{TRACER_NAME_KEY}}},"
                 f'{{{ID_KEY}}}:{{{ID_KEY}}}=INDIRECT("{{{ID_KEY}}}" & ROW()),""),'
@@ -296,7 +297,7 @@ class InfusatesLoader(TableLoader):
         Returns:
             None
         """
-        self.tracer_delimiter = kwargs.pop("tracer_delimiter", self.TRACER_DELIMETER)
+        self.tracer_delimiter = kwargs.pop("tracer_delimiter", self.TRACER_DELIMITER)
         super().__init__(*args, **kwargs)
 
     def init_load(self):
@@ -840,7 +841,7 @@ class InfusatesLoader(TableLoader):
             # Tracer group name to use as dict key (str-caste to handle Nones)
             tgn = str(self.infusates_dict[infusate_number]["tracer_group_name"])
             # Tracer group string to use as dict key
-            tracer_group_key = ";".join(
+            tracer_group_key = self.tracer_delimiter.join(
                 sorted(
                     [
                         str(t["tracer_name"])
@@ -849,7 +850,7 @@ class InfusatesLoader(TableLoader):
                 )
             )
             # Tracer group string including concentrations to use as dict key
-            tracer_group_conc_key = ";".join(
+            tracer_group_conc_key = self.tracer_delimiter.join(
                 sorted(
                     [
                         f"{t['tracer_name']}[{t['tracer_concentration']}]"

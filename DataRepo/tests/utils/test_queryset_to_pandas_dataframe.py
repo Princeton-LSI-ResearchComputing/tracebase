@@ -53,13 +53,6 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "studies": ["Study Test1", "Study Test2"],
         }
 
-        cls.animal2_dict = {
-            "animal": "a4_Val_13C5",
-            "infusate_name": "valine-[13C2][22]",
-            "treatment": "no treatment",
-            "studies": ["Study Test2"],
-        }
-
         cls.sample1_dict = {
             "animal": "a1_Lys_13C",
             "infusate_name": "lysine-[13C6][15]",

@@ -20,7 +20,7 @@ class Command(LoadTableCommand):
             "--tracer-delimiter",
             type=str,
             help="Character delimiting multiple label positions in the label positions column (default '%(default)s')",
-            default=self.loader_class.TRACER_DELIMETER,
+            default=self.loader_class.TRACER_DELIMITER,
             required=False,
         )
 

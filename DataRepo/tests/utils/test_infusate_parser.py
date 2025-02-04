@@ -100,13 +100,11 @@ class InfusateTestData(TracebaseTestCase):
             ],
         )
 
-        # Isoleucine
-        cls.isoleucine = Compound.objects.create(
+        Compound.objects.create(
             name="isoleucine", formula="C6H13NO2", hmdb_id="HMDB0000172"
         )
 
-        # Valine
-        cls.valine = Compound.objects.create(
+        Compound.objects.create(
             name="valine", formula="C5H11NO2", hmdb_id="HMDB0000883"
         )
 

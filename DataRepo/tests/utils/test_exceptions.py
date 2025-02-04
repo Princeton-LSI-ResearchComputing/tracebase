@@ -5,7 +5,6 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AllMissingTreatmentsErrors,
     CompoundDoesNotExist,
     DateParseError,
     DefaultSequenceNotFound,
@@ -27,8 +26,6 @@ from DataRepo.utils.exceptions import (
     MissingDataAdded,
     MissingRecords,
     MissingSamples,
-    MissingTissue,
-    MissingTreatment,
     MultiLoadStatus,
     MultipleDefaultSequencesFound,
     MutuallyExclusiveOptions,
@@ -38,8 +35,6 @@ from DataRepo.utils.exceptions import (
     NewResearcher,
     NewResearchers,
     NoLoadData,
-    NonUniqueSampleDataHeader,
-    NonUniqueSampleDataHeaders,
     NoSamples,
     NoScans,
     NoTracerLabeledElements,
@@ -51,21 +46,16 @@ from DataRepo.utils.exceptions import (
     RequiredArgument,
     RequiredColumnValue,
     RequiredColumnValues,
-    RequiredColumnValuesWhenNovel,
-    RequiredColumnValueWhenNovel,
     RequiredHeadersError,
     RequiredOptions,
     RequiredValueError,
     RequiredValueErrors,
-    ResearcherNotNew,
     SheetMergeError,
     SummarizableError,
     SummarizedInfileError,
     UnequalColumnGroups,
-    UnexpectedIsotopes,
     UnexpectedLabels,
     UnexpectedSamples,
-    UnitsWrong,
     UnknownHeader,
     UnskippedBlanks,
     generate_file_location_string,
@@ -74,7 +64,6 @@ from DataRepo.utils.exceptions import (
 
 
 class MultiLoadStatusTests(TracebaseTestCase):
-    maxDiff = None
 
     def test_init_load(self):
         """
@@ -572,36 +561,6 @@ class ExceptionTests(TracebaseTestCase):
         self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 1, 0)
         self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
 
-    def test_buffer_uie_validate_warning_raise(self):
-        # The types of the contents of these arrays doesn't matter
-        detected = ["C13", "N15"]
-        labeled = ["C13"]
-        compounds = ["Lysine"]
-        uie = UnexpectedIsotopes(detected, labeled, compounds)
-
-        validate_mode = True
-
-        aes = AggregatedErrors()
-        aes.buffer_warning(uie, is_fatal=validate_mode)
-
-        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
-        self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
-
-    def test_buffer_uie_novalidate_warning_raise(self):
-        # The types of the contents of these arrays doesn't matter
-        detected = ["C13", "N15"]
-        labeled = ["C13"]
-        compounds = ["Lysine"]
-        uie = UnexpectedIsotopes(detected, labeled, compounds)
-
-        validate_mode = False
-
-        aes = AggregatedErrors()
-        aes.buffer_exception(uie, is_error=False, is_fatal=validate_mode)
-
-        self.assert_aggregated_exception_states(aes, False, aes.should_raise(), 0, 1)
-        self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
-
     def test_get_buffered_traceback_string(self):
         def frame_one():
             frame_two()
@@ -736,37 +695,6 @@ class ExceptionTests(TracebaseTestCase):
         sl = summarize_int_list(il)
         self.assertEqual(esl, sl)
 
-    def test_units_wrong(self):
-        units_dict = {
-            "Infusion Rate": {
-                "example_val": "3.3 non/sense",
-                "expected": "ul/m/g",
-                "rows": [5, 6],
-                "units": "non/sense",
-            },
-        }
-        uw = UnitsWrong(units_dict)
-        self.assertEqual(
-            (
-                "Unexpected units were found in 1 columns:\n"
-                "\tInfusion Rate (example: [3.3 non/sense] does not match units: [ul/m/g] on row(s): [5, 6])\n"
-                "Units are not allowed, but these also appear to be the wrong units."
-            ),
-            str(uw),
-        )
-        self.assertTrue(hasattr(uw, "units_dict"))
-        self.assertEqual(uw.units_dict, units_dict)
-
-    def test_researcher_not_new_takes_list(self):
-        """
-        Issue #712
-        Requirement: 6. ResearcherNotNew must take a list of researchers (see TODO in accucor_data_loader.py)
-        """
-        existing = ["paul", "bob"]
-        all = ["paul", "bob", "george"]
-        ResearcherNotNew(existing, "--new-researcher", all)
-        # No exception = successful test
-
     def test_generate_file_location_string(self):
         lstr = generate_file_location_string(
             column=2, rownum=3, sheet="Animals", file="animals.xlsx"
@@ -878,29 +806,6 @@ class ExceptionTests(TracebaseTestCase):
             "\t\tField: [Tissue.name] Column: [Tissue Name] on row(s): 3-4\n"
         )
         self.assertEqual(expected, str(rve))
-
-    def test_RequiredColumnValueWhenNovel(self):
-        rcvwn = RequiredColumnValueWhenNovel(column=3, model_name="TestModel")
-        self.assertEqual(
-            "Value required for column [3] in the load file data when the [TestModel] record does not exist.",
-            str(rcvwn),
-        )
-
-    def test_RequiredColumnValuesWhenNovel(self):
-        rcvwns = [
-            RequiredColumnValueWhenNovel(column=3, model_name="TestModel"),
-            RequiredColumnValueWhenNovel(column=3, model_name="TestModel"),
-            RequiredColumnValueWhenNovel(column=3, model_name="TestModel"),
-        ]
-        rcvwn = RequiredColumnValuesWhenNovel(rcvwns, model_name="TestModel")
-        self.assertEqual(
-            (
-                "Value required, when the [TestModel] record does not exist, for columns on the indicated rows:\n"
-                "\tthe load file data\n"
-                "\t\tColumn: [3] on rows: No row numbers provided\n"
-            ),
-            str(rcvwn),
-        )
 
     def test_ExcelSheetsNotFound(self):
         esnf = ExcelSheetsNotFound(
@@ -1077,29 +982,6 @@ class ExceptionTests(TracebaseTestCase):
             str(cdne),
         )
 
-    def test_NonUniqueSampleDataHeader(self):
-        nusdh = NonUniqueSampleDataHeader("c", {"accucor.xlsx": 2})
-        self.assertEqual(
-            (
-                "Sample data header 'c' is not unique across all supplied peak annotation files:\n"
-                "\tOccurs 2 times in accucor.xlsx"
-            ),
-            str(nusdh),
-        )
-
-    def test_NonUniqueSampleDataHeaders(self):
-        nusdhs = NonUniqueSampleDataHeaders(
-            [NonUniqueSampleDataHeader("c", {"accucor.xlsx": 2})]
-        )
-        self.assertEqual(
-            (
-                "The following sample data headers are not unique across all supplied peak annotation files:\n"
-                "\tc\n"
-                "\t\tOccurs 2 times in accucor.xlsx\n"
-            ),
-            str(nusdhs),
-        )
-
     def test_ExcelSheetNotFound(self):
         esnf = ExcelSheetNotFound(
             sheet="Not Present", file="an_excel_file.xlsx", all_sheets=["A", "B"]
@@ -1107,43 +989,6 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("[Not Present] not found", str(esnf))
         self.assertIn("in an_excel_file.xlsx", str(esnf))
         self.assertIn("Available sheets: ['A', 'B']", str(esnf))
-
-    def test_MissingTissue(self):
-        mt = MissingTissue(
-            tissue_name="sphincter",
-            file="study.xlsx",
-            sheet="Samples",
-            column="Tissue",
-            rownum=2,
-        )
-        self.assertIn("Tissue 'sphincter'", str(mt))
-        self.assertIn(
-            "column [Tissue] on row [2] of sheet [Samples] in study.xlsx",
-            str(mt),
-        )
-
-    def test_AllMissingTreatments(self):
-        amt = AllMissingTreatmentsErrors(
-            [
-                MissingTreatment(
-                    treatment_name="sphincter",
-                    file="study.xlsx",
-                    sheet="Samples",
-                    column="Treatment",
-                    rownum=2,
-                ),
-                MissingTreatment(
-                    treatment_name="elbow_pit",
-                    file="study.xlsx",
-                    sheet="Samples",
-                    column="Treatment",
-                    rownum=3,
-                ),
-            ],
-        )
-        self.assertIn("column [Treatment] of sheet [Samples] in study.xlsx", str(amt))
-        self.assertIn("sphincter on row(s): ['2']", str(amt))
-        self.assertIn("elbow_pit on row(s): ['3']", str(amt))
 
     def test_MissingDataAdded(self):
         mda = MissingDataAdded(["5 sample names"], file="Study doc.xlsx")

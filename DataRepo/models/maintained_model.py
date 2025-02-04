@@ -2025,16 +2025,6 @@ class StaleAutoupdateMode(Exception):
         super().__init__(message)
 
 
-class LikelyStaleBufferError(Exception):
-    def __init__(self, model_object):
-        message = (
-            f"Autoupdates to {model_object.__class__.__name__} encountered a unique constraint violation.  Note, this "
-            "often happens when the auto-update buffer contains stale records.  Be careful not to delete records after "
-            "saving them, because saving them adds them to the buffer for later mass auto-update."
-        )
-        super().__init__(message)
-
-
 class UncleanBufferError(Exception):
     def __init__(self, message=None):
         if message is None:
@@ -2063,22 +2053,6 @@ class MissingMaintainedModelDerivedClass(Exception):
         message = f"The {cls} class must be imported so that its eval works.  {err}"
         super().__init__(message)
         self.cls = cls
-
-
-class ReverseRelationQueryBeforeRecordExists(Exception):
-    def __init__(self, mdl_name, updtr_fun_name, err):
-        message = (
-            f"Updater method: [{mdl_name}.{updtr_fun_name}] attempted to query through a link via the related model's "
-            "related_name for this model, but as of Django 4.2, that raises an exception.  The related model cannot "
-            f"link to {mdl_name} because it does not yet have a primary key (i.e., it has not been saved yet).  Add a "
-            "check in your updater method to ensure that `self.pk` is not `None` before making that query.  If it is "
-            "`None`, you can safely assume that the query would result in 0 records returned.  The original exception "
-            f"was: [{type(err).__name__}: {err}]."
-        )
-        super().__init__(message)
-        self.mdl_name = mdl_name
-        self.updtr_fun_name = updtr_fun_name
-        self.err = err
 
 
 class ConditionallyRequiredArgumentError(Exception):
