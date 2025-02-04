@@ -6,13 +6,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [v3.1.4-beta] - 2025-02-04
 
 ### Fixed
 
+- Fixed an issue where multiple representation errors (attributing the same source peak annotation file) were mistakenly raised due to an unrelated error.
+- Eliminated a pandas warning.
+- Fixed an issue where error summaries were being added to other error summaries.
+- Fixed an uncaught exception in the CompoundsLoader
+- Added missing init files among the test directories and fixed stale tests that now get run as a result.
+- Fixed some infusate/tracer name delimiters to use variables the user sets instead of static strings.
+
 ### Added
 
+- Added a `load_study_set` command.  Compared to the legacy version, the following changes were made:
+  - The input file is a listing of study docs.
+  - Removed buffering of autoupdates so that each loaded study is complete.
+  - Added the ability to skip commented studies.
+- A PermissionError is now raised on the build a submission page if the site is READONLY.
+- Added a `--debug` option to all load commands to print all exception traces.
+- Added option `--exclude-sheets` to `load_study`.
+- Added security settings based on `python manage.py check --deploy` output.
+- Added methods to `tracebase_test_case` to generate missing test stubs.
+- Added a suggestion for `DuplicateValues` exceptions from the animals loader to suggest that study names be delimited on 1 row.
+
 ### Changed
+
+- Removed the legacy loading code
+  - Removed all references to the legacy loaders
+  - Converted tests and test data to the new loading code
+  - Removed all orphaned code resulting from the removed loading code
+- Updated loading code for the new logic regarding MSRunSample records
+  - When there are multiple MSRunSample records a placeholder is used to link PeakGroups.
+  - Otherwise, PeakGroup records link to the MSRunSample record containing the raw data.
+- Made the check for requiring sequence defaults to be supplied to the MSRunsLoader more robust.
+- Bumped django to 4.2.18
+- Changes to behavior due to missing C12 PARENT rows in accucor files
+  - Changed the check for missing C12 PARENT rows to a warning, since it can be missing due to the MS signal being below the detection threshold.
+  - Changed the formula fill down strategy to be more efficient when the C12 PARENT row is missing.
+  - Updated the suggested remedy in the warning.
+  - Added to fill in missing formulas using a new "BACKFILL" placeholder.
+- Made `AggregatedErrorsSet` compatible with `AggregatedErrors` such that they have the same interface so that `load_table` could handle both exception classes.
+- Modified archive cleanup message when nothing was there to clean up in the `MSRunsLoader`.
+- Organizational improvements to the test code.
+- Moved the leaderboard (and other) code into the `Researcher` class as class methods.
 
 ## [v3.1.3-beta] - 2025-01-13
 
