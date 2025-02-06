@@ -715,6 +715,8 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
             al.msrun_sample_dict[sample_header]["seen"] = True
             # No MSRunSample record was created for it
             al.msrun_sample_dict[sample_header]["MSRunSample"] = None
+            # No sample headers are skipped
+            al.msrun_sample_dict[sample_header]["Skip"] = None
         # Change this sample to have not been encountered (i.e. it was in the peak annotation details, but not in the
         # accucor file)
         al.msrun_sample_dict["s3"]["seen"] = False

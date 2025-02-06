@@ -1609,18 +1609,21 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 is_fatal=self.validate,
             )
 
-        # See if *any* samples were found in the headers of the peak annotation file that weren't in the Peak Annotation
-        # Details sheet.
-        sample_headers_in_details_sheet_not_in_peak_annot_file = [
-            uss
+        # See if *any* sample headers in the Peak Annotation Details sheet were not found in the peak annotation file.
+        sample_headers_in_details_sheet_not_in_peak_annot_file = dict(
+            (uss, self.msrun_sample_dict[uss][self.msrunsloader.headers.SKIP])
             for uss in self.msrun_sample_dict.keys()
             if self.msrun_sample_dict[uss]["seen"] is False
             and not Sample.is_a_blank(uss)
-        ]
-        if len(sample_headers_in_details_sheet_not_in_peak_annot_file) > 0:
-            self.aggregated_errors_object.buffer_error(
+        )
+        # Set to an error if not all samples are skipped samples
+        is_err = not all(
+            sample_headers_in_details_sheet_not_in_peak_annot_file.values()
+        )
+        if len(sample_headers_in_details_sheet_not_in_peak_annot_file.keys()) > 0:
+            self.aggregated_errors_object.buffer_exception(
                 UnexpectedSamples(
-                    sample_headers_in_details_sheet_not_in_peak_annot_file,
+                    list(sample_headers_in_details_sheet_not_in_peak_annot_file.keys()),
                     file=self.friendly_file,
                     rel_file=self.msrunsloader.friendly_file,
                     rel_sheet=self.msrunsloader.DataSheetName,
@@ -1628,7 +1631,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                         f"{self.msrunsloader.DataHeaders.SAMPLEHEADER} "
                         f"and {self.msrunsloader.DataHeaders.ANNOTNAME}"
                     ),
-                )
+                ),
+                is_error=is_err,
+                is_fatal=is_err or self.validate,
             )
 
         possible_blanks_in_details_sheet_not_in_peak_annot_file = [
