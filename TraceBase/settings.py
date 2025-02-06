@@ -114,16 +114,23 @@ DATABASES = {
         "OPTIONS": {
             # See: https://www.postgresql.org/docs/13/transaction-iso.html#XACT-REPEATABLE-READ
             # NOTE: Django's default isolation_level is READ_COMMITTED.  REPEATABLE_READ is a stricter isolation level.
-            # It causes concurrent database writes to not block, and if there is a conflict, the winner is the first one
-            # to write.  The loser encounters a SerializationError upon commit.  The point of making this change is to
-            # allow validation processes to not get blocked by concurrent validations or load processes.  The validation
-            # page never commits any changes, so users will never encounter a SerializationError.  And the only time
-            # admins would encounter the error is if for example, a conflicting edit is made on the admin edit interface
-            # during a load (or during manual concurrent DB manipulations in for examplem the shell).
+            # SERIALIZABLE is even stricter still (the highest isolation).  They ostensibly cause concurrent database
+            # writes to not block, and if there is a conflict, the winner is the first one to write.  The loser
+            # encounters a SerializationError upon commit.  And they are supposed to operate as if a snapshot was taken
+            # of the DB when the transaction starts, however if the second started transaction queries something that
+            # the first transaction put a lock on before the second transaction started, the second transaction's
+            # operation will still hang until the first one commits, so I'm not sure what the point is supposed to be.
+            # REPEATABLE_READ was tried for awhile, but has shown to still block validations during a load if for
+            # example, the validation get_or_creates a tissue that the first transaction created before the second
+            # transaction started.  I tested the same exact scenario with the tissue using SERIALIZABLE, and it didn't
+            # block/hang.  However, it still blocked if I tried to validate the same study doc I was loading in the
+            # background, so SERIALIZABLE seems better, but not a complete solution.
+            # The only way to completely avoid this is to not touch the database at all in a validation, and even if we
+            # didn't use the loading code, that would be very difficult.
             # NOTE: The only database architectures that support REPEATABLE_READ are postgres and MySQL.  The site will
             # still work in for example, SQLite, but concurrent validations could encounter timeout errors due to
             # record/row blocking, because the validations can only happen serially.
-            "isolation_level": IsolationLevel.REPEATABLE_READ,
+            "isolation_level": IsolationLevel.SERIALIZABLE,
         },
     }
 }
