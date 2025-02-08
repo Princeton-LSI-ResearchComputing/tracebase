@@ -47,12 +47,24 @@
                     <td>{{ archive_file.data_type.name }}</td>
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
-                        {% if archive_file.id in studies %}
-                            {% for study in archive_file.studies.all %}
+                        {% for pg in archive_file.peak_groups.all %}
+                            {% for study in pg.msrun_sample.sample.animal.studies.all %}
                                 {% if not forloop.first %}; {% endif %}
                                 <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
                             {% endfor %}
-                        {% endif %}
+                        {% endfor %}
+                        {% for mz in archive_file.mz_to_msrunsamples.all %}
+                            {% for study in mz.sample.animal.studies.all %}
+                                {% if not forloop.first %}; {% endif %}
+                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for raw in archive_file.raw_to_msrunsamples.all %}
+                            {% for study in raw.msrun_sample.sample.animal.studies.all %}
+                                {% if not forloop.first %}; {% endif %}
+                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
+                            {% endfor %}
+                        {% endfor %}
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}

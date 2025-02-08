@@ -12,18 +12,19 @@ class ArchiveFileListView(ListView):
     template_name = "DataRepo/archive_file_list.html"
     paginate_by = 20
 
-    def get_queryset(self):
-        return (
-            super()
-            .get_queryset()
-            .annotate(
-                studies=Coalesce(
-                    "peak_groups__msrun_sample__sample__animal__studies",
-                    "mz_to_msrunsamples__sample__animal__studies",
-                    "raw_to_msrunsamples__sample__animal__studies",
-                ),
-            )
-        )
+    # def get_queryset(self):
+    #     fields = list(ArchiveFile._meta.__dict__["ordering"]).extend(["id", "studies"])
+    #     return (
+    #         super()
+    #         .get_queryset()
+    #         .annotate(
+    #             studies=Coalesce(
+    #                 "peak_groups__msrun_sample__sample__animal__studies",
+    #                 "mz_to_msrunsamples__sample__animal__studies",
+    #                 "raw_to_msrunsamples__sample__animal__studies",
+    #             ),
+    #         )
+    #     ).order_by(*fields).distinct(*fields)
 
 
 class ArchiveFileDetailView(DetailView):
