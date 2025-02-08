@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Archive Files{% endblock %}
 
@@ -47,24 +48,26 @@
                     <td>{{ archive_file.data_type.name }}</td>
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
-                        {% for pg in archive_file.peak_groups.all %}
-                            {% for study in pg.msrun_sample.sample.animal.studies.all %}
-                                {% if not forloop.first %}; {% endif %}
+                        {% with studies=[] %}
+                            {% for pg in archive_file.peak_groups.all %}
+                                {% for study in pg.msrun_sample.sample.animal.studies.all %}
+                                    {{ studies|append_unique:study }}
+                                {% endfor %}
+                            {% endfor %}
+                            {% for mz in archive_file.mz_to_msrunsamples.all %}
+                                {% for study in mz.sample.animal.studies.all %}
+                                    {{ studies|append_unique:study }}
+                                {% endfor %}
+                            {% endfor %}
+                            {% for raw in archive_file.raw_to_msrunsamples.all %}
+                                {% for study in raw.msrun_sample.sample.animal.studies.all %}
+                                    {{ studies|append_unique:study }}
+                                {% endfor %}
+                            {% endfor %}
+                            {% for study in studies %}
                                 <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
                             {% endfor %}
-                        {% endfor %}
-                        {% for mz in archive_file.mz_to_msrunsamples.all %}
-                            {% for study in mz.sample.animal.studies.all %}
-                                {% if not forloop.first %}; {% endif %}
-                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
-                            {% endfor %}
-                        {% endfor %}
-                        {% for raw in archive_file.raw_to_msrunsamples.all %}
-                            {% for study in raw.msrun_sample.sample.animal.studies.all %}
-                                {% if not forloop.first %}; {% endif %}
-                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
-                            {% endfor %}
-                        {% endfor %}
+                        {% endwith %}
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}

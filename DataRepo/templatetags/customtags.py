@@ -206,6 +206,13 @@ def convert_iso_date(value):
 
 
 @register.filter
+def append_unique(lst: list, val):
+    if val is None or val in lst:
+        return lst
+    return lst.append(val)
+
+
+@register.filter
 def duration_iso_to_mins(value):
     if value is None:
         return None
