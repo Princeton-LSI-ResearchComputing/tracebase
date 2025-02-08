@@ -207,9 +207,8 @@ def convert_iso_date(value):
 
 @register.filter
 def append_unique(lst: list, val):
-    if val is None or val in lst:
-        return lst
-    return lst.append(val)
+    if val is not None and val not in lst:
+        lst.append(val)
 
 
 @register.filter
