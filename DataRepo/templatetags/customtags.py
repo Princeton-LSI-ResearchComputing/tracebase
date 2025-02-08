@@ -205,10 +205,11 @@ def convert_iso_date(value):
     return dateparse.parse_datetime(value).strftime("%Y-%m-%d")
 
 
-@register.filter
+@register.simple_tag
 def append_unique(lst: list, val):
     if val is not None and val not in lst:
         lst.append(val)
+    return lst
 
 
 @register.filter
