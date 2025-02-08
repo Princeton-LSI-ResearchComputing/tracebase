@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load customtags %}
 
 {% block title %}Archive Files{% endblock %}
 
@@ -49,7 +48,7 @@
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
                         {% if archive_file.id in studies %}
-                            {% for study in studies|index:archive_file.id %}
+                            {% for study in archive_file.studies.all %}
                                 {% if not forloop.first %}; {% endif %}
                                 <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
                             {% endfor %}
