@@ -74,10 +74,7 @@ class Compound(models.Model):
         """
         from DataRepo.utils.exceptions import CompoundExistsAsMismatchedSynonym
 
-        try:
-            super().clean(*args, **kwargs)
-        except ValidationError as ve:
-            raise ve
+        super().clean(*args, **kwargs)
         sqs = CompoundSynonym.objects.filter(name__exact=self.name).exclude(
             compound__id__exact=self.id
         )

@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Tissue(models.Model):
-    SERUM_TISSUE_PREFIX = "serum"
+    SERUM_TISSUE_PREFIX: str = "serum"
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
