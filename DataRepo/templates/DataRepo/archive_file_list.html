@@ -48,7 +48,7 @@
                     <td>{{ archive_file.data_type.name }}</td>
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
-                        {% with studies=[] %}
+                        {% with studies=""|make_list %}
                             {% for pg in archive_file.peak_groups.all %}
                                 {% for study in pg.msrun_sample.sample.animal.studies.all %}
                                     {{ studies|append_unique:study }}
