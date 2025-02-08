@@ -10,7 +10,6 @@ class ArchiveFileListView(ListView):
     model = ArchiveFile
     context_object_name = "archive_file_list"
     template_name = "DataRepo/archive_file_list.html"
-    paginate_by = 20
 
     # def get_queryset(self):
     #     fields = list(ArchiveFile._meta.__dict__["ordering"]).extend(["id", "studies"])
