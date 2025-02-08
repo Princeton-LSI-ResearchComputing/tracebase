@@ -10,18 +10,20 @@ class ArchiveFileListView(ListView):
     model = ArchiveFile
     context_object_name = "archive_file_list"
     template_name = "DataRepo/archive_file_list.html"
-    ordering = ["id"]
+    paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        qs = qs.annotate(
-            studies=Coalesce(
-                "peak_groups__msrun_sample__sample__animal__studies",
-                "mz_to_msrunsamples__sample__animal__studies",
-                "raw_to_msrunsamples__sample__animal__studies",
-            ),
+        return (
+            super()
+            .get_queryset()
+            .annotate(
+                studies=Coalesce(
+                    "peak_groups__msrun_sample__sample__animal__studies",
+                    "mz_to_msrunsamples__sample__animal__studies",
+                    "raw_to_msrunsamples__sample__animal__studies",
+                ),
+            )
         )
-        return qs
 
 
 class ArchiveFileDetailView(DetailView):

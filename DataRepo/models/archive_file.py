@@ -255,6 +255,16 @@ class ArchiveFile(models.Model):
 
     data_format = models.ForeignKey(DataFormat, on_delete=models.PROTECT)
 
+    class Meta:
+        verbose_name = "Archive File"
+        verbose_name_plural = "Archive Files"
+        ordering = [
+            "filename",
+            "data_type__name",
+            "data_format__name",
+            "imported_timestamp",
+        ]
+
     def __str__(self):
         return f"{self.filename} ({self.checksum})"
 
