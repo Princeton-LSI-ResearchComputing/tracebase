@@ -9,6 +9,9 @@
 <div>
     {% if archive_file_list %}
     <script>
+        setCookie('archive-file-total', '{{ archive_file_list.count }}')
+        setCookie('archive-file-limit', '{{ paginator.per_page }}')
+        setCookie('archive-file-offset', '{{ archive_file_list.count }}')
         function queryParams(params) {
             console.log('Sending', params);
             go = "{{ page_obj.per_page }}" === params.limit
@@ -30,7 +33,8 @@
                 go = true;
             }
             if (go) {
-                window.location.href = url;
+                console.log("Would go to:", url)
+                // window.location.href = url;
             }
             {% comment %} return {
                 limit: params.limit,
@@ -45,19 +49,23 @@
             $('#file_list').bootstrapTable({
                 onSort: function (order_by, order_dir) {
                     // Note, I will have to trigger the BST sort to show it's sorted
+                    // TODO: Save params in a cookie
                     console.log("SORT EVENT:", order_by, order_dir);
                 },
                 onSearch: function (search_term) {
                     // Note, I will have to populate the search on page load
+                    // TODO: Save params in a cookie
                     console.log("GLOBAL SEARCH EVENT:", search_term);
                 },
                 onColumnSearch: function (column_name, search_term) {
                     // Note, I will have to populate the column searches on page load
+                    // TODO: Save params in a cookie
                     console.log("COLUMN SEARCH EVENT:", column_name, search_term);
                 },
-                onExportStarted: function (rows) {
+                onExportStarted: function (event) {
                     // Grab all the data. Note that if I refresh the page, I will have to trigger the download using something like: https://jsfiddle.net/wenyi/wc0zLpef/1/
-                    console.log("EXPORT EVENT");
+                    // TODO: Since there's no way to save the selected exportType, add an alert that says that, to export all data, you need to change the rows per page to "All"
+                    console.log("EXPORT EVENT", event);
                 },
             });
         });
@@ -70,7 +78,6 @@
         data-export-types="['csv', 'txt', 'excel']"
         data-export-data-type="all"
         data-filter-control="true"
-        {% comment %} data-height="1200" {% endcomment %}
         data-pagination="true"
         data-page-size="{{ archive_file_list.count }}"
         data-page-list="[25, 50, 100, 200, 500, All]"
@@ -83,10 +90,6 @@
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
         data-show-export="true"
-        {% comment %} The following server-side attempt does not allow row-column template code to be applied. All data is rendered by BST, which is a deal breaker, so javascript was added to do search, sort, pagination, and will attempt to also allow downloads.
-        data-pagination="server"
-        data-url="{% url 'archive_file_list' %}?data_request=True"
-        {% endcomment %}
         data-virtual-scroll="true"
     >
         <thead>
