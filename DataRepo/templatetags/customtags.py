@@ -42,6 +42,18 @@ def decimalPlaces(number, places):
     return floatformat(number, places)
 
 
+@register.filter
+def multiply(left, right):
+    try:
+        return float(left) * float(right)
+    except (ValueError, TypeError) as e:
+        print(
+            f"Warning: multiplication of '{left}' * '{right}' failed. ",
+            f"Caught error: [{str(e)}].  Returning '{left}'.",
+        )
+        return left
+
+
 # This allows indexing a list or dict
 @register.filter
 def index(indexable, i):

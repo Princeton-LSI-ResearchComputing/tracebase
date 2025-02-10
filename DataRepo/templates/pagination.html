@@ -2,6 +2,38 @@
 {% load customtags %}
 
 {% if is_paginated %}
+    <script>
+        function askForPage(curpage, num_pages){
+            let valid = false
+            let canceled = false
+            let errmsg = ""
+            let newpagenum = curpage
+            while (!valid) {
+                var newpagestr = prompt(errmsg + "Enter a page number between 1 and " + num_pages + ":", curpage);
+                if(typeof newpagestr === 'undefined' || !newpagestr){
+                    canceled = true
+                    valid = true
+                } else {
+                    var newpagenum = parseInt(newpagestr);
+                    if(isNaN(newpagenum)){
+                        errmsg = "Error: [" + newpagestr + "] is not an integer.\n"
+                    } else if(newpagenum < 1) {
+                        errmsg = "Error: [" + newpagestr + "] must be greater than 0.\n"
+                    } else if(newpagenum > num_pages) {
+                        errmsg = "Error: [" + newpagestr + "] must be less than or equal to the number of pages: [" + num_pages + "].\n"
+                    } else {
+                        valid = true
+                    }
+                }
+            }
+            if (canceled) {
+                newpagenum = curpage
+            }
+            if (newpagenum !== curpage) {
+                window.location.href = "?page={{ page_obj.previous_page_number }}"
+            }
+        }
+    </script>
     <!-- Model list view built-in Pagination -->
     {% if page_obj.has_other_pages %}
         <br>
@@ -11,12 +43,14 @@
                     <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
                 {% endif %}
 
-                {% if 1 <= page_obj.number|add:-flank %}
+                {% if 1 <= flank|multiply:-1|add:page_obj.number %}
                     <a href="?page=1" class="btn btn-outline-primary">
                         1
                     </a>
-                    {% if 1 <= page_obj.number|add:-flank|add:-1 %}
-                        <button class="btn btn-outline-primary disabled">&hellip;</button>
+                    {% if 1 <= flank|add:1|multiply:-1|add:page_obj.number %}
+                        <a href="?page=1" class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                            &hellip;
+                        </a>
                     {% endif %}
                 {% endif %}
 
@@ -25,7 +59,7 @@
                         <button class="btn btn-outline-primary active">
                             <span>{{ page_number }} <span class="sr-only">(current)</span></span>
                         </button>
-                    {% elif page_number > page_obj.number|add:-flank and page_number < page_obj.number|add:flank %}
+                    {% elif page_number > flank|multiply:-1|add:page_obj.number and page_number < page_obj.number|add:flank %}
                         <a href="?page={{ page_number }}" class="btn btn-outline-primary">
                             {{ page_number }}
                         </a>
@@ -34,7 +68,9 @@
 
                 {% if page_obj.paginator.num_pages >= page_obj.number|add:flank %}
                     {% if page_obj.paginator.num_pages >= page_obj.number|add:flank|add:-1 %}
-                        <button class="btn btn-outline-primary disabled">&hellip;</button>
+                        <a href="?page=1" class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                            &hellip;
+                        </a>
                     {% endif %}
                     <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
                         {{ page_obj.paginator.num_pages }}
