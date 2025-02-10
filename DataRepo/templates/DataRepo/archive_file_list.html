@@ -57,13 +57,13 @@
                             {% endif %}
                             <!-- This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal -->
                             {% if archive_file.mz_to_msrunsamples.first %}
-                                {% for study in mz.sample.animal.studies.all %}
+                                {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
                             {% endif %}
                             <!-- This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal -->
                             {% if archive_file.raw_to_msrunsamples.first %}
-                                {% for study in raw.msrun_sample.sample.animal.studies.all %}
+                                {% for study in archive_file.raw_to_msrunsamples.first.msrun_sample.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
                             {% endif %}

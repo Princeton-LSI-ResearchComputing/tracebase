@@ -9,7 +9,7 @@
                 <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}">previous</a>
             {% endif %}
             <span class="page-current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                Page XXX {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
             </span>
             {% if page_obj.has_next %}
                 <a href="{{ request.path }}?page={{ page_obj.next_page_number }}">next</a>
@@ -204,7 +204,7 @@
             {{ pager.page_form.show_stats }}
             {{ pager.page_form.stats }}
             <div style="float: left;">
-                Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
+                Showing XXX {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
             </div>
             {% if pager.tot|gt:pager.rows %}
                 <div style="float: right;">
