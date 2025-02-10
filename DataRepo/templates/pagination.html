@@ -6,43 +6,45 @@
     {% if page_obj.has_other_pages %}
         <br>
         <div class="btn-group" role="group">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
-            {% endif %}
-
-            {% if 1 <= page_obj.number|add:-5 %}
-                <a href="?page=1" class="btn btn-outline-primary">
-                    1
-                </a>
-                {% if 1 <= page_obj.number|add:-6 %}
-                    <button class="btn btn-outline-primary disabled">&hellip;</button>
+            {% with 3 as flank %}  <!-- flank = the number of pages to link to the left and right of the current page -->
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
                 {% endif %}
-            {% endif %}
 
-            {% for page_number in page_obj.paginator.page_range %}
-                {% if page_obj.number == page_number %}
-                    <button class="btn btn-outline-primary active">
-                        <span>{{ page_number }} <span class="sr-only">(current)</span></span>
-                    </button>
-                {% elif page_number > page_obj.number|add:-5 and page_number < page_obj.number|add:5 %}
-                    <a href="?page={{ page_number }}" class="btn btn-outline-primary">
-                        {{ page_number }}
+                {% if 1 <= page_obj.number|add:-flank %}
+                    <a href="?page=1" class="btn btn-outline-primary">
+                        1
+                    </a>
+                    {% if 1 <= page_obj.number|add:-flank|add:-1 %}
+                        <button class="btn btn-outline-primary disabled">&hellip;</button>
+                    {% endif %}
+                {% endif %}
+
+                {% for page_number in page_obj.paginator.page_range %}
+                    {% if page_obj.number == page_number %}
+                        <button class="btn btn-outline-primary active">
+                            <span>{{ page_number }} <span class="sr-only">(current)</span></span>
+                        </button>
+                    {% elif page_number > page_obj.number|add:-flank and page_number < page_obj.number|add:flank %}
+                        <a href="?page={{ page_number }}" class="btn btn-outline-primary">
+                            {{ page_number }}
+                        </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.paginator.num_pages >= page_obj.number|add:flank %}
+                    {% if page_obj.paginator.num_pages >= page_obj.number|add:flank|add:-1 %}
+                        <button class="btn btn-outline-primary disabled">&hellip;</button>
+                    {% endif %}
+                    <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
+                        {{ page_obj.paginator.num_pages }}
                     </a>
                 {% endif %}
-            {% endfor %}
 
-            {% if page_obj.paginator.num_pages >= page_obj.number|add:5 %}
-                {% if page_obj.paginator.num_pages >= page_obj.number|add:6 %}
-                    <button class="btn btn-outline-primary disabled">&hellip;</button>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
                 {% endif %}
-                <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
-                    {{ page_obj.paginator.num_pages }}
-                </a>
-            {% endif %}
-
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
-            {% endif %}
+            {% endwith %}
         </div>
     {% endif %}
 {% elif pager %}
