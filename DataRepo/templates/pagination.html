@@ -37,7 +37,15 @@
     <!-- Model list view built-in Pagination -->
     {% if page_obj.has_other_pages %}
         <br>
-        <div class="btn-group" role="group">
+        <div style="float: left;">
+            {% if page_obj.number|intmultiply:page_obj.paginator.per_page > page_obj.paginator.object_list.count %}
+                {% define page_obj.paginator.object_list.count as last_row %}
+            {% else %}
+                {% define page_obj.number|intmultiply:page_obj.paginator.per_page as last_row %}
+            {% endif %}
+            Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of {{ page_obj.paginator.object_list.count }} rows, {{ page_obj.paginator.per_page }} rows per page
+        </div>
+        <div style="float: right;" class="btn-group" role="group">
             {% with 3 as flank %}  <!-- flank = the number of pages to link to the left and right of the current page -->
                 {% if page_obj.has_previous %}
                     <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
@@ -82,6 +90,7 @@
                 {% endif %}
             {% endwith %}
         </div>
+        <br><br>
     {% endif %}
 {% elif pager %}
     {% comment %} Advanced Search Pagination (assumed, though the "pager" object could be used for other pagination as well) {% endcomment %}

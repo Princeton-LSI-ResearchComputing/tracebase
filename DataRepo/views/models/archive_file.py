@@ -10,7 +10,7 @@ class ArchiveFileListView(ListView):
     model = ArchiveFile
     context_object_name = "archive_file_list"
     template_name = "DataRepo/archive_file_list.html"
-    paginate_by = 25
+    paginate_by = 10
 
 
 class ArchiveFileDetailView(DetailView):
