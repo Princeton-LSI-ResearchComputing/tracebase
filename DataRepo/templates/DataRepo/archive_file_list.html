@@ -8,12 +8,73 @@
 <br>
 <div>
     {% if archive_file_list %}
+    <script>
+        function queryParams(params) {
+            console.log('Sending', params);
+            go = "{{ page_obj.per_page }}" === params.limit
+            url = "{% url 'archive_file_list' %}?limit=" + params.limit
+            if (typeof params.offset !== "undefined" && params.offset) {
+                url += "&offset=" + params.offset;
+                go = true;
+            }
+            if (typeof params.search !== "undefined" && params.search) {
+                url += "&search=" + params.search;
+                go = true;
+            }
+            if (typeof params.order !== "undefined" && params.order) {
+                url += "&order=" + params.order;
+                go = true;
+            }
+            if (typeof params.sort !== "undefined" && params.sort) {
+                url += "&sort=" + params.sort;
+                go = true;
+            }
+            if (go) {
+                window.location.href = url;
+            }
+            {% comment %} return {
+                limit: params.limit,
+                offset: params.offset,
+                search: params.search,
+                order: params.order,
+                sort: params.sort,
+            }; {% endcomment %}
+        }
+
+        document.addEventListener("DOMContentLoaded", function(){
+            $('#file_list').bootstrapTable({
+                onSort: function (order_by, order_dir) {
+                    // Note, I will have to trigger the BST sort to show it's sorted
+                    console.log("SORT EVENT:", order_by, order_dir);
+                },
+                onSearch: function (search_term) {
+                    // Note, I will have to populate the search on page load
+                    console.log("GLOBAL SEARCH EVENT:", search_term);
+                },
+                onColumnSearch: function (column_name, search_term) {
+                    // Note, I will have to populate the column searches on page load
+                    console.log("COLUMN SEARCH EVENT:", column_name, search_term);
+                },
+                onExportStarted: function (rows) {
+                    // Grab all the data. Note that if I refresh the page, I will have to trigger the download using something like: https://jsfiddle.net/wenyi/wc0zLpef/1/
+                    console.log("EXPORT EVENT");
+                },
+            });
+        });
+    </script>
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="file_list"
         data-toggle="table"
         data-buttons-class="primary"
         data-buttons-align="left"
+        data-export-types="['csv', 'txt', 'excel']"
+        data-export-data-type="all"
         data-filter-control="true"
+        {% comment %} data-height="1200" {% endcomment %}
+        data-pagination="true"
+        data-page-size="{{ archive_file_list.count }}"
+        data-page-list="[25, 50, 100, 200, 500, All]"
+        data-query-params="queryParams"
         data-search="true"
         data-search-align="left"
         data-show-search-clear-button="true"
@@ -22,22 +83,24 @@
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
         data-show-export="true"
-        data-export-types="['csv', 'txt', 'excel']"
-        data-export-data-type="all"
-        data-height="1200"
+        {% comment %} The following server-side attempt does not allow row-column template code to be applied. All data is rendered by BST, which is a deal breaker, so javascript was added to do search, sort, pagination, and will attempt to also allow downloads.
+        data-pagination="server"
+        data-url="{% url 'archive_file_list' %}?data_request=True"
+        {% endcomment %}
         data-virtual-scroll="true"
-        data-pagination="true"
-        data-page-size="25"
-        data-page-list="[25, 50, 100, 200, 500, All]">
+    >
         <thead>
             <tr>
-                <th data-field="File-Name" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">File Name</th>
-                <th data-field="File-Import-Timestamp" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
-                <th data-field="File-Type" data-filter-control="input" data-sortable="true">File Type</th>
-                <th data-field="File-Format" data-filter-control="input" data-sortable="true">File Format</th>
-                <th data-field="Studies" data-filter-control="input" data-sortable="true">Study</th>
-                <th data-field="PeakGroup-Data" data-valign="top" data-sortable="false">Peak Group Data</th>
-                <th data-field="Peakdata" data-valign="top" data-sortable="false">Peak Data</th>
+                <th data-field="filename" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">File Name</th>
+                {% comment %} <th data-field="filename" data-filter-control="input" data-sortable="false" data-sorter="alphanum" data-valign="top">
+                    <div onclick="sortColumn(this)" class="sortable" id="filename">File Name</div>
+                </th> {% endcomment %}
+                <th data-field="imported_timestamp" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
+                <th data-field="data_type_id" data-filter-control="input" data-sortable="true">File Type</th>
+                <th data-field="data_format_id" data-filter-control="input" data-sortable="true">File Format</th>
+                <th data-field="studies" data-filter-control="input" data-sortable="true">Study</th>
+                <th data-field="peak_groups" data-valign="top" data-sortable="false">Peak Group Data</th>
+                <th data-field="peak_data" data-valign="top" data-sortable="false">Peak Data</th>
             </tr>
         </thead>
         <tbody>
@@ -49,21 +112,24 @@
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
                         {% with studies=""|make_list %}
-                            {% for pg in archive_file.peak_groups.all %}
-                                {% for study in pg.msrun_sample.sample.animal.studies.all %}
+                            <!-- This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal -->
+                            {% if archive_file.peak_groups.first %}
+                                {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
-                            {% endfor %}
-                            {% for mz in archive_file.mz_to_msrunsamples.all %}
+                            {% endif %}
+                            <!-- This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal -->
+                            {% if archive_file.mz_to_msrunsamples.first %}
                                 {% for study in mz.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
-                            {% endfor %}
-                            {% for raw in archive_file.raw_to_msrunsamples.all %}
+                            {% endif %}
+                            <!-- This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal -->
+                            {% if archive_file.raw_to_msrunsamples.first %}
                                 {% for study in raw.msrun_sample.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
-                            {% endfor %}
+                            {% endif %}
                             {% for study in studies %}
                                 <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
                             {% endfor %}
@@ -95,6 +161,7 @@
             {% endfor %}
         </tbody>
     </table>
+    Rendered {{archive_file_list.count}} records, {{ page_obj.per_page }} per page
     {% else %}
         <p>There are no Archive Files.</p>
     {% endif %}
