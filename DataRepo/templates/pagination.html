@@ -14,7 +14,7 @@
                     canceled = true
                     valid = true
                 } else {
-                    var newpagenum = parseInt(newpagestr);
+                    newpagenum = parseInt(newpagestr);
                     if(isNaN(newpagenum)){
                         errmsg = "Error: [" + newpagestr + "] is not an integer.\n"
                     } else if(newpagenum < 1) {
@@ -26,11 +26,11 @@
                     }
                 }
             }
-            if (canceled) {
+            if (canceled || typeof newpagenum === 'undefined' || !newpagenum) {
                 newpagenum = curpage
             }
             if (newpagenum !== curpage) {
-                window.location.href = "?page={{ page_obj.previous_page_number }}"
+                window.location.href = "?page=" + newpagenum
             }
         }
     </script>
@@ -48,9 +48,9 @@
                         1
                     </a>
                     {% if 1 <= flank|add:1|multiply:-1|add:page_obj.number %}
-                        <a href="?page=1" class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                        <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
                             &hellip;
-                        </a>
+                        </button>
                     {% endif %}
                 {% endif %}
 
@@ -68,9 +68,9 @@
 
                 {% if page_obj.paginator.num_pages >= page_obj.number|add:flank %}
                     {% if page_obj.paginator.num_pages >= page_obj.number|add:flank|add:-1 %}
-                        <a href="?page=1" class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                        <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
                             &hellip;
-                        </a>
+                        </button>
                     {% endif %}
                     <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
                         {{ page_obj.paginator.num_pages }}
