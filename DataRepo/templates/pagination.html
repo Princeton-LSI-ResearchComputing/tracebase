@@ -9,7 +9,12 @@
             {% endif %}
 
             {% if 1 <= page_obj.number|add:-5 %}
-                <button class="btn btn-outline-primary inactive">&hellip;</button>
+                <a href="?page=1" class="btn btn-outline-primary">
+                    1
+                </a>
+                {% if 1 >= page_obj.number|add:-6 %}
+                    <button class="btn btn-outline-primary disabled">&hellip;</button>
+                {% endif %}
             {% endif %}
 
             {% for page_number in page_obj.paginator.page_range %}
@@ -17,7 +22,7 @@
                     <button class="btn btn-outline-primary active">
                         <span>{{ page_number }} <span class="sr-only">(current)</span></span>
                     </button>
-                {% else if page_number > page_obj.number|add:-5 and page_number < page_obj.number|add:5 %}
+                {% elif page_number > page_obj.number|add:-5 and page_number < page_obj.number|add:5 %}
                     <a href="?page={{ page_number }}" class="btn btn-outline-primary">
                         {{ page_number }}
                     </a>
@@ -25,7 +30,12 @@
             {% endfor %}
 
             {% if page_obj.paginator.num_pages >= page_obj.number|add:5 %}
-                <button class="btn btn-outline-primary inactive">&hellip;</button>
+                {% if page_obj.paginator.num_pages >= page_obj.number|add:6 %}
+                    <button class="btn btn-outline-primary disabled">&hellip;</button>
+                {% endif %}
+                <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
+                    {{ page_obj.paginator.num_pages }}
+                </a>
             {% endif %}
 
             {% if page_obj.has_next %}
