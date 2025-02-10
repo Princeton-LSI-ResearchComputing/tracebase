@@ -49,21 +49,24 @@
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
                         {% with studies=""|make_list %}
-                            {% for pg in archive_file.peak_groups.all %}
-                                {% for study in pg.msrun_sample.sample.animal.studies.all %}
+                            <!-- This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal -->
+                            {% if archive_file.peak_groups.first %}
+                                {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
-                            {% endfor %}
-                            {% for mz in archive_file.mz_to_msrunsamples.all %}
+                            {% endif %}
+                            <!-- This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal -->
+                            {% if archive_file.mz_to_msrunsamples.first %}
                                 {% for study in mz.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
-                            {% endfor %}
-                            {% for raw in archive_file.raw_to_msrunsamples.all %}
+                            {% endif %}
+                            <!-- This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal -->
+                            {% if archive_file.raw_to_msrunsamples.first %}
                                 {% for study in raw.msrun_sample.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
-                            {% endfor %}
+                            {% endif %}
                             {% for study in studies %}
                                 <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
                             {% endfor %}
