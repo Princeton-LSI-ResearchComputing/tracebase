@@ -4,7 +4,7 @@
 {% if is_paginated %}
     <!-- Model list view built-in Pagination -->
     {% if page_obj.has_other_pages %}
-        <div class="btn-group" role="group" aria-label="Item pagination">
+        <div class="btn-group pagination" role="group">
             {% if page_obj.has_previous %}
                 <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
             {% endif %}
