@@ -2,6 +2,32 @@
 {% load customtags %}
 
 {% if is_paginated %}
+    <div style="float: left;">
+        Showing {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} pages, {{ pager.page_form.rows }} rows per page, {{ object_list.count }} rows total
+    </div>
+    {% if page_obj.paginator.num_pages|gt:1 %}
+        <div style="float: right;">
+            <nav aria-label="Page navigation">
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a role="button" class="page-link" href="{{ request.path }}?page={{ page_obj.previous_page_number }}">{{ page_obj.previous_page_number }}</button>
+                        </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <div class="page-link">{{ page_obj.number }} <span class="sr-only">(current)</span></div>
+                    </li>
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a role="button" class="page-link" href="{{ request.path }}?page={{ page_obj.next_page_number }}">{{ page_obj.next_page_number }}</button>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+
+
     {% comment %} Model list view built-in Pagination {% endcomment %}
     <div class="pagination">
         <span class="page-links">
@@ -9,7 +35,7 @@
                 <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}">previous</a>
             {% endif %}
             <span class="page-current">
-                Page XXX {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
             </span>
             {% if page_obj.has_next %}
                 <a href="{{ request.path }}?page={{ page_obj.next_page_number }}">next</a>
@@ -204,7 +230,7 @@
             {{ pager.page_form.show_stats }}
             {{ pager.page_form.stats }}
             <div style="float: left;">
-                Showing XXX {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
+                Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
             </div>
             {% if pager.tot|gt:pager.rows %}
                 <div style="float: right;">
