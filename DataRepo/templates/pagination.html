@@ -8,17 +8,25 @@
                 <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
             {% endif %}
 
+            {% if 1 <= page_obj.number|add:-5 %}
+                <button class="btn btn-outline-primary inactive">&hellip;</button>
+            {% endif %}
+
             {% for page_number in page_obj.paginator.page_range %}
                 {% if page_obj.number == page_number %}
                     <button class="btn btn-outline-primary active">
                         <span>{{ page_number }} <span class="sr-only">(current)</span></span>
                     </button>
-                {% else %}
+                {% else if page_number > page_obj.number|add:-5 and page_number < page_obj.number|add:5 %}
                     <a href="?page={{ page_number }}" class="btn btn-outline-primary">
                         {{ page_number }}
                     </a>
                 {% endif %}
             {% endfor %}
+
+            {% if page_obj.paginator.num_pages >= page_obj.number|add:5 %}
+                <button class="btn btn-outline-primary inactive">&hellip;</button>
+            {% endif %}
 
             {% if page_obj.has_next %}
                 <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
