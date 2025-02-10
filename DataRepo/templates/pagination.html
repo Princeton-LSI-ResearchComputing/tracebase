@@ -2,6 +2,7 @@
 {% load customtags %}
 
 {% if is_paginated %}
+    <!-- Model list view built-in Pagination -->
     {% if page_obj.has_other_pages %}
         <div class="btn-group" role="group" aria-label="Item pagination">
             {% if page_obj.has_previous %}
@@ -43,23 +44,6 @@
             {% endif %}
         </div>
     {% endif %}
-
-
-
-    {% comment %} Model list view built-in Pagination {% endcomment %}
-    <div class="pagination">
-        <span class="page-links">
-            {% if page_obj.has_previous %}
-                <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}">previous</a>
-            {% endif %}
-            <span class="page-current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-            </span>
-            {% if page_obj.has_next %}
-                <a href="{{ request.path }}?page={{ page_obj.next_page_number }}">next</a>
-            {% endif %}
-        </span>
-    </div>
 {% elif pager %}
     {% comment %} Advanced Search Pagination (assumed, though the "pager" object could be used for other pagination as well) {% endcomment %}
     <script>
