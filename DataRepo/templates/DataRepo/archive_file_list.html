@@ -9,9 +9,9 @@
 <div>
     {% if archive_file_list %}
     <script>
-        setCookie('archive-file-total', '{{ archive_file_list.count }}')
-        setCookie('archive-file-limit', '{{ paginator.per_page }}')
-        setCookie('archive-file-offset', '{{ archive_file_list.count }}')
+        // setCookie('archive-file-total', '{{ archive_file_list.count }}')
+        // setCookie('archive-file-limit', '{{ paginator.per_page }}')
+        // setCookie('archive-file-offset', '{{ archive_file_list.count }}')
         function queryParams(params) {
             console.log('Sending', params);
             go = "{{ page_obj.per_page }}" === params.limit
@@ -78,10 +78,14 @@
         data-export-types="['csv', 'txt', 'excel']"
         data-export-data-type="all"
         data-filter-control="true"
+
+        {% comment %}
         data-pagination="true"
         data-page-size="{{ archive_file_list.count }}"
         data-page-list="[25, 50, 100, 200, 500, All]"
         data-query-params="queryParams"
+        {% endcomment %}
+
         data-search="true"
         data-search-align="left"
         data-show-search-clear-button="true"
@@ -123,13 +127,13 @@
                             {% endif %}
                             <!-- This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal -->
                             {% if archive_file.mz_to_msrunsamples.first %}
-                                {% for study in mz.sample.animal.studies.all %}
+                                {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
                             {% endif %}
                             <!-- This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal -->
                             {% if archive_file.raw_to_msrunsamples.first %}
-                                {% for study in raw.msrun_sample.sample.animal.studies.all %}
+                                {% for study in archive_file.raw_to_msrunsamples.first.msrun_sample.sample.animal.studies.all %}
                                     {% append_unique studies study %}
                                 {% endfor %}
                             {% endif %}
@@ -164,7 +168,6 @@
             {% endfor %}
         </tbody>
     </table>
-    Rendered {{archive_file_list.count}} records, {{ page_obj.per_page }} per page
     {% else %}
         <p>There are no Archive Files.</p>
     {% endif %}

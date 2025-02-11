@@ -2,20 +2,124 @@
 {% load customtags %}
 
 {% if is_paginated %}
-    {% comment %} Model list view built-in Pagination {% endcomment %}
-    <div class="pagination">
-        <span class="page-links">
-            {% if page_obj.has_previous %}
-                <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}">previous</a>
+    <script>
+        function askForPage(curpage, num_pages){
+            let valid = false
+            let canceled = false
+            let errmsg = ""
+            let newpagenum = curpage
+            while (!valid) {
+                var newpagestr = prompt(errmsg + "Enter a page number between 1 and " + num_pages + ":", curpage);
+                if(typeof newpagestr === 'undefined' || !newpagestr){
+                    canceled = true
+                    valid = true
+                } else {
+                    newpagenum = parseInt(newpagestr);
+                    if(isNaN(newpagenum)){
+                        errmsg = "Error: [" + newpagestr + "] is not an integer.\n"
+                    } else if(newpagenum < 1) {
+                        errmsg = "Error: [" + newpagestr + "] must be greater than 0.\n"
+                    } else if(newpagenum > num_pages) {
+                        errmsg = "Error: [" + newpagestr + "] must be less than or equal to the number of pages: [" + num_pages + "].\n"
+                    } else {
+                        valid = true
+                    }
+                }
+            }
+            if (canceled || typeof newpagenum === 'undefined' || !newpagenum) {
+                newpagenum = curpage
+            }
+            if (newpagenum !== curpage) {
+                window.location.href = "?page=" + newpagenum
+            }
+        }
+    </script>
+    <!-- Model list view built-in Pagination -->
+    {% if page_obj.has_other_pages %}
+        <br>
+        <div style="float: left;">
+            {% if page_obj.number|intmultiply:page_obj.paginator.per_page > page_obj.paginator.object_list.count %}
+                {% define page_obj.paginator.object_list.count as last_row %}
+            {% else %}
+                {% define page_obj.number|intmultiply:page_obj.paginator.per_page as last_row %}
             {% endif %}
-            <span class="page-current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-            </span>
-            {% if page_obj.has_next %}
-                <a href="{{ request.path }}?page={{ page_obj.next_page_number }}">next</a>
-            {% endif %}
-        </span>
-    </div>
+            Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of {{ page_obj.paginator.object_list.count }} rows,
+
+            <select name="paginate_by" onchange="">
+                {% define '10 25 50 100 250 500 1000' as per_page_opts %}
+                {% define False as selected %}
+                {% for per_page in per_page_opts.split %}
+                    {% define "" as selected_token %}
+                    {% if not selected and page_obj.paginator.per_page >= per_page|add:0 %}
+                        {% define True as selected %}
+                        {% define " selected" as selected_token %}
+                    {% endif %}
+                    {% if per_page|add:0 == 0 %}
+                        <option value="{{ per_page }}"{{ selected_token }}>ALL</option>
+                    {% else %}
+                        <option value="{{ per_page }}"{{ selected_token }}>{{ per_page }}</option>
+                    {% endif %}
+                {% endfor %}
+                {% if not selected and per_page|add:0 == 0 %}
+                    {% define True as selected %}
+                    <option value="0" selected>ALL</option>
+                {% else %}
+                    {% define False as selected %}
+                    <option value="0">ALL</option>
+                {% endif %}
+                {% if page_obj.paginator.per_page != 0 and page_obj.paginator.per_page|slugify not in per_page_opts.split %}
+                    <option value="{{ page_obj.paginator.per_page }}" selected>{{ page_obj.paginator.per_page }}</option>
+                {% endif %}
+            </select>
+            rows per page
+        </div>
+        <div style="float: right;" class="btn-group" role="group">
+            {% with 3 as flank %}  <!-- flank = the number of pages to link to the left and right of the current page -->
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
+                {% endif %}
+
+                {% if 1 <= flank|multiply:-1|add:page_obj.number %}
+                    <a href="?page=1" class="btn btn-outline-primary">
+                        1
+                    </a>
+                    {% if 1 <= flank|add:1|multiply:-1|add:page_obj.number %}
+                        <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                            &hellip;
+                        </button>
+                    {% endif %}
+                {% endif %}
+
+                {% for page_number in page_obj.paginator.page_range %}
+                    {% if page_obj.number == page_number %}
+                        <button class="btn btn-outline-primary active">
+                            <span>{{ page_number }} <span class="sr-only">(current)</span></span>
+                        </button>
+                    {% elif page_number > flank|multiply:-1|add:page_obj.number and page_number < page_obj.number|add:flank %}
+                        <a href="?page={{ page_number }}" class="btn btn-outline-primary">
+                            {{ page_number }}
+                        </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.paginator.num_pages >= page_obj.number|add:flank %}
+                    {% if page_obj.paginator.num_pages >= page_obj.number|add:flank|add:-1 %}
+                        <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                            &hellip;
+                        </button>
+                    {% endif %}
+                    <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
+                        {{ page_obj.paginator.num_pages }}
+                    </a>
+                {% endif %}
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
+                {% endif %}
+            {% endwith %}
+        </div>
+        <br><br>
+    {% endif %}
 {% elif pager %}
     {% comment %} Advanced Search Pagination (assumed, though the "pager" object could be used for other pagination as well) {% endcomment %}
     <script>
