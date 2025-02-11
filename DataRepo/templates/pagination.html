@@ -45,26 +45,16 @@
             {% endif %}
             Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of {{ page_obj.paginator.object_list.count }} rows,
 
+            <!-- TODO: Show the per page select list when there are not other pages -->
+
             <select name="paginate_by" onchange="">
                 {% define '10 25 50 100 250 500 1000' as per_page_opts %}
-                {% define False as selected %}
                 {% for per_page in per_page_opts.split %}
-                    {% define "" as selected_token %}
-                    {% if not selected and page_obj.paginator.per_page >= per_page|add:0 %}
-                        {% define True as selected %}
-                        {% define " selected" as selected_token %}
-                    {% endif %}
-                    {% if per_page|add:0 == 0 %}
-                        <option value="{{ per_page }}"{{ selected_token }}>ALL</option>
-                    {% else %}
-                        <option value="{{ per_page }}"{{ selected_token }}>{{ per_page }}</option>
-                    {% endif %}
+                    <option value="{{ per_page }}"{% if page_obj.paginator.per_page == per_page|add:0 %} selected{% endif %}>{{ per_page }}</option>
                 {% endfor %}
-                {% if not selected and per_page|add:0 == 0 %}
-                    {% define True as selected %}
+                {% if page_obj.paginator.per_page == 0 %}
                     <option value="0" selected>ALL</option>
                 {% else %}
-                    {% define False as selected %}
                     <option value="0">ALL</option>
                 {% endif %}
                 {% if page_obj.paginator.per_page != 0 and page_obj.paginator.per_page|slugify not in per_page_opts.split %}
