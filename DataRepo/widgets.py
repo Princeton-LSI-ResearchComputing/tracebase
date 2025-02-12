@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 from django.db import ProgrammingError
 from django.forms.widgets import ClearableFileInput, Select, TextInput

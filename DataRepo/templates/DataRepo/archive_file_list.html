@@ -12,7 +12,7 @@
         // setCookie('archive-file-total', '{{ archive_file_list.count }}')
         // setCookie('archive-file-limit', '{{ paginator.per_page }}')
         // setCookie('archive-file-offset', '{{ archive_file_list.count }}')
-        function queryParams(params) {
+        function updatePage(params) {
             console.log('Sending', params);
             go = "{{ page_obj.per_page }}" === params.limit
             url = "{% url 'archive_file_list' %}?limit=" + params.limit
@@ -92,14 +92,6 @@
         data-export-types="['csv', 'txt', 'excel']"
         data-export-data-type="all"
         data-filter-control="true"
-
-        {% comment %}
-        data-pagination="true"
-        data-page-size="{{ archive_file_list.count }}"
-        data-page-list="[25, 50, 100, 200, 500, All]"
-        data-query-params="queryParams"
-        {% endcomment %}
-
         data-search="true"
         data-search-align="left"
         data-show-search-clear-button="true"
@@ -108,8 +100,7 @@
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
         data-show-export="true"
-        data-virtual-scroll="true"
-    >
+        data-virtual-scroll="true">
         <thead>
             <tr>
                 <th data-field="filename" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">File Name</th>
