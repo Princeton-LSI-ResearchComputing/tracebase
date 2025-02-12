@@ -85,6 +85,13 @@ class ArchiveFileListView(ListView):
             limit = self.paginate_by
         else:
             limit = int(limit)
+
+        # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
+        # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
+        # adding an odd value to the rows per page select list and instead selecting "all".
+        if limit == 0 or limit > queryset.count():
+            limit = queryset.count()
+
         return limit
 
     # def get_context_data(self, **kwargs):

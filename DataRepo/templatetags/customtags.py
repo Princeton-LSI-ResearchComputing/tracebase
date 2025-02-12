@@ -1,3 +1,4 @@
+from typing import List, Optional, Union
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.template.defaultfilters import floatformat
@@ -7,6 +8,7 @@ from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.widgets import ListViewRowsPerPageSelectWidget
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
@@ -220,6 +222,93 @@ def obj_hyperlink(id_name_list, obj, newline=False):
             ],
         )
     return mark_safe(obj_format_html)
+
+
+@register.simple_tag
+def filter_page_size_list(
+    lst_of_rows_per_page_nums: List[Union[str, int]],
+    num_rows_in_result: Optional[int] = None,
+    selected: Optional[int] = None,
+):
+    """Takes a list of strings or ints (representing the number of rows to show in a page) and a number of rows in the
+    results (and an optional "selected" value - of "rows per page" options) and returns a list of ints representing all
+    values less than the number of rows in the results.
+
+    Limitations:
+        1. This does not ensure a non-empty list returned
+    Assumptions:
+        1. A value of 0 is assumed to represent "all" rows on 1 page, which takes the place of a number option larger
+           than the number of results.  E.g. If there are 22 results and the options include 10, 25, and 0, 10 an 0 are
+           returned.  25 is excluded.  Some implementations don't include the "all" option and instead include 1 option
+           higher than the number of results.
+        2. The rows per page options are sorted from smallest to largest number of rows per page (except 0, aka "ALL")
+    Args:
+        lst_of_rows_per_page_nums (List[str|int]): A list of numbers of rows poer page to choose from.
+        num_rows_in_result (int): The actual number of rows in the results being paginated.
+        selected (Optional[int]): The number of rows per page that should be selected.  (Note, this is only to add that
+            option if not present in the list.)
+    Exceptions:
+        None
+    Returns:
+        relevant_page_sizes (List[int])
+    """
+    relevant_page_sizes = []
+    # Cast every value to an int
+    rows_per_page_opts = [int(rpp) for rpp in lst_of_rows_per_page_nums]
+
+    # Assume present.  All we want to do is not add an extra for the specified rows per page.
+    selected_present = True
+    if selected is not None:
+        selected = int(selected)
+        first_greater_rpp_index = -1
+
+        # Django won't send the page object to the template if paginate_by is 0, but we want users to be able to pare
+        # down the rows per page, so when the django view sees a 0 "limit" sent in in the URL params, it just changes it
+        # to the number of results in the queryset, which gives us the page object.  Here, we then change it to 0 so
+        # that the select list shows "ALL" instead of the number of results per page.
+        if num_rows_in_result is not None and selected == num_rows_in_result:
+            selected = 0
+
+        selected_present = selected in rows_per_page_opts
+        print(f"{selected_present} = selected in rows_per_page_opts = {selected} in {rows_per_page_opts}")
+
+        # If the selected rows per page is not among the list of options, let's select the best place in the list to
+        # insert it
+        if not selected_present:
+            try:
+                # Get the index of the first element larger than the selected value
+                first_greater_rpp_index = list(rpp > selected for rpp in rows_per_page_opts).index(True)
+            except ValueError:
+                # If 0 is at the end of the list
+                if 0 in rows_per_page_opts and rows_per_page_opts.index(0) == len(rows_per_page_opts) - 1:
+                    # Set the index to the location of the zero (the last index)
+                    first_greater_rpp_index = len(rows_per_page_opts) - 1
+                else:
+                    # We will assume 0 is at the beginning and just append since selected is larger than everything
+                    rows_per_page_opts.append(selected)
+                    selected_present = True
+
+    print(f"selected: {selected} selected_present: {selected_present} first_greater_rpp_index: {first_greater_rpp_index}")
+
+    for i, page_size in enumerate(rows_per_page_opts):
+        # If the selected rows per page recorded in the page object (assuming that's what was sent in)
+        if not selected_present and i == first_greater_rpp_index:
+            print(f"Adding selected {selected} because {page_size} >= {selected}")
+            # Add it at the index just before the first value that's larger
+            relevant_page_sizes.append(selected)
+        if num_rows_in_result is None or page_size <= num_rows_in_result:
+            print(f"Adding rpp {page_size}")
+            relevant_page_sizes.append(page_size)
+
+    return relevant_page_sizes
+
+
+@register.simple_tag
+def get_rows_per_page_select_list(page_sizes: List[int], name: str, selected: int, all_label: str = "ALL"):
+    page_sizes_tuples = ((size, ("ALL" if int(size) == 0 else size)) for size in page_sizes)
+    widget = ListViewRowsPerPageSelectWidget(choices=page_sizes_tuples)
+    selected_label = all_label if selected == 0 else selected
+    return mark_safe(widget.render(name, selected_label))
 
 
 @register.filter

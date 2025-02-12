@@ -45,6 +45,11 @@
             }; {% endcomment %}
         }
 
+        function onRowsPerPageSelect(numRows) {
+            // TODO: Call a method to compile the values and send
+            console.log("ROWS PER PAGE EVENT", numRows);
+        }
+
         document.addEventListener("DOMContentLoaded", function(){
             $('#file_list').bootstrapTable({
                 onSort: function (order_by, order_dir) {
@@ -68,6 +73,15 @@
                     console.log("EXPORT EVENT", event);
                 },
             });
+
+            // Add click listeners on the rows-per-page-option select list items.  See DataRepo.widgets.ListViewRowsPerPageSelectWidget.
+            let rowsPerPageOptionElems = document.getElementsByName("rows-per-page-option");
+            console.log("Creating " + rowsPerPageOptionElems.length + " event listeners for rowsPerPageOptionElems")
+            for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
+                rowsPerPageOptionElems[i].addEventListener("click", function (event) {
+                    onRowsPerPageSelect($(this).data("value"));
+                })
+            }
         });
     </script>
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
