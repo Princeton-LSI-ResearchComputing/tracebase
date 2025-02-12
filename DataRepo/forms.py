@@ -24,7 +24,11 @@ from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.file_utils import date_to_string, is_excel
-from DataRepo.widgets import AutoCompleteTextInput, MultipleFileInput, RowsPerPageSelectWidget
+from DataRepo.widgets import (
+    AutoCompleteTextInput,
+    MultipleFileInput,
+    RowsPerPageSelectWidget,
+)
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 

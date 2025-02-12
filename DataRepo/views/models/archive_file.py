@@ -1,5 +1,4 @@
-from django.core.paginator import Paginator
-from django.db.models import Func, F, Q, Value, CharField, QuerySet
+# from django.db.models import CharField, F, Func, Q, QuerySet, Value
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import ArchiveFile
@@ -136,13 +135,14 @@ class ArchiveFileListView(ListView):
     #     # # Ensure archive_file_list is paginated
     #     # context[self.context_object_name] = page_obj.object_list
 
-    #     print(f"RETURNING CONTEXT {context}\nPAGE_OBJ: {[(k, getattr(context['page_obj'], k)) for k in dir(context['page_obj'])]}", flush=True)
+    #     print(f"RETURNING CONTEXT {context}\nPAGE_OBJ: {[(k, getattr(context['page_obj'], k)) for k in
+    # dir(context['page_obj'])]}", flush=True)
 
     #     return context
 
     # def get_any_field_query(self, term: str):
-    #     """Given a string search term, returns a Q expression that does a case-insensitive search of all fields from the
-    #     table displayed in the template.  Note, annotation fields must be generated in order to apply the query.
+    #     """Given a string search term, returns a Q expression that does a case-insensitive search of all fields from
+    #     the table displayed in the template.  Note, annotation fields must be generated in order to apply the query.
     #     E.g. `imported_timestamp` must be converted to an annotation field named `imported_timestamp_str`."""
 
     #     print("GETTING QUERY", flush=True)

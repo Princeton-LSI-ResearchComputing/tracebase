@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.template.defaultfilters import floatformat
@@ -8,9 +9,9 @@ from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.widgets import ListViewRowsPerPageSelectWidget
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.widgets import ListViewRowsPerPageSelectWidget
 
 register = template.Library()
 
@@ -50,7 +51,7 @@ def multiply(left, right):
         return float(left) * float(right)
     except (ValueError, TypeError) as e:
         print(
-            f"Warning: multiplication of '{left}' * '{right}' failed. ",
+            f"WARNING: multiplication of '{left}' * '{right}' failed. ",
             f"Caught error: [{str(e)}].  Returning '{left}'.",
         )
         return left
@@ -62,7 +63,7 @@ def intmultiply(left, right):
         return int(float(left) * float(right))
     except (ValueError, TypeError) as e:
         print(
-            f"Warning: multiplication of '{left}' * '{right}' failed. ",
+            f"WARNING: multiplication of '{left}' * '{right}' failed. ",
             f"Caught error: [{str(e)}].  Returning '{left}'.",
         )
         return int(left)
@@ -75,7 +76,7 @@ def index(indexable, i):
         v = indexable[i]
     except (TypeError, KeyError) as e:
         print(
-            f"Warning: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
+            f"WARNING: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
             f"Caught error: [{str(e)}].  Returning None.",
         )
         v = None
@@ -270,17 +271,21 @@ def filter_page_size_list(
             selected = 0
 
         selected_present = selected in rows_per_page_opts
-        print(f"{selected_present} = selected in rows_per_page_opts = {selected} in {rows_per_page_opts}")
 
         # If the selected rows per page is not among the list of options, let's select the best place in the list to
         # insert it
         if not selected_present:
             try:
                 # Get the index of the first element larger than the selected value
-                first_greater_rpp_index = list(rpp > selected for rpp in rows_per_page_opts).index(True)
+                first_greater_rpp_index = list(
+                    rpp > selected for rpp in rows_per_page_opts
+                ).index(True)
             except ValueError:
                 # If 0 is at the end of the list
-                if 0 in rows_per_page_opts and rows_per_page_opts.index(0) == len(rows_per_page_opts) - 1:
+                if (
+                    0 in rows_per_page_opts
+                    and rows_per_page_opts.index(0) == len(rows_per_page_opts) - 1
+                ):
                     # Set the index to the location of the zero (the last index)
                     first_greater_rpp_index = len(rows_per_page_opts) - 1
                 else:
@@ -288,24 +293,24 @@ def filter_page_size_list(
                     rows_per_page_opts.append(selected)
                     selected_present = True
 
-    print(f"selected: {selected} selected_present: {selected_present} first_greater_rpp_index: {first_greater_rpp_index}")
-
     for i, page_size in enumerate(rows_per_page_opts):
         # If the selected rows per page recorded in the page object (assuming that's what was sent in)
         if not selected_present and i == first_greater_rpp_index:
-            print(f"Adding selected {selected} because {page_size} >= {selected}")
             # Add it at the index just before the first value that's larger
             relevant_page_sizes.append(selected)
         if num_rows_in_result is None or page_size <= num_rows_in_result:
-            print(f"Adding rpp {page_size}")
             relevant_page_sizes.append(page_size)
 
     return relevant_page_sizes
 
 
 @register.simple_tag
-def get_rows_per_page_select_list(page_sizes: List[int], name: str, selected: int, all_label: str = "ALL"):
-    page_sizes_tuples = ((size, ("ALL" if int(size) == 0 else size)) for size in page_sizes)
+def get_rows_per_page_select_list(
+    page_sizes: List[int], name: str, selected: int, all_label: str = "ALL"
+):
+    page_sizes_tuples = (
+        (size, ("ALL" if int(size) == 0 else size)) for size in page_sizes
+    )
     widget = ListViewRowsPerPageSelectWidget(choices=page_sizes_tuples)
     selected_label = all_label if selected == 0 else selected
     return mark_safe(widget.render(name, selected_label))
