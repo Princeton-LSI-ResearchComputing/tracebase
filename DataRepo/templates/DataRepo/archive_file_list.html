@@ -9,68 +9,108 @@
 <div>
     {% if archive_file_list %}
     <script>
-        // setCookie('archive-file-total', '{{ archive_file_list.count }}')
-        // setCookie('archive-file-limit', '{{ paginator.per_page }}')
-        // setCookie('archive-file-offset', '{{ archive_file_list.count }}')
-        function updatePage(params) {
-            console.log('Sending', params);
-            go = "{{ page_obj.per_page }}" === params.limit
-            url = "{% url 'archive_file_list' %}?limit=" + params.limit
-            if (typeof params.offset !== "undefined" && params.offset) {
-                url += "&offset=" + params.offset;
-                go = true;
+        function updatePage() {
+            let limit = getCookie("archive-file-limit");
+            let page = getCookie("archive-file-page");
+            // let search = getCookie("archive-file-search");
+            // let orderBy = getCookie("archive-file-order-by");
+            // let orderDir = getCookie("archive-file-order-dir");
+
+            url = "{% url 'archive_file_list' %}?limit=" + limit
+            if (typeof page !== "undefined" && page) {
+                url += "&page=" + page;
             }
-            if (typeof params.search !== "undefined" && params.search) {
-                url += "&search=" + params.search;
-                go = true;
-            }
-            if (typeof params.order !== "undefined" && params.order) {
-                url += "&order=" + params.order;
-                go = true;
-            }
-            if (typeof params.sort !== "undefined" && params.sort) {
-                url += "&sort=" + params.sort;
-                go = true;
-            }
-            if (go) {
-                console.log("Would go to:", url)
-                // window.location.href = url;
-            }
-            {% comment %} return {
-                limit: params.limit,
-                offset: params.offset,
-                search: params.search,
-                order: params.order,
-                sort: params.sort,
-            }; {% endcomment %}
+            // if (typeof search !== "undefined" && search) {
+            //     url += "&search=" + search;
+            // }
+            // if (typeof orderDir !== "undefined" && orderDir) {
+            //     url += "&orderdir=" + orderDir;
+            // }
+            // if (typeof orderBy !== "undefined" && orderBy) {
+            //     url += "&orderby=" + orderBy;
+            // }
+            // activeFilters = false;
+            // for (i=0; i < globalThis.columnNames.length; i++) {
+            //     filterName = globalThis.columnNames[i];
+            //     cookieName = 'archive-file-colSearchCol-' + filterName;
+            //     filterValue = getCookie(cookieName);
+            //     if (typeof filterValue !== "undefined" && filterValue) {
+            //         url += "&filter-" + filterName + "=" + filterValue;
+            //         activeFilters = true;
+            //     }
+            // }
+            // if (activeFilters) {
+            //     url += "&filternames=" + globalThis.columnNames.join(',');
+            // }
+            console.log("Going to:", url)
+            window.location.href = url;
         }
 
-        function onRowsPerPageSelect(numRows) {
-            // TODO: Call a method to compile the values and send
-            console.log("ROWS PER PAGE EVENT", numRows);
+        function onRowsPerPageChange(numRows) {
+            let oldLimit = parseInt(getCookie('archive-file-limit'));
+            let curPage = parseInt(getCookie('archive-file-page'));
+            let curOffset = (curPage - 1) * oldLimit + 1;
+            setCookie('archive-file-limit', numRows);
+            closestPage = parseInt(curOffset / numRows) + 1;
+            // Reset the page
+            setCookie("archive-file-page", closestPage);
+            console.log("ROWS PER PAGE EVENT", numRows, "CLOSEST NEW PAGE", closestPage, "PREVIOUS OFFSET", curOffset);
+            updatePage();
+        }
+
+        function onPageChange(page) {
+            setCookie('archive-file-page', page)
+            console.log("ROWS PER PAGE EVENT", page);
+            updatePage();
+        }
+
+        function getColumnNames() {
+            firstRow = $('#file_list').bootstrapTable('getData')[0];
+            columnNames = Object.keys(firstRow);
+            return columnNames
         }
 
         document.addEventListener("DOMContentLoaded", function(){
+            // Set cookies for the current page and limit that comes from the context and is sent via url params.  Everything else is saved in cookies.
+            setCookie('archive-file-page', "{{ page_obj.number }}");
+            setCookie('archive-file-limit', "{{ page_obj.paginator.per_page }}");
+            setCookie("archive-file-filternames", JSON.stringify(getColumnNames()));
+
             $('#file_list').bootstrapTable({
-                onSort: function (order_by, order_dir) {
+                onSort: function (orderBy, orderDir) {
                     // Note, I will have to trigger the BST sort to show it's sorted
-                    // TODO: Save params in a cookie
-                    console.log("SORT EVENT:", order_by, order_dir);
+                    setCookie('archive-file-order-by', orderBy);
+                    setCookie('archive-file-order-dir', orderDir);
+                    console.log("SORT EVENT:", orderBy, orderDir);
+                    updatePage();
                 },
-                onSearch: function (search_term) {
+                onSearch: function (searchTerm) {
                     // Note, I will have to populate the search on page load
-                    // TODO: Save params in a cookie
-                    console.log("GLOBAL SEARCH EVENT:", search_term);
+                    let oldTerm = getCookie('archive-file-search');
+                    let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
+                    let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
+                    if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+                        setCookie('archive-file-search', searchTerm);
+                        console.log("GLOBAL SEARCH EVENT:", searchTerm);
+                        updatePage();
+                    }
                 },
-                onColumnSearch: function (column_name, search_term) {
+                onColumnSearch: function (columnName, searchTerm) {
                     // Note, I will have to populate the column searches on page load
-                    // TODO: Save params in a cookie
-                    console.log("COLUMN SEARCH EVENT:", column_name, search_term);
+                    let oldTerm = getCookie('archive-file-filter-' + columnName);
+                    let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
+                    let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
+                    if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+                        setCookie('archive-file-filter-' + columnName, searchTerm);
+                        console.log("COLUMN SEARCH EVENT:", columnName, searchTerm);
+                        updatePage();
+                    }
                 },
                 onExportStarted: function (event) {
                     // Grab all the data. Note that if I refresh the page, I will have to trigger the download using something like: https://jsfiddle.net/wenyi/wc0zLpef/1/
                     // TODO: Since there's no way to save the selected exportType, add an alert that says that, to export all data, you need to change the rows per page to "All"
-                    console.log("EXPORT EVENT", event);
+                    console.log("EXPORT EVENT", event, "THIS:", this);
+                    updatePage();
                 },
             });
 
@@ -79,7 +119,7 @@
             console.log("Creating " + rowsPerPageOptionElems.length + " event listeners for rowsPerPageOptionElems")
             for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
                 rowsPerPageOptionElems[i].addEventListener("click", function (event) {
-                    onRowsPerPageSelect($(this).data("value"));
+                    onRowsPerPageChange($(this).data("value"));
                 })
             }
         });
@@ -107,10 +147,10 @@
                 {% comment %} <th data-field="filename" data-filter-control="input" data-sortable="false" data-sorter="alphanum" data-valign="top">
                     <div onclick="sortColumn(this)" class="sortable" id="filename">File Name</div>
                 </th> {% endcomment %}
-                <th data-field="imported_timestamp" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
-                <th data-field="data_type_id" data-filter-control="input" data-sortable="true">File Type</th>
-                <th data-field="data_format_id" data-filter-control="input" data-sortable="true">File Format</th>
-                <th data-field="studies" data-filter-control="input" data-sortable="true">Study</th>
+                <th data-field="imported_timestamp_str" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
+                <th data-field="data_type__name" data-filter-control="input" data-sortable="true">File Type</th>
+                <th data-field="data_format__name" data-filter-control="input" data-sortable="true">File Format</th>
+                <th data-field="studies_str" data-filter-control="input" data-sortable="true">Study</th>
                 <th data-field="peak_groups" data-valign="top" data-sortable="false">Peak Group Data</th>
                 <th data-field="peak_data" data-valign="top" data-sortable="false">Peak Data</th>
             </tr>
@@ -119,7 +159,7 @@
             {% for archive_file in archive_file_list %}
                 <tr>
                     <td><a href="{% url 'archive_file_detail' archive_file.pk %}">{{ archive_file.filename }}</a></td>
-                    <td>{{ archive_file.imported_timestamp }}</td>
+                    <td>{{ archive_file.imported_timestamp_str }}</td>
                     <td>{{ archive_file.data_type.name }}</td>
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>

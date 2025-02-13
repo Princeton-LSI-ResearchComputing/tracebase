@@ -1,7 +1,10 @@
-# from django.db.models import CharField, F, Func, Q, QuerySet, Value
+import json
+
+from django.db.models import CharField, F, Func, Q, QuerySet, Value
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import ArchiveFile
+from DataRepo.views.utils import get_cookie
 
 
 class ArchiveFileListView(ListView):
@@ -11,77 +14,129 @@ class ArchiveFileListView(ListView):
     context_object_name = "archive_file_list"
     template_name = "DataRepo/archive_file_list.html"
     paginate_by = 10
-    # DATETIME_FORMAT = "Mon. DD, YYYY, h:MI a.m."  # TODO: postgres-specific. Disable if not postgres.
-    # DBSTRING_FUNCTION = "to_char"  # TODO: postgres-specific. Disable if not postgres.
+    DATETIME_FORMAT = (
+        "Mon. DD, YYYY, h:MI a.m."  # TODO: postgres-specific. Disable if not postgres.
+    )
+    DBSTRING_FUNCTION = "to_char"  # TODO: postgres-specific. Disable if not postgres.
 
     # # TODO: Make a base class that supports ListView combined with bootstrap-table to make pages load faster, using
     # # server-side behavior for pagination
 
-    # def get_queryset(self):
-    #     print("GETTING QS", flush=True)
-    #     qs = super().get_queryset()
-    #     print(f"SETTING TOTAL {qs.count()}")
-    #     self.total = qs.count()
-    #     self.raw_total = self.total
-    #     print("GETTING PAGINATED QS", flush=True)
-    #     return self.get_paginated_queryset(qs)
+    def get_queryset(self):
+        print("GETTING QS", flush=True)
+        qs = super().get_queryset()
+        print(f"SETTING TOTAL {qs.count()}")
+        self.total = qs.count()
+        self.raw_total = self.total
+        print("GETTING PAGINATED QS", flush=True)
+        return self.get_paginated_queryset(qs)
 
-    # def get_paginated_queryset(self, qs: QuerySet[ArchiveFile]):
-    #     # See if there is search and/or sort criteria
-    #     search_term = self.request.GET.get("search")
-    #     if search_term == "":
-    #         search_term = None
-    #     limit = self.request.GET.get("limit", "")
-    #     if limit == "":
-    #         limit = self.paginate_by
-    #     else:
-    #         limit = int(limit)
-    #     offset = self.request.GET.get("offset", "")
-    #     if offset == "":
-    #         offset = 0
-    #     else:
-    #         offset = int(offset)
-    #     sort = self.request.GET.get("sort")
-    #     order = self.request.GET.get("order")
+    def get_paginated_queryset(self, qs: QuerySet[ArchiveFile]):
+        # See if there is search and/or sort criteria
 
-    #     print(f"search_term: {search_term} limit: {limit} offset: {offset} sort: {sort} order: {order}", flush=True)
+        search_term = get_cookie(self.request, "archive-file-search", None)
+        order_by = get_cookie(self.request, "archive-file-orderby", None)
+        order_dir = get_cookie(self.request, "archive-file-orderdir", None)
 
-    #     # Perform a search if one is defined
-    #     if search_term:
-    #         # Convert the date time field into a string to search with icontains from a bootstrap table search, using
-    #         # the default django datetime format (i.e. what they see in the template)
-    #         qs.annotate(imported_timestamp_str=Func(
-    #             F("imported_timestamp"),
-    #             Value(self.DATETIME_FORMAT),
-    #             output_field=CharField(),
-    #             function=self.DBSTRING_FUNCTION)
-    #         )
+        # We need the column names (which should correspond to fields we can use in a Q expression) to know how to check
+        # each filter)
+        filter_names_str = get_cookie(self.request, "archive-file-filternames", None)
+        filter_names = []
+        if filter_names_str is not None:
+            filter_names = json.loads(filter_names_str)
 
-    #         q_exp = self.get_any_field_query(search_term)
+        active_search = False
+        q_exp = Q()
 
-    #         qs = qs.filter(q_exp)
+        for filter_name in filter_names:
+            filter_value = get_cookie(
+                self.request, f"archive-file-filter-{filter_name}", None
+            )
+            if filter_value is not None:
+                active_search = True
+                if filter_name == "studies":
+                    # Studies is a special case.  We have to search 3 relations
+                    or_q_exp = Q(
+                        **{
+                            "peak_groups__msrun_sample__sample__animal__studies__name__icontains": filter_value
+                        }
+                    )
+                    or_q_exp |= Q(
+                        **{
+                            "mz_to_msrunsamples__sample__animal__studies__name__icontains": filter_value
+                        }
+                    )
+                    or_q_exp |= Q(
+                        **{
+                            "raw_to_msrunsamples__sample__animal__studies__name__icontains": filter_value
+                        }
+                    )
+                    q_exp &= or_q_exp
+                else:
+                    q_exp &= Q(**{f"{filter_name}__icontains": filter_value})
 
-    #     # Set the total after the search
-    #     print(f"SETTING QUERY TOTAL {qs.count()}")
-    #     self.total = qs.count()
+        # Convert the date time field into a string.  This is used to render the imported timestamp so that searchers
+        # users enter will match what they see.  The default django datetime format (i.e. what they see in the template)
+        # when rendering the datetime object is not the same as what the stringified value looks like in a DB query.
+        qs.annotate(
+            imported_timestamp_str=Func(
+                F("imported_timestamp"),
+                Value(self.DATETIME_FORMAT),
+                output_field=CharField(),
+                function=self.DBSTRING_FUNCTION,
+            )
+        )
 
-    #     # Sort the results, if sort has a value
-    #     if sort:
-    #         if order is not None and order.lower().startswith("d"):
-    #             sort = f"-{sort}"
-    #         qs = qs.order_by(sort)
+        # Perform a search if one is defined
+        if search_term:
+            active_search = True
+            q_exp &= self.get_any_field_query(search_term)
 
-    #     # Limit the number of results returned using the offset and limit
-    #     qs = qs[offset:limit]
+        print(
+            f"search q expression: {q_exp} order_by: {order_by} order_dir: {order_dir}",
+            flush=True,
+        )
 
-    #     print(f"RETURNING QS WITH {qs.count()} RECORDS", flush=True)
+        if active_search:
+            qs = qs.filter(q_exp)
 
-    #     return qs
+        # Set the total after the search
+        print(f"SETTING QUERY TOTAL {qs.count()}")
+        self.total = qs.count()
+
+        # Sort the results, if sort has a value
+        if order_by:
+            if order_dir is not None and order_dir.lower().startswith(
+                "d"
+            ):  # "asc" or "desc"
+                order_by = f"-{order_by}"
+            qs = qs.order_by(order_by)
+
+        # NOTE: Pagination is controlled by the override of the get_paginate_by method
+        # # Limit the number of results returned using the offset and limit
+        # if qs.count() < offset + 1:
+        #     # In case the page/offset is invalid, reset to the beginning
+        #     offset = 0
+
+        # if limit <= 0:  # No limit - return all results
+        #     if offset > 0:
+        #         qs = qs[offset:]
+        # else:
+        #     qs = qs[offset:limit]
+
+        print(f"RETURNING QS WITH {qs.count()} RECORDS", flush=True)
+
+        return qs
 
     def get_paginate_by(self, queryset):
         limit = self.request.GET.get("limit", "")
+        print(f"LIMIT RECEIVED: {limit}")
         if limit == "":
-            limit = self.paginate_by
+            cookie_limit = get_cookie(self.request, "archive-file-limit", None)
+            if cookie_limit is not None:
+                limit = int(cookie_limit)
+            else:
+                limit = self.paginate_by
         else:
             limit = int(limit)
 
@@ -93,64 +148,79 @@ class ArchiveFileListView(ListView):
 
         return limit
 
-    # def get_context_data(self, **kwargs):
-    #     """This sets up djang-compatible pagination, search, and sort"""
+    def get_context_data(self, **kwargs):
+        """This sets up djang-compatible pagination, search, and sort"""
 
-    #     print("GETTING CONTEXT", flush=True)
+        # print("GETTING CONTEXT", flush=True)
 
-    #     context = super().get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
 
-    #     limit = self.request.GET.get("limit", "")
-    #     if limit == "":
-    #         limit = self.paginate_by
-    #     else:
-    #         limit = int(limit)
+        print(f"RAW TOTAL: {self.raw_total} TOTAL: {self.total}")
 
-    #     offset = self.request.GET.get("offset", "")
-    #     if offset == "":
-    #         offset = 0
-    #     else:
-    #         offset = int(offset)
+        # limit = self.request.GET.get("limit", "")
+        # if limit == "":
+        #     limit = self.paginate_by
+        # else:
+        #     limit = int(limit)
 
-    #     page = self.request.GET.get("page", "")
-    #     if page == "":
-    #         page = 1
-    #     else:
-    #         page = int(page)
+        # offset = self.request.GET.get("offset", "")
+        # if offset == "":
+        #     offset = 0
+        # else:
+        #     offset = int(offset)
 
-    #     print("CREATING PAGINATOR", flush=True)
+        # page = self.request.GET.get("page", "")
+        # if page == "":
+        #     page = 1
+        # else:
+        #     page = int(page)
 
-    #     page_obj = context["page_obj"]
+        # print("CREATING PAGINATOR", flush=True)
 
-    #     # Get pagination info
-    #     paginator = Paginator(page_obj.object_list, limit)
+        # page_obj = context["page_obj"]
 
-    #     print("GETTING PAGE", flush=True)
+        # # Get pagination info
+        # paginator = Paginator(page_obj.object_list, limit)
 
-    #     # page_obj = paginator.get_page(page)
-    #     # context["page_obj"] = page_obj
+        # print("GETTING PAGE", flush=True)
 
-    #     # print("SETTING PAGE OBJ LIST", flush=True)
+        # # page_obj = paginator.get_page(page)
+        # # context["page_obj"] = page_obj
 
-    #     # # Ensure archive_file_list is paginated
-    #     # context[self.context_object_name] = page_obj.object_list
+        # # print("SETTING PAGE OBJ LIST", flush=True)
 
-    #     print(f"RETURNING CONTEXT {context}\nPAGE_OBJ: {[(k, getattr(context['page_obj'], k)) for k in
-    # dir(context['page_obj'])]}", flush=True)
+        # # # Ensure archive_file_list is paginated
+        # # context[self.context_object_name] = page_obj.object_list
 
-    #     return context
+        print(
+            f"RETURNING CONTEXT {context}\nPAGE_OBJ: "
+            f"{[(k, getattr(context['page_obj'], k)) for k in dir(context['page_obj'])]}",
+            flush=True,
+        )
 
-    # def get_any_field_query(self, term: str):
-    #     """Given a string search term, returns a Q expression that does a case-insensitive search of all fields from
-    #     the table displayed in the template.  Note, annotation fields must be generated in order to apply the query.
-    #     E.g. `imported_timestamp` must be converted to an annotation field named `imported_timestamp_str`."""
+        return context
 
-    #     print("GETTING QUERY", flush=True)
+    def get_any_field_query(self, term: str):
+        """Given a string search term, returns a Q expression that does a case-insensitive search of all fields from
+        the table displayed in the template.  Note, annotation fields must be generated in order to apply the query.
+        E.g. `imported_timestamp` must be converted to an annotation field named `imported_timestamp_str`.
+        """
 
-    #     q_exp = Q()
-    #     for fld in ["filename", "imported_timestamp_str", "file_type__name", "file_format__name"]:
-    #         q_exp |= Q(**{f"{fld}__icontains": term})
-    #     return q_exp
+        print("GETTING QUERY", flush=True)
+
+        q_exp = Q()
+        for fld in [
+            "filename",
+            "imported_timestamp_str",
+            "file_type__name",
+            "file_format__name",
+            "peak_groups__msrun_sample__sample__animal__studies__name",
+            "mz_to_msrunsamples__sample__animal__studies__name",
+            "raw_to_msrunsamples__sample__animal__studies__name",
+        ]:
+            q_exp |= Q(**{f"{fld}__icontains": term})
+
+        return q_exp
 
 
 class ArchiveFileDetailView(DetailView):

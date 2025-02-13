@@ -30,7 +30,9 @@
                 newpagenum = curpage
             }
             if (newpagenum !== curpage) {
-                window.location.href = "?page=" + newpagenum
+                url = "?page=" + newpagenum + "&limit={{ page_obj.paginator.per_page }}"
+                console.log("Going to URL:", url)
+                window.location.href = url
             }
         }
     </script>
@@ -70,7 +72,7 @@
 
                 <!-- Generate the "1" button if the current page is more than flank-size away and the left side ellipsis button if there are pages between 1 and the pages close to the current page -->
                 {% if 1 <= flank|multiply:-1|add:page_obj.number %}
-                    <a href="?page=1" class="btn btn-outline-primary">
+                    <a href="?page=1&limit={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">
                         1
                     </a>
                     {% if 1 <= flank|add:1|multiply:-1|add:page_obj.number %}
@@ -87,7 +89,7 @@
                             <span>{{ page_number }} <span class="sr-only">(current)</span></span>
                         </button>
                     {% elif page_number > flank|multiply:-1|add:page_obj.number and page_number < page_obj.number|add:flank %}
-                        <a href="?page={{ page_number }}" class="btn btn-outline-primary">
+                        <a href="?page={{ page_number }}&limit={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">
                             {{ page_number }}
                         </a>
                     {% endif %}
@@ -100,14 +102,14 @@
                             &hellip;
                         </button>
                     {% endif %}
-                    <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline-primary">
+                    <a href="?page={{ page_obj.paginator.num_pages }}&limit={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">
                         {{ page_obj.paginator.num_pages }}
                     </a>
                 {% endif %}
 
                 <!-- Generate the ">"/next button -->
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline-primary">&raquo;</a>
+                    <a href="?page={{ page_obj.next_page_number }}&limit={{ page_obj.paginator.per_page }}" class="btn btn-outline-primary">&raquo;</a>
                 {% endif %}
             {% endwith %}
         </div>
