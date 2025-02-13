@@ -15,7 +15,7 @@ class ArchiveFileListView(ListView):
     template_name = "DataRepo/archive_file_list.html"
     paginate_by = 10
     DATETIME_FORMAT = (
-        "Mon. DD, YYYY, h:MI a.m."  # TODO: postgres-specific. Disable if not postgres.
+        "Mon. DD, YYYY, HH:MI a.m."  # TODO: postgres-specific. Disable if not postgres.
     )
     DBSTRING_FUNCTION = "to_char"  # TODO: postgres-specific. Disable if not postgres.
 
@@ -78,14 +78,22 @@ class ArchiveFileListView(ListView):
         # Convert the date time field into a string.  This is used to render the imported timestamp so that searchers
         # users enter will match what they see.  The default django datetime format (i.e. what they see in the template)
         # when rendering the datetime object is not the same as what the stringified value looks like in a DB query.
-        qs.annotate(
-            imported_timestamp_str=Func(
-                F("imported_timestamp"),
-                Value(self.DATETIME_FORMAT),
-                output_field=CharField(),
-                function=self.DBSTRING_FUNCTION,
+        try:
+            qs = qs.annotate(
+                imported_timestamp_str=Func(
+                    F("imported_timestamp"),
+                    Value(self.DATETIME_FORMAT),
+                    output_field=CharField(),
+                    function=self.DBSTRING_FUNCTION,
+                )
             )
-        )
+        except Exception as e:
+            print(
+                f"ERROR: {type(e).__name__}: {e}\nFalling back to default.  Check that the database is postgres."
+            )
+            # The fallback is to have the template render the timestamp in the default manner.  Searching will be
+            # imprecise however.
+            qs = qs.annotate(imported_timestamp_str=F("imported_timestamp"))
 
         # Perform a search if one is defined
         if search_term:
