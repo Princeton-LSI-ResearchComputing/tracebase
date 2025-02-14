@@ -9,17 +9,45 @@
 <div>
     {% if archive_file_list %}
     <script>
-        function updatePage() {
-            let limit = getCookie("archive-file-limit", {{ limit }});
-            let page = getCookie("archive-file-page", 1);
+        // TODO: Might be able to avoid saving all these settings in cookies with BST settings data-cookie and data-cookie-id-table.  See: https://stackoverflow.com/a/58186544
+
+        function updatePage(page, limit) {
+            if (typeof limit === "undefined" || (limit !== 0 && !limit)) {
+                limit = getCookie("archive-file-limit", {{ limit }});
+            }
+            if (typeof page === "undefined" || !page) {
+                page = getCookie("archive-file-page", 1);
+            }
 
             url = "{% url 'archive_file_list' %}?page=" + page
-            if (typeof limit !== "undefined" && limit) {
+            if (typeof limit !== "undefined" && (limit === 0 || limit)) {
                 url += "&limit=" + limit;
             }
 
             console.log("Going to:", url)
             window.location.href = url;
+        }
+
+        function updateVisible(visible, columnName) {
+            let columnNames = getColumnNames();
+            if (typeof columnName !== "undefined" && columnName) {
+                if (columnNames.includes(columnName)) {
+                    columnNames = [columnName];
+                } else if (columnNames.length === 0) {
+                    console.error("No data-field values could be found.  The table's th tags must have data-field attributes.  If they are defined, there must be a problem with the getColumnNames function.");
+                    alert("Error: Unable to save your column visibility selection");
+                    return
+                } else {
+                    console.error("updateVisible called with invalid data-field:", columnName, "The second argument must match a data-field value defined in the table's th tags.  Current data-fields:", columnNames);
+                    alert("Error: Unable to save your column visibility selection");
+                    return
+                }
+            }
+            for (let i=0; i < columnNames.length; i++) {
+                visibleAttrName = 'archive-file-' + columnNames[i] + '-visible'
+                setCookie(visibleAttrName, visible);
+                console.log("Saving " + visibleAttrName + "=" + visible)
+            }
         }
 
         function onRowsPerPageChange(numRows) {
@@ -52,13 +80,11 @@
 
         function getColumnNames() {
             let columnNames = [];
-            // Based on: https://jsfiddle.net/e3nk137y/7436/
-            $('#file_list').find('tr:first').each(function(i, row) {
-                var cols = [];
-                $(this).find('th').each(function(i, col) {
-                    fieldName = $(this).data("field");
-                    columnNames.push(fieldName);
-                });
+            $('#file_list').bootstrapTable('getVisibleColumns').map(function (col) {
+                columnNames.push(col.field)
+            });
+            $('#file_list').bootstrapTable('getHiddenColumns').map(function (col) {
+                columnNames.push(col.field)
             });
             return columnNames
         }
@@ -73,17 +99,32 @@
             for (i=0; i < columnNames.length; i++) {
                 columnName = columnNames[i];
                 deleteCookie('archive-file-filter-' + columnName);
+                deleteCookie('archive-file-' + columnName + '-visible');
             }
-            updatePage();
+            updatePage(1, {{ limit_default }});
         }
 
         function customButtonsFunction () {
             return {
                 btnClear: {
+                    'text': 'Reset Page to default settings',
                     'icon': 'bi-house',
                     'event': function btnClearTableSettings () {
                         resetTable();
+                    },
+                    'attributes': {
+                        'title': 'Restore default sort, filter, search, column visibility, and pagination'
                     }
+                }
+            }
+        }
+
+        function exportMessage() {
+            if ({{ limit }} !== 0 && {{ limit }} !== {{ page_obj.paginator.object_list.count }}) {
+                if (confirm("Download 1 page?\n\nTo retrieve all data, cancel and select 'ALL' from the rows per page select list below and try again.")) {
+                    console.log("Downloading page {{ page_obj.number }}.");
+                } else {
+                    throw new Error("Canceling download");
                 }
             }
         }
@@ -98,7 +139,6 @@
 
             $('#file_list').bootstrapTable({
                 onSort: function (orderBy, orderDir) {
-                    // Note, I will have to trigger the BST sort to show it's sorted
                     setCookie('archive-file-order-by', orderBy);
                     setCookie('archive-file-order-dir', orderDir);
                     console.log("SORT EVENT:", orderBy, orderDir);
@@ -107,8 +147,7 @@
                 },
                 onSearch: function (searchTerm) {
                     if (!loading) {
-                        // Note, I will have to populate the search on page load
-                        // NOTE: Turns out that one page load, a global search event is triggered, so we check to see if anything changed before triggering a page update.
+                        // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything changed before triggering a page update.
                         let oldTerm = getCookie('archive-file-search');
                         let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
                         let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
@@ -124,8 +163,7 @@
                 },
                 onColumnSearch: function (columnName, searchTerm) {
                     if (!loading) {
-                        // NOTE: I will have to populate the column searches on page load
-                        // NOTE: Turns out that one page load, a column search event is triggered, so we check to see if anything changed before triggering a page update.
+                        // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything changed before triggering a page update.
                         let oldTerm = getCookie('archive-file-filter-' + columnName);
                         let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
                         let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
@@ -139,11 +177,14 @@
                         }
                     }
                 },
+                onColumnSwitch: function (columnName, visible) {
+                    updateVisible(visible, columnName);
+                },
+                onColumnSwitchAll: function (visible) {
+                    updateVisible(visible);
+                },
                 onExportStarted: function (event) {
-                    // Grab all the data. Note that if I refresh the page, I will have to trigger the download using something like: https://jsfiddle.net/wenyi/wc0zLpef/1/
-                    // TODO: Since there's no way to save the selected exportType, add an alert that says that, to export all data, you need to change the rows per page to "All"
-                    console.log("EXPORT EVENT", event, "THIS:", this);
-                    updatePage();
+                    exportMessage();
                 },
             });
 
@@ -183,13 +224,13 @@
         data-virtual-scroll="true">
         <thead>
             <tr>
-                <th data-field="filename" data-filter-control="input" data-filter-default="{{ filter_filename|default_if_none:'' }}" data-sortable="true" data-sorter="htmlSorter">File Name</th>
-                <th data-field="imported_timestamp_str" data-filter-control="input" data-filter-default="{{ filter_imported_timestamp_str|default_if_none:'' }}" data-sortable="true">File Import Timestamp</th>
-                <th data-field="data_type__name" data-filter-control="input" data-filter-default="{{ filter_data_type__name|default_if_none:'' }}" data-sortable="true">File Type</th>
-                <th data-field="data_format__name" data-filter-control="input" data-filter-default="{{ filter_data_format__name|default_if_none:'' }}" data-sortable="true">File Format</th>
-                <th data-field="studies_str" data-filter-control="input" data-filter-default="{{ filter_studies_str|default_if_none:'' }}" data-sortable="true">Study</th>
-                <th data-field="peak_groups" data-valign="top" data-sortable="false">Peak Group Data</th>
-                <th data-field="peak_data" data-valign="top" data-sortable="false">Peak Data</th>
+                <th data-field="filename" data-filter-control="input" data-filter-default="{{ filter_filename|default_if_none:'' }}" data-sortable="true" data-sorter="htmlSorter" data-visible="{% get_cookie 'archive-file-filename-visible' 'true' %}">File Name</th>
+                <th data-field="imported_timestamp_str" data-filter-control="input" data-filter-default="{{ filter_imported_timestamp_str|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-imported_timestamp_str-visible' 'true' %}">File Import Timestamp</th>
+                <th data-field="data_type__name" data-filter-control="input" data-filter-default="{{ filter_data_type__name|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-data_type__name-visible' 'false' %}">File Type</th>
+                <th data-field="data_format__name" data-filter-control="input" data-filter-default="{{ filter_data_format__name|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-data_format__name-visible' 'true' %}">File Format</th>
+                <th data-field="studies_str" data-filter-control="input" data-filter-default="{{ filter_studies_str|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-studies_str-visible' 'true' %}">Study</th>
+                <th data-field="peak_groups" data-valign="top" data-sortable="false" data-visible="{% get_cookie 'archive-file-peak_groups-visible' 'true' %}">Peak Group Data</th>
+                <th data-field="peak_data" data-valign="top" data-sortable="false" data-visible="{% get_cookie 'archive-file-peak_data-visible' 'true' %}">Peak Data</th>
             </tr>
         </thead>
         <tbody>

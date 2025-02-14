@@ -202,6 +202,7 @@ class ArchiveFileListView(ListView):
         context["limit"] = get_cookie(
             self.request, "archive-file-limit", self.paginate_by
         )
+        context["limit_default"] = self.paginate_by
 
         filter_names_str = get_cookie(self.request, "archive-file-filternames")
 
