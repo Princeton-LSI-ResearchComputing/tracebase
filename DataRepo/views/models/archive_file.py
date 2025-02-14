@@ -1,6 +1,7 @@
 import json
 
-from django.db.models import CharField, F, Func, Q, QuerySet, Value
+from django.db.models import CharField, F, Func, Max, Min, Q, QuerySet, Value
+from django.db.models.functions import Coalesce
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import ArchiveFile
@@ -34,13 +35,18 @@ class ArchiveFileListView(ListView):
     def get_paginated_queryset(self, qs: QuerySet[ArchiveFile]):
         # See if there is search and/or sort criteria
 
-        search_term = get_cookie(self.request, "archive-file-search", None)
-        order_by = get_cookie(self.request, "archive-file-orderby", None)
-        order_dir = get_cookie(self.request, "archive-file-orderdir", None)
+        search_term = get_cookie(self.request, "archive-file-search")
+        order_by = get_cookie(self.request, "archive-file-order-by")
+        order_dir = get_cookie(self.request, "archive-file-order-dir")
+
+        print(f"COOKIE archive-file-search: {search_term}: {search_term}")
+        print(f"COOKIE archive-file-order-by: {order_by}: {order_by}")
+        print(f"COOKIE archive-file-order-dir: {order_dir}: {order_dir}")
 
         # We need the column names (which should correspond to fields we can use in a Q expression) to know how to check
         # each filter)
-        filter_names_str = get_cookie(self.request, "archive-file-filternames", None)
+        filter_names_str = get_cookie(self.request, "archive-file-filternames")
+        print(f"COOKIE archive-file-filternames: {filter_names_str}")
         filter_names = []
         if filter_names_str is not None:
             filter_names = json.loads(filter_names_str)
@@ -50,11 +56,14 @@ class ArchiveFileListView(ListView):
 
         for filter_name in filter_names:
             filter_value = get_cookie(
-                self.request, f"archive-file-filter-{filter_name}", None
+                self.request, f"archive-file-filter-{filter_name}"
             )
-            if filter_value is not None:
+            print(
+                f"COOKIE archive-file-filter-{filter_name}: {filter_name}: {filter_value}"
+            )
+            if filter_value is not None and filter_value != "":
                 active_search = True
-                if filter_name == "studies":
+                if filter_name == "studies_str":
                     # Studies is a special case.  We have to search 3 relations
                     or_q_exp = Q(
                         **{
@@ -74,6 +83,7 @@ class ArchiveFileListView(ListView):
                     q_exp &= or_q_exp
                 else:
                     q_exp &= Q(**{f"{filter_name}__icontains": filter_value})
+                print(f"FILTERING {filter_name} FOR {filter_value}\nNEW Q: {q_exp}")
 
         # Convert the date time field into a string.  This is used to render the imported timestamp so that searchers
         # users enter will match what they see.  The default django datetime format (i.e. what they see in the template)
@@ -95,8 +105,31 @@ class ArchiveFileListView(ListView):
             # imprecise however.
             qs = qs.annotate(imported_timestamp_str=F("imported_timestamp"))
 
+        # Since the relationship between ArchiveFile and Study is M:M, we will annotate with just the first or last
+        # ordered study.  We only need it for sorting.  In the template, we render all related studies with a sub-query.
+        if (
+            order_by is not None
+            and order_by == "studies_str"
+            and not order_dir.lower().startswith("d")
+        ):
+            qs = qs.annotate(
+                studies_str=Coalesce(
+                    Min("peak_groups__msrun_sample__sample__animal__studies__name"),
+                    Min("mz_to_msrunsamples__sample__animal__studies__name"),
+                    Min("raw_to_msrunsamples__sample__animal__studies__name"),
+                )
+            )
+        elif order_by is not None and order_by == "studies_str":
+            qs = qs.annotate(
+                studies_str=Coalesce(
+                    Max("peak_groups__msrun_sample__sample__animal__studies__name"),
+                    Max("mz_to_msrunsamples__sample__animal__studies__name"),
+                    Max("raw_to_msrunsamples__sample__animal__studies__name"),
+                )
+            )
+
         # Perform a search if one is defined
-        if search_term:
+        if search_term is not None and search_term != "":
             active_search = True
             q_exp &= self.get_any_field_query(search_term)
 
@@ -106,31 +139,27 @@ class ArchiveFileListView(ListView):
         )
 
         if active_search:
+            # I add distinct because the studies_str filter does the equivalent of a left join.
             qs = qs.filter(q_exp)
+
+        # Sort the results, if sort has a value
+        if order_by is not None:
+            # We don't want to string-sort the timestamps.  We want to date-sort them, so...
+            if order_by == "imported_timestamp_str":
+                order_by = "imported_timestamp"
+            if order_dir is not None and order_dir.lower().startswith("d"):
+                # order_dir = "asc" or "desc"
+                order_by = f"-{order_by}"
+
+            qs = qs.order_by(order_by)
+
+        qs = qs.distinct()
 
         # Set the total after the search
         print(f"SETTING QUERY TOTAL {qs.count()}")
         self.total = qs.count()
 
-        # Sort the results, if sort has a value
-        if order_by:
-            if order_dir is not None and order_dir.lower().startswith(
-                "d"
-            ):  # "asc" or "desc"
-                order_by = f"-{order_by}"
-            qs = qs.order_by(order_by)
-
-        # NOTE: Pagination is controlled by the override of the get_paginate_by method
-        # # Limit the number of results returned using the offset and limit
-        # if qs.count() < offset + 1:
-        #     # In case the page/offset is invalid, reset to the beginning
-        #     offset = 0
-
-        # if limit <= 0:  # No limit - return all results
-        #     if offset > 0:
-        #         qs = qs[offset:]
-        # else:
-        #     qs = qs[offset:limit]
+        # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
 
         print(f"RETURNING QS WITH {qs.count()} RECORDS", flush=True)
 
@@ -140,7 +169,7 @@ class ArchiveFileListView(ListView):
         limit = self.request.GET.get("limit", "")
         print(f"LIMIT RECEIVED: {limit}")
         if limit == "":
-            cookie_limit = get_cookie(self.request, "archive-file-limit", None)
+            cookie_limit = get_cookie(self.request, "archive-file-limit")
             if cookie_limit is not None:
                 limit = int(cookie_limit)
             else:
@@ -165,40 +194,25 @@ class ArchiveFileListView(ListView):
 
         print(f"RAW TOTAL: {self.raw_total} TOTAL: {self.total}")
 
-        # limit = self.request.GET.get("limit", "")
-        # if limit == "":
-        #     limit = self.paginate_by
-        # else:
-        #     limit = int(limit)
+        context["search_term"] = get_cookie(self.request, "archive-file-search")
+        context["order_by"] = get_cookie(self.request, "archive-file-order-by")
+        context["order_dir"] = get_cookie(self.request, "archive-file-order-dir")
+        # limit can be 0 to mean unlimited/all, but the paginator's page is set to the number of results because if it's
+        # set to 0, the page object and paginator object are not included in the context,
+        context["limit"] = get_cookie(
+            self.request, "archive-file-limit", self.paginate_by
+        )
 
-        # offset = self.request.GET.get("offset", "")
-        # if offset == "":
-        #     offset = 0
-        # else:
-        #     offset = int(offset)
+        filter_names_str = get_cookie(self.request, "archive-file-filternames")
 
-        # page = self.request.GET.get("page", "")
-        # if page == "":
-        #     page = 1
-        # else:
-        #     page = int(page)
+        filter_names = []
+        if filter_names_str is not None:
+            filter_names = json.loads(filter_names_str)
 
-        # print("CREATING PAGINATOR", flush=True)
-
-        # page_obj = context["page_obj"]
-
-        # # Get pagination info
-        # paginator = Paginator(page_obj.object_list, limit)
-
-        # print("GETTING PAGE", flush=True)
-
-        # # page_obj = paginator.get_page(page)
-        # # context["page_obj"] = page_obj
-
-        # # print("SETTING PAGE OBJ LIST", flush=True)
-
-        # # # Ensure archive_file_list is paginated
-        # # context[self.context_object_name] = page_obj.object_list
+        for filter_name in filter_names:
+            context[f"filter_{filter_name}"] = get_cookie(
+                self.request, f"archive-file-filter-{filter_name}"
+            )
 
         print(
             f"RETURNING CONTEXT {context}\nPAGE_OBJ: "
@@ -217,16 +231,21 @@ class ArchiveFileListView(ListView):
         print("GETTING QUERY", flush=True)
 
         q_exp = Q()
+
+        if term == "":
+            return q_exp
+
         for fld in [
             "filename",
             "imported_timestamp_str",
-            "file_type__name",
-            "file_format__name",
+            "data_type__name",
+            "data_format__name",
             "peak_groups__msrun_sample__sample__animal__studies__name",
             "mz_to_msrunsamples__sample__animal__studies__name",
             "raw_to_msrunsamples__sample__animal__studies__name",
         ]:
             q_exp |= Q(**{f"{fld}__icontains": term})
+            print(f"SEARCHING {fld} FOR {term}\nNEW Q: {q_exp}")
 
         return q_exp
 

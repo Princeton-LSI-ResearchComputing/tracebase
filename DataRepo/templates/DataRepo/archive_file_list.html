@@ -10,50 +10,36 @@
     {% if archive_file_list %}
     <script>
         function updatePage() {
-            let limit = getCookie("archive-file-limit");
-            let page = getCookie("archive-file-page");
-            // let search = getCookie("archive-file-search");
-            // let orderBy = getCookie("archive-file-order-by");
-            // let orderDir = getCookie("archive-file-order-dir");
+            let limit = getCookie("archive-file-limit", {{ limit }});
+            let page = getCookie("archive-file-page", 1);
 
-            url = "{% url 'archive_file_list' %}?limit=" + limit
-            if (typeof page !== "undefined" && page) {
-                url += "&page=" + page;
+            url = "{% url 'archive_file_list' %}?page=" + page
+            if (typeof limit !== "undefined" && limit) {
+                url += "&limit=" + limit;
             }
-            // if (typeof search !== "undefined" && search) {
-            //     url += "&search=" + search;
-            // }
-            // if (typeof orderDir !== "undefined" && orderDir) {
-            //     url += "&orderdir=" + orderDir;
-            // }
-            // if (typeof orderBy !== "undefined" && orderBy) {
-            //     url += "&orderby=" + orderBy;
-            // }
-            // activeFilters = false;
-            // for (i=0; i < globalThis.columnNames.length; i++) {
-            //     filterName = globalThis.columnNames[i];
-            //     cookieName = 'archive-file-colSearchCol-' + filterName;
-            //     filterValue = getCookie(cookieName);
-            //     if (typeof filterValue !== "undefined" && filterValue) {
-            //         url += "&filter-" + filterName + "=" + filterValue;
-            //         activeFilters = true;
-            //     }
-            // }
-            // if (activeFilters) {
-            //     url += "&filternames=" + globalThis.columnNames.join(',');
-            // }
+
             console.log("Going to:", url)
             window.location.href = url;
         }
 
         function onRowsPerPageChange(numRows) {
-            let oldLimit = parseInt(getCookie('archive-file-limit'));
+            let oldLimit = parseInt(getCookie('archive-file-limit', {{ limit }}));
+            if (isNaN(oldLimit)) {
+                oldLimit = {{ page_obj.number }};
+            }
             let curPage = parseInt(getCookie('archive-file-page'));
+            if (isNaN(curPage)) {
+                curPage = 1;
+            }
             let curOffset = (curPage - 1) * oldLimit + 1;
+            let closestPage = curPage;
             setCookie('archive-file-limit', numRows);
-            closestPage = parseInt(curOffset / numRows) + 1;
-            // Reset the page
-            setCookie("archive-file-page", closestPage);
+            if (numRows !== 0) {
+                console.log("CLOSEST NEW PAGE CALC: parseInt(", curOffset, " / ", numRows, ") + 1");
+                closestPage = parseInt(curOffset / numRows) + 1;
+                // Reset the page
+                setCookie("archive-file-page", closestPage);
+            }
             console.log("ROWS PER PAGE EVENT", numRows, "CLOSEST NEW PAGE", closestPage, "PREVIOUS OFFSET", curOffset);
             updatePage();
         }
@@ -65,16 +51,50 @@
         }
 
         function getColumnNames() {
-            firstRow = $('#file_list').bootstrapTable('getData')[0];
-            columnNames = Object.keys(firstRow);
+            let columnNames = [];
+            // Based on: https://jsfiddle.net/e3nk137y/7436/
+            $('#file_list').find('tr:first').each(function(i, row) {
+                var cols = [];
+                $(this).find('th').each(function(i, col) {
+                    fieldName = $(this).data("field");
+                    columnNames.push(fieldName);
+                });
+            });
             return columnNames
+        }
+
+        function resetTable() {
+            deleteCookie('archive-file-page');
+            deleteCookie('archive-file-limit');
+            deleteCookie('archive-file-order-by');
+            deleteCookie('archive-file-order-dir');
+            deleteCookie('archive-file-search');
+            columnNames = getColumnNames();
+            for (i=0; i < columnNames.length; i++) {
+                columnName = columnNames[i];
+                deleteCookie('archive-file-filter-' + columnName);
+            }
+            updatePage();
+        }
+
+        function customButtonsFunction () {
+            return {
+                btnClear: {
+                    'icon': 'bi-house',
+                    'event': function btnClearTableSettings () {
+                        resetTable();
+                    }
+                }
+            }
         }
 
         document.addEventListener("DOMContentLoaded", function(){
             // Set cookies for the current page and limit that comes from the context and is sent via url params.  Everything else is saved in cookies.
             setCookie('archive-file-page', "{{ page_obj.number }}");
-            setCookie('archive-file-limit', "{{ page_obj.paginator.per_page }}");
+            setCookie('archive-file-limit', {{ limit }});
             setCookie("archive-file-filternames", JSON.stringify(getColumnNames()));
+
+            var loading = true;
 
             $('#file_list').bootstrapTable({
                 onSort: function (orderBy, orderDir) {
@@ -82,28 +102,41 @@
                     setCookie('archive-file-order-by', orderBy);
                     setCookie('archive-file-order-dir', orderDir);
                     console.log("SORT EVENT:", orderBy, orderDir);
+                    // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
                     updatePage();
                 },
                 onSearch: function (searchTerm) {
-                    // Note, I will have to populate the search on page load
-                    let oldTerm = getCookie('archive-file-search');
-                    let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
-                    let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
-                    if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                        setCookie('archive-file-search', searchTerm);
-                        console.log("GLOBAL SEARCH EVENT:", searchTerm);
-                        updatePage();
+                    if (!loading) {
+                        // Note, I will have to populate the search on page load
+                        // NOTE: Turns out that one page load, a global search event is triggered, so we check to see if anything changed before triggering a page update.
+                        let oldTerm = getCookie('archive-file-search');
+                        let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
+                        let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
+                        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+                            setCookie('archive-file-search', searchTerm);
+                            console.log("GLOBAL SEARCH EVENT:", searchTerm);
+                            // No need to hit the server if we're displaying all results. Just let BST do it.
+                            if ({{ limit }} > 0) {
+                                updatePage();
+                            }
+                        }
                     }
                 },
                 onColumnSearch: function (columnName, searchTerm) {
-                    // Note, I will have to populate the column searches on page load
-                    let oldTerm = getCookie('archive-file-filter-' + columnName);
-                    let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
-                    let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
-                    if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                        setCookie('archive-file-filter-' + columnName, searchTerm);
-                        console.log("COLUMN SEARCH EVENT:", columnName, searchTerm);
-                        updatePage();
+                    if (!loading) {
+                        // NOTE: I will have to populate the column searches on page load
+                        // NOTE: Turns out that one page load, a column search event is triggered, so we check to see if anything changed before triggering a page update.
+                        let oldTerm = getCookie('archive-file-filter-' + columnName);
+                        let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
+                        let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
+                        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+                            setCookie('archive-file-filter-' + columnName, searchTerm);
+                            console.log("COLUMN SEARCH EVENT:", columnName, searchTerm);
+                            // No need to hit the server if we're displaying all results. Just let BST do it.
+                            if ({{ limit }} > 0) {
+                                updatePage();
+                            }
+                        }
                     }
                 },
                 onExportStarted: function (event) {
@@ -122,18 +155,25 @@
                     onRowsPerPageChange($(this).data("value"));
                 })
             }
+
+            setTimeout(function () {loading = false}, 2000);
         });
     </script>
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="file_list"
         data-toggle="table"
-        data-buttons-class="primary"
         data-buttons-align="left"
+        data-buttons-class="primary"
+        data-buttons="customButtonsFunction"
         data-export-types="['csv', 'txt', 'excel']"
         data-export-data-type="all"
         data-filter-control="true"
         data-search="true"
         data-search-align="left"
+        data-search-on-enter-key="true"
+        data-search-text="{{ search_term|default_if_none:'' }}"
+        data-sort-name="{{ order_by|default_if_none:'' }}"
+        data-sort-order="{{ order_dir|default_if_none:'asc' }}"
         data-show-search-clear-button="true"
         data-show-multi-sort="true"
         data-show-columns="true"
@@ -143,14 +183,11 @@
         data-virtual-scroll="true">
         <thead>
             <tr>
-                <th data-field="filename" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">File Name</th>
-                {% comment %} <th data-field="filename" data-filter-control="input" data-sortable="false" data-sorter="alphanum" data-valign="top">
-                    <div onclick="sortColumn(this)" class="sortable" id="filename">File Name</div>
-                </th> {% endcomment %}
-                <th data-field="imported_timestamp_str" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
-                <th data-field="data_type__name" data-filter-control="input" data-sortable="true">File Type</th>
-                <th data-field="data_format__name" data-filter-control="input" data-sortable="true">File Format</th>
-                <th data-field="studies_str" data-filter-control="input" data-sortable="true">Study</th>
+                <th data-field="filename" data-filter-control="input" data-filter-default="{{ filter_filename|default_if_none:'' }}" data-sortable="true" data-sorter="htmlSorter">File Name</th>
+                <th data-field="imported_timestamp_str" data-filter-control="input" data-filter-default="{{ filter_imported_timestamp_str|default_if_none:'' }}" data-sortable="true">File Import Timestamp</th>
+                <th data-field="data_type__name" data-filter-control="input" data-filter-default="{{ filter_data_type__name|default_if_none:'' }}" data-sortable="true">File Type</th>
+                <th data-field="data_format__name" data-filter-control="input" data-filter-default="{{ filter_data_format__name|default_if_none:'' }}" data-sortable="true">File Format</th>
+                <th data-field="studies_str" data-filter-control="input" data-filter-default="{{ filter_studies_str|default_if_none:'' }}" data-sortable="true">Study</th>
                 <th data-field="peak_groups" data-valign="top" data-sortable="false">Peak Group Data</th>
                 <th data-field="peak_data" data-valign="top" data-sortable="false">Peak Data</th>
             </tr>
@@ -163,6 +200,8 @@
                     <td>{{ archive_file.data_type.name }}</td>
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
+                        <!-- Hidden value for sorting -->
+                        <span style="display:none">{{ archive_file.studies_str }}</span>
                         {% with studies=""|make_list %}
                             <!-- This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal -->
                             {% if archive_file.peak_groups.first %}
@@ -183,7 +222,7 @@
                                 {% endfor %}
                             {% endif %}
                             {% for study in studies %}
-                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>
+                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                             {% endfor %}
                         {% endwith %}
                     </td>
