@@ -48,7 +48,7 @@
             {% else %}
                 {% define page_obj.number|intmultiply:page_obj.paginator.per_page as last_row %}
             {% endif %}
-            Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of {{ page_obj.paginator.object_list.count }} rows,
+            Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of <span title="Unfiltered: {{ raw_total }}">{{ page_obj.paginator.object_list.count }}</span> rows,
 
             <!-- Generate the rows per page select list -->
             {% define '5 10 15 20 25 50 100 200 500 1000 0' as per_page_opts_str %}

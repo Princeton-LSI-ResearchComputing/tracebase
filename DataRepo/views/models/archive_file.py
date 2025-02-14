@@ -1,5 +1,3 @@
-import json
-
 from django.db.models import CharField, F, Func, Max, Min, Q, QuerySet, Value
 from django.db.models.functions import Coalesce
 from django.views.generic import DetailView, ListView
@@ -14,56 +12,74 @@ class ArchiveFileListView(ListView):
     model = ArchiveFile
     context_object_name = "archive_file_list"
     template_name = "DataRepo/archive_file_list.html"
-    paginate_by = 10
-    DATETIME_FORMAT = (
-        "Mon. DD, YYYY, HH:MI a.m."  # TODO: postgres-specific. Disable if not postgres.
-    )
-    DBSTRING_FUNCTION = "to_char"  # TODO: postgres-specific. Disable if not postgres.
+    paginate_by = 15
 
-    # # TODO: Make a base class that supports ListView combined with bootstrap-table to make pages load faster, using
-    # # server-side behavior for pagination
+    bst_data_fields = [
+        "filename",
+        "imported_timestamp_str",
+        "data_type__name",
+        "data_format__name",
+        "first_study",
+        "peak_groups",
+        "peak_data",
+    ]
+    DATETIME_FORMAT = "Mon. DD, YYYY, HH:MI a.m."
+    DBSTRING_FUNCTION = "to_char"
+
+    # TODO: Make a base class that supports ListView combined with bootstrap-table to make pages load faster, using
+    # server-side behavior for pagination
+
+    def __init__(self, *args, **kwargs):
+        """An override of the superclass constructor intended to initialize custom instance attributes."""
+
+        super().__init__(*args, **kwargs)
+        self.timestamp_searchable = True
+        self.total = 0
+        self.raw_total = 0
 
     def get_queryset(self):
-        print("GETTING QS", flush=True)
+        """An override of the superclass method intended to only set total and raw_total instance attributes."""
+
         qs = super().get_queryset()
-        print(f"SETTING TOTAL {qs.count()}")
         self.total = qs.count()
         self.raw_total = self.total
-        print("GETTING PAGINATED QS", flush=True)
         return self.get_paginated_queryset(qs)
 
     def get_paginated_queryset(self, qs: QuerySet[ArchiveFile]):
-        # See if there is search and/or sort criteria
+        """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
+        Content of those pages can be affected by sorting.  And both can be affected by annotated fields.  This method
+        applies those criteria based on cookies.
 
+        Limitations:
+            1. Searching imported_timestamp is not supported if the database is not postgres
+            2. Sorting based on study will only be based on the first or last related study, not the combined string of
+               all related study names.
+        Args:
+            qs (QuerySet[ArchiveFile])
+        Exceptions:
+            None
+        Returns:
+            qs (QuerySet[ArchiveFile])
+        """
+
+        # 1. Retrieve search and sort settings (needed for annotations too, due to different annotations based on sort)
+
+        # Search and filter criteria will be stored in a Q expression
+        q_exp = Q()
+
+        # Check the cookies for search/sort/filter settings
         search_term = get_cookie(self.request, "archive-file-search")
         order_by = get_cookie(self.request, "archive-file-order-by")
         order_dir = get_cookie(self.request, "archive-file-order-dir")
-
-        print(f"COOKIE archive-file-search: {search_term}: {search_term}")
-        print(f"COOKIE archive-file-order-by: {order_by}: {order_by}")
-        print(f"COOKIE archive-file-order-dir: {order_dir}: {order_dir}")
-
-        # We need the column names (which should correspond to fields we can use in a Q expression) to know how to check
-        # each filter)
-        filter_names_str = get_cookie(self.request, "archive-file-filternames")
-        print(f"COOKIE archive-file-filternames: {filter_names_str}")
-        filter_names = []
-        if filter_names_str is not None:
-            filter_names = json.loads(filter_names_str)
-
-        active_search = False
-        q_exp = Q()
-
+        # We need the column names (from the BST data-field attributes) to use in Q expressions
+        filter_names = self.bst_data_fields.copy()
         for filter_name in filter_names:
             filter_value = get_cookie(
                 self.request, f"archive-file-filter-{filter_name}"
             )
-            print(
-                f"COOKIE archive-file-filter-{filter_name}: {filter_name}: {filter_value}"
-            )
             if filter_value is not None and filter_value != "":
-                active_search = True
-                if filter_name == "studies_str":
+                # "first_study" is a convenient misnomer.  It can be first or last depending on sort direction
+                if filter_name == "first_study":
                     # Studies is a special case.  We have to search 3 relations
                     or_q_exp = Q(
                         **{
@@ -83,7 +99,11 @@ class ArchiveFileListView(ListView):
                     q_exp &= or_q_exp
                 else:
                     q_exp &= Q(**{f"{filter_name}__icontains": filter_value})
-                print(f"FILTERING {filter_name} FOR {filter_value}\nNEW Q: {q_exp}")
+        # Add a global search if one is defined
+        if search_term is not None and search_term != "":
+            q_exp &= self.get_any_field_query(search_term)
+
+        # 2. Add annotations (which can be used in search & sort)
 
         # Convert the date time field into a string.  This is used to render the imported timestamp so that searchers
         # users enter will match what they see.  The default django datetime format (i.e. what they see in the template)
@@ -98,8 +118,10 @@ class ArchiveFileListView(ListView):
                 )
             )
         except Exception as e:
+            self.timestamp_searchable = False
             print(
-                f"ERROR: {type(e).__name__}: {e}\nFalling back to default.  Check that the database is postgres."
+                f"ERROR: {type(e).__name__}: {e}\n"
+                "Falling back to default.  Check that the database is postgres."
             )
             # The fallback is to have the template render the timestamp in the default manner.  Searching will be
             # imprecise however.
@@ -107,40 +129,34 @@ class ArchiveFileListView(ListView):
 
         # Since the relationship between ArchiveFile and Study is M:M, we will annotate with just the first or last
         # ordered study.  We only need it for sorting.  In the template, we render all related studies with a sub-query.
+        # "first_study" is a convenient misnomer.  It can be first or last depending on sort direction.
         if (
             order_by is not None
-            and order_by == "studies_str"
+            and order_by == "first_study"
             and not order_dir.lower().startswith("d")
         ):
             qs = qs.annotate(
-                studies_str=Coalesce(
+                first_study=Coalesce(
                     Min("peak_groups__msrun_sample__sample__animal__studies__name"),
                     Min("mz_to_msrunsamples__sample__animal__studies__name"),
                     Min("raw_to_msrunsamples__sample__animal__studies__name"),
                 )
             )
-        elif order_by is not None and order_by == "studies_str":
+        elif order_by is not None and order_by == "first_study":
             qs = qs.annotate(
-                studies_str=Coalesce(
+                first_study=Coalesce(
                     Max("peak_groups__msrun_sample__sample__animal__studies__name"),
                     Max("mz_to_msrunsamples__sample__animal__studies__name"),
                     Max("raw_to_msrunsamples__sample__animal__studies__name"),
                 )
             )
 
-        # Perform a search if one is defined
-        if search_term is not None and search_term != "":
-            active_search = True
-            q_exp &= self.get_any_field_query(search_term)
+        # 3. Apply the search and filters
 
-        print(
-            f"search q expression: {q_exp} order_by: {order_by} order_dir: {order_dir}",
-            flush=True,
-        )
-
-        if active_search:
-            # I add distinct because the studies_str filter does the equivalent of a left join.
+        if len(q_exp.children) > 0:
             qs = qs.filter(q_exp)
+
+        # 4. Apply the sort
 
         # Sort the results, if sort has a value
         if order_by is not None:
@@ -153,21 +169,22 @@ class ArchiveFileListView(ListView):
 
             qs = qs.order_by(order_by)
 
+        # 4. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
+
         qs = qs.distinct()
 
+        # 5. Update the count
+
         # Set the total after the search
-        print(f"SETTING QUERY TOTAL {qs.count()}")
         self.total = qs.count()
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
-
-        print(f"RETURNING QS WITH {qs.count()} RECORDS", flush=True)
-
         return qs
 
     def get_paginate_by(self, queryset):
+        """An override of the superclass method to allow the user to change the rows per page."""
+
         limit = self.request.GET.get("limit", "")
-        print(f"LIMIT RECEIVED: {limit}")
         if limit == "":
             cookie_limit = get_cookie(self.request, "archive-file-limit")
             if cookie_limit is not None:
@@ -186,40 +203,36 @@ class ArchiveFileListView(ListView):
         return limit
 
     def get_context_data(self, **kwargs):
-        """This sets up djang-compatible pagination, search, and sort"""
-
-        # print("GETTING CONTEXT", flush=True)
+        """This sets up django-compatible pagination, search, and sort"""
 
         context = super().get_context_data(**kwargs)
 
-        print(f"RAW TOTAL: {self.raw_total} TOTAL: {self.total}")
+        # 1. Set context variables for initial defaults based on user-selections saved in cookies
 
+        # Set search/sort context variables
         context["search_term"] = get_cookie(self.request, "archive-file-search")
         context["order_by"] = get_cookie(self.request, "archive-file-order-by")
         context["order_dir"] = get_cookie(self.request, "archive-file-order-dir")
+
+        # Set limit context variable
         # limit can be 0 to mean unlimited/all, but the paginator's page is set to the number of results because if it's
         # set to 0, the page object and paginator object are not included in the context,
         context["limit"] = get_cookie(
             self.request, "archive-file-limit", self.paginate_by
         )
-        context["limit_default"] = self.paginate_by
 
-        filter_names_str = get_cookie(self.request, "archive-file-filternames")
-
-        filter_names = []
-        if filter_names_str is not None:
-            filter_names = json.loads(filter_names_str)
-
+        # Set filter context variables
+        filter_names = self.bst_data_fields.copy()
         for filter_name in filter_names:
             context[f"filter_{filter_name}"] = get_cookie(
                 self.request, f"archive-file-filter-{filter_name}"
             )
 
-        print(
-            f"RETURNING CONTEXT {context}\nPAGE_OBJ: "
-            f"{[(k, getattr(context['page_obj'], k)) for k in dir(context['page_obj'])]}",
-            flush=True,
-        )
+        # Set default interface context variables
+        context["limit_default"] = self.paginate_by
+        context["total"] = self.total
+        context["raw_total"] = self.raw_total
+        context["timestamp_searchable"] = self.timestamp_searchable
 
         return context
 
@@ -227,9 +240,14 @@ class ArchiveFileListView(ListView):
         """Given a string search term, returns a Q expression that does a case-insensitive search of all fields from
         the table displayed in the template.  Note, annotation fields must be generated in order to apply the query.
         E.g. `imported_timestamp` must be converted to an annotation field named `imported_timestamp_str`.
-        """
 
-        print("GETTING QUERY", flush=True)
+        Args:
+            term (str): search term applied to all columns of the view
+        Exceptions:
+            None
+        Returns:
+            q_exp (Q): A Q expression that can be used in a django ORM filter
+        """
 
         q_exp = Q()
 
@@ -246,7 +264,6 @@ class ArchiveFileListView(ListView):
             "raw_to_msrunsamples__sample__animal__studies__name",
         ]:
             q_exp |= Q(**{f"{fld}__icontains": term})
-            print(f"SEARCHING {fld} FOR {term}\nNEW Q: {q_exp}")
 
         return q_exp
 

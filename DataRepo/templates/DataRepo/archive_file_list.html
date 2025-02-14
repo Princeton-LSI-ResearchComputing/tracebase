@@ -24,7 +24,6 @@
                 url += "&limit=" + limit;
             }
 
-            console.log("Going to:", url)
             window.location.href = url;
         }
 
@@ -46,7 +45,6 @@
             for (let i=0; i < columnNames.length; i++) {
                 visibleAttrName = 'archive-file-' + columnNames[i] + '-visible'
                 setCookie(visibleAttrName, visible);
-                console.log("Saving " + visibleAttrName + "=" + visible)
             }
         }
 
@@ -63,18 +61,15 @@
             let closestPage = curPage;
             setCookie('archive-file-limit', numRows);
             if (numRows !== 0) {
-                console.log("CLOSEST NEW PAGE CALC: parseInt(", curOffset, " / ", numRows, ") + 1");
                 closestPage = parseInt(curOffset / numRows) + 1;
                 // Reset the page
                 setCookie("archive-file-page", closestPage);
             }
-            console.log("ROWS PER PAGE EVENT", numRows, "CLOSEST NEW PAGE", closestPage, "PREVIOUS OFFSET", curOffset);
             updatePage();
         }
 
         function onPageChange(page) {
             setCookie('archive-file-page', page)
-            console.log("ROWS PER PAGE EVENT", page);
             updatePage();
         }
 
@@ -120,7 +115,7 @@
         }
 
         function exportMessage() {
-            if ({{ limit }} !== 0 && {{ limit }} !== {{ page_obj.paginator.object_list.count }}) {
+            if ({{ limit }} !== 0 && {{ limit }} < {{ total }}) {
                 if (confirm("Download 1 page?\n\nTo retrieve all data, cancel and select 'ALL' from the rows per page select list below and try again.")) {
                     console.log("Downloading page {{ page_obj.number }}.");
                 } else {
@@ -133,7 +128,6 @@
             // Set cookies for the current page and limit that comes from the context and is sent via url params.  Everything else is saved in cookies.
             setCookie('archive-file-page', "{{ page_obj.number }}");
             setCookie('archive-file-limit', {{ limit }});
-            setCookie("archive-file-filternames", JSON.stringify(getColumnNames()));
 
             var loading = true;
 
@@ -141,7 +135,6 @@
                 onSort: function (orderBy, orderDir) {
                     setCookie('archive-file-order-by', orderBy);
                     setCookie('archive-file-order-dir', orderDir);
-                    console.log("SORT EVENT:", orderBy, orderDir);
                     // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
                     updatePage();
                 },
@@ -153,9 +146,8 @@
                         let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
                         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
                             setCookie('archive-file-search', searchTerm);
-                            console.log("GLOBAL SEARCH EVENT:", searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
-                            if ({{ limit }} > 0) {
+                            if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
                                 updatePage();
                             }
                         }
@@ -169,9 +161,8 @@
                         let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
                         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
                             setCookie('archive-file-filter-' + columnName, searchTerm);
-                            console.log("COLUMN SEARCH EVENT:", columnName, searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
-                            if ({{ limit }} > 0) {
+                            if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
                                 updatePage();
                             }
                         }
@@ -190,7 +181,6 @@
 
             // Add click listeners on the rows-per-page-option select list items.  See DataRepo.widgets.ListViewRowsPerPageSelectWidget.
             let rowsPerPageOptionElems = document.getElementsByName("rows-per-page-option");
-            console.log("Creating " + rowsPerPageOptionElems.length + " event listeners for rowsPerPageOptionElems")
             for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
                 rowsPerPageOptionElems[i].addEventListener("click", function (event) {
                     onRowsPerPageChange($(this).data("value"));
@@ -225,10 +215,10 @@
         <thead>
             <tr>
                 <th data-field="filename" data-filter-control="input" data-filter-default="{{ filter_filename|default_if_none:'' }}" data-sortable="true" data-sorter="htmlSorter" data-visible="{% get_cookie 'archive-file-filename-visible' 'true' %}">File Name</th>
-                <th data-field="imported_timestamp_str" data-filter-control="input" data-filter-default="{{ filter_imported_timestamp_str|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-imported_timestamp_str-visible' 'true' %}">File Import Timestamp</th>
+                <th data-field="imported_timestamp_str" {% if timestamp_searchable %}data-filter-control="input" data-filter-default="{{ filter_imported_timestamp_str|default_if_none:'' }}"{% endif %} data-sortable="true" data-visible="{% get_cookie 'archive-file-imported_timestamp_str-visible' 'true' %}">File Import Timestamp</th>
                 <th data-field="data_type__name" data-filter-control="input" data-filter-default="{{ filter_data_type__name|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-data_type__name-visible' 'false' %}">File Type</th>
                 <th data-field="data_format__name" data-filter-control="input" data-filter-default="{{ filter_data_format__name|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-data_format__name-visible' 'true' %}">File Format</th>
-                <th data-field="studies_str" data-filter-control="input" data-filter-default="{{ filter_studies_str|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-studies_str-visible' 'true' %}">Study</th>
+                <th data-field="first_study" data-filter-control="input" data-filter-default="{{ filter_first_study|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-first_study-visible' 'true' %}">Study</th>
                 <th data-field="peak_groups" data-valign="top" data-sortable="false" data-visible="{% get_cookie 'archive-file-peak_groups-visible' 'true' %}">Peak Group Data</th>
                 <th data-field="peak_data" data-valign="top" data-sortable="false" data-visible="{% get_cookie 'archive-file-peak_data-visible' 'true' %}">Peak Data</th>
             </tr>
@@ -242,7 +232,7 @@
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
                         <!-- Hidden value for sorting -->
-                        <span style="display:none">{{ archive_file.studies_str }}</span>
+                        <span style="display:none">{{ archive_file.first_study }}</span>
                         {% with studies=""|make_list %}
                             <!-- This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal -->
                             {% if archive_file.peak_groups.first %}
