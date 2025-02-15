@@ -13,6 +13,7 @@ from django.forms import (
     JSONField,
     Select,
     TextInput,
+    Textarea,
     ValidationError,
     formset_factory,
 )
@@ -358,15 +359,13 @@ def create_BuildSubmissionForm() -> Type[Form]:
 
         # "Study doc" (hidden on the start tab)
         study_doc = FileField(
-            required=False, widget=ClearableFileInput(attrs={"multiple": False})
+            required=False,
+            widget=ClearableFileInput(attrs={"multiple": False})
         )
 
-        # This following fields are for a single file's form, but will be replicated using javascript.  The fields above
-        # should only occur once, but all should be a part of the same form submission.
-
-        peak_annotation_file = FileField(
+        peak_annotation_files = MultipleFileField(
             required=False,
-            widget=ClearableFileInput(attrs={"multiple": False}),
+            widget=MultipleFileInput(attrs={"multiple": True}),
         )
 
         # The following fields are for specifying sequence details for each peak annotation file (and will also be
@@ -447,6 +446,39 @@ def create_BuildSubmissionForm() -> Type[Form]:
                     "autocomplete": "off",
                 },
             ),
+        )
+
+        # This will contain a directory path relative to the study directory that corresponds to a single MSRunSequence.
+        # The directory path should go no deeper than the first one directory containing mzXML files.  E.g. no "scan2"
+        # or "scan3" directories should be added to this field.  The purpose is to have only 1 form in a series of form
+        # rows that corresponds to a unique MSRunSequence.
+        # NOTE: THIS IS NOT THE sequence_dir FROM THE SELECT LIST NEXT TO EACH PEAK ANNOTATION FILE, NOR DOES THERE
+        # EXIST A scan_dir FIELD.  BOTH OF THOSE SELECT LISTS SERVE TO POPULATE THE JSON IN THE
+        # peak_annot_to_mzxml_metadata FIELD.  THIS FIELD APPEARS ON A FORM ROW WITH operator, protocol, instrument, and
+        # run_date.
+        sequence_dir = CharField(
+            required=False,
+            widget=TextInput(attrs={"id": "sequence_dir_input_id", "size": 40}),
+        )
+
+        # This following fields are for a single file's form, but will be replicated using javascript.  The fields above
+        # should only occur once, but all should be a part of the same form submission.
+
+        # This will contain a master list of all mzXML file paths (relative to the study directory).
+        mzxml_file_list = JSONField(
+            decoder="array",
+            required=False,
+            # widget=HiddenInput(attrs={"id": "mzxml_file_list_input_id"}),
+            widget=Textarea(attrs={"id": "mzxml_file_list_input_id"}),
+        )
+
+        # A mapping of peak annotation files to sequence and scan directories they were built from
+        # JSON example (constructed by javascript triggered by selecting from select lists built by javascript):
+        #   {<peak_annotation_file name>: {"sequence dir": <sequence dir selected>, "scan dir": <scan dir selected>}}
+        peak_annot_to_mzxml_metadata = JSONField(
+            required=False,
+            # widget=HiddenInput(attrs={"id": "peak_annot_to_mzxml_metadata_input_id"}),
+            widget=Textarea(attrs={"id": "peak_annot_to_mzxml_metadata_input_id"}),
         )
 
         @property
