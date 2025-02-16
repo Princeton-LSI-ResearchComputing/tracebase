@@ -1,3 +1,4 @@
+import re
 import textwrap
 from typing import Optional, Union
 
@@ -499,3 +500,8 @@ def sigfigfilter(
     query_dict[upper_bound_key] = greater_value
 
     return query_dict
+
+
+def camel_to_title(string: str, delim: str = " "):
+    """Example: camel_to_title('MSRunSample') -> 'MS Run Sample'"""
+    return delim.join(re.split(r"(?=[A-Z][a-z])", string))

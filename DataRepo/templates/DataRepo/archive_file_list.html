@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load customtags %}
+{% load static %}
 
 {% block title %}Archive Files{% endblock %}
 
@@ -8,18 +9,41 @@
 <br>
 <div>
     {% if archive_file_list %}
+    {{ not_exported|json_script:"not_exported" }}
     <script>
-        // TODO: Might be able to avoid saving all these settings in cookies with BST settings data-cookie and data-cookie-id-table.  See: https://stackoverflow.com/a/58186544
+        function getViewCookie(name, defval) {
+            return getCookie('{{ cookie_prefix }}' + name, defval)
+        }
+
+        function setViewCookie(name, val) {
+            return setCookie('{{ cookie_prefix }}' + name, val)
+        }
+
+        function deleteViewCookie(name) {
+            return deleteCookie('{{ cookie_prefix }}' + name)
+        }
+
+        function getViewColumnCookie(column, name, defval) {
+            return getViewCookie(name + '-' + column, defval)
+        }
+
+        function setViewColumnCookie(column, name, val) {
+            return setViewCookie(name + '-' + column, val)
+        }
+
+        function deleteViewColumnCookie(column, name) {
+            return deleteViewCookie(name + '-' + column)
+        }
 
         function updatePage(page, limit) {
             if (typeof limit === "undefined" || (limit !== 0 && !limit)) {
-                limit = getCookie("archive-file-limit", {{ limit }});
+                limit = getViewCookie("limit", {{ limit }});
             }
             if (typeof page === "undefined" || !page) {
-                page = getCookie("archive-file-page", 1);
+                page = getViewCookie("page", 1);
             }
 
-            url = "{% url 'archive_file_list' %}?page=" + page
+            url = "{% url request.resolver_match.url_name %}?page=" + page
             if (typeof limit !== "undefined" && (limit === 0 || limit)) {
                 url += "&limit=" + limit;
             }
@@ -43,33 +67,32 @@
                 }
             }
             for (let i=0; i < columnNames.length; i++) {
-                visibleAttrName = 'archive-file-' + columnNames[i] + '-visible'
-                setCookie(visibleAttrName, visible);
+                setViewColumnCookie(columnNames[i], 'visible', visible);
             }
         }
 
         function onRowsPerPageChange(numRows) {
-            let oldLimit = parseInt(getCookie('archive-file-limit', {{ limit }}));
+            let oldLimit = parseInt(getViewCookie('limit', {{ limit }}));
             if (isNaN(oldLimit)) {
                 oldLimit = {{ page_obj.number }};
             }
-            let curPage = parseInt(getCookie('archive-file-page'));
+            let curPage = parseInt(getViewCookie('page'));
             if (isNaN(curPage)) {
                 curPage = 1;
             }
             let curOffset = (curPage - 1) * oldLimit + 1;
             let closestPage = curPage;
-            setCookie('archive-file-limit', numRows);
+            setViewCookie('limit', numRows);
             if (numRows !== 0) {
                 closestPage = parseInt(curOffset / numRows) + 1;
                 // Reset the page
-                setCookie("archive-file-page", closestPage);
+                setViewCookie("page", closestPage);
             }
             updatePage();
         }
 
         function onPageChange(page) {
-            setCookie('archive-file-page', page)
+            setViewCookie('page', page)
             updatePage();
         }
 
@@ -85,16 +108,16 @@
         }
 
         function resetTable() {
-            deleteCookie('archive-file-page');
-            deleteCookie('archive-file-limit');
-            deleteCookie('archive-file-order-by');
-            deleteCookie('archive-file-order-dir');
-            deleteCookie('archive-file-search');
+            deleteViewCookie('page');
+            deleteViewCookie('limit');
+            deleteViewCookie('order-by');
+            deleteViewCookie('order-dir');
+            deleteViewCookie('search');
             columnNames = getColumnNames();
             for (i=0; i < columnNames.length; i++) {
                 columnName = columnNames[i];
-                deleteCookie('archive-file-filter-' + columnName);
-                deleteCookie('archive-file-' + columnName + '-visible');
+                deleteViewColumnCookie(columnName, 'filter');
+                deleteViewColumnCookie(columnName, 'visible');
             }
             updatePage(1, {{ limit_default }});
         }
@@ -126,26 +149,29 @@
 
         document.addEventListener("DOMContentLoaded", function(){
             // Set cookies for the current page and limit that comes from the context and is sent via url params.  Everything else is saved in cookies.
-            setCookie('archive-file-page', "{{ page_obj.number }}");
-            setCookie('archive-file-limit', {{ limit }});
+            setViewCookie('page', "{{ page_obj.number }}");
+            setViewCookie('limit', {{ limit }});
+
+            const notExportedElem = document.getElementById("not_exported");
+            const notExported = JSON.parse(notExportedElem.textContent);
 
             var loading = true;
 
             $('#file_list').bootstrapTable({
                 onSort: function (orderBy, orderDir) {
-                    setCookie('archive-file-order-by', orderBy);
-                    setCookie('archive-file-order-dir', orderDir);
+                    setViewCookie('order-by', orderBy);
+                    setViewCookie('order-dir', orderDir);
                     // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
                     updatePage();
                 },
                 onSearch: function (searchTerm) {
                     if (!loading) {
                         // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything changed before triggering a page update.
-                        let oldTerm = getCookie('archive-file-search');
+                        let oldTerm = getViewCookie('search');
                         let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
                         let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
                         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                            setCookie('archive-file-search', searchTerm);
+                            setViewCookie('search', searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
                             if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
                                 updatePage();
@@ -156,11 +182,11 @@
                 onColumnSearch: function (columnName, searchTerm) {
                     if (!loading) {
                         // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything changed before triggering a page update.
-                        let oldTerm = getCookie('archive-file-filter-' + columnName);
+                        let oldTerm = getViewColumnCookie(columnName, 'filter');
                         let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
                         let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
                         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                            setCookie('archive-file-filter-' + columnName, searchTerm);
+                            setViewColumnCookie(columnName, 'filter', searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
                             if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
                                 updatePage();
@@ -176,6 +202,9 @@
                 },
                 onExportStarted: function (event) {
                     exportMessage();
+                },
+                exportOptions: {
+                    ignoreColumn: notExported,
                 },
             });
 
@@ -202,9 +231,9 @@
         data-search="true"
         data-search-align="left"
         data-search-on-enter-key="true"
-        data-search-text="{{ search_term|default_if_none:'' }}"
-        data-sort-name="{{ order_by|default_if_none:'' }}"
-        data-sort-order="{{ order_dir|default_if_none:'asc' }}"
+        data-search-text="{{ search_term }}"
+        data-sort-name="{{ order_by }}"
+        data-sort-order="{{ order_dir }}"
         data-show-search-clear-button="true"
         data-show-multi-sort="true"
         data-show-columns="true"
@@ -214,13 +243,55 @@
         data-virtual-scroll="true">
         <thead>
             <tr>
-                <th data-field="filename" data-filter-control="input" data-filter-default="{{ filter_filename|default_if_none:'' }}" data-sortable="true" data-sorter="htmlSorter" data-visible="{% get_cookie 'archive-file-filename-visible' 'true' %}">File Name</th>
-                <th data-field="imported_timestamp_str" {% if timestamp_searchable %}data-filter-control="input" data-filter-default="{{ filter_imported_timestamp_str|default_if_none:'' }}"{% endif %} data-sortable="true" data-visible="{% get_cookie 'archive-file-imported_timestamp_str-visible' 'true' %}">File Import Timestamp</th>
-                <th data-field="data_type__name" data-filter-control="input" data-filter-default="{{ filter_data_type__name|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-data_type__name-visible' 'false' %}">File Type</th>
-                <th data-field="data_format__name" data-filter-control="input" data-filter-default="{{ filter_data_format__name|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-data_format__name-visible' 'true' %}">File Format</th>
-                <th data-field="first_study" data-filter-control="input" data-filter-default="{{ filter_first_study|default_if_none:'' }}" data-sortable="true" data-visible="{% get_cookie 'archive-file-first_study-visible' 'true' %}">Study</th>
-                <th data-field="peak_groups" data-valign="top" data-sortable="false" data-visible="{% get_cookie 'archive-file-peak_groups-visible' 'true' %}">Peak Group Data</th>
-                <th data-field="peak_data" data-valign="top" data-sortable="false" data-visible="{% get_cookie 'archive-file-peak_data-visible' 'true' %}">Peak Data</th>
+                <th data-field="{{ filename.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ filename.filter_control }}"
+                    data-filter-default="{{ filename.filter }}"
+                    data-sortable="{{ filename.sortable }}"
+                    data-sorter="{{ filename.sorter }}"
+                    data-visible="{{ filename.visible }}">File Name</th>
+                <th data-field="{{ imported_timestamp_str.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ imported_timestamp_str.filter_control }}"
+                    data-filter-default="{{ imported_timestamp_str.filter }}"
+                    data-sortable="{{ imported_timestamp_str.sortable }}"
+                    data-sorter="{{ imported_timestamp_str.sorter }}"
+                    data-visible="{{ imported_timestamp_str.visible }}">File Import Timestamp</th>
+                <th data-field="{{ data_type__name.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ data_type__name.filter_control }}"
+                    data-filter-default="{{ data_type__name.filter }}"
+                    data-sortable="{{ data_type__name.sortable }}"
+                    data-sorter="{{ data_type__name.sorter }}"
+                    data-visible="{{ data_type__name.visible }}">File Type</th>
+                <th data-field="{{ data_format__name.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ data_format__name.filter_control }}"
+                    data-filter-default="{{ data_format__name.filter }}"
+                    data-sortable="{{ data_format__name.sortable }}"
+                    data-sorter="{{ data_format__name.sorter }}"
+                    data-visible="{{ data_format__name.visible }}">File Format</th>
+                <th data-field="{{ first_study.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ first_study.filter_control }}"
+                    data-filter-default="{{ first_study.filter }}"
+                    data-sortable="{{ first_study.sortable }}"
+                    data-sorter="{{ first_study.sorter }}"
+                    data-visible="{{ first_study.visible }}">Study</th>
+                <th data-field="{{ peak_groups.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ peak_groups.filter_control }}"
+                    data-filter-default="{{ peak_groups.filter }}"
+                    data-sortable="{{ peak_groups.sortable }}"
+                    data-sorter="{{ peak_groups.sorter }}"
+                    data-visible="{{ peak_groups.visible }}">Peak Group Data</th>
+                <th data-field="{{ peak_data.name }}"
+                    data-valign="top"
+                    data-filter-control="{{ peak_data.filter_control }}"
+                    data-filter-default="{{ peak_data.filter }}"
+                    data-sortable="{{ peak_data.sortable }}"
+                    data-sorter="{{ peak_data.sorter }}"
+                    data-visible="{{ peak_data.visible }}">Peak Data</th>
             </tr>
         </thead>
         <tbody>
