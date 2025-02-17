@@ -1,4 +1,5 @@
-from django.db.models import CharField, F, Func, Value
+from django.db.models import CharField, Count, F, Func, Value
+from django.db.models.functions import Coalesce, NullIf
 from django.views.generic import DetailView
 
 from DataRepo.models import ArchiveFile
@@ -65,6 +66,42 @@ class ArchiveFileListView(BootstrapTableListView):
                 "peak_groups__msrun_sample__sample__animal__studies__name",
                 "mz_to_msrunsamples__sample__animal__studies__name",
                 "raw_to_msrunsamples__sample__animal__studies__name",
+            ],
+        ),
+
+        BootstrapTableColumn(
+            # This is an annotation that is not rendered in a column in the template, but is used to increase template
+            # rendering performance.
+            "more_studies",
+
+            # Each of the fields in field below are many-to-many relations.  Setting many_related to true not only keeps
+            # the number of rows consistent with the number of ArchiveFile records, but it also makes querying the
+            # database much much faster
+            many_related=True,
+
+            # more_studies is an annotation that will be None if the number of studies associated with this record is
+            # less than 2.  This addresses a performance issue in the template rendering.  If there is only 1 (or 0)
+            # associated studies, then the first_study annotation will be used to render the linked study name.
+            converter=Coalesce(
+                NullIf(
+                    NullIf(Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True), Value(0)),
+                    Value(1),
+                ),
+                NullIf(
+                    NullIf(Count("mz_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
+                    Value(1),
+                ),
+                NullIf(
+                    NullIf(Count("raw_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
+                    Value(1),
+                ),
+            ),
+
+            # Provide the fields as a fallback in case the converter raises an exception
+            field=[
+                "peak_groups__msrun_sample__sample__animal__studies",
+                "mz_to_msrunsamples__sample__animal__studies",
+                "raw_to_msrunsamples__sample__animal__studies",
             ],
         ),
 

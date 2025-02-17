@@ -480,7 +480,7 @@ def get_model_rec_by_id(mdl_name, pk):
 
 
 @register.filter
-def polarity_name_to_sign(name):
+def polarity_name_to_sign(name:str):
     if name is None:
         return None
     elif name.lower().startswith("p"):

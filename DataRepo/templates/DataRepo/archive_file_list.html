@@ -29,8 +29,7 @@
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
-        data-show-export="true"
-        data-virtual-scroll="true">
+        data-show-export="true">
         <thead>
             <tr>
                 <th data-field="{{ filename.name }}"
@@ -93,49 +92,61 @@
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
                         <!-- Hidden value for sorting -->
-                        <span style="display:none">{{ archive_file.first_study }}</span>
-                        {% with studies=""|make_list %}
-                            <!-- This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal -->
-                            {% if archive_file.peak_groups.first %}
-                                {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
-                                    {% append_unique studies study %}
-                                {% endfor %}
-                            {% endif %}
-                            <!-- This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal -->
-                            {% if archive_file.mz_to_msrunsamples.first %}
-                                {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
-                                    {% append_unique studies study %}
-                                {% endfor %}
-                            {% endif %}
-                            <!-- This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal -->
-                            {% if archive_file.raw_to_msrunsamples.first %}
-                                {% for study in archive_file.raw_to_msrunsamples.first.msrun_sample.sample.animal.studies.all %}
-                                    {% append_unique studies study %}
-                                {% endfor %}
-                            {% endif %}
-                            {% for study in studies %}
-                                <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
-                            {% endfor %}
-                        {% endwith %}
+                        <span style="display:none">{{ archive_file.first_study.name }}</span>
+                        {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when there are not "more_studies".  more_studies is only ever not None when there is more than 1 study associated with archive_file. #}
+                        {% if archive_file.more_studies %}
+                            {# Collect all the studies (when there's more than 1) #}
+                            {% with studies=""|make_list %}
+                                {# This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal #}
+                                {% if archive_file.peak_groups.first %}
+                                    {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
+                                        {% append_unique studies study %}
+                                    {% endfor %}
+                                {% endif %}
+                                {# This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal #}
+                                {% if archive_file.mz_to_msrunsamples.first %}
+                                    {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
+                                        {% append_unique studies study %}
+                                    {% endfor %}
+                                {% endif %}
+                                {# This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal #}
+                                {% if archive_file.raw_to_msrunsamples.first %}
+                                    {% for study in archive_file.raw_to_msrunsamples.first.msrun_sample.sample.animal.studies.all %}
+                                        {% append_unique studies study %}
+                                    {% endfor %}
+                                {% endif %}
+                                {% if order_dir|lower == "asc" %}
+                                    {% for study in studies|dictsort:"name" %}
+                                        <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    {% for study in studies|dictsortreversed:"name" %}
+                                        <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <a href="{% url 'study_detail' archive_file.first_study.id %}">{{ archive_file.first_study.name }}</a>
+                        {% endif %}
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups ({{ archive_file.peak_groups.count }})</a>
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
                         {% elif archive_file.data_format.code == "ms_raw" %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups ({{ archive_file.peak_groups.count }})</a>
+                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
                         {% elif archive_file.data_format.code == "mzxml" %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups ({{ archive_file.peak_groups.count }})</a>
+                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
                         {% else %}
                             No peak groups are linked to this file
                         {% endif %}
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data ({% get_basic_search_count 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %})</a>
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
                         {% elif archive_file.data_format.code == "ms_raw" %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data ({% get_basic_search_count 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %})</a>
+                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
                         {% elif archive_file.data_format.code == "mzxml" %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data ({% get_basic_search_count 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %})</a>
+                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
                         {% else %}
                             No peak data are linked to this file
                         {% endif %}
