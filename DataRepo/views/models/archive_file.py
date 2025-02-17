@@ -70,31 +70,43 @@ class ArchiveFileListView(BootstrapTableListView):
         ),
 
         BootstrapTableColumn(
-            # This is an annotation that is not rendered in a column in the template, but is used to increase template
-            # rendering performance.
-            "more_studies",
+            # The above first_study results in Study names.  This first_study_id complements that so that we can
+            # decorate links made from the study ID with the study name.  NOTE: Only use this to create links when there
+            # is only 1 linked study, because both values are independently sorted, and if there are multiple studies,
+            # the IDs and names could sort differently.
+            "first_study_id",
 
             # Each of the fields in field below are many-to-many relations.  Setting many_related to true not only keeps
             # the number of rows consistent with the number of ArchiveFile records, but it also makes querying the
             # database much much faster
             many_related=True,
 
-            # more_studies is an annotation that will be None if the number of studies associated with this record is
-            # less than 2.  This addresses a performance issue in the template rendering.  If there is only 1 (or 0)
-            # associated studies, then the first_study annotation will be used to render the linked study name.
+            # These will automatically get .annotate(first_study_id=Coalesce(Min(...), Min(...), Min(...)) applied
+            field=[
+                "peak_groups__msrun_sample__sample__animal__studies",
+                "mz_to_msrunsamples__sample__animal__studies",
+                "raw_to_msrunsamples__sample__animal__studies",
+            ],
+        ),
+
+        BootstrapTableColumn(
+            # This is an annotation that is not rendered in a column in the template, but is used to increase template
+            # rendering performance.
+            "study_count",
+
+            # Each of the fields in field below are many-to-many relations.  Setting many_related to true not only keeps
+            # the number of rows consistent with the number of ArchiveFile records, but it also makes querying the
+            # database much much faster
+            many_related=True,
+
+            # study_count is an annotation that will be None if the number of studies associated with this record is 0.
+            # This is necessary to get the correct association (via peak annotation files, mz files, or raw files).
+            # This addresses a performance issue in the template rendering.  If there is more than 1 associated studies,
+            # the template will use the first_study annotation to render the linked study name.
             converter=Coalesce(
-                NullIf(
-                    NullIf(Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True), Value(0)),
-                    Value(1),
-                ),
-                NullIf(
-                    NullIf(Count("mz_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
-                    Value(1),
-                ),
-                NullIf(
-                    NullIf(Count("raw_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
-                    Value(1),
-                ),
+                NullIf(Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True), Value(0)),
+                NullIf(Count("mz_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
+                NullIf(Count("raw_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
             ),
 
             # Provide the fields as a fallback in case the converter raises an exception

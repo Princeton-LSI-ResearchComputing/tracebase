@@ -310,10 +310,12 @@ class BootstrapTableListView(ListView, ABC):
         order_dir: Optional[str] = self.get_cookie("order-dir", "asc")
 
         # We need the column names (from the BST data-field attributes) to use in Q expressions
+        filter_columns = []
         column: BootstrapTableColumn
         for column in self.columns:
             filter_value: str = self.get_column_cookie(column, "filter")
             if column.searchable and filter_value != "":
+                filter_columns.append(column.name)
                 search_field = (
                     column.field
                     if column.field is not None and (
@@ -347,10 +349,11 @@ class BootstrapTableListView(ListView, ABC):
                 # If a converter exists, the column is an annotation column, so annotate it
                 if column.converter is not None:
                     if isinstance(column.converter, Coalesce):
-                        print(
-                            f"WARNING: Excluding annotation {column.name} from search/filter because it has a Coalesce "
-                            "converter, which is *really* inefficient/slow.  Searching the field instead."
-                        )
+                        if search_term != "" or column.name in filter_columns:
+                            print(
+                                f"WARNING: Excluding annotation {column.name} from search/filter because it has a "
+                                "Coalesce converter, which is *really* inefficient/slow.  Searching the field instead."
+                            )
                         annotations_after_filter[column.name] = column.converter
                     else:
                         annotations_before_filter[column.name] = column.converter
@@ -365,7 +368,11 @@ class BootstrapTableListView(ListView, ABC):
             finally:
                 # If no annotation was created and this needs to be an annotated field (because there's either a
                 # converter or it's a many-related field)
-                if column.name not in annotations_before_filter.keys() and column.is_annotation:
+                if (
+                    column.name not in annotations_before_filter.keys()
+                    and column.name not in annotations_after_filter.keys()
+                    and column.is_annotation
+                ):
                     if isinstance(column.field, list):
                         # There are multiple fields that link to the reference model, so we use coalesce, assuming that
                         # the same reference model record is not linked to from multiple other model fields.

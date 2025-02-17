@@ -92,9 +92,9 @@
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
                         <!-- Hidden value for sorting -->
-                        <span style="display:none">{{ archive_file.first_study.name }}</span>
-                        {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when there are not "more_studies".  more_studies is only ever not None when there is more than 1 study associated with archive_file. #}
-                        {% if archive_file.more_studies %}
+                        <span style="display:none">{{ archive_file.first_study }}</span>
+                        {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when the study_count annotation is not None and greater than 1. #}
+                        {% if archive_file.study_count and archive_file.study_count|gt:1 %}
                             {# Collect all the studies (when there's more than 1) #}
                             {% with studies=""|make_list %}
                                 {# This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal #}
@@ -120,17 +120,14 @@
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% else %}
-                                    More studies: {{ archive_file.more_studies }} was not None<br>
                                     {% for study in studies|dictsortreversed:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% endif %}
                             {% endwith %}
                         {% elif archive_file.first_study %}
-                            More studies: {{ archive_file.more_studies }} was None and there is a first_study<br>
-                            <a href="{% url 'study_detail' archive_file.first_study.id %}">{{ archive_file.first_study.name }}</a>
+                            <a href="{% url 'study_detail' archive_file.first_study_id %}">{{ archive_file.first_study }}</a>
                         {% else %}
-                            More studies: {{ archive_file.more_studies }} was None and there was NOT a first_study<br>
                             None
                         {% endif %}
                     </td>
