@@ -125,8 +125,10 @@
                                     {% endfor %}
                                 {% endif %}
                             {% endwith %}
-                        {% else %}
+                        {% elif archive_file.first_study %}
                             <a href="{% url 'study_detail' archive_file.first_study.id %}">{{ archive_file.first_study.name }}</a>
+                        {% else %}
+                            None
                         {% endif %}
                     </td>
                     <td>
