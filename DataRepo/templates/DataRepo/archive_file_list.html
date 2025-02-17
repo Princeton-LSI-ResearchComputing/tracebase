@@ -95,6 +95,7 @@
                         <span style="display:none">{{ archive_file.first_study }}</span>
                         {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when the study_count annotation is not None and greater than 1. #}
                         {% if archive_file.study_count and archive_file.study_count|gt:1 %}
+                            {% log "Multiple studies associated with ArchiveFile ID " archive_file.id archive_file.filename as do_not_render %}
                             {# Collect all the studies (when there's more than 1) #}
                             {% with studies=""|make_list %}
                                 {# This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal #}
@@ -126,6 +127,7 @@
                                 {% endif %}
                             {% endwith %}
                         {% elif archive_file.first_study %}
+                            {% log "One study associated with ArchiveFile ID " archive_file.id archive_file.filename as do_not_render %}
                             <a href="{% url 'study_detail' archive_file.first_study_id %}">{{ archive_file.first_study }}</a>
                         {% endif %}
                     </td>

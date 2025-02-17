@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Union
 
 from django import template
@@ -574,6 +575,14 @@ def get_basic_search_count(mdl: str, fld: str, cmp: str, val: str, fmt: str, uni
     _, tot, _ = basv_metadata.performQuery(qry)
 
     return tot
+
+
+@register.simple_tag
+def log(*args, timestamp: bool = True):
+    """Print the args to the server log.  Intended for debugging template performance."""
+    if timestamp:
+        print(f"{datetime.now()}: ", end="")
+    print(*args)
 
 
 class NotYetImplemented(Exception):
