@@ -1,7 +1,14 @@
 from typing import List, Optional, Union
 
 from django import template
-from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.core.exceptions import (
+    MultipleObjectsReturned,
+    ObjectDoesNotExist,
+    FieldError,
+    ObjectDoesNotExist,
+    ValidationError,
+)
+from django.http import Http404
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
@@ -531,6 +538,42 @@ def display_filter(filter):
     ncmp = filter["queryGroup"][0]["ncmp"]
     val = filter["queryGroup"][0]["val"]
     return f"{ncmp} {val}"
+
+
+@register.simple_tag
+def get_basic_search_count(mdl: str, fld: str, cmp: str, val: str, fmt: str, units: Optional[str] = None):
+    """Retrieve the number of records that match a basic search.
+
+    Args:
+        mdl (str): The model instance to search.  Note, this isn't necessarily (but often is) the target model name.
+            This should match an outer key in the 'model_instances' attribute of the derived 'Format' class (e.g. the
+            'FluxCircFormat' derived Format class).
+        fld (str): The Model field name to search
+        cmp (str): The search comparator (e.g. 'iexact')
+        val (str): The search term
+        fmt (str): search result format (key or name)
+        units (Optional[str]) [None]
+    Exceptions:
+        Http404: When the arguments are invalid.
+    Returns:
+        tot (int): A count of the number of results from the search.
+    """
+    basv_metadata = SearchGroup()
+
+    # Turns a format key or format name into a format key, so you can send in either (the format key or name)
+    fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
+
+    try:
+        qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
+    except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
+        raise Http404(
+            f"Invalid basic search - mdl: '{mdl}', fld: '{fld}', cmp: '{cmp}', val: '{val}', fmtkey: '{fmtkey}', "
+            f"units: '{units}'.  Error: {type(e).__name__}: {e}"
+        )
+
+    _, tot, _ = basv_metadata.performQuery(qry)
+
+    return tot
 
 
 class NotYetImplemented(Exception):

@@ -9,216 +9,6 @@
 <br>
 <div>
     {% if archive_file_list %}
-    {{ not_exported|json_script:"not_exported" }}
-    <script>
-        function getViewCookie(name, defval) {
-            return getCookie('{{ cookie_prefix }}' + name, defval)
-        }
-
-        function setViewCookie(name, val) {
-            return setCookie('{{ cookie_prefix }}' + name, val)
-        }
-
-        function deleteViewCookie(name) {
-            return deleteCookie('{{ cookie_prefix }}' + name)
-        }
-
-        function getViewColumnCookie(column, name, defval) {
-            return getViewCookie(name + '-' + column, defval)
-        }
-
-        function setViewColumnCookie(column, name, val) {
-            return setViewCookie(name + '-' + column, val)
-        }
-
-        function deleteViewColumnCookie(column, name) {
-            return deleteViewCookie(name + '-' + column)
-        }
-
-        function updatePage(page, limit) {
-            if (typeof limit === "undefined" || (limit !== 0 && !limit)) {
-                limit = getViewCookie("limit", {{ limit }});
-            }
-            if (typeof page === "undefined" || !page) {
-                page = getViewCookie("page", 1);
-            }
-
-            url = "{% url request.resolver_match.url_name %}?page=" + page
-            if (typeof limit !== "undefined" && (limit === 0 || limit)) {
-                url += "&limit=" + limit;
-            }
-
-            window.location.href = url;
-        }
-
-        function updateVisible(visible, columnName) {
-            let columnNames = getColumnNames();
-            if (typeof columnName !== "undefined" && columnName) {
-                if (columnNames.includes(columnName)) {
-                    columnNames = [columnName];
-                } else if (columnNames.length === 0) {
-                    console.error("No data-field values could be found.  The table's th tags must have data-field attributes.  If they are defined, there must be a problem with the getColumnNames function.");
-                    alert("Error: Unable to save your column visibility selection");
-                    return
-                } else {
-                    console.error("updateVisible called with invalid data-field:", columnName, "The second argument must match a data-field value defined in the table's th tags.  Current data-fields:", columnNames);
-                    alert("Error: Unable to save your column visibility selection");
-                    return
-                }
-            }
-            for (let i=0; i < columnNames.length; i++) {
-                setViewColumnCookie(columnNames[i], 'visible', visible);
-            }
-        }
-
-        function onRowsPerPageChange(numRows) {
-            let oldLimit = parseInt(getViewCookie('limit', {{ limit }}));
-            if (isNaN(oldLimit)) {
-                oldLimit = {{ page_obj.number }};
-            }
-            let curPage = parseInt(getViewCookie('page'));
-            if (isNaN(curPage)) {
-                curPage = 1;
-            }
-            let curOffset = (curPage - 1) * oldLimit + 1;
-            let closestPage = curPage;
-            setViewCookie('limit', numRows);
-            if (numRows !== 0) {
-                closestPage = parseInt(curOffset / numRows) + 1;
-                // Reset the page
-                setViewCookie("page", closestPage);
-            }
-            updatePage();
-        }
-
-        function onPageChange(page) {
-            setViewCookie('page', page)
-            updatePage();
-        }
-
-        function getColumnNames() {
-            let columnNames = [];
-            $('#file_list').bootstrapTable('getVisibleColumns').map(function (col) {
-                columnNames.push(col.field)
-            });
-            $('#file_list').bootstrapTable('getHiddenColumns').map(function (col) {
-                columnNames.push(col.field)
-            });
-            return columnNames
-        }
-
-        function resetTable() {
-            deleteViewCookie('page');
-            deleteViewCookie('limit');
-            deleteViewCookie('order-by');
-            deleteViewCookie('order-dir');
-            deleteViewCookie('search');
-            columnNames = getColumnNames();
-            for (i=0; i < columnNames.length; i++) {
-                columnName = columnNames[i];
-                deleteViewColumnCookie(columnName, 'filter');
-                deleteViewColumnCookie(columnName, 'visible');
-            }
-            updatePage(1, {{ limit_default }});
-        }
-
-        function customButtonsFunction () {
-            return {
-                btnClear: {
-                    'text': 'Reset Page to default settings',
-                    'icon': 'bi-house',
-                    'event': function btnClearTableSettings () {
-                        resetTable();
-                    },
-                    'attributes': {
-                        'title': 'Restore default sort, filter, search, column visibility, and pagination'
-                    }
-                }
-            }
-        }
-
-        function exportMessage() {
-            if ({{ limit }} !== 0 && {{ limit }} < {{ total }}) {
-                if (confirm("Download 1 page?\n\nTo retrieve all data, cancel and select 'ALL' from the rows per page select list below and try again.")) {
-                    console.log("Downloading page {{ page_obj.number }}.");
-                } else {
-                    throw new Error("Canceling download");
-                }
-            }
-        }
-
-        document.addEventListener("DOMContentLoaded", function(){
-            // Set cookies for the current page and limit that comes from the context and is sent via url params.  Everything else is saved in cookies.
-            setViewCookie('page', "{{ page_obj.number }}");
-            setViewCookie('limit', {{ limit }});
-
-            const notExportedElem = document.getElementById("not_exported");
-            const notExported = JSON.parse(notExportedElem.textContent);
-
-            var loading = true;
-
-            $('#file_list').bootstrapTable({
-                onSort: function (orderBy, orderDir) {
-                    setViewCookie('order-by', orderBy);
-                    setViewCookie('order-dir', orderDir);
-                    // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
-                    updatePage(1);
-                },
-                onSearch: function (searchTerm) {
-                    if (!loading) {
-                        // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything changed before triggering a page update.
-                        let oldTerm = getViewCookie('search');
-                        let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
-                        let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
-                        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                            setViewCookie('search', searchTerm);
-                            // No need to hit the server if we're displaying all results. Just let BST do it.
-                            if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
-                                updatePage(1);
-                            }
-                        }
-                    }
-                },
-                onColumnSearch: function (columnName, searchTerm) {
-                    if (!loading) {
-                        // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything changed before triggering a page update.
-                        let oldTerm = getViewColumnCookie(columnName, 'filter');
-                        let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
-                        let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
-                        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                            setViewColumnCookie(columnName, 'filter', searchTerm);
-                            // No need to hit the server if we're displaying all results. Just let BST do it.
-                            if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
-                                updatePage(1);
-                            }
-                        }
-                    }
-                },
-                onColumnSwitch: function (columnName, visible) {
-                    updateVisible(visible, columnName);
-                },
-                onColumnSwitchAll: function (visible) {
-                    updateVisible(visible);
-                },
-                onExportStarted: function (event) {
-                    exportMessage();
-                },
-                exportOptions: {
-                    ignoreColumn: notExported,
-                },
-            });
-
-            // Add click listeners on the rows-per-page-option select list items.  See DataRepo.widgets.ListViewRowsPerPageSelectWidget.
-            let rowsPerPageOptionElems = document.getElementsByName("rows-per-page-option");
-            for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
-                rowsPerPageOptionElems[i].addEventListener("click", function (event) {
-                    onRowsPerPageChange($(this).data("value"));
-                })
-            }
-
-            setTimeout(function () {loading = false}, 2000);
-        });
-    </script>
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="file_list"
         data-toggle="table"
@@ -330,22 +120,22 @@
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a>
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups ({{ archive_file.peak_groups.count }})</a>
                         {% elif archive_file.data_format.code == "ms_raw" %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a>
+                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups ({{ archive_file.peak_groups.count }})</a>
                         {% elif archive_file.data_format.code == "mzxml" %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a>
+                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups ({{ archive_file.peak_groups.count }})</a>
                         {% else %}
                             No peak groups are linked to this file
                         {% endif %}
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data ({% get_basic_search_count 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %})</a>
                         {% elif archive_file.data_format.code == "ms_raw" %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data ({% get_basic_search_count 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %})</a>
                         {% elif archive_file.data_format.code == "mzxml" %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data ({% get_basic_search_count 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %})</a>
                         {% else %}
                             No peak data are linked to this file
                         {% endif %}
