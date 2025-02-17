@@ -428,6 +428,14 @@ def gt(x, y):
     return x > y
 
 
+@register.filter
+def lte(x, y):
+    """
+    This is here to get around htmlhint's spec-char-escape error even though {% if x < y %} works.
+    """
+    return x <= y
+
+
 @register.simple_tag
 def uniquify(retval, unused):
     """

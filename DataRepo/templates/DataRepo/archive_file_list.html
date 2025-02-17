@@ -93,7 +93,7 @@
                         <!-- Hidden value for sorting -->
                         <span style="display:none">{{ archive_file.first_study }}</span>
                         {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when the study_count annotation is greater than 1. #}
-                        {% if archive_file.study_count|gt:1 %}
+                        {% if limit and limit|lte:50 and limit|gt:0  or archive_file.study_count|gt:1 %}
                             {# Collect all the studies (when there's more than 1) #}
                             {% with studies=""|make_list %}
                                 {# This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal #}
