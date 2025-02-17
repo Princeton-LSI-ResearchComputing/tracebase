@@ -111,7 +111,7 @@
                                 {% endif %}
                                 {# This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal #}
                                 {% if archive_file.raw_to_msrunsamples.first %}
-                                    {% for study in archive_file.raw_to_msrunsamples.first.msrun_sample.sample.animal.studies.all %}
+                                    {% for study in archive_file.raw_to_msrunsamples.first.sample.animal.studies.all %}
                                         {% append_unique studies study %}
                                     {% endfor %}
                                 {% endif %}
@@ -120,14 +120,17 @@
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% else %}
+                                    More studies: {{ archive_file.more_studies }} was not None<br>
                                     {% for study in studies|dictsortreversed:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% endif %}
                             {% endwith %}
                         {% elif archive_file.first_study %}
+                            More studies: {{ archive_file.more_studies }} was None and there is a first_study<br>
                             <a href="{% url 'study_detail' archive_file.first_study.id %}">{{ archive_file.first_study.name }}</a>
                         {% else %}
+                            More studies: {{ archive_file.more_studies }} was None and there was NOT a first_study<br>
                             None
                         {% endif %}
                     </td>
