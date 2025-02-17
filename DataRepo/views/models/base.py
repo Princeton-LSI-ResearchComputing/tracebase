@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Callable, Iterable, List, Optional, Union, cast
 
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
@@ -172,7 +170,7 @@ class BootstrapTableColumn:
 
         self.visible = "true" if visible else "false"
 
-class BootstrapTableListView(ListView, ABC):
+class BootstrapTableListView(ListView):
     """Generic class-based view for a Model record list to make pages load faster, using server-side behavior for
     pagination."""
 
@@ -182,11 +180,8 @@ class BootstrapTableListView(ListView, ABC):
     paginator_class = GracefulPaginator
     paginate_by = 15
 
-    @property
-    @abstractmethod
-    def columns(self):
-        """List[BootstrapTableColumn]"""
-        pass
+    # Must be set in derived class
+    columns: List[BootstrapTableColumn] = []
 
     @property
     def view_name(self):
@@ -210,9 +205,7 @@ class BootstrapTableListView(ListView, ABC):
         super().__init__(*args, **kwargs)
 
         # Check that the columns class attribute is valid
-        if not isinstance(self.columns, list) or len(self.columns) == 0 or len(
-            [inv for inv in self.columns if not isinstance(inv, BootstrapTableColumn)]
-        ):
+        if len(self.columns) == 0 or not isinstance(self.columns[0], BootstrapTableColumn):
             raise TypeError(
                 "Invalid columns class attribute.  Must be a list of at least 1 BootstrapTableColumn "
                 "object."
@@ -411,20 +404,17 @@ class BootstrapTableListView(ListView, ABC):
                         annotations_before_filter[column.name] = F(column.field)
 
         if len(annotations_before_filter.keys()) > 0:
-            print(f"{datetime.now()}: ANNOTATING BEFORE: {annotations_before_filter}")
             qs = qs.annotate(**annotations_before_filter)
 
         # 3. Apply the search and filters
 
         if len(q_exp.children) > 0:
-            print(f"{datetime.now()}: FILTERING: {q_exp}")
             qs = qs.filter(q_exp)
 
         # 4. Apply coalesce annotations AFTER the filter, due to the inefficiency of WHERE clauses interacting with
         # COALESCE
 
         if len(annotations_after_filter.keys()) > 0:
-            print(f"{datetime.now()}: ANNOTATING AFTER: {annotations_after_filter}")
             qs = qs.annotate(**annotations_after_filter)
 
         # 4. Apply the sort
@@ -448,21 +438,17 @@ class BootstrapTableListView(ListView, ABC):
                 # order_dir = "asc" or "desc"
                 order_by = f"-{order_by}"
 
-            print(f"{datetime.now()}: ORDERING: {order_by}")
             qs = qs.order_by(order_by)
 
         # 4. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
 
-        print(f"{datetime.now()}: DISTINCTING")
         qs = qs.distinct()
 
         # 5. Update the count
 
         # Set the total after the search
-        print(f"{datetime.now()}: COUNTING")
         self.total = qs.count()
 
-        print(f"{datetime.now()}: DONE")
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
 

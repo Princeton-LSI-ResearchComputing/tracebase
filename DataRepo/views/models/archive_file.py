@@ -99,14 +99,15 @@ class ArchiveFileListView(BootstrapTableListView):
             # database much much faster
             many_related=True,
 
-            # study_count is an annotation that will be None if the number of studies associated with this record is 0.
-            # This is necessary to get the correct association (via peak annotation files, mz files, or raw files).
+            # using Coalesce is necessary to get the correct association (via peak annotation files, mz files, or raw
+            # files).
             # This addresses a performance issue in the template rendering.  If there is more than 1 associated studies,
             # the template will use the first_study annotation to render the linked study name.
             converter=Coalesce(
                 NullIf(Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True), Value(0)),
                 NullIf(Count("mz_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
                 NullIf(Count("raw_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
+                Value(0),  # Default if no studies linked
             ),
 
             # Provide the fields as a fallback in case the converter raises an exception
