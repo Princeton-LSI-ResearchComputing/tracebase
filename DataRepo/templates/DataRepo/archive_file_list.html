@@ -5,6 +5,7 @@
 {% block title %}Archive Files{% endblock %}
 
 {% block content %}
+{% log "STARTING PAGE" as do_not_render %}
 <h4>List of Archive Files</h4>
 <br>
 <div>
@@ -84,6 +85,7 @@
             </tr>
         </thead>
         <tbody>
+            {% log "STARTING TABLE ROWS" as do_not_render %}
             {% for archive_file in archive_file_list %}
                 <tr>
                     <td><a href="{% url 'archive_file_detail' archive_file.pk %}">{{ archive_file.filename }}</a></td>
@@ -161,4 +163,5 @@
         <p>There are no Archive Files.</p>
     {% endif %}
 </div>
+{% log "DONE" as do_not_render %}
 {% endblock %}
