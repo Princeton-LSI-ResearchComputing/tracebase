@@ -1,12 +1,28 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import Callable, Iterable, List, Optional, Union, cast
+
+from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db.models import F, Max, Min, Q, QuerySet
 from django.db.models.functions import Coalesce
-from django.views.generic import DetailView, ListView
+from django.views.generic import ListView
 
 from DataRepo.models import ArchiveFile
 from DataRepo.utils.text_utils import camel_to_title
 from DataRepo.views.utils import get_cookie
+
+
+class GracefulPaginator(Paginator):
+    """This derived class of Paginator prevents page not found errors by defaulting to page 1 when the page is either
+    out of range or not a number."""
+    # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
+    def page(self, num):
+        try:
+            num = self.validate_number(num)
+        except PageNotAnInteger:
+            num = 1
+        except EmptyPage:
+            num = self.num_pages
+        return super().page(num)
 
 
 class BootstrapTableColumn:
@@ -162,6 +178,7 @@ class BootstrapTableListView(ListView, ABC):
     # 0 = "ALL"
     PER_PAGE_CHOICES = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]
 
+    paginator_class = GracefulPaginator
     paginate_by = 15
 
     @property
@@ -386,24 +403,18 @@ class BootstrapTableListView(ListView, ABC):
                         annotations_before_filter[column.name] = F(column.field)
 
         if len(annotations_before_filter.keys()) > 0:
-            print("ANNOTATING START")
             qs = qs.annotate(**annotations_before_filter)
-            print(f"ANNOTATING DONE {annotations_before_filter}")
 
         # 3. Apply the search and filters
 
         if len(q_exp.children) > 0:
-            print("FILTERING START")
             qs = qs.filter(q_exp)
-            print(f"FILTERING DONE {q_exp}")
 
         # 4. Apply coalesce annotations AFTER the filter, due to the inefficiency of WHERE clauses interacting with
         # COALESCE
 
         if len(annotations_after_filter.keys()) > 0:
-            print("ANNOTATING START")
             qs = qs.annotate(**annotations_after_filter)
-            print(f"ANNOTATING DONE {annotations_after_filter}")
 
         # 4. Apply the sort
 
@@ -428,28 +439,20 @@ class BootstrapTableListView(ListView, ABC):
 
             qs = qs.order_by(order_by)
 
-            print(f"ORDER_BY {order_by}")
-
         # 4. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
 
-        print("DISTINCTING START")
         qs = qs.distinct()
-        print("DISTINCTING DONE")
 
         # 5. Update the count
 
         # Set the total after the search
         self.total = qs.count()
 
-        print("PAGINATED QS DONE")
-
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
 
     def get_paginate_by(self, queryset):
         """An override of the superclass method to allow the user to change the rows per page."""
-
-        print("PAGINATE_BY START")
 
         limit = self.request.GET.get("limit", "")
         if limit == "":
@@ -467,14 +470,10 @@ class BootstrapTableListView(ListView, ABC):
         if limit == 0 or limit > queryset.count():
             limit = queryset.count()
 
-        print("PAGINATE_BY DONE")
-
         return limit
 
     def get_context_data(self, **kwargs):
         """This sets up django-compatible pagination, search, and sort"""
-
-        print("CONTEXT START")
 
         context = super().get_context_data(**kwargs)
 
@@ -515,8 +514,6 @@ class BootstrapTableListView(ListView, ABC):
             if not column.exported:
                 context["not_exported"].append(column.name)
 
-        print("CONTEXT DONE")
-
         return context
 
     def get_any_field_query(self, term: str):
@@ -554,7 +551,5 @@ class BootstrapTableListView(ListView, ABC):
                         q_exp |= Q(**{f"{many_related_field}__icontains": term})
                 else:
                     q_exp |= Q(**{f"{search_field}__icontains": term})
-
-        print(f"Q EXP: {q_exp}")
 
         return q_exp
