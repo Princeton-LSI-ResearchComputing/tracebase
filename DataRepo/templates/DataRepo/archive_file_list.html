@@ -162,7 +162,7 @@
                     setViewCookie('order-by', orderBy);
                     setViewCookie('order-dir', orderDir);
                     // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
-                    updatePage();
+                    updatePage(1);
                 },
                 onSearch: function (searchTerm) {
                     if (!loading) {
@@ -174,7 +174,7 @@
                             setViewCookie('search', searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
                             if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
-                                updatePage();
+                                updatePage(1);
                             }
                         }
                     }
@@ -189,7 +189,7 @@
                             setViewColumnCookie(columnName, 'filter', searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
                             if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
-                                updatePage();
+                                updatePage(1);
                             }
                         }
                     }

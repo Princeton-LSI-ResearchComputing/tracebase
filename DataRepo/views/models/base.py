@@ -297,7 +297,18 @@ class BootstrapTableListView(ListView, ABC):
         for column in self.columns:
             filter_value: str = self.get_column_cookie(column, "filter")
             if column.searchable and filter_value != "":
-                search_field = column.field if column.field is not None else column.name
+                search_field = (
+                    column.field
+                    if column.field is not None and (
+                        # There are multiple fields associated with the column
+                        isinstance(column.field, list)
+                        # or there is no converter
+                        or column.converter is None
+                        # Do not search an annotation that is a Coalesce, because it's REALLY slow
+                        or isinstance(column.converter, Coalesce)
+                    )
+                    else column.name
+                )
                 if isinstance(search_field, list):
                     or_q_exp = Q()
                     for many_related_field in column.field:
@@ -312,12 +323,20 @@ class BootstrapTableListView(ListView, ABC):
 
         # 2. Add annotations (which can be used in search & sort)
 
-        annotations = {}
+        annotations_before_filter = {}
+        annotations_after_filter = {}
         for column in self.columns:
             try:
                 # If a converter exists, the column is an annotation column, so annotate it
                 if column.converter is not None:
-                    annotations[column.name] = column.converter
+                    if isinstance(column.converter, Coalesce):
+                        print(
+                            f"WARNING: Excluding annotation {column.name} from search/filter because it has a Coalesce "
+                            "converter, which is *really* inefficient/slow.  Searching the field instead."
+                        )
+                        annotations_after_filter[column.name] = column.converter
+                    else:
+                        annotations_before_filter[column.name] = column.converter
             except Exception as e:
                 # The fallback is to have the template render the database values in the default manner.  Searching will
                 # disabled.  Sorting will be a string sort (which is not ideal, e.g. if the value is a datetime).
@@ -329,7 +348,7 @@ class BootstrapTableListView(ListView, ABC):
             finally:
                 # If no annotation was created and this needs to be an annotated field (because there's either a
                 # converter or it's a many-related field)
-                if column.name not in annotations.keys() and column.is_annotation:
+                if column.name not in annotations_before_filter.keys() and column.is_annotation:
                     if isinstance(column.field, list):
                         # There are multiple fields that link to the reference model, so we use coalesce, assuming that
                         # the same reference model record is not linked to from multiple other model fields.
@@ -340,36 +359,36 @@ class BootstrapTableListView(ListView, ABC):
                             # Get the minimum value of the first populated many-related field
                             if column.many_related:
                                 # Apply Min to prevent changing the number of resulting rows
-                                annotations[column.name] = Coalesce(*[Min(f) for f in column.field])
+                                annotations_after_filter[column.name] = Coalesce(*[Min(f) for f in column.field])
                             else:
-                                annotations[column.name] = Coalesce(*column.field)
+                                annotations_after_filter[column.name] = Coalesce(*column.field)
                         else:
                             # Get the maximum value of the first populated many-related field
                             if column.many_related:
                                 # Apply Max to prevent changing the number of resulting rows
-                                annotations[column.name] = Coalesce(*[Max(f) for f in column.field])
+                                annotations_after_filter[column.name] = Coalesce(*[Max(f) for f in column.field])
                             else:
-                                annotations[column.name] = Coalesce(*column.field)
+                                annotations_after_filter[column.name] = Coalesce(*column.field)
                     elif column.many_related:
                         if order_by == "" or (
                             order_by == column.name
                             and not order_dir.lower().startswith("d")
                         ):
                             # Apply Min to prevent changing the number of resulting rows
-                            annotations[column.name] = Min(column.field)
+                            annotations_before_filter[column.name] = Min(column.field)
                         else:
                             # Apply Max to prevent changing the number of resulting rows
-                            annotations[column.name] = Max(column.field)
+                            annotations_before_filter[column.name] = Max(column.field)
                     else:
                         # This is in case a user-supplied custom converter failed in the try block above and the field
                         # is not many_related and there are not multiple other model fields linking to the reference
                         # model
-                        annotations[column.name] = F(column.field)
+                        annotations_before_filter[column.name] = F(column.field)
 
-        if len(annotations.keys()) > 0:
+        if len(annotations_before_filter.keys()) > 0:
             print("ANNOTATING START")
-            qs = qs.annotate(**annotations)
-            print(f"ANNOTATING DONE {annotations}")
+            qs = qs.annotate(**annotations_before_filter)
+            print(f"ANNOTATING DONE {annotations_before_filter}")
 
         # 3. Apply the search and filters
 
@@ -377,6 +396,14 @@ class BootstrapTableListView(ListView, ABC):
             print("FILTERING START")
             qs = qs.filter(q_exp)
             print(f"FILTERING DONE {q_exp}")
+
+        # 4. Apply coalesce annotations AFTER the filter, due to the inefficiency of WHERE clauses interacting with
+        # COALESCE
+
+        if len(annotations_after_filter.keys()) > 0:
+            print("ANNOTATING START")
+            qs = qs.annotate(**annotations_after_filter)
+            print(f"ANNOTATING DONE {annotations_after_filter}")
 
         # 4. Apply the sort
 
