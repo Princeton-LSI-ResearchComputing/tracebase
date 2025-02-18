@@ -91,10 +91,10 @@
 
         function getColumnNames() {
             let columnNames = [];
-            $('#file_list').bootstrapTable('getVisibleColumns').map(function (col) {
+            $('#{{ table_id }}').bootstrapTable('getVisibleColumns').map(function (col) {
                 columnNames.push(col.field)
             });
-            $('#file_list').bootstrapTable('getHiddenColumns').map(function (col) {
+            $('#{{ table_id }}').bootstrapTable('getHiddenColumns').map(function (col) {
                 columnNames.push(col.field)
             });
             return columnNames
@@ -182,7 +182,7 @@
 
             var loading = true;
 
-            $('#file_list').bootstrapTable({
+            $('#{{ table_id }}').bootstrapTable({
                 onSort: function (orderBy, orderDir) {
                     setViewCookie('order-by', orderBy);
                     setViewCookie('order-dir', orderDir);

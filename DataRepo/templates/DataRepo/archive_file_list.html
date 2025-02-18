@@ -9,7 +9,7 @@
 <div>
     {% if archive_file_list %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
-        id="file_list"
+        id="{{ table_id }}"
         data-toggle="table"
         data-buttons-align="left"
         data-buttons-class="primary"
@@ -93,7 +93,7 @@
                         <!-- Hidden value for sorting -->
                         <span style="display:none">{{ archive_file.first_study }}</span>
                         {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when the study_count annotation is greater than 1. #}
-                        {% if limit and limit|lte:50 and limit|gt:0  or archive_file.study_count|gt:1 %}
+                        {% if archive_file.study_count|gt:1 %}
                             {# Collect all the studies (when there's more than 1) #}
                             {% with studies=""|make_list %}
                                 {# This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal #}
@@ -155,6 +155,7 @@
         </tbody>
     </table>
     {% else %}
+        {# TODO: Add the search term and/or filter column and term for context, and supply a back button #}
         <p>There are no Archive Files.</p>
     {% endif %}
 </div>

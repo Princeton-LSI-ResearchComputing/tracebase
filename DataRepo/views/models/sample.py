@@ -1,7 +1,82 @@
+from django.db.models import CharField, Count, F, Func, Value
+from django.db.models.functions import Coalesce, NullIf, Extract
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import Sample
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.views.models.base import BootstrapTableColumn, BootstrapTableListView
+
+
+class BSTSampleListView(BootstrapTableListView):
+    model = Sample
+    context_object_name = "sample_list"
+    template_name = "DataRepo/sample_list_new.html"
+    paginate_by = 10
+
+    DATE_FORMAT = "Mon. DD, YYYY"
+    DBSTRING_FUNCTION = "to_char"
+
+    columns = [
+        BootstrapTableColumn("name"),
+        BootstrapTableColumn("animal__name"),
+        BootstrapTableColumn("tissue__name"),
+        BootstrapTableColumn("first_study", many_related=True, field="animal__studies__name"),
+        BootstrapTableColumn("first_study_id", many_related=True, field="animal__studies"),
+        BootstrapTableColumn("animal__genotype"),
+        BootstrapTableColumn("animal__infusate__name"),
+        BootstrapTableColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
+        BootstrapTableColumn("first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound"),
+        BootstrapTableColumn(
+            "first_tracer_conc", many_related=True, field="animal__infusate__tracer_links__concentration"
+        ),
+        BootstrapTableColumn("first_label", many_related=True, field="animal__labels__element"),
+        BootstrapTableColumn("animal__infusion_rate"),
+        BootstrapTableColumn("animal__treatment"),
+        BootstrapTableColumn("animal__body_weight", visible=False),
+        BootstrapTableColumn(
+            "age_weeks_str",
+            field="animal__age",
+            converter=Extract(F("animal__age"), "day") / Value(7),
+            visible=False,
+        ),
+        BootstrapTableColumn("animal__sex", visible=False),
+        BootstrapTableColumn("animal__diet", visible=False),
+        BootstrapTableColumn("animal__feeding_status"),
+        BootstrapTableColumn("researcher"),  # handler
+        BootstrapTableColumn(
+            "col_date_str",
+            field="date",
+            converter=Func(
+                F("date"),
+                Value(DATE_FORMAT),
+                output_field=CharField(),
+                function=DBSTRING_FUNCTION,
+            ),
+        ),
+        BootstrapTableColumn("col_time_str", field="time_collected", converter=Extract(F("time_collected"), "minute")),
+        BootstrapTableColumn(
+            "sequence_count",
+            many_related=True,
+            converter=Coalesce(
+                NullIf(Count("msrun_samples__msrun_sequence", distinct=True), Value(0)),
+                Value(0),  # Default if no studies linked
+            ),
+            field="msrun_samples__msrun_sequence",
+        ),
+        BootstrapTableColumn("first_ms_operator", many_related=True, field="msrun_samples__msrun_sequence__researcher"),
+        BootstrapTableColumn(
+            "first_ms_date",
+            many_related=True,
+            converter=Func(
+                F("msrun_samples__msrun_sequence__date"),
+                Value(DATE_FORMAT),
+                output_field=CharField(),
+                function=DBSTRING_FUNCTION,
+            ),
+            field="msrun_samples__msrun_sequence__date",
+        ),
+        BootstrapTableColumn("first_ms_sample", many_related=True, field="msrun_samples", sortable=False),
+    ]
 
 
 class SampleListView(ListView):

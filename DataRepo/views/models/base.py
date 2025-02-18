@@ -185,19 +185,23 @@ class BootstrapTableListView(ListView):
 
     @property
     def view_name(self):
-        return f"{self.model.__name__}List"
+        return self.__class__.__name__
 
     @property
     def cookie_prefix(self):
         return f"{self.view_name}-"
 
     @property
-    def verbose_name(self):
+    def verbose_model_name_plural(self):
         try:
-            return f"{self.model._meta.__dict__['verbose_name_plural']} List"
+            return self.model._meta.__dict__["verbose_name_plural"]
         except:
             print(f"WARNING: Model {self.model.__name__} has no Meta.verbose_name_plural.")
-            return f"{camel_to_title(self.model.__name__)}s List"
+            return f"{camel_to_title(self.model.__name__)}s"
+
+    @property
+    def verbose_name(self):
+        return camel_to_title(self.view_name)
 
     def __init__(self, *args, **kwargs):
         """An override of the superclass constructor intended to initialize custom instance attributes."""
@@ -496,6 +500,7 @@ class BootstrapTableListView(ListView):
         context["total"] = self.total
         context["raw_total"] = self.raw_total
         context["cookie_prefix"] = self.cookie_prefix
+        context["table_id"] = self.view_name
 
         # 3. Set the BST column attribute context values to use in the th tag attributes
 
