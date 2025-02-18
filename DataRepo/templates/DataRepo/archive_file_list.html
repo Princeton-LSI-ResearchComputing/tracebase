@@ -7,7 +7,6 @@
 <h4>List of Archive Files</h4>
 <br>
 <div>
-    {% if archive_file_list %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="{{ table_id }}"
         data-toggle="table"
@@ -154,9 +153,5 @@
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-        {# TODO: Add the search term and/or filter column and term for context, and supply a back button #}
-        <p>There are no Archive Files.</p>
-    {% endif %}
 </div>
 {% endblock %}

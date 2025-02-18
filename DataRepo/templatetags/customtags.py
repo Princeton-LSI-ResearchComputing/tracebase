@@ -331,6 +331,11 @@ def convert_iso_date(value):
     return dateparse.parse_datetime(value).strftime("%Y-%m-%d")
 
 
+@register.filter
+def format_date(date: Union[datetime, str], fmt: str):
+    return dateparse.parse_datetime(str(date)).strftime(fmt) if date is not None else None
+
+
 @register.simple_tag
 def append_unique(lst: list, val):
     if val is not None and val not in lst:

@@ -1,8 +1,9 @@
 {% load static %}
 {% load customtags %}
 
-{% if page_obj %}
+{% if is_bst_paginated %}
     {{ not_exported|json_script:"not_exported" }}
+    {{ warnings|json_script:"warnings" }}
     <script>
         function getViewCookie(name, defval) {
             return getCookie('{{ cookie_prefix }}' + name, defval)
@@ -67,7 +68,7 @@
         function onRowsPerPageChange(numRows) {
             let oldLimit = parseInt(getViewCookie('limit', {{ limit }}));
             if (isNaN(oldLimit)) {
-                oldLimit = {{ page_obj.number }};
+                oldLimit = {{ page_obj.paginator.per_page }};
             }
             let curPage = parseInt(getViewCookie('page'));
             if (isNaN(curPage)) {
@@ -140,6 +141,17 @@
             }
         }
 
+        function displayWarnings(warningsArray) {
+            if (warningsArray.length > 0) {
+                let warningText = "Please note the following warnings that occurred:\n\n";
+                for (i=0; i < warningsArray.length; i++) {
+                    num = i + 1;
+                    warningText += num + ". " + warningsArray[i] + "\n"
+                }
+                alert(warningText);
+            }
+        }
+
         function askForPage(curpage, num_pages){
             let valid = false
             let canceled = false
@@ -180,6 +192,10 @@
             const notExportedElem = document.getElementById("not_exported");
             const notExported = JSON.parse(notExportedElem.textContent);
 
+            const warningsElem = document.getElementById("warnings");
+            const warnings = JSON.parse(warningsElem.textContent);
+            displayWarnings(warnings);
+
             var loading = true;
 
             $('#{{ table_id }}').bootstrapTable({
@@ -208,14 +224,21 @@
                     if (!loading) {
                         // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything changed before triggering a page update.
                         let oldTerm = getViewColumnCookie(columnName, 'filter');
-                        let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
-                        let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
+                        let oldTermDefined = typeof oldTerm !== "undefined" && oldTerm;
+                        let newTermDefined = typeof searchTerm !== "undefined" && searchTerm;
                         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+                        //     alert("Column " + columnName + " search: '" + searchTerm + "'");
                             setViewColumnCookie(columnName, 'filter', searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
-                            if ({{ limit }} > 0 && {{ limit }} < {{ total }} || {{ total }} < {{ raw_total }}) {
+                            if (({{ limit }} > 0 && {{ limit }} < {{ total }}) || {{ total }} < {{ raw_total }}) {
+                        //         alert("Refreshing page because this is true: (({{ limit }} > 0 && {{ limit }} < {{ total }}) || {{ total }} < {{ raw_total }})");
                                 updatePage(1);
+                        //     } else {
+                        //         alert("Not refreshing page because this is false: (({{ limit }} > 0 && {{ limit }} < {{ total }}) || {{ total }} < {{ raw_total }})");
                             }
+                        // } else if (oldTerm !== '' || searchTerm !== '') {
+                        //     alert("Not refreshing page because this is false: (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)): " +
+                        //     "('" + oldTermDefined + "' !== '" + newTermDefined + "' || ('" + oldTermDefined + "' && '" + newTermDefined + "' && '" + oldTerm + "' !== '" + searchTerm + "'))");
                         }
                     }
                 },
@@ -227,6 +250,9 @@
                 },
                 onExportStarted: function (event) {
                     exportMessage();
+                },
+                onLoadError: function (status, jqXHR) {
+                    console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR);
                 },
                 exportOptions: {
                     ignoreColumn: notExported,
@@ -246,22 +272,22 @@
     </script>
     <!-- Model list view built-in Pagination -->
     <!-- Allow user to reduce the number of rows per page and see the number of results -->
-    {% if page_obj.paginator.object_list.count > 0 %}
+    {% if total > 0 %}
         <br>
         <div style="float: left;">
             <!-- Generate the "Showing N to M of T rows," message -->
-            {% if page_obj.number|intmultiply:page_obj.paginator.per_page > page_obj.paginator.object_list.count %}
+            {% if page_obj.number|intmultiply:page_obj.paginator.per_page > total %}
                 <!-- Different calculations for the last page -->
-                {% define page_obj.paginator.object_list.count as last_row %}
+                {% define total as last_row %}
             {% else %}
                 {% define page_obj.number|intmultiply:page_obj.paginator.per_page as last_row %}
             {% endif %}
-            Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of <span title="Unfiltered: {{ raw_total }}">{{ page_obj.paginator.object_list.count }}</span> rows,
+            Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of <span title="Unfiltered: {{ raw_total }}">{{ total }}</span> rows,
 
             <!-- Generate the rows per page select list -->
             {% define '5 10 15 20 25 50 100 200 500 1000 0' as per_page_opts_str %}
-            {% filter_page_size_list per_page_opts_str.split page_obj.paginator.object_list.count page_obj.paginator.per_page as per_page_opts %}
-            {% if page_obj.paginator.per_page >= page_obj.paginator.object_list.count %}
+            {% filter_page_size_list per_page_opts_str.split total page_obj.paginator.per_page as per_page_opts %}
+            {% if page_obj.paginator.per_page >= total %}
                 {% get_rows_per_page_select_list per_page_opts "paginate_by" 0 %}
             {% else %}
                 {% get_rows_per_page_select_list per_page_opts "paginate_by" page_obj.paginator.per_page %}

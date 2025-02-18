@@ -1,5 +1,6 @@
-from typing import Callable, Iterable, List, Optional, Union, cast
+from typing import Callable, Iterable, List, Optional, Tuple, Union, cast
 
+from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db.models import F, Max, Min, Q, QuerySet
 from django.db.models.functions import Coalesce
@@ -59,7 +60,8 @@ class BootstrapTableColumn:
         converter: Optional[Callable] = None,
         many_related: bool = False,
         exported: bool = True,
-        filter_control: Optional[str] = FILTER_CONTROL_CHOICES[0],
+        searchable: Optional[bool] = None,  # Default set in-line
+        filter_control: Optional[str] = None,  # Default set in-line
         sortable: bool = True,
         sorter: Optional[str] = None,
         visible: bool = True,
@@ -106,7 +108,11 @@ class BootstrapTableColumn:
                             .distinct()
                 Note, if many_related is true, name must differ from field.
             exported (bool) [True]: Adds to BST's exportOptions' ignoreColumn attribute if False.
-            filter_control (Optional[str]) ["input"]: Set to None or "" to disable.  Must be in FILTER_CONTROL_CHOICES.
+            searchable (Optional[bool]) [True]: Whether or not a column is searchable.  Searchable being True is
+                mutually exclusive with filter_control being None.  Automatically set to True if filter_control is not
+                None.  It is set to False is filter_control is None.
+            filter_control (Optional[str]) ["input"]: Set to None to disable.  Must be in FILTER_CONTROL_CHOICES.
+                This cannot be None if searchable is True.
             sortable (bool) [True]
             sorter (Optional[str]) ["alphanum"]: Must be in SORTER_CHOICES.
             visible (bool) [True]: Controls whether a column is initially visible.
@@ -118,6 +124,7 @@ class BootstrapTableColumn:
               many_related is True.
             - filter_control value is not among FILTER_CONTROL_CHOICES.
             - sorter value is not among SORTER_CHOICES.
+            - searchable and filter_control values are conflicting.
         Returns:
             instance (BootstrapTableColumn)
         """
@@ -149,8 +156,24 @@ class BootstrapTableColumn:
         self.is_annotation = converter is not None or isinstance(self.field, list) or many_related
         self.exported = exported
 
-        if filter_control is None or filter_control in self.FILTER_CONTROL_CHOICES:
-            self.searchable = filter_control is not None and filter_control != ""
+        if filter_control is None:
+            if searchable is None or searchable is True:
+                # Full default settings
+                self.filter_control = self.FILTER_CONTROL_CHOICES[0]
+                self.searchable = True
+            else:
+                self.searchable = False
+                self.filter_control = ""
+        elif filter_control in self.FILTER_CONTROL_CHOICES:
+            self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
+            tmp_searchable = filter_control is not None and filter_control != ""
+            if searchable is None:
+                self.searchable = tmp_searchable
+            elif searchable != tmp_searchable:
+                raise ValueError(
+                    f"Conflict between searchable '{searchable}' and filter_control '{filter_control}'.  "
+                    "searchable must be False if filter_control is not None."
+                )
             self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
         else:
             raise ValueError(
@@ -217,6 +240,8 @@ class BootstrapTableListView(ListView):
 
         self.total = 0
         self.raw_total = 0
+        self.warnings = []
+        self.cookie_resets = []
 
     def get_queryset(self):
         """An override of the superclass method intended to only set total and raw_total instance attributes."""
@@ -252,17 +277,19 @@ class BootstrapTableListView(ListView):
         """
         return get_cookie(self.request, self.get_cookie_name(name), default) or ""
 
-    def get_column_cookie_name(self, column: BootstrapTableColumn, name: str) -> str:
+    def get_column_cookie_name(self, column: Union[BootstrapTableColumn, str], name: str) -> str:
         """Retrieves a cookie name using a prepended view name.
 
         Args:
-            column (str): The name of the BST column
+            column (Union[BootstrapTableColumn, str]): The name of the BST column or the column object
             name (str): The name of the cookie variable specific to the column
         Exceptions:
             None
         Returns:
             (str)
         """
+        if isinstance(column, str):
+            return f"{self.cookie_prefix}{name}-{column}"
         return f"{self.cookie_prefix}{name}-{column.name}"
 
     def get_column_cookie(self, column: BootstrapTableColumn, name: str, default: str = "") -> str:
@@ -309,6 +336,7 @@ class BootstrapTableListView(ListView):
 
         # We need the column names (from the BST data-field attributes) to use in Q expressions
         filter_columns = []
+        search_fields = []
         column: BootstrapTableColumn
         for column in self.columns:
             filter_value: str = self.get_column_cookie(column, "filter")
@@ -328,15 +356,19 @@ class BootstrapTableListView(ListView):
                 )
                 if isinstance(search_field, list):
                     or_q_exp = Q()
-                    for many_related_field in column.field:
-                        or_q_exp |= Q(**{f"{many_related_field}__icontains": filter_value})
+                    for many_related_search_field in column.field:
+                        search_fields.append(many_related_search_field)
+                        or_q_exp |= Q(**{f"{many_related_search_field}__icontains": filter_value})
                     q_exp &= or_q_exp
                 else:
+                    search_fields.append(search_field)
                     q_exp &= Q(**{f"{search_field}__icontains": filter_value})
 
         # Add a global search if one is defined
         if search_term != "":
-            q_exp &= self.get_any_field_query(search_term)
+            global_q_exp, all_search_fields = self.get_any_field_query(search_term)
+            q_exp &= global_q_exp
+            search_fields = all_search_fields
 
         # 2. Add annotations (which can be used in search & sort)
 
@@ -413,7 +445,21 @@ class BootstrapTableListView(ListView):
         # 3. Apply the search and filters
 
         if len(q_exp.children) > 0:
-            qs = qs.filter(q_exp)
+            try:
+                qs = qs.filter(q_exp)
+            except FieldError as fe:
+                fld_str = "\n\t".join(search_fields)
+                fld_msg = f"One or more of {len(search_fields)} fields is misconfigured.  Example:\n\t{fld_str}."
+                warning = (
+                    f"Your search could not be executed.  {fld_msg}\n\n\tPlease report this error to the site "
+                    "administrators."
+                )
+                print(f"WARNING: {warning}\nException: {type(fe).__name__}: {fe}")
+                self.warnings.append(warning)
+                if search_term != "":
+                    self.cookie_resets = [self.get_cookie_name("search")]
+                else:
+                    self.cookie_resets = [self.get_column_cookie_name(c, "filter") for c in filter_columns]
 
         # 4. Apply coalesce annotations AFTER the filter, due to the inefficiency of WHERE clauses interacting with
         # COALESCE
@@ -485,7 +531,7 @@ class BootstrapTableListView(ListView):
         # 1. Set context variables for initial defaults based on user-selections saved in cookies
 
         # Set search/sort context variables
-        context["search_term"] = self.get_cookie("search")
+        context["search_term"] = self.get_cookie("search") if len(self.cookie_resets) == 0 else ""
         context["order_by"] = self.get_cookie("order-by")
         context["order_dir"] = self.get_cookie("order-dir")
 
@@ -501,6 +547,7 @@ class BootstrapTableListView(ListView):
         context["raw_total"] = self.raw_total
         context["cookie_prefix"] = self.cookie_prefix
         context["table_id"] = self.view_name
+        context["warnings"] = self.warnings
 
         # 3. Set the BST column attribute context values to use in the th tag attributes
 
@@ -508,9 +555,16 @@ class BootstrapTableListView(ListView):
 
         column: BootstrapTableColumn
         for column in self.columns:
+            # All filter cookies must be reset if an exception occurred during the search, otherwise, users will never
+            # be able to access the page again.
+            if len(self.cookie_resets) == 0:
+                filter_term = self.get_column_cookie(column, "filter")
+            else:
+                filter_term = ""
+
             context[column.name] = {
                 "name": column.name,
-                "filter": self.get_column_cookie(column, "filter"),
+                "filter": filter_term,
                 "filter_control": column.filter_control,
                 "sortable": column.sortable,
                 "sorter": column.sorter,
@@ -520,9 +574,24 @@ class BootstrapTableListView(ListView):
             if not column.exported:
                 context["not_exported"].append(column.name)
 
+        # 4. Handle pagination rendering and the initialization of the table pagination code
+
+        # This context variable determines whether the BST code on the pagination template will render
+        context["is_bst_paginated"] = True
+        if self.total == 0:
+            # Django does not supply a page_obj when there are no results, but the pagination.html template is where the
+            # table controlling code (integrated with pagination) is loaded, so we need a page_obj context variable with
+            # this minimal information necessary to operate the table, so that a user can clear their search term that
+            # resulted in no matches.
+            context["page_obj"] = {
+                "number": 1,
+                "has_other_pages": False,
+                "paginator": {"per_page": context["limit"]},
+            }
+
         return context
 
-    def get_any_field_query(self, term: str):
+    def get_any_field_query(self, term: str) -> Tuple[Q, List[str]]:
         """Given a string search term, returns a Q expression that does a case-insensitive search of all fields from
         the table displayed in the template.  Note, annotation fields must be generated in order to apply the query.
 
@@ -532,6 +601,7 @@ class BootstrapTableListView(ListView):
             None
         Returns:
             q_exp (Q): A Q expression that can be used in a django ORM filter
+            search_fields (List[str]): A list if database fields that are being queried
         """
 
         q_exp = Q()
@@ -539,6 +609,7 @@ class BootstrapTableListView(ListView):
         if term == "":
             return q_exp
 
+        search_fields: List[str] = []
         column: BootstrapTableColumn
         for column in self.columns:
             if column.searchable:
@@ -553,9 +624,11 @@ class BootstrapTableListView(ListView):
                     else column.name
                 )
                 if isinstance(search_field, list):
-                    for many_related_field in column.field:
-                        q_exp |= Q(**{f"{many_related_field}__icontains": term})
+                    for many_related_search_field in column.field:
+                        search_fields.append(many_related_search_field)
+                        q_exp |= Q(**{f"{many_related_search_field}__icontains": term})
                 else:
+                    search_fields.append(search_field)
                     q_exp |= Q(**{f"{search_field}__icontains": term})
 
-        return q_exp
+        return q_exp, search_fields

@@ -7,7 +7,6 @@
 <h4>List of Samples</h4>
 <br>
 <div>
-    {% if sample_list %}
     {% comment %}
         TODO: Implement the select lists for the data-filter-control for genotype, sex, feeding_status, researcher, and ms_operator like this:
         Set dicts for the values to javascript variables, e.g.:
@@ -109,13 +108,13 @@
                     data-sortable="{{ animal__infusion_rate.sortable }}"
                     data-sorter="{{ animal__infusion_rate.sorter }}"
                     data-visible="{{ animal__infusion_rate.visible }}">Infusion Rate (ul/min/g)</th>
-                <th data-field="{{ animal__treatment.name }}"
+                <th data-field="{{ animal__treatment__name.name }}"
                     data-valign="top"
-                    data-filter-control="{{ animal__treatment.filter_control }}"
-                    data-filter-default="{{ animal__treatment.filter }}"
-                    data-sortable="{{ animal__treatment.sortable }}"
-                    data-sorter="{{ animal__treatment.sorter }}"
-                    data-visible="{{ animal__treatment.visible }}">Treatment</th>
+                    data-filter-control="{{ animal__treatment__name.filter_control }}"
+                    data-filter-default="{{ animal__treatment__name.filter }}"
+                    data-sortable="{{ animal__treatment__name.sortable }}"
+                    data-sorter="{{ animal__treatment__name.sorter }}"
+                    data-visible="{{ animal__treatment__name.visible }}">Treatment</th>
                 <th data-field="{{ animal__body_weight.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__body_weight.filter_control }}"
@@ -335,7 +334,7 @@
                         {% if sample.sequence_count|gt:1 %}
                             {% with dates=""|make_list %}
                                 {% for msrun_sample in sample.msrun_samples.all %}
-                                    {% append_unique dates msrun_sample.msrun_sequence.researcher %}
+                                    {% append_unique dates msrun_sample.msrun_sequence.date|format_date:date_format %}
                                 {% endfor %}
                                 {% for date in dates %}
                                     {{ date }}{% if not forloop.last %};<br>{% endif %}
@@ -364,9 +363,5 @@
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-        {# TODO: Add the search term and/or filter column and term for context, and supply a back button #}
-        <p>There are no Samples.</p>
-    {% endif %}
 </div>
 {% endblock %}

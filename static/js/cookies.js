@@ -9,7 +9,26 @@ function getCookie (name, defval) { // eslint-disable-line no-unused-vars
   if (typeof defval === 'undefined' || !defval) {
     defval = ''
   }
-  return document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || defval
+
+  // Retrieve the cookie value
+  let val = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || defval;
+
+  // If the value is the default, return it
+  if (typeof val !== "undefined" && val && val === defval) {
+    return val;
+  }
+
+  // Account for the possibility that this was a cookie saved before we started encoding the values
+  try {
+    // If this is not an encoded string, an error can be^ thrown
+    tmpval = decodeURIComponent(val);
+
+    // ^ A regular string can look like an encoded string, in which case, the return value will be invalid, but those
+    // cases will eventually flush out.
+    return tmpval;
+  } catch (e) {
+    return val;
+  }
 }
 
 /**
@@ -19,7 +38,7 @@ function getCookie (name, defval) { // eslint-disable-line no-unused-vars
  * @param {*} val The value associated with the cookie to save.
  */
 function setCookie (name, val) { // eslint-disable-line no-unused-vars
-  document.cookie = name + '=' + val + '; path=/'
+  document.cookie = name + '=' + encodeURIComponent(val) + '; path=/'
 }
 
 /**

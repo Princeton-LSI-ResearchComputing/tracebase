@@ -13,7 +13,8 @@ class BSTSampleListView(BootstrapTableListView):
     template_name = "DataRepo/sample_list_new.html"
     paginate_by = 10
 
-    DATE_FORMAT = "Mon. DD, YYYY"
+    DATE_FORMAT = "Mon. DD, YYYY"  # Postgres date format
+    TEMPLATE_DATE_FORMAT = "%b. %d, %Y"  # datetime format - must match DATE_FORMAT
     DBSTRING_FUNCTION = "to_char"
 
     columns = [
@@ -21,7 +22,7 @@ class BSTSampleListView(BootstrapTableListView):
         BootstrapTableColumn("animal__name"),
         BootstrapTableColumn("tissue__name"),
         BootstrapTableColumn("first_study", many_related=True, field="animal__studies__name"),
-        BootstrapTableColumn("first_study_id", many_related=True, field="animal__studies"),
+        BootstrapTableColumn("first_study_id", many_related=True, searchable=False, field="animal__studies"),
         BootstrapTableColumn("animal__genotype"),
         BootstrapTableColumn("animal__infusate__name"),
         BootstrapTableColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
@@ -31,7 +32,7 @@ class BSTSampleListView(BootstrapTableListView):
         ),
         BootstrapTableColumn("first_label", many_related=True, field="animal__labels__element"),
         BootstrapTableColumn("animal__infusion_rate"),
-        BootstrapTableColumn("animal__treatment"),
+        BootstrapTableColumn("animal__treatment__name"),
         BootstrapTableColumn("animal__body_weight", visible=False),
         BootstrapTableColumn(
             "age_weeks_str",
@@ -57,6 +58,7 @@ class BSTSampleListView(BootstrapTableListView):
         BootstrapTableColumn(
             "sequence_count",
             many_related=True,
+            searchable=False,
             converter=Coalesce(
                 NullIf(Count("msrun_samples__msrun_sequence", distinct=True), Value(0)),
                 Value(0),  # Default if no studies linked
@@ -75,8 +77,14 @@ class BSTSampleListView(BootstrapTableListView):
             ),
             field="msrun_samples__msrun_sequence__date",
         ),
-        BootstrapTableColumn("first_ms_sample", many_related=True, field="msrun_samples", sortable=False),
+        BootstrapTableColumn("first_ms_sample", many_related=True, field="msrun_samples", searchable=False, sortable=False),
     ]
+
+    def get_context_data(self, **kwargs):
+        """Add the MSRunSequence date format string to the context"""
+        context = super().get_context_data(**kwargs)
+        context["date_format"] = self.TEMPLATE_DATE_FORMAT
+        return context
 
 
 class SampleListView(ListView):
