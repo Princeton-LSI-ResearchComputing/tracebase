@@ -8,14 +8,13 @@ from .msrun_sequence import MSRunSequenceDetailView, MSRunSequenceListView
 from .peakdata import PeakDataListView
 from .peakgroup import PeakGroupDetailView, PeakGroupListView
 from .protocol import AnimalTreatmentListView, ProtocolDetailView
-from .sample import SampleDetailView, SampleListView, BSTSampleListView
+from .sample import SampleDetailView, SampleListView
 from .study import StudyDetailView, StudyListView, study_summary
 from .tissue import TissueDetailView, TissueListView
 
 __all__ = [
     "ArchiveFileDetailView",
     "ArchiveFileListView",
-    "BSTSampleListView",
     "CompoundListView",
     "CompoundDetailView",
     "InfusateListView",

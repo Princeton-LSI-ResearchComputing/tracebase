@@ -1,21 +1,27 @@
 from django.db.models import CharField, Count, F, Func, Value
-from django.db.models.functions import Coalesce, NullIf, Extract
-from django.views.generic import DetailView, ListView
+from django.db.models.functions import Extract
+from django.views.generic import DetailView
 
 from DataRepo.models import Sample, Animal, ElementLabel, Researcher
-from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.base import BootstrapTableColumn, BootstrapTableListView
+from DataRepo.views.models.base import BootstrapTableColumn as Column
+from DataRepo.views.models.base import BootstrapTableListView as BSTListView
 
 
-class BSTSampleListView(BootstrapTableListView):
+class SampleDetailView(DetailView):
+    model = Sample
+    template_name = "DataRepo/sample_detail.html"
+
+
+class SampleListView(BSTListView):
     model = Sample
     context_object_name = "sample_list"
-    template_name = "DataRepo/sample_list_new.html"
+    template_name = "DataRepo/sample_list.html"
     paginate_by = 10
 
-    DATE_FORMAT = "Mon. DD, YYYY"  # Postgres date format
-    TEMPLATE_DATE_FORMAT = "%b. %d, %Y"  # datetime format - must match DATE_FORMAT
-    DBSTRING_FUNCTION = "to_char"
+    DATE_FORMAT = "YYYY-MM-DD"  # Postgres date format syntax
+    TEMPLATE_DATE_FORMAT = "%Y-%b-%d"  # python datetime package format syntax - must match DATE_FORMAT
+    DBSTRING_FUNCTION = "to_char"  # Postgres function
+    DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
 
     def __init__(self):
         """Only creating this method to keep database calls out of the class attribute area (for populating the
@@ -24,50 +30,52 @@ class BSTSampleListView(BootstrapTableListView):
         researchers = Researcher.get_researchers()
 
         self.columns = [
-            BootstrapTableColumn("name"),
-            BootstrapTableColumn("animal__name"),
-            BootstrapTableColumn("tissue__name"),
-            BootstrapTableColumn("first_study", many_related=True, field="animal__studies__name"),
-            BootstrapTableColumn("first_study_id", many_related=True, searchable=False, field="animal__studies"),
-            BootstrapTableColumn(
+            Column("name"),
+            Column("animal__name"),
+            Column("tissue__name"),
+            Column("first_study", many_related=True, field="animal__studies__name"),
+            Column("first_study_id", many_related=True, searchable=False, field="animal__studies"),
+            Column(
                 "animal__genotype",
-                select_options=Animal.objects.order_by("genotype").distinct("genotype").values_list(
-                    "genotype", flat=True
+                select_options=(
+                    Animal.objects
+                    .order_by("genotype")
+                    .distinct("genotype")
+                    .values_list("genotype", flat=True)
                 ),
             ),
-            BootstrapTableColumn("animal__infusate__name"),
-            BootstrapTableColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
-            BootstrapTableColumn(
-                "first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound",
-            ),
-            BootstrapTableColumn(
-                "first_tracer_conc", many_related=True, field="animal__infusate__tracer_links__concentration"
-            ),
-            BootstrapTableColumn(
+            Column("animal__infusate__name"),
+            Column("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
+            Column("first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound"),
+            Column("first_tracer_conc", many_related=True, field="animal__infusate__tracer_links__concentration"),
+            Column(
                 "first_label",
                 many_related=True,
                 field="animal__labels__element",
                 select_options=[e[0] for e in ElementLabel.LABELED_ELEMENT_CHOICES],
             ),
-            BootstrapTableColumn("animal__infusion_rate"),
-            BootstrapTableColumn("animal__treatment__name"),
-            BootstrapTableColumn("animal__body_weight", visible=False),
-            BootstrapTableColumn(
+            Column("animal__infusion_rate"),
+            Column("animal__treatment__name"),
+            Column("animal__body_weight", visible=False),
+            Column(
                 "age_weeks_str",
                 field="animal__age",
-                converter=Extract(F("animal__age"), "epoch") / Value(604800),
+                converter=Extract(F("animal__age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
                 visible=False,
             ),
-            BootstrapTableColumn("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES]),
-            BootstrapTableColumn("animal__diet", visible=False),
-            BootstrapTableColumn(
+            Column("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES]),
+            Column("animal__diet", visible=False),
+            Column(
                 "animal__feeding_status",
-                select_options=Animal.objects.order_by("feeding_status").distinct("feeding_status").values_list(
-                    "feeding_status", flat=True
+                select_options=(
+                    Animal.objects
+                    .order_by("feeding_status")
+                    .distinct("feeding_status")
+                    .values_list("feeding_status", flat=True)
                 ),
             ),
-            BootstrapTableColumn("researcher", select_options=researchers),  # handler
-            BootstrapTableColumn(
+            Column("researcher", select_options=researchers),  # handler
+            Column(
                 "col_date_str",
                 field="date",
                 converter=Func(
@@ -77,24 +85,25 @@ class BSTSampleListView(BootstrapTableListView):
                     function=self.DBSTRING_FUNCTION,
                 ),
             ),
-            BootstrapTableColumn("col_time_str", field="time_collected", converter=Extract(F("time_collected"), "epoch") / Value(60)),
-            BootstrapTableColumn(
+            Column(
+                "col_time_str",
+                field="time_collected",
+                converter=Extract(F("time_collected"), self.DURATION_SECONDS_ATTRIBUTE) / Value(60),
+            ),
+            Column(
                 "sequence_count",
                 many_related=True,
                 searchable=False,
-                converter=Coalesce(
-                    NullIf(Count("msrun_samples__msrun_sequence", distinct=True), Value(0)),
-                    Value(0),  # Default if no studies linked
-                ),
+                converter=Count("msrun_samples__msrun_sequence", distinct=True),
                 field="msrun_samples__msrun_sequence",
             ),
-            BootstrapTableColumn(
+            Column(
                 "first_ms_operator",
                 many_related=True,
                 field="msrun_samples__msrun_sequence__researcher",
                 select_options=researchers,
             ),
-            BootstrapTableColumn(
+            Column(
                 "first_ms_date",
                 many_related=True,
                 converter=Func(
@@ -105,46 +114,15 @@ class BSTSampleListView(BootstrapTableListView):
                 ),
                 field="msrun_samples__msrun_sequence__date",
             ),
-            BootstrapTableColumn("first_ms_sample", many_related=True, field="msrun_samples", searchable=False, sortable=False),
+            Column("first_ms_sample", many_related=True, field="msrun_samples", searchable=False, sortable=False),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
         super().__init__()
 
     def get_context_data(self, **kwargs):
-        """Add the MSRunSequence date format string to the context"""
+        """Add the MSRunSequence date format string to the context.  This is uniquely needed in the template due to the
+        fact that MSRunSequence has a many-to-one relationship with a sample, thus to render them all in a column in one
+        row, we have to loop on actual database objects that do not have the annotated first_ms_date string"""
         context = super().get_context_data(**kwargs)
         context["date_format"] = self.TEMPLATE_DATE_FORMAT
         return context
-
-
-class SampleListView(ListView):
-    """
-    Generic class-based view for a list of samples
-    "model = Sample" is shorthand for queryset = Sample.objects.all()
-    use queryset syntax for sample list with or without filtering
-    """
-
-    # return all samples without query filter
-    queryset = Sample.objects.all()
-    context_object_name = "sample_list"
-    template_name = "DataRepo/sample_list.html"
-    ordering = ["animal_id", "name"]
-
-    def get_context_data(self, **kwargs):
-        # Call the base implementation first to get the context
-        context = super().get_context_data(**kwargs)
-        #  add data from the DataFrame to the context
-        all_anim_msrun_df = qs2df.get_animal_msrun_all_df()
-
-        # convert DataFrame to a list of dictionary
-        data = qs2df.df_to_list_of_dict(all_anim_msrun_df)
-
-        context["df"] = data
-        return context
-
-
-class SampleDetailView(DetailView):
-    """Generic class-based detail view for a sample"""
-
-    model = Sample
-    template_name = "DataRepo/sample_detail.html"
