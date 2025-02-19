@@ -1,4 +1,4 @@
-from django.db.models import CharField, Count, F, Func, Value
+from django.db.models import CharField, Count, F, Func, Value, Case, When, Min
 from django.db.models.functions import Coalesce, NullIf
 from django.views.generic import DetailView
 
@@ -73,6 +73,22 @@ class ArchiveFileListView(BSTListView):
                 # the database much much faster
                 many_related=True,
 
+                # DEBUG: This converter is a test to see if it is faster than coalesce.  This disables a feature that uses Min or Max based on sort order.  Delete this after the test if there's no speed improvement.
+                converter=Case(
+                    When(
+                        data_type__code="ms_peak_annotation",
+                        then=Min("peak_groups__msrun_sample__sample__animal__studies__name"),
+                    ),
+                    When(
+                        data_format__code="mzxml",
+                        then=Min("mz_to_msrunsamples__sample__animal__studies__name"),
+                    ),
+                    When(
+                        data_format__code="ms_raw",
+                        then=Min("raw_to_msrunsamples__sample__animal__studies__name"),
+                    )
+                ),
+
                 # These will automatically get .annotate(first_study=Coalesce(Min(...), Min(...), Min(...)) applied
                 field=[
                     "peak_groups__msrun_sample__sample__animal__studies__name",
@@ -93,6 +109,22 @@ class ArchiveFileListView(BSTListView):
                 # the database much much faster
                 many_related=True,
 
+                # DEBUG: This converter is a test to see if it is faster than coalesce.  This disables a feature that uses Min or Max based on sort order.  Delete this after the test if there's no speed improvement.
+                converter=Case(
+                    When(
+                        data_type__code="ms_peak_annotation",
+                        then=Min("peak_groups__msrun_sample__sample__animal__studies"),
+                    ),
+                    When(
+                        data_format__code="mzxml",
+                        then=Min("mz_to_msrunsamples__sample__animal__studies"),
+                    ),
+                    When(
+                        data_format__code="ms_raw",
+                        then=Min("raw_to_msrunsamples__sample__animal__studies"),
+                    )
+                ),
+
                 # These will automatically get .annotate(first_study_id=Coalesce(Min(...), Min(...), Min(...)) applied
                 field=[
                     "peak_groups__msrun_sample__sample__animal__studies",
@@ -111,16 +143,32 @@ class ArchiveFileListView(BSTListView):
                 # the database much much faster
                 many_related=True,
 
-                # using Coalesce is necessary to get the correct association (via peak annotation files, mz files, or
-                # raw files).
-                # This addresses a performance issue in the template rendering.  If there is more than 1 associated
-                # studies, the template will use the first_study annotation to render the linked study name.
-                converter=Coalesce(
-                    NullIf(Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True), Value(0)),
-                    NullIf(Count("mz_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
-                    NullIf(Count("raw_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
-                    Value(0),  # Default if no studies linked
+                # DEBUG: This converter is a test to see if it is faster than coalesce.  This disables a feature that uses Min or Max based on sort order.  Delete this after the test if there's no speed improvement.
+                converter=Case(
+                    When(
+                        data_type__code="ms_peak_annotation",
+                        then=Count("peak_groups__msrun_sample__sample__animal__studies"),
+                    ),
+                    When(
+                        data_format__code="mzxml",
+                        then=Count("mz_to_msrunsamples__sample__animal__studies"),
+                    ),
+                    When(
+                        data_format__code="ms_raw",
+                        then=Count("raw_to_msrunsamples__sample__animal__studies"),
+                    )
                 ),
+
+                # # using Coalesce is necessary to get the correct association (via peak annotation files, mz files, or
+                # # raw files).
+                # # This addresses a performance issue in the template rendering.  If there is more than 1 associated
+                # # studies, the template will use the first_study annotation to render the linked study name.
+                # converter=Coalesce(
+                #     NullIf(Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True), Value(0)),
+                #     NullIf(Count("mz_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
+                #     NullIf(Count("raw_to_msrunsamples__sample__animal__studies", distinct=True), Value(0)),
+                #     Value(0),  # Default if no studies linked
+                # ),
 
                 # Provide the fields as a fallback in case the converter raises an exception
                 field=[
