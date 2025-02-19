@@ -1,12 +1,12 @@
 import os
-import yaml
-
 from collections import namedtuple
-from django.utils import dateparse
-from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from TraceBase import settings
 
 import pandas as pd
+import yaml
+from django.utils import dateparse
+
+from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from TraceBase import settings
 
 
 class SummaryTableData:

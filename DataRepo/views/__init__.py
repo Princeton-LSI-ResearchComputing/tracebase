@@ -64,7 +64,7 @@ __all__ = [
     "TissueDetailView",
     "SampleListView",
     "SampleDetailView",
-    "sample_json_data"
+    "sample_json_data",
     "MSRunSampleDetailView",
     "MSRunSampleListView",
     "MSRunSequenceDetailView",

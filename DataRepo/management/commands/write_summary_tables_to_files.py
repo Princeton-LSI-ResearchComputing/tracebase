@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
+
 from django.core.management import BaseCommand
-from TraceBase import settings
+
 from DataRepo.utils import SummaryTableData as std
+from TraceBase import settings
 
 ARCHIVE_DIR = settings.MEDIA_ROOT
 

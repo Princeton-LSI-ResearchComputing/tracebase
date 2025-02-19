@@ -188,7 +188,7 @@ TEST_MEDIA_ROOT = env.str(
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
-     ("summary", os.path.join(MEDIA_ROOT, "summary")),
+    ("summary", os.path.join(MEDIA_ROOT, "summary")),
 ]
 
 DEFAULT_STORAGES = {

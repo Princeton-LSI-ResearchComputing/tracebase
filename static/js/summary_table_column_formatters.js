@@ -1,90 +1,89 @@
-const url_prefix_dict = JSON.parse(
+const urlPrefixDict = JSON.parse(
   document.getElementById('url_prefix_dict').textContent
-);
+)
 
-function animalNameFormatter (value, row) {
-  let k = "animal_detail_url_prefix"
-  let url_prefix = url_prefix_dict[k]
-  return "<a href=" + url_prefix + row.animal_id  + ">"+ value + "</a>"
+function animalNameFormatter (value, row) { // eslint-disable-line no-unused-vars
+  const k = 'animal_detail_url_prefix'
+  let urlPrefix = urlPrefixDict[k]
+  return '<a href=' + urlPrefix + row.animal_id + '>' + value + '</a>'
 }
 
-function sampleNameFormatter (value, row) {
-  let k = "sample_detail_url_prefix"
-  let url_prefix = url_prefix_dict[k]
-  return "<a href=" + url_prefix + row.sample_id  + ">"+ value + "</a>"
+function sampleNameFormatter (value, row) { // eslint-disable-line no-unused-vars
+  const k = 'sample_detail_url_prefix'
+  let urlPrefix = urlPrefixDict[k]
+  return '<a href=' + urlPrefix + row.sample_id + '>' + value + '</a>'
 }
 
-function tissueNameFormatter (value, row) {
-  let k = "tissue_detail_url_prefix"
-  let url_prefix = url_prefix_dict[k]
-  return "<a href=" + url_prefix + row.tissue_id  + ">"+ value + "</a>"
+function tissueNameFormatter (value, row) { // eslint-disable-line no-unused-vars
+  const k = 'tissue_detail_url_prefix'
+  let urlPrefix = urlPrefixDict[k]
+  return '<a href=' + urlPrefix + row.tissue_id + '>' + value + '</a>'
 }
 
-function infusateNameFormatter (value, row) {
-  let k = "infusate_detail_url_prefix"
-  let url_prefix = url_prefix_dict[k]
+function infusateNameFormatter (value, row) { // eslint-disable-line no-unused-vars
+  const k = 'infusate_detail_url_prefix'
+  let urlPrefix = urlPrefixDict[k]
   if (row.infusate_id === null) {
     url = None
   } else {
-    url = "<a href=" + url_prefix + row.infusate_id  + ">"+ value + "</a>"
+    url = '<a href=' + urlPrefix + row.infusate_id + '>' + value + '</a>'
   }
-  return url 
+  return url
 }
 
-function treatmentFormatter (value, row) {
-  let k = "protocol_detail_url_prefix"
-  let url_prefix = url_prefix_dict[k]
-  return "<a href=" + url_prefix + row.treatment_id  + ">"+ value + "</a>"
+function treatmentFormatter (value, row) { // eslint-disable-line no-unused-vars
+  const k = 'protocol_detail_url_prefix'
+  let urlPrefix = urlPrefixDict[k]
+  return '<a href=' + urlPrefix + row.treatment_id + '>' + value + '</a>'
 }
 
-function msrunFormatter (value, row) {
-  let k = "msrunsample_detail_url_prefix"
-  let url_prefix = url_prefix_dict[k]
-  return "<a href=" + url_prefix + row.msrunsample_id  + ">"+ "MSRun Details" + "</a>"
+function msrunFormatter (value, row) { // eslint-disable-line no-unused-vars
+  const k = 'msrunsample_detail_url_prefix'
+  let urlPrefix = urlPrefixDict[k]
+  return '<a href=' + urlPrefix + row.msrunsample_id + '>' + 'MSRun Details' + '</a>'
 }
 
 // format url based on id_name_list, items are seperated by ||
-function format_url_for_id_name_list (value, url_prefix) {
-  let output_with_link = []
-  
+function format_url_for_id_name_list (value, urlPrefix) { // eslint-disable-line no-unused-vars
+  let outputWithLink = []
+
   for (let i = 0; i < value.length; i++) {
-    let obj_array = []
     // get id and name for each item
-    obj_id = value[i].split('||')[0];
-    obj_name = value[i].split('||')[1];
-    url = url_prefix + obj_id;
-    obj_with_link= "<a href=" + url + ">" + obj_name + "</a>";
-    output_with_link.push(obj_with_link);
+    let objId = value[i].split('||')[0]
+    let objName = value[i].split('||')[1]
+    url = urlPrefix + objId
+    objWithLink = '<a href=' + url + '>' + objName + '</a>'
+    outputWithLink.push(objWithLink)
     }
-    return output_with_link
+    return outputWithLink
 }
 
-function studyListFormatter (value, row) {
-  study_id_name_list = row.study_id_name_list
-  url_prefix = url_prefix_dict["study_detail_url_prefix"]
-  return format_url_for_id_name_list(study_id_name_list, url_prefix)
+function studyListFormatter (value, row) { // eslint-disable-line no-unused-vars
+  let studyList = row.study_id_name_list
+  let urlPrefix = urlPrefixDict['study_detail_url_prefix']
+  return format_url_for_id_name_list(studyList, urlPrefix)
 }
 
-function compoundListFormatter (value, row) {
-  compound_id_name_list = row.compound_id_name_list
-  url_prefix = url_prefix_dict["compound_detail_url_prefix"]
-  return format_url_for_id_name_list(compound_id_name_list, url_prefix)
+function compoundListFormatter (value, row) { // eslint-disable-line no-unused-vars
+  let compoundList = row.compound_id_name_list
+  let urlPrefix = urlPrefixDict['compound_detail_url_prefix']
+  return format_url_for_id_name_list(compoundList, urlPrefix)
 }
 
-function tracerListFormatter (value, row) {
-  tracer_id_name_list = row.tracer_id_name_list
-  url_prefix = url_prefix_dict["compound_detail_url_prefix"]
-  return format_url_for_id_name_list(tracer_id_name_list, url_prefix)
+function tracerListFormatter (value, row) { // eslint-disable-line no-unused-vars
+  let tracerList = row.tracer_id_name_list
+  let urlPrefix = urlPrefixDict['compound_detail_url_prefix']
+  return format_url_for_id_name_list(tracerList, urlPrefix)
 }
 
-function infusateListFormatter (value, row) {
-  infusate_id_name_list = row.infusate_id_name_list
-  url_prefix = url_prefix_dict["infusate_detail_url_prefix"]
-  return format_url_for_id_name_list(infusate_id_name_list, url_prefix)
+function infusateListFormatter (value, row) { // eslint-disable-line no-unused-vars
+  let infusateList = row.infusate_id_name_list
+  let urlPrefix = urlPrefixDict['infusate_detail_url_prefix']
+  return format_url_for_id_name_list(infusateList, urlPrefix)
 }
 
-function treatmentListFormatter (value, row) {
-  treatement_id_name_list = row.treatment_id_name_list
-  url_prefix = url_prefix_dict["treamnet_detail_url_prefix"]
-  return format_url_for_id_name_list(treatment_id_name_list, url_prefix)
+function treatmentListFormatter (value, row) { // eslint-disable-line no-unused-vars
+  let treatmentList = row.treatment_id_name_list
+  let urlPrefix = urlPrefixDict['treamnet_detail_url_prefix']
+  return format_url_for_id_name_list(treatmentList, urlPrefix)
 }

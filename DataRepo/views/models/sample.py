@@ -1,14 +1,12 @@
 import os
+
 import polars as pl
-
-from django.urls import reverse
 from django.http import JsonResponse
-
+from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import Sample
 from DataRepo.utils import SummaryTableData as std
-
 from TraceBase import settings
 
 
