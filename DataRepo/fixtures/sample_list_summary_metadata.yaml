@@ -1,0 +1,185 @@
+---
+# define all columns in the data source (e.g. dataframe) for displaying or downloading sample summary table
+- column_name: "sample"
+  is_web_display: True
+  display_name: "Sample"
+  linking_id_column: "sample_id"
+  description: >-
+    The name of a sample stored in Sample model in the database
+- column_name: "sample_id"
+  is_web_display: False
+  description: >-
+    The id of the sample in the database record
+- column_name: "animal"
+  is_web_display: True
+  display_name: "Animal"
+  linking_id_column: "animal_id"
+  description: >-
+    The name of the animal in the database record associated with the sample
+- column_name: "animal_id"
+  is_web_display: False
+  description: >-
+    The id of the animal in the database record associated with the sample
+- column_name: "tissue"
+  is_web_display: True
+  display_name: "Tissue"
+  linking_id_column: "tissue_id"
+  description: >-
+    The tissue type in the database record associated with the sample
+- column_name: "tissue_id"
+  is_web_display: False
+  description: >-
+    The id of the tissue type in the database record associated with the sample
+- column_name: "studies"
+  is_web_display: True
+  display_name: "Studies"
+  linking_id_column: "study_id_name_list"
+  description: >-
+    The list of unique study names in the database record(s) associated with the animal
+- column_name: "study_id_name_list"
+  is_web_display: False
+  description: >-
+    The list of unique study ids and names seperated by defined delimiter for the animal
+- column_name: "genotype"
+  is_web_display: True
+  display_name: "Genotype"
+  description: >-
+    The Genotype of the animal
+- column_name: "infusate_name"
+  is_web_display: True
+  display_name: "Infusate"
+  linking_id_column: "infusate_id"
+  description: >-
+    The name of the infusate in the database record associated with the animal
+- column_name: "infusate_id"
+  is_web_display: False
+  description: >-
+    The id of the infusate in the database record associated with the animal
+- column_name: "tracers"
+  is_web_display: True
+  display_name: "Tracer(s)"
+  linking_id_column: "tracer_id_name_list"
+  description: >-
+    The list of tracer names in the database record(s) associated with the infusate
+- column_name: "tracer_id_name_list"
+  is_web_display: False
+  description: >-
+    The list of unique tracer ids and names seperated by defined delimiter for the infusate
+- column_name: "compound_id_name_list"
+  is_web_display: False
+  description: >-
+    The list of unique compound ids and names seperated by defined delimiter for the infusate
+- column_name: "tracer_group_name"
+  is_web_display: False
+  description: >-
+    The short name for the group of tracers associated with the infusate
+- column_name: "concentrations"
+  is_web_display: True
+  display_name: "Tracer Concentration(s) (mM)"
+  description: >-
+    The list of tracer concentrations for the tracers associated with the infusate
+- column_name: "labeled_elements"
+  is_web_display: True
+  display_name: "Tracer Elements"
+  description: >-
+    The list of unique labeled elements seperated by defined delimiter for the infusate
+- column_name: "infusion_rate"
+  is_web_display: True
+  display_name: "Infusion Rate (ul/min/g)"
+  description: >-
+    The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal
+- column_name: "treatment"
+  is_web_display: True
+  display_name: "Treatment"
+  linking_id_column: "treatment_id"
+  description: >-
+    The name of the protocol of a database record in animal treatment category associated with the animal
+- column_name: "treatment_id"
+  is_web_display: False
+  description: >-
+    The id of the protocol of a database record in animal treatment category associated with the animal
+- column_name: "treatment_category"
+  is_web_display: False
+  description: >-
+    The category of the treatment associated with the animal
+- column_name: "body_weight"
+  is_web_display: True
+  display_name: "Body Weight (g)"
+  description: >-
+    The weight (in grams) of the animal
+- column_name: "age"
+  is_web_display: False
+  description: >-
+    The age of the animal with the value stored as duration
+- column_name: "age_in_weeks"
+  is_web_display: True
+  display_name: "Age (weeks)"
+  description: >-
+    The age of the animal with the value in week(s)
+- column_name: "sex"
+  is_web_display: True
+  display_name: "Sex"
+  description: >-
+      The sex of the animal
+- column_name: "diet"
+  is_web_display: True
+  display_name: "Diet"
+  description: >-
+    The feeding descriptor for the animal
+- column_name: "feeding_status"
+  is_web_display: True
+  display_name: "Feeding status"
+  description: >-
+    The laboratory coded dietary state for the animal
+- column_name: "sample_owner"
+  is_web_display: True
+  display_name: "Sample Owner"
+  description: >-
+    The name of the researcher who prepared the sample
+- column_name: "sample_date"
+  is_web_display: False
+  description: >-
+    The date the sample was collected in iso date format
+- column_name: "sample_date_formatted"
+  is_web_display: True
+  display_name: "Sample Date"
+  description: >-
+    The date the sample was collected in yyyy-mm-dd format
+- column_name: "sample_time_collected"
+  is_web_display: True
+  display_name: "Time Collected"
+  description: >-
+    The time the sample was collected, with unit in nanoseconds
+- column_name: "sample_time_collected_m"
+  is_web_display: True
+  display_name: "Time Collected (m)"
+  description: >-
+    The time the sample was collected with unit in minutes
+- column_name: "msrunsample_id"
+  is_web_display: True
+  display_name: "MSRunSample Detail"
+  description: >-
+    The id of a database record in MSRunSample model
+- column_name: "msrunsample_owner"
+  is_web_display: True
+  display_name: "MSRun Owner"
+  description: >-
+    The name of the researcher who ran the mass spectrometer
+- column_name: "msrunsample_date"
+  is_web_display: False
+  description: >-
+    The date that the mass spectrometer was run, in iso date format
+- column_name: "msrunsample_date_formatted"
+  is_web_display: True
+  display_name: "MSRun Date"
+  description: >-
+    The date that the mass spectrometer was run in yyyy-mm-dd format
+- column_name: "lc_method_id"
+  is_web_display: False
+  description: >-
+    The id of a database record in LCMethod associated with the MSRun for the sample
+- column_name: "lc_method"
+  is_web_display: False
+  description: >-
+    The name of a database record in LCMethod associated with the MSRun for the sample
+...

@@ -20,6 +20,7 @@ from .models import (
     ProtocolDetailView,
     SampleDetailView,
     SampleListView,
+    sample_json_data,
     StudyDetailView,
     StudyListView,
     TissueDetailView,
@@ -63,6 +64,7 @@ __all__ = [
     "TissueDetailView",
     "SampleListView",
     "SampleDetailView",
+    "sample_json_data"
     "MSRunSampleDetailView",
     "MSRunSampleListView",
     "MSRunSequenceDetailView",
