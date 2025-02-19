@@ -4,7 +4,10 @@
 {% if is_bst_paginated %}
     {{ not_exported|json_script:"not_exported" }}
     {{ warnings|json_script:"warnings" }}
+    {{ filter_select_lists|json_script:"filter_select_lists" }}
     <script>
+        const filterSelectOptions = {};
+
         function getViewCookie(name, defval) {
             return getCookie('{{ cookie_prefix }}' + name, defval)
         }
@@ -191,6 +194,9 @@
 
             const notExportedElem = document.getElementById("not_exported");
             const notExported = JSON.parse(notExportedElem.textContent);
+
+            let filterSelectOptionsElem = document.getElementById("filter_select_lists");
+            globalThis.filterSelectOptions = JSON.parse(filterSelectOptionsElem.textContent);
 
             const warningsElem = document.getElementById("warnings");
             const warnings = JSON.parse(warningsElem.textContent);

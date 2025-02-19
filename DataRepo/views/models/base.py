@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, List, Optional, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
@@ -40,12 +40,12 @@ class BootstrapTableColumn:
         searchable
     """
 
-    FILTER_CONTROL_CHOICES = [
-        "input",  # default
-        "select",
-        "datepicker",
-        "",  # disabled
-    ]
+    FILTER_CONTROL_CHOICES = {
+        "INPUT": "input",  # default
+        "SELECT": "select",
+        "DATEPICKER": "datepicker",
+        "DISABLED": "",
+    }
     SORTER_CHOICES = [
         "alphanum",  # default
         "numericOnly",
@@ -62,6 +62,8 @@ class BootstrapTableColumn:
         exported: bool = True,
         searchable: Optional[bool] = None,  # Default set in-line
         filter_control: Optional[str] = None,  # Default set in-line
+        select_options: Optional[Union[Dict[str, str], List[str]]] = None,
+        strict_select: Optional[bool] = None,
         sortable: bool = True,
         sorter: Optional[str] = None,
         visible: bool = True,
@@ -113,6 +115,10 @@ class BootstrapTableColumn:
                 None.  It is set to False is filter_control is None.
             filter_control (Optional[str]) ["input"]: Set to None to disable.  Must be in FILTER_CONTROL_CHOICES.
                 This cannot be None if searchable is True.
+            select_options (Optional[Union[Dict[str, str], List[str]]]): A dict or a list of select list options when
+                filter_control is "select".  Supplying this argument will default filter_control to "select".
+            strict_select (Optional[bool]): Ignored if select_options is not defined.  This apps an entire table
+                attribute 'data-filter-strict-search' to the the filter_data context variable.
             sortable (bool) [True]
             sorter (Optional[str]) ["alphanum"]: Must be in SORTER_CHOICES.
             visible (bool) [True]: Controls whether a column is initially visible.
@@ -156,15 +162,26 @@ class BootstrapTableColumn:
         self.is_annotation = converter is not None or isinstance(self.field, list) or many_related
         self.exported = exported
 
+        if select_options is None:
+            default_filter_control = self.FILTER_CONTROL_CHOICES["INPUT"]
+            self.select_options = None
+        else:
+            default_filter_control = self.FILTER_CONTROL_CHOICES["SELECT"]
+            if isinstance(select_options, dict):
+                self.select_options = select_options
+            else:
+                self.select_options = dict((opt, opt) for opt in select_options)
+        self.strict_select = strict_select
+
         if filter_control is None:
             if searchable is None or searchable is True:
                 # Full default settings
-                self.filter_control = self.FILTER_CONTROL_CHOICES[0]
+                self.filter_control = default_filter_control
                 self.searchable = True
             else:
                 self.searchable = False
                 self.filter_control = ""
-        elif filter_control in self.FILTER_CONTROL_CHOICES:
+        elif filter_control in self.FILTER_CONTROL_CHOICES.values():
             self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
             tmp_searchable = filter_control is not None and filter_control != ""
             if searchable is None:
@@ -178,7 +195,7 @@ class BootstrapTableColumn:
         else:
             raise ValueError(
                 f"Invalid filter_control value: '{filter_control}'.  "
-                f"Valid choices are: {self.FILTER_CONTROL_CHOICES}."
+                f"Valid choices are: {list(self.FILTER_CONTROL_CHOICES.values())}."
             )
 
         self.sortable = "true" if sortable else "false"
@@ -552,6 +569,7 @@ class BootstrapTableListView(ListView):
         # 3. Set the BST column attribute context values to use in the th tag attributes
 
         context["not_exported"] = []
+        context["filter_select_lists"] = {}
 
         column: BootstrapTableColumn
         for column in self.columns:
@@ -562,10 +580,26 @@ class BootstrapTableListView(ListView):
             else:
                 filter_term = ""
 
+            # 'filterSelectOptions' is a javascript object created from filter_select_lists defined below, in the
+            # javascript of the pagination.html template.  Having the data-filter-data attribute present (even if it's
+            # an empty string) makes bootstrap-table throw an error when the filter-control is not "select", so we
+            # include the entire attribute definition.  You must not provide "data-filter-data='...'" in the template.
+            # Instead, just put this entire context variable (using the safe filter, e.g. '{{
+            # column_name.filter_data_attr|safe }}') and the attribute will be filled in if necessary.
+            if column.filter_control != column.FILTER_CONTROL_CHOICES["SELECT"]:
+                data_filter_attrs_str = ""
+            else:
+                data_filter_attrs_str = f'data-filter-data="obj:filterSelectOptions.{column.name}"'
+                if column.many_related:
+                    data_filter_attrs_str += ' data-filter-strict-search="false"'
+                elif column.strict_select is not None:
+                    data_filter_attrs_str += f' data-filter-strict-search="{str(column.strict_select).lower()}"'
+
             context[column.name] = {
                 "name": column.name,
                 "filter": filter_term,
                 "filter_control": column.filter_control,
+                "filter_data_attr": data_filter_attrs_str,
                 "sortable": column.sortable,
                 "sorter": column.sorter,
                 "visible": self.get_column_cookie(column, "visible", column.visible),
@@ -573,6 +607,8 @@ class BootstrapTableListView(ListView):
             }
             if not column.exported:
                 context["not_exported"].append(column.name)
+            if column.select_options is not None:
+                context["filter_select_lists"][column.name] = column.select_options
 
         # 4. Handle pagination rendering and the initialization of the table pagination code
 

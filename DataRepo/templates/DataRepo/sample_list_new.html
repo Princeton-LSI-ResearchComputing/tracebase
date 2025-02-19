@@ -12,7 +12,7 @@
         Set dicts for the values to javascript variables, e.g.:
             {{ sex|json_script:"sex" }}
         Set a data filter variable in the th tags
-            data-filter-data="var:filterDefaults"
+            var:filterDefaults"
         See: https://stackoverflow.com/a/35091749
     {% endcomment %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
@@ -41,6 +41,7 @@
                 <th data-field="{{ name.name }}"
                     data-valign="top"
                     data-filter-control="{{ name.filter_control }}"
+                    {{ name.filter_data_attr|safe }}
                     data-filter-default="{{ name.filter }}"
                     data-sortable="{{ name.sortable }}"
                     data-sorter="{{ name.sorter }}"
@@ -48,6 +49,7 @@
                 <th data-field="{{ animal__name.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__name.filter_control }}"
+                    {{ animal__name.filter_data_attr|safe }}
                     data-filter-default="{{ animal__name.filter }}"
                     data-sortable="{{ animal__name.sortable }}"
                     data-sorter="{{ animal__name.sorter }}"
@@ -55,6 +57,7 @@
                 <th data-field="{{ tissue__name.name }}"
                     data-valign="top"
                     data-filter-control="{{ tissue__name.filter_control }}"
+                    {{ tissue__name.filter_data_attr|safe }}
                     data-filter-default="{{ tissue__name.filter }}"
                     data-sortable="{{ tissue__name.sortable }}"
                     data-sorter="{{ tissue__name.sorter }}"
@@ -62,6 +65,7 @@
                 <th data-field="{{ first_study.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_study.filter_control }}"
+                    {{ first_study.filter_data_attr|safe }}
                     data-filter-default="{{ first_study.filter }}"
                     data-sortable="{{ first_study.sortable }}"
                     data-sorter="{{ first_study.sorter }}"
@@ -69,6 +73,7 @@
                 <th data-field="{{ animal__genotype.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__genotype.filter_control }}"
+                    {{ animal__genotype.filter_data_attr|safe }}
                     data-filter-default="{{ animal__genotype.filter }}"
                     data-sortable="{{ animal__genotype.sortable }}"
                     data-sorter="{{ animal__genotype.sorter }}"
@@ -76,6 +81,7 @@
                 <th data-field="{{ animal__infusate__name.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__infusate__name.filter_control }}"
+                    {{ animal__infusate__name.filter_data_attr|safe }}
                     data-filter-default="{{ animal__infusate__name.filter }}"
                     data-sortable="{{ animal__infusate__name.sortable }}"
                     data-sorter="{{ animal__infusate__name.sorter }}"
@@ -83,6 +89,7 @@
                 <th data-field="{{ first_tracer.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_tracer.filter_control }}"
+                    {{ first_tracer.filter_data_attr|safe }}
                     data-filter-default="{{ first_tracer.filter }}"
                     data-sortable="{{ first_tracer.sortable }}"
                     data-sorter="{{ first_tracer.sorter }}"
@@ -90,6 +97,7 @@
                 <th data-field="{{ first_tracer_conc.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_tracer_conc.filter_control }}"
+                    {{ first_tracer_conc.filter_data_attr|safe }}
                     data-filter-default="{{ first_tracer_conc.filter }}"
                     data-sortable="{{ first_tracer_conc.sortable }}"
                     data-sorter="{{ first_tracer_conc.sorter }}"
@@ -97,6 +105,7 @@
                 <th data-field="{{ first_label.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_label.filter_control }}"
+                    {{ first_label.filter_data_attr|safe }}
                     data-filter-default="{{ first_label.filter }}"
                     data-sortable="{{ first_label.sortable }}"
                     data-sorter="{{ first_label.sorter }}"
@@ -104,6 +113,7 @@
                 <th data-field="{{ animal__infusion_rate.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__infusion_rate.filter_control }}"
+                    {{ animal__infusion_rate.filter_data_attr|safe }}
                     data-filter-default="{{ animal__infusion_rate.filter }}"
                     data-sortable="{{ animal__infusion_rate.sortable }}"
                     data-sorter="{{ animal__infusion_rate.sorter }}"
@@ -111,6 +121,7 @@
                 <th data-field="{{ animal__treatment__name.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__treatment__name.filter_control }}"
+                    {{ animal__treatment__name.filter_data_attr|safe }}
                     data-filter-default="{{ animal__treatment__name.filter }}"
                     data-sortable="{{ animal__treatment__name.sortable }}"
                     data-sorter="{{ animal__treatment__name.sorter }}"
@@ -118,6 +129,7 @@
                 <th data-field="{{ animal__body_weight.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__body_weight.filter_control }}"
+                    {{ animal__body_weight.filter_data_attr|safe }}
                     data-filter-default="{{ animal__body_weight.filter }}"
                     data-sortable="{{ animal__body_weight.sortable }}"
                     data-sorter="{{ animal__body_weight.sorter }}"
@@ -125,6 +137,7 @@
                 <th data-field="{{ age_weeks_str.name }}"
                     data-valign="top"
                     data-filter-control="{{ age_weeks_str.filter_control }}"
+                    {{ age_weeks_str.filter_data_attr|safe }}
                     data-filter-default="{{ age_weeks_str.filter }}"
                     data-sortable="{{ age_weeks_str.sortable }}"
                     data-sorter="{{ age_weeks_str.sorter }}"
@@ -132,6 +145,7 @@
                 <th data-field="{{ animal__sex.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__sex.filter_control }}"
+                    {{ animal__sex.filter_data_attr|safe }}
                     data-filter-default="{{ animal__sex.filter }}"
                     data-sortable="{{ animal__sex.sortable }}"
                     data-sorter="{{ animal__sex.sorter }}"
@@ -139,6 +153,7 @@
                 <th data-field="{{ animal__diet.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__diet.filter_control }}"
+                    {{ animal__diet.filter_data_attr|safe }}
                     data-filter-default="{{ animal__diet.filter }}"
                     data-sortable="{{ animal__diet.sortable }}"
                     data-sorter="{{ animal__diet.sorter }}"
@@ -146,6 +161,7 @@
                 <th data-field="{{ animal__feeding_status.name }}"
                     data-valign="top"
                     data-filter-control="{{ animal__feeding_status.filter_control }}"
+                    {{ animal__feeding_status.filter_data_attr|safe }}
                     data-filter-default="{{ animal__feeding_status.filter }}"
                     data-sortable="{{ animal__feeding_status.sortable }}"
                     data-sorter="{{ animal__feeding_status.sorter }}"
@@ -153,6 +169,7 @@
                 <th data-field="{{ researcher.name }}"
                     data-valign="top"
                     data-filter-control="{{ researcher.filter_control }}"
+                    {{ researcher.filter_data_attr|safe }}
                     data-filter-default="{{ researcher.filter }}"
                     data-sortable="{{ researcher.sortable }}"
                     data-sorter="{{ researcher.sorter }}"
@@ -160,6 +177,7 @@
                 <th data-field="{{ col_date_str.name }}"
                     data-valign="top"
                     data-filter-control="{{ col_date_str.filter_control }}"
+                    {{ col_date_str.filter_data_attr|safe }}
                     data-filter-default="{{ col_date_str.filter }}"
                     data-sortable="{{ col_date_str.sortable }}"
                     data-sorter="{{ col_date_str.sorter }}"
@@ -167,6 +185,7 @@
                 <th data-field="{{ col_time_str.name }}"
                     data-valign="top"
                     data-filter-control="{{ col_time_str.filter_control }}"
+                    {{ col_time_str.filter_data_attr|safe }}
                     data-filter-default="{{ col_time_str.filter }}"
                     data-sortable="{{ col_time_str.sortable }}"
                     data-sorter="{{ col_time_str.sorter }}"
@@ -174,6 +193,7 @@
                 <th data-field="{{ first_ms_operator.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_ms_operator.filter_control }}"
+                    {{ first_ms_operator.filter_data_attr|safe }}
                     data-filter-default="{{ first_ms_operator.filter }}"
                     data-sortable="{{ first_ms_operator.sortable }}"
                     data-sorter="{{ first_ms_operator.sorter }}"
@@ -181,6 +201,7 @@
                 <th data-field="{{ first_ms_date.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_ms_date.filter_control }}"
+                    {{ first_ms_date.filter_data_attr|safe }}
                     data-filter-default="{{ first_ms_date.filter }}"
                     data-sortable="{{ first_ms_date.sortable }}"
                     data-sorter="{{ first_ms_date.sorter }}"
@@ -188,6 +209,7 @@
                 <th data-field="{{ first_ms_sample.name }}"
                     data-valign="top"
                     data-filter-control="{{ first_ms_sample.filter_control }}"
+                    {{ first_ms_sample.filter_data_attr|safe }}
                     data-filter-default="{{ first_ms_sample.filter }}"
                     data-sortable="{{ first_ms_sample.sortable }}"
                     data-sorter="{{ first_ms_sample.sorter }}"
