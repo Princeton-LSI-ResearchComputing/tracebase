@@ -323,13 +323,13 @@
                         {% endif %}
                     </td>
                     <td>{{ sample.animal.body_weight }}</td>
-                    <td>{{ sample.age_weeks_str }}</td>
+                    <td>{{ sample.age_weeks_str|default_if_none:'' }}</td>
                     <td>{{ sample.animal.sex }}</td>
                     <td>{{ sample.animal.diet }}</td>
                     <td>{{ sample.animal.feeding_status }}</td>
                     <td>{{ sample.researcher }}</td>
-                    <td>{{ sample.col_date_str|default:'' }}</td>
-                    <td>{{ sample.col_time_str|default:'' }}</td>
+                    <td>{{ sample.col_date_str|default_if_none:'' }}</td>
+                    <td>{{ sample.col_time_str|default_if_none:'' }}</td>
                     <td>
                         {# Hidden value for sorting #}
                         <span style="display:none">{{ sample.first_ms_operator }}</span>
