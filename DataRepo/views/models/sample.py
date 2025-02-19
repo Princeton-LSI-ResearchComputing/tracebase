@@ -55,7 +55,7 @@ class BSTSampleListView(BootstrapTableListView):
             BootstrapTableColumn(
                 "age_weeks_str",
                 field="animal__age",
-                converter=Extract(F("animal__age"), "day") / Value(7),
+                converter=Extract(F("animal__age"), "epoch") / Value(604800),
                 visible=False,
             ),
             BootstrapTableColumn("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES]),
@@ -77,7 +77,7 @@ class BSTSampleListView(BootstrapTableListView):
                     function=self.DBSTRING_FUNCTION,
                 ),
             ),
-            BootstrapTableColumn("col_time_str", field="time_collected", converter=Extract(F("time_collected"), "minute")),
+            BootstrapTableColumn("col_time_str", field="time_collected", converter=Extract(F("time_collected"), "epoch") / Value(60)),
             BootstrapTableColumn(
                 "sequence_count",
                 many_related=True,
