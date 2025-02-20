@@ -27,7 +27,7 @@
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
-        data-show-export="true">
+        data-show-export="false">
         <thead>
             <tr>
                 <th data-field="{{ filename.name }}"
@@ -95,24 +95,21 @@
                         {% if archive_file.study_count|gt:1 %}
                             {# Collect all the studies (when there's more than 1) #}
                             {% with studies=""|make_list %}
-                                {# This assumes that all the peak groups that link to this peak annotation ArchiveFile record link to the same MSRunSample/Sample/Animal #}
-                                {% if archive_file.peak_groups.first %}
+                                {# This assumes that all the peak groups or msrunsample records that link to this peak annotation ArchiveFile record link to the same Animal, and hence, studies #}
+                                {% if archive_file.data_format.code == "mzxml" %}
+                                    {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
+                                        {% append_unique studies study %}
+                                    {% endfor %}
+                                {% elif archive_file.data_format.code == "ms_raw" %}
+                                    {% for study in archive_file.raw_to_msrunsamples.first.sample.animal.studies.all %}
+                                        {% append_unique studies study %}
+                                    {% endfor %}
+                                {% elif archive_file.data_type.code == "ms_peak_annotation" %}
                                     {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
                                         {% append_unique studies study %}
                                     {% endfor %}
                                 {% endif %}
-                                {# This assumes that all the peak groups that link to this MS mz ArchiveFile record link to the same Sample/Animal #}
-                                {% if archive_file.mz_to_msrunsamples.first %}
-                                    {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
-                                        {% append_unique studies study %}
-                                    {% endfor %}
-                                {% endif %}
-                                {# This assumes that all the peak groups that link to this MS raw ArchiveFile record link to the same Sample/Animal #}
-                                {% if archive_file.raw_to_msrunsamples.first %}
-                                    {% for study in archive_file.raw_to_msrunsamples.first.sample.animal.studies.all %}
-                                        {% append_unique studies study %}
-                                    {% endfor %}
-                                {% endif %}
+
                                 {% if order_dir|lower == "asc" %}
                                     {% for study in studies|dictsort:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
