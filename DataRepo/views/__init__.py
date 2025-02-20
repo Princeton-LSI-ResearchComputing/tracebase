@@ -20,11 +20,11 @@ from .models import (
     ProtocolDetailView,
     SampleDetailView,
     SampleListView,
-    sample_json_data,
     StudyDetailView,
     StudyListView,
     TissueDetailView,
     TissueListView,
+    sample_json_data,
     study_summary,
 )
 from .nav import home
