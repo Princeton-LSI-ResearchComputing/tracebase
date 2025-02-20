@@ -343,6 +343,12 @@ def append_unique(lst: list, val):
     return ""
 
 
+@register.simple_tag
+def append(lst: list, val):
+    lst.append(val)
+    return ""
+
+
 @register.filter
 def duration_iso_to_mins(value):
     if value is None:

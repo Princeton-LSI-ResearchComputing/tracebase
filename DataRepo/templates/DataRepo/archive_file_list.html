@@ -98,24 +98,24 @@
                                 {# This assumes that all the peak groups or msrunsample records that link to this peak annotation ArchiveFile record link to the same Animal, and hence, studies #}
                                 {% if archive_file.data_format.code == "mzxml" %}
                                     {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
-                                        {% append_unique studies study %}
+                                        {% append studies study %}
                                     {% endfor %}
                                 {% elif archive_file.data_format.code == "ms_raw" %}
                                     {% for study in archive_file.raw_to_msrunsamples.first.sample.animal.studies.all %}
-                                        {% append_unique studies study %}
+                                        {% append studies study %}
                                     {% endfor %}
                                 {% elif archive_file.data_type.code == "ms_peak_annotation" %}
                                     {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
-                                        {% append_unique studies study %}
+                                        {% append studies study %}
                                     {% endfor %}
                                 {% endif %}
 
-                                {% if order_dir|lower == "asc" %}
-                                    {% for study in studies|dictsort:"name" %}
+                                {% if order_dir|lower == "desc" %}
+                                    {% for study in studies|dictsortreversed:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% else %}
-                                    {% for study in studies|dictsortreversed:"name" %}
+                                    {% for study in studies|dictsort:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% endif %}
