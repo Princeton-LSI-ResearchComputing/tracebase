@@ -233,18 +233,11 @@
                         let oldTermDefined = typeof oldTerm !== "undefined" && oldTerm;
                         let newTermDefined = typeof searchTerm !== "undefined" && searchTerm;
                         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-                        //     alert("Column " + columnName + " search: '" + searchTerm + "'");
                             setViewColumnCookie(columnName, 'filter', searchTerm);
                             // No need to hit the server if we're displaying all results. Just let BST do it.
                             if (({{ limit }} > 0 && {{ limit }} < {{ total }}) || {{ total }} < {{ raw_total }}) {
-                        //         alert("Refreshing page because this is true: (({{ limit }} > 0 && {{ limit }} < {{ total }}) || {{ total }} < {{ raw_total }})");
                                 updatePage(1);
-                        //     } else {
-                        //         alert("Not refreshing page because this is false: (({{ limit }} > 0 && {{ limit }} < {{ total }}) || {{ total }} < {{ raw_total }})");
                             }
-                        // } else if (oldTerm !== '' || searchTerm !== '') {
-                        //     alert("Not refreshing page because this is false: (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)): " +
-                        //     "('" + oldTermDefined + "' !== '" + newTermDefined + "' || ('" + oldTermDefined + "' && '" + newTermDefined + "' && '" + oldTerm + "' !== '" + searchTerm + "'))");
                         }
                     }
                 },

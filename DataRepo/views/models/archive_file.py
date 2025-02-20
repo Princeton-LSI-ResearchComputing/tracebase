@@ -3,7 +3,7 @@ from django.db.models.functions import Coalesce, NullIf
 from django.views.generic import DetailView
 
 from DataRepo.models import ArchiveFile, DataFormat, DataType
-from DataRepo.views.models.base import BootstrapTableColumn as Column
+from DataRepo.views.models.base import BootstrapTableColumn as BSTColumn
 from DataRepo.views.models.base import BootstrapTableListView as BSTListView
 
 
@@ -27,12 +27,12 @@ class ArchiveFileListView(BSTListView):
         self.columns = [
             # The first arg in each case is the template table's column name, which is expected to be the data-field
             # value in the bootstrap table's th tag.
-            Column(
+            BSTColumn(
                 "filename",
                 sorter="htmlSorter",
             ),
 
-            Column(
+            BSTColumn(
                 # The column name in this case is an annotated field.  An annotated field is used in this case so that a
                 # BST substring search can find matching values in the DB.
                 "imported_timestamp_str",
@@ -51,17 +51,17 @@ class ArchiveFileListView(BSTListView):
 
             # The name in the following 2 cases are a related field, but it's 1:1.  The field is automatically set to
             # the name's value.
-            Column(
+            BSTColumn(
                 "data_format__name",
                 select_options=DataFormat.objects.order_by("name").distinct("name").values_list("name", flat=True),
             ),
-            Column(
+            BSTColumn(
                 "data_type__name",
                 visible=False,  # Initial visibility
                 select_options=DataType.objects.order_by("name").distinct("name").values_list("name", flat=True),
             ),
 
-            Column(
+            BSTColumn(
                 # The column name in this case is another annotated field, but this annotation is automatically created
                 # due to the fact that the field is a list.  There are 3 links to ArchiveFile from different models.
                 # For any one of these 3 links, we know that only 1 will have a value because each links to a different
@@ -81,7 +81,7 @@ class ArchiveFileListView(BSTListView):
                 ],
             ),
 
-            Column(
+            BSTColumn(
                 # The above first_study results in Study names.  This first_study_id complements that so that we can
                 # decorate links made from the study ID with the study name.  NOTE: Only use this to create links when
                 # there is only 1 linked study, because both values are independently sorted, and if there are multiple
@@ -101,7 +101,7 @@ class ArchiveFileListView(BSTListView):
                 ],
             ),
 
-            Column(
+            BSTColumn(
                 # This is an annotation that is not rendered in a column in the template, but is used to increase
                 # template rendering performance.
                 "study_count",
@@ -130,17 +130,17 @@ class ArchiveFileListView(BSTListView):
                 ],
             ),
 
-            Column(
+            BSTColumn(
                 "peak_groups",
                 sortable=False,
                 filter_control=None,
             ),
 
-            Column(
+            BSTColumn(
                 "peak_data",
                 sortable=False,
                 filter_control=None,
             ),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
-        super().__init__()
+        super().__init__(*args, **kwargs)

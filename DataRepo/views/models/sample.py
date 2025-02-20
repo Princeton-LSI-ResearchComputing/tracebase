@@ -3,7 +3,7 @@ from django.db.models.functions import Extract
 from django.views.generic import DetailView
 
 from DataRepo.models import Sample, Animal, ElementLabel, Researcher
-from DataRepo.views.models.base import BootstrapTableColumn as Column
+from DataRepo.views.models.base import BootstrapTableColumn as BSTColumn
 from DataRepo.views.models.base import BootstrapTableListView as BSTListView
 
 
@@ -23,19 +23,19 @@ class SampleListView(BSTListView):
     DBSTRING_FUNCTION = "to_char"  # Postgres function
     DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """Only creating this method to keep database calls out of the class attribute area (for populating the
-        select_options values).  Otherwise, columns can be defined as a class attribute."""
+        select_options values).  Otherwise, BSTColumns can be defined as a class attribute."""
 
         researchers = Researcher.get_researchers()
 
         self.columns = [
-            Column("name"),
-            Column("animal__name"),
-            Column("tissue__name"),
-            Column("first_study", many_related=True, field="animal__studies__name"),
-            Column("first_study_id", many_related=True, searchable=False, field="animal__studies"),
-            Column(
+            BSTColumn("name"),
+            BSTColumn("animal__name"),
+            BSTColumn("tissue__name"),
+            BSTColumn("first_study", many_related=True, field="animal__studies__name"),
+            BSTColumn("first_study_id", many_related=True, searchable=False, field="animal__studies"),
+            BSTColumn(
                 "animal__genotype",
                 select_options=(
                     Animal.objects
@@ -44,28 +44,28 @@ class SampleListView(BSTListView):
                     .values_list("genotype", flat=True)
                 ),
             ),
-            Column("animal__infusate__name"),
-            Column("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
-            Column("first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound"),
-            Column("first_tracer_conc", many_related=True, field="animal__infusate__tracer_links__concentration"),
-            Column(
+            BSTColumn("animal__infusate__name"),
+            BSTColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
+            BSTColumn("first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound"),
+            BSTColumn("first_tracer_conc", many_related=True, field="animal__infusate__tracer_links__concentration"),
+            BSTColumn(
                 "first_label",
                 many_related=True,
                 field="animal__labels__element",
                 select_options=[e[0] for e in ElementLabel.LABELED_ELEMENT_CHOICES],
             ),
-            Column("animal__infusion_rate"),
-            Column("animal__treatment__name"),
-            Column("animal__body_weight", visible=False),
-            Column(
+            BSTColumn("animal__infusion_rate"),
+            BSTColumn("animal__treatment__name"),
+            BSTColumn("animal__body_weight", visible=False),
+            BSTColumn(
                 "age_weeks_str",
                 field="animal__age",
                 converter=Extract(F("animal__age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
                 visible=False,
             ),
-            Column("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES]),
-            Column("animal__diet", visible=False),
-            Column(
+            BSTColumn("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES]),
+            BSTColumn("animal__diet", visible=False),
+            BSTColumn(
                 "animal__feeding_status",
                 select_options=(
                     Animal.objects
@@ -74,8 +74,8 @@ class SampleListView(BSTListView):
                     .values_list("feeding_status", flat=True)
                 ),
             ),
-            Column("researcher", select_options=researchers),  # handler
-            Column(
+            BSTColumn("researcher", select_options=researchers),  # handler
+            BSTColumn(
                 "col_date_str",
                 field="date",
                 converter=Func(
@@ -85,25 +85,25 @@ class SampleListView(BSTListView):
                     function=self.DBSTRING_FUNCTION,
                 ),
             ),
-            Column(
+            BSTColumn(
                 "col_time_str",
                 field="time_collected",
                 converter=Extract(F("time_collected"), self.DURATION_SECONDS_ATTRIBUTE) / Value(60),
             ),
-            Column(
+            BSTColumn(
                 "sequence_count",
                 many_related=True,
                 searchable=False,
                 converter=Count("msrun_samples__msrun_sequence", distinct=True),
                 field="msrun_samples__msrun_sequence",
             ),
-            Column(
+            BSTColumn(
                 "first_ms_operator",
                 many_related=True,
                 field="msrun_samples__msrun_sequence__researcher",
                 select_options=researchers,
             ),
-            Column(
+            BSTColumn(
                 "first_ms_date",
                 many_related=True,
                 converter=Func(
@@ -114,14 +114,14 @@ class SampleListView(BSTListView):
                 ),
                 field="msrun_samples__msrun_sequence__date",
             ),
-            Column("first_ms_sample", many_related=True, field="msrun_samples", searchable=False, sortable=False),
+            BSTColumn("first_ms_sample", many_related=True, field="msrun_samples", searchable=False, sortable=False),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
-        super().__init__()
+        super().__init__(*args, **kwargs)
 
     def get_context_data(self, **kwargs):
         """Add the MSRunSequence date format string to the context.  This is uniquely needed in the template due to the
-        fact that MSRunSequence has a many-to-one relationship with a sample, thus to render them all in a column in one
+        fact that MSRunSequence has a many-to-one relationship with a sample, thus to render them all in a BSTColumn in one
         row, we have to loop on actual database objects that do not have the annotated first_ms_date string"""
         context = super().get_context_data(**kwargs)
         context["date_format"] = self.TEMPLATE_DATE_FORMAT
