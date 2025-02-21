@@ -31,6 +31,51 @@ class GracefulPaginator(Paginator):
 class BootstrapTableColumn:
     """Class to represent the interface between a bootstrap column and a Model field.
 
+    Usage: Use this class to populate the BootstrapTableListView.columns list, like this:
+
+        self.columns = [
+            BSTColumn("filename"),
+            BSTColumn("imported_timestamp"),
+            BSTColumn("data_format__name"),
+            BSTColumn("data_type__name"),
+        ]
+
+    Use django "field paths" relative to the base model, or model annotation names for the name arguments to the
+    constructor, as BootstrapTableListView uses these for server-side pagination, filtering, and sorting.
+
+    Alter whatever settings you want in the constructor calls.  In the BootstrapTableListView's template, all you have
+    to do to render the th tag for each column is just use the name:
+
+        {{ filename }}
+        {{ imported_timestamp }}
+        {{ data_format__name }}
+        {{ data_type__name }}
+
+    It will render the column headers (by default) using a title version of the last 2 values in django's dunderscore-
+    delimited field path.  For example, the header generated from the above objects would be:
+
+        Filename
+        Imported Timestamp
+        Data Format Name
+        Data Type Name
+
+    It's also important to note that in order for BootstrapTableListView's search and sort to work as expected, each
+    column should be converted to a simple string or number annotation that is compatible with django's annotate method.
+    For example, as a DateTimeField, imported_timestamp, will sort correctly on the server side, but Bootstrap Table
+    will sort the page's worth of results using alphanumeric sorting.  You can make the sorting behavior consistent by
+    supplying a function using the converter argument, like this:
+
+        BSTColumn(
+            "imported_timestamp_str",
+            field="imported_timestamp",
+            converter=Func(
+                F("imported_timestamp"),
+                Value("YYYY-MM-DD HH:MI a.m."),
+                output_field=CharField(),
+                function="to_char",
+            ),
+        )
+
     Instance Attributes:
         name
         converter
