@@ -101,18 +101,11 @@ class BSTHeader(Widget):
     template_name = "DataRepo/widgets/bstlistview_th.html"
 
     def get_context(self, name, column, attrs=None):
-        context = super().get_context(name, None, None)
-        column_attrs = attrs or {}
-        context["column"] = {
-            "name": column.name,
-            "filter_control": column.filter_control,
-            "sortable": column.sortable,
-            "sorter": column.sorter,
-            "visible": column_attrs.get("visible") or column.visible,
-            "filter": column_attrs.get("filter") or column.filter,
-            "FILTER_CONTROL_CHOICES": column.FILTER_CONTROL_CHOICES,
-            "many_related": column.many_related,
-            "strict_select": column.strict_select,
-            "header": column.header,
-        }
+        # Called via DataRepo.views.models.base.BootstrapTableColumn.as_widget(), which passes 'self' as the 'column'
+        # argument, but it's also called from Django internals where this 'column' argument is referred to as 'value',
+        # so all this is doing is it's taking that value and putting it in a contect variable named "column" for
+        # convenience and readability in the template.  I could pass along that 'value' in the super call, in which
+        # case, you could access it in the template as 'widget.value'.
+        context = super().get_context(name, None, attrs)
+        context["column"] = column
         return context
