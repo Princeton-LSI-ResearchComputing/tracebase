@@ -144,9 +144,12 @@
                                     {% endfor %}
                                 {% endif %}
                             </td>
-                        {% else %}
+                        {% elif sample.animal.infusate %}  {# There is a single tracer infusate #}
                             <td><div class="nobr"><a href="{% url 'compound_detail' sample.first_tracer_compound_id %}">{{ sample.first_tracer }}</a></div></td>
                             <td><span title="{{ sample.first_tracer_conc }}">{{ sample.first_tracer_conc|sigdig:4 }}</span></td>
+                        {% else %}
+                            <td><span title="No tracers associated with the animal" class="text-muted">None</span></td>
+                            <td><span title="No tracers associated with the animal" class="text-muted">None</span></td>
                         {% endif %}
                     {% endwith %}
                     <td>

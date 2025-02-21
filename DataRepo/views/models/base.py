@@ -1,9 +1,11 @@
+from __future__ import annotations
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db.models import F, Max, Min, Q, QuerySet
 from django.db.models.functions import Coalesce
+from django.utils.functional import classproperty
 from django.views.generic import ListView
 
 from DataRepo.models import ArchiveFile
@@ -29,16 +31,22 @@ class GracefulPaginator(Paginator):
 class BootstrapTableColumn:
     """Class to represent the interface between a bootstrap column and a Model field.
 
-    Attributes:
+    Instance Attributes:
         name
-        field
         converter
         exported
+        field
+        filter
         filter_control
+        header
+        many_related
+        searchable
+        select_options
         sortable
         sorter
+        strict_select
         visible
-        searchable
+        widget
     """
 
     FILTER_CONTROL_CHOICES = {
@@ -223,13 +231,13 @@ class BootstrapTableColumn:
 
         self.visible = "true" if visible else "false"
         self.filter = ""
-        self.th_widget = BSTHeader()
+        self.widget = BSTHeader()
 
     def __str__(self):
-        return self.as_th_widget()
+        return self.as_widget()
 
-    def as_th_widget(self, attrs=None):
-        return self.th_widget.render(
+    def as_widget(self, attrs=None):
+        return self.widget.render(
             self.name,
             self,
             attrs=attrs,
@@ -249,25 +257,25 @@ class BootstrapTableListView(ListView):
     # Must be set in derived class
     columns: List[BootstrapTableColumn] = []
 
-    @property
-    def view_name(self):
-        return self.__class__.__name__
+    @classproperty
+    def view_name(cls):
+        return cls.__name__
 
-    @property
-    def cookie_prefix(self):
-        return f"{self.view_name}-"
+    @classproperty
+    def cookie_prefix(cls):
+        return f"{cls.view_name}-"
 
-    @property
-    def verbose_model_name_plural(self):
+    @classproperty
+    def verbose_model_name_plural(cls):
         try:
-            return self.model._meta.__dict__["verbose_name_plural"]
+            return underscored_to_title(cls.model._meta.__dict__["verbose_name_plural"])
         except:
-            print(f"WARNING: Model {self.model.__name__} has no Meta.verbose_name_plural.")
-            return f"{camel_to_title(self.model.__name__)}s"
+            print(f"WARNING: Model {cls.model.__name__} has no Meta.verbose_name_plural.")
+            return f"{camel_to_title(cls.model.__name__)}s"
 
-    @property
-    def verbose_name(self):
-        return camel_to_title(self.view_name)
+    @classproperty
+    def verbose_name(cls):
+        return camel_to_title(cls.view_name)
 
     def __init__(self, *args, **kwargs):
         """An override of the superclass constructor intended to initialize custom instance attributes."""
@@ -599,46 +607,16 @@ class BootstrapTableListView(ListView):
 
         column: BootstrapTableColumn
         for column in self.columns:
-            # All filter cookies must be reset if an exception occurred during the search, otherwise, users will never
-            # be able to access the page again.
-            if len(self.cookie_resets) == 0:
-                filter_term = self.get_column_cookie(column, "filter")
-            else:
-                filter_term = ""
+            # Put the column object in the context.  It will render the th tag.  Update the filter and visibility first.
+            column.visible = self.get_column_cookie(column, "visible", column.visible)
+            column.filter = self.get_column_cookie(column, "filter", column.filter)
+            context[column.name] = column
 
-            # 'filterSelectOptions' is a javascript object created from filter_select_lists defined below, in the
-            # javascript of the pagination.html template.  Having the data-filter-data attribute present (even if it's
-            # an empty string) makes bootstrap-table throw an error when the filter-control is not "select", so we
-            # include the entire attribute definition.  You must not provide "data-filter-data='...'" in the template.
-            # Instead, just put this entire context variable (using the safe filter, e.g. '{{
-            # column_name.filter_data_attr|safe }}') and the attribute will be filled in if necessary.
-            if column.filter_control != column.FILTER_CONTROL_CHOICES["SELECT"]:
-                data_filter_attrs_str = ""
-            else:
-                data_filter_attrs_str = f'data-filter-data="obj:filterSelectOptions.{column.name}"'
-                if column.many_related:
-                    data_filter_attrs_str += ' data-filter-strict-search="false"'
-                elif column.strict_select is not None:
-                    data_filter_attrs_str += f' data-filter-strict-search="{str(column.strict_select).lower()}"'
-
-            context[column.name] = column.as_th_widget(
-                attrs={
-                    "visible": self.get_column_cookie(column, "visible", column.visible),
-                    "filter": filter_term,
-                }
-            )
-            # {
-            #     "name": column.name,
-            #     "filter": filter_term,
-            #     "filter_control": column.filter_control,
-            #     "filter_data_attr": data_filter_attrs_str,
-            #     "sortable": column.sortable,
-            #     "sorter": column.sorter,
-            #     "visible": self.get_column_cookie(column, "visible", column.visible),
-            #     "searchable": column.searchable,
-            # }
+            # Tell the listview BST javascript which columns are not included in export
             if not column.exported:
                 context["not_exported"].append(column.name)
+
+            # Give the listview BST javascript a dict of only the populated select list options (for convenience)
             if column.select_options is not None:
                 context["filter_select_lists"][column.name] = column.select_options
 

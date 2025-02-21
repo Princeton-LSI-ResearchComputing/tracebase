@@ -504,7 +504,7 @@ def sigfigfilter(
 
 def camel_to_title(string: str, delim: str = " "):
     """Example: camel_to_title('MSRunSample') -> 'MS Run Sample'"""
-    return delim.join(re.split(r"(?=[A-Z][a-z])", string))
+    return delim.join(re.split(r"(?<!^)(?=[A-Z][a-z])", string))
 
 
 def underscored_to_title(string: str, delim: str = " "):
