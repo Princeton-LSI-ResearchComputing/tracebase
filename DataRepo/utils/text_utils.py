@@ -527,7 +527,7 @@ def underscored_to_title(string: str, delim: str = " "):
         "near",
         "nor",
         "of",
-        "off", 
+        "off",
         "on",
         "once",
         "onto",

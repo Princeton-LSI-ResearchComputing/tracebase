@@ -145,8 +145,8 @@
                                 {% endif %}
                             </td>
                         {% else %}
-                            <td><div class="nobr"><a href="{% url 'compound_detail' sample.first_tracer_compound_id %}">{{ sample.first_tracer }}</a></div><td>
-                            <td><span title="{{ sample.first_tracer_conc }}">{{ sample.first_tracer_conc|sigdig:4 }}</span><td>
+                            <td><div class="nobr"><a href="{% url 'compound_detail' sample.first_tracer_compound_id %}">{{ sample.first_tracer }}</a></div></td>
+                            <td><span title="{{ sample.first_tracer_conc }}">{{ sample.first_tracer_conc|sigdig:4 }}</span></td>
                         {% endif %}
                     {% endwith %}
                     <td>
