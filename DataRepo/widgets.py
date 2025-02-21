@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union
 
 from django.db import ProgrammingError
+from django.forms import Widget
 from django.forms.widgets import ClearableFileInput, Select, TextInput
 from django.utils.safestring import mark_safe
 
@@ -94,3 +95,24 @@ class MultipleFileInput(ClearableFileInput):
     """Subclass of ClearableFileInput that specifically allows multiple selected files"""
 
     allow_multiple_selected = True
+
+
+class BSTHeader(Widget):
+    template_name = "DataRepo/widgets/bstlistview_th.html"
+
+    def get_context(self, name, column, attrs=None):
+        context = super().get_context(name, None, None)
+        column_attrs = attrs or {}
+        context["column"] = {
+            "name": column.name,
+            "filter_control": column.filter_control,
+            "sortable": column.sortable,
+            "sorter": column.sorter,
+            "visible": column_attrs.get("visible") or column.visible,
+            "filter": column_attrs.get("filter") or column.filter,
+            "FILTER_CONTROL_CHOICES": column.FILTER_CONTROL_CHOICES,
+            "many_related": column.many_related,
+            "strict_select": column.strict_select,
+            "header": column.header,
+        }
+        return context

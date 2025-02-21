@@ -30,182 +30,28 @@
         data-show-export="false">
         <thead>
             <tr>
-                <th data-field="{{ name.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ name.filter_control }}"
-                    {{ name.filter_data_attr|safe }}
-                    data-filter-default="{{ name.filter }}"
-                    data-sortable="{{ name.sortable }}"
-                    data-sorter="{{ name.sorter }}"
-                    data-visible="{{ name.visible }}">Sample</th>
-                <th data-field="{{ animal__name.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__name.filter_control }}"
-                    {{ animal__name.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__name.filter }}"
-                    data-sortable="{{ animal__name.sortable }}"
-                    data-sorter="{{ animal__name.sorter }}"
-                    data-visible="{{ animal__name.visible }}">Animal</th>
-                <th data-field="{{ tissue__name.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ tissue__name.filter_control }}"
-                    {{ tissue__name.filter_data_attr|safe }}
-                    data-filter-default="{{ tissue__name.filter }}"
-                    data-sortable="{{ tissue__name.sortable }}"
-                    data-sorter="{{ tissue__name.sorter }}"
-                    data-visible="{{ tissue__name.visible }}">Tissue</th>
-                <th data-field="{{ first_study.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_study.filter_control }}"
-                    {{ first_study.filter_data_attr|safe }}
-                    data-filter-default="{{ first_study.filter }}"
-                    data-sortable="{{ first_study.sortable }}"
-                    data-sorter="{{ first_study.sorter }}"
-                    data-visible="{{ first_study.visible }}">Studies</th>
-                <th data-field="{{ animal__genotype.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__genotype.filter_control }}"
-                    {{ animal__genotype.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__genotype.filter }}"
-                    data-sortable="{{ animal__genotype.sortable }}"
-                    data-sorter="{{ animal__genotype.sorter }}"
-                    data-visible="{{ animal__genotype.visible }}">Genotype</th>
-                <th data-field="{{ animal__infusate__name.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__infusate__name.filter_control }}"
-                    {{ animal__infusate__name.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__infusate__name.filter }}"
-                    data-sortable="{{ animal__infusate__name.sortable }}"
-                    data-sorter="{{ animal__infusate__name.sorter }}"
-                    data-visible="{{ animal__infusate__name.visible }}">Infusate</th>
-                <th data-field="{{ first_tracer.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_tracer.filter_control }}"
-                    {{ first_tracer.filter_data_attr|safe }}
-                    data-filter-default="{{ first_tracer.filter }}"
-                    data-sortable="{{ first_tracer.sortable }}"
-                    data-sorter="{{ first_tracer.sorter }}"
-                    data-visible="{{ first_tracer.visible }}">Tracer(s)</th>
-                <th data-field="{{ first_tracer_conc.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_tracer_conc.filter_control }}"
-                    {{ first_tracer_conc.filter_data_attr|safe }}
-                    data-filter-default="{{ first_tracer_conc.filter }}"
-                    data-sortable="{{ first_tracer_conc.sortable }}"
-                    data-sorter="{{ first_tracer_conc.sorter }}"
-                    data-visible="{{ first_tracer_conc.visible }}">Tracer Concentration(s) (mM)</th>
-                <th data-field="{{ first_label.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_label.filter_control }}"
-                    {{ first_label.filter_data_attr|safe }}
-                    data-filter-default="{{ first_label.filter }}"
-                    data-sortable="{{ first_label.sortable }}"
-                    data-sorter="{{ first_label.sorter }}"
-                    data-visible="{{ first_label.visible }}">Tracer Elements</th>
-                <th data-field="{{ animal__infusion_rate.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__infusion_rate.filter_control }}"
-                    {{ animal__infusion_rate.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__infusion_rate.filter }}"
-                    data-sortable="{{ animal__infusion_rate.sortable }}"
-                    data-sorter="{{ animal__infusion_rate.sorter }}"
-                    data-visible="{{ animal__infusion_rate.visible }}">Infusion Rate (ul/min/g)</th>
-                <th data-field="{{ animal__treatment__name.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__treatment__name.filter_control }}"
-                    {{ animal__treatment__name.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__treatment__name.filter }}"
-                    data-sortable="{{ animal__treatment__name.sortable }}"
-                    data-sorter="{{ animal__treatment__name.sorter }}"
-                    data-visible="{{ animal__treatment__name.visible }}">Treatment</th>
-                <th data-field="{{ animal__body_weight.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__body_weight.filter_control }}"
-                    {{ animal__body_weight.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__body_weight.filter }}"
-                    data-sortable="{{ animal__body_weight.sortable }}"
-                    data-sorter="{{ animal__body_weight.sorter }}"
-                    data-visible="{{ animal__body_weight.visible }}">Body Weight (g)</th>
-                <th data-field="{{ age_weeks_str.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ age_weeks_str.filter_control }}"
-                    {{ age_weeks_str.filter_data_attr|safe }}
-                    data-filter-default="{{ age_weeks_str.filter }}"
-                    data-sortable="{{ age_weeks_str.sortable }}"
-                    data-sorter="{{ age_weeks_str.sorter }}"
-                    data-visible="{{ age_weeks_str.visible }}">Age (weeks)</th>
-                <th data-field="{{ animal__sex.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__sex.filter_control }}"
-                    {{ animal__sex.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__sex.filter }}"
-                    data-sortable="{{ animal__sex.sortable }}"
-                    data-sorter="{{ animal__sex.sorter }}"
-                    data-visible="{{ animal__sex.visible }}">Sex</th>
-                <th data-field="{{ animal__diet.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__diet.filter_control }}"
-                    {{ animal__diet.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__diet.filter }}"
-                    data-sortable="{{ animal__diet.sortable }}"
-                    data-sorter="{{ animal__diet.sorter }}"
-                    data-visible="{{ animal__diet.visible }}">Diet</th>
-                <th data-field="{{ animal__feeding_status.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ animal__feeding_status.filter_control }}"
-                    {{ animal__feeding_status.filter_data_attr|safe }}
-                    data-filter-default="{{ animal__feeding_status.filter }}"
-                    data-sortable="{{ animal__feeding_status.sortable }}"
-                    data-sorter="{{ animal__feeding_status.sorter }}"
-                    data-visible="{{ animal__feeding_status.visible }}">Feeding Status</th>
-                <th data-field="{{ researcher.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ researcher.filter_control }}"
-                    {{ researcher.filter_data_attr|safe }}
-                    data-filter-default="{{ researcher.filter }}"
-                    data-sortable="{{ researcher.sortable }}"
-                    data-sorter="{{ researcher.sorter }}"
-                    data-visible="{{ researcher.visible }}">Sample Owner</th>
-                <th data-field="{{ col_date_str.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ col_date_str.filter_control }}"
-                    {{ col_date_str.filter_data_attr|safe }}
-                    data-filter-default="{{ col_date_str.filter }}"
-                    data-sortable="{{ col_date_str.sortable }}"
-                    data-sorter="{{ col_date_str.sorter }}"
-                    data-visible="{{ col_date_str.visible }}">Sample Date</th>
-                <th data-field="{{ col_time_str.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ col_time_str.filter_control }}"
-                    {{ col_time_str.filter_data_attr|safe }}
-                    data-filter-default="{{ col_time_str.filter }}"
-                    data-sortable="{{ col_time_str.sortable }}"
-                    data-sorter="{{ col_time_str.sorter }}"
-                    data-visible="{{ col_time_str.visible }}">Time Collected (m)</th>
-                <th data-field="{{ first_ms_operator.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_ms_operator.filter_control }}"
-                    {{ first_ms_operator.filter_data_attr|safe }}
-                    data-filter-default="{{ first_ms_operator.filter }}"
-                    data-sortable="{{ first_ms_operator.sortable }}"
-                    data-sorter="{{ first_ms_operator.sorter }}"
-                    data-visible="{{ first_ms_operator.visible }}">MSRun Owner</th>
-                <th data-field="{{ first_ms_date.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_ms_date.filter_control }}"
-                    {{ first_ms_date.filter_data_attr|safe }}
-                    data-filter-default="{{ first_ms_date.filter }}"
-                    data-sortable="{{ first_ms_date.sortable }}"
-                    data-sorter="{{ first_ms_date.sorter }}"
-                    data-visible="{{ first_ms_date.visible }}">MSRun Date</th>
-                <th data-field="{{ first_ms_sample.name }}"
-                    data-valign="top"
-                    data-filter-control="{{ first_ms_sample.filter_control }}"
-                    {{ first_ms_sample.filter_data_attr|safe }}
-                    data-filter-default="{{ first_ms_sample.filter }}"
-                    data-sortable="{{ first_ms_sample.sortable }}"
-                    data-sorter="{{ first_ms_sample.sorter }}"
-                    data-visible="{{ first_ms_sample.visible }}">MSRun Detail</th>
+                {{ name }}
+                {{ animal__name }}
+                {{ tissue__name }}
+                {{ first_study }}
+                {{ animal__genotype }}
+                {{ animal__infusate__name }}
+                {{ first_tracer }}
+                {{ first_tracer_conc }}
+                {{ first_label }}
+                {{ animal__infusion_rate }}
+                {{ animal__treatment__name }}
+                {{ animal__body_weight }}
+                {{ age_weeks_str }}
+                {{ animal__sex }}
+                {{ animal__diet }}
+                {{ animal__feeding_status }}
+                {{ researcher }}
+                {{ col_date_str }}
+                {{ col_time_str }}
+                {{ first_ms_operator }}
+                {{ first_ms_date }}
+                {{ first_ms_sample }}
             </tr>
         </thead>
         <tbody>
@@ -239,52 +85,70 @@
                             <div class="newlines"><a href="{% url 'infusate_detail' sample.animal.infusate.id %}">{{ sample.animal.infusate.pretty_short_name }}</div>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if sample.animal.infusate %}
-                            {# Hidden value for sorting #}
-                            <span style="display:none">{{ sample.first_tracer }}</span>
+                    {% with ""|make_list as tracer_dicts %}
+                        {% if sample.animal.infusate and sample.animal.infusate.tracer_links.count|gt:1 %}
+                            {# Build a tracerlink dict and append it to tracer_dicts so we can sort both in individual columns #}
+                            {% for tracer_link in sample.animal.infusate.tracer_links.all %}
+                                {% createDict as tracerlink %}
+                                {% addToDict tracerlink "id" tracer_link.tracer.id %}
+                                {% addToDict tracerlink "name" tracer_link.tracer.name %}
+                                {% addToDict tracerlink "conc" tracer_link.concentration|sigdig:4 %}
+                                {% append tracer_dicts tracerlink %}
+                            {% endfor %}
+                            <td>
+                                {# Hidden value for sorting #}
+                                <span style="display:none">{{ sample.first_tracer }}</span>
 
-                            {# Rendering performance of this template is dramatically improved by only rendering sample.first_tracer when the count is greater than 1. #}
-                            {% if sample.animal.infusate.tracers.count|gt:1 %}
-                                {% if order_dir|lower == "asc" %}
-                                    {% for tracer in sample.animal.infusate.tracers.all|dictsort:"name" %}
+                                {% if order_by == "first_tracer" and order_dir|lower == "desc" %}
+                                    {% for tracer in tracer_dicts|dictsortreversed:"name" %}
+                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% elif order_by == "first_tracer_conc" and order_dir|lower == "desc" %}
+                                    {% for tracer in tracer_dicts|dictsortreversed:"conc" %}
+                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% elif order_by == "first_tracer_conc" and order_dir|lower == "asc" %}
+                                    {% for tracer in tracer_dicts|dictsort:"conc" %}
                                         <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% else %}
-                                    {% for tracer in sample.animal.infusate.tracers.all|dictsortreversed:"name" %}
+                                    {% for tracer in tracer_dicts|dictsort:"name" %}
                                         <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% endif %}
-                            {% elif sample.first_tracer %}
-                                <div class="nobr"><a href="{% url 'compound_detail' sample.first_tracer_compound_id %}">{{ sample.first_tracer }}</a></div>
-                            {% endif %}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if sample.animal.infusate %}
-                            {# Hidden value for sorting #}
-                            <span style="display:none">{{ sample.first_tracer_conc }}</span>
+                            </td>
+                            <td>
+                                {# Hidden value for sorting #}
+                                <span style="display:none">{{ sample.first_tracer_conc }}</span>
 
-                            {% comment %}
-                                Rendering performance of this template is dramatically improved by only rendering sample.first_tracer_conc when the count is greater than 1.
-                                This assumes that a single infusate/tracer pair has a single concentration/link.  This is currently true, though there are plans to make it a true many-to-many.
-                                See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1053
-                            {% endcomment %}
-                            {% if sample.animal.infusate.tracer_links.count|gt:1 %}
-                                {% if order_dir|lower == "asc" %}
-                                    {% for tracer_link in sample.animal.infusate.tracer_links.all|dictsort:"name" %}
-                                        <span title="{{ tracer_link.concentration }}">{{ tracer_link.concentration|sigdig:4 }}</span>{% if not forloop.last %};<br>{% endif %}
+                                {% comment %}
+                                    Rendering performance of this template is dramatically improved by only rendering sample.first_tracer_conc when the count is greater than 1.
+                                    This assumes that a single infusate/tracer pair has a single concentration/link.  This is currently true, though there are plans to make it a true many-to-many.
+                                    See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1053
+                                {% endcomment %}
+                                {% if order_by == "first_tracer" and order_dir|lower == "desc" %}
+                                    {% for tracer in tracer_dicts|dictsortreversed:"name" %}
+                                        <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
+                                    {% endfor %}
+                                {% elif order_by == "first_tracer_conc" and order_dir|lower == "desc" %}
+                                    {% for tracer in tracer_dicts|dictsortreversed:"conc" %}
+                                        <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
+                                    {% endfor %}
+                                {% elif order_by == "first_tracer_conc" and order_dir|lower == "asc" %}
+                                    {% for tracer in tracer_dicts|dictsort:"conc" %}
+                                        <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% else %}
-                                    {% for tracer_link in sample.animal.infusate.tracer_links.all|dictsortreversed:"name" %}
-                                        <span title="{{ tracer_link.concentration }}">{{ tracer_link.concentration|sigdig:4 }}</span>{% if not forloop.last %};<br>{% endif %}
+                                    {% for tracer in tracer_dicts|dictsort:"name" %}
+                                        <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% endif %}
-                            {% elif sample.first_tracer_conc %}
-                                <span title="{{ sample.first_tracer_conc }}">{{ sample.first_tracer_conc|sigdig:4 }}</span>
-                            {% endif %}
+                            </td>
+                        {% else %}
+                            <td><div class="nobr"><a href="{% url 'compound_detail' sample.first_tracer_compound_id %}">{{ sample.first_tracer }}</a></div><td>
+                            <td><span title="{{ sample.first_tracer_conc }}">{{ sample.first_tracer_conc|sigdig:4 }}</span><td>
                         {% endif %}
-                    </td>
+                    {% endwith %}
                     <td>
                         {# Hidden value for sorting #}
                         <span style="display:none">{{ sample.first_label }}</span>

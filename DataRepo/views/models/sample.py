@@ -30,10 +30,10 @@ class SampleListView(BSTListView):
         researchers = Researcher.get_researchers()
 
         self.columns = [
-            BSTColumn("name"),
-            BSTColumn("animal__name"),
-            BSTColumn("tissue__name"),
-            BSTColumn("first_study", many_related=True, field="animal__studies__name"),
+            BSTColumn("name", header="Sample"),
+            BSTColumn("animal__name", header="Animal"),
+            BSTColumn("tissue__name", header="Tissue"),
+            BSTColumn("first_study", many_related=True, field="animal__studies__name", header="Studies"),
             BSTColumn("first_study_id", many_related=True, searchable=False, field="animal__studies"),
             BSTColumn(
                 "animal__genotype",
@@ -43,28 +43,36 @@ class SampleListView(BSTListView):
                     .distinct("genotype")
                     .values_list("genotype", flat=True)
                 ),
+                header="Genotype",
             ),
-            BSTColumn("animal__infusate__name"),
-            BSTColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name"),
+            BSTColumn("animal__infusate__name", header="Infusate"),
+            BSTColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name", header="Tracer(s)"),
             BSTColumn("first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound"),
-            BSTColumn("first_tracer_conc", many_related=True, field="animal__infusate__tracer_links__concentration"),
+            BSTColumn(
+                "first_tracer_conc",
+                many_related=True,
+                field="animal__infusate__tracer_links__concentration",
+                header="Tracer Concentration(s) (mM)",
+            ),
             BSTColumn(
                 "first_label",
                 many_related=True,
                 field="animal__labels__element",
                 select_options=[e[0] for e in ElementLabel.LABELED_ELEMENT_CHOICES],
+                header="Tracer Elements",
             ),
-            BSTColumn("animal__infusion_rate"),
-            BSTColumn("animal__treatment__name"),
-            BSTColumn("animal__body_weight", visible=False),
+            BSTColumn("animal__infusion_rate", header="Infusion Rate (ul/min/g)"),
+            BSTColumn("animal__treatment__name", header="Treatment"),
+            BSTColumn("animal__body_weight", visible=False, header="Body Weight (g)"),
             BSTColumn(
                 "age_weeks_str",
                 field="animal__age",
                 converter=Extract(F("animal__age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
                 visible=False,
+                header="Age (weeks)",
             ),
-            BSTColumn("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES]),
-            BSTColumn("animal__diet", visible=False),
+            BSTColumn("animal__sex", visible=False, select_options=[s[0] for s in Animal.SEX_CHOICES], header="Sex"),
+            BSTColumn("animal__diet", visible=False, header="Diet"),
             BSTColumn(
                 "animal__feeding_status",
                 select_options=(
@@ -73,8 +81,9 @@ class SampleListView(BSTListView):
                     .distinct("feeding_status")
                     .values_list("feeding_status", flat=True)
                 ),
+                header="Feeding Status",
             ),
-            BSTColumn("researcher", select_options=researchers),  # handler
+            BSTColumn("researcher", select_options=researchers, header="Sample Owner"),
             BSTColumn(
                 "col_date_str",
                 field="date",
@@ -84,11 +93,13 @@ class SampleListView(BSTListView):
                     output_field=CharField(),
                     function=self.DBSTRING_FUNCTION,
                 ),
+                header="Sample Date",
             ),
             BSTColumn(
                 "col_time_str",
                 field="time_collected",
                 converter=Extract(F("time_collected"), self.DURATION_SECONDS_ATTRIBUTE) / Value(60),
+                header="Time Collected (m)",
             ),
             BSTColumn(
                 "sequence_count",
@@ -102,6 +113,7 @@ class SampleListView(BSTListView):
                 many_related=True,
                 field="msrun_samples__msrun_sequence__researcher",
                 select_options=researchers,
+                header="MSRun Owner",
             ),
             BSTColumn(
                 "first_ms_date",
@@ -113,8 +125,17 @@ class SampleListView(BSTListView):
                     function=self.DBSTRING_FUNCTION,
                 ),
                 field="msrun_samples__msrun_sequence__date",
+                header="MSRun Date",
             ),
-            BSTColumn("first_ms_sample", many_related=True, field="msrun_samples", searchable=False, sortable=False),
+            BSTColumn(
+                "first_ms_sample",
+                many_related=True,
+                field="msrun_samples",
+                searchable=False,
+                sortable=False,
+                filter_control="",
+                header="MSRun Detail",
+            ),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
         super().__init__(*args, **kwargs)

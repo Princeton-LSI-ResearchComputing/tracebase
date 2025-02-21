@@ -513,6 +513,7 @@ def polarity_name_to_sign(name:str):
 @register.filter
 def sigdig(num, digits=3) -> str:
     """Return the supplied num with the significant number of digits."""
+    print(f"NUM: {num}")
     return f"{num:.{digits}g}"
 
 

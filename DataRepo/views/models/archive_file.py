@@ -30,6 +30,7 @@ class ArchiveFileListView(BSTListView):
             BSTColumn(
                 "filename",
                 sorter="htmlSorter",
+                header="File Name",
             ),
 
             BSTColumn(
@@ -47,6 +48,7 @@ class ArchiveFileListView(BSTListView):
                     output_field=CharField(),
                     function=self.DBSTRING_FUNCTION,
                 ),
+                header="Import Timestamp",
             ),
 
             # The name in the following 2 cases are a related field, but it's 1:1.  The field is automatically set to
@@ -54,11 +56,13 @@ class ArchiveFileListView(BSTListView):
             BSTColumn(
                 "data_format__name",
                 select_options=DataFormat.objects.order_by("name").distinct("name").values_list("name", flat=True),
+                header="File Type",
             ),
             BSTColumn(
                 "data_type__name",
                 visible=False,  # Initial visibility
                 select_options=DataType.objects.order_by("name").distinct("name").values_list("name", flat=True),
+                header="File Format",
             ),
 
             BSTColumn(
@@ -79,6 +83,7 @@ class ArchiveFileListView(BSTListView):
                     "mz_to_msrunsamples__sample__animal__studies__name",
                     "raw_to_msrunsamples__sample__animal__studies__name",
                 ],
+                header="Study",
             ),
 
             BSTColumn(
@@ -133,13 +138,15 @@ class ArchiveFileListView(BSTListView):
             BSTColumn(
                 "peak_groups",
                 sortable=False,
-                filter_control=None,
+                filter_control="",
+                header="Peak Group Data",
             ),
 
             BSTColumn(
                 "peak_data",
                 sortable=False,
-                filter_control=None,
+                filter_control="",
+                header="Peak Data",
             ),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.

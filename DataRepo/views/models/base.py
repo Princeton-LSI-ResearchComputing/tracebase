@@ -7,8 +7,9 @@ from django.db.models.functions import Coalesce
 from django.views.generic import ListView
 
 from DataRepo.models import ArchiveFile
-from DataRepo.utils.text_utils import camel_to_title
+from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import get_cookie
+from DataRepo.widgets import BSTHeader
 
 
 class GracefulPaginator(Paginator):
@@ -67,6 +68,7 @@ class BootstrapTableColumn:
         sortable: bool = True,
         sorter: Optional[str] = None,
         visible: bool = True,
+        header: str = None,
     ):
         """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
         model.
@@ -113,7 +115,7 @@ class BootstrapTableColumn:
             searchable (Optional[bool]) [True]: Whether or not a column is searchable.  Searchable being True is
                 mutually exclusive with filter_control being None.  Automatically set to True if filter_control is not
                 None.  It is set to False is filter_control is None.
-            filter_control (Optional[str]) ["input"]: Set to None to disable.  Must be in FILTER_CONTROL_CHOICES.
+            filter_control (Optional[str]) ["input"]: Set to "" to disable.  Must be in FILTER_CONTROL_CHOICES.
                 This cannot be None if searchable is True.
             select_options (Optional[Union[Dict[str, str], List[str]]]): A dict or a list of select list options when
                 filter_control is "select".  Supplying this argument will default filter_control to "select".
@@ -122,6 +124,8 @@ class BootstrapTableColumn:
             sortable (bool) [True]
             sorter (Optional[str]) ["alphanum"]: Must be in SORTER_CHOICES.
             visible (bool) [True]: Controls whether a column is initially visible.
+            header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
+                generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
         Exceptions:
             ValueError when:
             - Either many_related must be True or a converter must be supplied if the BST column name is not equal to
@@ -162,6 +166,13 @@ class BootstrapTableColumn:
         self.is_annotation = converter is not None or isinstance(self.field, list) or many_related
         self.exported = exported
 
+        if header is None:
+            # Include the last foreign key name, if present
+            last_2_names = "_".join(name.split("__")[-2:])
+            self.header = underscored_to_title(last_2_names)
+        else:
+            self.header = header
+
         if select_options is None:
             default_filter_control = self.FILTER_CONTROL_CHOICES["INPUT"]
             self.select_options = None
@@ -180,7 +191,7 @@ class BootstrapTableColumn:
                 self.searchable = True
             else:
                 self.searchable = False
-                self.filter_control = ""
+                self.filter_control = self.FILTER_CONTROL_CHOICES["DISABLED"]
         elif filter_control in self.FILTER_CONTROL_CHOICES.values():
             self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
             tmp_searchable = filter_control is not None and filter_control != ""
@@ -191,6 +202,8 @@ class BootstrapTableColumn:
                     f"Conflict between searchable '{searchable}' and filter_control '{filter_control}'.  "
                     "searchable must be False if filter_control is not None."
                 )
+            else:
+                self.searchable = searchable
             self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
         else:
             raise ValueError(
@@ -209,6 +222,19 @@ class BootstrapTableColumn:
             raise ValueError(f"Invalid sorter value: '{sorter}'.  Valid choices are: {self.SORTER_CHOICES}.")
 
         self.visible = "true" if visible else "false"
+        self.filter = ""
+        self.th_widget = BSTHeader()
+
+    def __str__(self):
+        return self.as_th_widget()
+
+    def as_th_widget(self, attrs=None):
+        return self.th_widget.render(
+            self.name,
+            self,
+            attrs=attrs,
+        )
+
 
 class BootstrapTableListView(ListView):
     """Generic class-based view for a Model record list to make pages load faster, using server-side behavior for
@@ -595,16 +621,22 @@ class BootstrapTableListView(ListView):
                 elif column.strict_select is not None:
                     data_filter_attrs_str += f' data-filter-strict-search="{str(column.strict_select).lower()}"'
 
-            context[column.name] = {
-                "name": column.name,
-                "filter": filter_term,
-                "filter_control": column.filter_control,
-                "filter_data_attr": data_filter_attrs_str,
-                "sortable": column.sortable,
-                "sorter": column.sorter,
-                "visible": self.get_column_cookie(column, "visible", column.visible),
-                "searchable": column.searchable,
-            }
+            context[column.name] = column.as_th_widget(
+                attrs={
+                    "visible": self.get_column_cookie(column, "visible", column.visible),
+                    "filter": filter_term,
+                }
+            )
+            # {
+            #     "name": column.name,
+            #     "filter": filter_term,
+            #     "filter_control": column.filter_control,
+            #     "filter_data_attr": data_filter_attrs_str,
+            #     "sortable": column.sortable,
+            #     "sorter": column.sorter,
+            #     "visible": self.get_column_cookie(column, "visible", column.visible),
+            #     "searchable": column.searchable,
+            # }
             if not column.exported:
                 context["not_exported"].append(column.name)
             if column.select_options is not None:
