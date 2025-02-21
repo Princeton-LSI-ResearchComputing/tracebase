@@ -71,41 +71,63 @@
                                 {% if order_dir|lower == "desc" %}
                                     {% for study in studies|dictsortreversed:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
-                                    {% empty %}
-                                        <span title="Without peak groups derived from this file, the associated study cannot be linked" class="text-muted">None</span>
                                     {% endfor %}
                                 {% else %}
                                     {% for study in studies|dictsort:"name" %}
                                         <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
-                                    {% empty %}
-                                        <span title="Without peak groups derived from this file, the associated study cannot be linked" class="text-muted">None</span>
                                     {% endfor %}
                                 {% endif %}
                             {% endwith %}
                         {% elif archive_file.first_study %}
                             <a href="{% url 'study_detail' archive_file.first_study_id %}">{{ archive_file.first_study }}</a>
+                        {% else %}
+                            <span title="No peak group records are linked to this file, so the associated study cannot be linked.  (There may be other files with this same name that are linked.)" class="text-muted">None</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if archive_file.data_type.code == "ms_peak_annotation" and archive_file.peak_groups.count|gt:0 %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
-                        {% elif archive_file.data_format.code == "ms_raw" and archive_file.raw_to_msrunsamples.count|gt:0 %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
-                        {% elif archive_file.data_format.code == "mzxml" and archive_file.mz_to_msrunsamples.count|gt:0 %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                        {% if archive_file.data_type.code == "ms_peak_annotation" %}
+                            {% if archive_file.peak_groups.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
+                        {% elif archive_file.data_format.code == "ms_raw" %}
+                            {% if archive_file.raw_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
+                        {% elif archive_file.data_format.code == "mzxml" %}
+                            {% if archive_file.mz_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
                         {% else %}
-                            No peak group records are linked to this file
+                            <span title="No peak group records are linked to this file" class="text-muted">None</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if archive_file.data_type.code == "ms_peak_annotation" and archive_file.peak_groups.count|gt:0 %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
-                        {% elif archive_file.data_format.code == "ms_raw" and archive_file.raw_to_msrunsamples.count|gt:0 %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
-                        {% elif archive_file.data_format.code == "mzxml" and archive_file.mz_to_msrunsamples.count|gt:0 %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                        {% if archive_file.data_type.code == "ms_peak_annotation" %}
+                            {% if archive_file.peak_groups.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
+                        {% elif archive_file.data_format.code == "ms_raw" %}
+                            {% if archive_file.raw_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
+                        {% elif archive_file.data_format.code == "mzxml" %}
+                            {% if archive_file.mz_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
                         {% else %}
-                            No peak data records are linked to this file
+                            <span title="No peak data records are linked to this file" class="text-muted">None</span>
                         {% endif %}
                     </td>
                 </tr>
