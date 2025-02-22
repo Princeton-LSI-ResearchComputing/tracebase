@@ -132,16 +132,16 @@ class ArchiveFileListView(BSTListView):
 
                 # Provide the fields as a fallback in case the converter raises an exception
                 field=[
-                    "peak_groups__msrun_sample__sample__animal__studies",
-                    "mz_to_msrunsamples__sample__animal__studies",
-                    "raw_to_msrunsamples__sample__animal__studies",
+                    "peak_groups__msrun_sample__sample__animal__studies__id",
+                    "mz_to_msrunsamples__sample__animal__studies__id",
+                    "raw_to_msrunsamples__sample__animal__studies__id",
                 ],
 
                 exported=False,
             ),
 
             BSTColumn(
-                "peak_groups",
+                "peak_groups__id",
                 sortable=False,
                 filter_control="",
                 header="Peak Group Data",
@@ -150,6 +150,7 @@ class ArchiveFileListView(BSTListView):
 
             BSTColumn(
                 "peak_data",
+                field=None,
                 sortable=False,
                 filter_control="",
                 header="Peak Data",

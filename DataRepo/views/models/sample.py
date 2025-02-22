@@ -34,7 +34,13 @@ class SampleListView(BSTListView):
             BSTColumn("animal__name", header="Animal"),
             BSTColumn("tissue__name", header="Tissue"),
             BSTColumn("first_study", many_related=True, field="animal__studies__name", header="Studies"),
-            BSTColumn("first_study_id", many_related=True, searchable=False, field="animal__studies", exported=False),
+            BSTColumn(
+                "first_study_id",
+                many_related=True,
+                searchable=False,
+                field="animal__studies__id",
+                exported=False,
+            ),
             BSTColumn(
                 "animal__genotype",
                 select_options=(
@@ -50,7 +56,7 @@ class SampleListView(BSTListView):
             BSTColumn(
                 "first_tracer_compound_id",
                 many_related=True,
-                field="animal__infusate__tracers__compound",
+                field="animal__infusate__tracers__compound__id",
                 exported=False,
             ),
             BSTColumn(
@@ -111,7 +117,7 @@ class SampleListView(BSTListView):
                 many_related=True,
                 searchable=False,
                 converter=Count("msrun_samples__msrun_sequence", distinct=True),
-                field="msrun_samples__msrun_sequence",
+                field="msrun_samples__msrun_sequence__id",
                 exported=False,
             ),
             BSTColumn(

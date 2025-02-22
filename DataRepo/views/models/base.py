@@ -448,7 +448,7 @@ class BootstrapTableListView(ListView):
                     mdl = self.field_to_related_model(fld)
                     if mdl is not None and mdl not in prefetches:
                         prefetches.append(mdl)
-            else:
+            elif column.field is not None:
                 mdl = self.field_to_related_model(column.field)
                 if mdl is not None and mdl not in prefetches:
                     prefetches.append(mdl)
@@ -475,9 +475,11 @@ class BootstrapTableListView(ListView):
                         search_fields.append(many_related_search_field)
                         or_q_exp |= Q(**{f"{many_related_search_field}__icontains": filter_value})
                     q_exp &= or_q_exp
-                else:
+                elif column.field is not None:
                     search_fields.append(search_field)
                     q_exp &= Q(**{f"{search_field}__icontains": filter_value})
+                else:
+                    raise ValueError(f"Column {column.name} must not be searchable if field is None.")
 
         # Add a global search if one is defined
         if search_term != "":
@@ -503,8 +505,10 @@ class BootstrapTableListView(ListView):
                                 "Coalesce converter, which is *really* inefficient/slow.  Searching the field instead."
                             )
                         annotations_after_filter[column.name] = column.converter
-                    else:
+                    elif column.field is not None:
                         annotations_before_filter[column.name] = column.converter
+                    else:
+                        raise ValueError(f"Column {column.name} must not have a converter if field is None.")
             except Exception as e:
                 # The fallback is to have the template render the database values in the default manner.  Searching will
                 # disabled.  Sorting will be a string sort (which is not ideal, e.g. if the value is a datetime).
@@ -542,6 +546,7 @@ class BootstrapTableListView(ListView):
                             else:
                                 annotations_after_filter[column.name] = Coalesce(*column.field)
                     elif column.many_related:
+                        # This assumes column.field is not None
                         if order_by == "" or (
                             order_by == column.name
                             and not order_dir.lower().startswith("d")
@@ -551,7 +556,7 @@ class BootstrapTableListView(ListView):
                         else:
                             # Apply Max to prevent changing the number of resulting rows
                             annotations_before_filter[column.name] = Max(column.field)
-                    else:
+                    elif column.field is not None:
                         # This is in case a user-supplied custom converter failed in the try block above and the field
                         # is not many_related and there are not multiple other model fields linking to the reference
                         # model
@@ -748,9 +753,11 @@ class BootstrapTableListView(ListView):
                     for many_related_search_field in column.field:
                         search_fields.append(many_related_search_field)
                         q_exp |= Q(**{f"{many_related_search_field}__icontains": term})
-                else:
+                elif column.field is not None:
                     search_fields.append(search_field)
                     q_exp |= Q(**{f"{search_field}__icontains": term})
+                elif column.field is None:
+                    raise ValueError(f"Column {column.name} must not be searchable if field is None.")
 
         return q_exp, search_fields
 
