@@ -83,6 +83,7 @@ class ArchiveFileListView(BSTListView):
                     "mz_to_msrunsamples__sample__animal__studies__name",
                     "raw_to_msrunsamples__sample__animal__studies__name",
                 ],
+
                 header="Study",
             ),
 
@@ -104,6 +105,8 @@ class ArchiveFileListView(BSTListView):
                     "mz_to_msrunsamples__sample__animal__studies",
                     "raw_to_msrunsamples__sample__animal__studies",
                 ],
+
+                exported=False,
             ),
 
             BSTColumn(
@@ -133,6 +136,8 @@ class ArchiveFileListView(BSTListView):
                     "mz_to_msrunsamples__sample__animal__studies",
                     "raw_to_msrunsamples__sample__animal__studies",
                 ],
+
+                exported=False,
             ),
 
             BSTColumn(
@@ -140,6 +145,7 @@ class ArchiveFileListView(BSTListView):
                 sortable=False,
                 filter_control="",
                 header="Peak Group Data",
+                exported=False,
             ),
 
             BSTColumn(
@@ -147,6 +153,7 @@ class ArchiveFileListView(BSTListView):
                 sortable=False,
                 filter_control="",
                 header="Peak Data",
+                exported=False,
             ),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.

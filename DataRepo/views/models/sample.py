@@ -34,7 +34,7 @@ class SampleListView(BSTListView):
             BSTColumn("animal__name", header="Animal"),
             BSTColumn("tissue__name", header="Tissue"),
             BSTColumn("first_study", many_related=True, field="animal__studies__name", header="Studies"),
-            BSTColumn("first_study_id", many_related=True, searchable=False, field="animal__studies"),
+            BSTColumn("first_study_id", many_related=True, searchable=False, field="animal__studies", exported=False),
             BSTColumn(
                 "animal__genotype",
                 select_options=(
@@ -47,7 +47,12 @@ class SampleListView(BSTListView):
             ),
             BSTColumn("animal__infusate__name", header="Infusate"),
             BSTColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name", header="Tracer(s)"),
-            BSTColumn("first_tracer_compound_id", many_related=True, field="animal__infusate__tracers__compound"),
+            BSTColumn(
+                "first_tracer_compound_id",
+                many_related=True,
+                field="animal__infusate__tracers__compound",
+                exported=False,
+            ),
             BSTColumn(
                 "first_tracer_conc",
                 many_related=True,
@@ -107,6 +112,7 @@ class SampleListView(BSTListView):
                 searchable=False,
                 converter=Count("msrun_samples__msrun_sequence", distinct=True),
                 field="msrun_samples__msrun_sequence",
+                exported=False,
             ),
             BSTColumn(
                 "first_ms_operator",
@@ -135,6 +141,7 @@ class SampleListView(BSTListView):
                 sortable=False,
                 filter_control="",
                 header="MSRun Detail",
+                exported=False,
             ),
         ]
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
@@ -142,8 +149,8 @@ class SampleListView(BSTListView):
 
     def get_context_data(self, **kwargs):
         """Add the MSRunSequence date format string to the context.  This is uniquely needed in the template due to the
-        fact that MSRunSequence has a many-to-one relationship with a sample, thus to render them all in a BSTColumn in one
-        row, we have to loop on actual database objects that do not have the annotated first_ms_date string"""
+        fact that MSRunSequence has a many-to-one relationship with a sample, thus to render them all in a BSTColumn in
+        one row, we have to loop on actual database objects that do not have the annotated first_ms_date string"""
         context = super().get_context_data(**kwargs)
         context["date_format"] = self.TEMPLATE_DATE_FORMAT
         return context

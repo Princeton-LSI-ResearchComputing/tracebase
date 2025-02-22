@@ -3,12 +3,11 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
-from django.db.models import F, Max, Min, Q, QuerySet
+from django.db.models import F, Max, Min, Model, Q, QuerySet
 from django.db.models.functions import Coalesce
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
-from DataRepo.models import ArchiveFile
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import get_cookie
 from DataRepo.widgets import BSTHeader
@@ -106,6 +105,9 @@ class BootstrapTableColumn:
         "htmlSorter",  # See static/js/htmlSorter.js
     ]
     NAME_IS_FIELD = "__same__"
+
+    # TODO: Make this into an instance attribute
+    DEF_DELIM = "; "  # For many-related fields
 
     def __init__(
         self,
@@ -371,7 +373,9 @@ class BootstrapTableListView(ListView):
             (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
                 the default if the cookie was not found (or was an empty string).
         """
-        return get_cookie(self.request, self.get_cookie_name(name), default) or ""
+        if hasattr(self, "request"):
+            return get_cookie(self.request, self.get_cookie_name(name), default) or ""
+        return default
 
     def get_column_cookie_name(self, column: Union[BootstrapTableColumn, str], name: str) -> str:
         """Retrieves a cookie name using a prepended view name.
@@ -401,9 +405,11 @@ class BootstrapTableListView(ListView):
             (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
                 the default if the cookie was not found (or was an empty string).
         """
-        return get_cookie(self.request, self.get_column_cookie_name(column, name), default) or ""
+        if hasattr(self, "request"):
+            return get_cookie(self.request, self.get_column_cookie_name(column, name), default) or ""
+        return default
 
-    def get_paginated_queryset(self, qs: QuerySet[ArchiveFile]):
+    def get_paginated_queryset(self, qs: QuerySet):
         """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
         Content of those pages can be affected by sorting.  And both can be affected by annotated fields.  This method
         applies those criteria based on cookies.
@@ -413,11 +419,11 @@ class BootstrapTableListView(ListView):
             2. Sorting based on study will only be based on the first or last related study, not the combined string of
                all related study names.
         Args:
-            qs (QuerySet[ArchiveFile])
+            qs (QuerySet)
         Exceptions:
             None
         Returns:
-            qs (QuerySet[ArchiveFile])
+            qs (QuerySet)
         """
 
         # 1. Retrieve search and sort settings (needed for annotations too, due to different annotations based on sort)
@@ -433,8 +439,21 @@ class BootstrapTableListView(ListView):
         # We need the column names (from the BST data-field attributes) to use in Q expressions
         filter_columns = []
         search_fields = []
+        prefetches = []
         column: BootstrapTableColumn
         for column in self.columns:
+            # Put all fields into the prefetches
+            if isinstance(column.field, list):
+                for fld in column.field:
+                    mdl = self.field_to_related_model(fld)
+                    if mdl is not None and mdl not in prefetches:
+                        prefetches.append(mdl)
+            else:
+                mdl = self.field_to_related_model(column.field)
+                if mdl is not None and mdl not in prefetches:
+                    prefetches.append(mdl)
+
+            # Construct Q expressions for the filters (if any)
             filter_value: str = self.get_column_cookie(column, "filter")
             if column.searchable and filter_value != "":
                 filter_columns.append(column.name)
@@ -466,7 +485,10 @@ class BootstrapTableListView(ListView):
             q_exp &= global_q_exp
             search_fields = all_search_fields
 
-        # 2. Add annotations (which can be used in search & sort)
+        # 2. Prefetch all required related fields to reduce the number of queries
+        qs = qs.prefetch_related(*prefetches)
+
+        # 3. Add annotations (which can be used in search & sort)
 
         annotations_before_filter = {}
         annotations_after_filter = {}
@@ -538,7 +560,7 @@ class BootstrapTableListView(ListView):
         if len(annotations_before_filter.keys()) > 0:
             qs = qs.annotate(**annotations_before_filter)
 
-        # 3. Apply the search and filters
+        # 4. Apply the search and filters
 
         if len(q_exp.children) > 0:
             try:
@@ -557,13 +579,13 @@ class BootstrapTableListView(ListView):
                 else:
                     self.cookie_resets = [self.get_column_cookie_name(c, "filter") for c in filter_columns]
 
-        # 4. Apply coalesce annotations AFTER the filter, due to the inefficiency of WHERE clauses interacting with
+        # 5. Apply coalesce annotations AFTER the filter, due to the inefficiency of WHERE clauses interacting with
         # COALESCE
 
         if len(annotations_after_filter.keys()) > 0:
             qs = qs.annotate(**annotations_after_filter)
 
-        # 4. Apply the sort
+        # 6. Apply the sort
 
         # Sort the results, if sort has a value
         if order_by != "":
@@ -586,17 +608,25 @@ class BootstrapTableListView(ListView):
 
             qs = qs.order_by(order_by)
 
-        # 4. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
+        # 7. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
 
         qs = qs.distinct()
 
-        # 5. Update the count
+        # 8. Update the count
 
         # Set the total after the search
         self.total = qs.count()
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
+
+    def field_to_related_model(self, field: str):
+        """Turns a django field path into a related model path, e.g. mz_to_msrunsamples__sample__animal__studies__id ->
+        mz_to_msrunsamples__sample__animal__studies"""
+        mdl_path = field.split("__")
+        if len(mdl_path) <= 1:
+            return None
+        return "__".join(mdl_path[0:-1])
 
     def get_paginate_by(self, queryset):
         """An override of the superclass method to allow the user to change the rows per page."""
@@ -723,3 +753,76 @@ class BootstrapTableListView(ListView):
                     q_exp |= Q(**{f"{search_field}__icontains": term})
 
         return q_exp, search_fields
+
+    def rows_iterator(self):
+        """Takes a queryset of records and returns a list of lists of column data.
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            (List[List[str]])
+        """
+        yield self.row_headers()
+        rec: Model
+        for rec in self.get_queryset():
+            yield self.rec_to_row(rec)
+
+    def row_headers(self):
+        return [col.header for col in self.columns if col.exported]
+
+    def rec_to_row(self, rec: Model) -> List[str]:
+        """Takes a Model record and returns a list of values for a file.
+
+        Args:
+            rec (Model)
+        Exceptions:
+            None
+        Returns:
+            (List[str])
+        """
+        return [
+            str(self.get_rec_val(rec, col))
+            for col in self.columns
+            if col.exported
+        ]
+
+    def get_rec_val(self, rec: Model, col: BootstrapTableColumn):
+        """Given a model record, i.e. row-data, e.g. from a queryset, and a column, return the column value."""
+        # Getting an annotation is fast, and if it is None, we can skip potentially costly many_related lookups
+        val = self._get_rec_val_helper(rec, col.name.split("__"))
+        if val == "":
+            val = None
+
+        if col.many_related and val is not None:
+            # TODO: sort based on cookies
+            if isinstance(col.field, list):
+                # TODO: This isn't right.  I need to use Coalesce.
+                # return col.DEF_DELIM.join([self._get_rec_val_helper(rec, f.split("__")) for f in col.field])
+                # TEMPORARILY RETURNING THE ANNOTATION
+                val = self._get_rec_val_helper(rec, col.name.split("__"))
+            else:
+                vals_list = self._get_rec_val_helper(rec, col.field.split("__"))
+                if isinstance(vals_list, list):
+                    val = col.DEF_DELIM.join([str(val) for val in vals_list])
+                else:
+                    # Sometimes the related manager returns a single record
+                    val = vals_list
+
+        return val
+
+    def _get_rec_val_helper(self, rec: Model, attr_path: List[Optional[str]]):
+        if len(attr_path) == 0 or rec is None:
+            return None
+        else:
+            field_or_rec = getattr(rec, attr_path[0])
+
+        if len(attr_path) == 1:
+            if type(field_or_rec).__name__ == "RelatedManager":
+                return list(field_or_rec.all())
+            return field_or_rec
+
+        if type(field_or_rec).__name__ == "RelatedManager":
+            return list(self._get_rec_val_helper(rel_rec, attr_path[1:]) for rel_rec in field_or_rec.all())
+        return self._get_rec_val_helper(field_or_rec, attr_path[1:])
