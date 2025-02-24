@@ -93,6 +93,7 @@
                                 {% addToDict tracerlink "compound_id" tracer_link.tracer.compound.id %}
                                 {% addToDict tracerlink "name" tracer_link.tracer.name %}
                                 {% addToDict tracerlink "conc" tracer_link.concentration|sigdig:4 %}
+                                {% addToDict tracerlink "concval" tracer_link.concentration %}
                                 {% append tracer_dicts tracerlink %}
                             {% endfor %}
                             <td>
@@ -104,11 +105,11 @@
                                         <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% elif order_by == "first_tracer_conc" and order_dir|lower == "desc" %}
-                                    {% for tracer in tracer_dicts|dictsortreversed:"conc" %}
+                                    {% for tracer in tracer_dicts|dictsortreversed:"concval" %}
                                         <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% elif order_by == "first_tracer_conc" and order_dir|lower == "asc" %}
-                                    {% for tracer in tracer_dicts|dictsort:"conc" %}
+                                    {% for tracer in tracer_dicts|dictsort:"concval" %}
                                         <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% else %}
@@ -131,11 +132,11 @@
                                         <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% elif order_by == "first_tracer_conc" and order_dir|lower == "desc" %}
-                                    {% for tracer in tracer_dicts|dictsortreversed:"conc" %}
+                                    {% for tracer in tracer_dicts|dictsortreversed:"concval" %}
                                         <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% elif order_by == "first_tracer_conc" and order_dir|lower == "asc" %}
-                                    {% for tracer in tracer_dicts|dictsort:"conc" %}
+                                    {% for tracer in tracer_dicts|dictsort:"concval" %}
                                         <span title="{{ tracer.conc }}">{{ tracer.conc }}</span>{% if not forloop.last %};<br>{% endif %}
                                     {% endfor %}
                                 {% else %}
