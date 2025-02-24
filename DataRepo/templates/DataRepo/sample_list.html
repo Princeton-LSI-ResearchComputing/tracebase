@@ -35,7 +35,7 @@
                 {{ tissue__name }}
                 {{ first_study }}
                 {{ animal__genotype }}
-                {{ animal__infusate__name }}
+                {{ infusate_name }}
                 {{ first_tracer }}
                 {{ first_tracer_conc }}
                 {{ first_label }}
@@ -90,7 +90,7 @@
                             {# Build a tracerlink dict and append it to tracer_dicts so we can sort both in individual columns #}
                             {% for tracer_link in sample.animal.infusate.tracer_links.all %}
                                 {% createDict as tracerlink %}
-                                {% addToDict tracerlink "id" tracer_link.tracer.id %}
+                                {% addToDict tracerlink "compound_id" tracer_link.tracer.compound.id %}
                                 {% addToDict tracerlink "name" tracer_link.tracer.name %}
                                 {% addToDict tracerlink "conc" tracer_link.concentration|sigdig:4 %}
                                 {% append tracer_dicts tracerlink %}
@@ -101,19 +101,19 @@
 
                                 {% if order_by == "first_tracer" and order_dir|lower == "desc" %}
                                     {% for tracer in tracer_dicts|dictsortreversed:"name" %}
-                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
+                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% elif order_by == "first_tracer_conc" and order_dir|lower == "desc" %}
                                     {% for tracer in tracer_dicts|dictsortreversed:"conc" %}
-                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
+                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% elif order_by == "first_tracer_conc" and order_dir|lower == "asc" %}
                                     {% for tracer in tracer_dicts|dictsort:"conc" %}
-                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
+                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% else %}
                                     {% for tracer in tracer_dicts|dictsort:"name" %}
-                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
+                                        <div class="nobr"><a href="{% url 'compound_detail' tracer.compound_id %}">{{ tracer.name }}</a>{% if not forloop.last %};<br>{% endif %}</div>
                                     {% endfor %}
                                 {% endif %}
                             </td>

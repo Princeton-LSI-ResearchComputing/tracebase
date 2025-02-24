@@ -101,11 +101,11 @@ class BootstrapTableColumn:
         "DATEPICKER": "datepicker",
         "DISABLED": "",
     }
-    SORTER_CHOICES = [
-        "alphanum",  # default
-        "numericOnly",
-        "htmlSorter",  # See static/js/htmlSorter.js
-    ]
+    SORTER_CHOICES = {
+        "ALPHANUMERIC": "alphanum",  # default
+        "NUMERIC": "numericOnly",
+        "HTML": "htmlSorter",  # See static/js/htmlSorter.js
+    }
     NAME_IS_FIELD = "__same__"
 
     # TODO: Make this into an instance attribute
@@ -223,10 +223,22 @@ class BootstrapTableColumn:
                     f"Either many_related must be True or a converter must be supplied if the BST column name '{name}' "
                     f"is not equal to the model field name '{field}'."
                 )
-            elif (converter is not None or many_related) and isinstance(self.field, str) and name == self.field:
+            elif (converter is not None or many_related) and isinstance(self.field, str) and name == field:
                 raise ValueError(
                     f"The BST column name '{name}' must differ from the model field name '{field}' when either a "
                     "converter is supplied or many_related is True.\n"
+                    "In the case of 'many_related', the name must differ in order to create an annotated field for "
+                    "sorting, so as to prevent artificially increasing the number of rows in the resulting table due "
+                    "to a left-join side-effect of sorting in the ORM."
+                )
+            elif (
+                (converter is not None or many_related)
+                and isinstance(self.field, str)
+                and field == self.NAME_IS_FIELD
+            ):
+                raise ValueError(
+                    f"The BST column field must be supplied and set to a different value from the name '{name}' when "
+                    "either a converter is supplied or many_related is True.\n"
                     "In the case of 'many_related', the name must differ in order to create an annotated field for "
                     "sorting, so as to prevent artificially increasing the number of rows in the resulting table due "
                     "to a left-join side-effect of sorting in the ORM."
@@ -348,11 +360,14 @@ class BootstrapTableColumn:
 
         self.sorter = sorter
         if sorter is None:
-            sorter = self.SORTER_CHOICES[0]
-        elif sorter in self.SORTER_CHOICES:
+            self.sorter = self.SORTER_CHOICES["ALPHANUMERIC"]
+        elif sorter in self.SORTER_CHOICES.values():
             self.sorter = sorter
         else:
-            raise ValueError(f"Invalid sorter value: '{sorter}'.  Valid choices are: {self.SORTER_CHOICES}.")
+            raise ValueError(
+                f"Invalid sorter value: '{sorter}'.  "
+                f"Valid choices are: {list(self.SORTER_CHOICES.values())}."
+            )
 
         self.visible = "true" if visible else "false"
         self.filter = ""
@@ -562,6 +577,13 @@ class BootstrapTableListView(ListView):
                     )
                     else column.name
                 )
+                if isinstance(column.converter, Coalesce):
+                    print(
+                        "WARNING: Filtering/searching is prohibited for Coalesce annotations due to performance.  The "
+                        f"search for annotation '{column.name}' is falling back to a search on '{column.field}'.  Try "
+                        "changing the converter to a difference function, such as 'Case'."
+                    )
+                # print(f"FILTERING COLUMN '{column.name}' USING FIELD '{search_field}' AND TERM '{filter_value}'")
                 if isinstance(search_field, list):
                     or_q_exp = Q()
                     for many_related_search_field in column.field:
@@ -593,14 +615,10 @@ class BootstrapTableListView(ListView):
                     contained = True
                     break
             if not contained:
-                print(f"PATH {model_path} NOT IN {prefetches}")
                 prefetches.append(model_path)
-            else:
-                print(f"PATH {model_path} IN {prefetches}")
         # from DataRepo.models.study import Study
         qs = qs.prefetch_related(*prefetches)
-        # qs = qs.prefetch_related(Prefetch("peak_groups__msrun_sample__sample__animal__studies"))
-        print(f"PREFETCHES: {prefetches} MODEL PATHS: {model_paths}")
+        # print(f"PREFETCHES: {prefetches} MODEL PATHS: {model_paths}")
 
         # 3. Add annotations (which can be used in search & sort)
 
@@ -626,7 +644,7 @@ class BootstrapTableListView(ListView):
                 # disabled.  Sorting will be a string sort (which is not ideal, e.g. if the value is a datetime).
                 column.searchable = False
                 print(
-                    f"ERROR: {type(e).__name__}: {e}\nConverter for column '{column.name}' failed.  Falling back to "
+                    f"WARNING: {type(e).__name__}: {e}\nConverter for column '{column.name}' failed.  Falling back to "
                     "default.  The converter may be specific to postgres and must be rewritten."
                 )
             finally:
@@ -700,7 +718,6 @@ class BootstrapTableListView(ListView):
         # COALESCE
 
         if len(annotations_after_filter.keys()) > 0:
-            # print(annotations_after_filter)
             qs = qs.annotate(**annotations_after_filter)
 
         # 6. Apply the sort
@@ -951,7 +968,7 @@ class BootstrapTableListView(ListView):
 
     def _get_rec_val_helper(self, rec: Model, field_path: List[str], sort_field_path: Optional[List[str]] = None):
         if len(field_path) == 0 or rec is None:
-            print(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
+            # print(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
             return None, None
             # raise ValueError(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
         elif type(rec).__name__ != "RelatedManager" and type(rec).__name__ != "ManyRelatedManager":

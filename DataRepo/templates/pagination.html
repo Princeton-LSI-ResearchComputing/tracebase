@@ -250,10 +250,12 @@
 
             $('#{{ table_id }}').bootstrapTable({
                 onSort: function (orderBy, orderDir) {
-                    setViewCookie('order-by', orderBy);
-                    setViewCookie('order-dir', orderDir);
-                    // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
-                    updatePage(1);
+                    if (!loading) {
+                        setViewCookie('order-by', orderBy);
+                        setViewCookie('order-dir', orderDir);
+                        // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
+                        updatePage(1);
+                    }
                 },
                 onSearch: function (searchTerm) {
                     if (!loading) {

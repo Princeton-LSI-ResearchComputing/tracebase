@@ -1,4 +1,4 @@
-from django.db.models import CharField, Count, F, Func, Value
+from django.db.models import Case, CharField, Count, F, Func, Value, When
 from django.db.models.functions import Extract
 from django.views.generic import DetailView
 
@@ -51,7 +51,22 @@ class SampleListView(BSTListView):
                 ),
                 header="Genotype",
             ),
-            BSTColumn("animal__infusate__name", header="Infusate"),
+            BSTColumn(
+                "infusate_name",
+                field="animal__infusate__name",
+                many_related=True,
+                header="Infusate",
+                converter=Case(
+                    When(
+                        animal__infusate__tracer_group_name__isnull=False,
+                        then="animal__infusate__tracer_group_name",
+                    ),
+                    When(
+                        animal__infusate__tracer_group_name__isnull=True,
+                        then="animal__infusate__name",
+                    ),
+                ),
+            ),
             BSTColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name", header="Tracer(s)"),
             BSTColumn(
                 "first_tracer_compound_id",
