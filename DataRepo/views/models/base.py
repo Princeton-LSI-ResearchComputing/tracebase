@@ -1,9 +1,11 @@
 from __future__ import annotations
+from functools import reduce
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
-from django.db.models import F, Max, Min, Model, Q, QuerySet
+from django.db import ProgrammingError
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Prefetch
 from django.db.models.functions import Coalesce
 from django.utils.functional import classproperty
 from django.views.generic import ListView
@@ -119,11 +121,15 @@ class BootstrapTableColumn:
         searchable: Optional[bool] = None,  # Default set in-line
         filter_control: Optional[str] = None,  # Default set in-line
         select_options: Optional[Union[Dict[str, str], List[str]]] = None,
-        strict_select: Optional[bool] = None,
         sortable: bool = True,
-        sorter: Optional[str] = None,
         visible: bool = True,
         header: str = None,
+
+        # Advanced (automatically uses reasonable defaults)
+        many_related_sort_fld: Optional[Union[str, List[str]]] = None,  # default = field
+        many_related_sort_fwd: bool = True,
+        sorter: Optional[str] = None,
+        strict_select: Optional[bool] = None,
     ):
         """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
         model.
@@ -181,6 +187,16 @@ class BootstrapTableColumn:
             visible (bool) [True]: Controls whether a column is initially visible.
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
+            many_related_sort_fld (Optional[Union[str, List[str]]]) [field]: All many_related columns will be delimited
+                and sorted by their own value.  You can optionally sort based on any field in the field's immediate
+                parent model, and even via relations to that model, but only using a single field.  This is ignored if
+                many_related is False.  E.g. if the field is
+                    field="peak_groups__msrun_sample__sample__animal__studies__description"
+                and you want to sort on the study name, you can supply
+                    many_related_sort_fld="peak_groups__msrun_sample__sample__animal__studies__name"
+                but note that both fields MUST start the same up to the last model, i.e. they must both start with:
+                    "peak_groups__msrun_sample__sample__animal__studies"
+            many_related_sort_fwd (bool) [True]: Set to False to reverse sort.
         Exceptions:
             ValueError when:
             - Either many_related must be True or a converter must be supplied if the BST column name is not equal to
@@ -216,8 +232,70 @@ class BootstrapTableColumn:
                     "to a left-join side-effect of sorting in the ORM."
                 )
 
-        self.converter = converter
         self.many_related = many_related
+        self.many_related_sort_fld = many_related_sort_fld
+        self.many_related_sort_fwd = many_related_sort_fwd
+        if self.many_related_sort_fld is not None:
+            if type(self.many_related_sort_fld) != type(self.field):
+                raise TypeError(
+                    f"field and many_related_sort_fld must be the same type.  "
+                    f"[{type(self.many_related_sort_fld).__name__} != {type(self.field).__name__}]"
+                )
+            if isinstance(self.field, list):
+                for i, fld in enumerate(self.field):
+                    fld_mdl = self.field_to_related_model(fld) + "__"
+                    if not self.many_related_sort_fld[i].startswith(fld_mdl):
+                        raise ValueError(f"The many_related_sort_fld must start with {fld_mdl}")
+            else:
+                fld_mdl = self.field_to_related_model(self.field) + "__"
+                if not self.many_related_sort_fld.startswith(fld_mdl):
+                    raise ValueError(f"The many_related_sort_fld must start with {fld_mdl}")
+        elif self.field is not None:
+            if isinstance(self.field, list):
+                self.many_related_sort_fld = self.field.copy()
+            else:
+                self.many_related_sort_fld = self.field
+        if self.many_related and self.many_related_sort_fld is not None:
+            # We are going to cut out the many-related model, leaving just that model's sort field
+            if self.field is None:
+                self.many_related_sort_fld = self.many_related_sort_fld.split("__")[-1]
+            elif isinstance(self.field, list):
+                for i in range(len(self.field)):
+                    mdl_substr = self.field_to_related_model(self.field[i])
+                    if mdl_substr is None:
+                        # We got here because a many-related foreign key field was the end of the field path.  We will
+                        # allow this if the many_related_sort_fld is the same.  If it differs, then that's not
+                        # supported.
+                        if self.field != self.many_related_sort_fld:
+                            raise NotImplementedError(
+                                f"Sorting a many-related field such as '{self.field[i]}' is not supported for foreign "
+                                "keys.  To use a sort field, the field path must end in a non-foreign key."
+                            )
+                    else:
+                        self.many_related_sort_fld[i] = self.many_related_sort_fld[i].replace(
+                            f"{mdl_substr}__",
+                            "",
+                            1,
+                        )
+            else:
+                mdl_substr = self.field_to_related_model(self.field)
+                if mdl_substr is None:
+                    # We got here because a many-related foreign key field was the end of the field path.  We will
+                    # allow this if the many_related_sort_fld is the same.  If it differs, then that's not
+                    # supported.
+                    if self.field != self.many_related_sort_fld:
+                        raise NotImplementedError(
+                            f"Sorting a many-related field such as '{self.field}' is not supported for foreign keys.  "
+                            "To use a sort field, the field path must end in a non-foreign key."
+                        )
+                else:
+                    self.many_related_sort_fld = self.many_related_sort_fld.replace(
+                        f"{mdl_substr}__",
+                        "",
+                        1,
+                    )
+
+        self.converter = converter
         self.is_annotation = converter is not None or isinstance(self.field, list) or many_related
         self.exported = exported
 
@@ -289,6 +367,15 @@ class BootstrapTableColumn:
             self,
             attrs=attrs,
         )
+
+    @classmethod
+    def field_to_related_model(cls, field: str):
+        """Turns a django field path into a related model path, e.g. mz_to_msrunsamples__sample__animal__studies__id ->
+        mz_to_msrunsamples__sample__animal__studies"""
+        mdl_path = field.split("__")
+        if len(mdl_path) <= 1:
+            return None
+        return "__".join(mdl_path[0:-1])
 
 
 class BootstrapTableListView(ListView):
@@ -439,19 +526,25 @@ class BootstrapTableListView(ListView):
         # We need the column names (from the BST data-field attributes) to use in Q expressions
         filter_columns = []
         search_fields = []
-        prefetches = []
+        model_paths = []
         column: BootstrapTableColumn
         for column in self.columns:
-            # Put all fields into the prefetches
+            # Put all fields' model paths into model_paths, to be evaluated for entry into prefetches
             if isinstance(column.field, list):
                 for fld in column.field:
-                    mdl = self.field_to_related_model(fld)
-                    if mdl is not None and mdl not in prefetches:
-                        prefetches.append(mdl)
+                    mdl = column.field_to_related_model(fld)
+                    if mdl is not None and mdl not in model_paths:
+                        # print(f"ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
+                        model_paths.append(mdl)
+                    # else:
+                    #     print(f"NOT ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
             elif column.field is not None:
-                mdl = self.field_to_related_model(column.field)
-                if mdl is not None and mdl not in prefetches:
-                    prefetches.append(mdl)
+                mdl = column.field_to_related_model(column.field)
+                if mdl is not None and mdl not in model_paths:
+                    # print(f"ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
+                    model_paths.append(mdl)
+                # else:
+                #     print(f"NOT ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
 
             # Construct Q expressions for the filters (if any)
             filter_value: str = self.get_column_cookie(column, "filter")
@@ -488,7 +581,26 @@ class BootstrapTableListView(ListView):
             search_fields = all_search_fields
 
         # 2. Prefetch all required related fields to reduce the number of queries
+        prefetches = []
+        for model_path in sorted(
+            model_paths,
+            key=len,
+            reverse=True,
+        ):
+            contained = False
+            for upath in prefetches:
+                if model_path in upath:
+                    contained = True
+                    break
+            if not contained:
+                print(f"PATH {model_path} NOT IN {prefetches}")
+                prefetches.append(model_path)
+            else:
+                print(f"PATH {model_path} IN {prefetches}")
+        # from DataRepo.models.study import Study
         qs = qs.prefetch_related(*prefetches)
+        # qs = qs.prefetch_related(Prefetch("peak_groups__msrun_sample__sample__animal__studies"))
+        print(f"PREFETCHES: {prefetches} MODEL PATHS: {model_paths}")
 
         # 3. Add annotations (which can be used in search & sort)
 
@@ -588,6 +700,7 @@ class BootstrapTableListView(ListView):
         # COALESCE
 
         if len(annotations_after_filter.keys()) > 0:
+            # print(annotations_after_filter)
             qs = qs.annotate(**annotations_after_filter)
 
         # 6. Apply the sort
@@ -624,14 +737,6 @@ class BootstrapTableListView(ListView):
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
-
-    def field_to_related_model(self, field: str):
-        """Turns a django field path into a related model path, e.g. mz_to_msrunsamples__sample__animal__studies__id ->
-        mz_to_msrunsamples__sample__animal__studies"""
-        mdl_path = field.split("__")
-        if len(mdl_path) <= 1:
-            return None
-        return "__".join(mdl_path[0:-1])
 
     def get_paginate_by(self, queryset):
         """An override of the superclass method to allow the user to change the rows per page."""
@@ -797,39 +902,126 @@ class BootstrapTableListView(ListView):
 
     def get_rec_val(self, rec: Model, col: BootstrapTableColumn):
         """Given a model record, i.e. row-data, e.g. from a queryset, and a column, return the column value."""
+        # print(f"LOOKING UP {col.name} IN REC TYPE {type(rec).__name__}")
         # Getting an annotation is fast, and if it is None, we can skip potentially costly many_related lookups
-        val = self._get_rec_val_helper(rec, col.name.split("__"))
+        val, _ = self._get_rec_val_helper(rec, col.name.split("__"))
         if val == "":
             val = None
 
         if col.many_related and val is not None:
-            # TODO: sort based on cookies
             if isinstance(col.field, list):
-                # TODO: This isn't right.  I need to use Coalesce.
-                # return col.DEF_DELIM.join([self._get_rec_val_helper(rec, f.split("__")) for f in col.field])
-                # TEMPORARILY RETURNING THE ANNOTATION
-                val = self._get_rec_val_helper(rec, col.name.split("__"))
+                for i in range(len(col.field)):
+                    # print(f"CHECKING {fld}")
+                    val = self.get_many_related_rec_val(rec, col, col.field[i], col.many_related_sort_fld[i])
+                    if val != "":
+                        # print(f"BREAKING ON {type(val).__name__} {val} UNIQ VALS1 {type(uniq_vals1).__name__}: {uniq_vals1} UNIQ VALS2 {type(uniq_vals2).__name__}: {uniq_vals2}")
+                        break
             else:
-                vals_list = self._get_rec_val_helper(rec, col.field.split("__"))
-                if isinstance(vals_list, list):
-                    val = col.DEF_DELIM.join([str(val) for val in vals_list])
-                else:
-                    # Sometimes the related manager returns a single record
-                    val = vals_list
+                val = self.get_many_related_rec_val(rec, col, col.field, col.many_related_sort_fld)
 
         return val
 
-    def _get_rec_val_helper(self, rec: Model, attr_path: List[Optional[str]]):
-        if len(attr_path) == 0 or rec is None:
-            return None
+    def get_many_related_rec_val(self, rec: Model, col: BootstrapTableColumn, field: str, sort_field: str):
+        delim = col.DEF_DELIM
+        reverse = not col.many_related_sort_fwd
+        # print(f"get_many_related_rec_val CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
+        vals_list = self._get_rec_val_helper(rec, field.split("__"), sort_field.split("__"))
+        if vals_list is None:
+            val = ""
+            # print(f"GOT1 {vals_list}")
+        elif isinstance(vals_list, list):
+            try:
+                uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, vals_list, [])
+                # print(f"REDUCE RETURNED {type(uniq_vals).__name__}: '{uniq_vals}' FROM VALS LIST '{vals_list}'")
+                val = delim.join([str(val[0]) for val in sorted([tpl for tpl in uniq_vals if tpl is not None], key=lambda t: t[1], reverse=reverse)])
+                # uniq_vals1 = reduce(lambda lst, val: lst + [val] if val not in lst else lst, vals_list, [])
+                # uniq_vals2 = reduce(lambda lst, val: list(set(lst).union(set(val))) if val not in lst else lst, uniq_vals1, [])
+                # val = delim.join(sorted([str(val[0]) for val in uniq_vals2 if val is not None], key=lambda tpl: tpl[1], reverse=reverse))
+                # print(f"GOT2 {val}")
+            except Exception as e:
+                val = delim.join([str(val) for val in vals_list])
+                raise ProgrammingError(
+                    f"Got exception: {type(e).__name__}: {e}\nIf this value from {vals_list} looks good: '{val}', "
+                    "consider accounting for this case somehow and removing this try/except block."
+                ).with_traceback(e.__traceback__)
         else:
-            field_or_rec = getattr(rec, attr_path[0])
+            # Sometimes the related manager returns a single record
+            val = vals_list
+        return val
 
-        if len(attr_path) == 1:
-            if type(field_or_rec).__name__ == "RelatedManager":
-                return list(field_or_rec.all())
-            return field_or_rec
+    def _get_rec_val_helper(self, rec: Model, field_path: List[str], sort_field_path: Optional[List[str]] = None):
+        if len(field_path) == 0 or rec is None:
+            print(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
+            return None, None
+            # raise ValueError(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
+        elif type(rec).__name__ != "RelatedManager" and type(rec).__name__ != "ManyRelatedManager":
+            val_or_rec = getattr(rec, field_path[0])
+        else:
+            # print(f"SETTING field_or_rec to a {type(rec).__name__} WHEN LOOKING FOR {attr_path[0]}")
+            val_or_rec = rec
 
-        if type(field_or_rec).__name__ == "RelatedManager":
-            return list(self._get_rec_val_helper(rel_rec, attr_path[1:]) for rel_rec in field_or_rec.all())
-        return self._get_rec_val_helper(field_or_rec, attr_path[1:])
+        if len(field_path) == 1:
+            # print(f"REC: {rec} GETTING: {attr_path[0]} GOT: {field_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(field_or_rec).__name__}")
+            if type(val_or_rec).__name__ == "RelatedManager":
+                if sort_field_path is not None and field_path != sort_field_path:
+                    raise NotImplementedError(
+                        f"Support for sorting record objects (e.g. {type(rec).__name__} records) by a different field "
+                        f"'{sort_field_path}' is not supported.  The field path must end in a non-key field."
+                    )
+                # print(f"RETURNING ALL {field_or_rec.count()}")
+                # return reduce(lambda lst, rec: lst + [rec] if rec not in lst else lst, field_or_rec.all(), [])
+                return list(val_or_rec.all())
+            elif type(val_or_rec).__name__ == "ManyRelatedManager":
+                if sort_field_path is not None and field_path != sort_field_path:
+                    raise NotImplementedError(
+                        f"Support for sorting record objects (e.g. {type(rec).__name__} records) by a different field "
+                        f"'{sort_field_path}' is not supported.  The field path must end in a non-key field."
+                    )
+                # print(f"RETURNING ALL {field_or_rec.through.count()}")
+                # return reduce(lambda lst, rec: lst + [rec] if rec not in lst else lst, field_or_rec.through.all(), [])
+                return list(val_or_rec.through.all())
+            elif sort_field_path is not None and len(sort_field_path) > 0:
+                # print(f"RETRIEVING SORT FIELD {sort_field_path} FROM REC {rec}")
+                sort_val, _ = self._get_rec_val_helper(rec, sort_field_path)
+            else:
+                sort_val = val_or_rec
+            # print(f"RETURNING ONE {type(field_or_rec).__name__}: {field_or_rec}")
+            return val_or_rec, sort_val
+
+        if type(val_or_rec).__name__ == "RelatedManager":
+            if val_or_rec.count() > 0:
+                # return list(
+                #     self._get_rec_val_helper(rel_rec, attr_path[1:])
+                #     for rel_rec
+                #     in reduce(
+                #         lambda lst, rec: lst + [rec] if rec not in lst else lst,
+                #         field_or_rec.all(),
+                #         [],
+                #     )
+                # )
+                possibly_nested_list = list(self._get_rec_val_helper(rel_rec, field_path[1:]) for rel_rec in val_or_rec.all())
+                if len(possibly_nested_list) == 0 or not isinstance(possibly_nested_list[0], list):
+                    return possibly_nested_list
+                return list(item for sublist in possibly_nested_list for item in sublist)
+            # TODO: Need to check if this return type is OK due to it not being a tuple or list. Should only happen when
+            # expecting a list
+            return None
+        if type(val_or_rec).__name__ == "ManyRelatedManager":
+            if val_or_rec.count() > 0:
+                # return list(
+                #     self._get_rec_val_helper(rel_rec, attr_path[1:])
+                #     for rel_rec
+                #     in reduce(
+                #         lambda lst, rec: lst + [rec] if rec not in lst else lst,
+                #         field_or_rec.through.all(),
+                #         [],
+                #     )
+                # )
+                possibly_nested_list = list(self._get_rec_val_helper(rel_rec, field_path[1:]) for rel_rec in val_or_rec.all())
+                if len(possibly_nested_list) == 0 or not isinstance(possibly_nested_list[0], list):
+                    return possibly_nested_list
+                return list(item for sublist in possibly_nested_list for item in sublist)
+            # TODO: Need to check if this return type is OK due to it not being a tuple or list. Should only happen when
+            # expecting a list
+            return None
+        return self._get_rec_val_helper(val_or_rec, field_path[1:])

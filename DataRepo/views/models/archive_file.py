@@ -101,9 +101,9 @@ class ArchiveFileListView(BSTListView):
 
                 # These will automatically get .annotate(first_study_id=Coalesce(Min(...), Min(...), Min(...)) applied
                 field=[
-                    "peak_groups__msrun_sample__sample__animal__studies",
-                    "mz_to_msrunsamples__sample__animal__studies",
-                    "raw_to_msrunsamples__sample__animal__studies",
+                    "peak_groups__msrun_sample__sample__animal__studies__id",
+                    "mz_to_msrunsamples__sample__animal__studies__id",
+                    "raw_to_msrunsamples__sample__animal__studies__id",
                 ],
 
                 exported=False,
