@@ -317,15 +317,17 @@
                             <td>{{ sample.first_ms_date }}</td>
                             <td>
                                 {% for msrun_sample in sample.msrun_samples.all %}
-                                    <a href="{% url 'msrunsample_detail' msrun_sample.id %}">MSRunSample Detail
-                                        {% if msrun_sample.polarity and msrun_sample.mz_min and msrun_sample.mz_max %}
-                                            ({{ msrun_sample.polarity|polarity_name_to_sign }} <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
-                                        {% elif msrun_sample.polarity %}
-                                            ({{ msrun_sample.polarity|polarity_name_to_sign }})
-                                        {% elif msrun_sample.mz_min and msrun_sample.mz_max %}
-                                            (<span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
-                                        {% endif %}
-                                    </a>
+                                    <div class="nobr">
+                                        <a href="{% url 'msrunsample_detail' msrun_sample.id %}">MSRunSample Detail
+                                            {% if msrun_sample.polarity and msrun_sample.mz_min and msrun_sample.mz_max %}
+                                                ({{ msrun_sample.polarity|polarity_name_to_sign }} <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
+                                            {% elif msrun_sample.polarity %}
+                                                ({{ msrun_sample.polarity|polarity_name_to_sign }})
+                                            {% elif msrun_sample.mz_min and msrun_sample.mz_max %}
+                                                (<span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
+                                            {% endif %}
+                                        </a>
+                                    </div>
                                 {% endfor %}
                             </td>
                         {% else %}
