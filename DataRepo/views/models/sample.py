@@ -1,4 +1,4 @@
-from django.db.models import Case, CharField, Count, F, Func, Value, When
+from django.db.models import Case, CharField, Count, F, Func, Value, When, Min
 from django.db.models.functions import Extract
 from django.views.generic import DetailView
 
@@ -19,7 +19,7 @@ class SampleListView(BSTListView):
     paginate_by = 10
 
     DATE_FORMAT = "YYYY-MM-DD"  # Postgres date format syntax
-    TEMPLATE_DATE_FORMAT = "%Y-%b-%d"  # python datetime package format syntax - must match DATE_FORMAT
+    TEMPLATE_DATE_FORMAT = "%Y-%m-%d"  # python datetime package format syntax - must match DATE_FORMAT
     DBSTRING_FUNCTION = "to_char"  # Postgres function
     DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
 
@@ -144,7 +144,6 @@ class SampleListView(BSTListView):
             ),
             BSTColumn(
                 "sequence_count",
-                many_related=True,
                 searchable=False,
                 converter=Count("msrun_samples__msrun_sequence", distinct=True),
                 field="msrun_samples__msrun_sequence__id",
@@ -154,6 +153,7 @@ class SampleListView(BSTListView):
                 "first_ms_operator",
                 many_related=True,
                 field="msrun_samples__msrun_sequence__researcher",
+                many_related_sort_mdl="msrun_samples__msrun_sequence",
                 select_options=researchers,
                 header="MSRun Owner",
             ),
@@ -161,18 +161,20 @@ class SampleListView(BSTListView):
                 "first_ms_date",
                 many_related=True,
                 converter=Func(
-                    F("msrun_samples__msrun_sequence__date"),
+                    Min("msrun_samples__msrun_sequence__date"),
                     Value(self.DATE_FORMAT),
                     output_field=CharField(),
                     function=self.DBSTRING_FUNCTION,
                 ),
                 field="msrun_samples__msrun_sequence__date",
+                many_related_sort_mdl="msrun_samples__msrun_sequence",
                 header="MSRun Date",
             ),
             BSTColumn(
                 "first_ms_sample",
                 many_related=True,
                 field="msrun_samples",
+                converter=Min("msrun_samples"),
                 searchable=False,
                 sortable=False,
                 filter_control="",

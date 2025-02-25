@@ -320,22 +320,6 @@ class BootstrapTableColumn:
                         f"start with many_related_sort_mdl ('{self.many_related_sort_mdl}') in order to link the sort "
                         "of delimited values in this column with those in other columns."
                     )
-        # if self.many_related and self.many_related_sort_def is not None:
-        #     # We are going to cut out the many-related model from the default sort field, leaving just that model's sort
-        #     # field
-        #     if isinstance(self.many_related_sort_def, list):
-        #         for i in range(len(self.many_related_sort_def)):
-        #             self.many_related_sort_def[i] = self.many_related_sort_def[i].replace(
-        #                 f"{self.many_related_sort_mdl[i]}__",
-        #                 "",
-        #                 1,
-        #             )
-        #     else:
-        #         self.many_related_sort_mdl = self.many_related_sort_mdl.replace(
-        #             f"{self.many_related_sort_mdl}__",
-        #             "",
-        #             1,
-        #         )
 
         self.converter = converter
         self.is_annotation = converter is not None or isinstance(self.field, list) or many_related
@@ -781,6 +765,8 @@ class BootstrapTableListView(ListView):
 
         # Set the total after the search
         self.total = qs.count()
+
+        # TODO: Add a check for when limit is 0 and total > raw_total.  Should raise an exception because the developer added a many-related column and did not make it 1:1 with the base model
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
