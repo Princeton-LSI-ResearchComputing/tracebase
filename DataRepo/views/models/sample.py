@@ -67,19 +67,34 @@ class SampleListView(BSTListView):
                     ),
                 ),
             ),
-            BSTColumn("first_tracer", many_related=True, field="animal__infusate__tracers__name", header="Tracer(s)"),
+
+            # Linked M:M related columns, all of which will be delimited and sorted by the
+            # animal__infusate__tracers__name field
+            BSTColumn(
+                "first_tracer",
+                many_related=True,
+                field="animal__infusate__tracer_links__tracer__name",
+                many_related_sort_mdl="animal__infusate__tracer_links",
+                many_related_sort_def="animal__infusate__tracer_links__concentration",
+                header="Tracer(s)",
+            ),
             BSTColumn(
                 "first_tracer_compound_id",
                 many_related=True,
-                field="animal__infusate__tracers__compound__id",
+                many_related_sort_mdl="animal__infusate__tracer_links",
+                many_related_sort_def="animal__infusate__tracer_links__concentration",
+                field="animal__infusate__tracer_links__tracer__compound__id",
                 exported=False,
             ),
             BSTColumn(
                 "first_tracer_conc",
                 many_related=True,
+                many_related_sort_mdl="animal__infusate__tracer_links",
+                many_related_sort_def="animal__infusate__tracer_links__concentration",
                 field="animal__infusate__tracer_links__concentration",
                 header="Tracer Concentration(s) (mM)",
             ),
+
             BSTColumn(
                 "first_label",
                 many_related=True,
