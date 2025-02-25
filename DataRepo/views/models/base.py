@@ -158,7 +158,7 @@ class BootstrapTableColumn:
                 bootstrap, you should set the annotated value as a hidden element.  The overall DB sort in the query
                 will be based on the annotated value.  Ideally, that value would be a joined string of all of the
                 related values, but all thos functions are postgres-specific.
-                Example for AnimalList:
+                Example for AnimalListView:
                     BootstrapTableColumn("study", field="studies__name", many_related=True)
                     If an animal belongs to multiple studies and the user selects to do an ascending sort on the study
                     column, the "study" field will be defined as and the order_by in the query will look like:
@@ -978,14 +978,13 @@ class BootstrapTableListView(ListView):
             # print(f"GOT1 {vals_list}")
         elif isinstance(vals_list, list):
             try:
-                uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, vals_list, [])
-                # print(f"REDUCE RETURNED {type(uniq_vals).__name__}: '{uniq_vals}' FROM VALS LIST '{vals_list}'")
                 # Sorting with (t[1] is None, t[1]) is to sort None values to the end
-                val = delim.join([str(val[0]) for val in sorted([tpl for tpl in uniq_vals if tpl is not None], key=lambda t: (t[1] is None, t[1]), reverse=reverse)])
-                # uniq_vals1 = reduce(lambda lst, val: lst + [val] if val not in lst else lst, vals_list, [])
-                # uniq_vals2 = reduce(lambda lst, val: list(set(lst).union(set(val))) if val not in lst else lst, uniq_vals1, [])
-                # val = delim.join(sorted([str(val[0]) for val in uniq_vals2 if val is not None], key=lambda tpl: tpl[1], reverse=reverse))
-                # print(f"GOT2 {val}")
+                # THIS UNIQUE STRATEGY IS PROBLEMATIC.  E.G. 2 TRACERS WITH THE SAME CONC WILL SHOW ONLY 1 CONC WHERE THERE ARE 2 DISTINCT RECORDS, SO THIS STRATEGY WAS REPLACED WITH THE USAGE OF DISTINCT IN _get_rec_val_helper FOR [Many]RelatedManager OBJECTS
+                # uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, vals_list, [])
+                # val = delim.join([str(val[0]) for val in sorted([tpl for tpl in uniq_vals if tpl is not None], key=lambda t: (t[1] is None, t[1]), reverse=reverse)])
+                # print(f"GOT2 '{val}' VALSLIST {vals_list} UNIQUE '{uniq_vals}'")
+                val = delim.join([str(val[0]) for val in sorted([tpl for tpl in vals_list if tpl is not None], key=lambda t: (t[1] is None, t[1]), reverse=reverse)])
+                # print(f"GOT2 '{val}' VALSLIST {vals_list}")
             except Exception as e:
                 val = delim.join([str(val) for val in vals_list])
                 raise ProgrammingError(
@@ -995,6 +994,7 @@ class BootstrapTableListView(ListView):
         else:
             # Sometimes the related manager returns a single record, into which we want the first of the tuple
             val = vals_list[0]
+            # print(f"GOT3 '{val}' {vals_list}")
         return val
 
     def _get_rec_val_helper(self, rec: Model, field_path: List[str], sort_field_path: Optional[List[str]] = None, _sort_val=None):
