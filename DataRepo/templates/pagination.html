@@ -6,6 +6,7 @@
     {{ warnings|json_script:"warnings" }}
     {{ filter_select_lists|json_script:"filter_select_lists" }}
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
         const filterSelectOptions = {};
         let exportTypes = [];
 
@@ -231,8 +232,19 @@
 
         document.addEventListener("DOMContentLoaded", function(){
             // Set cookies for the current page and limit that comes from the context and is sent via url params.  Everything else is saved in cookies.
+            const limitParam = urlParams.get('limit');
+            const limitCookie = parseInt(getViewCookie('limit', {{ limit }}));
+            if (limitParam) {
+                setViewCookie('limit', limitParam);
+            } else if (limitCookie === 0) {
+                // If no limit param was sent and the cookie limit value is 0, set the cookie limit to the default.  I.e. only set to unlimited by the URL parameter.
+                setViewCookie('limit', {{ limit_default }});
+            } else {
+                setViewCookie('limit', {{ limit }});
+            }
+
             setViewCookie('page', "{{ page_obj.number }}");
-            setViewCookie('limit', {{ limit }});
+            // setViewCookie('limit', {{ limit }});
 
             const notExportedElem = document.getElementById("not_exported");
             const notExported = JSON.parse(notExportedElem.textContent);
@@ -253,7 +265,10 @@
                     if (!loading) {
                         setViewCookie('order-by', orderBy);
                         setViewCookie('order-dir', orderDir);
-                        // BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp), so we will always let the sort hit the server to be on the safe side.
+                        // BST sorting has 2 issues...
+                        // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
+                        // 2. BST sort completely fails when the number of rows is very large
+                        // ...so we will always let the sort hit the server to be on the safe side.
                         updatePage(1);
                     }
                 },

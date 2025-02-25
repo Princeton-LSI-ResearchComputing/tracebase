@@ -56,13 +56,13 @@ class ArchiveFileListView(BSTListView):
             BSTColumn(
                 "data_format__name",
                 select_options=DataFormat.objects.order_by("name").distinct("name").values_list("name", flat=True),
-                header="File Type",
+                header="File Format",
             ),
             BSTColumn(
                 "data_type__name",
                 visible=False,  # Initial visibility
                 select_options=DataType.objects.order_by("name").distinct("name").values_list("name", flat=True),
-                header="File Format",
+                header="File Type",
             ),
 
             BSTColumn(

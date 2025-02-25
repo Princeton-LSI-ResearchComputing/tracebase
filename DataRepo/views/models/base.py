@@ -5,7 +5,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet, Prefetch
+from django.db.models import F, Max, Min, Model, Q, QuerySet
 from django.db.models.functions import Coalesce
 from django.utils.functional import classproperty
 from django.views.generic import ListView
@@ -289,13 +289,13 @@ class BootstrapTableColumn:
                 self.many_related_sort_mdl = ["__".join(f.split("__")[0:-1]) for f in self.field]
             else:
                 self.many_related_sort_mdl = "__".join(self.field.split("__")[0:-1])
-        if self.many_related_sort_def is None:
+        if self.many_related and self.many_related_sort_def is None:
             # Default to sorting M:M field values by the primary key of the many_related_sort_mld model
             if isinstance(self.many_related_sort_mdl, list):
                 self.many_related_sort_def = [f"{f}__pk" for f in self.many_related_sort_mdl]
             else:
                 self.many_related_sort_def = self.many_related_sort_mdl + "__pk"
-        else:
+        elif self.many_related:
             if type(self.many_related_sort_def) != type(self.field) or (
                 isinstance(self.field, list) and len(self.many_related_sort_def) != len(self.field)
             ):
@@ -791,7 +791,9 @@ class BootstrapTableListView(ListView):
         limit = self.request.GET.get("limit", "")
         if limit == "":
             cookie_limit = self.get_cookie("limit")
-            if cookie_limit != "":
+            # Never set limit to 0 from a cookie, because it the page times out, the users will never be able to load it
+            # deleting their browser cookie.
+            if cookie_limit != "" and int(cookie_limit) != 0:
                 limit = int(cookie_limit)
             else:
                 limit = self.paginate_by
