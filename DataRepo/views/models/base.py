@@ -1080,7 +1080,7 @@ class BootstrapTableListView(ListView):
         """Given a model record, i.e. row-data, e.g. from a queryset, and a column, return the column value."""
         # print(f"LOOKING UP {col.name} IN REC TYPE {type(rec).__name__}")
         # Getting an annotation is fast, and if it is None, we can skip potentially costly many_related lookups
-        val, _ = self._get_rec_val_helper(rec, col.name.split("__"))
+        val, _, _ = self._get_rec_val_helper(rec, col.name.split("__"))
         if val == "":
             val = None
 
@@ -1097,7 +1097,7 @@ class BootstrapTableListView(ListView):
             raise ValueError(f"Column {col.name} is not many-related.")
 
         # Get the annotated version (because it's faster to skip the rigor below if it is None)
-        val, _ = self._get_rec_val_helper(rec, col.name.split("__"))
+        val, _, _ = self._get_rec_val_helper(rec, col.name.split("__"))
         if val is None or isinstance(val, list) and len(val) == 0:
             return []
         # val is not None, which means there could be more than just 1 result...
@@ -1175,7 +1175,7 @@ class BootstrapTableListView(ListView):
         next_sort_field_path = sort_field_path[1:] if sort_field_path is not None else None
         if sort_field_path is not None and (sort_field_path[0] != field_path[0] or (len(sort_field_path) == len(field_path) and len(field_path) == 1)):
             # print(f"GETTING SORT VAL {sort_field_path} FOR {field_path} FROM {rec}")
-            sort_val, _ = self._get_rec_val_helper(rec, sort_field_path)
+            sort_val, _, _ = self._get_rec_val_helper(rec, sort_field_path)
             if isinstance(sort_val, list):
                 uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, sort_val, [])
                 if len(uniq_vals) > 1:
@@ -1188,6 +1188,7 @@ class BootstrapTableListView(ListView):
             _sort_val = sort_val
 
         if len(field_path) == 1:
+            pk = 1
             # print(f"REC: {rec} GETTING: {attr_path[0]} GOT: {field_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(field_or_rec).__name__}")
             if type(val_or_rec).__name__ == "RelatedManager":
                 # THIS SHOULD NO LONGER BE A RESTRICTION?? GIVEN THE NEW STRATEGY OF SETTING A COMMON MODEL AND A DEFAULT SORT FIELD... Not sure. This doesn't return a list of tuples
@@ -1198,7 +1199,7 @@ class BootstrapTableListView(ListView):
                 #     )
                 # print(f"RETURNING ALL {field_or_rec.count()}")
                 # return reduce(lambda lst, rec: lst + [rec] if rec not in lst else lst, field_or_rec.all(), [])
-                return list((r, _sort_val) for r in val_or_rec.distinct())
+                return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
             elif type(val_or_rec).__name__ == "ManyRelatedManager":
                 # THIS SHOULD NO LONGER BE A RESTRICTION?? GIVEN THE NEW STRATEGY OF SETTING A COMMON MODEL AND A DEFAULT SORT FIELD... Not sure. This doesn't return a list of tuples
                 # if sort_field_path is not None and field_path != sort_field_path:
@@ -1208,10 +1209,13 @@ class BootstrapTableListView(ListView):
                 #     )
                 # print(f"RETURNING ALL {field_or_rec.through.count()}")
                 # return reduce(lambda lst, rec: lst + [rec] if rec not in lst else lst, field_or_rec.through.all(), [])
-                return list((r, _sort_val) for r in val_or_rec.through.distinct())
+                return list((r, _sort_val, r.pk) for r in val_or_rec.through.distinct())
+            elif isinstance(val_or_rec, Model):
+                # We add the primary key to the tuple so that the python reduce that happens upstream of this leaf in the recursion ensures that we get a unique set of many-related records.  I had tried using .distinct(), but the performance really suffered.  Handling it with reduce is MUCH MUCH faster.
+                pk = val_or_rec.pk
 
             # print(f"RETURNING ONE {type(val_or_rec).__name__}: {val_or_rec} WITH SORT VAL: {_sort_val}")
-            return val_or_rec, _sort_val
+            return val_or_rec, _sort_val, pk
 
         if type(val_or_rec).__name__ == "RelatedManager":
             if val_or_rec.count() > 0:
