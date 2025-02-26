@@ -1,15 +1,24 @@
 from __future__ import annotations
+from datetime import datetime
 from functools import reduce
+from io import BytesIO, StringIO
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
+import base64
+import pandas as pd
+import xlsxwriter
+import csv
+import _csv
 
 from django.core.exceptions import FieldError
 from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Prefetch
 from django.db.models.functions import Coalesce
+from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
+from DataRepo.models.study import Study
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import get_cookie
 from DataRepo.widgets import BSTHeader
@@ -80,6 +89,7 @@ class BootstrapTableColumn:
     Instance Attributes:
         name
         converter
+        delim
         exported
         field
         filter
@@ -113,23 +123,24 @@ class BootstrapTableColumn:
 
     def __init__(
         self,
-        name: str,
+        name: str,  # field path or annotation name (see converter)
         field: Optional[Union[str, List[str]]] = NAME_IS_FIELD,
-        converter: Optional[Callable] = None,
-        many_related: bool = False,
-        exported: bool = True,
-        searchable: Optional[bool] = None,  # Default set in-line
-        filter_control: Optional[str] = None,  # Default set in-line
-        select_options: Optional[Union[Dict[str, str], List[str]]] = None,
-        sortable: bool = True,
-        visible: bool = True,
         header: str = None,
-
-        # Advanced (automatically uses reasonable defaults)
-        many_related_sort_mdl: Optional[Union[str, List[str]]] = None,  # default = field
-        many_related_sort_def: Optional[Union[str, List[str]]] = None,  # default = field
-        many_related_sort_fwd: bool = True,
+        many_related: bool = False,
+        sortable: bool = True,
         sorter: Optional[str] = None,
+        visible: bool = True,
+        exported: bool = True,
+        searchable: Optional[bool] = None,
+        filter_control: Optional[str] = None,
+        select_options: Optional[Union[Dict[str, str], List[str]]] = None,
+
+        # Advanced (some assign reasonable defaults)
+        converter: Optional[Callable] = None,
+        many_related_model: Optional[Union[str, List[str]]] = None,  # default = field's immediate parent
+        many_related_sort_fld: Optional[Union[str, List[str]]] = None,  # default = {many_related_model}__pk
+        many_related_sort_fwd: bool = True,
+        many_related_delim: str = DEF_DELIM,
         strict_select: Optional[bool] = None,
     ):
         """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
@@ -204,7 +215,7 @@ class BootstrapTableColumn:
                 "animal__infusate__tracer_links__concentration", the other two columns will also be sorted by the values
                 in that concentration field.
                 This option is ignored if many_related is False.
-            many_related_sort_def (Optional[str]) [many_related_sort_mld + "__pk"]: The default sort field for many-
+            many_related_sort_fld (Optional[str]) [many_related_sort_mld + "__pk"]: The default sort field for many-
                 related fields.
             many_related_sort_fwd (bool) [True]: Set to False to reverse sort by default.
         Exceptions:
@@ -255,69 +266,70 @@ class BootstrapTableColumn:
                 )
 
         self.many_related = many_related
-        self.many_related_sort_mdl = many_related_sort_mdl
-        self.many_related_sort_def = many_related_sort_def
+        self.many_related_model = many_related_model
+        self.many_related_sort_fld = many_related_sort_fld
         self.many_related_sort_fwd = many_related_sort_fwd
-        if self.many_related_sort_mdl is not None:
-            if type(self.many_related_sort_mdl) != type(self.field) or (
-                isinstance(self.field, list) and len(self.many_related_sort_mdl) != len(self.field)
+        self.delim = many_related_delim
+        if self.many_related_model is not None:
+            if type(self.many_related_model) != type(self.field) or (
+                isinstance(self.field, list) and len(self.many_related_model) != len(self.field)
             ):
                 raise TypeError(
                     f"field and many_related_sort_mld must be the same type and size (if list type).  "
-                    f"[{type(self.many_related_sort_mdl).__name__} != {type(self.field).__name__}]"
+                    f"[{type(self.many_related_model).__name__} != {type(self.field).__name__}]"
                 )
             if isinstance(self.field, list):
                 for i, fld in enumerate(self.field):
-                    sort_fld_mdl = self.many_related_sort_mdl[i] + "__"
+                    sort_fld_mdl = self.many_related_model[i] + "__"
                     if not fld.startswith(sort_fld_mdl):
                         raise ValueError(
                             f"The field path of column '{self.name}': '{fld}' must start with many_related_sort_mld "
-                            f"('{self.many_related_sort_mdl[i]}') in order to link the sort of delimited values in "
+                            f"('{self.many_related_model[i]}') in order to link the sort of delimited values in "
                             "this column with those in other columns."
                         )
             else:
-                sort_fld_mdl = self.many_related_sort_mdl + "__"
+                sort_fld_mdl = self.many_related_model + "__"
                 if not self.field.startswith(sort_fld_mdl):
                     raise ValueError(
                         f"The field path of column '{self.name}': '{self.field}' must start with many_related_sort_mld "
-                        f"('{self.many_related_sort_mdl}') in order to link the sort of delimited values in this "
+                        f"('{self.many_related_model}') in order to link the sort of delimited values in this "
                         "column with those in other columns."
                     )
         elif self.field is not None:
             # Default to sorting M:M field values by the primary key of the many_related_sort_mld model
             if isinstance(self.field, list):
-                self.many_related_sort_mdl = ["__".join(f.split("__")[0:-1]) for f in self.field]
+                self.many_related_model = ["__".join(f.split("__")[0:-1]) for f in self.field]
             else:
-                self.many_related_sort_mdl = "__".join(self.field.split("__")[0:-1])
-        if self.many_related and self.many_related_sort_def is None:
+                self.many_related_model = "__".join(self.field.split("__")[0:-1])
+        if self.many_related and self.many_related_sort_fld is None:
             # Default to sorting M:M field values by the primary key of the many_related_sort_mld model
-            if isinstance(self.many_related_sort_mdl, list):
-                self.many_related_sort_def = [f"{f}__pk" for f in self.many_related_sort_mdl]
+            if isinstance(self.many_related_model, list):
+                self.many_related_sort_fld = [f"{f}__pk" for f in self.many_related_model]
             else:
-                self.many_related_sort_def = self.many_related_sort_mdl + "__pk"
+                self.many_related_sort_fld = self.many_related_model + "__pk"
         elif self.many_related:
-            if type(self.many_related_sort_def) != type(self.field) or (
-                isinstance(self.field, list) and len(self.many_related_sort_def) != len(self.field)
+            if type(self.many_related_sort_fld) != type(self.field) or (
+                isinstance(self.field, list) and len(self.many_related_sort_fld) != len(self.field)
             ):
                 raise TypeError(
-                    f"field and many_related_sort_def must be the same type and size (if list type).  "
-                    f"[{type(self.many_related_sort_def).__name__} != {type(self.field).__name__}]"
+                    f"field and many_related_sort_fld must be the same type and size (if list type).  "
+                    f"[{type(self.many_related_sort_fld).__name__} != {type(self.field).__name__}]"
                 )
             if isinstance(self.field, list):
-                for i, fld in enumerate(self.many_related_sort_def):
-                    sort_fld_mdl = self.many_related_sort_mdl[i] + "__"
+                for i, fld in enumerate(self.many_related_sort_fld):
+                    sort_fld_mdl = self.many_related_model[i] + "__"
                     if not fld.startswith(sort_fld_mdl):
                         raise ValueError(
                             f"The default sort field path of column '{self.name}': '{fld}' must start with "
-                            f"many_related_sort_mdl ('{self.many_related_sort_mdl[i]}') in order to link the sort of "
+                            f"many_related_model ('{self.many_related_model[i]}') in order to link the sort of "
                             "delimited values in this column with those in other columns."
                         )
             else:
-                sort_fld_mdl = self.many_related_sort_mdl + "__"
+                sort_fld_mdl = self.many_related_model + "__"
                 if not self.field.startswith(sort_fld_mdl):
                     raise ValueError(
-                        f"The default sort field path of column '{self.name}': '{self.many_related_sort_def}' must "
-                        f"start with many_related_sort_mdl ('{self.many_related_sort_mdl}') in order to link the sort "
+                        f"The default sort field path of column '{self.name}': '{self.many_related_sort_fld}' must "
+                        f"start with many_related_model ('{self.many_related_model}') in order to link the sort "
                         "of delimited values in this column with those in other columns."
                     )
 
@@ -417,6 +429,10 @@ class BootstrapTableListView(ListView):
     paginator_class = GracefulPaginator
     paginate_by = 15
 
+    export_header_template = "DataRepo/downloads/export_metadata_header.txt"
+    HEADER_TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
+    FILENAME_TIME_FORMAT = "%d.%m.%Y.%H.%M.%S"
+
     # Must be set in derived class
     columns: List[BootstrapTableColumn] = []
 
@@ -451,6 +467,14 @@ class BootstrapTableListView(ListView):
                 "Invalid columns class attribute.  Must be a list of at least 1 BootstrapTableColumn "
                 "object."
             )
+
+        self.headtmplt = loader.get_template(
+            self.export_header_template
+        ) if self.export_header_template is not None else None
+
+        now = datetime.now()
+        self.date_str = now.strftime(self.HEADER_TIME_FORMAT)
+        self.filename_date_str = now.strftime(self.FILENAME_TIME_FORMAT)
 
         self.total = 0
         self.raw_total = 0
@@ -630,7 +654,6 @@ class BootstrapTableListView(ListView):
                     break
             if not contained:
                 prefetches.append(model_path)
-        # from DataRepo.models.study import Study
         qs = qs.prefetch_related(*prefetches)
         # print(f"PREFETCHES: {prefetches} MODEL PATHS: {model_paths}")
 
@@ -855,6 +878,13 @@ class BootstrapTableListView(ListView):
                 "paginator": {"per_page": context["limit"]},
             }
 
+        # 5. If the user has asked to export the data
+        export_type = self.request.GET.get("export")
+        if export_type:
+            print(f"EXPORTING {export_type}")
+            context["export_data"], context["export_filename"] = self.get_export_data(export_type)
+            context["export_type"] = export_type if export_type == "excel" else "text"
+
         return context
 
     def get_any_field_query(self, term: str) -> Tuple[Q, List[str]]:
@@ -901,15 +931,122 @@ class BootstrapTableListView(ListView):
 
         return q_exp, search_fields
 
+    def get_export_data(self, format: str):
+        """This does all the processing of the submission after set_files() has been called."""
+
+        if format == "excel":
+            ext = "xlsx"
+            byte_stream = BytesIO()
+            self.get_excel_streamer(byte_stream)
+            export_data = base64.b64encode(byte_stream.read()).decode("utf-8")
+        else:
+            buffer = StringIO()
+            if format == "csv":
+                ext = "csv"
+                self.get_text_streamer(buffer, delim=",")
+                export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
+                # export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
+            elif format == "txt":
+                ext = "tsv"
+                self.get_text_streamer(buffer, delim="\t")
+                export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
+                # export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
+            else:
+                raise NotImplementedError(f"Export format {format} not supported.")
+
+        return export_data, f"{self.model.__name__}.{self.filename_date_str}.{ext}"
+
+    def get_excel_streamer(self, byte_stream: BytesIO):
+        """Returns an xlsxwriter for an excel file created from the self.dfs_dict.
+
+        The created writer will output to the supplied stream_obj.
+
+        Args:
+            stream_obj (BytesIO)
+        Exceptions:
+            None
+        Returns:
+            xlsx_writer (xlsxwriter)
+        """
+        xlsx_writer = pd.ExcelWriter(  # pylint: disable=abstract-class-instantiated
+            byte_stream, engine="xlsxwriter"
+        )
+
+        sheet = self.verbose_model_name_plural
+        columns = self.row_headers()
+
+        print(f"SHEET {sheet}")
+        # Build the dict by iterating over the row lists
+        qs_dict_by_index = dict((i, []) for i in range(len(columns)))
+        for r, row in enumerate(self.rows_iterator()):
+            print(f"ROW {r}")
+            for i, val in enumerate(row):
+                print(f"COL {i}")
+                qs_dict_by_index[i].append(str(val))
+
+        export_dict = {}
+        # Now convert the indexes to the headers
+        for i, col in enumerate(columns):
+            export_dict[col] = qs_dict_by_index[i]
+
+        # Create a dataframe and add it as an excel object to an xlsx_writer sheet
+        pd.DataFrame.from_dict(export_dict).to_excel(
+            excel_writer=xlsx_writer,
+            sheet_name=sheet,
+            columns=columns,
+            index=False,
+        )
+
+        xlsx_writer.close()
+        # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
+        byte_stream.seek(0)
+
+        return byte_stream
+
+    def get_text_streamer(self, buffer: StringIO, delim: str = "\t"):
+        writer: "_csv._writer" = csv.writer(buffer, delimiter=delim)
+
+        search_term: Optional[str] = self.get_cookie("search")
+        order_by: Optional[str] = self.get_cookie("order-by")
+        order_dir: Optional[str] = self.get_cookie("order-dir", "asc")
+        if order_by is not None and order_by != "":
+            sort_str = f"{order_by}, {order_dir}"
+        else:
+            sort_str = "default"
+        filters = []
+        column: BootstrapTableColumn
+        for column in self.columns:
+            filter_value: str = self.get_column_cookie(column, "filter")
+            if filter_value is not None and filter_value != "":
+                filters.append({"column": column.header, "filter": filter_value})
+
+        # Commented metadata header containing download date and info
+        self.headtmplt.render(
+            {
+                "name": self.verbose_model_name_plural,
+                "date": self.date_str,
+                "total": self.total,
+                "search": search_term,
+                "filters": filters,
+                "sort": sort_str,
+            }
+        )
+
+        for row in self.rows_iterator():
+            writer.writerow([str(c) for c in row])
+
+        return buffer
+
     def rows_iterator(self):
-        """Takes a queryset of records and returns a list of lists of column data.
+        """Takes a queryset of records and returns a list of lists of column data.  Note that delimited many-related
+        values are converted to strings, but everything else in the returned list of lists is the original type.
 
         Args:
             None
         Exceptions:
             None
         Returns:
-            (List[List[str]])
+            (List[list])
         """
         yield self.row_headers()
         rec: Model
@@ -930,7 +1067,11 @@ class BootstrapTableListView(ListView):
             (List[str])
         """
         return [
-            str(self.get_rec_val(rec, col))
+            self.get_rec_val(rec, col)
+            if not col.many_related
+            else col.delim.join(
+                [str(val) for val in self.get_many_related_rec_val(rec, col)]
+            )
             for col in self.columns
             if col.exported
         ]
@@ -943,26 +1084,61 @@ class BootstrapTableListView(ListView):
         if val == "":
             val = None
 
+        # Replace a non-empty annotation with a delimited version if many_related
         if col.many_related and val is not None:
-            if isinstance(col.field, list):
-                for i in range(len(col.field)):
-                    # print(f"CHECKING {fld}")
-                    val = self.get_many_related_rec_val(rec, col, col.field[i], col.many_related_sort_def[i])
-                    if val != "":
-                        # print(f"BREAKING ON {type(val).__name__} {val} UNIQ VALS1 {type(uniq_vals1).__name__}: {uniq_vals1} UNIQ VALS2 {type(uniq_vals2).__name__}: {uniq_vals2}")
-                        break
-            else:
-                val = self.get_many_related_rec_val(rec, col, col.field, col.many_related_sort_def)
+            # Do not call get_rec_val if col is many_related.  Call get_many_related_rec_val directly to be efficient
+            print("WARNING: get_rec_val called in a many-related column")
+            val = self.get_many_related_rec_val(rec, col)
 
         return val
 
-    def get_many_related_rec_val(self, rec: Model, col: BootstrapTableColumn, field: str, sort_field: str):
-        delim = col.DEF_DELIM
-        reverse = not col.many_related_sort_fwd
-        # print(f"get_many_related_rec_val CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
+    def get_many_related_rec_val(self, rec: Model, col: BootstrapTableColumn):
+        if not col.many_related:
+            raise ValueError(f"Column {col.name} is not many-related.")
+
+        # Get the annotated version (because it's faster to skip the rigor below if it is None)
+        val, _ = self._get_rec_val_helper(rec, col.name.split("__"))
+        if val is None or isinstance(val, list) and len(val) == 0:
+            return []
+        # val is not None, which means there could be more than just 1 result...
+
+        # If field is a list of fields, we treat it like Coalesce and take the first one that returns a value of any
+        # kind.  This is for when multiple tables link to one table.  This is that one table trying to figure out which
+        # one links to it.  If multiple different tables A, B, and C link to the same record in this table D, 1. their
+        # field paths must all lead to the same table E, for which col.field is representing, and 2. this will
+        # collect values only from table A via either a single connection in A, B, or C, and stop.  So if A results in 2
+        # E records and B results in 3 E records, only the 2 E records retrieved via A are returned.
+        if isinstance(col.field, list):
+            for i in range(len(col.field)):
+                # print(f"CHECKING {fld}")
+                val = self._get_many_related_rec_val_helper(
+                    rec,
+                    col.field[i],
+                    col.many_related_sort_fld[i],
+                    reverse=not col.many_related_sort_fwd
+                )
+                if val is not None and len(val) > 0:
+                    # print(f"BREAKING ON {type(val).__name__} {val} UNIQ VALS1 {type(uniq_vals1).__name__}: {uniq_vals1} UNIQ VALS2 {type(uniq_vals2).__name__}: {uniq_vals2}")
+                    break
+        else:
+            val = self._get_many_related_rec_val_helper(
+                rec,
+                col.field,
+                col.many_related_sort_fld,
+                reverse=not col.many_related_sort_fwd
+            )
+
+        if val is  None:
+            val = []
+
+        return val
+
+    def _get_many_related_rec_val_helper(self, rec: Model, field: str, sort_field: str, reverse=False):
+        # reverse = not col.many_related_sort_fwd
+        # print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
         vals_list = self._get_rec_val_helper(rec, field.split("__"), sort_field_path=sort_field.split("__"))
         if vals_list is None:
-            val = ""
+            val = []
             # print(f"GOT1 {vals_list}")
         elif isinstance(vals_list, list):
             try:
@@ -971,17 +1147,17 @@ class BootstrapTableListView(ListView):
                 # uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, vals_list, [])
                 # val = delim.join([str(val[0]) for val in sorted([tpl for tpl in uniq_vals if tpl is not None], key=lambda t: (t[1] is None, t[1]), reverse=reverse)])
                 # print(f"GOT2 '{val}' VALSLIST {vals_list} UNIQUE '{uniq_vals}'")
-                val = delim.join([str(val[0]) for val in sorted([tpl for tpl in vals_list if tpl is not None], key=lambda t: (t[1] is None, t[1]), reverse=reverse)])
+                val = [val[0] for val in sorted([tpl for tpl in vals_list if tpl is not None], key=lambda t: (t[1] is None, t[1]), reverse=reverse)]
                 # print(f"GOT2 '{val}' VALSLIST {vals_list}")
             except Exception as e:
-                val = delim.join([str(val) for val in vals_list])
+                val = [val for val in vals_list]
                 raise ProgrammingError(
                     f"Got exception: {type(e).__name__}: {e}\nIf this value from {vals_list} looks good: '{val}', "
                     "consider accounting for this case somehow and removing this try/except block."
                 ).with_traceback(e.__traceback__)
         else:
             # Sometimes the related manager returns a single record, into which we want the first of the tuple
-            val = vals_list[0]
+            val = [vals_list[0]]
             # print(f"GOT3 '{val}' {vals_list}")
         return val
 
@@ -1034,7 +1210,7 @@ class BootstrapTableListView(ListView):
                 # return reduce(lambda lst, rec: lst + [rec] if rec not in lst else lst, field_or_rec.through.all(), [])
                 return list((r, _sort_val) for r in val_or_rec.through.distinct())
 
-            print(f"RETURNING ONE {type(val_or_rec).__name__}: {val_or_rec} WITH SORT VAL: {_sort_val}")
+            # print(f"RETURNING ONE {type(val_or_rec).__name__}: {val_or_rec} WITH SORT VAL: {_sort_val}")
             return val_or_rec, _sort_val
 
         if type(val_or_rec).__name__ == "RelatedManager":
@@ -1051,11 +1227,16 @@ class BootstrapTableListView(ListView):
                 possibly_nested_list = list(self._get_rec_val_helper(rel_rec, field_path[1:], sort_field_path=next_sort_field_path, _sort_val=_sort_val) for rel_rec in val_or_rec.all())
                 if len(possibly_nested_list) == 0 or not isinstance(possibly_nested_list[0], list):
                     return possibly_nested_list
-                return list(item for sublist in possibly_nested_list for item in sublist)
+                # TODO: THIS IS A PROBLEM! IT WILL RETURN A SET OF UNIQUE TUPLES (THE COLUMN'S VALUE AND THE SORT VALUE) BUT THE COLUMN MAY BE LINKED TO ANOTHER COLUMN THAT IS THE ONLY THING THAT MAKES IT UNIQUE, SO THE NUMBER OF VALUES IN NEIGHBORING COLUMNS WILL NOT LINE UP!  WHAT I REALLY NEED IS .distinct() CALLED ON THE FOREIGN KEY OBJECTS!
+                lst = list(item for sublist in possibly_nested_list for item in sublist)
+                uniq_vals = reduce(lambda ulst, val: ulst + [val] if val not in ulst else ulst, lst, [])
+                # print(f"RETURNING 1 {type(uniq_vals).__name__}.{type(uniq_vals[0]).__name__}: {uniq_vals}")
+                return uniq_vals
+                # return list(item for sublist in possibly_nested_list for item in sublist)
             # TODO: Need to check if this return type is OK due to it not being a tuple or list. Should only happen when
             # expecting a list
             return None
-        if type(val_or_rec).__name__ == "ManyRelatedManager":
+        elif type(val_or_rec).__name__ == "ManyRelatedManager":
             if val_or_rec.count() > 0:
                 # return list(
                 #     self._get_rec_val_helper(rel_rec, attr_path[1:])
@@ -1069,7 +1250,12 @@ class BootstrapTableListView(ListView):
                 possibly_nested_list = list(self._get_rec_val_helper(rel_rec, field_path[1:], sort_field_path=next_sort_field_path, _sort_val=_sort_val) for rel_rec in val_or_rec.all())
                 if len(possibly_nested_list) == 0 or not isinstance(possibly_nested_list[0], list):
                     return possibly_nested_list
-                return list(item for sublist in possibly_nested_list for item in sublist)
+                # TODO: THIS IS A PROBLEM! IT WILL RETURN A SET OF UNIQUE TUPLES (THE COLUMN'S VALUE AND THE SORT VALUE) BUT THE COLUMN MAY BE LINKED TO ANOTHER COLUMN THAT IS THE ONLY THING THAT MAKES IT UNIQUE, SO THE NUMBER OF VALUES IN NEIGHBORING COLUMNS WILL NOT LINE UP!  WHAT I REALLY NEED IS .distinct() CALLED ON THE FOREIGN KEY OBJECTS!
+                lst = list(item for sublist in possibly_nested_list for item in sublist)
+                uniq_vals = reduce(lambda ulst, val: ulst + [val] if val not in ulst else ulst, lst, [])
+                # print(f"RETURNING 12 {type(uniq_vals).__name__}.{type(uniq_vals[0]).__name__}: {uniq_vals}")
+                return uniq_vals
+                # return list(item for sublist in possibly_nested_list for item in sublist)
             # TODO: Need to check if this return type is OK due to it not being a tuple or list. Should only happen when
             # expecting a list
             return None

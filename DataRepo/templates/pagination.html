@@ -5,6 +5,7 @@
     {{ not_exported|json_script:"not_exported" }}
     {{ warnings|json_script:"warnings" }}
     {{ filter_select_lists|json_script:"filter_select_lists" }}
+    <script src="{% static 'js/browser_download.js' %}"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const filterSelectOptions = {};
@@ -243,6 +244,30 @@
                 setViewCookie('limit', {{ limit }});
             }
 
+            const exportFileContentTag = document.getElementById('export_data');
+            const exportFileNameTag = document.getElementById('export_filename');
+            const exportTypeTag = document.getElementById('export_type');
+            if (typeof exportFileContentTag !== 'undefined' && exportFileContentTag) {
+                console.log("Exporting");
+                browserDownloadBase64(
+                    exportFileContentTag.innerHTML,
+                    exportFileNameTag.innerHTML,
+                    exportTypeTag.innerHTML
+                );
+                console.log("Exported");
+
+                // TODO: THIS SANITY CHECK WORKS. FIGURE OUT WHY THE ABOVE DOES NOT WORK...
+                const element = document.createElement('a');
+                element.setAttribute(
+                    'href',
+                    'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + encodeURIComponent(exportFileContentTag.innerHTML)
+                );
+                element.setAttribute('download', exportFileNameTag.innerHTML);
+                element.innerHTML = 'Download';
+                document.body.appendChild(element);
+                element.click();
+            }
+
             setViewCookie('page', "{{ page_obj.number }}");
             // setViewCookie('limit', {{ limit }});
 
@@ -409,6 +434,11 @@
         </div>
     {% endif %}
     <br><br>
+    {% if export_data %}
+        <span class="d-none" id="export_filename">{{ export_filename }}</span>
+        <pre class="d-none" id="export_data">{{ export_data }}</pre>
+        <span class="d-none" id="export_type">{{ export_type }}</span>
+    {% endif %}
 {% elif pager %}
     {% comment %} Advanced Search Pagination (assumed, though the "pager" object could be used for other pagination as well) {% endcomment %}
     <script>

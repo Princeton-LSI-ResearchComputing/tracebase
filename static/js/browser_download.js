@@ -15,7 +15,7 @@
  */
 function browserDownloadText (filename, text) { // eslint-disable-line no-unused-vars
   const element = document.createElement('a')
-  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text))
+  element.setAttribute('href', 'data:text/plain;base64,' + encodeURIComponent(text))
   element.setAttribute('download', filename)
   element.style.display = 'none'
   document.body.appendChild(element)
@@ -34,4 +34,14 @@ function browserDownloadExcel (filename, base64Text) { // eslint-disable-line no
   document.body.appendChild(element)
   element.click()
   document.body.removeChild(element)
+}
+
+function browserDownloadBase64 (filename, content, type) { // eslint-disable-line no-unused-vars
+  if (type === 'text') {
+    browserDownloadExcel(filename, content);
+  } else if (type === 'excel') {
+    browserDownloadExcel(filename, content);
+  } else {
+    console.error("Download type invalid: " + type);
+  }
 }

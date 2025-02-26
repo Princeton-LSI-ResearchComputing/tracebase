@@ -55,16 +55,22 @@
                             {% with studies=""|make_list %}
                                 {# This assumes that all the peak groups or msrunsample records that link to this peak annotation ArchiveFile record link to the same Animal, and hence, studies #}
                                 {% if archive_file.data_format.code == "mzxml" %}
-                                    {% for study in archive_file.mz_to_msrunsamples.first.sample.animal.studies.all %}
-                                        {% append studies study %}
+                                    {% for msrs in archive_file.mz_to_msrunsamples.all %}
+                                        {% for study in msrs.sample.animal.studies.all %}
+                                            {% append_unique studies study %}
+                                        {% endfor %}
                                     {% endfor %}
                                 {% elif archive_file.data_format.code == "ms_raw" %}
-                                    {% for study in archive_file.raw_to_msrunsamples.first.sample.animal.studies.all %}
-                                        {% append studies study %}
+                                    {% for msrs in archive_file.raw_to_msrunsamples.all %}
+                                        {% for study in msrs.sample.animal.studies.all %}
+                                            {% append_unique studies study %}
+                                        {% endfor %}
                                     {% endfor %}
                                 {% elif archive_file.data_type.code == "ms_peak_annotation" %}
-                                    {% for study in archive_file.peak_groups.first.msrun_sample.sample.animal.studies.all %}
-                                        {% append studies study %}
+                                    {% for pg in archive_file.peak_groups.all %}
+                                        {% for study in pg.msrun_sample.sample.animal.studies.all %}
+                                            {% append_unique studies study %}
+                                        {% endfor %}
                                     {% endfor %}
                                 {% endif %}
 
