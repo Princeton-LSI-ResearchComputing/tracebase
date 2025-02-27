@@ -3,8 +3,7 @@ from django.db.models.functions import Extract
 from django.views.generic import DetailView
 
 from DataRepo.models import Sample, Animal, ElementLabel, Researcher
-from DataRepo.views.models.base import BootstrapTableColumn as BSTColumn
-from DataRepo.views.models.base import BootstrapTableListView as BSTListView
+from DataRepo.views.models.base import BSTColumn, BSTColumnGroup, BSTListView
 
 
 class SampleDetailView(DetailView):
@@ -28,6 +27,67 @@ class SampleListView(BSTListView):
         select_options values).  Otherwise, BSTColumns can be defined as a class attribute."""
 
         researchers = Researcher.get_researchers()
+
+        # Tracer column group
+        first_tracer_column = BSTColumn(
+            "first_tracer",
+            many_related=True,
+            field="animal__infusate__tracer_links__tracer__name",
+            many_related_model="animal__infusate__tracer_links",
+            many_related_sort_fld="animal__infusate__tracer_links__concentration",
+            header="Tracer(s)",
+        )
+        first_tracer_compound_column = BSTColumn(
+            "first_tracer_compound_id",
+            many_related=True,
+            many_related_model="animal__infusate__tracer_links",
+            many_related_sort_fld="animal__infusate__tracer_links__concentration",
+            field="animal__infusate__tracer_links__tracer__compound__id",
+            exported=False,
+        )
+        first_tracer_conc_column = BSTColumn(
+            "first_tracer_conc",
+            many_related=True,
+            many_related_model="animal__infusate__tracer_links",
+            many_related_sort_fld="animal__infusate__tracer_links__concentration",
+            field="animal__infusate__tracer_links__concentration",
+            header="Tracer Concentration(s) (mM)",
+        )
+
+        # Sequence column group
+        msrun_operator_column = BSTColumn(
+            "first_ms_operator",
+            many_related=True,
+            field="msrun_samples__msrun_sequence__researcher",
+            many_related_model="msrun_samples",
+            select_options=researchers,
+            header="MSRun Owner",
+        )
+        msrun_date_column = BSTColumn(
+            "first_ms_date",
+            many_related=True,
+            converter=Func(
+                Min("msrun_samples__msrun_sequence__date"),
+                Value(self.DATE_FORMAT),
+                output_field=CharField(),
+                function=self.DBSTRING_FUNCTION,
+            ),
+            field="msrun_samples__msrun_sequence__date",
+            many_related_model="msrun_samples",
+            header="MSRun Date",
+        )
+        msrun_sample_column = BSTColumn(
+            "first_ms_sample",
+            many_related=True,
+            field="msrun_samples",
+            converter=Min("msrun_samples"),
+            many_related_model="msrun_samples",
+            searchable=False,
+            sortable=False,
+            filter_control="",
+            header="MSRun Detail",
+            exported=False,
+        )
 
         self.columns = [
             BSTColumn("name", header="Sample"),
@@ -70,30 +130,9 @@ class SampleListView(BSTListView):
 
             # Linked M:M related columns, all of which will be delimited and sorted by the
             # animal__infusate__tracers__name field
-            BSTColumn(
-                "first_tracer",
-                many_related=True,
-                field="animal__infusate__tracer_links__tracer__name",
-                many_related_model="animal__infusate__tracer_links",
-                many_related_sort_fld="animal__infusate__tracer_links__concentration",
-                header="Tracer(s)",
-            ),
-            BSTColumn(
-                "first_tracer_compound_id",
-                many_related=True,
-                many_related_model="animal__infusate__tracer_links",
-                many_related_sort_fld="animal__infusate__tracer_links__concentration",
-                field="animal__infusate__tracer_links__tracer__compound__id",
-                exported=False,
-            ),
-            BSTColumn(
-                "first_tracer_conc",
-                many_related=True,
-                many_related_model="animal__infusate__tracer_links",
-                many_related_sort_fld="animal__infusate__tracer_links__concentration",
-                field="animal__infusate__tracer_links__concentration",
-                header="Tracer Concentration(s) (mM)",
-            ),
+            first_tracer_column,
+            first_tracer_compound_column,
+            first_tracer_conc_column,
 
             BSTColumn(
                 "first_label",
@@ -149,39 +188,32 @@ class SampleListView(BSTListView):
                 field="msrun_samples__msrun_sequence__id",
                 exported=False,
             ),
-            BSTColumn(
-                "first_ms_operator",
-                many_related=True,
-                field="msrun_samples__msrun_sequence__researcher",
-                many_related_model="msrun_samples__msrun_sequence",
-                select_options=researchers,
-                header="MSRun Owner",
+
+            # MSRun column group
+            msrun_operator_column,
+            msrun_date_column,
+            msrun_sample_column,
+        ]
+
+        self.groups = [
+            BSTColumnGroup(
+                [
+                    # Tracer column group
+                    first_tracer_column,
+                    first_tracer_compound_column,
+                    first_tracer_conc_column,
+                ]
             ),
-            BSTColumn(
-                "first_ms_date",
-                many_related=True,
-                converter=Func(
-                    Min("msrun_samples__msrun_sequence__date"),
-                    Value(self.DATE_FORMAT),
-                    output_field=CharField(),
-                    function=self.DBSTRING_FUNCTION,
-                ),
-                field="msrun_samples__msrun_sequence__date",
-                many_related_model="msrun_samples__msrun_sequence",
-                header="MSRun Date",
-            ),
-            BSTColumn(
-                "first_ms_sample",
-                many_related=True,
-                field="msrun_samples",
-                converter=Min("msrun_samples"),
-                searchable=False,
-                sortable=False,
-                filter_control="",
-                header="MSRun Detail",
-                exported=False,
+            BSTColumnGroup(
+                [
+                    # MSRun Sequence column group - The MSRunSamples grouped by sequence
+                    msrun_operator_column,
+                    msrun_date_column,
+                    msrun_sample_column,
+                ]
             ),
         ]
+
         # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
         super().__init__(*args, **kwargs)
 

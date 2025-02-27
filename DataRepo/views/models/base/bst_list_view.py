@@ -1,422 +1,26 @@
 from __future__ import annotations
+from collections import defaultdict
 from datetime import datetime
 from functools import reduce
 from io import BytesIO, StringIO
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Iterable, List, Optional, Tuple, Union, cast
 import base64
 import pandas as pd
-import xlsxwriter
 import csv
 import _csv
 
 from django.core.exceptions import FieldError
-from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet, Prefetch
+from django.db.models import F, Max, Min, Model, Q, QuerySet
 from django.db.models.functions import Coalesce
 from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
-from DataRepo.models.study import Study
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
-from DataRepo.views.utils import get_cookie
-from DataRepo.widgets import BSTHeader
+from DataRepo.views.utils import GracefulPaginator, get_cookie
 
-
-class GracefulPaginator(Paginator):
-    """This derived class of Paginator prevents page not found errors by defaulting to page 1 when the page is either
-    out of range or not a number."""
-    # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
-    def page(self, num):
-        try:
-            num = self.validate_number(num)
-        except PageNotAnInteger:
-            num = 1
-        except EmptyPage:
-            num = self.num_pages
-        return super().page(num)
-
-
-class BootstrapTableColumn:
-    """Class to represent the interface between a bootstrap column and a Model field.
-
-    Usage: Use this class to populate the BootstrapTableListView.columns list, like this:
-
-        self.columns = [
-            BSTColumn("filename"),
-            BSTColumn("imported_timestamp"),
-            BSTColumn("data_format__name"),
-            BSTColumn("data_type__name"),
-        ]
-
-    Use django "field paths" relative to the base model, or model annotation names for the name arguments to the
-    constructor, as BootstrapTableListView uses these for server-side pagination, filtering, and sorting.
-
-    Alter whatever settings you want in the constructor calls.  In the BootstrapTableListView's template, all you have
-    to do to render the th tag for each column is just use the name:
-
-        {{ filename }}
-        {{ imported_timestamp }}
-        {{ data_format__name }}
-        {{ data_type__name }}
-
-    It will render the column headers (by default) using a title version of the last 2 values in django's dunderscore-
-    delimited field path.  For example, the header generated from the above objects would be:
-
-        Filename
-        Imported Timestamp
-        Data Format Name
-        Data Type Name
-
-    It's also important to note that in order for BootstrapTableListView's search and sort to work as expected, each
-    column should be converted to a simple string or number annotation that is compatible with django's annotate method.
-    For example, as a DateTimeField, imported_timestamp, will sort correctly on the server side, but Bootstrap Table
-    will sort the page's worth of results using alphanumeric sorting.  You can make the sorting behavior consistent by
-    supplying a function using the converter argument, like this:
-
-        BSTColumn(
-            "imported_timestamp_str",
-            field="imported_timestamp",
-            converter=Func(
-                F("imported_timestamp"),
-                Value("YYYY-MM-DD HH:MI a.m."),
-                output_field=CharField(),
-                function="to_char",
-            ),
-        )
-
-    Instance Attributes:
-        name
-        converter
-        delim
-        exported
-        field
-        filter
-        filter_control
-        header
-        many_related
-        searchable
-        select_options
-        sortable
-        sorter
-        strict_select
-        visible
-        widget
-    """
-
-    FILTER_CONTROL_CHOICES = {
-        "INPUT": "input",  # default
-        "SELECT": "select",
-        "DATEPICKER": "datepicker",
-        "DISABLED": "",
-    }
-    SORTER_CHOICES = {
-        "ALPHANUMERIC": "alphanum",  # default
-        "NUMERIC": "numericOnly",
-        "HTML": "htmlSorter",  # See static/js/htmlSorter.js
-    }
-    NAME_IS_FIELD = "__same__"
-
-    # TODO: Make this into an instance attribute
-    DEF_DELIM = "; "  # For many-related fields
-
-    def __init__(
-        self,
-        name: str,  # field path or annotation name (see converter)
-        field: Optional[Union[str, List[str]]] = NAME_IS_FIELD,
-        header: str = None,
-        many_related: bool = False,
-        sortable: bool = True,
-        sorter: Optional[str] = None,
-        visible: bool = True,
-        exported: bool = True,
-        searchable: Optional[bool] = None,
-        filter_control: Optional[str] = None,
-        select_options: Optional[Union[Dict[str, str], List[str]]] = None,
-
-        # Advanced (some assign reasonable defaults)
-        converter: Optional[Callable] = None,
-        many_related_model: Optional[Union[str, List[str]]] = None,  # default = field's immediate parent
-        many_related_sort_fld: Optional[Union[str, List[str]]] = None,  # default = {many_related_model}__pk
-        many_related_sort_fwd: bool = True,
-        many_related_delim: str = DEF_DELIM,
-        strict_select: Optional[bool] = None,
-    ):
-        """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
-        model.
-
-        Args:
-            name (str): The data-field attribute of a th tag.  Used for cookies too.  If filter_control is not None,
-                this value should be a valid Django annotation name or database field filter path relative to the
-                BootstrapListView.model that contains this instance.
-            field (Optional[Union[str, List[str]]]) ["__same__"]: Name of the database field or fields corresponding to
-                the column.  Supply this explicitly if the name argument is an annotation or set to None if no
-                corresponding model field exists (or is desired for search, filter, or sort).  "__same__" means that
-                name is a model field.  If a list, the related fields must all be CharFields.
-            converter (Optional[Callable]): A method to convert a database field to a CharField.  This is necessary for
-                searching and filtering because BST only does substring searches.  It also prevents sorting from
-                increasing the number of resulting rows if there is a many-related field (i.e. when field is a list).
-            many_related (bool) [False]: If this field is a reverse relation, e.g. the link resides in another model
-                that links to "this" model or the link is a ManyToManyField, setting this value to True ensures that the
-                number of rows in the table accurately reflects the number of records in the reference model when
-                sorting is performed on this column.  It does this by sorting on the single annotated value instead of
-                the related field.  Django has this left-join side effect when you sort on a many-related field.  By
-                sorting on the annotated field, that row increase side-effect is prevented.  Setting this to True means
-                that an annotation will be automatically created (unless a converter is supplied).  If there are
-                multiple linked records, either a Min() or Max() will be applied if the user selects to sort on this
-                column.  You can render whatever you link in the column, but to have each page sorted correctly by
-                bootstrap, you should set the annotated value as a hidden element.  The overall DB sort in the query
-                will be based on the annotated value.  Ideally, that value would be a joined string of all of the
-                related values, but all thos functions are postgres-specific.
-                Example for AnimalListView:
-                    BootstrapTableColumn("study", field="studies__name", many_related=True)
-                    If an animal belongs to multiple studies and the user selects to do an ascending sort on the study
-                    column, the "study" field will be defined as and the order_by in the query will look like:
-                        animal_queryset.annotate("study"=Min("studies__name")).order_by("study").distinct()
-                    It's also notable that any filtering will still be on the DB field (and it will not affect the
-                    number of resulting records), so a search for a study name "My Study":
-                        animal_queryset.filter(studies__name__icontains="My Study")
-                    Together, it looks like this:
-                        animal_queryset
-                            .filter(studies__name__icontains="My Study")
-                            .annotate("study"=Min("studies__name"))
-                            .order_by("study")
-                            .distinct()
-                Note, if many_related is true, name must differ from field.
-            exported (bool) [True]: Adds to BST's exportOptions' ignoreColumn attribute if False.
-            searchable (Optional[bool]) [True]: Whether or not a column is searchable.  Searchable being True is
-                mutually exclusive with filter_control being None.  Automatically set to True if filter_control is not
-                None.  It is set to False is filter_control is None.
-            filter_control (Optional[str]) ["input"]: Set to "" to disable.  Must be in FILTER_CONTROL_CHOICES.
-                This cannot be None if searchable is True.
-            select_options (Optional[Union[Dict[str, str], List[str]]]): A dict or a list of select list options when
-                filter_control is "select".  Supplying this argument will default filter_control to "select".
-            strict_select (Optional[bool]): Ignored if select_options is not defined.  This apps an entire table
-                attribute 'data-filter-strict-search' to the the filter_data context variable.
-            sortable (bool) [True]
-            sorter (Optional[str]) ["alphanum"]: Must be in SORTER_CHOICES.
-            visible (bool) [True]: Controls whether a column is initially visible.
-            header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
-                generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
-            many_related_sort_mld (Optional[Union[str, List[str]]]) [field]: All many_related columns will be delimited
-                and sorted by their own value.  You can optionally sort based on any field under this parent model, and
-                even via relations to that model, but there must be no many-to-many relations occurring in the field's
-                path after that model.  Every field that should sort the same way must also have the same value for
-                many_related_sort_mld.  E.g. if you have these 3 fields:
-                    animal__infusate__tracer_links__tracer__name
-                    animal__infusate__tracer_links__tracer__compound__id
-                    animal__infusate__tracer_links__concentration
-                and you want their delimited values to sort the same way, you can supply
-                    many_related_sort_mld="animal__infusate__tracer_links"
-                but note that both field paths MUST each start with that model, i.e. they must all start with:
-                    "animal__infusate__tracer_links"
-                The result will be if the user has sorted on the field/column for
-                "animal__infusate__tracer_links__concentration", the other two columns will also be sorted by the values
-                in that concentration field.
-                This option is ignored if many_related is False.
-            many_related_sort_fld (Optional[str]) [many_related_sort_mld + "__pk"]: The default sort field for many-
-                related fields.
-            many_related_sort_fwd (bool) [True]: Set to False to reverse sort by default.
-        Exceptions:
-            ValueError when:
-            - Either many_related must be True or a converter must be supplied if the BST column name is not equal to
-              the model field name.
-            - The BST column name must differ from the model field name when either a converter is supplied or
-              many_related is True.
-            - filter_control value is not among FILTER_CONTROL_CHOICES.
-            - sorter value is not among SORTER_CHOICES.
-            - searchable and filter_control values are conflicting.
-        Returns:
-            instance (BootstrapTableColumn)
-        """
-        self.name = name
-
-        self.field = (
-            field
-            if field is None or isinstance(field, list) or field != self.NAME_IS_FIELD
-            else name
-        )
-
-        if self.field is not None:
-            if isinstance(self.field, str) and name != self.field and converter is None and not many_related:
-                raise ValueError(
-                    f"Either many_related must be True or a converter must be supplied if the BST column name '{name}' "
-                    f"is not equal to the model field name '{field}'."
-                )
-            elif (converter is not None or many_related) and isinstance(self.field, str) and name == field:
-                raise ValueError(
-                    f"The BST column name '{name}' must differ from the model field name '{field}' when either a "
-                    "converter is supplied or many_related is True.\n"
-                    "In the case of 'many_related', the name must differ in order to create an annotated field for "
-                    "sorting, so as to prevent artificially increasing the number of rows in the resulting table due "
-                    "to a left-join side-effect of sorting in the ORM."
-                )
-            elif (
-                (converter is not None or many_related)
-                and isinstance(self.field, str)
-                and field == self.NAME_IS_FIELD
-            ):
-                raise ValueError(
-                    f"The BST column field must be supplied and set to a different value from the name '{name}' when "
-                    "either a converter is supplied or many_related is True.\n"
-                    "In the case of 'many_related', the name must differ in order to create an annotated field for "
-                    "sorting, so as to prevent artificially increasing the number of rows in the resulting table due "
-                    "to a left-join side-effect of sorting in the ORM."
-                )
-
-        self.many_related = many_related
-        self.many_related_model = many_related_model
-        self.many_related_sort_fld = many_related_sort_fld
-        self.many_related_sort_fwd = many_related_sort_fwd
-        self.delim = many_related_delim
-        if self.many_related_model is not None:
-            if type(self.many_related_model) != type(self.field) or (
-                isinstance(self.field, list) and len(self.many_related_model) != len(self.field)
-            ):
-                raise TypeError(
-                    f"field and many_related_sort_mld must be the same type and size (if list type).  "
-                    f"[{type(self.many_related_model).__name__} != {type(self.field).__name__}]"
-                )
-            if isinstance(self.field, list):
-                for i, fld in enumerate(self.field):
-                    sort_fld_mdl = self.many_related_model[i] + "__"
-                    if not fld.startswith(sort_fld_mdl):
-                        raise ValueError(
-                            f"The field path of column '{self.name}': '{fld}' must start with many_related_sort_mld "
-                            f"('{self.many_related_model[i]}') in order to link the sort of delimited values in "
-                            "this column with those in other columns."
-                        )
-            else:
-                sort_fld_mdl = self.many_related_model + "__"
-                if not self.field.startswith(sort_fld_mdl):
-                    raise ValueError(
-                        f"The field path of column '{self.name}': '{self.field}' must start with many_related_sort_mld "
-                        f"('{self.many_related_model}') in order to link the sort of delimited values in this "
-                        "column with those in other columns."
-                    )
-        elif self.field is not None:
-            # Default to sorting M:M field values by the primary key of the many_related_sort_mld model
-            if isinstance(self.field, list):
-                self.many_related_model = ["__".join(f.split("__")[0:-1]) for f in self.field]
-            else:
-                self.many_related_model = "__".join(self.field.split("__")[0:-1])
-        if self.many_related and self.many_related_sort_fld is None:
-            # Default to sorting M:M field values by the primary key of the many_related_sort_mld model
-            if isinstance(self.many_related_model, list):
-                self.many_related_sort_fld = [f"{f}__pk" for f in self.many_related_model]
-            else:
-                self.many_related_sort_fld = self.many_related_model + "__pk"
-        elif self.many_related:
-            if type(self.many_related_sort_fld) != type(self.field) or (
-                isinstance(self.field, list) and len(self.many_related_sort_fld) != len(self.field)
-            ):
-                raise TypeError(
-                    f"field and many_related_sort_fld must be the same type and size (if list type).  "
-                    f"[{type(self.many_related_sort_fld).__name__} != {type(self.field).__name__}]"
-                )
-            if isinstance(self.field, list):
-                for i, fld in enumerate(self.many_related_sort_fld):
-                    sort_fld_mdl = self.many_related_model[i] + "__"
-                    if not fld.startswith(sort_fld_mdl):
-                        raise ValueError(
-                            f"The default sort field path of column '{self.name}': '{fld}' must start with "
-                            f"many_related_model ('{self.many_related_model[i]}') in order to link the sort of "
-                            "delimited values in this column with those in other columns."
-                        )
-            else:
-                sort_fld_mdl = self.many_related_model + "__"
-                if not self.field.startswith(sort_fld_mdl):
-                    raise ValueError(
-                        f"The default sort field path of column '{self.name}': '{self.many_related_sort_fld}' must "
-                        f"start with many_related_model ('{self.many_related_model}') in order to link the sort "
-                        "of delimited values in this column with those in other columns."
-                    )
-
-        self.converter = converter
-        self.is_annotation = converter is not None or isinstance(self.field, list) or many_related
-        self.exported = exported
-
-        if header is None:
-            # Include the last foreign key name, if present
-            last_2_names = "_".join(name.split("__")[-2:])
-            self.header = underscored_to_title(last_2_names)
-        else:
-            self.header = header
-
-        if select_options is None:
-            default_filter_control = self.FILTER_CONTROL_CHOICES["INPUT"]
-            self.select_options = None
-        else:
-            default_filter_control = self.FILTER_CONTROL_CHOICES["SELECT"]
-            if isinstance(select_options, dict):
-                self.select_options = select_options
-            else:
-                self.select_options = dict((opt, opt) for opt in select_options)
-        self.strict_select = strict_select
-
-        if filter_control is None:
-            if searchable is None or searchable is True:
-                # Full default settings
-                self.filter_control = default_filter_control
-                self.searchable = True
-            else:
-                self.searchable = False
-                self.filter_control = self.FILTER_CONTROL_CHOICES["DISABLED"]
-        elif filter_control in self.FILTER_CONTROL_CHOICES.values():
-            self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
-            tmp_searchable = filter_control is not None and filter_control != ""
-            if searchable is None:
-                self.searchable = tmp_searchable
-            elif searchable != tmp_searchable:
-                raise ValueError(
-                    f"Conflict between searchable '{searchable}' and filter_control '{filter_control}'.  "
-                    "searchable must be False if filter_control is not None."
-                )
-            else:
-                self.searchable = searchable
-            self.filter_control = filter_control if filter_control is not None and filter_control != "" else ""
-        else:
-            raise ValueError(
-                f"Invalid filter_control value: '{filter_control}'.  "
-                f"Valid choices are: {list(self.FILTER_CONTROL_CHOICES.values())}."
-            )
-
-        self.sortable = "true" if sortable else "false"
-
-        self.sorter = sorter
-        if sorter is None:
-            self.sorter = self.SORTER_CHOICES["ALPHANUMERIC"]
-        elif sorter in self.SORTER_CHOICES.values():
-            self.sorter = sorter
-        else:
-            raise ValueError(
-                f"Invalid sorter value: '{sorter}'.  "
-                f"Valid choices are: {list(self.SORTER_CHOICES.values())}."
-            )
-
-        self.visible = "true" if visible else "false"
-        self.filter = ""
-        self.widget = BSTHeader()
-
-    def __str__(self):
-        return self.as_widget()
-
-    def as_widget(self, attrs=None):
-        return self.widget.render(
-            self.name,
-            self,
-            attrs=attrs,
-        )
-
-    @classmethod
-    def field_to_related_model(cls, field: str):
-        """Turns a django field path into a related model path, e.g. mz_to_msrunsamples__sample__animal__studies__id ->
-        mz_to_msrunsamples__sample__animal__studies"""
-        mdl_path = field.split("__")
-        if len(mdl_path) <= 1:
-            return None
-        return "__".join(mdl_path[0:-1])
+from DataRepo.views.models.base import BSTColumn, BSTColumnGroup
 
 
 class BootstrapTableListView(ListView):
@@ -430,11 +34,16 @@ class BootstrapTableListView(ListView):
     paginate_by = 15
 
     export_header_template = "DataRepo/downloads/export_metadata_header.txt"
-    HEADER_TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
-    FILENAME_TIME_FORMAT = "%d.%m.%Y.%H.%M.%S"
+    headtmplt = loader.get_template(export_header_template) if export_header_template is not None else None
+
+    HEADER_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+    FILENAME_TIME_FORMAT = "%Y.%m.%d.%H.%M.%S"
 
     # Must be set in derived class
-    columns: List[BootstrapTableColumn] = []
+    columns: List[BSTColumn] = []
+    # Optional in derived class (column groups of columns whose field belongs to the same many-related model, in order
+    # to sort them the same)
+    groups: List[BSTColumnGroup] = []
 
     @classproperty
     def view_name(cls):
@@ -462,19 +71,23 @@ class BootstrapTableListView(ListView):
         super().__init__(*args, **kwargs)
 
         # Check that the columns class attribute is valid
-        if len(self.columns) == 0 or not isinstance(self.columns[0], BootstrapTableColumn):
+        if len(self.columns) == 0 or not isinstance(self.columns[0], BSTColumn):
             raise TypeError(
-                "Invalid columns class attribute.  Must be a list of at least 1 BootstrapTableColumn "
+                "Invalid columns class attribute.  Must be a list of at least 1 BSTColumn "
                 "object."
             )
 
-        self.headtmplt = loader.get_template(
-            self.export_header_template
-        ) if self.export_header_template is not None else None
-
         now = datetime.now()
-        self.date_str = now.strftime(self.HEADER_TIME_FORMAT)
-        self.filename_date_str = now.strftime(self.FILENAME_TIME_FORMAT)
+        self.fileheader_timestamp = now.strftime(self.HEADER_TIME_FORMAT)
+        self.filename_timestamp = now.strftime(self.FILENAME_TIME_FORMAT)
+
+        self.groups_dict = defaultdict(list)
+        group: BSTColumnGroup
+        for group in self.groups:
+            if group.model in self.groups_dict.keys():
+                raise KeyError(f"Group defined multiple times with the same model: '{group.model}'.")
+            for column in group.columns:
+                self.groups_dict[group.model].append(column)
 
         self.total = 0
         self.raw_total = 0
@@ -483,73 +96,12 @@ class BootstrapTableListView(ListView):
 
     def get_queryset(self):
         """An override of the superclass method intended to only set total and raw_total instance attributes."""
-
         qs = super().get_queryset()
         self.total = qs.count()
         self.raw_total = self.total
-        return self.get_paginated_queryset(qs)
+        return self.get_manipulated_queryset(qs)
 
-    def get_cookie_name(self, name: str) -> str:
-        """Retrieves a cookie name using a prepended view name.
-
-        Args:
-            name (str)
-        Exceptions:
-            None
-        Returns:
-            (str)
-        """
-        return f"{self.cookie_prefix}{name}"
-
-    def get_cookie(self, name: str, default: str = "") -> str:
-        """Retrieves a cookie using a prepended view name.
-
-        Args:
-            name (str)
-            default (str) [""]
-        Exceptions:
-            None
-        Returns:
-            (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
-                the default if the cookie was not found (or was an empty string).
-        """
-        if hasattr(self, "request"):
-            return get_cookie(self.request, self.get_cookie_name(name), default) or ""
-        return default
-
-    def get_column_cookie_name(self, column: Union[BootstrapTableColumn, str], name: str) -> str:
-        """Retrieves a cookie name using a prepended view name.
-
-        Args:
-            column (Union[BootstrapTableColumn, str]): The name of the BST column or the column object
-            name (str): The name of the cookie variable specific to the column
-        Exceptions:
-            None
-        Returns:
-            (str)
-        """
-        if isinstance(column, str):
-            return f"{self.cookie_prefix}{name}-{column}"
-        return f"{self.cookie_prefix}{name}-{column.name}"
-
-    def get_column_cookie(self, column: BootstrapTableColumn, name: str, default: str = "") -> str:
-        """Retrieves a cookie using a prepended view name.
-
-        Args:
-            column (str): The name of the BST column
-            name (str): The name of the cookie variable specific to the column
-            default (str) [""]
-        Exceptions:
-            None
-        Returns:
-            (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
-                the default if the cookie was not found (or was an empty string).
-        """
-        if hasattr(self, "request"):
-            return get_cookie(self.request, self.get_column_cookie_name(column, name), default) or ""
-        return default
-
-    def get_paginated_queryset(self, qs: QuerySet):
+    def get_manipulated_queryset(self, qs: QuerySet):
         """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
         Content of those pages can be affected by sorting.  And both can be affected by annotated fields.  This method
         applies those criteria based on cookies.
@@ -576,11 +128,16 @@ class BootstrapTableListView(ListView):
         order_by: Optional[str] = self.get_cookie("order-by")
         order_dir: Optional[str] = self.get_cookie("order-dir", "asc")
 
+        # This updates the many-related sort settings in self.columns, based on self.groups.  Side-note, this can work
+        # even when order_by is not a column but is a field under the many-related model.
+        if order_by != "":
+            self.update_group_sorts(order_by, order_dir)
+
         # We need the column names (from the BST data-field attributes) to use in Q expressions
         filter_columns = []
         search_fields = []
         model_paths = []
-        column: BootstrapTableColumn
+        column: BSTColumn
         for column in self.columns:
             # Put all fields' model paths into model_paths, to be evaluated for entry into prefetches
             if isinstance(column.field, list):
@@ -765,9 +322,9 @@ class BootstrapTableListView(ListView):
             # order_by to the actual field.  But we also don't want to sort on many-related fields, because that would
             # increase the number of rows in the result artificially, so we only do this for individual fields.  Many-
             # related fields will sort by their annotated value.
-            annotated_columns: List[BootstrapTableColumn] = list(
+            annotated_columns: List[BSTColumn] = list(
                 c
-                for c in cast(Iterable[BootstrapTableColumn], self.columns)
+                for c in cast(Iterable[BSTColumn], self.columns)
                 if c.is_annotation and c.name == order_by and isinstance(c.field, str)
             )
             if len(annotated_columns) == 1:
@@ -848,7 +405,7 @@ class BootstrapTableListView(ListView):
         context["not_exported"] = []
         context["filter_select_lists"] = {}
 
-        column: BootstrapTableColumn
+        column: BSTColumn
         for column in self.columns:
             # Put the column object in the context.  It will render the th tag.  Update the filter and visibility first.
             column.visible = self.get_column_cookie(column, "visible", column.visible)
@@ -906,7 +463,7 @@ class BootstrapTableListView(ListView):
             return q_exp
 
         search_fields: List[str] = []
-        column: BootstrapTableColumn
+        column: BSTColumn
         for column in self.columns:
             if column.searchable:
                 search_field = (
@@ -931,9 +488,15 @@ class BootstrapTableListView(ListView):
 
         return q_exp, search_fields
 
-    def get_export_data(self, format: str):
-        """This does all the processing of the submission after set_files() has been called."""
+    def update_group_sorts(self, sort_by: str, sort_dir: str):
+        model = BSTColumn.field_to_related_model(sort_by)
+        for colname in self.groups.get(model, []):
+            column: BSTColumn
+            for column in [c for c in self.columns if c.name == colname]:
+                column.many_related_sort_fld = sort_by
+                column.many_related_sort_fwd = sort_dir.lower().startswith("a")
 
+    def get_export_data(self, format: str):
         if format == "excel":
             ext = "xlsx"
             byte_stream = BytesIO()
@@ -943,18 +506,22 @@ class BootstrapTableListView(ListView):
             buffer = StringIO()
             if format == "csv":
                 ext = "csv"
+                # This fills the buffer
                 self.get_text_streamer(buffer, delim=",")
+                # This consumes the buffer
                 export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
                 # export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
             elif format == "txt":
                 ext = "tsv"
+                # This fills the buffer
                 self.get_text_streamer(buffer, delim="\t")
+                # This consumes the buffer
                 export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
                 # export_data = base64.b64encode(buffer.getvalue().encode('utf-8')).decode("utf-8")
             else:
                 raise NotImplementedError(f"Export format {format} not supported.")
 
-        return export_data, f"{self.model.__name__}.{self.filename_date_str}.{ext}"
+        return export_data, f"{self.model.__name__}.{self.filename_timestamp}.{ext}"
 
     def get_excel_streamer(self, byte_stream: BytesIO):
         """Returns an xlsxwriter for an excel file created from the self.dfs_dict.
@@ -972,16 +539,23 @@ class BootstrapTableListView(ListView):
             byte_stream, engine="xlsxwriter"
         )
 
+        header_context = self.get_header_context()
         sheet = self.verbose_model_name_plural
         columns = self.row_headers()
 
-        print(f"SHEET {sheet}")
+        xlsx_writer.book.set_properties(
+            {
+                "title": sheet,
+                "author": "Robert Leach",
+                "company": "Princeton University",
+                "comments": self.headtmplt.render(header_context),
+            }
+        )
+
         # Build the dict by iterating over the row lists
         qs_dict_by_index = dict((i, []) for i in range(len(columns)))
-        for r, row in enumerate(self.rows_iterator()):
-            print(f"ROW {r}")
+        for row in self.rows_iterator(headers=False):
             for i, val in enumerate(row):
-                print(f"COL {i}")
                 qs_dict_by_index[i].append(str(val))
 
         export_dict = {}
@@ -996,6 +570,7 @@ class BootstrapTableListView(ListView):
             columns=columns,
             index=False,
         )
+        xlsx_writer.sheets[sheet].autofit()
 
         xlsx_writer.close()
         # Rewind the buffer so that when it is read(), you won't get an error about opening a zero-length file in Excel
@@ -1003,9 +578,7 @@ class BootstrapTableListView(ListView):
 
         return byte_stream
 
-    def get_text_streamer(self, buffer: StringIO, delim: str = "\t"):
-        writer: "_csv._writer" = csv.writer(buffer, delimiter=delim)
-
+    def get_header_context(self):
         search_term: Optional[str] = self.get_cookie("search")
         order_by: Optional[str] = self.get_cookie("order-by")
         order_dir: Optional[str] = self.get_cookie("order-dir", "asc")
@@ -1014,30 +587,33 @@ class BootstrapTableListView(ListView):
         else:
             sort_str = "default"
         filters = []
-        column: BootstrapTableColumn
+        column: BSTColumn
         for column in self.columns:
             filter_value: str = self.get_column_cookie(column, "filter")
             if filter_value is not None and filter_value != "":
                 filters.append({"column": column.header, "filter": filter_value})
 
+        return {
+            "table": self.verbose_model_name_plural,
+            "date": self.fileheader_timestamp,
+            "total": self.total,
+            "search": search_term,
+            "filters": filters,
+            "sort": sort_str,
+        }
+
+    def get_text_streamer(self, buffer: StringIO, delim: str = "\t"):
+        writer: "_csv._writer" = csv.writer(buffer, delimiter=delim)
+
         # Commented metadata header containing download date and info
-        self.headtmplt.render(
-            {
-                "name": self.verbose_model_name_plural,
-                "date": self.date_str,
-                "total": self.total,
-                "search": search_term,
-                "filters": filters,
-                "sort": sort_str,
-            }
-        )
+        buffer.write(self.headtmplt.render(self.get_header_context()))
 
         for row in self.rows_iterator():
             writer.writerow([str(c) for c in row])
 
         return buffer
 
-    def rows_iterator(self):
+    def rows_iterator(self, headers=True):
         """Takes a queryset of records and returns a list of lists of column data.  Note that delimited many-related
         values are converted to strings, but everything else in the returned list of lists is the original type.
 
@@ -1048,7 +624,8 @@ class BootstrapTableListView(ListView):
         Returns:
             (List[list])
         """
-        yield self.row_headers()
+        if headers:
+            yield self.row_headers()
         rec: Model
         for rec in self.get_queryset():
             yield self.rec_to_row(rec)
@@ -1076,7 +653,7 @@ class BootstrapTableListView(ListView):
             if col.exported
         ]
 
-    def get_rec_val(self, rec: Model, col: BootstrapTableColumn):
+    def get_rec_val(self, rec: Model, col: BSTColumn):
         """Given a model record, i.e. row-data, e.g. from a queryset, and a column, return the column value."""
         # print(f"LOOKING UP {col.name} IN REC TYPE {type(rec).__name__}")
         # Getting an annotation is fast, and if it is None, we can skip potentially costly many_related lookups
@@ -1092,7 +669,7 @@ class BootstrapTableListView(ListView):
 
         return val
 
-    def get_many_related_rec_val(self, rec: Model, col: BootstrapTableColumn):
+    def get_many_related_rec_val(self, rec: Model, col: BSTColumn):
         if not col.many_related:
             raise ValueError(f"Column {col.name} is not many-related.")
 
@@ -1264,3 +841,63 @@ class BootstrapTableListView(ListView):
             # expecting a list
             return None
         return self._get_rec_val_helper(val_or_rec, field_path[1:], sort_field_path=next_sort_field_path, _sort_val=_sort_val)
+
+    def get_cookie_name(self, name: str) -> str:
+        """Retrieves a cookie name using a prepended view name.
+
+        Args:
+            name (str)
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        return f"{self.cookie_prefix}{name}"
+
+    def get_cookie(self, name: str, default: str = "") -> str:
+        """Retrieves a cookie using a prepended view name.
+
+        Args:
+            name (str)
+            default (str) [""]
+        Exceptions:
+            None
+        Returns:
+            (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
+                the default if the cookie was not found (or was an empty string).
+        """
+        if hasattr(self, "request"):
+            return get_cookie(self.request, self.get_cookie_name(name), default) or ""
+        return default
+
+    def get_column_cookie_name(self, column: Union[BSTColumn, str], name: str) -> str:
+        """Retrieves a cookie name using a prepended view name.
+
+        Args:
+            column (Union[BSTColumn, str]): The name of the BST column or the column object
+            name (str): The name of the cookie variable specific to the column
+        Exceptions:
+            None
+        Returns:
+            (str)
+        """
+        if isinstance(column, str):
+            return f"{self.cookie_prefix}{name}-{column}"
+        return f"{self.cookie_prefix}{name}-{column.name}"
+
+    def get_column_cookie(self, column: BSTColumn, name: str, default: str = "") -> str:
+        """Retrieves a cookie using a prepended view name.
+
+        Args:
+            column (str): The name of the BST column
+            name (str): The name of the cookie variable specific to the column
+            default (str) [""]
+        Exceptions:
+            None
+        Returns:
+            (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
+                the default if the cookie was not found (or was an empty string).
+        """
+        if hasattr(self, "request"):
+            return get_cookie(self.request, self.get_column_cookie_name(column, name), default) or ""
+        return default

@@ -3,8 +3,7 @@ from django.db.models.functions import Coalesce, NullIf
 from django.views.generic import DetailView
 
 from DataRepo.models import ArchiveFile, DataFormat, DataType
-from DataRepo.views.models.base import BootstrapTableColumn as BSTColumn
-from DataRepo.views.models.base import BootstrapTableListView as BSTListView
+from DataRepo.views.models.base import BSTColumn, BSTListView
 
 
 class ArchiveFileDetailView(DetailView):
@@ -54,15 +53,15 @@ class ArchiveFileListView(BSTListView):
             # The name in the following 2 cases are a related field, but it's 1:1.  The field is automatically set to
             # the name's value.
             BSTColumn(
-                "data_format__name",
-                select_options=DataFormat.objects.order_by("name").distinct("name").values_list("name", flat=True),
-                header="File Format",
-            ),
-            BSTColumn(
                 "data_type__name",
                 visible=False,  # Initial visibility
                 select_options=DataType.objects.order_by("name").distinct("name").values_list("name", flat=True),
                 header="File Type",
+            ),
+            BSTColumn(
+                "data_format__name",
+                select_options=DataFormat.objects.order_by("name").distinct("name").values_list("name", flat=True),
+                header="File Format",
             ),
 
             BSTColumn(
