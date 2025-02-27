@@ -19,11 +19,11 @@ class ArchiveFileListView(BSTListView):
     DATETIME_FORMAT = "YYYY-MM-DD HH:MI a.m."  # Postgres date format
     DBSTRING_FUNCTION = "to_char"  # Postgres function
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Only creating this method to keep database calls out of the class attribute area (for populating the
         select_options values).  Otherwise, columns can be defined as a class attribute."""
 
-        self.columns = [
+        super().__init__(
             # The first arg in each case is the template table's column name, which is expected to be the data-field
             # value in the bootstrap table's th tag.
             BSTColumn(
@@ -75,6 +75,12 @@ class ArchiveFileListView(BSTListView):
                 # keeps the number of rows consistent with the number of ArchiveFile records, but it also makes querying
                 # the database much much faster
                 many_related=True,
+                many_related_sort_fld=[
+                    # TODO: Make this the default and make BSTColumnGroup silently override that to pk
+                    "peak_groups__msrun_sample__sample__animal__studies__name",
+                    "mz_to_msrunsamples__sample__animal__studies__name",
+                    "raw_to_msrunsamples__sample__animal__studies__name",
+                ],
 
                 # These will automatically get .annotate(first_study=Coalesce(Min(...), Min(...), Min(...)) applied
                 field=[
@@ -155,6 +161,5 @@ class ArchiveFileListView(BSTListView):
                 header="Peak Data",
                 exported=False,
             ),
-        ]
-        # Calling the super constructor AFTER defining self.columns, because that constructor validates it.
-        super().__init__(*args, **kwargs)
+            **kwargs,
+        )

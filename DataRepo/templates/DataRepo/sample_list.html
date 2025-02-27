@@ -49,6 +49,7 @@
                 {{ researcher }}
                 {{ col_date_str }}
                 {{ col_time_str }}
+                {{ sequence_count }}
                 {{ first_ms_operator }}
                 {{ first_ms_date }}
                 {{ first_ms_sample }}
@@ -188,153 +189,154 @@
                     <td>{{ sample.animal.diet }}</td>
                     <td>{{ sample.animal.feeding_status }}</td>
                     <td>{{ sample.researcher }}</td>
-                    <td>{{ sample.col_date_str|default_if_none:'' }}</td>
-                    <td>{{ sample.col_time_str|default_if_none:'' }}</td>
-                        {% if sample.sequence_count|gt:1 %}
-                            {% with seq_dicts=""|make_list %}
-                                {% createDict as msrs_by_seq %}
-                                {# Build a sequence dict and append it to seq_dicts so we can sort both in individual columns #}
-                                {% for msrun_sample in sample.msrun_samples.all %}
-                                    {% createDict as msrsdict %}
-                                    {% addToDict msrsdict "msrunsample_id" msrun_sample.id %}
-                                    {% addToDict msrsdict "polarity" msrun_sample.polarity|polarity_name_to_sign %}
-                                    {% addToDict msrsdict "mz_min" msrun_sample.mz_min %}
-                                    {% addToDict msrsdict "mz_max" msrun_sample.mz_max %}
-                                    {% addToDict msrs_by_seq msrun_sample.msrun_sequence.id ""|make_list False %}
-                                    {% append_unique msrs_by_seq|index:msrun_sample.msrun_sequence.id msrsdict %}
+                    <td>{{ sample.col_date_str|default_if_none:'<span class="text-muted">None</span>'|safe }}</td>
+                    <td>{{ sample.col_time_str|default_if_none:'<span class="text-muted">None</span>'|safe }}</td>
+                    <td>{{ sample.sequence_count }}</td>
+                    {% if sample.sequence_count|gt:1 %}
+                        {% with seq_dicts=""|make_list %}
+                            {% createDict as msrs_by_seq %}
+                            {# Build a sequence dict and append it to seq_dicts so we can sort both in individual columns #}
+                            {% for msrun_sample in sample.msrun_samples.all %}
+                                {% createDict as msrsdict %}
+                                {% addToDict msrsdict "msrunsample_id" msrun_sample.id %}
+                                {% addToDict msrsdict "polarity" msrun_sample.polarity|polarity_name_to_sign %}
+                                {% addToDict msrsdict "mz_min" msrun_sample.mz_min %}
+                                {% addToDict msrsdict "mz_max" msrun_sample.mz_max %}
+                                {% addToDict msrs_by_seq msrun_sample.msrun_sequence.id ""|make_list False %}
+                                {% append_unique msrs_by_seq|index:msrun_sample.msrun_sequence.id msrsdict %}
 
-                                    {% createDict as sequence %}
-                                    {% addToDict sequence "sequence_id" msrun_sample.msrun_sequence.id %}
-                                    {% addToDict sequence "operator" msrun_sample.msrun_sequence.researcher %}
-                                    {% addToDict sequence "date" msrun_sample.msrun_sequence.date|format_date:date_format %}
-                                    {% append_unique seq_dicts sequence %}
-                                {% endfor %}
+                                {% createDict as sequence %}
+                                {% addToDict sequence "sequence_id" msrun_sample.msrun_sequence.id %}
+                                {% addToDict sequence "operator" msrun_sample.msrun_sequence.researcher %}
+                                {% addToDict sequence "date" msrun_sample.msrun_sequence.date|format_date:date_format %}
+                                {% append_unique seq_dicts sequence %}
+                            {% endfor %}
 
-                                <td>
-                                    {% if order_by == "first_ms_operator" and order_dir|lower == "desc" %}
-                                        {% for sequence in seq_dicts|dictsortreversed:"operator" %}
-                                            <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% elif order_by == "first_ms_date" and order_dir|lower == "desc" %}
-                                        {% for sequence in seq_dicts|dictsortreversed:"date" %}
-                                            <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% elif order_by == "first_ms_date" and order_dir|lower == "asc" %}
-                                        {% for sequence in seq_dicts|dictsort:"date" %}
-                                            <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% else %}
-                                        {% for sequence in seq_dicts|dictsort:"operator" %}
-                                            <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if order_by == "first_ms_operator" and order_dir|lower == "desc" %}
-                                        {% for sequence in seq_dicts|dictsortreversed:"operator" %}
-                                            <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% elif order_by == "first_ms_date" and order_dir|lower == "desc" %}
-                                        {% for sequence in seq_dicts|dictsortreversed:"date" %}
-                                            <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% elif order_by == "first_ms_date" and order_dir|lower == "asc" %}
-                                        {% for sequence in seq_dicts|dictsort:"date" %}
-                                            <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% else %}
-                                        {% for sequence in seq_dicts|dictsort:"operator" %}
-                                            <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if order_by == "first_ms_operator" and order_dir|lower == "desc" %}
-                                        {% for sequence in seq_dicts|dictsortreversed:"operator" %}
-                                            <div class="nobr">
-                                                {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
-                                                    <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
-                                                        {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% elif msrsample.polarity %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }})
-                                                        {% elif msrsample.mz_min and msrsample.mz_max %}
-                                                            (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% endif %}
-                                                    </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
-                                            </div>
-                                        {% endfor %}
-                                    {% elif order_by == "first_ms_date" and order_dir|lower == "desc" %}
-                                        {% for sequence in seq_dicts|dictsortreversed:"date" %}
-                                            <div class="nobr">
-                                                {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
-                                                    <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
-                                                        {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% elif msrsample.polarity %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }})
-                                                        {% elif msrsample.mz_min and msrsample.mz_max %}
-                                                            (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% endif %}
-                                                    </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
-                                            </div>
-                                        {% endfor %}
-                                    {% elif order_by == "first_ms_date" and order_dir|lower == "asc" %}
-                                        {% for sequence in seq_dicts|dictsort:"date" %}
-                                            <div class="nobr">
-                                                {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
-                                                    <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
-                                                        {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% elif msrsample.polarity %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }})
-                                                        {% elif msrsample.mz_min and msrsample.mz_max %}
-                                                            (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% endif %}
-                                                    </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
-                                            </div>
-                                        {% endfor %}
-                                    {% else %}
-                                        {% for sequence in seq_dicts|dictsort:"operator" %}
-                                            <div class="nobr">
-                                                {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
-                                                    <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
-                                                        {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% elif msrsample.polarity %}
-                                                            ({{ msrsample.polarity|polarity_name_to_sign }})
-                                                        {% elif msrsample.mz_min and msrsample.mz_max %}
-                                                            (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
-                                                        {% endif %}
-                                                    </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
-                                            </div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </td>
-                            {% endwith %}
-                        {% elif sample.sequence_count == 1 %}
-                            <td>{{ sample.first_ms_operator }}</td>
-                            <td>{{ sample.first_ms_date }}</td>
                             <td>
-                                {% for msrun_sample in sample.msrun_samples.all %}
-                                    <div class="nobr">
-                                        <a href="{% url 'msrunsample_detail' msrun_sample.id %}">MSRunSample Detail
-                                            {% if msrun_sample.polarity and msrun_sample.mz_min and msrun_sample.mz_max %}
-                                                ({{ msrun_sample.polarity|polarity_name_to_sign }} <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
-                                            {% elif msrun_sample.polarity %}
-                                                ({{ msrun_sample.polarity|polarity_name_to_sign }})
-                                            {% elif msrun_sample.mz_min and msrun_sample.mz_max %}
-                                                (<span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
-                                            {% endif %}
-                                        </a>
-                                    </div>
-                                {% endfor %}
+                                {% if order_by == "first_ms_operator" and order_dir|lower == "desc" %}
+                                    {% for sequence in seq_dicts|dictsortreversed:"operator" %}
+                                        <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% elif order_by == "first_ms_date" and order_dir|lower == "desc" %}
+                                    {% for sequence in seq_dicts|dictsortreversed:"date" %}
+                                        <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% elif order_by == "first_ms_date" and order_dir|lower == "asc" %}
+                                    {% for sequence in seq_dicts|dictsort:"date" %}
+                                        <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% else %}
+                                    {% for sequence in seq_dicts|dictsort:"operator" %}
+                                        <div class="nobr">{{ sequence.operator }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% endif %}
                             </td>
-                        {% else %}
-                            <td><span title="No MSRun associated with the sample" class="text-muted">None</span></td>
-                            <td><span title="No MSRun associated with the sample" class="text-muted">None</span></td>
-                            <td><span title="No MSRun associated with the sample" class="text-muted">None</span></td>
-                        {% endif %}
+                            <td>
+                                {% if order_by == "first_ms_operator" and order_dir|lower == "desc" %}
+                                    {% for sequence in seq_dicts|dictsortreversed:"operator" %}
+                                        <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% elif order_by == "first_ms_date" and order_dir|lower == "desc" %}
+                                    {% for sequence in seq_dicts|dictsortreversed:"date" %}
+                                        <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% elif order_by == "first_ms_date" and order_dir|lower == "asc" %}
+                                    {% for sequence in seq_dicts|dictsort:"date" %}
+                                        <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% else %}
+                                    {% for sequence in seq_dicts|dictsort:"operator" %}
+                                        <div class="nobr">{{ sequence.date }}{% if not forloop.last %};<br>{% endif %}</div>
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order_by == "first_ms_operator" and order_dir|lower == "desc" %}
+                                    {% for sequence in seq_dicts|dictsortreversed:"operator" %}
+                                        <div class="nobr">
+                                            {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
+                                                <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
+                                                    {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% elif msrsample.polarity %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }})
+                                                    {% elif msrsample.mz_min and msrsample.mz_max %}
+                                                        (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% endif %}
+                                                </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                {% elif order_by == "first_ms_date" and order_dir|lower == "desc" %}
+                                    {% for sequence in seq_dicts|dictsortreversed:"date" %}
+                                        <div class="nobr">
+                                            {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
+                                                <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
+                                                    {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% elif msrsample.polarity %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }})
+                                                    {% elif msrsample.mz_min and msrsample.mz_max %}
+                                                        (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% endif %}
+                                                </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                {% elif order_by == "first_ms_date" and order_dir|lower == "asc" %}
+                                    {% for sequence in seq_dicts|dictsort:"date" %}
+                                        <div class="nobr">
+                                            {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
+                                                <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
+                                                    {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% elif msrsample.polarity %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }})
+                                                    {% elif msrsample.mz_min and msrsample.mz_max %}
+                                                        (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% endif %}
+                                                </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    {% for sequence in seq_dicts|dictsort:"operator" %}
+                                        <div class="nobr">
+                                            {% for msrsample in msrs_by_seq|index:sequence.sequence_id %}
+                                                <a href="{% url 'msrunsample_detail' msrsample.msrunsample_id %}" style="display: inline-block;">MSRunSample Detail
+                                                    {% if msrsample.polarity and msrsample.mz_min and msrsample.mz_max %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }} <span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% elif msrsample.polarity %}
+                                                        ({{ msrsample.polarity|polarity_name_to_sign }})
+                                                    {% elif msrsample.mz_min and msrsample.mz_max %}
+                                                        (<span title="{{ msrsample.mz_min }}">{{ msrsample.mz_min|sigdig:4 }}</span>-<span title="{{ msrsample.mz_max }}">{{ msrsample.mz_max|sigdig:4 }}</span>)
+                                                    {% endif %}
+                                                </a>{% if not forloop.last %}<br>{% endif %}{% endfor %}{% if not forloop.last %};<br>{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
+                        {% endwith %}
+                    {% elif sample.sequence_count == 1 %}
+                        <td>{{ sample.first_ms_operator }}</td>
+                        <td>{{ sample.first_ms_date }}</td>
+                        <td>
+                            {% for msrun_sample in sample.msrun_samples.all %}
+                                <div class="nobr">
+                                    <a href="{% url 'msrunsample_detail' msrun_sample.id %}">MSRunSample Detail
+                                        {% if msrun_sample.polarity and msrun_sample.mz_min and msrun_sample.mz_max %}
+                                            ({{ msrun_sample.polarity|polarity_name_to_sign }} <span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
+                                        {% elif msrun_sample.polarity %}
+                                            ({{ msrun_sample.polarity|polarity_name_to_sign }})
+                                        {% elif msrun_sample.mz_min and msrun_sample.mz_max %}
+                                            (<span title="{{ msrun_sample.mz_min }}">{{ msrun_sample.mz_min|sigdig:4 }}</span>-<span title="{{ msrun_sample.mz_max }}">{{ msrun_sample.mz_max|sigdig:4 }}</span>)
+                                        {% endif %}
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </td>
+                    {% else %}
+                        <td><span title="No MSRun associated with the sample" class="text-muted">None</span></td>
+                        <td><span title="No MSRun associated with the sample" class="text-muted">None</span></td>
+                        <td><span title="No MSRun associated with the sample" class="text-muted">None</span></td>
+                    {% endif %}
                 </tr>
             {% endfor %}
         </tbody>

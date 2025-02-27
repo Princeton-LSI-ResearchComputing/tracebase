@@ -445,13 +445,13 @@ class BootstrapTableColumn:
                     )
 
     @classmethod
-    def field_to_related_model(cls, field: str):
+    def field_to_related_model(cls, field: str, many_related=False):
         """Turns a django field path into a related model path, e.g. mz_to_msrunsamples__sample__animal__studies__id ->
         mz_to_msrunsamples__sample__animal__studies"""
         path = field.split("__")
         if len(path) > 1:
             return "__".join(path[0:-1])
-        elif len(path) == 1:
+        elif many_related and len(path) == 1:
             # assume it ends in a foreign key
             return field
         return None
@@ -468,7 +468,7 @@ class BootstrapTableColumn:
 class BootstrapTableColumnGroup:
     sort_dirs = ["asc", "desc"]
 
-    def __init__(self, columns: List[BootstrapTableColumn]):
+    def __init__(self, *columns: BootstrapTableColumn):
         self.columns = columns
 
         if not all([c.many_related for c in columns]):
