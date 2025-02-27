@@ -11,12 +11,12 @@ class BootstrapTableColumn:
 
     Usage: Use this class to populate the BootstrapTableListView.columns list, like this:
 
-        self.columns = [
+        BootstrapTableListView(
             BSTColumn("filename"),
             BSTColumn("imported_timestamp"),
             BSTColumn("data_format__name"),
             BSTColumn("data_type__name"),
-        ]
+        )
 
     Use django "field paths" relative to the base model, or model annotation names for the name arguments to the
     constructor, as BootstrapTableListView uses these for server-side pagination, filtering, and sorting.
@@ -86,7 +86,6 @@ class BootstrapTableColumn:
     }
     NAME_IS_FIELD = "__same__"
 
-    # TODO: Make this into an instance attribute
     DEF_DELIM = "; "  # For many-related fields
 
     def __init__(
@@ -277,6 +276,15 @@ class BootstrapTableColumn:
         )
 
     def init_many_related(self):
+        """Initializes attributes related to the field for the column being many-related to the base table.
+
+        Args:
+            None
+        Exceptions:
+            ValueError when a field path is invalid.
+        Returns:
+            None
+        """
         if self.many_related_model is None and self.field is not None:
             # Default to sorting M:M field values by the primary key of the many_related_model model
             if isinstance(self.field, list):
@@ -301,6 +309,10 @@ class BootstrapTableColumn:
                     raise ValueError(f"Invalid field path '{self.field}' in column '{self.name}'.")
 
         if self.many_related and self.many_related_sort_fld is None:
+            # TODO: Change this so that the field itself is the default sort field and make it overridden to the primary
+            # key in BSTColumnGroup.  It would be cool as well if it could automatically set it based on a unique one
+            # being explicitly set among the columns in the group, and/or add an argument.
+
             # Default to sorting M:M field values by the primary key of the many_related_model model
             if isinstance(self.many_related_model, list):
                 self.many_related_sort_fld = [f"{f}__pk" for f in self.many_related_model]
@@ -308,6 +320,15 @@ class BootstrapTableColumn:
                 self.many_related_sort_fld = self.many_related_model + "__pk"
 
     def init_filters(self):
+        """Initializes attributes related to row filtering mechanisms in BST.
+
+        Args:
+            None
+        Exceptions:
+            ValueError when a value is invalid or multiple values are conflicting.
+        Returns:
+            None
+        """
         default_filter_control = (
             self.FILTER_CONTROL_CHOICES["INPUT"]
             if self.select_options_orig is None and self.select_options_orig is None
@@ -356,6 +377,20 @@ class BootstrapTableColumn:
             self.select_options = dict((opt, opt) for opt in self.select_options_orig)
 
     def validate(self):
+        """Validates instance attributes.
+
+        Args:
+            None
+        Exceptions:
+            TypeError when different arguments must have a consistent type.
+            ValueError
+                Conflicting arguments
+                Invalid arguments
+                Inconsistent arguments
+                Required arguments
+        Returns:
+            None
+        """
         if self.field is not None:
             if (
                 isinstance(self.field, str)
@@ -446,8 +481,25 @@ class BootstrapTableColumn:
 
     @classmethod
     def field_to_related_model(cls, field: str, many_related=False):
-        """Turns a django field path into a related model path, e.g. mz_to_msrunsamples__sample__animal__studies__id ->
-        mz_to_msrunsamples__sample__animal__studies"""
+        """Turns a django field path into a related model path.
+
+        Example:
+            mz_to_msrunsamples__sample__animal__studies__id ->
+            mz_to_msrunsamples__sample__animal__studies
+        Limitations:
+            1. Field paths in a many-related models not ending in a foreign key are not truncated when the path is 1
+                item long.  This method has no means of confirming whether a value in the path is a foreign key or not,
+                so this trick will not work if there is a path longer than 1 item that ends in a foreign key.
+        Args:
+            field (str): A django dunderscore delimited field path.
+            many_related (bool) [False]: Making this True causes a single path item to not be chopped off if it's the
+                only item.
+        Exceptions:
+            None
+        Returns:
+            field (Optional[str]): The input field path with the field chopped off the end or not if many related and
+                there's a sinle dunderscore-delimited value.
+        """
         path = field.split("__")
         if len(path) > 1:
             return "__".join(path[0:-1])
@@ -457,6 +509,8 @@ class BootstrapTableColumn:
         return None
 
     def __eq__(self, other):
+        """This is a convenience override to be able to compare a column name with a column object to see if the object
+        is for that column.  It also enables the `in` operator to work between strings and objects."""
         if isinstance(other, __class__):
             return self.name == other.name
         elif isinstance(other, str):
@@ -466,9 +520,22 @@ class BootstrapTableColumn:
 
 
 class BootstrapTableColumnGroup:
+    """Can be used in place of a BootstrapTableColumn to group columns contiguously.  Columns in a group that are not
+    contiguous can still be achieved if you set BootstrapTableListView's instance attributes 'columns' and 'groups' and
+    'groups_dict' explicitly."""
+
     sort_dirs = ["asc", "desc"]
 
     def __init__(self, *columns: BootstrapTableColumn):
+        """Construct an instance.
+
+        Args:
+            *columns (BootstrapTableColumn): Minimum of 2 BSTColumn objects.
+        Exceptions:
+            ValueError
+        Returns:
+            (BootstrapTableColumnGroup)
+        """
         self.columns = columns
 
         if not all([c.many_related for c in columns]):
@@ -514,7 +581,20 @@ class BootstrapTableColumnGroup:
         if len(dupes) > 0:
             raise ValueError(f"Each column name must be unique.  These were found to be redundant: {dupes}")
 
-    def set_sort_fld(self, sort_fld: str, ignore_non_matches=False):
+    def set_sort_fld(self, sort_fld: str, ignore_non_matches: bool = False):
+        """Sets the many_related_sort_fld of every column in the group so that each column's many-related values will be
+        sorted the same.
+
+        Args:
+            sort_fld (str): BSTColumn.name of the column selected to sort the rows.
+            ignore_non_matches (bool) [False]: If True, it allows sorting on other columns not in the group.
+        Exceptions:
+            ValueError when the sort_fld is not a member of the group (and ignore_non_matches is False).
+            You will encounter an undefined exception if you supply a sort_fld that is not under the many related model
+                (BSTColumnGroup.model)
+        Returns:
+            None
+        """
         if not ignore_non_matches and sort_fld not in self.columns:
             raise ValueError(
                 f"Sort field '{sort_fld}' is not a name of any column in this group.  The options are: "
@@ -525,6 +605,17 @@ class BootstrapTableColumnGroup:
             c.many_related_sort_fld = sort_fld
 
     def set_sort_dir(self, sort_dir: str, ignore_non_matches=False):
+        """Sets the many_related_sort_fwd of every column in the group so that each column's many-related values will be
+        sorted the same.
+
+        Args:
+            sort_dir (str): See self.sort_dirs
+            ignore_non_matches (bool) [False]: If True, invalid values are ignored.
+        Exceptions:
+            ValueError when the sort_dir is not a member of self.sort_dirs (and ignore_non_matches is False).
+        Returns:
+            None
+        """
         if not ignore_non_matches and sort_dir.lower() not in self.sort_dirs:
             raise ValueError(f"Sort direction '{sort_dir}' is not a sort direction.  The options are: {self.sort_dirs}")
 
