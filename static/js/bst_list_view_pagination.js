@@ -83,15 +83,16 @@ function initBSTPagination(
     var loading = true;
     $('#' + djangoTableID).bootstrapTable({
         onSort: function (orderBy, orderDir) {
-            if (!loading) {
-                setViewCookie('order-by', orderBy);
-                setViewCookie('order-dir', orderDir);
-                // BST sorting has 2 issues...
-                // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
-                // 2. BST sort completely fails when the number of rows is very large
-                // ...so we will always let the sort hit the server to be on the safe side.
-                updatePage(1);
-            }
+            // Sort is just a click, and it appears that sort is not called for each column on load like onColumnSearch
+            // is, so we're not going to check 'loading' here.  I was encountering issues with the sort not happening.
+            setViewCookie('order-by', orderBy);
+            setViewCookie('order-dir', orderDir);
+            // BST sorting has 2 issues...
+            // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
+            // 2. BST sort completely fails when the number of rows is very large
+            // ...so we will always let the sort hit the server to be on the safe side.
+            console.log("Sorting by " + orderBy + ", " + orderDir)
+            updatePage(1);
         },
         onSearch: function (searchTerm) {
             if (!loading) {

@@ -105,6 +105,7 @@ class BootstrapTableColumn:
         many_related_model: Optional[Union[str, List[str]]] = None,  # default = field's immediate parent
         many_related_sort_fld: Optional[Union[str, List[str]]] = None,  # default = {many_related_model}__pk
         many_related_sort_fwd: bool = True,
+        many_related_sort_nocase: bool = False,  # Case insensitive sort
         many_related_delim: str = DEF_DELIM,
         strict_select: Optional[bool] = None,
     ):
@@ -183,6 +184,7 @@ class BootstrapTableColumn:
             many_related_sort_fld (Optional[str]) [many_related_model + "__pk"]: The default sort field for many-
                 related fields.
             many_related_sort_fwd (bool) [True]: Set to False to reverse sort by default.
+            many_related_sort_nocase (bool) [False]: If True, it makes the sort case-insensitive.
         Exceptions:
             ValueError when:
             - Either many_related must be True or a converter must be supplied if the BST column name is not equal to
@@ -223,6 +225,7 @@ class BootstrapTableColumn:
         self.many_related_model = many_related_model
         self.many_related_sort_fld = many_related_sort_fld
         self.many_related_sort_fwd = many_related_sort_fwd
+        self.many_related_sort_nocase = many_related_sort_nocase
         self.delim = many_related_delim
         self.init_many_related()
 
@@ -513,5 +516,7 @@ class BootstrapTableColumn:
             return self.name == other.name
         elif isinstance(other, str):
             return self.name == other
+        elif other is None:
+            return False
         else:
             raise NotImplementedError(f"Equivalence of {__class__.__name__} to {type(other).__name__} not implemented.")

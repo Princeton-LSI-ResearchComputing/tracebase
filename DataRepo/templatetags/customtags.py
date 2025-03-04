@@ -83,7 +83,6 @@ def intmultiply(left, right):
 def index(indexable, i):
     try:
         v = indexable[i]
-        print(f"RETURNING V: {type(v).__name__}: {v}")
     except (TypeError, KeyError) as e:
         print(
             f"WARNING: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
@@ -98,7 +97,6 @@ def index(indexable, i):
 def get_attr(object, attr, default=None):
     try:
         v = getattr(object, attr, default)
-        print(f"GETTING ATTRIBUTE {attr} FROM {object}: {v}")
     except (TypeError, KeyError) as e:
         print(f"{type(e).__name__}: {str(e)}")
         v = default

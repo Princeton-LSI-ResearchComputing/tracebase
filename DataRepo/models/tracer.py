@@ -4,6 +4,7 @@ from typing import Optional
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
+from django.db.models.functions import Lower
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import MaintainedModel
@@ -89,7 +90,7 @@ class Tracer(MaintainedModel, ElementLabel):
     class Meta:
         verbose_name = "tracer"
         verbose_name_plural = "tracers"
-        ordering = ["name"]
+        ordering = [Lower("name")]
 
     def __str__(self):
         return str(self._name())

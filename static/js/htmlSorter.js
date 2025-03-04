@@ -2,8 +2,8 @@
 // ref: https://github.com/wenzhixin/bootstrap-table/issues/461
 function htmlSorter (a, b) { // eslint-disable-line no-unused-vars
   /* eslint-env jquery */
-  a = $(a).text()
-  b = $(b).text()
+  a = $(a).text().toLowerCase()
+  b = $(b).text().toLowerCase()
   if (a < b) return -1
   if (a > b) return 1
   return 0

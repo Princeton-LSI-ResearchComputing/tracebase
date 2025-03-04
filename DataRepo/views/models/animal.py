@@ -2,9 +2,18 @@ from django.views.generic import DetailView, ListView
 
 from DataRepo.models import Animal
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.views.models.base import BSTListView
 
 
-class AnimalListView(ListView):
+class AnimalListView(BSTListView):
+    """Generic class-based view for a list of tracers"""
+    model = Animal
+    paginate_by = 10
+    include_through_models = True
+    exclude_fields = ["id", "first_samples"]
+
+
+class AnimalListViewOLD(ListView):
     """Generic class-based view for a list of animals"""
 
     model = Animal

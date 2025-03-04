@@ -11,8 +11,8 @@ import _csv
 
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField
-from django.db.models.functions import Coalesce
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField, CharField
+from django.db.models.functions import Coalesce, Lower
 from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
@@ -36,7 +36,7 @@ class BootstrapTableListView(ListView):
 
     export_header_template = "DataRepo/downloads/export_metadata_header.txt"
     headtmplt = loader.get_template(export_header_template) if export_header_template is not None else None
-    include_through_models: bool = False
+    # include_through_models: bool = False
     exclude_fields: Optional[List[str]] = ["id"]  # You can set reverse relations in your derived class
 
     HEADER_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -113,47 +113,84 @@ class BootstrapTableListView(ListView):
     def set_default_columns(self):
         related_columns: List[BSTColumn] = []
         many_related_models: dict = {}
-        through_models: list = []
+        # through_models: list = []
         fields = self.model._meta.get_fields()
 
         # Check the exclude fields
         bad_excludes = []
+        field_names = [f.name for f in fields]
         for ef in self.exclude_fields:
-            if ef not in [f.name for f in fields]:
+            # 2 special cases (for many_related columns added below)
+            first_ef = ef.replace("first_", "")
+            count_ef = ef.replace("_count", "")
+            if ef not in field_names and first_ef not in field_names and count_ef not in field_names:
                 bad_excludes.append(ef)
         if len(bad_excludes) > 0:
             raise ValueError(f"Invalid exclude fields: {bad_excludes}.  Choices are: {[f.name for f in fields]}.")
 
-        # TODO:
-        # 1. Add a "first" column for many-related fields and
-        #    - Select specific sort field based on perhaps __str__? or meta ordering?
         for fld in fields:
+            print(f"FIELD {fld.name} TYPE: {type(fld).__name__}")
             if self.exclude_fields is not None and fld.name in self.exclude_fields:
                 continue
             if fld.is_relation and (fld.one_to_many or fld.many_to_many):
-                # related_columns.append(
-                #     BSTColumn(
-                #         f"first_{fld.related_name}",
-                #         field=fld.related_name,
-                #         header=underscored_to_title(fld.related_name),
-                #         many_related=True,
-                #         many_related_model=fld.related_name,
-                #     )
-                # )
-                related_columns.append(
-                    BSTColumn(
-                        f"{fld.related_name}_count",
-                        field=fld.related_name,
-                        header=underscored_to_title(fld.related_name) + " Count",
-                        sorter=BSTColumn.SORTER_CHOICES["NUMERIC"],
-                        many_related=True,
-                        many_related_model=fld.related_name,
-                        converter=Count(fld.related_name, distinct=True),
+                # DEBUG: Testing this block(/BSTColumn column addition) to see if I can get this to work quickly.
+                # print(f"fld.one_to_many or fld.many_to_many: {fld.one_to_many} or {fld.many_to_many}")
+                try:
+                    related_name = fld.related_name
+                except AttributeError:
+                    related_name = fld.name
+                first_sort_fld = f"{related_name}__pk"
+                first_sortable = False
+                case_insensitive = False
+                if len(fld.related_model._meta.ordering) == 1:
+                    order_fld = self.get_field_name(fld.related_model._meta.ordering[0])
+                    if isinstance(getattr(fld.related_model, order_fld), CharField):
+                        case_insensitive = True
+                    first_sort_fld = f"{related_name}__{order_fld}"
+                    first_sortable = True
+                elif len(fld.related_model._meta.ordering) > 1:
+                    print(
+                        f"WARNING: A {fld.related_model.__name__}._meta.ordering with more than 1 ordering field is "
+                        "not supported.  Supply BSTColumn objects to the constructor to enable sorting of the "
+                        f"{self.model.__name__} BST ListView."
                     )
-                )
-                if fld.many_to_many:
-                    through_models.append(fld.through.__name__)
-                many_related_models[fld.related_name] = fld.related_model.__name__
+                else:
+                    # TODO: Try to get the first field that is unique=True
+                    pass
+                if f"{related_name}_count" not in self.exclude_fields:
+                    print(f"ADDING COLUMN {related_name}_count")
+                    related_columns.append(
+                        BSTColumn(
+                            f"{fld.name}_count",
+                            field=fld.name,
+                            header=underscored_to_title(fld.name) + " Count",
+                            sorter=BSTColumn.SORTER_CHOICES["NUMERIC"],
+                            # many_related=True,
+                            # many_related_model=fld.name,
+                            converter=Count(fld.name, distinct=True),
+                        )
+                    )
+                if f"first_{related_name}" not in self.exclude_fields:
+                    print(f"ADDING COLUMN first_{related_name}")
+                    related_columns.append(
+                        BSTColumn(
+                            f"first_{related_name}",
+                            field=related_name,
+                            header=underscored_to_title(related_name),
+                            many_related=True,
+                            many_related_model=related_name,
+                            many_related_sort_fld=first_sort_fld,
+                            many_related_sort_nocase=case_insensitive,
+                            sortable=first_sortable,
+                            sorter=BSTColumn.SORTER_CHOICES["HTML"],
+                            # TODO: Figure out how to turn the __str__ function into a "search_field"
+                            searchable=False,
+                        )
+                    )
+                # print(f"FIELD NAME: {fld.name}")
+                # if fld.many_to_many and hasattr(fld, "through"):
+                #     through_models.append(fld.through.__name__)
+                many_related_models[fld.name] = fld.related_model.__name__
             elif fld.is_relation:
                 self.columns.append(
                     BSTColumn(
@@ -172,8 +209,20 @@ class BootstrapTableListView(ListView):
                 )
         if len(related_columns) > 0:
             for related_column in related_columns:
-                if self.include_through_models or many_related_models[related_column.field] not in through_models:
-                    self.columns.append(related_column)
+                self.columns.append(related_column)
+                # if self.include_through_models or many_related_models[related_column.field] not in through_models:
+                #     self.columns.append(related_column)
+
+    @classmethod
+    def get_field_name(cls, field_representation):
+        """Takes a representation of a field, like from Model._meta.ordering, which can have functions applied (like
+        Lower('field_name')) and returns the field name."""
+        if isinstance(field_representation, str):
+            return field_representation
+        field_reps = field_representation.get_source_expressions()
+        if len(field_reps) != 1:
+            raise ValueError(f"Not one field name in field representation {[f.name for f in field_reps]}.")
+        return field_representation.get_source_expressions()[0].name
 
     def get_queryset(self):
         """An override of the superclass method intended to only set total and raw_total instance attributes."""
@@ -181,18 +230,6 @@ class BootstrapTableListView(ListView):
         self.total = qs.count()
         self.raw_total = self.total
         return self.get_manipulated_queryset(qs)
-
-    # def add_many_related_objects_to_page(self, queryset):
-    #     offset, limit = self.get_bounds(queryset)
-    #     cnt = 0
-    #     for i in range(offset, limit):
-    #         cnt += 1
-    #         for column in self.columns:
-    #             if column.many_related and column.converter is None:
-    #                 print(f"SETTING REC {queryset[i]}.{column.name}_related_objects to {self.get_many_related_rec_val(queryset[i], column)}")
-    #                 setattr(queryset[i], f"{column.name}_related_objects", self.get_many_related_rec_val(queryset[i], column))
-    #     # print(f"QS REC COUNT: {cnt}")
-    #     return queryset
 
     def get_manipulated_queryset(self, qs: QuerySet):
         """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
@@ -219,6 +256,8 @@ class BootstrapTableListView(ListView):
         # Check the cookies for search/sort/filter settings
         search_term: Optional[str] = self.get_cookie("search")
         order_by: Optional[str] = self.get_cookie("order-by")
+        order_by_column: Optional[BSTColumn] = None
+        order_by_field = None
         ordered = order_by != ""
         order_dir: Optional[str] = self.get_cookie("order-dir", "asc")
         descending = order_dir.lower().startswith("d")
@@ -226,7 +265,9 @@ class BootstrapTableListView(ListView):
         # This updates the many-related sort settings in self.columns, based on self.groups.  Side-note, this can work
         # even when order_by is not a column but is a field under the many-related model.
         if ordered:
-            self.update_group_sorts(order_by, order_dir)
+            self.update_orderings(order_by, order_dir)
+            order_by_column: Optional[BSTColumn] = self.columns[self.columns.index(order_by)]
+            order_by_field = F(order_by_column.name)
 
         # We need the column names (from the BST data-field attributes) to use in Q expressions
         filter_columns = []
@@ -372,16 +413,36 @@ class BootstrapTableListView(ListView):
                             else:
                                 annotations_after_filter[column.name] = Coalesce(*column.field)
                     elif column.many_related:
+                        # We need to give the user the annotation value they requested for column.name, not the field
+                        # value they explicitly said they want to sort on, so we need another (temporary) annotation for
+                        # the sort value when sorting by this column.
+                        if order_by_column == column:
+                            order_by_field_name = f"{order_by_column.name}_sort"
+                            order_by_field = F(order_by_field_name)
                         # This assumes column.field is not None
                         if order_by == "" or (
                             order_by == column.name
                             and not descending
                         ):
                             # Apply Min to prevent changing the number of resulting rows
+                            # This is only ever be used when there is a single result. If creating your own template, be
+                            # careful not to rely on the annotation for sorting rows if your many_related_sort_fld
+                            # differs
                             annotations_before_filter[column.name] = Min(column.field)
+                            if order_by_column == column:
+                                # This one-off sorting annotation will only ever be used below if ordering by this
+                                # column or group
+                                annotations_before_filter[order_by_field_name] = Min(column.many_related_sort_fld)
                         else:
                             # Apply Max to prevent changing the number of resulting rows
+                            # This is only ever be used when there is a single result. If creating your own template, be
+                            # careful not to rely on the annotation for sorting rows if your many_related_sort_fld
+                            # differs
                             annotations_before_filter[column.name] = Max(column.field)
+                            if order_by_column == column:
+                                # This one-off sorting annotation will only ever be used below if ordering by this
+                                # column or group
+                                annotations_before_filter[order_by_field_name] = Max(column.many_related_sort_fld)
                     elif column.field is not None:
                         # This is in case a user-supplied custom converter failed in the try block above and the field
                         # is not many_related and there are not multiple other model fields linking to the reference
@@ -400,12 +461,12 @@ class BootstrapTableListView(ListView):
                 qs = qs.filter(q_exp)
             except FieldError as fe:
                 fld_str = "\n\t".join(search_fields)
-                fld_msg = f"One or more of {len(search_fields)} fields is misconfigured.  Example:\n\t{fld_str}."
+                fld_msg = f"One or more of {len(search_fields)} fields is misconfigured:\n\n\t{fld_str}"
                 warning = (
-                    f"Your search could not be executed.  {fld_msg}\n\n\tPlease report this error to the site "
+                    f"Your search could not be executed.  {fld_msg}\n\nPlease report this error to the site "
                     "administrators."
                 )
-                # print(f"WARNING: {warning}\nException: {type(fe).__name__}: {fe}")
+                print(f"WARNING: {warning}\nException: {type(fe).__name__}: {fe}")
                 self.warnings.append(warning)
                 if search_term != "":
                     self.cookie_resets = [self.get_cookie_name("search")]
@@ -423,11 +484,15 @@ class BootstrapTableListView(ListView):
 
         # Sort the results, if sort has a value
         if ordered:
-            if descending:
-                order_by = f"-{order_by}"
-
             # print(f"COUNT BEFORE ORDERBY: {qs.count()} ORDER BY: {order_by}")
-            qs = qs.order_by(order_by)
+
+            if column.many_related_sort_nocase:
+                order_by_field = Lower(order_by_field)
+
+            if descending:
+                qs = qs.order_by(order_by_field.desc(nulls_last=True))
+            else:
+                qs = qs.order_by(order_by_field.asc(nulls_first=True))
 
         # 7. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
 
@@ -439,8 +504,6 @@ class BootstrapTableListView(ListView):
         # print(f"COUNT BEFORE RETURN: {qs.count()}")
         # Set the total after the search
         self.total = qs.count()
-
-        # qs = self.add_many_related_objects_to_page(qs)
 
         # TODO: Add a check for when limit is 0 and total > raw_total.  Should raise an exception because the developer added a many-related column and did not make it 1:1 with the base model
 
@@ -469,51 +532,6 @@ class BootstrapTableListView(ListView):
             limit = queryset.count()
 
         return limit
-
-    # def get_limit(self, queryset):
-    #     limit = self.request.GET.get("limit", "")
-    #     if limit == "":
-    #         cookie_limit = self.get_cookie("limit")
-    #         # Never set limit to 0 from a cookie, because it the page times out, the users will never be able to load it
-    #         # deleting their browser cookie.
-    #         if cookie_limit != "" and int(cookie_limit) != 0:
-    #             limit = int(cookie_limit)
-    #         else:
-    #             limit = self.paginate_by
-    #     else:
-    #         limit = int(limit)
-
-    #     # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
-    #     # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
-    #     # adding an odd value to the rows per page select list and instead selecting "all".
-    #     if limit == 0 or limit > queryset.count():
-    #         limit = queryset.count()
-
-    #     return limit
-
-    # def get_bounds(self, queryset):
-    #     page = self.request.GET.get("page", "")
-    #     if page == "":
-    #         cookie_page = self.get_cookie("page")
-    #         # Never set page to 0 from a cookie, because it the page times out, the users will never be able to load it
-    #         # deleting their browser cookie.
-    #         if cookie_page != "" and int(cookie_page) != 0:
-    #             page = int(cookie_page)
-    #         else:
-    #             page = 1
-    #     else:
-    #         page = int(page)
-
-    #     limit = self.get_limit(queryset)
-    #     offset = page * limit - limit
-
-    #     # Setting the page to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
-    #     # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
-    #     # adding an odd value to the rows per page select list and instead selecting "all".
-    #     if offset > queryset.count():
-    #         offset = 0
-
-    #     return offset, limit
 
     def get_context_data(self, **kwargs):
         """An override of the superclass method to provide context variables to the page.  All of the values are
@@ -589,15 +607,16 @@ class BootstrapTableListView(ListView):
             context["export_data"], context["export_filename"] = self.get_export_data(export_type)
             context["export_type"] = export_type if export_type == "excel" else "text"
 
-        # # Iterate over this page's worth of rows to pass along the related objects
-        # qs = context["object_list"]
-        # context["related_objects"] = {}
-        # for rec in qs.all():
-        #     context["related_objects"][rec.pk] = {}
-        #     for column in self.columns:
-        #         if column.many_related and column.converter is None:
-        #             context["related_objects"][rec.pk][column.name] = self.get_many_related_rec_val(rec, column)
-        #             # print(f"SETTING REC related_objects.{rec.pk}.{column.name} to {self.get_many_related_rec_val(rec, column)}")
+        # DEBUG: Testing this block to see if I can get this to work quickly.
+        # Iterate over this page's worth of rows to pass along the related objects
+        qs = context["object_list"]
+        context["related_objects"] = {}
+        for rec in qs.all():
+            context["related_objects"][rec.pk] = {}
+            for column in self.columns:
+                if column.many_related and column.converter is None:
+                    context["related_objects"][rec.pk][column.name] = self.get_many_related_rec_val(rec, column)
+                    # print(f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.many_related_sort_fwd} ORDERING OF: {context['related_objects'][rec.pk][column.name]}")
 
         return context
 
@@ -645,7 +664,7 @@ class BootstrapTableListView(ListView):
 
         return q_exp, search_fields
 
-    def update_group_sorts(self, sort_by: str, sort_dir: str):
+    def update_orderings(self, sort_by: str, sort_dir: str):
         """Takes sorting information (the column for the table's row sort and the direction) and updates the sort of the
         column groups in order to sort many-related, delimited values if one of the group is the sort column.
 
@@ -662,11 +681,23 @@ class BootstrapTableListView(ListView):
             None
         """
         model = BSTColumn.field_to_related_model(sort_by)
+        was_in_group = False
         for colname in self.groups_dict.get(model, []):
             column: BSTColumn
             for column in [c for c in self.columns if c.name == colname]:
+                was_in_group = True
                 column.many_related_sort_fld = sort_by
                 column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
+        if not was_in_group:
+            try:
+                i = self.columns.index(sort_by)
+                column = self.columns[i]
+                # print(f"SORTING BY {sort_by}, {sort_dir}")
+                if column.many_related:
+                    # Only need to update the direction, because column.many_related_sort_fld should not change
+                    column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
+            except ValueError as ve:
+                print(f"WARNING: Unable to find sort_by column '{sort_by}'.  {ve}")
 
     def get_export_data(self, format: str):
         """Turns the queryset into a base64 encoded string and a filename.
@@ -960,7 +991,7 @@ class BootstrapTableListView(ListView):
         Returns:
             (list): A unique list of values from the many-related model at the end of the field path.
         """
-        print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
+        # print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
         vals_list = self._get_rec_val_helper(rec, field.split("__"), sort_field_path=sort_field.split("__"))
         if vals_list is None:
             val = []
@@ -1002,6 +1033,8 @@ class BootstrapTableListView(ListView):
         whatever ORM object's field value is at the end of the path.  If it traverses through a many-related model, it
         returns a list of such objects or None if empty.
 
+        Assumptions:
+            1. The many_related_sort_fld value will be a field under the many_related_model
         Args:
             rec (Model): A Model object.
             field_path (List[str]): A path from the rec object to a field/column value, that has been split by
@@ -1037,9 +1070,13 @@ class BootstrapTableListView(ListView):
             if isinstance(sort_val, list):
                 uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, sort_val, [])
                 if len(uniq_vals) > 1:
+                    # DEBUG: This might be a problem if the values are model objects (from a foreign key).  Their sort
+                    # value SHOULD return multiple results.  This is handled below in the next RelatedManager
+                    # conditional where it grabs each of multiple sort vals.  So this may need to change.  In fact, I'm
+                    # surprised this ValueError hasn't already been encountered, which may be an issue in and of itself.
                     raise ValueError("Multiple values returned")
                 elif len(uniq_vals) == 1:
-                    sort_val = uniq_vals[0]
+                    self.lower(uniq_vals[0])
                 else:
                     sort_val = None
             next_sort_field_path = None
@@ -1047,12 +1084,34 @@ class BootstrapTableListView(ListView):
 
         if len(field_path) == 1:
             pk = 1
-            print(f"REC: {rec} GETTING: {field_path[0]} GOT: {val_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(val_or_rec).__name__}")
-            if type(val_or_rec).__name__ == "RelatedManager":
-                return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
-            elif type(val_or_rec).__name__ == "ManyRelatedManager":
-                return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
-                # return list((r, _sort_val, r.pk) for r in val_or_rec.through.distinct())
+            # print(f"REC: {rec} GETTING: {field_path[0]} GOT: {val_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(val_or_rec).__name__}")
+            # DEBUG: Testing this block to see if I can get this to work quickly.
+            # if type(val_or_rec).__name__ == "RelatedManager":
+            if type(val_or_rec).__name__ == "RelatedManager" or type(val_or_rec).__name__ == "ManyRelatedManager":
+                if val_or_rec is None or val_or_rec.count() == 0:
+                    return []
+                lst = list(
+                    (
+                        rec,  # Model object is the value returned
+                        # Each rec gets its own sort value
+                        # sort_field_path is assumed to be populated, bec. you cannot sort a many-related series using a
+                        # non-many-related value
+                        self.lower(self._get_rec_val_helper(rec, sort_field_path[1:])[0]),
+                        rec.pk,  # We don't need pk for uniqueness when including model objects, but callers expect it
+                    )
+                    # DOING .all() here, followed by a reduce below, is MUCH faster than calling .distinct()
+                    for rec in val_or_rec.all()
+                )
+                uniq_vals = [
+                    rec_tpl
+                    for rec_tpl in reduce(lambda ulst, val: ulst + [val]
+                    if val not in ulst else ulst, lst, [])
+                ]
+                return uniq_vals
+                #     return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
+                # elif type(val_or_rec).__name__ == "ManyRelatedManager":
+                #     return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
+                #     # return list((r, _sort_val, r.pk) for r in val_or_rec.through.distinct())
             elif isinstance(val_or_rec, Model):
                 # We add the primary key to the tuple so that the python reduce that happens upstream of this leaf in
                 # the recursion ensures that we get a unique set of many-related records.  I had tried using
@@ -1105,6 +1164,14 @@ class BootstrapTableListView(ListView):
             sort_field_path=next_sort_field_path,
             _sort_val=_sort_val,
         )
+
+    @classmethod
+    def lower(cls, val):
+        """Intended for use in list comprehensions to lower-case the sort value, IF IT IS A STRING.  Otherwise it
+        returns the unmodified value."""
+        if isinstance(val, str):
+            return val.lower()
+        return val
 
     def get_cookie_name(self, name: str) -> str:
         """Retrieves a cookie name using a prepended view name.
