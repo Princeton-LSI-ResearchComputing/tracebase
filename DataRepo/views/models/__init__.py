@@ -11,6 +11,7 @@ from .protocol import AnimalTreatmentListView, ProtocolDetailView
 from .sample import SampleDetailView, SampleListView
 from .study import StudyDetailView, StudyListView, study_summary
 from .tissue import TissueDetailView, TissueListView
+from .tracer import TracerDetailView, TracerListView
 
 __all__ = [
     "ArchiveFileDetailView",
@@ -19,6 +20,8 @@ __all__ = [
     "CompoundDetailView",
     "InfusateListView",
     "InfusateDetailView",
+    "TracerListView",
+    "TracerDetailView",
     "LCMethodListView",
     "LCMethodDetailView",
     "StudyListView",

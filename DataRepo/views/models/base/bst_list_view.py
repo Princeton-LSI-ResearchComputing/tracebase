@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import reduce
 from io import BytesIO, StringIO
-from typing import Iterable, List, Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union
 import base64
 import pandas as pd
 import csv
@@ -11,7 +11,7 @@ import _csv
 
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField
 from django.db.models.functions import Coalesce
 from django.template import loader
 from django.utils.functional import classproperty
@@ -32,9 +32,12 @@ class BootstrapTableListView(ListView):
 
     paginator_class = GracefulPaginator
     paginate_by = 15
+    template_name = "DataRepo/widgets/bst_list_view.html"
 
     export_header_template = "DataRepo/downloads/export_metadata_header.txt"
     headtmplt = loader.get_template(export_header_template) if export_header_template is not None else None
+    include_through_models: bool = False
+    exclude_fields: Optional[List[str]] = ["id"]  # You can set reverse relations in your derived class
 
     HEADER_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
     FILENAME_TIME_FORMAT = "%Y.%m.%d.%H.%M.%S"
@@ -74,15 +77,13 @@ class BootstrapTableListView(ListView):
 
         super().__init__(**kwargs)
 
-        if len(columns) == 0:
-            raise TypeError(
-                "Invalid columns argument.  Must be a list of at least 1 BSTColumn or BSTColumnGroup "
-                "object."
-            )
-
         self.columns: List[BSTColumn] = []
         self.groups: List[BSTColumnGroup] = []
         self.groups_dict = defaultdict(list)
+        self.ordering = self.model._meta.ordering
+
+        if len(columns) == 0:
+            self.set_default_columns()
 
         for column in columns:
             if isinstance(column, BSTColumn):
@@ -109,12 +110,89 @@ class BootstrapTableListView(ListView):
         self.warnings = []
         self.cookie_resets = []
 
+    def set_default_columns(self):
+        related_columns: List[BSTColumn] = []
+        many_related_models: dict = {}
+        through_models: list = []
+        fields = self.model._meta.get_fields()
+
+        # Check the exclude fields
+        bad_excludes = []
+        for ef in self.exclude_fields:
+            if ef not in [f.name for f in fields]:
+                bad_excludes.append(ef)
+        if len(bad_excludes) > 0:
+            raise ValueError(f"Invalid exclude fields: {bad_excludes}.  Choices are: {[f.name for f in fields]}.")
+
+        # TODO:
+        # 1. Add a "first" column for many-related fields and
+        #    - Select specific sort field based on perhaps __str__? or meta ordering?
+        for fld in fields:
+            if self.exclude_fields is not None and fld.name in self.exclude_fields:
+                continue
+            if fld.is_relation and (fld.one_to_many or fld.many_to_many):
+                # related_columns.append(
+                #     BSTColumn(
+                #         f"first_{fld.related_name}",
+                #         field=fld.related_name,
+                #         header=underscored_to_title(fld.related_name),
+                #         many_related=True,
+                #         many_related_model=fld.related_name,
+                #     )
+                # )
+                related_columns.append(
+                    BSTColumn(
+                        f"{fld.related_name}_count",
+                        field=fld.related_name,
+                        header=underscored_to_title(fld.related_name) + " Count",
+                        sorter=BSTColumn.SORTER_CHOICES["NUMERIC"],
+                        many_related=True,
+                        many_related_model=fld.related_name,
+                        converter=Count(fld.related_name, distinct=True),
+                    )
+                )
+                if fld.many_to_many:
+                    through_models.append(fld.through.__name__)
+                many_related_models[fld.related_name] = fld.related_model.__name__
+            elif fld.is_relation:
+                self.columns.append(
+                    BSTColumn(
+                        fld.name,
+                        header=underscored_to_title(fld.name),
+                        sorter=BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                    )
+                )
+            elif not isinstance(fld, AutoField):
+                self.columns.append(
+                    BSTColumn(
+                        fld.name,
+                        header=underscored_to_title(fld.name),
+                        sorter=BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                    )
+                )
+        if len(related_columns) > 0:
+            for related_column in related_columns:
+                if self.include_through_models or many_related_models[related_column.field] not in through_models:
+                    self.columns.append(related_column)
+
     def get_queryset(self):
         """An override of the superclass method intended to only set total and raw_total instance attributes."""
         qs = super().get_queryset()
         self.total = qs.count()
         self.raw_total = self.total
         return self.get_manipulated_queryset(qs)
+
+    # def add_many_related_objects_to_page(self, queryset):
+    #     offset, limit = self.get_bounds(queryset)
+    #     cnt = 0
+    #     for i in range(offset, limit):
+    #         cnt += 1
+    #         for column in self.columns:
+    #             if column.many_related and column.converter is None:
+    #                 print(f"SETTING REC {queryset[i]}.{column.name}_related_objects to {self.get_many_related_rec_val(queryset[i], column)}")
+    #                 setattr(queryset[i], f"{column.name}_related_objects", self.get_many_related_rec_val(queryset[i], column))
+    #     # print(f"QS REC COUNT: {cnt}")
+    #     return queryset
 
     def get_manipulated_queryset(self, qs: QuerySet):
         """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
@@ -362,6 +440,8 @@ class BootstrapTableListView(ListView):
         # Set the total after the search
         self.total = qs.count()
 
+        # qs = self.add_many_related_objects_to_page(qs)
+
         # TODO: Add a check for when limit is 0 and total > raw_total.  Should raise an exception because the developer added a many-related column and did not make it 1:1 with the base model
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
@@ -390,6 +470,51 @@ class BootstrapTableListView(ListView):
 
         return limit
 
+    # def get_limit(self, queryset):
+    #     limit = self.request.GET.get("limit", "")
+    #     if limit == "":
+    #         cookie_limit = self.get_cookie("limit")
+    #         # Never set limit to 0 from a cookie, because it the page times out, the users will never be able to load it
+    #         # deleting their browser cookie.
+    #         if cookie_limit != "" and int(cookie_limit) != 0:
+    #             limit = int(cookie_limit)
+    #         else:
+    #             limit = self.paginate_by
+    #     else:
+    #         limit = int(limit)
+
+    #     # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
+    #     # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
+    #     # adding an odd value to the rows per page select list and instead selecting "all".
+    #     if limit == 0 or limit > queryset.count():
+    #         limit = queryset.count()
+
+    #     return limit
+
+    # def get_bounds(self, queryset):
+    #     page = self.request.GET.get("page", "")
+    #     if page == "":
+    #         cookie_page = self.get_cookie("page")
+    #         # Never set page to 0 from a cookie, because it the page times out, the users will never be able to load it
+    #         # deleting their browser cookie.
+    #         if cookie_page != "" and int(cookie_page) != 0:
+    #             page = int(cookie_page)
+    #         else:
+    #             page = 1
+    #     else:
+    #         page = int(page)
+
+    #     limit = self.get_limit(queryset)
+    #     offset = page * limit - limit
+
+    #     # Setting the page to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
+    #     # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
+    #     # adding an odd value to the rows per page select list and instead selecting "all".
+    #     if offset > queryset.count():
+    #         offset = 0
+
+    #     return offset, limit
+
     def get_context_data(self, **kwargs):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
@@ -415,19 +540,24 @@ class BootstrapTableListView(ListView):
         context["raw_total"] = self.raw_total
         context["cookie_prefix"] = self.cookie_prefix
         context["table_id"] = self.view_name
+        context["table_name"] = self.verbose_model_name_plural
         context["warnings"] = self.warnings
+        context["model"] = self.model
 
         # 3. Set the BST column attribute context values to use in the th tag attributes
 
         context["not_exported"] = []
         context["filter_select_lists"] = {}
 
+        context["columns"] = []
         column: BSTColumn
         for column in self.columns:
             # Put the column object in the context.  It will render the th tag.  Update the filter and visibility first.
             column.visible = self.get_column_cookie(column, "visible", column.visible)
             column.filter = self.get_column_cookie(column, "filter", column.filter)
+            # TODO: Remove context[column.name] and use context["columns"][column.name]
             context[column.name] = column
+            context["columns"].append(column)
 
             # Tell the listview BST javascript which columns are not included in export
             if not column.exported:
@@ -458,6 +588,16 @@ class BootstrapTableListView(ListView):
             # print(f"EXPORTING {export_type}")
             context["export_data"], context["export_filename"] = self.get_export_data(export_type)
             context["export_type"] = export_type if export_type == "excel" else "text"
+
+        # # Iterate over this page's worth of rows to pass along the related objects
+        # qs = context["object_list"]
+        # context["related_objects"] = {}
+        # for rec in qs.all():
+        #     context["related_objects"][rec.pk] = {}
+        #     for column in self.columns:
+        #         if column.many_related and column.converter is None:
+        #             context["related_objects"][rec.pk][column.name] = self.get_many_related_rec_val(rec, column)
+        #             # print(f"SETTING REC related_objects.{rec.pk}.{column.name} to {self.get_many_related_rec_val(rec, column)}")
 
         return context
 
@@ -820,7 +960,7 @@ class BootstrapTableListView(ListView):
         Returns:
             (list): A unique list of values from the many-related model at the end of the field path.
         """
-        # print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
+        print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC AND SORT FIELD '{sort_field}'")
         vals_list = self._get_rec_val_helper(rec, field.split("__"), sort_field_path=sort_field.split("__"))
         if vals_list is None:
             val = []
@@ -907,11 +1047,12 @@ class BootstrapTableListView(ListView):
 
         if len(field_path) == 1:
             pk = 1
-            # print(f"REC: {rec} GETTING: {attr_path[0]} GOT: {field_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(field_or_rec).__name__}")
+            print(f"REC: {rec} GETTING: {field_path[0]} GOT: {val_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(val_or_rec).__name__}")
             if type(val_or_rec).__name__ == "RelatedManager":
                 return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
             elif type(val_or_rec).__name__ == "ManyRelatedManager":
-                return list((r, _sort_val, r.pk) for r in val_or_rec.through.distinct())
+                return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
+                # return list((r, _sort_val, r.pk) for r in val_or_rec.through.distinct())
             elif isinstance(val_or_rec, Model):
                 # We add the primary key to the tuple so that the python reduce that happens upstream of this leaf in
                 # the recursion ensures that we get a unique set of many-related records.  I had tried using

@@ -9,6 +9,7 @@ from django.core.exceptions import (
     ObjectDoesNotExist,
     ValidationError,
 )
+from django.db.models import Model
 from django.http import Http404
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
@@ -82,6 +83,7 @@ def intmultiply(left, right):
 def index(indexable, i):
     try:
         v = indexable[i]
+        print(f"RETURNING V: {type(v).__name__}: {v}")
     except (TypeError, KeyError) as e:
         print(
             f"WARNING: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
@@ -89,6 +91,37 @@ def index(indexable, i):
         )
         v = None
     return v
+
+
+# This allows indexing an attribute from an object with a variable
+@register.filter
+def get_attr(object, attr, default=None):
+    try:
+        v = getattr(object, attr, default)
+        print(f"GETTING ATTRIBUTE {attr} FROM {object}: {v}")
+    except (TypeError, KeyError) as e:
+        print(f"{type(e).__name__}: {str(e)}")
+        v = default
+    return v
+
+
+@register.filter
+def has_detail_url(model_object_or_class):
+    return hasattr(model_object_or_class, "get_absolute_url")
+
+
+@register.filter
+def get_detail_url(model_object: Model):
+    url = model_object.get_absolute_url()
+    if url is not None and url != "":
+        return url
+    return None
+
+
+@register.filter
+def is_model_obj(field):
+    # Based on
+    return isinstance(field, Model)
 
 
 @register.simple_tag

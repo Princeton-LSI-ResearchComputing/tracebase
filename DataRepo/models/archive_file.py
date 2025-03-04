@@ -222,6 +222,7 @@ class ArchiveFile(models.Model):
     """Store the file location, checksum, datatype, and format of files."""
 
     objects: ArchiveFileQuerySet = ArchiveFileQuerySet().as_manager()
+    detail_name = "archive_file_detail"
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -317,6 +318,11 @@ class ArchiveFile(models.Model):
 
         return hash_obj.hexdigest()
 
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})
 
 @receiver(post_delete, sender=ArchiveFile)
 def post_archive_file_delete_commit(**kwargs):

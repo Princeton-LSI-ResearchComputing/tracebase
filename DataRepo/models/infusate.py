@@ -129,6 +129,7 @@ class InfusateQuerySet(models.QuerySet):
 
 class Infusate(MaintainedModel, HierCachedModel):
     objects: InfusateQuerySet = InfusateQuerySet().as_manager()
+    detail_name = "infusate_detail"
 
     CONCENTRATION_SIGNIFICANT_FIGURES = 3
     TRACER_DELIMITER = ";"
@@ -537,3 +538,9 @@ class Infusate(MaintainedModel, HierCachedModel):
             .distinct("element")
             .values_list("element", flat=True)
         )
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

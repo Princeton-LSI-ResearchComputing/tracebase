@@ -23,6 +23,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     SEX_CHOICES = [(FEMALE, "female"), (MALE, "male")]
     INFUSION_RATE_SIGNIFICANT_FIGURES = 3
     BODY_WEIGHT_SIGNIFICANT_FIGURES = 3
+    detail_name = "animal_detail"
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -254,3 +255,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         rec = AnimalStudy.objects.get(**rec_dict)
 
         return rec, created
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})
