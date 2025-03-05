@@ -680,20 +680,24 @@ class BootstrapTableListView(ListView):
         Returns:
             None
         """
+        # TODO: Fix this.  It is not getting the model
         model = BSTColumn.field_to_related_model(sort_by)
         was_in_group = False
+        print(f"ORDERING: {sort_by} {sort_dir}")
         for colname in self.groups_dict.get(model, []):
             column: BSTColumn
             for column in [c for c in self.columns if c.name == colname]:
                 was_in_group = True
                 column.many_related_sort_fld = sort_by
                 column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
+                print(f"SETTING GROUP ORDERING OF {column.many_related_model} {column.name} {column.many_related_sort_fld} FWD?: {column.many_related_sort_fwd}")
         if not was_in_group:
             try:
                 i = self.columns.index(sort_by)
                 column = self.columns[i]
                 # print(f"SORTING BY {sort_by}, {sort_dir}")
                 if column.many_related:
+                    print(f"SETTING COLUMN ORDERING OF {column.many_related_model} {column.name} {column.many_related_sort_fld} FWD?: {column.many_related_sort_fwd}")
                     # Only need to update the direction, because column.many_related_sort_fld should not change
                     column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
             except ValueError as ve:
