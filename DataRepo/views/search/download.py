@@ -281,14 +281,14 @@ class RecordToMzxmlTSV(ABC):
             msrsrec.sample.name,
             msrsrec.sample.tissue.name,
             date_to_string(msrsrec.sample.date),
-            str(
+            (
                 msrsrec.sample.time_collected.total_seconds() / 60
                 if msrsrec.sample.time_collected is not None
                 else None
             ),
             msrsrec.sample.researcher,
             msrsrec.sample.animal.name,
-            str(
+            (
                 msrsrec.sample.animal.age.total_seconds() / 604800
                 if msrsrec.sample.animal.age is not None
                 else None

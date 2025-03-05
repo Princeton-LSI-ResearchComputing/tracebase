@@ -346,7 +346,11 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             export_path,
         )
         self.assertIn(
-            "archive_files/2025-02/ms_data/xzl4_sp",
+            "archive_files/",
+            file_obj.name,
+        )
+        self.assertIn(
+            "/ms_data/xzl4_sp",
             file_obj.name,
         )
         self.assertIn(
@@ -373,7 +377,11 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             file_tuples[0][0],
         )
         self.assertIn(
-            "archive_files/2025-02/ms_data/xzl4_sp",
+            "archive_files/",
+            file_tuples[0][1].name,
+        )
+        self.assertIn(
+            "/ms_data/xzl4_sp",
             file_tuples[0][1].name,
         )
         self.assertIn(
@@ -393,7 +401,11 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             file_tuples[0][0],
         )
         self.assertIn(
-            "archive_files/2025-02/ms_data/xzl5_panc",
+            "archive_files/",
+            file_tuples[0][1].name,
+        )
+        self.assertIn(
+            "/ms_data/xzl5_panc",
             file_tuples[0][1].name,
         )
         self.assertIn(
