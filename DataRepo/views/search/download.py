@@ -281,16 +281,28 @@ class RecordToMzxmlTSV(ABC):
             msrsrec.sample.name,
             msrsrec.sample.tissue.name,
             date_to_string(msrsrec.sample.date),
-            msrsrec.sample.time_collected.total_seconds() / 60,
+            (
+                msrsrec.sample.time_collected.total_seconds() / 60
+                if msrsrec.sample.time_collected is not None
+                else None
+            ),
             msrsrec.sample.researcher,
             msrsrec.sample.animal.name,
-            msrsrec.sample.animal.age.total_seconds() / 604800,
+            (
+                msrsrec.sample.animal.age.total_seconds() / 604800
+                if msrsrec.sample.animal.age is not None
+                else None
+            ),
             msrsrec.sample.animal.sex,
             msrsrec.sample.animal.genotype,
             msrsrec.sample.animal.body_weight,
             msrsrec.sample.animal.diet,
             msrsrec.sample.animal.feeding_status,
-            msrsrec.sample.animal.treatment.name,
+            str(
+                msrsrec.sample.animal.treatment.name
+                if msrsrec.sample.animal.treatment is not None
+                else None
+            ),
             # Relies on Infusate.__str__ and intentionally can return "None"
             str(msrsrec.sample.animal.infusate),
             msrsrec.msrun_sequence.researcher,
