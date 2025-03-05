@@ -1,5 +1,6 @@
 from collections import defaultdict
 from functools import reduce
+from typing import Optional
 
 from DataRepo.views.models.base import BSTColumn
 
@@ -11,9 +12,17 @@ class BootstrapTableColumnGroup:
 
     sort_dirs = ["asc", "desc"]
 
-    def __init__(self, *columns: BSTColumn):
+    def __init__(
+        self,
+        *columns: BSTColumn,
+        many_related_sort_fld: Optional[str] = None,
+        many_related_sort_fwd: bool = True,
+    ):
         """Construct an instance.
 
+        Limitations:
+            1. A list value for the many_related_sort_fld argument is (not yet) supported (for columns that need
+               coalesce).
         Args:
             *columns (BSTColumn): Minimum of 2 BSTColumn objects.
         Exceptions:
@@ -41,23 +50,21 @@ class BootstrapTableColumnGroup:
                 f"{uniq_models}."
             )
 
-        self.sort_fld = columns[0].many_related_sort_fld
-        if not all([c.many_related_sort_fld == self.sort_fld for c in columns]):
-            sort_flds = [c.many_related_sort_fld for c in columns]
-            uniq_sort_flds = reduce(lambda ulst, val: ulst + [val] if val not in ulst else ulst, sort_flds, [])
+        self.sort_fld = many_related_sort_fld
+        if many_related_sort_fld is None:
+            # Default to the first column's many_related_sort_fld
+            self.sort_fld = columns[0].many_related_sort_fld
+        sort_flds = dict((c.many_related_sort_fld, 0) for c in columns)
+        for c in columns:
+            sort_flds[c.many_related_sort_fld] += 1
+        dupe_sort_flds = reduce(lambda dlst, val: dlst + [val] if sort_flds[val] > 1 else dlst, sort_flds, [])
+        if len(dupe_sort_flds) > 0:
             raise ValueError(
-                "All columns must have the same sort field.  The following sort field mix was found: "
-                f"{uniq_sort_flds}."
+                "All columns must initially have unique sort fields.  The following sort fields were found more than "
+                f"once among columns {[c.name for c in columns]}: {dupe_sort_flds}."
             )
 
-        self.sort_fwd = columns[0].many_related_sort_fwd
-        if not all([c.many_related_sort_fwd == self.sort_fwd for c in columns]):
-            sort_fwds = [c.many_related_sort_fwd for c in columns]
-            uniq_sort_fwds = reduce(lambda ulst, val: ulst + [val] if val not in ulst else ulst, sort_fwds, [])
-            raise ValueError(
-                "All columns must belong to the same many-related sort_fwd.  The following sort_fwd mix was found: "
-                f"{uniq_sort_fwds}."
-            )
+        self.sort_fwd = many_related_sort_fwd
 
         seen = defaultdict(int)
         for c in columns:

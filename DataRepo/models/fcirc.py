@@ -59,6 +59,12 @@ class FCirc(MaintainedModel, HierCachedModel):
             )
         ]
 
+    def __str__(self):
+        return (
+            f"FCirc calculations object for element '{self.element}' from tracer '{self.tracer}' in sample "
+            f"'{self.serum_sample}'"
+        )
+
     # TODO: Make this into a clean method
     def save(self, *args, **kwargs):
         """

@@ -51,24 +51,6 @@ class BootstrapTableColumn:
                 function="to_char",
             ),
         )
-
-    Instance Attributes:
-        name
-        converter
-        delim
-        exported
-        field
-        filter
-        filter_control
-        header
-        many_related
-        searchable
-        select_options
-        sortable
-        sorter
-        strict_select
-        visible
-        widget
     """
 
     FILTER_CONTROL_CHOICES = {
@@ -182,7 +164,8 @@ class BootstrapTableColumn:
                 in that concentration field.
                 This option is ignored if many_related is False.
             many_related_sort_fld (Optional[str]) [many_related_model + "__pk"]: The default sort field for many-
-                related fields.
+                related fields.  This should always be relevant to THIS column.  It is how you want THIS column to sort.
+                See BSTColumnGroup for default sorting based on another column.
             many_related_sort_fwd (bool) [True]: Set to False to reverse sort by default.
             many_related_sort_nocase (bool) [False]: If True, it makes the sort case-insensitive.
         Exceptions:
@@ -224,6 +207,7 @@ class BootstrapTableColumn:
         self.many_related_model_orig = many_related_model
         self.many_related_model = many_related_model
         self.many_related_sort_fld = many_related_sort_fld
+        self.many_related_sort_fld_orig = many_related_sort_fld  # Used for updating sort fields in column groups
         self.many_related_sort_fwd = many_related_sort_fwd
         self.many_related_sort_nocase = many_related_sort_nocase
         self.delim = many_related_delim

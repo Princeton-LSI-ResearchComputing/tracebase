@@ -21,6 +21,7 @@ class InfusateTracer(MaintainedModel):
         blank=False,
         validators=[MinValueValidator(0)],
         help_text="The millimolar concentration of the tracer in a specific infusate 'recipe' (mM).",
+        verbose_name="Tracer Concentration (mM)",
     )
 
     class Meta:
@@ -33,6 +34,9 @@ class InfusateTracer(MaintainedModel):
                 name="unique_infusate_tracer",
             )
         ]
+
+    def __str__(self):
+        return f"Infusate {self.infusate.pk}, Tracer {self.tracer.pk}, at {self.concentration} mM"
 
     @MaintainedModel.setter(
         generation=1, parent_field_name="infusate", update_label="name"

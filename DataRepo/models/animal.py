@@ -39,15 +39,20 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         null=True,
         blank=True,
         related_name="animals",
-        help_text="The solution infused into the animal containing 1 or more tracer compounds at specific "
-        "concentrations.",
+        help_text=(
+            "The solution infused into the animal containing 1 or more tracer compounds at specific "
+            "concentrations."
+        ),
     )
     infusion_rate = models.FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal "
-        "(ul/min/g).",
+        help_text=(
+            "The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal "
+            "(ul/min/g)."
+        ),
+        verbose_name="Infusion Rate (ul/min/g)",
     )
     genotype = models.CharField(
         max_length=256, help_text="The laboratory standardized genotype of the animal."
@@ -57,6 +62,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         blank=True,
         validators=[MinValueValidator(0)],
         help_text="The weight (in grams) of the animal at the time of sample collection.",
+        verbose_name="Weight (g)",
     )
     age = models.DurationField(
         null=True,
@@ -81,8 +87,10 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         max_length=256,
         null=True,
         blank=True,
-        help_text="The laboratory coded dietary state for the animal, "
-        'also referred to as "Animal State" (e.g. "fasted").',
+        help_text=(
+            "The laboratory coded dietary state for the animal, also referred to as 'Animal State' (e.g. "
+            "'fasted')."
+        ),
     )
     studies = models.ManyToManyField(
         to="DataRepo.Study",
@@ -105,7 +113,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         on_delete=models.SET_NULL,
         db_column="last_serum_sample_id",  # Necessary because of Sample's link to Animal
         related_name="animals",
-        help_text="Automatically maintained field. Shortcut to the last serum sample.",
+        help_text="Automatically maintained field.  Shortcut to the last serum sample.",
     )
 
     @property  # type: ignore

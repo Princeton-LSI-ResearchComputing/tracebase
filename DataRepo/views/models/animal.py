@@ -1,8 +1,10 @@
+from django.db.models import F, Value
+from django.db.models.functions import Extract
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import Animal
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.views.models.base import BSTListView
+from DataRepo.views.models.base import BSTListView, BSTColumn
 
 
 class AnimalListView(BSTListView):
@@ -11,6 +13,34 @@ class AnimalListView(BSTListView):
     paginate_by = 10
     include_through_models = True
     exclude_fields = ["id", "first_samples"]
+    DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
+
+    def __init__(self):
+        custom_columns = {
+            "age": BSTColumn(
+                "age_weeks_str",
+                field="age",
+                converter=Extract(F("age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
+                header="Age (weeks)",
+            ),
+            "genotype": {
+                "select_options": (
+                    Animal.objects
+                    .order_by("genotype")
+                    .distinct("genotype")
+                    .values_list("genotype", flat=True)
+                ),
+            },
+            "feeding_status": {
+                "select_options": (
+                    Animal.objects
+                    .order_by("feeding_status")
+                    .distinct("feeding_status")
+                    .values_list("feeding_status", flat=True)
+                ),
+            },
+        }
+        super().__init__(custom=custom_columns)
 
 
 class AnimalListViewOLD(ListView):

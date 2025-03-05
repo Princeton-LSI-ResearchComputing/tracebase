@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import reduce
 from io import BytesIO, StringIO
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 import base64
 import pandas as pd
 import csv
@@ -11,12 +11,13 @@ import _csv
 
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField, CharField
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField, CharField, Field
 from django.db.models.functions import Coalesce, Lower
 from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
+from DataRepo.utils.exceptions import MutuallyExclusiveArgs
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import GracefulPaginator, get_cookie
 
@@ -62,11 +63,12 @@ class BootstrapTableListView(ListView):
     def verbose_name(cls):
         return camel_to_title(cls.view_name)
 
-    def __init__(self, *columns: Union[BSTColumn, BSTColumnGroup], **kwargs):
+    def __init__(self, *columns: Union[BSTColumn, BSTColumnGroup], custom: Optional[Dict[str, BSTColumn]] = None, **kwargs):
         """An override of the superclass constructor intended to initialize custom instance attributes.
 
         Args:
             columns (Union[BSTColumn, BSTColumnGroup])
+            custom (Optional[Dict[str, BSTColumn]]): Dict of BSTColumn objects keyed on django Field name.
             kwargs (dict): Passed to superclass.
         Exceptions:
             KeyError when there are multiple groups with the same many-related model.
@@ -82,8 +84,15 @@ class BootstrapTableListView(ListView):
         self.groups_dict = defaultdict(list)
         self.ordering = self.model._meta.ordering
 
+        if custom is not None and len(columns) > 0:
+            raise MutuallyExclusiveArgs(
+                "'custom' and 'column' are mutually exclusive arguments.  Only use 'custom' if you want default "
+                "columns defined by an inspection of the view's model fields, but a subset need custom settings, e.g. "
+                "a custom header or a converter.  Add them to a dict that is keyed on the Field name."
+            )
+
         if len(columns) == 0:
-            self.set_default_columns()
+            self.set_default_columns(custom)
 
         for column in columns:
             if isinstance(column, BSTColumn):
@@ -110,7 +119,7 @@ class BootstrapTableListView(ListView):
         self.warnings = []
         self.cookie_resets = []
 
-    def set_default_columns(self):
+    def set_default_columns(self, custom: Optional[Dict[str, Union[dict, BSTColumn]]] = None):
         related_columns: List[BSTColumn] = []
         many_related_models: dict = {}
         # through_models: list = []
@@ -128,8 +137,20 @@ class BootstrapTableListView(ListView):
         if len(bad_excludes) > 0:
             raise ValueError(f"Invalid exclude fields: {bad_excludes}.  Choices are: {[f.name for f in fields]}.")
 
+        # Check custom columns
+        if custom is None:
+            custom = {}
+        else:
+            excluded_customs = []
+            for cf in custom.keys():
+                if cf in self.exclude_fields:
+                    excluded_customs.append(cf)
+            if len(excluded_customs) > 0:
+                raise ValueError(f"A custom field cannot be in the exclude_fields: {excluded_customs}.")
+
+        leftover_custom_columns = dict((k, k) for k in custom.keys())
         for fld in fields:
-            print(f"FIELD {fld.name} TYPE: {type(fld).__name__}")
+            # print(f"FIELD {fld.name} TYPE: {type(fld).__name__}")
             if self.exclude_fields is not None and fld.name in self.exclude_fields:
                 continue
             if fld.is_relation and (fld.one_to_many or fld.many_to_many):
@@ -149,69 +170,139 @@ class BootstrapTableListView(ListView):
                     first_sort_fld = f"{related_name}__{order_fld}"
                     first_sortable = True
                 elif len(fld.related_model._meta.ordering) > 1:
-                    print(
-                        f"WARNING: A {fld.related_model.__name__}._meta.ordering with more than 1 ordering field is "
-                        "not supported.  Supply BSTColumn objects to the constructor to enable sorting of the "
-                        f"{self.model.__name__} BST ListView."
-                    )
+                    # Grab the first field that is unique, if it exists
+                    f: Field
+                    for f in fld.related_model._meta.get_fields():
+                        if f.unique and f.name != "id":
+                            order_fld = self.get_field_name(f.name)
+                            if isinstance(getattr(fld.related_model, order_fld), CharField):
+                                case_insensitive = True
+                            first_sort_fld = f"{related_name}__{order_fld}"
+                            first_sortable = True
+                            print(f"MANYREL SORT FLD SET TO FIRST UNIQUE FIELD: {first_sort_fld}")
+                            break
+                    if not first_sortable:
+                        print(
+                            f"WARNING: A {fld.related_model.__name__}._meta.ordering with more than 1 ordering field "
+                            "is not supported.  Supply BSTColumn objects to the constructor to enable sorting of the "
+                            f"{self.model.__name__} BST ListView."
+                        )
                 else:
                     # TODO: Try to get the first field that is unique=True
                     pass
                 if f"{related_name}_count" not in self.exclude_fields:
-                    print(f"ADDING COLUMN {related_name}_count")
-                    related_columns.append(
-                        BSTColumn(
-                            f"{fld.name}_count",
-                            field=fld.name,
-                            header=underscored_to_title(fld.name) + " Count",
-                            sorter=BSTColumn.SORTER_CHOICES["NUMERIC"],
-                            # many_related=True,
-                            # many_related_model=fld.name,
-                            converter=Count(fld.name, distinct=True),
-                        )
-                    )
+                    leftover_custom_columns.pop(f"{related_name}_count", None)
+                    if (
+                        f"{related_name}_count" in custom.keys()
+                        and isinstance(custom[f"{related_name}_count"], BSTColumn)
+                    ):
+                        print(f"ADDING CUSTOM COLUMN {related_name}_count")
+                        related_columns.append(custom[f"{related_name}_count"])
+                    else:
+                        kwargs = {
+                            "field": fld.name,
+                            "header": underscored_to_title(fld.name) + " Count",
+                            "sorter": BSTColumn.SORTER_CHOICES["NUMERIC"],
+                            "converter": Count(fld.name, distinct=True),
+                        }
+                        if f"{related_name}_count" in custom.keys():
+                            kwargs.update(custom[f"{related_name}_count"])
+
+                        print(f"ADDING DEFAULT COLUMN {related_name}_count")
+                        related_columns.append(BSTColumn(f"{fld.name}_count", **kwargs))
+
                 if f"first_{related_name}" not in self.exclude_fields:
-                    print(f"ADDING COLUMN first_{related_name}")
-                    related_columns.append(
-                        BSTColumn(
-                            f"first_{related_name}",
-                            field=related_name,
-                            header=underscored_to_title(related_name),
-                            many_related=True,
-                            many_related_model=related_name,
-                            many_related_sort_fld=first_sort_fld,
-                            many_related_sort_nocase=case_insensitive,
-                            sortable=first_sortable,
-                            sorter=BSTColumn.SORTER_CHOICES["HTML"],
+                    leftover_custom_columns.pop(f"first_{related_name}", None)
+                    if (
+                        f"first_{related_name}" in custom.keys()
+                        and isinstance(custom[f"first_{related_name}"], BSTColumn)
+                    ):
+                        print(f"ADDING CUSTOM COLUMN first_{related_name}")
+                        related_columns.append(custom[f"first_{related_name}"])
+                    else:
+                        kwargs = {
+                            "field": related_name,
+                            "header": underscored_to_title(related_name),
+                            "many_related": True,
+                            "many_related_model": related_name,
+                            "many_related_sort_fld": first_sort_fld,
+                            "many_related_sort_nocase": case_insensitive,
+                            "sortable": first_sortable,
+                            "sorter": BSTColumn.SORTER_CHOICES["HTML"],
                             # TODO: Figure out how to turn the __str__ function into a "search_field"
-                            searchable=False,
-                        )
-                    )
+                            "searchable": False,
+                        }
+                        if f"first_{related_name}" in custom.keys():
+                            kwargs.update(custom[f"first_{related_name}"])
+
+                        print(f"ADDING DEFAULT COLUMN first_{related_name}")
+                        related_columns.append(BSTColumn(f"first_{related_name}", **kwargs))
+
                 # print(f"FIELD NAME: {fld.name}")
                 # if fld.many_to_many and hasattr(fld, "through"):
                 #     through_models.append(fld.through.__name__)
                 many_related_models[fld.name] = fld.related_model.__name__
+
             elif fld.is_relation:
-                self.columns.append(
-                    BSTColumn(
-                        fld.name,
-                        header=underscored_to_title(fld.name),
-                        sorter=BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
-                    )
-                )
+                print(f"RELATION: '{fld.name}' '{fld.verbose_name}' '{underscored_to_title(fld.name)}'")
+                leftover_custom_columns.pop(fld.name, None)
+                if (
+                    fld.name in custom.keys()
+                    and isinstance(custom[fld.name], BSTColumn)
+                ):
+                    print(f"ADDING CUSTOM COLUMN {fld.name}")
+                    related_columns.append(custom[fld.name])
+                else:
+                    kwargs = {
+                        "header": self.get_field_header(fld),
+                        "sorter": BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                    }
+                    if fld.name in custom.keys():
+                        print(f"ADDING EDITED DEFAULT COLUMN {fld.name}")
+                        kwargs.update(custom[fld.name])
+                    else:
+                        print(f"ADDING DEFAULT COLUMN {fld.name}")
+                    self.columns.append(BSTColumn(fld.name, **kwargs))
+
             elif not isinstance(fld, AutoField):
-                self.columns.append(
-                    BSTColumn(
-                        fld.name,
-                        header=underscored_to_title(fld.name),
-                        sorter=BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
-                    )
-                )
+                print(f"NON-RELATION: {fld.name}")
+                if (
+                    fld.name in custom.keys()
+                    and isinstance(custom[fld.name], BSTColumn)
+                ):
+                    print(f"ADDING CUSTOM COLUMN {fld.name}")
+                    related_columns.append(custom[fld.name])
+                else:
+                    kwargs = {
+                        "header": self.get_field_header(fld),
+                        "sorter": BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                    }
+                    if fld.name in custom.keys():
+                        print(f"ADDING EDITED DEFAULT COLUMN {fld.name}")
+                        kwargs.update(custom[fld.name])
+                    else:
+                        print(f"ADDING DEFAULT COLUMN {fld.name}")
+                    self.columns.append(BSTColumn(fld.name, **kwargs))
+                leftover_custom_columns.pop(fld.name, None)
+
+        for custom_key in leftover_custom_columns.keys():
+            print(f"ADDING LEFTOVER COLUMN")
+            if isinstance(custom[custom_key], BSTColumn):
+                self.columns.append(custom[custom_key])
+            else:
+                self.columns.append(BSTColumn(custom_key, **custom[custom_key]))
+
         if len(related_columns) > 0:
             for related_column in related_columns:
                 self.columns.append(related_column)
                 # if self.include_through_models or many_related_models[related_column.field] not in through_models:
                 #     self.columns.append(related_column)
+
+    @classmethod
+    def get_field_header(cls, field: Field):
+        if any(c.isupper() for c in field.verbose_name):
+            return field.verbose_name
+        return underscored_to_title(field.name)
 
     @classmethod
     def get_field_name(cls, field_representation):
@@ -266,7 +357,7 @@ class BootstrapTableListView(ListView):
         # even when order_by is not a column but is a field under the many-related model.
         if ordered:
             self.update_orderings(order_by, order_dir)
-            order_by_column: Optional[BSTColumn] = self.columns[self.columns.index(order_by)]
+            order_by_column: Optional[BSTColumn] = self.get_column(order_by)
             order_by_field = F(order_by_column.name)
 
         # We need the column names (from the BST data-field attributes) to use in Q expressions
@@ -413,9 +504,11 @@ class BootstrapTableListView(ListView):
                             else:
                                 annotations_after_filter[column.name] = Coalesce(*column.field)
                     elif column.many_related:
-                        # We need to give the user the annotation value they requested for column.name, not the field
-                        # value they explicitly said they want to sort on, so we need another (temporary) annotation for
-                        # the sort value when sorting by this column.
+                        # The order_by_field could be a foreign key, which is sorted by the column object's
+                        # many_related_sort_fld.  When sorting the rows, we son't want to sort by the value of the
+                        # annotation (the foreign key number).  We need to give the user the annotation value they
+                        # requested for column.name, AND sort by the value they explicitly said they want to sort on, so
+                        # we need another (temporary) annotation for the sort value when sorting by this column.
                         if order_by_column == column:
                             order_by_field_name = f"{order_by_column.name}_sort"
                             order_by_field = F(order_by_field_name)
@@ -432,7 +525,7 @@ class BootstrapTableListView(ListView):
                             if order_by_column == column:
                                 # This one-off sorting annotation will only ever be used below if ordering by this
                                 # column or group
-                                annotations_before_filter[order_by_field_name] = Min(column.many_related_sort_fld)
+                                annotations_before_filter[order_by_field_name] = Min(column.many_related_sort_fld_orig)
                         else:
                             # Apply Max to prevent changing the number of resulting rows
                             # This is only ever be used when there is a single result. If creating your own template, be
@@ -442,7 +535,7 @@ class BootstrapTableListView(ListView):
                             if order_by_column == column:
                                 # This one-off sorting annotation will only ever be used below if ordering by this
                                 # column or group
-                                annotations_before_filter[order_by_field_name] = Max(column.many_related_sort_fld)
+                                annotations_before_filter[order_by_field_name] = Max(column.many_related_sort_fld_orig)
                     elif column.field is not None:
                         # This is in case a user-supplied custom converter failed in the try block above and the field
                         # is not many_related and there are not multiple other model fields linking to the reference
@@ -450,7 +543,7 @@ class BootstrapTableListView(ListView):
                         annotations_before_filter[column.name] = F(column.field)
 
         if len(annotations_before_filter.keys()) > 0:
-            # print(f"ANNOTATIONS BEFORE: {annotations_before_filter}")
+            print(f"ANNOTATIONS BEFORE: {annotations_before_filter}")
             qs = qs.annotate(**annotations_before_filter)
 
         # 4. Apply the search and filters
@@ -486,7 +579,7 @@ class BootstrapTableListView(ListView):
         if ordered:
             # print(f"COUNT BEFORE ORDERBY: {qs.count()} ORDER BY: {order_by}")
 
-            if column.many_related_sort_nocase:
+            if order_by_column.many_related_sort_nocase:
                 order_by_field = Lower(order_by_field)
 
             if descending:
@@ -680,28 +773,32 @@ class BootstrapTableListView(ListView):
         Returns:
             None
         """
-        # TODO: Fix this.  It is not getting the model
-        model = BSTColumn.field_to_related_model(sort_by)
-        was_in_group = False
-        print(f"ORDERING: {sort_by} {sort_dir}")
-        for colname in self.groups_dict.get(model, []):
+        sort_column: Optional[BSTColumn] = self.get_column(sort_by)
+        if sort_column is None:
+            warning = f"WARNING: Unable to find sort_by column '{sort_by}'.  Please report this warning."
+            self.warnings.append(warning)
+            print(warning)
+            return
+        model = sort_column.many_related_model
+        print(f"ORDERING: SORT FLD: {sort_by} SORT DIR: {sort_dir} MODEL: {model} GROUPS: {self.groups_dict}")
+        if model is not None and model in self.groups_dict.keys():
             column: BSTColumn
-            for column in [c for c in self.columns if c.name == colname]:
-                was_in_group = True
-                column.many_related_sort_fld = sort_by
+            for column in self.groups_dict[model]:
+                column.many_related_sort_fld = sort_column.many_related_sort_fld_orig
                 column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
                 print(f"SETTING GROUP ORDERING OF {column.many_related_model} {column.name} {column.many_related_sort_fld} FWD?: {column.many_related_sort_fwd}")
-        if not was_in_group:
-            try:
-                i = self.columns.index(sort_by)
-                column = self.columns[i]
-                # print(f"SORTING BY {sort_by}, {sort_dir}")
-                if column.many_related:
-                    print(f"SETTING COLUMN ORDERING OF {column.many_related_model} {column.name} {column.many_related_sort_fld} FWD?: {column.many_related_sort_fwd}")
-                    # Only need to update the direction, because column.many_related_sort_fld should not change
-                    column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
-            except ValueError as ve:
-                print(f"WARNING: Unable to find sort_by column '{sort_by}'.  {ve}")
+        elif sort_column.many_related:
+                print(f"SETTING COLUMN ORDERING OF {sort_column.many_related_model} {sort_column.name} {sort_column.many_related_sort_fld} FWD?: {sort_column.many_related_sort_fwd}")
+                # Only need to update the direction, because column.many_related_sort_fld should not change unless this
+                # column is in a column group
+                sort_column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
+
+    def get_column(self, column_name: Union[BSTColumn, str]):
+        try:
+            i = self.columns.index(column_name)
+            return self.columns[i]
+        except ValueError:
+            return None
 
     def get_export_data(self, format: str):
         """Turns the queryset into a base64 encoded string and a filename.
