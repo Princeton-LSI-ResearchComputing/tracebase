@@ -34,6 +34,7 @@ from DataRepo.utils.infusate_name_parser import (
 from DataRepo.utils.queryset_to_pandas_dataframe import (
     QuerysetToPandasDataFrame,
 )
+from DataRepo.utils.summary_table_data_parser import SummaryTableData
 
 __all__ = [
     "AggregatedErrors",
@@ -59,6 +60,7 @@ __all__ = [
     "SheetMergeError",
     "DryRun",
     "QuerysetToPandasDataFrame",
+    "SummaryTableData",
     "SynonymExistsAsMismatchedCompound",
     "UnknownHeaders",
     "parse_infusate_name",
