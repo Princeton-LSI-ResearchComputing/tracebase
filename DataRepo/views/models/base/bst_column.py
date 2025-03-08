@@ -60,8 +60,8 @@ class BootstrapTableColumn:
         "DISABLED": "",
     }
     SORTER_CHOICES = {
-        "ALPHANUMERIC": "alphanum",  # default
-        "NUMERIC": "numericOnly",
+        "ALPHANUMERIC": "alphanumericSorter",  # default
+        "NUMERIC": "numericSorter",
         "HTML": "htmlSorter",  # See static/js/htmlSorter.js
     }
     NAME_IS_FIELD = "__same__"
@@ -87,7 +87,7 @@ class BootstrapTableColumn:
         many_related_model: Optional[Union[str, List[str]]] = None,  # default = field's immediate parent
         many_related_sort_fld: Optional[Union[str, List[str]]] = None,  # default = {many_related_model}__pk
         many_related_sort_fwd: bool = True,
-        many_related_sort_nocase: bool = False,  # Case insensitive sort
+        sort_nocase: bool = False,  # Case insensitive sort
         many_related_delim: str = DEF_DELIM,
         strict_select: Optional[bool] = None,
     ):
@@ -167,7 +167,7 @@ class BootstrapTableColumn:
                 related fields.  This should always be relevant to THIS column.  It is how you want THIS column to sort.
                 See BSTColumnGroup for default sorting based on another column.
             many_related_sort_fwd (bool) [True]: Set to False to reverse sort by default.
-            many_related_sort_nocase (bool) [False]: If True, it makes the sort case-insensitive.
+            sort_nocase (bool) [False]: If True, it makes the sort case-insensitive.
         Exceptions:
             ValueError when:
             - Either many_related must be True or a converter must be supplied if the BST column name is not equal to
@@ -209,7 +209,7 @@ class BootstrapTableColumn:
         self.many_related_sort_fld = many_related_sort_fld
         self.many_related_sort_fld_orig = many_related_sort_fld  # Used for updating sort fields in column groups
         self.many_related_sort_fwd = many_related_sort_fwd
-        self.many_related_sort_nocase = many_related_sort_nocase
+        self.sort_nocase = sort_nocase
         self.delim = many_related_delim
         self.init_many_related()
 
@@ -294,15 +294,14 @@ class BootstrapTableColumn:
                     raise ValueError(f"Invalid field path '{self.field}' in column '{self.name}'.")
 
         if self.many_related and self.many_related_sort_fld is None:
-            # TODO: Change this so that the field itself is the default sort field and make it overridden to the primary
-            # key in BSTColumnGroup.  It would be cool as well if it could automatically set it based on a unique one
-            # being explicitly set among the columns in the group, and/or add an argument.
-
-            # Default to sorting M:M field values by the primary key of the many_related_model model
+            # Default to sorting M:M field values the actual field itself.  Note, this will effectively be the primary
+            # key of the related model if the field is a foreign key.  BSTColumnGroup will overwrite this on the fly if
+            # sorting by a neighboring column in the group, hence this also ends up being saved in
+            # many_related_sort_fld_orig.
             if isinstance(self.many_related_model, list):
-                self.many_related_sort_fld = [f"{f}__pk" for f in self.many_related_model]
+                self.many_related_sort_fld = self.field[:]
             else:
-                self.many_related_sort_fld = self.many_related_model + "__pk"
+                self.many_related_sort_fld = self.field
 
     def init_filters(self):
         """Initializes attributes related to row filtering mechanisms in BST.

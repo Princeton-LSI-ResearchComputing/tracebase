@@ -30,6 +30,7 @@ class Sample(MaintainedModel, HierCachedModel):
     researcher = models.CharField(
         max_length=256,
         help_text='The name of the researcher who prepared the sample (e.g. "Alex Medina").',
+        verbose_name="Sample Owner",
     )
     animal = models.ForeignKey(
         to="DataRepo.Animal",

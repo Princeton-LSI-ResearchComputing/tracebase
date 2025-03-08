@@ -75,6 +75,9 @@ function initBSTPagination(
     }
     setViewCookie('page', djangoPageNumber);
 
+    let collapse = getViewCookie('collapsed', false);
+    if (collapse) setCollapse(collapse);
+
     globalThis.filterSelectOptions = selectOptions;
     globalThis.exportTypes = JSON.parse($('#' + djangoTableID).data("export-types").replace(/'/g, '"'));
 
@@ -237,6 +240,37 @@ function updatePage(page, limit, exportType) {
     window.location.href = url;
 }
 
+function toggleCollapse() {
+    // Initial state should be not collapsed
+    const collapse = !(getViewCookie("collapsed", "false") === "true");
+    console.log("Doing collapse: " + collapse);
+    setCollapse(collapse);
+    setCollapseIcon(!collapse);
+    setViewCookie("collapsed", collapse);
+}
+
+function setCollapseIcon(collapse) {
+    let addIconName = collapse ? 'bi-arrows-collapse' : 'bi-arrows-expand';
+    let removeIconName = !collapse ? 'bi-arrows-collapse' : 'bi-arrows-expand';
+
+    // Get the collapse button icon
+    let iconElem = document.querySelectorAll("button[name='btnCollapse'] > .bi")[0];
+
+    // Replace the previous icon with the current one
+    iconElem.classList.remove(removeIconName);
+    iconElem.classList.add(addIconName);
+}
+
+function setCollapse(collapse) {
+    if (typeof collapse === "undefined") collapse = false
+    const cellElems = document.getElementsByName("table-cell");
+    for (let i = 0; i < cellElems.length; i++) {
+        let cellElem = cellElems[i];
+        if (collapse) cellElem.classList.add('nobr');
+        else cellElem.classList.remove('nobr');
+    }
+}
+
 /**
  * Takes the export options defined in the bootstrap table and generates a drop-down list that calls the custom
  * exportAllPages function when clicked.
@@ -375,9 +409,10 @@ function resetTable() {
     deleteViewCookie('order-by');
     deleteViewCookie('order-dir');
     deleteViewCookie('search');
-    columnNames = getColumnNames();
+    deleteViewCookie('collapsed');
+    let columnNames = getColumnNames();
     for (i=0; i < columnNames.length; i++) {
-        columnName = columnNames[i];
+        let columnName = columnNames[i];
         deleteViewColumnCookie(columnName, 'filter');
         deleteViewColumnCookie(columnName, 'visible');
     }
@@ -401,10 +436,20 @@ function customButtonsFunction () {
                 'title': 'Restore default sort, filter, search, column visibility, and pagination'
             }
         },
+        btnCollapse: {
+            'text': 'Toggle soft-wrap in all table cells',
+            'icon': 'bi-arrows-collapse',
+            'event': function btnToggleCollapse () {
+                toggleCollapse();
+            },
+            'attributes': {
+                'title': 'Toggle soft-wrap in all table cells'
+            }
+        },
         btnExportAll: {
             html: generateExportSelect
         }
-    }
+    };
 }
 
 /**

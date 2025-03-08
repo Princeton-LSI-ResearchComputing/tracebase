@@ -43,12 +43,12 @@
                 <tr>
                     {% for column in columns %}
                         <td>
-                            {% with columnAnnotValue=object|get_attr:column.name columnFieldValue=object|get_attr:column.field %}
-                                {% if columnAnnotValue|is_model_obj and columnAnnotValue|has_detail_url %}
-                                    {# Render model object in string context for the link's display value #}
-                                    <a href="{{ columnAnnotValue|get_detail_url }}">{{ columnAnnotValue }}</a>
-                                {% elif column.many_related and column.converter is None %}
-                                    {% if columnAnnotValue and columnFieldValue.count|gt:0 %}
+                            <span name="table-cell" class="">
+                                {% with columnAnnotValue=object|get_attr:column.name columnFieldValue=object|get_attr:column.field %}
+                                    {% if columnAnnotValue|is_model_obj and columnAnnotValue|has_detail_url %}
+                                        {# Render model object in string context for the link's display value #}
+                                        <a href="{{ columnAnnotValue|get_detail_url }}">{{ columnAnnotValue }}</a>
+                                    {% elif column.many_related and column.converter is None %}
                                         {% for subrec in related_objects|index:object.pk|index:column.name %}
                                             {% if subrec|has_detail_url %}
                                                 {# Render model object in string context for the link's display value #}
@@ -56,14 +56,18 @@
                                             {% else %}
                                                 {{ subrec }}{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
                                             {% endif %}
+                                        {% empty %}
+                                            <span class="text-muted">None</span>
                                         {% endfor %}
                                     {% else %}
-                                        <span class="text-muted">None</span>
+                                        {% if columnAnnotValue is None %}
+                                            <span class="text-muted">None</span>
+                                        {% else %}
+                                            {{ columnAnnotValue }}
+                                        {% endif %}
                                     {% endif %}
-                                {% else %}
-                                    {{ columnAnnotValue }}
-                                {% endif %}
-                            {% endwith %}
+                                {% endwith %}
+                            </span>
                         </td>
                     {% endfor %}
                     {% if model|has_detail_url %}

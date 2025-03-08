@@ -512,15 +512,15 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
+        # via_query: Whether this is coming from the from_db method or not (implying no record change) - default False
+        via_query = kwargs.pop("via_query", False)
         # The following custom arguments are used internally.  Do not supply unless you know what you're doing.
         # mass_updates: Whether auto-updating buffered model objects - default False
         mass_updates = kwargs.pop("mass_updates", False)
         # propagate: Whether to propagate updates to related model objects - default True
-        propagate = kwargs.pop("propagate", not mass_updates)
+        propagate = kwargs.pop("propagate", not mass_updates and not via_query)
         # fields_to_autoupdate: List of fields to auto-update. - default None = update all maintained fields
         fields_to_autoupdate = kwargs.pop("fields_to_autoupdate", None)
-        # via_query: Whether this is coming from the from_db method or not (implying no record change) - default False
-        via_query = kwargs.pop("via_query", False)
 
         # If the object is None, then what has happened is, there was a call to create an object off of the class.  That
         # means that __init__ was not called, so we are going to handle the initialization of MaintainedModel (including
@@ -1675,10 +1675,17 @@ class MaintainedModel(Model):
                 # Report the auto-update
                 if old_val is None or old_val == "":
                     old_val = "<empty>"
-                print(
-                    f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                    f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
-                )
+
+                if changed:
+                    print(
+                        f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                    )
+                else:
+                    print(
+                        f"Auto-update of {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                        f"using {update_fun.__qualname__} resulted in the same value: [{new_val}]."
+                    )
 
         return changed
 
@@ -1818,8 +1825,7 @@ class MaintainedModel(Model):
         return updated
 
     def get_child_instances(self):
-        """
-        Returns a list of child records to the current record (self) (and the child relationship is stored in the
+        """Returns a list of child records to the current record (self) (and the child relationship is stored in the
         updater_list global variable, indexed by class name) based on the child keys indicated in every decorated
         updater method.
 

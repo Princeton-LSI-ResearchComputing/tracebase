@@ -1,11 +1,12 @@
 import importlib
+from typing import List, Optional, Type, Union
 import warnings
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db.models import Model
+from django.db.models import Model, Field
 from django.urls import resolve
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -112,6 +113,51 @@ def get_all_fields_named(target_field):
             if field.name == target_field:
                 found_fields.append([model, field])
     return found_fields
+
+
+def get_field_class_from_model_path(model: Type[Model], path: Union[str, List[str]]) -> Optional[Field]:
+    """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
+    the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc."""
+    if len(path) == 0:
+        raise ValueError("path string/list must have a non-zero length.")
+    if isinstance(path, str):
+        return get_field_class_from_model_path(model, path.split("__"))
+    if len(path) == 1:
+        if hasattr(model, path[0]):
+            return getattr(model, path[0])
+        return None
+    return get_field_class_from_model_path(getattr(model, path[0]).field.model, path[1:])
+
+
+def is_string_field(field: Optional[Field]) -> bool:
+    str_field_names = [
+        "CharField",
+        "EmailField",
+        "FilePathField",
+        "GenericIPAddressField",
+        "TextField",
+        "URLField",
+        "SlugField",
+        "UUIDField",
+    ]
+    return field.__class__.__name__ in str_field_names if field is not None else True
+
+
+def is_number_field(field: Optional[Field]) -> bool:
+    num_field_names = [
+        "AutoField",
+        "BigAutoField",
+        "BigIntegerField",
+        "DecimalField",
+        "FloatField",
+        "IntegerField",
+        "PositiveBigIntegerField",
+        "PositiveIntegerField",
+        "PositiveSmallIntegerField",
+        "SmallAutoField",
+        "SmallIntegerField",
+    ]
+    return field.__class__.__name__ in num_field_names if field is not None else True
 
 
 def dereference_field(field_name, model_name):

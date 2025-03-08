@@ -1,8 +1,9 @@
-from django.db.models import F, Value
+from django.db.models import Count, F, Value
 from django.db.models.functions import Extract
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import Animal
+from DataRepo.models.researcher import Researcher
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 from DataRepo.views.models.base import BSTListView, BSTColumn
 
@@ -23,6 +24,15 @@ class AnimalListView(BSTListView):
                 converter=Extract(F("age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
                 header="Age (weeks)",
             ),
+            "diet": {
+                "select_options": (
+                    Animal.objects
+                    .filter(diet__isnull=False)
+                    .order_by("diet")
+                    .distinct("diet")
+                    .values_list("diet", flat=True)
+                ),
+            },
             "genotype": {
                 "select_options": (
                     Animal.objects
@@ -39,6 +49,31 @@ class AnimalListView(BSTListView):
                     .values_list("feeding_status", flat=True)
                 ),
             },
+            "labels": {
+                "many_related_sort_fld": "labels__element",
+            },
+            "label_combo": {
+                "select_options": (
+                    Animal.objects
+                    .filter(label_combo__isnull=False)
+                    .order_by("label_combo")
+                    .distinct("label_combo")
+                    .values_list("label_combo", flat=True)
+                ),
+            },
+            "samples__tissue": BSTColumn(
+                "tissues_count",
+                field="samples__tissue",
+                header="Tissues Count",
+                converter=Count("samples__tissue", distinct=True),
+            ),
+            "sample_owners": BSTColumn(
+                "sample_owners",
+                field="samples__researcher",
+                many_related=True,
+                header="Sample Owner(s)",
+                select_options=Researcher.get_researchers(),
+            ),
         }
         super().__init__(custom=custom_columns)
 

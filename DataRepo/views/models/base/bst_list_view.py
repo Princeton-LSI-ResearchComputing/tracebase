@@ -17,6 +17,7 @@ from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
+from DataRepo.models.utilities import get_field_class_from_model_path, is_number_field, is_string_field
 from DataRepo.utils.exceptions import MutuallyExclusiveArgs
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import GracefulPaginator, get_cookie
@@ -153,6 +154,7 @@ class BootstrapTableListView(ListView):
             # print(f"FIELD {fld.name} TYPE: {type(fld).__name__}")
             if self.exclude_fields is not None and fld.name in self.exclude_fields:
                 continue
+            case_insensitive = isinstance(fld, CharField)
             if fld.is_relation and (fld.one_to_many or fld.many_to_many):
                 # DEBUG: Testing this block(/BSTColumn column addition) to see if I can get this to work quickly.
                 # print(f"fld.one_to_many or fld.many_to_many: {fld.one_to_many} or {fld.many_to_many}")
@@ -162,8 +164,18 @@ class BootstrapTableListView(ListView):
                     related_name = fld.name
                 first_sort_fld = f"{related_name}__pk"
                 first_sortable = False
-                case_insensitive = False
-                if len(fld.related_model._meta.ordering) == 1:
+
+                kwargs_key = f"first_{related_name}" if f"first_{related_name}" in custom.keys() else related_name
+
+                if (
+                    kwargs_key in custom.keys()
+                    and (isinstance(custom[kwargs_key], dict))
+                    and "many_related_sort_fld" in custom[kwargs_key].keys()
+                ):
+                    first_sortable = True
+                    order_fld = self.get_field_name(fld.related_model._meta.ordering[0])
+                    # No way to automatically set case_insensitive, so the user must set sort_nocase explicitly
+                elif len(fld.related_model._meta.ordering) == 1:
                     order_fld = self.get_field_name(fld.related_model._meta.ordering[0])
                     if isinstance(getattr(fld.related_model, order_fld), CharField):
                         case_insensitive = True
@@ -190,7 +202,7 @@ class BootstrapTableListView(ListView):
                 else:
                     # TODO: Try to get the first field that is unique=True
                     pass
-                if f"{related_name}_count" not in self.exclude_fields:
+                if related_name not in self.exclude_fields and f"{related_name}_count" not in self.exclude_fields:
                     leftover_custom_columns.pop(f"{related_name}_count", None)
                     if (
                         f"{related_name}_count" in custom.keys()
@@ -211,8 +223,9 @@ class BootstrapTableListView(ListView):
                         print(f"ADDING DEFAULT COLUMN {related_name}_count")
                         related_columns.append(BSTColumn(f"{fld.name}_count", **kwargs))
 
-                if f"first_{related_name}" not in self.exclude_fields:
+                if related_name not in self.exclude_fields and f"first_{related_name}" not in self.exclude_fields:
                     leftover_custom_columns.pop(f"first_{related_name}", None)
+                    leftover_custom_columns.pop(related_name, None)
                     if (
                         f"first_{related_name}" in custom.keys()
                         and isinstance(custom[f"first_{related_name}"], BSTColumn)
@@ -226,7 +239,7 @@ class BootstrapTableListView(ListView):
                             "many_related": True,
                             "many_related_model": related_name,
                             "many_related_sort_fld": first_sort_fld,
-                            "many_related_sort_nocase": case_insensitive,
+                            "sort_nocase": case_insensitive,
                             "sortable": first_sortable,
                             "sorter": BSTColumn.SORTER_CHOICES["HTML"],
                             # TODO: Figure out how to turn the __str__ function into a "search_field"
@@ -234,8 +247,12 @@ class BootstrapTableListView(ListView):
                         }
                         if f"first_{related_name}" in custom.keys():
                             kwargs.update(custom[f"first_{related_name}"])
+                        elif related_name in custom.keys():
+                            # Allow them to specify just the field in the key so that it maps correctly from what you
+                            # get from Model._meta.get_fields()
+                            kwargs.update(custom[related_name])
 
-                        print(f"ADDING DEFAULT COLUMN first_{related_name}")
+                        print(f"ADDING DEFAULT COLUMN first_{related_name} kwargs: {kwargs}")
                         related_columns.append(BSTColumn(f"first_{related_name}", **kwargs))
 
                 # print(f"FIELD NAME: {fld.name}")
@@ -256,6 +273,7 @@ class BootstrapTableListView(ListView):
                     kwargs = {
                         "header": self.get_field_header(fld),
                         "sorter": BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                        "sort_nocase": case_insensitive,
                     }
                     if fld.name in custom.keys():
                         print(f"ADDING EDITED DEFAULT COLUMN {fld.name}")
@@ -265,7 +283,7 @@ class BootstrapTableListView(ListView):
                     self.columns.append(BSTColumn(fld.name, **kwargs))
 
             elif not isinstance(fld, AutoField):
-                print(f"NON-RELATION: {fld.name}")
+                print(f"NON-RELATION: {fld.name} CHOICES?: {fld.choices}")
                 if (
                     fld.name in custom.keys()
                     and isinstance(custom[fld.name], BSTColumn)
@@ -276,7 +294,11 @@ class BootstrapTableListView(ListView):
                     kwargs = {
                         "header": self.get_field_header(fld),
                         "sorter": BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                        "sort_nocase": case_insensitive,
                     }
+                    if fld.choices is not None:
+                        kwargs["select_options"] = [c[0] for c in fld.choices]
+
                     if fld.name in custom.keys():
                         print(f"ADDING EDITED DEFAULT COLUMN {fld.name}")
                         kwargs.update(custom[fld.name])
@@ -286,10 +308,11 @@ class BootstrapTableListView(ListView):
                 leftover_custom_columns.pop(fld.name, None)
 
         for custom_key in leftover_custom_columns.keys():
-            print(f"ADDING LEFTOVER COLUMN")
             if isinstance(custom[custom_key], BSTColumn):
+                print(f"ADDING LEFTOVER COLUMN {custom_key} as BSTColumn")
                 self.columns.append(custom[custom_key])
             else:
+                print(f"ADDING LEFTOVER COLUMN {custom_key} as dict arguments {custom}")
                 self.columns.append(BSTColumn(custom_key, **custom[custom_key]))
 
         if len(related_columns) > 0:
@@ -410,11 +433,17 @@ class BootstrapTableListView(ListView):
                     or_q_exp = Q()
                     for many_related_search_field in column.field:
                         search_fields.append(many_related_search_field)
-                        or_q_exp |= Q(**{f"{many_related_search_field}__icontains": filter_value})
+                        if(not is_number_field(get_field_class_from_model_path(self.model, many_related_search_field))):
+                            or_q_exp |= Q(**{f"{many_related_search_field}__icontains": filter_value})
+                        else:
+                            or_q_exp |= Q(**{many_related_search_field: filter_value})
                     q_exp &= or_q_exp
                 elif column.field is not None:
                     search_fields.append(search_field)
-                    q_exp &= Q(**{f"{search_field}__icontains": filter_value})
+                    if(not is_number_field(get_field_class_from_model_path(self.model, search_field))):
+                        q_exp &= Q(**{f"{search_field}__icontains": filter_value})
+                    else:
+                        q_exp |= Q(**{search_field: filter_value})
                 else:
                     raise ValueError(f"Column {column.name} must not be searchable if field is None.")
 
@@ -550,7 +579,7 @@ class BootstrapTableListView(ListView):
 
         if len(q_exp.children) > 0:
             try:
-                # print(f"FILTERS: {q_exp}")
+                print(f"FILTERS: {q_exp}")
                 qs = qs.filter(q_exp)
             except FieldError as fe:
                 fld_str = "\n\t".join(search_fields)
@@ -579,12 +608,14 @@ class BootstrapTableListView(ListView):
         if ordered:
             # print(f"COUNT BEFORE ORDERBY: {qs.count()} ORDER BY: {order_by}")
 
-            if order_by_column.many_related_sort_nocase:
+            if order_by_column.sort_nocase:
                 order_by_field = Lower(order_by_field)
 
             if descending:
+                # print(f"ORDERING ROWS BY {order_by_field}, desc, nulls last")
                 qs = qs.order_by(order_by_field.desc(nulls_last=True))
             else:
+                # print(f"ORDERING ROWS BY {order_by_field}, asc, nulls first")
                 qs = qs.order_by(order_by_field.asc(nulls_first=True))
 
         # 7. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
@@ -598,7 +629,8 @@ class BootstrapTableListView(ListView):
         # Set the total after the search
         self.total = qs.count()
 
-        # TODO: Add a check for when limit is 0 and total > raw_total.  Should raise an exception because the developer added a many-related column and did not make it 1:1 with the base model
+        # TODO: Add a check for when limit is 0 and total > raw_total.  Should raise an exception because the developer
+        # added a many-related column and did not make it 1:1 with the base model
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
@@ -709,7 +741,10 @@ class BootstrapTableListView(ListView):
             for column in self.columns:
                 if column.many_related and column.converter is None:
                     context["related_objects"][rec.pk][column.name] = self.get_many_related_rec_val(rec, column)
-                    # print(f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.many_related_sort_fwd} ORDERING OF: {context['related_objects'][rec.pk][column.name]}")
+                    # print(
+                    #     f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.many_related_sort_fwd} "
+                    #     f"ORDERING OF: {context['related_objects'][rec.pk][column.name]}"
+                    # )
 
         return context
 
@@ -748,10 +783,16 @@ class BootstrapTableListView(ListView):
                 if isinstance(search_field, list):
                     for many_related_search_field in column.field:
                         search_fields.append(many_related_search_field)
-                        q_exp |= Q(**{f"{many_related_search_field}__icontains": term})
+                        if(not is_number_field(get_field_class_from_model_path(self.model, many_related_search_field))):
+                            q_exp |= Q(**{f"{many_related_search_field}__icontains": term})
+                        else:
+                            q_exp |= Q(**{many_related_search_field: term})
                 elif column.field is not None:
                     search_fields.append(search_field)
-                    q_exp |= Q(**{f"{search_field}__icontains": term})
+                    if(not is_number_field(get_field_class_from_model_path(self.model, search_field))):
+                        q_exp |= Q(**{f"{search_field}__icontains": term})
+                    else:
+                        q_exp |= Q(**{search_field: term})
                 elif column.field is None:
                     raise ValueError(f"Column {column.name} must not be searchable if field is None.")
 
@@ -1104,7 +1145,11 @@ class BootstrapTableListView(ListView):
                     # The first in the tuple is the column value
                     val[0]
                     for val in sorted(
-                        [tpl for tpl in vals_list if tpl is not None],
+                        reduce(
+                            lambda lst, val: lst + [val] if val not in lst else lst,
+                            [tpl for tpl in vals_list if tpl is not None],
+                            [],
+                        ),
                         # The second value in the tuple is the value to sort by (a third pk exists for uniqueness)
                         key=lambda t: (t[1] is not None, t[1]),
                         reverse=reverse
@@ -1185,7 +1230,10 @@ class BootstrapTableListView(ListView):
 
         if len(field_path) == 1:
             pk = 1
-            # print(f"REC: {rec} GETTING: {field_path[0]} GOT: {val_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: {type(val_or_rec).__name__}")
+            # print(
+            #     f"REC: {rec} GETTING: {field_path[0]} GOT: {val_or_rec} TYPE REC: {type(rec).__name__} TYPE GOTTEN: "
+            #     f"{type(val_or_rec).__name__}"
+            # )
             # DEBUG: Testing this block to see if I can get this to work quickly.
             # if type(val_or_rec).__name__ == "RelatedManager":
             if type(val_or_rec).__name__ == "RelatedManager" or type(val_or_rec).__name__ == "ManyRelatedManager":
@@ -1205,8 +1253,7 @@ class BootstrapTableListView(ListView):
                 )
                 uniq_vals = [
                     rec_tpl
-                    for rec_tpl in reduce(lambda ulst, val: ulst + [val]
-                    if val not in ulst else ulst, lst, [])
+                    for rec_tpl in reduce(lambda ulst, val: ulst + [val] if val not in ulst else ulst, lst, [])
                 ]
                 return uniq_vals
                 #     return list((r, _sort_val, r.pk) for r in val_or_rec.distinct())
@@ -1259,6 +1306,7 @@ class BootstrapTableListView(ListView):
                 return uniq_vals
             return None
 
+        # TODO: I should probably use reduce here and remove the call to reduce from _get_many_related_rec_val_helper, because I think it will otherwise be called a few times in a row (from other places in this method and in _get_many_related_rec_val_helper)
         return self._get_rec_val_helper(
             val_or_rec,
             field_path[1:],

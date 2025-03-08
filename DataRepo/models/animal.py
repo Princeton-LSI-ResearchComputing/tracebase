@@ -115,6 +115,13 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         related_name="animals",
         help_text="Automatically maintained field.  Shortcut to the last serum sample.",
     )
+    label_combo = models.CharField(
+        max_length=32,  # Max of 8, 2-letter element combos in 2 tracers
+        null=True,
+        editable=False,
+        help_text="The infusate's unique ordered combination of elements by tracer, e.g. 'C, C+N'.",
+        verbose_name="Tracer Label Combos",
+    )
 
     @property  # type: ignore
     @cached_function
@@ -156,6 +163,14 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
             )
 
         return last_serum_sample
+
+    @MaintainedModel.setter(
+        generation=0,
+        update_field_name="label_combo",
+        update_label="label_combo",
+    )
+    def _label_combo(self):
+        return self.infusate._label_combo() if self.infusate is not None else ""
 
     @property  # type: ignore
     @cached_function
