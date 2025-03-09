@@ -15,14 +15,13 @@ class BootstrapTableColumnGroup:
     def __init__(
         self,
         *columns: BSTColumn,
-        many_related_sort_fld: Optional[str] = None,
-        many_related_sort_fwd: bool = True,
+        related_sort_fld: Optional[str] = None,
+        related_sort_fwd: bool = True,
     ):
         """Construct an instance.
 
         Limitations:
-            1. A list value for the many_related_sort_fld argument is (not yet) supported (for columns that need
-               coalesce).
+            1. A list value for the related_sort_fld argument is (not yet) supported (for columns that need coalesce).
         Args:
             *columns (BSTColumn): Minimum of 2 BSTColumn objects.
         Exceptions:
@@ -41,22 +40,22 @@ class BootstrapTableColumnGroup:
         if len(columns) < 2:
             raise ValueError(f"Invalid columns.  There must be more than 1.  Supplied: {len(columns)}.")
 
-        self.model = columns[0].many_related_model
-        if not all([c.many_related_model == self.model for c in columns]):
-            models = [c.many_related_model for c in columns]
+        self.model = columns[0].related_model_path
+        if not all([c.related_model_path == self.model for c in columns]):
+            models = [c.related_model_path for c in columns]
             uniq_models = reduce(lambda ulst, val: ulst + [val] if val not in ulst else ulst, models, [])
             raise ValueError(
                 "All columns must belong to the same many-related model.  The following model mix was found: "
                 f"{uniq_models}."
             )
 
-        self.sort_fld = many_related_sort_fld
-        if many_related_sort_fld is None:
-            # Default to the first column's many_related_sort_fld
-            self.sort_fld = columns[0].many_related_sort_fld
-        sort_flds = dict((c.many_related_sort_fld, 0) for c in columns)
+        self.sort_fld = related_sort_fld
+        if related_sort_fld is None:
+            # Default to the first column's related_sort_fld
+            self.sort_fld = columns[0].related_sort_fld
+        sort_flds = dict((c.related_sort_fld, 0) for c in columns)
         for c in columns:
-            sort_flds[c.many_related_sort_fld] += 1
+            sort_flds[c.related_sort_fld] += 1
         dupe_sort_flds = reduce(lambda dlst, val: dlst + [val] if sort_flds[val] > 1 else dlst, sort_flds, [])
         if len(dupe_sort_flds) > 0:
             raise ValueError(
@@ -64,7 +63,7 @@ class BootstrapTableColumnGroup:
                 f"once among columns {[c.name for c in columns]}: {dupe_sort_flds}."
             )
 
-        self.sort_fwd = many_related_sort_fwd
+        self.sort_fwd = related_sort_fwd
 
         seen = defaultdict(int)
         for c in columns:
@@ -74,7 +73,7 @@ class BootstrapTableColumnGroup:
             raise ValueError(f"Each column name must be unique.  These were found to be redundant: {dupes}")
 
     def set_sort_fld(self, sort_fld: str, ignore_non_matches: bool = False):
-        """Sets the many_related_sort_fld of every column in the group so that each column's many-related values will be
+        """Sets the related_sort_fld of every column in the group so that each column's many-related values will be
         sorted the same.
 
         Args:
@@ -94,10 +93,10 @@ class BootstrapTableColumnGroup:
             )
 
         for c in self.columns:
-            c.many_related_sort_fld = sort_fld
+            c.related_sort_fld = sort_fld
 
     def set_sort_dir(self, sort_dir: str, ignore_non_matches=False):
-        """Sets the many_related_sort_fwd of every column in the group so that each column's many-related values will be
+        """Sets the related_sort_fwd of every column in the group so that each column's many-related values will be
         sorted the same.
 
         Args:
@@ -112,4 +111,4 @@ class BootstrapTableColumnGroup:
             raise ValueError(f"Sort direction '{sort_dir}' is not a sort direction.  The options are: {self.sort_dirs}")
 
         for c in self.columns:
-            c.many_related_sort_fwd = sort_dir.lower() == "asc"
+            c.related_sort_fwd = sort_dir.lower() == "asc"

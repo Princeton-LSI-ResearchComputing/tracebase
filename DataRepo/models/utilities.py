@@ -115,18 +115,26 @@ def get_all_fields_named(target_field):
     return found_fields
 
 
-def get_field_class_from_model_path(model: Type[Model], path: Union[str, List[str]]) -> Optional[Field]:
+def get_field_from_model_path(model: Type[Model], path: Union[str, List[str]]) -> Optional[Field]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc."""
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return get_field_class_from_model_path(model, path.split("__"))
+        return get_field_from_model_path(model, path.split("__"))
     if len(path) == 1:
         if hasattr(model, path[0]):
             return getattr(model, path[0])
+        print(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
         return None
-    return get_field_class_from_model_path(getattr(model, path[0]).field.model, path[1:])
+    attr = getattr(model, path[0])
+    many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
+    next_model = attr.field.model if many_related else attr.field.related_model
+    print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
+    if path[0] == "peak_groups":
+        for k in dir(attr):
+            print(f"\t{k}\t{getattr(attr, k)}")
+    return get_field_from_model_path(next_model, path[1:])
 
 
 def is_string_field(field: Optional[Field]) -> bool:
@@ -140,6 +148,12 @@ def is_string_field(field: Optional[Field]) -> bool:
         "SlugField",
         "UUIDField",
     ]
+    if field is not None:
+        if field.__class__.__name__ == "DeferredAttribute":
+            field = field.field
+        print(f"ISSTRINGFIELD: {field.__class__.__name__}?: {field.__class__.__name__ in str_field_names}")
+    else:
+        print(f"ISSTRINGFIELD: None?: True")
     return field.__class__.__name__ in str_field_names if field is not None else True
 
 

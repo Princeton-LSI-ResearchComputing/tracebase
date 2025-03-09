@@ -1,4 +1,4 @@
-from django.db.models import Count, F, Value
+from django.db.models import Count, F, Value, FloatField
 from django.db.models.functions import Extract
 from django.views.generic import DetailView, ListView
 
@@ -19,9 +19,14 @@ class AnimalListView(BSTListView):
     def __init__(self):
         custom_columns = {
             "age": BSTColumn(
-                "age_weeks_str",
+                "age_weeks",
                 field="age",
-                converter=Extract(F("age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
+                converter=Extract(
+                    F("age"),
+                    self.DURATION_SECONDS_ATTRIBUTE) / Value(604800,
+                    output_field=FloatField(),
+                ),
+                sorter=BSTColumn.SORTER_CHOICES.NUMERIC,
                 header="Age (weeks)",
             ),
             "diet": {
@@ -50,7 +55,7 @@ class AnimalListView(BSTListView):
                 ),
             },
             "labels": {
-                "many_related_sort_fld": "labels__element",
+                "related_sort_fld": "labels__element",
             },
             "label_combo": {
                 "select_options": (

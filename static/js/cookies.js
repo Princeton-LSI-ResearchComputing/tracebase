@@ -51,3 +51,13 @@ function deleteCookie (name) { // eslint-disable-line no-unused-vars
     document.cookie = name + '=; path=/'
   }
 }
+
+/**
+ * Delete a cookie
+ * @param {*} name The name of the cookie to delete
+ */
+function deleteCookies (names) { // eslint-disable-line no-unused-vars
+  for (let i = 0; i < names.length; i++) {
+    deleteCookie(names[i]);
+  }
+}

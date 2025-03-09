@@ -10,6 +10,7 @@
     {{ not_exported|json_script:"not_exported" }}
     {{ warnings|json_script:"warnings" }}
     {{ filter_select_lists|json_script:"filter_select_lists" }}
+    {{ cookie_resets|json_script:"cookie_resets" }}
     <script src="{% static 'js/browser_download.js' %}"></script>
     <script src="{% static 'js/bst_list_view_pagination.js' %}"></script>
     <script>
@@ -19,6 +20,8 @@
         const selectOptions = JSON.parse(filterSelectOptionsElem.textContent);
         const warningsElem = document.getElementById("warnings");
         const warnings = JSON.parse(warningsElem.textContent);
+        const cookieResetsElem = document.getElementById("cookie_resets");
+        const cookieResets = JSON.parse(cookieResetsElem.textContent);
         document.addEventListener("DOMContentLoaded", function(){
             initBSTPagination(
                 '{{ limit }}',
@@ -33,6 +36,8 @@
                 notExported,
                 selectOptions,
                 warnings,
+                cookieResets,
+                {% if clear_cookies %}true{% else %}false{% endif %},
             )
         });
     </script>

@@ -39,6 +39,8 @@ function initBSTPagination(
     notExported,
     selectOptions,
     warnings,
+    cookieResets,
+    clearCookies,
 ){
     globalThis.djangoLimit = limit;
     globalThis.djangoLimitDefault = limitDefault;
@@ -49,6 +51,9 @@ function initBSTPagination(
     globalThis.djangoTotal = total;
     globalThis.djangoRawTotal = rawTotal;
     globalThis.djangoCurrentURL = currentURL;
+
+    if (typeof clearCookies !== "undefined" && clearCookies) resetTable();
+    if (typeof cookieResets !== "undefined" && cookieResets && cookieResets.length > 0) deleteCookies(cookieResets);
 
     // Set cookies for the current page and limit that comes from the context and is sent via url params.
     // Everything else is saved in cookies.
@@ -114,6 +119,7 @@ function initBSTPagination(
             }
         },
         onColumnSearch: function (columnName, searchTerm) {
+            console.log("Filtering column " + columnName + " with term: " + searchTerm)
             if (!loading) {
                 // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything
                 // changed before triggering a page update.
@@ -263,7 +269,7 @@ function setCollapseIcon(collapse) {
 
 function setCollapse(collapse) {
     if (typeof collapse === "undefined") collapse = false
-    const cellElems = document.getElementsByName("table-cell");
+    const cellElems = document.getElementsByClassName("table-cell");
     for (let i = 0; i < cellElems.length; i++) {
         let cellElem = cellElems[i];
         if (collapse) cellElem.classList.add('nobr');
@@ -438,7 +444,7 @@ function customButtonsFunction () {
         },
         btnCollapse: {
             'text': 'Toggle soft-wrap in all table cells',
-            'icon': 'bi-arrows-collapse',
+            'icon': !(getViewCookie("collapsed", "false") === "true") ? 'bi-arrows-collapse' : 'bi-arrows-expand',
             'event': function btnToggleCollapse () {
                 toggleCollapse();
             },

@@ -3,7 +3,9 @@ from collections import defaultdict
 from datetime import datetime
 from functools import reduce
 from io import BytesIO, StringIO
-from typing import Dict, List, Optional, Tuple, Union
+import sys
+import traceback
+from typing import Dict, List, Optional, Tuple, Type, Union
 import base64
 import pandas as pd
 import csv
@@ -11,13 +13,13 @@ import _csv
 
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField, CharField, Field
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField, CharField, Field, ForeignKey
 from django.db.models.functions import Coalesce, Lower
 from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
-from DataRepo.models.utilities import get_field_class_from_model_path, is_number_field, is_string_field
+from DataRepo.models.utilities import get_field_from_model_path, is_number_field, is_string_field
 from DataRepo.utils.exceptions import MutuallyExclusiveArgs
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import GracefulPaginator, get_cookie
@@ -119,10 +121,11 @@ class BootstrapTableListView(ListView):
         self.raw_total = 0
         self.warnings = []
         self.cookie_resets = []
+        self.clear_cookies = False
 
     def set_default_columns(self, custom: Optional[Dict[str, Union[dict, BSTColumn]]] = None):
         related_columns: List[BSTColumn] = []
-        many_related_models: dict = {}
+        related_model_paths: dict = {}
         # through_models: list = []
         fields = self.model._meta.get_fields()
 
@@ -154,8 +157,10 @@ class BootstrapTableListView(ListView):
             # print(f"FIELD {fld.name} TYPE: {type(fld).__name__}")
             if self.exclude_fields is not None and fld.name in self.exclude_fields:
                 continue
-            case_insensitive = isinstance(fld, CharField)
-            if fld.is_relation and (fld.one_to_many or fld.many_to_many):
+            # case_insensitive = isinstance(fld, CharField)
+            case_insensitive = is_string_field(fld)
+            if fld.is_relation:
+                many_related = fld.one_to_many or fld.many_to_many
                 # DEBUG: Testing this block(/BSTColumn column addition) to see if I can get this to work quickly.
                 # print(f"fld.one_to_many or fld.many_to_many: {fld.one_to_many} or {fld.many_to_many}")
                 try:
@@ -163,31 +168,43 @@ class BootstrapTableListView(ListView):
                 except AttributeError:
                     related_name = fld.name
                 first_sort_fld = f"{related_name}__pk"
+                # Initially not sortable (bec. it's a pk), unless we can get a sort field figured out below...
                 first_sortable = False
 
-                kwargs_key = f"first_{related_name}" if f"first_{related_name}" in custom.keys() else related_name
+                if many_related:
+                    kwargs_key = f"first_{related_name}" if f"first_{related_name}" in custom.keys() else related_name
+                    column_name = f"first_{related_name}"
+                else:
+                    kwargs_key = fld.name
+                    column_name = fld.name
 
+                # Try to get a field from the related model to sort by
                 if (
                     kwargs_key in custom.keys()
                     and (isinstance(custom[kwargs_key], dict))
-                    and "many_related_sort_fld" in custom[kwargs_key].keys()
+                    and "related_sort_fld" in custom[kwargs_key].keys()
                 ):
                     first_sortable = True
-                    order_fld = self.get_field_name(fld.related_model._meta.ordering[0])
-                    # No way to automatically set case_insensitive, so the user must set sort_nocase explicitly
+                    obf = get_field_from_model_path(self.model, custom[kwargs_key]["related_sort_fld"])
+                    if is_string_field(obf):
+                        case_insensitive = True
+                    print(f"RELATED SORT FLD FROM MODEL CUSOMIZATION DICT: {custom[kwargs_key]['related_sort_fld']} INSENSITIVE: {case_insensitive} OBF: {obf}")
                 elif len(fld.related_model._meta.ordering) == 1:
                     order_fld = self.get_field_name(fld.related_model._meta.ordering[0])
-                    if isinstance(getattr(fld.related_model, order_fld), CharField):
+                    obf = get_field_from_model_path(fld.related_model, order_fld)
+                    if is_string_field(obf):
                         case_insensitive = True
                     first_sort_fld = f"{related_name}__{order_fld}"
                     first_sortable = True
-                elif len(fld.related_model._meta.ordering) > 1:
+                    print(f"RELATED SORT FLD FROM MODEL ORDERING: {first_sort_fld} INSENSITIVE: {case_insensitive} OBF: {obf}")
+                else:
                     # Grab the first field that is unique, if it exists
                     f: Field
                     for f in fld.related_model._meta.get_fields():
                         if f.unique and f.name != "id":
                             order_fld = self.get_field_name(f.name)
-                            if isinstance(getattr(fld.related_model, order_fld), CharField):
+                            obf = get_field_from_model_path(fld.related_model, order_fld)
+                            if is_string_field(obf):
                                 case_insensitive = True
                             first_sort_fld = f"{related_name}__{order_fld}"
                             first_sortable = True
@@ -199,10 +216,9 @@ class BootstrapTableListView(ListView):
                             "is not supported.  Supply BSTColumn objects to the constructor to enable sorting of the "
                             f"{self.model.__name__} BST ListView."
                         )
-                else:
-                    # TODO: Try to get the first field that is unique=True
-                    pass
-                if related_name not in self.exclude_fields and f"{related_name}_count" not in self.exclude_fields:
+
+                # Add a count column for many-related models
+                if many_related and related_name not in self.exclude_fields and f"{related_name}_count" not in self.exclude_fields:
                     leftover_custom_columns.pop(f"{related_name}_count", None)
                     if (
                         f"{related_name}_count" in custom.keys()
@@ -214,14 +230,14 @@ class BootstrapTableListView(ListView):
                         kwargs = {
                             "field": fld.name,
                             "header": underscored_to_title(fld.name) + " Count",
-                            "sorter": BSTColumn.SORTER_CHOICES["NUMERIC"],
+                            "sorter": BSTColumn.SORTER_CHOICES.NUMERIC,
                             "converter": Count(fld.name, distinct=True),
                         }
                         if f"{related_name}_count" in custom.keys():
                             kwargs.update(custom[f"{related_name}_count"])
 
                         print(f"ADDING DEFAULT COLUMN {related_name}_count")
-                        related_columns.append(BSTColumn(f"{fld.name}_count", **kwargs))
+                        related_columns.append(BSTColumn(f"{column_name}_count", **kwargs))
 
                 if related_name not in self.exclude_fields and f"first_{related_name}" not in self.exclude_fields:
                     leftover_custom_columns.pop(f"first_{related_name}", None)
@@ -230,19 +246,24 @@ class BootstrapTableListView(ListView):
                         f"first_{related_name}" in custom.keys()
                         and isinstance(custom[f"first_{related_name}"], BSTColumn)
                     ):
-                        print(f"ADDING CUSTOM COLUMN first_{related_name}")
+                        print(f"ADDING CUSTOM COLUMN NAMED {column_name} FROM RELATED PATH {related_name}")
                         related_columns.append(custom[f"first_{related_name}"])
                     else:
                         kwargs = {
                             "field": related_name,
                             "header": underscored_to_title(related_name),
-                            "many_related": True,
-                            "many_related_model": related_name,
-                            "many_related_sort_fld": first_sort_fld,
+                            "is_fk": True,
+                            "many_related": many_related,
+                            "related_model_path": related_name,
+                            "related_sort_fld": first_sort_fld,
                             "sort_nocase": case_insensitive,
                             "sortable": first_sortable,
-                            "sorter": BSTColumn.SORTER_CHOICES["HTML"],
-                            # TODO: Figure out how to turn the __str__ function into a "search_field"
+                            "sorter": (
+                                BSTColumn.SORTER_CHOICES.HTML
+                                if many_related
+                                else BSTColumn.SORTER_CHOICES.ALPHANUMERIC
+                            ),
+                            # TODO: Figure out how to sort by another field (preferrably one that matches the output of __str__)
                             "searchable": False,
                         }
                         if f"first_{related_name}" in custom.keys():
@@ -252,35 +273,17 @@ class BootstrapTableListView(ListView):
                             # get from Model._meta.get_fields()
                             kwargs.update(custom[related_name])
 
-                        print(f"ADDING DEFAULT COLUMN first_{related_name} kwargs: {kwargs}")
-                        related_columns.append(BSTColumn(f"first_{related_name}", **kwargs))
+                        if many_related:
+                            print(f"ADDING DEFAULT REVERSE RELATED COLUMN NAMED {column_name} FROM RELATED PATH {related_name} kwargs_key: {kwargs_key} kwargs: {kwargs}")
+                            related_columns.append(BSTColumn(column_name, **kwargs))
+                        else:
+                            print(f"ADDING DEFAULT RELATED COLUMN NAMED {column_name} FROM RELATED PATH {related_name} kwargs: {kwargs}")
+                            self.columns.append(BSTColumn(column_name, **kwargs))
 
                 # print(f"FIELD NAME: {fld.name}")
                 # if fld.many_to_many and hasattr(fld, "through"):
                 #     through_models.append(fld.through.__name__)
-                many_related_models[fld.name] = fld.related_model.__name__
-
-            elif fld.is_relation:
-                print(f"RELATION: '{fld.name}' '{fld.verbose_name}' '{underscored_to_title(fld.name)}'")
-                leftover_custom_columns.pop(fld.name, None)
-                if (
-                    fld.name in custom.keys()
-                    and isinstance(custom[fld.name], BSTColumn)
-                ):
-                    print(f"ADDING CUSTOM COLUMN {fld.name}")
-                    related_columns.append(custom[fld.name])
-                else:
-                    kwargs = {
-                        "header": self.get_field_header(fld),
-                        "sorter": BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
-                        "sort_nocase": case_insensitive,
-                    }
-                    if fld.name in custom.keys():
-                        print(f"ADDING EDITED DEFAULT COLUMN {fld.name}")
-                        kwargs.update(custom[fld.name])
-                    else:
-                        print(f"ADDING DEFAULT COLUMN {fld.name}")
-                    self.columns.append(BSTColumn(fld.name, **kwargs))
+                related_model_paths[fld.name] = fld.related_model.__name__
 
             elif not isinstance(fld, AutoField):
                 print(f"NON-RELATION: {fld.name} CHOICES?: {fld.choices}")
@@ -288,12 +291,12 @@ class BootstrapTableListView(ListView):
                     fld.name in custom.keys()
                     and isinstance(custom[fld.name], BSTColumn)
                 ):
-                    print(f"ADDING CUSTOM COLUMN {fld.name}")
-                    related_columns.append(custom[fld.name])
+                    print(f"ADDING CUSTOMIZED COLUMN {fld.name}")
+                    self.columns.append(custom[fld.name])
                 else:
                     kwargs = {
                         "header": self.get_field_header(fld),
-                        "sorter": BSTColumn.SORTER_CHOICES["ALPHANUMERIC"],
+                        "sorter": BSTColumn.SORTER_CHOICES.ALPHANUMERIC,
                         "sort_nocase": case_insensitive,
                     }
                     if fld.choices is not None:
@@ -315,10 +318,12 @@ class BootstrapTableListView(ListView):
                 print(f"ADDING LEFTOVER COLUMN {custom_key} as dict arguments {custom}")
                 self.columns.append(BSTColumn(custom_key, **custom[custom_key]))
 
+        # Add the reverse related columns at the end (i.e. those without an explicitly defined foreign key and those
+        # that are M:M related)
         if len(related_columns) > 0:
             for related_column in related_columns:
                 self.columns.append(related_column)
-                # if self.include_through_models or many_related_models[related_column.field] not in through_models:
+                # if self.include_through_models or related_model_paths[related_column.field] not in through_models:
                 #     self.columns.append(related_column)
 
     @classmethod
@@ -343,7 +348,17 @@ class BootstrapTableListView(ListView):
         qs = super().get_queryset()
         self.total = qs.count()
         self.raw_total = self.total
-        return self.get_manipulated_queryset(qs)
+        try:
+            return self.get_manipulated_queryset(qs)
+        except Exception as e:
+            tb = "".join(traceback.format_tb(e.__traceback__))
+            sys.stderr.write(f"{tb}{type(e).__name__}: {e}\n")
+            self.warnings.append(
+                "There was an error processing your request.  Your cookies have been cleared just in case a bad cookie "
+                "is the reason.  If the error recurs, please report it to the administrators."
+            )
+            self.clear_cookies = True
+            return qs
 
     def get_manipulated_queryset(self, qs: QuerySet):
         """The superclass handles actual pagination, but the number of pages can be affected by applied filters, and the
@@ -361,7 +376,7 @@ class BootstrapTableListView(ListView):
         Returns:
             qs (QuerySet)
         """
-
+        print("get_manipulated_queryset START")
         # 1. Retrieve search and sort settings (needed for annotations too, due to different annotations based on sort)
 
         # Search and filter criteria will be stored in a Q expression
@@ -392,14 +407,14 @@ class BootstrapTableListView(ListView):
             # Put all fields' model paths into model_paths, to be evaluated for entry into prefetches
             if isinstance(column.field, list):
                 for fld in column.field:
-                    mdl = column.field_to_related_model(fld)
+                    mdl = column.field_to_related_model_path(fld)
                     if mdl is not None and mdl not in model_paths:
                         # print(f"ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
                         model_paths.append(mdl)
                     # else:
                     #     print(f"NOT ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
             elif column.field is not None:
-                mdl = column.field_to_related_model(column.field)
+                mdl = column.field_to_related_model_path(column.field)
                 if mdl is not None and mdl not in model_paths:
                     # print(f"ADDING MODEL {mdl} FROM COLUMN {column.name} AND FIELD {column.field}")
                     model_paths.append(mdl)
@@ -428,19 +443,19 @@ class BootstrapTableListView(ListView):
                         f"search for annotation '{column.name}' is falling back to a search on '{column.field}'.  Try "
                         "changing the converter to a difference function, such as 'Case'."
                     )
-                # print(f"FILTERING COLUMN '{column.name}' USING FIELD '{search_field}' AND TERM '{filter_value}'")
+                print(f"FILTERING COLUMN '{column.name}' USING FIELD '{search_field}' AND TERM '{filter_value}'")
                 if isinstance(search_field, list):
                     or_q_exp = Q()
-                    for many_related_search_field in column.field:
-                        search_fields.append(many_related_search_field)
-                        if(not is_number_field(get_field_class_from_model_path(self.model, many_related_search_field))):
-                            or_q_exp |= Q(**{f"{many_related_search_field}__icontains": filter_value})
+                    for coalesced_search_field in column.field:
+                        search_fields.append(coalesced_search_field)
+                        if(not is_number_field(get_field_from_model_path(self.model, coalesced_search_field))):
+                            or_q_exp |= Q(**{f"{coalesced_search_field}__icontains": filter_value})
                         else:
-                            or_q_exp |= Q(**{many_related_search_field: filter_value})
+                            or_q_exp |= Q(**{coalesced_search_field: filter_value})
                     q_exp &= or_q_exp
                 elif column.field is not None:
                     search_fields.append(search_field)
-                    if(not is_number_field(get_field_class_from_model_path(self.model, search_field))):
+                    if(not is_number_field(get_field_from_model_path(self.model, search_field))):
                         q_exp &= Q(**{f"{search_field}__icontains": filter_value})
                     else:
                         q_exp |= Q(**{search_field: filter_value})
@@ -476,9 +491,16 @@ class BootstrapTableListView(ListView):
         annotations_before_filter = {}
         annotations_after_filter = {}
         for column in self.columns:
+            print(f"LOOKING FOR COLUMN {column.name}'s FIELD {column.field} IN MODEL: {self.model}")
+            many_related = False
+            if column.field is not None:
+                field_class: Type[Field] = get_field_from_model_path(self.model, (column.field if isinstance(column.field, str) else column.field[0]))
+                many_related = field_class.field.one_to_many or field_class.field.many_to_many
             try:
+                print(f"CHECKING COLUMN {column.name}")
                 # If a converter exists, the column is an annotation column, so annotate it
                 if column.converter is not None:
+                    print("ADDING A CUSTOM ANNOTATION")
                     if isinstance(column.converter, Coalesce) and column not in filter_columns:
                         if search_term != "" or column.name in filter_columns:
                             print(
@@ -512,7 +534,9 @@ class BootstrapTableListView(ListView):
                     and column.name not in annotations_after_filter.keys()
                     and column.is_annotation
                 ):
+                    print("ADDING A DEFAULT ANNOTATION")
                     if isinstance(column.field, list):
+                        print("...FOR A COALESCE")
                         # There are multiple fields that link to the reference model, so we use coalesce, assuming that
                         # the same reference model record is not linked to from multiple other model fields.
                         if order_by == "" or (
@@ -520,59 +544,70 @@ class BootstrapTableListView(ListView):
                             and not descending
                         ):
                             # Get the minimum value of the first populated many-related field
-                            if column.many_related:
+                            if many_related or column.many_related:
                                 # Apply Min to prevent changing the number of resulting rows
                                 annotations_after_filter[column.name] = Coalesce(*[Min(f) for f in column.field])
                             else:
                                 annotations_after_filter[column.name] = Coalesce(*column.field)
                         else:
                             # Get the maximum value of the first populated many-related field
-                            if column.many_related:
+                            if many_related or column.many_related:
                                 # Apply Max to prevent changing the number of resulting rows
                                 annotations_after_filter[column.name] = Coalesce(*[Max(f) for f in column.field])
                             else:
                                 annotations_after_filter[column.name] = Coalesce(*column.field)
-                    elif column.many_related:
+                    elif many_related or column.many_related:
+                        print("...FOR A MANY RELATED")
                         # The order_by_field could be a foreign key, which is sorted by the column object's
-                        # many_related_sort_fld.  When sorting the rows, we son't want to sort by the value of the
+                        # related_sort_fld.  When sorting the rows, we son't want to sort by the value of the
                         # annotation (the foreign key number).  We need to give the user the annotation value they
                         # requested for column.name, AND sort by the value they explicitly said they want to sort on, so
                         # we need another (temporary) annotation for the sort value when sorting by this column.
                         if order_by_column == column:
                             order_by_field_name = f"{order_by_column.name}_sort"
                             order_by_field = F(order_by_field_name)
+                            print(f"ALSO ADDING AN ORDER BY ANNOTATION FOR COLUMN: {order_by_column.name} BEC IT MATCHES: {order_by} FIELD NAME: {order_by_field_name} FIELD: {order_by_field}")
                         # This assumes column.field is not None
                         if order_by == "" or (
-                            order_by == column.name
+                            order_by == column
                             and not descending
                         ):
                             # Apply Min to prevent changing the number of resulting rows
                             # This is only ever be used when there is a single result. If creating your own template, be
-                            # careful not to rely on the annotation for sorting rows if your many_related_sort_fld
+                            # careful not to rely on the annotation for sorting rows if your related_sort_fld
                             # differs
                             annotations_before_filter[column.name] = Min(column.field)
                             if order_by_column == column:
                                 # This one-off sorting annotation will only ever be used below if ordering by this
                                 # column or group
-                                annotations_before_filter[order_by_field_name] = Min(column.many_related_sort_fld_orig)
+                                annotations_before_filter[order_by_field_name] = Min(column.related_sort_fld_orig)
+                                print(f"ORDERING MANY RELATED FIELD NAME: {order_by_field_name} ORIG SORT FIELD: {column.related_sort_fld_orig} VALUE: {annotations_before_filter[order_by_field_name]}")
                         else:
                             # Apply Max to prevent changing the number of resulting rows
                             # This is only ever be used when there is a single result. If creating your own template, be
-                            # careful not to rely on the annotation for sorting rows if your many_related_sort_fld
+                            # careful not to rely on the annotation for sorting rows if your related_sort_fld
                             # differs
                             annotations_before_filter[column.name] = Max(column.field)
                             if order_by_column == column:
                                 # This one-off sorting annotation will only ever be used below if ordering by this
                                 # column or group
-                                annotations_before_filter[order_by_field_name] = Max(column.many_related_sort_fld_orig)
+                                annotations_before_filter[order_by_field_name] = Max(column.related_sort_fld_orig)
                     elif column.field is not None:
+                        print("...FOR A FIELD")
+                        # Add a sort field for any foreign keys (if it has a sort field that differs from the field
+                        if field_class.field.is_relation and order_by_column == column and column.field != column.related_sort_fld_orig:
+                            order_by_field_name = f"{order_by_column.name}_sort"
+                            order_by_field = F(order_by_field_name)
+                            print(f"ALSO ADDING AN ORDER BY ANNOTATION FOR COLUMN: {order_by_column.name} BEC IT MATCHES: {order_by} FIELD NAME: {order_by_field_name} FIELD: {order_by_field}")
+                            # This assumes column.field is not None
+                            annotations_before_filter[order_by_field_name] = column.related_sort_fld_orig
                         # This is in case a user-supplied custom converter failed in the try block above and the field
                         # is not many_related and there are not multiple other model fields linking to the reference
                         # model
                         annotations_before_filter[column.name] = F(column.field)
 
         if len(annotations_before_filter.keys()) > 0:
-            print(f"ANNOTATIONS BEFORE: {annotations_before_filter}")
+            print(f"COUNT: {qs.count()} BEFORE BEFORE-ANNOTATIONS: {annotations_before_filter}")
             qs = qs.annotate(**annotations_before_filter)
 
         # 4. Apply the search and filters
@@ -585,8 +620,8 @@ class BootstrapTableListView(ListView):
                 fld_str = "\n\t".join(search_fields)
                 fld_msg = f"One or more of {len(search_fields)} fields is misconfigured:\n\n\t{fld_str}"
                 warning = (
-                    f"Your search could not be executed.  {fld_msg}\n\nPlease report this error to the site "
-                    "administrators."
+                    f"Your search could not be executed.  {fld_msg}\n\n"
+                    "Please report this error to the site administrators."
                 )
                 print(f"WARNING: {warning}\nException: {type(fe).__name__}: {fe}")
                 self.warnings.append(warning)
@@ -599,23 +634,26 @@ class BootstrapTableListView(ListView):
         # COALESCE
 
         if len(annotations_after_filter.keys()) > 0:
-            # print(f"ANNOTATIONS AFTER: {annotations_after_filter}")
+            print(f"COUNT: {qs.count()} BEFORE AFTER-ANNOTATIONS: {annotations_after_filter}")
             qs = qs.annotate(**annotations_after_filter)
 
         # 6. Apply the sort
 
         # Sort the results, if sort has a value
         if ordered:
-            # print(f"COUNT BEFORE ORDERBY: {qs.count()} ORDER BY: {order_by}")
+            print(f"COUNT BEFORE ORDERBY: {qs.count()} ORDER BY: {order_by}")
+
+            if order_by_column.is_fk and not order_by_column.many_related and order_by_column.field != order_by_column.related_sort_fld:
+                order_by_field = F(order_by_column.related_sort_fld)
 
             if order_by_column.sort_nocase:
                 order_by_field = Lower(order_by_field)
 
             if descending:
-                # print(f"ORDERING ROWS BY {order_by_field}, desc, nulls last")
+                print(f"ORDERING ROWS BY {order_by_field}, desc, nulls last")
                 qs = qs.order_by(order_by_field.desc(nulls_last=True))
             else:
-                # print(f"ORDERING ROWS BY {order_by_field}, asc, nulls first")
+                print(f"ORDERING ROWS BY {order_by_field}, asc, nulls first")
                 qs = qs.order_by(order_by_field.asc(nulls_first=True))
 
         # 7. Ensure distinct results (because annotations and/or sorting can cause the equivalent of a left join).
@@ -631,6 +669,7 @@ class BootstrapTableListView(ListView):
 
         # TODO: Add a check for when limit is 0 and total > raw_total.  Should raise an exception because the developer
         # added a many-related column and did not make it 1:1 with the base model
+        print("get_manipulated_queryset END")
 
         # NOTE: Pagination is controlled by the superclass and the override of the get_paginate_by method
         return qs
@@ -661,6 +700,7 @@ class BootstrapTableListView(ListView):
     def get_context_data(self, **kwargs):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
+        print("get_context_data START")
 
         context = super().get_context_data(**kwargs)
 
@@ -740,11 +780,19 @@ class BootstrapTableListView(ListView):
             context["related_objects"][rec.pk] = {}
             for column in self.columns:
                 if column.many_related and column.converter is None:
-                    context["related_objects"][rec.pk][column.name] = self.get_many_related_rec_val(rec, column)
+                    # many-related record values depend on annotations and those annotation names sometimes come in via
+                    # cookies (e.g. order-by).  So if the cookies are being cleared, we can assume that something has
+                    # gone wrong, so we will skip compiling the related record values in the hopes that the cookie reset
+                    # will have fixed the issue and the next request will be processed correctly.
+                    if not self.clear_cookies:
+                        context["related_objects"][rec.pk][column.name] = self.get_many_related_rec_val(rec, column)
+                    else:
+                        context["related_objects"][rec.pk][column.name] = []
                     # print(
-                    #     f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.many_related_sort_fwd} "
+                    #     f"SETTING REC related_objects.{rec.pk}.{column.name} to FWD?: {column.related_sort_fwd} "
                     #     f"ORDERING OF: {context['related_objects'][rec.pk][column.name]}"
                     # )
+        print("get_context_data END")
 
         return context
 
@@ -783,13 +831,13 @@ class BootstrapTableListView(ListView):
                 if isinstance(search_field, list):
                     for many_related_search_field in column.field:
                         search_fields.append(many_related_search_field)
-                        if(not is_number_field(get_field_class_from_model_path(self.model, many_related_search_field))):
+                        if(not is_number_field(get_field_from_model_path(self.model, many_related_search_field))):
                             q_exp |= Q(**{f"{many_related_search_field}__icontains": term})
                         else:
                             q_exp |= Q(**{many_related_search_field: term})
                 elif column.field is not None:
                     search_fields.append(search_field)
-                    if(not is_number_field(get_field_class_from_model_path(self.model, search_field))):
+                    if(not is_number_field(get_field_from_model_path(self.model, search_field))):
                         q_exp |= Q(**{f"{search_field}__icontains": term})
                     else:
                         q_exp |= Q(**{search_field: term})
@@ -820,19 +868,19 @@ class BootstrapTableListView(ListView):
             self.warnings.append(warning)
             print(warning)
             return
-        model = sort_column.many_related_model
+        model = sort_column.related_model_path if isinstance(sort_column.related_model_path, str) else sort_column.related_model_path[0]
         print(f"ORDERING: SORT FLD: {sort_by} SORT DIR: {sort_dir} MODEL: {model} GROUPS: {self.groups_dict}")
         if model is not None and model in self.groups_dict.keys():
             column: BSTColumn
             for column in self.groups_dict[model]:
-                column.many_related_sort_fld = sort_column.many_related_sort_fld_orig
-                column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
-                print(f"SETTING GROUP ORDERING OF {column.many_related_model} {column.name} {column.many_related_sort_fld} FWD?: {column.many_related_sort_fwd}")
+                column.related_sort_fld = sort_column.related_sort_fld_orig
+                column.related_sort_fwd = not sort_dir.lower().startswith("d")
+                print(f"SETTING GROUP ORDERING OF {column.related_model_path} {column.name} {column.related_sort_fld} FWD?: {column.related_sort_fwd}")
         elif sort_column.many_related:
-                print(f"SETTING COLUMN ORDERING OF {sort_column.many_related_model} {sort_column.name} {sort_column.many_related_sort_fld} FWD?: {sort_column.many_related_sort_fwd}")
-                # Only need to update the direction, because column.many_related_sort_fld should not change unless this
+                print(f"SETTING COLUMN ORDERING OF MODEL PATH {sort_column.related_model_path} COLUMN NAME {sort_column.name} SORT FIELD {sort_column.related_sort_fld} FWD?: {sort_column.related_sort_fwd}")
+                # Only need to update the direction, because column.related_sort_fld should not change unless this
                 # column is in a column group
-                sort_column.many_related_sort_fwd = not sort_dir.lower().startswith("d")
+                sort_column.related_sort_fwd = not sort_dir.lower().startswith("d")
 
     def get_column(self, column_name: Union[BSTColumn, str]):
         try:
@@ -1091,8 +1139,8 @@ class BootstrapTableListView(ListView):
                 val = self._get_many_related_rec_val_helper(
                     rec,
                     col.field[i],
-                    col.many_related_sort_fld[i],
-                    reverse=not col.many_related_sort_fwd
+                    col.related_sort_fld[i],
+                    reverse=not col.related_sort_fwd
                 )
                 if val is not None and len(val) > 0:
                     # print(f"BREAKING ON {type(val).__name__} {val} UNIQ VALS1 {type(uniq_vals1).__name__}: {uniq_vals1} UNIQ VALS2 {type(uniq_vals2).__name__}: {uniq_vals2}")
@@ -1101,8 +1149,8 @@ class BootstrapTableListView(ListView):
             val = self._get_many_related_rec_val_helper(
                 rec,
                 col.field,
-                col.many_related_sort_fld,
-                reverse=not col.many_related_sort_fwd
+                col.related_sort_fld,
+                reverse=not col.related_sort_fwd
             )
 
         if val is  None:
@@ -1180,7 +1228,7 @@ class BootstrapTableListView(ListView):
         returns a list of such objects or None if empty.
 
         Assumptions:
-            1. The many_related_sort_fld value will be a field under the many_related_model
+            1. The related_sort_fld value will be a field under the related_model_path
         Args:
             rec (Model): A Model object.
             field_path (List[str]): A path from the rec object to a field/column value, that has been split by
@@ -1346,7 +1394,8 @@ class BootstrapTableListView(ListView):
             (str): The cookie value for the supplied name (with the view_name prepended) obtained from self.request or
                 the default if the cookie was not found (or was an empty string).
         """
-        if hasattr(self, "request"):
+        # If a cookie reset occurred, it means one or more of the cookies is problematic, so just return the default.
+        if hasattr(self, "request") and not self.clear_cookies:
             return get_cookie(self.request, self.get_cookie_name(name), default) or ""
         return default
 

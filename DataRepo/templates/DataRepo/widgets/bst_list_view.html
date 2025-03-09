@@ -42,8 +42,8 @@
             {% for object in object_list %}
                 <tr>
                     {% for column in columns %}
-                        <td>
-                            <span name="table-cell" class="">
+                        <td class="table-cell">
+                            {% comment %} <span name="table-cell" class=""> {% endcomment %}
                                 {% with columnAnnotValue=object|get_attr:column.name columnFieldValue=object|get_attr:column.field %}
                                     {% if columnAnnotValue|is_model_obj and columnAnnotValue|has_detail_url %}
                                         {# Render model object in string context for the link's display value #}
@@ -67,7 +67,7 @@
                                         {% endif %}
                                     {% endif %}
                                 {% endwith %}
-                            </span>
+                            {% comment %} </span> {% endcomment %}
                         </td>
                     {% endfor %}
                     {% if model|has_detail_url %}

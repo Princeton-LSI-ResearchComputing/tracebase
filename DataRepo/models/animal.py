@@ -170,7 +170,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         update_label="label_combo",
     )
     def _label_combo(self):
-        return self.infusate._label_combo() if self.infusate is not None else ""
+        return self.infusate._label_combo() if self.infusate is not None else None
 
     @property  # type: ignore
     @cached_function

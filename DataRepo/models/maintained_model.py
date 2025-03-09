@@ -596,9 +596,12 @@ class MaintainedModel(Model):
         # This only executes either when immediate_updates or mass_updates is true - both cannot be true
         changed = self.update_decorated_fields(fields_to_autoupdate)
 
+        # If the autoupdate changed a value in a maintained field or (super().save() has not been called yet and this
+        # was not a save call from a query (i.e. from_db)), we need to save the changed result (or follow through on the
+        # external code's call to save).
         # This either saves both explicit changes and auto-update changes (when immediate_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
-        if changed is True or self.super_save_called is False:
+        if changed is True or (self.super_save_called is False and not via_query):
             if self.super_save_called or mass_updates is True:
                 if mass_updates is True:
                     # Intentionally trigger an exception if the buffer is stale (i.e. if the record was deleted)

@@ -75,7 +75,7 @@ class ArchiveFileListView(BSTListView):
                 # keeps the number of rows consistent with the number of ArchiveFile records, but it also makes querying
                 # the database much much faster
                 many_related=True,
-                many_related_sort_fld=[
+                related_sort_fld=[
                     # TODO: Make this the default and make BSTColumnGroup silently override that to pk
                     "peak_groups__msrun_sample__sample__animal__studies__name",
                     "mz_to_msrunsamples__sample__animal__studies__name",

@@ -465,17 +465,18 @@ def get_serum_tracer_peak_groups_first_searched(qry):
 
 @register.filter
 def gt(x, y):
-    """
-    This is here to get around htmlhint's spec-char-escape error even though {% if x > y %} works.
-    """
-    return x > y
+    """This is here to get around htmlhint's spec-char-escape error even though {% if x > y %} works."""
+    # Treat None as lesser and equal to itself
+    if x is None and y is None:
+        return False
+    elif x is None or y is None:
+        return x is not None
+    return ((x is None) != (y is None) and x is not None) or x > y
 
 
 @register.filter
 def lte(x, y):
-    """
-    This is here to get around htmlhint's spec-char-escape error even though {% if x < y %} works.
-    """
+    """This is here to get around htmlhint's spec-char-escape error even though {% if x < y %} works."""
     return x <= y
 
 
