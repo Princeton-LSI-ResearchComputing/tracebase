@@ -2,6 +2,7 @@ from django.db import models
 
 
 class Tissue(models.Model):
+    detail_name = "tissue_detail"
     SERUM_TISSUE_PREFIX = "serum"
 
     id = models.AutoField(primary_key=True)
@@ -24,3 +25,11 @@ class Tissue(models.Model):
 
     def is_serum(self):
         return self.name.startswith(Tissue.SERUM_TISSUE_PREFIX)
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

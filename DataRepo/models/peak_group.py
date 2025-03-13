@@ -18,6 +18,8 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     parent_related_key_name = "msrun_sample"
     child_related_key_names = ["labels"]
 
+    detail_name = "peakgroup_detail"
+
     NAME_DELIM = "/"
 
     id = models.AutoField(primary_key=True)
@@ -329,3 +331,11 @@ class PeakGroup(HierCachedModel, MaintainedModel):
             pgname (str)
         """
         return cls.NAME_DELIM.join(sorted(synonyms, key=str.casefold))
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

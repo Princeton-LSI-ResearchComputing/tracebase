@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import math
+from functools import reduce
 from typing import TYPE_CHECKING, Optional
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models.functions import Lower
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
@@ -129,11 +131,13 @@ class InfusateQuerySet(models.QuerySet):
 
 class Infusate(MaintainedModel, HierCachedModel):
     objects: InfusateQuerySet = InfusateQuerySet().as_manager()
+    detail_name = "infusate_detail"
 
     CONCENTRATION_SIGNIFICANT_FIGURES = 3
     TRACER_DELIMITER = ";"
     TRACERS_LEFT_BRACKET = "{"
     TRACERS_RIGHT_BRACKET = "}"
+    LABELS_COMBO_DELIMITER = ", "
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -159,11 +163,21 @@ class Infusate(MaintainedModel, HierCachedModel):
         help_text="Tracers included in this infusate 'recipe' at specific concentrations.",
         related_name="infusates",
     )
+    label_combo = models.CharField(
+        max_length=32,  # Max of 8, 2-letter element combos in 2 tracers
+        null=True,
+        editable=False,
+        help_text=(
+            "The infusate's unique ordered combination of elements by tracer, delimited by "
+            f"'{LABELS_COMBO_DELIMITER}'."
+        ),
+        verbose_name="Tracer Label Combos",
+    )
 
     class Meta:
         verbose_name = "infusate"
         verbose_name_plural = "infusates"
-        ordering = ["name"]
+        ordering = [Lower("name")]
 
     def __str__(self):
         return str(self._name())
@@ -196,6 +210,22 @@ class Infusate(MaintainedModel, HierCachedModel):
             name = f"{self.tracer_group_name} {self.TRACERS_LEFT_BRACKET}{name}{self.TRACERS_RIGHT_BRACKET}"
 
         return name
+
+    @MaintainedModel.setter(
+        generation=1,
+        update_field_name="label_combo",
+        parent_field_name="animals",
+        update_label="label_combo",
+    )
+    def _label_combo(self):
+        unique_tracer_label_combos = sorted(
+            reduce(
+                lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                [tracer._label_combo() for tracer in self.tracers.all()],
+                [],
+            )
+        )
+        return self.LABELS_COMBO_DELIMITER.join(unique_tracer_label_combos)
 
     def name_and_concentrations(self):
         """Create an infusate name without concentrations and return that name and a list of concentrations in the
@@ -537,3 +567,11 @@ class Infusate(MaintainedModel, HierCachedModel):
             .distinct("element")
             .values_list("element", flat=True)
         )
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

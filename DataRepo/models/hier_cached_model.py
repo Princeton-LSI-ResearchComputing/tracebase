@@ -60,6 +60,10 @@ def get_cache(rec, cache_func_name):
         good_cache = False
         if throw_cache_errors:
             raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
+        else:
+            print(
+                f"WARNING: CacheError: {rec.__class__.__name__}.{cache_func_name} ERROR: {e}"
+            )
     return result, good_cache
 
 
@@ -91,6 +95,10 @@ def set_cache(rec, cache_func_name, value):
         print(f"{type(e).__name__}: {e}")
         if throw_cache_errors:
             raise CacheError(f"{rec.__class__.__name__}.{cache_func_name} ERROR: {e}")
+        else:
+            print(
+                f"WARNING: CacheError: {rec.__class__.__name__}.{cache_func_name} ERROR: {e}"
+            )
         return False
     return True
 

@@ -1,3 +1,6 @@
+from django.db.models import F
+from django.db.models.functions import Lower, Upper
+
 from DataRepo.formats.dataformat import (
     ConditionallyRequiredArgumentError,
     FieldPathError,
@@ -33,6 +36,10 @@ class DataformatMainTests(TracebaseTestCase):
     def test_UnknownComparison(self):
         """Test __main__.UnknownComparison - no exception = successful test"""
         UnknownComparison()
+
+    def test_orderByFieldToName(self):
+        fld = Format.orderByFieldToName(Upper(Lower(F("testfieldname"))).desc())
+        self.assertEqual("testfieldname", fld)
 
 
 class FormatTests(FormatsTestCase):

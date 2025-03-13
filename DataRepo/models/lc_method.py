@@ -17,6 +17,8 @@ class LCMethod(models.Model):
     chromatography methodology
     """
 
+    detail_name = "lcmethod_detail"
+
     DEFAULT_TYPE = "unknown"
     MINIMUM_VALID_RUN_LENGTH = timedelta(seconds=0)
     MAXIMUM_VALID_RUN_LENGTH = timedelta(days=1)
@@ -135,3 +137,11 @@ class LCMethod(models.Model):
         except ValueError as ve:
             raise ValueError(f"{ve} from input: {name}")
         return typ, int(runlen)
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

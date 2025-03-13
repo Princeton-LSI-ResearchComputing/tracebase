@@ -21,6 +21,7 @@ class InfusateTracer(MaintainedModel):
         blank=False,
         validators=[MinValueValidator(0)],
         help_text="The millimolar concentration of the tracer in a specific infusate 'recipe' (mM).",
+        verbose_name="Tracer Concentration (mM)",
     )
 
     class Meta:
@@ -34,14 +35,31 @@ class InfusateTracer(MaintainedModel):
             )
         ]
 
+    def __str__(self):
+        return f"Infusate {self.infusate.pk}, Tracer {self.tracer.pk}, at {self.concentration} mM"
+
     @MaintainedModel.setter(
-        generation=1, parent_field_name="infusate", update_label="name"
+        generation=1,
+        parent_field_name="infusate",
+        update_label="name",
     )
     def _name(self):
-        """
-        No name field to update, but we want changes to these records (i.e. their creation) to trigger Infusate.name
+        """No name field to update, but we want changes to these records (i.e. their creation) to trigger Infusate.name
         to update.  That happens in this class's override to .save() in the MaintainedModel class, from which this
         class is derived.  But we don't actually want this method to be called because there is no field to update, so
         we leave out the update_field_name argument to the decorator.
+        """
+        pass
+
+    @MaintainedModel.setter(
+        generation=2,
+        parent_field_name="infusate",
+        update_label="label_combo",
+    )
+    def _label_combo(self):
+        """No label_combo field to update, but we want changes to these records (i.e. their creation) to trigger
+        Infusate.label_combo to update.  That happens in this class's override to .save() in the MaintainedModel class,
+        from which this class is derived.  But we don't actually want this method to be called because there is no field
+        to update, so we leave out the update_field_name argument to the decorator.
         """
         pass

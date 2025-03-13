@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import timedelta
 from typing import Dict, List, Optional
 
-from django.db.models import CharField, F, Model, Value
+from django.db.models import CharField, F, Model, OrderBy, Transform, Value
 from pytimeparse.timeparse import timeparse
 
 from DataRepo.formats.dataformat_group_query import (
@@ -1007,12 +1007,7 @@ class Format:
             db_field_ordering = []
             # For each order-by field reference
             for ob_field_val in ordering:
-                # if the field ordering is reversed
-                if ob_field_val.startswith("-"):
-                    # Chop off the negative sign to get the unmodified field name
-                    ob_field = ob_field_val[1:]
-                else:
-                    ob_field = ob_field_val
+                ob_field = self.orderByFieldToName(ob_field_val)
                 add_flds = []
                 fld = getattr(mdl, ob_field)
                 # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
@@ -1034,6 +1029,35 @@ class Format:
                     db_field_ordering.append(ob_field)
             return db_field_ordering
         return []
+
+    @classmethod
+    def orderByFieldToName(cls, order_by_field):
+        """Takes a str, OrderBy, and/or func like 'Lower' and returns the field name.  Recursive.
+
+        Args:
+            order_by_field (Union[str, OrderBy, Transform, F]): A field by which a queryset should be ordered.
+        Exceptions:
+            NotImplementedError in case an order-by can be something else.  If you encounter this, a case must be added
+                to allow this recursive method to drill down to the field name through that object.
+        Returns:
+            (str): The name of a field in a model.
+        """
+        if isinstance(order_by_field, OrderBy):
+            return cls.orderByFieldToName(order_by_field.expression)
+        elif isinstance(order_by_field, str):
+            if order_by_field.startswith("-"):
+                # Chop off the negative sign to get the unmodified field name
+                return order_by_field[1:]
+            else:
+                return order_by_field
+        elif isinstance(order_by_field, Transform):
+            return cls.orderByFieldToName(order_by_field.lhs)
+        elif isinstance(order_by_field, F):
+            return cls.orderByFieldToName(order_by_field.name)
+        else:
+            raise NotImplementedError(
+                f"OrderBy field type {type(order_by_field).__name__} not supported."
+            )
 
     def getFKModelName(self, mdl, field_ref_name):
         """

@@ -3,6 +3,7 @@ from django.db.models.functions import Upper
 
 
 class Protocol(models.Model):
+    detail_name = "protocol_detail"
     ANIMAL_TREATMENT = "animal_treatment"
     CATEGORY_CHOICES = [
         (ANIMAL_TREATMENT, "Animal Treatment"),
@@ -33,3 +34,11 @@ class Protocol(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
+        from django.urls import reverse
+
+        return reverse(self.detail_name, kwargs={"pk": self.pk})
