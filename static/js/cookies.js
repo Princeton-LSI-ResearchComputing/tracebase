@@ -21,7 +21,7 @@ function getCookie (name, defval) { // eslint-disable-line no-unused-vars
   // Account for the possibility that this was a cookie saved before we started encoding the values
   try {
     // If this is not an encoded string, an error can be^ thrown
-    tmpval = decodeURIComponent(val)
+    const tmpval = decodeURIComponent(val)
 
     // ^ A regular string can look like an encoded string, in which case, the return value will be invalid, but those
     // cases will eventually flush out.
