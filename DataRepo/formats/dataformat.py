@@ -534,15 +534,20 @@ class Format:
         return unique_paths
 
     def getTrueJoinPrefetchPathsAndQrys(self, qry):
-        """
-        Takes a qry object and a units lookup dict (that maps the path version of fld [e.g.
-        msrun_sample__sample__animal__age] to a dict that contains the units options, including most importantly, a
-        convert function that is found via the selected units key recorded in the qry) and returns a list of prefetch
-        paths.  If a prefetch path contains models that are related M:M with the root model, that prefetch path will be
-        split into multiple paths (all that end in a M:M model, and the remainder (if any of the path is left)).  Any
-        path ending in a M:M model will be represented as a 3-member list containing the path, a re-rooted qry object,
-        and the name of the new root model.  The returned prefetches will be a mixed list of strings (containing simple
-        prefetch paths for 1:1 relations) and sublists containing:
+        """Takes a qry object (that maps the path version of fld [e.g. msrun_sample__sample__animal__age] to a dict that
+        contains the units options, including most importantly, a convert function that is found via the selected units
+        key recorded in the qry) and returns a list of prefetch paths related to the search.
+
+        If a prefetch path internally contains other models' paths described in the format that are related M:M with the
+        root model, the prefetch path that contains the other model path will be split into multiple paths (each that
+        ends in a M:M model that contains fields that are a part of the format, and the remainder (if any of the path is
+        left)).  This ensures that all related records are pre-fetched.
+
+        After the above split of paths with internal M:M models, any path ending in a M:M model will be represented as a
+        3-member list containing the path, a re-rooted qry object, and the name of the new root model.
+
+        The returned prefetches will be a mixed list of strings (containing simple prefetch paths for 1:1 relations) and
+        sublists containing:
 
         - The simple prefetch path of a rerooted M:M related model
         - A rerooted qry object in order to perform the same query using the M:M related model as the root table for an
@@ -554,7 +559,7 @@ class Format:
         # Sort the paths so that multiple subquery prefetches on the same path are encountered hierarchically.
         # This is based on the assumption that prefetch filters work serially and are applied iteratively.  So if a
         # compound is filtered and then compound synonyms are filtered, the synonyms operate on the already filtered
-        # compounds.  This migth be a false assumption.
+        # compounds.  This might be a false assumption.
         fld_paths = sorted(extractFldPaths(qry), key=len)
 
         new_units_lookup = deepcopy(self.getFieldUnitsLookup())
@@ -1074,7 +1079,7 @@ class Format:
             # do this for 1:M tables because django compiles those records automatically.  The only thing it does not
             # handle is M:M relationships.
 
-            # If the split_all override in false and there exist custom distinct fields defined
+            # If the split_all override is false and there exist custom distinct fields defined
             if not split_all and custom_distinct_fields_exist:
                 for distinct_fld_nm in self.model_instances[mdl_inst_nm][
                     "fields"

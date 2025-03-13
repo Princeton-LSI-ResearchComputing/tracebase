@@ -29,7 +29,7 @@
         {% if qry %}
             <!-- qry has a value when search results are being loaded.  It is used to reconstruct the search form, so the user
                 can tweak their search.  This tag (json_script) turns the qry dict into a json-ized HTML object that is
-                consumed by javascript below, which is injests via JSON.parse. -->
+                consumed by javascript below, which it injests via JSON.parse. -->
 
             {{ qry|json_script:"initGroup" }} <!-- previous/executed qry object -->
 

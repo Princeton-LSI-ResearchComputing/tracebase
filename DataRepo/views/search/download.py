@@ -25,44 +25,7 @@ from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.utils.file_utils import date_to_string
 from DataRepo.views.search.advanced import AdvancedSearchView
-
-
-# See https://docs.djangoproject.com/en/5.1/howto/outputting-csv/#streaming-large-csv-files
-class Echo:
-    """A class that implements just the write method of a file-like interface.
-
-    This is intended for use by a csv writer.
-    """
-
-    def write(self, value):
-        return value
-
-
-class ZipBuffer:
-    """A class that implements a zip-file-like interface.
-
-    This is intended for use by a zipfile writer.
-    """
-
-    def __init__(self):
-        self.buf = bytearray()
-
-    def write(self, data):
-        self.buf.extend(data)
-        return len(data)
-
-    def flush(self):
-        pass
-
-    def take(self):
-        buf = self.buf
-        self.buf = bytearray()
-        return bytes(buf)
-
-    def end(self):
-        buf = self.buf
-        self.buf = None
-        return bytes(buf)
+from DataRepo.views.utils import Echo, ZipBuffer
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
