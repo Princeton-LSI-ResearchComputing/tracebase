@@ -393,25 +393,28 @@ class HierCachedModelTests(TracebaseTestCase):
             msg="Ensure the value for the representative function in not cached after a save",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_delete_override(self):
+        # NOTE: Lazy autoupdates trigger a save, which triggers a cache update, so autoupdates have been disabled via
+        # the test's decorator
         delete_all_caches()
-        pg = PeakGroup.objects.all().first().labels.first()
+        pgl = PeakGroup.objects.all().first().labels.first()
         f = "enrichment_fraction"
 
         enable_caching_retrievals()
         enable_caching_updates()
         # Trigger caching via decorator
-        getattr(pg, f)
-        rep_rec, rep_fnc = pg.get_representative_root_rec_and_method()
+        getattr(pgl, f)
+        rep_rec, rep_fnc = pgl.get_representative_root_rec_and_method()
 
         # Ensure cached
-        _, s = get_cache(pg, f)
+        v, s = get_cache(pgl, f)
         _, rs = get_cache(rep_rec, rep_fnc)
         self.assertTrue(
             s,
             msg=(
-                "Ensure what we got back was a cached value for the called function so the next assertions are "
-                "meaningful"
+                f"Ensure that the '{f}' ({v}) we got back for peak group label '{pgl}' was a cached value so that "
+                "the next assertions are meaningful"
             ),
         )
         self.assertTrue(
@@ -423,10 +426,10 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
         # delete() calls from animal, sample, and MSRunSample are restricted
-        pg.delete()
+        pgl.delete()
 
         # Ensure no longer cached
-        _, ns = get_cache(pg, f)
+        _, ns = get_cache(pgl, f)
         _, nrs = get_cache(rep_rec, rep_fnc)
         self.assertFalse(
             ns,

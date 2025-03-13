@@ -435,6 +435,19 @@ class FormatGroupTests(FormatsTestCase):
         # Should be called after tearDown()
         # self.restore_split_rows()
 
+    def test_getOrderByFields(self):
+        """Tests that the default order-by field names are retrieved, based on the model's meta ordering"""
+        basv = SearchGroup()
+        fmt = "fctemplate"
+
+        orderby_fieldnames = basv.getOrderByFields(fmt)
+        expected_orderby_fieldnames = [
+            "serum_sample__name",
+            "tracer__name",
+            "element",
+        ]
+        self.assertEqual(expected_orderby_fieldnames, orderby_fieldnames)
+
     def test_getAllBrowseData(self):
         """
         Test that test_getAllBrowseData returns all data for the selected format.

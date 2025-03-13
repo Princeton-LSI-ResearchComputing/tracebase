@@ -389,6 +389,11 @@ class FormatGroup:
             order_by, assume_distinct, split_all
         )
 
+    def getOrderByFields(self, fmt):
+        return self.modeldata[fmt].getOrderByFields(
+            model_name=self.modeldata[fmt].rootmodel.__name__
+        )
+
     def getFullJoinAnnotations(self, fmt):
         return self.modeldata[fmt].getFullJoinAnnotations()
 
@@ -601,6 +606,14 @@ class FormatGroup:
         # This ensures the number of records matches the number of rows desired in the html table based on the
         # split_rows values configured in each format in SearchGroup
         distinct_fields = self.getDistinctFields(fmt, order_by)
+
+        # If there are distinct fields, then django may require order-by fields
+        if order_by is None and len(distinct_fields) > 0:
+            # Get the default order-by fields for the root model
+            orderby_fields = self.getOrderByFields(fmt)
+            if len(orderby_fields) > 0:
+                results = results.order_by(*orderby_fields)
+
         results = results.distinct(*distinct_fields)
 
         # Count the total results after employing distinct.  Limit/offset are only used for paging.

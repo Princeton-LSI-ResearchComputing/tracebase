@@ -7,7 +7,7 @@ from typing import Dict, List
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
+from django.db import ProgrammingError, transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
 
@@ -1352,21 +1352,30 @@ class MaintainedModel(Model):
 
     @classmethod
     def get_all_maintained_field_values(cls, models_path=None):
-        """
-        This method can be used to obtain every value of a maintained field before and after a load that raises an
-        exception to ensure that the failed load has no side-effects.  Results are stored in a list for each model in a
-        dict keyed on model.
+        """This method is intended be used for tests - to obtain every value of all maintained fields before and after a
+        load to ensure that a failed load has no auto-update side-effects.  Results from every maintained field are
+        stored in a single flat list for each model in a dict keyed on model.
 
-        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
-        the model classes have been instantiated and after the decorators have registered.
+        Args:
+            models_path (Optional[str]): Python path to the models, E.g. "DataRepo.models".  It's only required if
+                called before any of the model classes have been instantiated and after the decorators have registered.
+        Exceptions:
+            None
+        Returns:
+            all_values (Dict[str, Any]): All values from every maintained field, stored in a list keyed on the model
+                name.
         """
         all_values = {}
         maintained_fields = cls.get_maintained_fields_query_dict(models_path)
 
         for key in maintained_fields.keys():
-            mdl = maintained_fields[key]["class"]
+            mdl: Model = maintained_fields[key]["class"]
             flds = maintained_fields[key]["fields"]
-            all_values[mdl.__name__] = list(mdl.objects.values_list(*flds, flat=True))
+            all_values[mdl.__name__] = []
+            for fld in flds:
+                all_values[mdl.__name__] += list(
+                    mdl.objects.values_list(fld, flat=True)
+                )
 
         return all_values
 
@@ -1766,20 +1775,34 @@ class MaintainedModel(Model):
                         or tmp_parent_inst.__class__.__name__ == "RelatedManager"
                     ):
                         # NOTE: This is where the `through` model is skipped
-                        if tmp_parent_inst.count() > 0 and isinstance(
-                            tmp_parent_inst.first(), MaintainedModel
-                        ):
-                            for mm_parent_inst in tmp_parent_inst.all():
-                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
-                                # relation we are traversing, could have been deleted via a cascade
-                                if (
-                                    mm_parent_inst not in parents
-                                    and mm_parent_inst.exists_in_db()
-                                ):
-                                    parents.append(mm_parent_inst)
+                        try:
+                            if tmp_parent_inst.count() > 0 and isinstance(
+                                tmp_parent_inst.first(), MaintainedModel
+                            ):
+                                for mm_parent_inst in tmp_parent_inst.all():
+                                    # We check "exists_in_db" in case these updates are propagated due to a delete, and
+                                    # any relation we are traversing, could have been deleted via a cascade
+                                    if (
+                                        mm_parent_inst not in parents
+                                        and mm_parent_inst.exists_in_db()
+                                    ):
+                                        parents.append(mm_parent_inst)
 
-                        elif tmp_parent_inst.count() > 0:
-                            raise NotMaintained(tmp_parent_inst.first(), self)
+                            elif tmp_parent_inst.count() > 0:
+                                raise NotMaintained(tmp_parent_inst.first(), self)
+                        except ValueError as ve:
+                            # If the ValueError has this substring, this means that the reverse "parent" relation does
+                            # not have any links to the child instance, so there is no reason to append this parent.
+                            # Unfortunately, there exists no way to test the emptiness of a reverse relation (without
+                            # this exception) that I could find.
+                            if "instance needs to have a primary key value" not in str(
+                                ve
+                            ):
+                                raise ProgrammingError(
+                                    "Django is raising a ValueError with a different(/new?) message when trying to "
+                                    "access empty reverse relations.  The code needs to be updated to additionally "
+                                    f"support this ValueError: '{str(ve)}'"
+                                )
 
                     else:
                         raise NotMaintained(tmp_parent_inst, self)
