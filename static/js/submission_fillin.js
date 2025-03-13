@@ -4,14 +4,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   studydetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     studydetailsbtn.src = plusPath
-    setCookie('study-details-shown', 'false')
+    setCookie('study-details-shown', 'false') // eslint-disable-line no-undef
   })
   studydetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     studydetailsbtn.src = minusPath
-    setCookie('study-details-shown', 'true')
+    setCookie('study-details-shown', 'true') // eslint-disable-line no-undef
   })
-  let shown = getCookie('study-details-shown')
+  let shown = getCookie('study-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { studydetailsbtn.click() }
 
   const tracersdetails = document.getElementById('tracers-details')
@@ -19,14 +19,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   tracersdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     tracersdetailsbtn.src = plusPath
-    setCookie('tracers-details-shown', 'false')
+    setCookie('tracers-details-shown', 'false') // eslint-disable-line no-undef
   })
   tracersdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     tracersdetailsbtn.src = minusPath
-    setCookie('tracers-details-shown', 'true')
+    setCookie('tracers-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('tracers-details-shown')
+  shown = getCookie('tracers-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { tracersdetailsbtn.click() }
 
   const addtracersdetails = document.getElementById('add-tracers-details')
@@ -34,14 +34,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   addtracersdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     addtracersdetailsbtn.src = plusPath
-    setCookie('add-tracers-details-shown', 'false')
+    setCookie('add-tracers-details-shown', 'false') // eslint-disable-line no-undef
   })
   addtracersdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     addtracersdetailsbtn.src = minusPath
-    setCookie('add-tracers-details-shown', 'true')
+    setCookie('add-tracers-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('add-tracers-details-shown')
+  shown = getCookie('add-tracers-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { addtracersdetailsbtn.click() }
 
   const manualaddtracersdetails = document.getElementById('manual-add-tracers-details')
@@ -49,14 +49,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   manualaddtracersdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     manualaddtracersdetailsbtn.src = plusPath
-    setCookie('manual-add-tracers-details-shown', 'false')
+    setCookie('manual-add-tracers-details-shown', 'false') // eslint-disable-line no-undef
   })
   manualaddtracersdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     manualaddtracersdetailsbtn.src = minusPath
-    setCookie('manual-add-tracers-details-shown', 'true')
+    setCookie('manual-add-tracers-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('manual-add-tracers-details-shown')
+  shown = getCookie('manual-add-tracers-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { manualaddtracersdetailsbtn.click() }
 
   const infusatesdetails = document.getElementById('infusates-details')
@@ -64,14 +64,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   infusatesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     infusatesdetailsbtn.src = plusPath
-    setCookie('infusates-details-shown', 'false')
+    setCookie('infusates-details-shown', 'false') // eslint-disable-line no-undef
   })
   infusatesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     infusatesdetailsbtn.src = minusPath
-    setCookie('infusates-details-shown', 'true')
+    setCookie('infusates-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('infusates-details-shown')
+  shown = getCookie('infusates-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { infusatesdetailsbtn.click() }
 
   const addinfusatesdetails = document.getElementById('add-infusates-details')
@@ -79,14 +79,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   addinfusatesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     addinfusatesdetailsbtn.src = plusPath
-    setCookie('add-infusates-details-shown', 'false')
+    setCookie('add-infusates-details-shown', 'false') // eslint-disable-line no-undef
   })
   addinfusatesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     addinfusatesdetailsbtn.src = minusPath
-    setCookie('add-infusates-details-shown', 'true')
+    setCookie('add-infusates-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('add-infusates-details-shown')
+  shown = getCookie('add-infusates-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { addinfusatesdetailsbtn.click() }
 
   const manualaddinfusatesdetails = document.getElementById('manual-add-infusates-details')
@@ -94,14 +94,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   manualaddinfusatesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     manualaddinfusatesdetailsbtn.src = plusPath
-    setCookie('manual-add-infusates-details-shown', 'false')
+    setCookie('manual-add-infusates-details-shown', 'false') // eslint-disable-line no-undef
   })
   manualaddinfusatesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     manualaddinfusatesdetailsbtn.src = minusPath
-    setCookie('manual-add-infusates-details-shown', 'true')
+    setCookie('manual-add-infusates-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('manual-add-infusates-details-shown')
+  shown = getCookie('manual-add-infusates-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { manualaddinfusatesdetailsbtn.click() }
 
   const animalsdetails = document.getElementById('animals-details')
@@ -109,14 +109,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   animalsdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     animalsdetailsbtn.src = plusPath
-    setCookie('animals-details-shown', 'false')
+    setCookie('animals-details-shown', 'false') // eslint-disable-line no-undef
   })
   animalsdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     animalsdetailsbtn.src = minusPath
-    setCookie('animals-details-shown', 'true')
+    setCookie('animals-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('animals-details-shown')
+  shown = getCookie('animals-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { animalsdetailsbtn.click() }
 
   const samplesdetails = document.getElementById('samples-details')
@@ -124,14 +124,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   samplesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     samplesdetailsbtn.src = plusPath
-    setCookie('samples-details-shown', 'false')
+    setCookie('samples-details-shown', 'false') // eslint-disable-line no-undef
   })
   samplesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     samplesdetailsbtn.src = minusPath
-    setCookie('samples-details-shown', 'true')
+    setCookie('samples-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('samples-details-shown')
+  shown = getCookie('samples-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { samplesdetailsbtn.click() }
 
   const samplenamesdetails = document.getElementById('sample-names-details')
@@ -139,14 +139,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   samplenamesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     samplenamesdetailsbtn.src = plusPath
-    setCookie('sample-names-details-shown', 'false')
+    setCookie('sample-names-details-shown', 'false') // eslint-disable-line no-undef
   })
   samplenamesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     samplenamesdetailsbtn.src = minusPath
-    setCookie('sample-names-details-shown', 'true')
+    setCookie('sample-names-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('sample-names-details-shown')
+  shown = getCookie('sample-names-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { samplenamesdetailsbtn.click() }
 
   const sequencesdetails = document.getElementById('sequences-details')
@@ -154,14 +154,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   sequencesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     sequencesdetailsbtn.src = plusPath
-    setCookie('sequences-details-shown', 'false')
+    setCookie('sequences-details-shown', 'false') // eslint-disable-line no-undef
   })
   sequencesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     sequencesdetailsbtn.src = minusPath
-    setCookie('sequences-details-shown', 'true')
+    setCookie('sequences-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('sequences-details-shown')
+  shown = getCookie('sequences-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { sequencesdetailsbtn.click() }
 
   const filesdetails = document.getElementById('files-details')
@@ -169,14 +169,14 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   filesdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     filesdetailsbtn.src = plusPath
-    setCookie('files-details-shown', 'false')
+    setCookie('files-details-shown', 'false') // eslint-disable-line no-undef
   })
   filesdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     filesdetailsbtn.src = minusPath
-    setCookie('files-details-shown', 'true')
+    setCookie('files-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('files-details-shown')
+  shown = getCookie('files-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { filesdetailsbtn.click() }
 
   const injectionsdetails = document.getElementById('injections-details')
@@ -184,23 +184,13 @@ function initListeners (minusPath, plusPath) { // eslint-disable-line no-unused-
   injectionsdetails.addEventListener('hide.bs.collapse', function (e) {
     e.stopPropagation()
     injectionsdetailsbtn.src = plusPath
-    setCookie('injections-details-shown', 'false')
+    setCookie('injections-details-shown', 'false') // eslint-disable-line no-undef
   })
   injectionsdetails.addEventListener('show.bs.collapse', function (e) {
     e.stopPropagation()
     injectionsdetailsbtn.src = minusPath
-    setCookie('injections-details-shown', 'true')
+    setCookie('injections-details-shown', 'true') // eslint-disable-line no-undef
   })
-  shown = getCookie('injections-details-shown')
+  shown = getCookie('injections-details-shown') // eslint-disable-line no-undef
   if (shown === 'true') { injectionsdetailsbtn.click() }
-}
-
-// Get a Cookie
-const getCookie = (name) => (
-  document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
-)
-
-// Set a Cookie
-function setCookie (name, val) {
-  document.cookie = name + '=' + val + '; path=/'
 }

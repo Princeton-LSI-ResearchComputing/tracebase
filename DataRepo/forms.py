@@ -24,7 +24,11 @@ from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.file_utils import date_to_string, is_excel
-from DataRepo.widgets import AutoCompleteTextInput
+from DataRepo.widgets import (
+    AutoCompleteTextInput,
+    MultipleFileInput,
+    RowsPerPageSelectWidget,
+)
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -170,11 +174,6 @@ class AdvSearchDownloadForm(Form):
         return self.cleaned_data
 
 
-class RowsPerPageSelectWidget(Select):
-    template_name = "DataRepo/widgets/rowsperpage_select.html"
-    option_template_name = "DataRepo/widgets/rowsperpage_select_option.html"
-
-
 class AdvSearchPageForm(Form):
     """
     Advanced search download form for any advanced search data.
@@ -312,12 +311,6 @@ class AdvSearchPageForm(Form):
             if field not in ignore_missing_fields and field not in data:
                 return False
         return True
-
-
-class MultipleFileInput(ClearableFileInput):
-    """Subclass of ClearableFileInput that specifically allows multiple selected files"""
-
-    allow_multiple_selected = True
 
 
 class MultipleFileField(FileField):

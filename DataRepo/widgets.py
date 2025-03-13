@@ -1,7 +1,7 @@
 from typing import List, Tuple, Union
 
 from django.db import ProgrammingError
-from django.forms.widgets import TextInput
+from django.forms.widgets import ClearableFileInput, Select, TextInput
 from django.utils.safestring import mark_safe
 
 
@@ -78,3 +78,14 @@ class AutoCompleteTextInput(TextInput):
                     f"datalist_values must be a str or tuple, not {type(self.datalist_values).__name__}"
                 )
         return mark_safe(f'<datalist id="{self.datalist_id}">{vals}</datalist>')
+
+
+class RowsPerPageSelectWidget(Select):
+    template_name = "DataRepo/widgets/rowsperpage_select.html"
+    option_template_name = "DataRepo/widgets/rowsperpage_select_option.html"
+
+
+class MultipleFileInput(ClearableFileInput):
+    """Subclass of ClearableFileInput that specifically allows multiple selected files"""
+
+    allow_multiple_selected = True
