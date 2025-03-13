@@ -1,0 +1,32 @@
+{% load customtags %}
+
+{% with columnAnnotValue=object|get_attr:column.name %}
+    {% if columnAnnotValue|is_model_obj and columnAnnotValue|has_detail_url %}
+        {# Render model object in string context for the link's display value #}
+        <a href="{{ columnAnnotValue|get_detail_url }}">{{ columnAnnotValue }}</a>
+    {% elif column.many_related and column.converter is None %}
+        {% for subrec in related_objects|index:object.pk|index:column.name %}
+            {% if not subrec|is_model_obj %}
+                {# This should be an ellipsis due to the related_limit, so not trailing delimiter needed #}
+                <span class="text-muted">{{ subrec }}</span>
+            {% elif subrec|has_detail_url %}
+                {# Render model object in string context for the link's display value #}
+                <a href="{{ subrec|get_detail_url }}">{{ subrec }}</a>{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
+            {% else %}
+                {{ subrec }}{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
+            {% endif %}
+        {% empty %}
+            <span class="text-muted">None</span>
+        {% endfor %}
+    {% else %}
+        {% if columnAnnotValue is None %}
+            <span class="text-muted">None</span>
+        {% else %}
+            {% if column.link_to_detail %}
+                <a href="{{ object.get_absolute_url }}">{{ columnAnnotValue }}</a>
+            {% else %}
+                {{ columnAnnotValue }}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endwith %}

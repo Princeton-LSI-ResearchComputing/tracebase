@@ -98,7 +98,10 @@ def get_attr(object, attr, default=None):
     try:
         v = getattr(object, attr, default)
     except (TypeError, KeyError) as e:
-        print(f"{type(e).__name__}: {str(e)}")
+        print(
+            f"WARNING: Lookup performed on object: '{object}' with attribute: '{attr}'. ",
+            f"Caught error: [{type(e).__name__}: {str(e)}].  Returning default '{default}'.",
+        )
         v = default
     return v
 

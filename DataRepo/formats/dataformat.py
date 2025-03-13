@@ -1079,7 +1079,7 @@ class Format:
             # do this for 1:M tables because django compiles those records automatically.  The only thing it does not
             # handle is M:M relationships.
 
-            # If the split_all override in false and there exist custom distinct fields defined
+            # If the split_all override is false and there exist custom distinct fields defined
             if not split_all and custom_distinct_fields_exist:
                 for distinct_fld_nm in self.model_instances[mdl_inst_nm][
                     "fields"

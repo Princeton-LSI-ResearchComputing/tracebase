@@ -1,81 +1,48 @@
 {% extends "base.html" %}
-{% load customtags %}
 
 {% block title %}{{ table_name }}{% endblock %}
 
 {% block content %}
-<h4>{{ table_name }}</h4>
-<br>
-<div>
-    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
-        id="{{ table_id }}"
-        data-toggle="table"
-        data-buttons-align="left"
-        data-buttons-class="primary"
-        data-buttons="customButtonsFunction"
-        data-export-types="['csv', 'txt', 'excel']"
-        data-export-data-type="all"
-        data-filter-control="true"
-        data-search="true"
-        data-search-align="left"
-        data-search-on-enter-key="true"
-        data-search-text="{{ search_term }}"
-        data-sort-name="{{ order_by }}"
-        data-sort-order="{{ order_dir }}"
-        data-show-search-clear-button="true"
-        data-show-multi-sort="true"
-        data-show-columns="true"
-        data-show-columns-toggle-all="true"
-        data-show-fullscreen="true"
-        data-show-export="false">
-        <thead>
-            <tr>
-                {% for column in columns %}
-                    {{ column }}
-                {% endfor %}
-                {% if model|has_detail_url %}
-                    <th data-valign="top">Detail</th>
-                {% endif %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for object in object_list %}
+    <h4>{{ table_name }}</h4>
+    <br>
+    <div>
+        <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+            id="{{ table_id }}"
+            data-toggle="table"
+            data-buttons-align="left"
+            data-buttons-class="primary"
+            data-buttons="customButtonsFunction"
+            data-export-types="['csv', 'txt', 'excel']"
+            data-export-data-type="all"
+            data-filter-control="true"
+            data-search="true"
+            data-search-align="left"
+            data-search-on-enter-key="true"
+            data-search-text="{{ search_term }}"
+            data-sort-name="{{ order_by }}"
+            data-sort-order="{{ order_dir }}"
+            data-show-search-clear-button="true"
+            data-show-multi-sort="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-fullscreen="true"
+            data-show-export="false">
+            <thead>
                 <tr>
                     {% for column in columns %}
-                        <td class="table-cell">
-                            {% comment %} <span name="table-cell" class=""> {% endcomment %}
-                                {% with columnAnnotValue=object|get_attr:column.name columnFieldValue=object|get_attr:column.field %}
-                                    {% if columnAnnotValue|is_model_obj and columnAnnotValue|has_detail_url %}
-                                        {# Render model object in string context for the link's display value #}
-                                        <a href="{{ columnAnnotValue|get_detail_url }}">{{ columnAnnotValue }}</a>
-                                    {% elif column.many_related and column.converter is None %}
-                                        {% for subrec in related_objects|index:object.pk|index:column.name %}
-                                            {% if subrec|has_detail_url %}
-                                                {# Render model object in string context for the link's display value #}
-                                                <a href="{{ subrec|get_detail_url }}">{{ subrec }}</a>{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
-                                            {% else %}
-                                                {{ subrec }}{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
-                                            {% endif %}
-                                        {% empty %}
-                                            <span class="text-muted">None</span>
-                                        {% endfor %}
-                                    {% else %}
-                                        {% if columnAnnotValue is None %}
-                                            <span class="text-muted">None</span>
-                                        {% else %}
-                                            {{ columnAnnotValue }}
-                                        {% endif %}
-                                    {% endif %}
-                                {% endwith %}
-                            {% comment %} </span> {% endcomment %}
-                        </td>
+                        {{ column }}
                     {% endfor %}
-                    {% if model|has_detail_url %}
-                        <td><a href="{{ object|get_detail_url }}">Detail</a></td>
-                    {% endif %}
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+            </thead>
+            <tbody>
+                {% for object in object_list %}
+                    <tr>
+                        {% for column in columns %}
+                            {% include column.td %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

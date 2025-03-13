@@ -9,12 +9,11 @@ from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import create_is_null_field
 
-from .element_label import ElementLabel
 from .protocol import Protocol
 from .tissue import Tissue
 
 
-class Animal(MaintainedModel, HierCachedModel, ElementLabel):
+class Animal(MaintainedModel, HierCachedModel):
     # No parent_related_key_name, because this is a root
     child_related_key_names = ["samples", "labels"]
 

@@ -47,7 +47,7 @@ class DataType(models.Model):
         return (self.code,)
 
     def __str__(self):
-        return f"{self.code}:{self.name}"
+        return self.name
 
 
 class DataFormatManager(models.Manager):
@@ -86,7 +86,7 @@ class DataFormat(models.Model):
         return (self.code,)
 
     def __str__(self):
-        return f"{self.code}:{self.name}"
+        return self.name
 
 
 def data_type_path(instance, filename):

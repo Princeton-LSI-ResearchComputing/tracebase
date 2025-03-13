@@ -1,7 +1,8 @@
-from typing import Callable, Dict, List, Optional, TypedDict, Union
+from functools import reduce
+from typing import Callable, Dict, List, Optional, Union
 
 from DataRepo.utils.text_utils import underscored_to_title
-from DataRepo.widgets import BSTHeader
+from DataRepo.widgets import BSTHeader, BSTValue
 
 
 class BSTSorters(dict):
@@ -104,6 +105,9 @@ class BootstrapTableColumn:
         sort_nocase: bool = False,  # Case insensitive sort
         many_related_delim: str = DEF_DELIM,
         strict_select: Optional[bool] = None,
+        # Tell BSTListView to link the column's values the detail page via object.get_absolute_url
+        link_to_detail: Optional[bool] = None,
+        td_template: Optional[str] = "DataRepo/widgets/bst_td.html",  # The template gets context variables "column": self, "object": model record, and "related_objects": dict of {object.pk: {column.name: list}}
     ):
         """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
         model.
@@ -185,6 +189,10 @@ class BootstrapTableColumn:
                 BSTListView.  See BSTColumnGroup for default sorting based on another column.
             related_sort_fwd (bool) [True]: Set to False to reverse sort by default.
             sort_nocase (bool) [False]: If True, it makes the sort case-insensitive.
+            link_to_detail (Optional[bool]): Tell BSTListView to link the value in this column to its detail page.  The
+                BSTListView.model must have a "get_absolute_url" method and the column cannot be a relation.
+            td_template (Optional[str]) ["DataRepo/widgets/bst_td.html"]: The template path to a template file to use
+                for rendering a td vag with a value from a Model object.
         Exceptions:
             ValueError when: - Either many_related must be True or a converter must be supplied if the BST column name
             is not equal to
@@ -198,6 +206,7 @@ class BootstrapTableColumn:
             instance (BootstrapTableColumn)
         """
         self.name = name
+        self.header_orig = header
         self.header = (
             underscored_to_title("_".join(name.split("__")[-2:]))
             if header is None
@@ -242,7 +251,11 @@ class BootstrapTableColumn:
         # Export/display
         self.exported = exported
         self.visible = "true" if visible else "false"
-        self.widget = BSTHeader()
+        self.header_widget = BSTHeader()
+        self.cell_widget = BSTValue()
+        # TODO: Change this to a value_template, defaulting to DataRepo/widgets/bst_value.html
+        self.td_template = td_template
+        self.link_to_detail = link_to_detail
 
         # Filtering
         # - inputs and select lists (The input elements under each column header)
@@ -269,14 +282,18 @@ class BootstrapTableColumn:
         self.validate()
 
     def __str__(self):
-        return self.as_widget()
+        return self.render_th()
 
-    def as_widget(self, attrs=None):
-        return self.widget.render(
-            self.name,
+    def render_th(self, attrs=None):
+        return self.header_widget.render(
+            f"{self.name}_header",
             self,
             attrs=attrs,
         )
+
+    @property
+    def td(self):
+        return self.td_template
 
     def init_related(self):
         """Initializes attributes related to the field for the column being many-related to the base table or when the
@@ -380,7 +397,20 @@ class BootstrapTableColumn:
         elif isinstance(self.select_options_orig, dict):
             self.select_options = self.select_options_orig
         else:  # list
-            self.select_options = dict((opt, opt) for opt in self.select_options_orig)
+            # NOTE: This filters for a unique case-insensitive sorted dict, and arbitrarily uses the first case instance
+            # encountered.  I.e., it does not produce a lower-cased output dict - just a dict that is unique when case
+            # is ignored for uniqueness.
+            self.select_options = dict(
+                (opt, opt)
+                for opt in sorted(
+                    reduce(
+                        lambda lst, val: lst + [val] if str(val).lower() not in [str(v).lower() for v in lst] else lst,
+                        self.select_options_orig,
+                        [],
+                    ),
+                    key=str.casefold,
+                )
+            )
 
     def validate(self):
         """Validates instance attributes.
@@ -470,21 +500,25 @@ class BootstrapTableColumn:
                 )
             if isinstance(self.field, list):
                 for i, fld in enumerate(self.related_sort_fld):
-                    sort_fld_mdl = self.related_model_path[i] + "__"
-                    if not fld.startswith(sort_fld_mdl):
+                    if not fld.startswith(self.related_model_path[i]):
                         raise ValueError(
                             f"The default sort field path of column '{self.name}': '{fld}' must start with "
                             f"related_model_path ('{self.related_model_path[i]}') in order to link the sort of "
                             "delimited values in this column with those in other columns."
                         )
             else:
-                sort_fld_mdl = self.related_model_path + "__"
-                if not self.related_sort_fld.startswith(sort_fld_mdl):
+                if not self.related_sort_fld.startswith(self.related_model_path):
                     raise ValueError(
                         f"The default sort field path of column '{self.name}': '{self.related_sort_fld}' must "
                         f"start with related_model_path ('{self.related_model_path}') in order to link the sort "
                         "of delimited values in this column with those in other columns."
                     )
+
+        if self.link_to_detail is True and (self.is_fk or self.many_related):
+            raise ValueError(
+                f"link_to_detail for column '{self.name}' is mutually exclusive with foreign key and/or many-related "
+                "columns."
+            )
 
     @classmethod
     def field_to_related_model_path(cls, field: str, many_related=False):

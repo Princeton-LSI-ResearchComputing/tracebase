@@ -1,0 +1,32 @@
+{% load customtags %}
+
+{% with annotValue=object|get_attr:column.name %}
+    <td>
+        {% if object.data_type.code == "ms_peak_annotation" %}
+            {% if object.peak_groups.count|gt:0 %}
+                <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' object.id 'peakdata' %}">{{ annotValue }}</a>
+            {% else %}
+                {# We are searching with ArchiveFile.id as the search term, but there is no 1:1 conversion of an ArchiveFile ID to a unique filename, so the search executed returns records associated with all files of the same name. #}
+                <a title="No peak data records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak data records linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' object.id 'peakdata' %}">None</a>
+            {% endif %}
+        {% elif object.data_format.code == "ms_raw" %}
+            {# Actually counting the peak_data records takes forever, because it traverses 3 many-related models (MSRunSample -> PeakGroup -> PeakData) #}
+            {% if object.raw_to_msrunsamples.first.peak_groups.count|gt:0 %}
+                <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' object.id 'peakdata' %}">{{ annotValue }}</a>
+            {% else %}
+                {# We are searching with ArchiveFile.id as the search term, but there is no 1:1 conversion of an ArchiveFile ID to a unique filename, so the search executed returns records associated with all files of the same name. #}
+                <a title="No peak data records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak data records linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' object.id 'peakdata' %}">None</a>
+            {% endif %}
+        {% elif object.data_format.code == "mzxml" %}
+            {# Actually counting the peak_data records takes forever, because it traverses 3 many-related models (MSRunSample -> PeakGroup -> PeakData) #}
+            {% if object.mz_to_msrunsamples.first.peak_groups.count|gt:0 %}
+                <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' object.id 'peakdata' %}">{{ annotValue }}</a>
+            {% else %}
+                {# We are searching with ArchiveFile.id as the search term, but there is no 1:1 conversion of an ArchiveFile ID to a unique filename, so the search executed returns records associated with all files of the same name. #}
+                <a title="No peak data records are linked to this file. Click to search for peak data records linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'MZFile' 'id' 'iexact' object.id 'peakdata' %}">None</a>
+            {% endif %}
+        {% else %}
+            <span title="No peak data records are linked to this file" class="text-muted">None</span>
+        {% endif %}
+    </td>
+{% endwith %}

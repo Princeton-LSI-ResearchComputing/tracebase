@@ -66,3 +66,36 @@ class GracefulPaginator(Paginator):
         except EmptyPage:
             num = self.num_pages
         return super().page(num)
+
+
+def reduceuntil(function, untilfunction, sequence, initial=None):
+    """Like functools.reduce, but with a condition function that stops the reduction early if a condition is met.
+    
+    Args:
+        function (Callable): See functools.reduce (same)
+        untilfunction (Callable): Takes the accumulating result and returns a bool that should be True if the reduction
+            should stop and False if it should keep going.
+        sequence (Iterable): See functools.reduce (same)
+        initial (Any): See functools.reduce (same)
+    Exceptions:
+        TypeError - when initial is invalid and needed.
+    Returns:
+        value (Any): The final accumulated output of function
+    """
+
+    it = iter(sequence)
+
+    if initial is None:
+        try:
+            value = next(it)
+        except StopIteration:
+            raise TypeError("reduceuntil() of empty sequence with no initial value") from None
+    else:
+        value = initial
+
+    for element in it:
+        value = function(value, element)
+        if untilfunction(value):
+            break
+
+    return value

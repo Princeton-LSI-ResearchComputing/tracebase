@@ -28,7 +28,7 @@ class Study(models.Model):
         ordering = ["name"]
 
     def __str__(self):
-        return str(self.name)
+        return self.name
 
     def get_absolute_url(self):
         """Get the URL to the detail page.

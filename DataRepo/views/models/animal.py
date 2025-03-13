@@ -1,4 +1,4 @@
-from django.db.models import Count, F, Value, FloatField
+from django.db.models import Count, F, Value
 from django.db.models.functions import Extract
 from django.views.generic import DetailView, ListView
 
@@ -12,20 +12,18 @@ class AnimalListView(BSTListView):
     """Generic class-based view for a list of tracers"""
     model = Animal
     paginate_by = 10
-    include_through_models = True
+    # include_through_models = True
     exclude_fields = ["id", "first_samples"]
     DURATION_SECONDS_ATTRIBUTE = "epoch"  # Postgres interval specific
 
     def __init__(self):
         custom_columns = {
+            "infusate": {"td_template": "models/animal/infusate_td.html"},
             "age": BSTColumn(
                 "age_weeks",
                 field="age",
-                converter=Extract(
-                    F("age"),
-                    self.DURATION_SECONDS_ATTRIBUTE) / Value(604800,
-                    output_field=FloatField(),
-                ),
+                # converter=Extract(F("age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800, output_field=FloatField()),
+                converter=Extract(F("age"), self.DURATION_SECONDS_ATTRIBUTE) / Value(604800),
                 sorter=BSTColumn.SORTER_CHOICES.NUMERIC,
                 header="Age (weeks)",
             ),
@@ -54,9 +52,7 @@ class AnimalListView(BSTListView):
                     .values_list("feeding_status", flat=True)
                 ),
             },
-            "labels": {
-                "related_sort_fld": "labels__element",
-            },
+            "labels": {"related_sort_fld": "labels__element"},
             "label_combo": {
                 "select_options": (
                     Animal.objects

@@ -98,14 +98,33 @@ class MultipleFileInput(ClearableFileInput):
 
 
 class BSTHeader(Widget):
-    template_name = "DataRepo/widgets/bstlistview_th.html"
+    template_name = "DataRepo/widgets/bst_th.html"
 
     def get_context(self, name, column, attrs=None):
-        # Called via DataRepo.views.models.base.BootstrapTableColumn.as_widget(), which passes 'self' as the 'column'
+        # Called via DataRepo.views.models.base.BootstrapTableColumn.render_th(), which passes 'self' as the 'column'
         # argument, but it's also called from Django internals where this 'column' argument is referred to as 'value',
-        # so all this is doing is it's taking that value and putting it in a contect variable named "column" for
+        # so all this is doing is it's taking that value and putting it in a context variable named "column" for
         # convenience and readability in the template.  I could pass along that 'value' in the super call, in which
         # case, you could access it in the template as 'widget.value'.
         context = super().get_context(name, None, attrs)
         context["column"] = column
+        return context
+
+
+class BSTValue(Widget):
+    # Template received context variables: 'object' (Model), 'value', and 'column' (BSTColumn)
+    default_template = "DataRepo/widgets/bst_td.html"
+
+    def __init__(self, template_name=default_template):
+        self.template_name = template_name
+        super().__init__()
+
+    def get_context(self, name, value: dict, attrs=None):
+        # Called via DataRepo.views.models.base.BootstrapTableColumn.td(), which passes 'self' as the 'column' argument,
+        # but it's also called from Django internals where this 'column' argument is referred to as 'value', so all this
+        # is doing is it's taking that value and putting it in a context variable named "column" for convenience and
+        # readability in the template.  I could pass along that 'value' in the super call, in which case, you could
+        # access it in the template as 'widget.value'.
+        context = super().get_context(name, None, attrs)
+        context.update(value)
         return context
