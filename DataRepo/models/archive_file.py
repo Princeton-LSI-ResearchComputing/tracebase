@@ -47,7 +47,7 @@ class DataType(models.Model):
         return (self.code,)
 
     def __str__(self):
-        return f"{self.code}:{self.name}"
+        return self.name
 
 
 class DataFormatManager(models.Manager):
@@ -86,7 +86,7 @@ class DataFormat(models.Model):
         return (self.code,)
 
     def __str__(self):
-        return f"{self.code}:{self.name}"
+        return self.name
 
 
 def data_type_path(instance, filename):
@@ -222,6 +222,7 @@ class ArchiveFile(models.Model):
     """Store the file location, checksum, datatype, and format of files."""
 
     objects: ArchiveFileQuerySet = ArchiveFileQuerySet().as_manager()
+    detail_name = "archive_file_detail"
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -254,6 +255,16 @@ class ArchiveFile(models.Model):
     data_type = models.ForeignKey(DataType, on_delete=models.PROTECT)
 
     data_format = models.ForeignKey(DataFormat, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = "Archive File"
+        verbose_name_plural = "Archive Files"
+        ordering = [
+            "filename",
+            "data_type__name",
+            "data_format__name",
+            "imported_timestamp",
+        ]
 
     def __str__(self):
         return f"{self.filename} ({self.checksum})"
@@ -307,6 +318,11 @@ class ArchiveFile(models.Model):
 
         return hash_obj.hexdigest()
 
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})
 
 @receiver(post_delete, sender=ArchiveFile)
 def post_archive_file_delete_commit(**kwargs):

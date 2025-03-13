@@ -28,6 +28,7 @@ from DataRepo.models import HierCachedModel, MaintainedModel
 class MSRunSample(HierCachedModel, MaintainedModel):
     parent_related_key_name = "sample"
     child_related_key_names = ["peak_groups"]
+    detail_name = "msrunsample_detail"
 
     POLARITY_CHOICES = [
         ("unknown", "unknown"),
@@ -241,3 +242,9 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                 f"Invalid mz_min [{self.mz_min}] and mz_max [{self.mz_max}]: "
                 f"The minimum charge must be less than or equal to the maximum charge in the scan range."
             )
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

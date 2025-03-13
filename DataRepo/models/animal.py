@@ -9,12 +9,11 @@ from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import create_is_null_field
 
-from .element_label import ElementLabel
 from .protocol import Protocol
 from .tissue import Tissue
 
 
-class Animal(MaintainedModel, HierCachedModel, ElementLabel):
+class Animal(MaintainedModel, HierCachedModel):
     # No parent_related_key_name, because this is a root
     child_related_key_names = ["samples", "labels"]
 
@@ -23,6 +22,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     SEX_CHOICES = [(FEMALE, "female"), (MALE, "male")]
     INFUSION_RATE_SIGNIFICANT_FIGURES = 3
     BODY_WEIGHT_SIGNIFICANT_FIGURES = 3
+    detail_name = "animal_detail"
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -38,15 +38,20 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         null=True,
         blank=True,
         related_name="animals",
-        help_text="The solution infused into the animal containing 1 or more tracer compounds at specific "
-        "concentrations.",
+        help_text=(
+            "The solution infused into the animal containing 1 or more tracer compounds at specific "
+            "concentrations."
+        ),
     )
     infusion_rate = models.FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal "
-        "(ul/min/g).",
+        help_text=(
+            "The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal "
+            "(ul/min/g)."
+        ),
+        verbose_name="Infusion Rate (ul/min/g)",
     )
     genotype = models.CharField(
         max_length=256, help_text="The laboratory standardized genotype of the animal."
@@ -56,6 +61,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         blank=True,
         validators=[MinValueValidator(0)],
         help_text="The weight (in grams) of the animal at the time of sample collection.",
+        verbose_name="Weight (g)",
     )
     age = models.DurationField(
         null=True,
@@ -80,8 +86,10 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         max_length=256,
         null=True,
         blank=True,
-        help_text="The laboratory coded dietary state for the animal, "
-        'also referred to as "Animal State" (e.g. "fasted").',
+        help_text=(
+            "The laboratory coded dietary state for the animal, also referred to as 'Animal State' (e.g. "
+            "'fasted')."
+        ),
     )
     studies = models.ManyToManyField(
         to="DataRepo.Study",
@@ -104,7 +112,14 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         on_delete=models.SET_NULL,
         db_column="last_serum_sample_id",  # Necessary because of Sample's link to Animal
         related_name="animals",
-        help_text="Automatically maintained field. Shortcut to the last serum sample.",
+        help_text="Automatically maintained field.  Shortcut to the last serum sample.",
+    )
+    label_combo = models.CharField(
+        max_length=32,  # Max of 8, 2-letter element combos in 2 tracers
+        null=True,
+        editable=False,
+        help_text="The infusate's unique ordered combination of elements by tracer, e.g. 'C, C+N'.",
+        verbose_name="Tracer Label Combos",
     )
 
     @property  # type: ignore
@@ -147,6 +162,14 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
             )
 
         return last_serum_sample
+
+    @MaintainedModel.setter(
+        generation=0,
+        update_field_name="label_combo",
+        update_label="label_combo",
+    )
+    def _label_combo(self):
+        return self.infusate._label_combo() if self.infusate is not None else None
 
     @property  # type: ignore
     @cached_function
@@ -254,3 +277,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         rec = AnimalStudy.objects.get(**rec_dict)
 
         return rec, created
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

@@ -4,6 +4,7 @@ from typing import Optional
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
+from django.db.models.functions import Lower
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import MaintainedModel
@@ -70,6 +71,7 @@ class Tracer(MaintainedModel, ElementLabel):
     LABELS_DELIMITER = ","
     LABELS_LEFT_BRACKET = "["
     LABELS_RIGHT_BRACKET = "]"
+    LABELS_COMBO_DELIMITER = "+"
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -85,11 +87,17 @@ class Tracer(MaintainedModel, ElementLabel):
         null=False,
         related_name="tracers",
     )
+    label_combo = models.CharField(
+        max_length=16,  # Max of 8, 2-letter elements
+        null=True,
+        editable=False,
+        help_text=f"The tracer's ordered combination of elements, delimited by '{LABELS_COMBO_DELIMITER}'.",
+    )
 
     class Meta:
         verbose_name = "tracer"
         verbose_name_plural = "tracers"
-        ordering = ["name"]
+        ordering = [Lower("name")]
 
     def __str__(self):
         return str(self._name())
@@ -102,6 +110,17 @@ class Tracer(MaintainedModel, ElementLabel):
     )
     def _name(self):
         return self.name_with_synonym()
+
+    @MaintainedModel.setter(
+        generation=3,
+        update_field_name="label_combo",
+        parent_field_name="infusates",
+        update_label="label_combo",
+    )
+    def _label_combo(self):
+        return self.LABELS_COMBO_DELIMITER.join(
+            [str(label.element) for label in self.labels.order_by("element")]
+        )
 
     def name_with_synonym(self, synonym=None):
         """This will create the same name that _name does, but it will use the supplied compound synonym instead (after

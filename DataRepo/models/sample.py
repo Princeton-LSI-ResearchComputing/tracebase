@@ -14,6 +14,8 @@ class Sample(MaintainedModel, HierCachedModel):
     parent_related_key_name = "animal"
     child_related_key_names = ["msrun_samples", "fcircs"]
 
+    detail_name = "sample_detail"
+
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -28,6 +30,7 @@ class Sample(MaintainedModel, HierCachedModel):
     researcher = models.CharField(
         max_length=256,
         help_text='The name of the researcher who prepared the sample (e.g. "Alex Medina").',
+        verbose_name="Sample Owner",
     )
     animal = models.ForeignKey(
         to="DataRepo.Animal",
@@ -127,3 +130,9 @@ class Sample(MaintainedModel, HierCachedModel):
     @classmethod
     def is_a_blank(cls, sample_name):
         return "blank" in sample_name.lower()
+
+    def get_absolute_url(self):
+        """Get the URL to the detail page.
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        from django.urls import reverse
+        return reverse(self.detail_name, kwargs={"pk": self.pk})

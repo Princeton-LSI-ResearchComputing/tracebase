@@ -42,6 +42,9 @@ class AnimalLabel(HierCachedModel):
             )
         ]
 
+    def __str__(self):
+        return str(self.element)
+
     @property  # type: ignore
     @cached_function
     def tracers(self):
