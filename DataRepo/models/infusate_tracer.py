@@ -63,4 +63,3 @@ class InfusateTracer(MaintainedModel):
         to update, so we leave out the update_field_name argument to the decorator.
         """
         pass
-
