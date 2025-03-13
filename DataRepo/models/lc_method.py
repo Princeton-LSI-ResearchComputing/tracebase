@@ -16,6 +16,7 @@ class LCMethod(models.Model):
     The LCMethod class is a Django model of the concept of a liquid
     chromatography methodology
     """
+
     detail_name = "lcmethod_detail"
 
     DEFAULT_TYPE = "unknown"
@@ -139,6 +140,8 @@ class LCMethod(models.Model):
 
     def get_absolute_url(self):
         """Get the URL to the detail page.
-        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
         from django.urls import reverse
+
         return reverse(self.detail_name, kwargs={"pk": self.pk})

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from functools import reduce
 import math
+from functools import reduce
 from typing import TYPE_CHECKING, Optional
 
 from django.core.exceptions import ValidationError
@@ -570,6 +570,8 @@ class Infusate(MaintainedModel, HierCachedModel):
 
     def get_absolute_url(self):
         """Get the URL to the detail page.
-        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url"""
+        See: https://docs.djangoproject.com/en/5.1/ref/models/instances/#get-absolute-url
+        """
         from django.urls import reverse
+
         return reverse(self.detail_name, kwargs={"pk": self.pk})
