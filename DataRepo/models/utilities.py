@@ -200,3 +200,7 @@ def update_rec(rec: Model, rec_dict: dict):
         setattr(rec, fld, val)
     rec.full_clean()
     rec.save()
+
+
+def get_detail_url_name(model_object: Model):
+    return resolve(model_object.get_absolute_url()).url_name
