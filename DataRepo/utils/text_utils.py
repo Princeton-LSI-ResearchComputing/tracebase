@@ -1,3 +1,4 @@
+import re
 import textwrap
 from typing import Optional, Union
 
@@ -499,3 +500,49 @@ def sigfigfilter(
     query_dict[upper_bound_key] = greater_value
 
     return query_dict
+
+
+def camel_to_title(string: str, delim: str = " "):
+    """Example: camel_to_title('MSRunSample') -> 'MS Run Sample'"""
+    return delim.join(re.split(r"(?<!^)(?=[A-Z][a-z])", string))
+
+
+def underscored_to_title(string: str, delim: str = " "):
+    """Example: underscored_to_title('this_is_a__function_tEST') -> 'This is a Function tEST'"""
+    # See: https://prowritingaid.com/list-of-words-not-capitalized-in-titles
+    subsequent_lowers = [
+        "a",
+        "and",
+        "as",
+        "at",
+        "but",
+        "by",
+        "down",
+        "for",
+        "from",
+        "if",
+        "in",
+        "into",
+        "like",
+        "near",
+        "nor",
+        "of",
+        "off",
+        "on",
+        "once",
+        "onto",
+        "or",
+        "over",
+        "past",
+        "so",
+        "than",
+        "that",
+        "to",
+        "upon",
+        "when",
+        "with",
+        "yet",
+        "is",  # My exception
+    ]
+    words: str = re.split(r"(?:_+)", string)
+    return delim.join([w.title() if (i == 0 or w.islower()) and w not in subsequent_lowers else w for i, w in enumerate(words)])
