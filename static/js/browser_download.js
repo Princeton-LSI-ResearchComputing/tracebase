@@ -13,46 +13,26 @@
  * https://ourcodeworld.com/articles/read/189/how-to-create-a-file-and-generate-a-download-with-javascript-in-the-browser-without-a-server
  */
 function browserDownloadText (filename, text) { // eslint-disable-line no-unused-vars
-  const element = document.createElement('a');
-  element.setAttribute('href', 'data:text/plain;base64,' + encodeURIComponent(text));
-  element.setAttribute('download', filename);
-  element.style.display = 'none';
-  document.body.appendChild(element);
-  element.click();
-  document.body.removeChild(element);
+  const element = document.createElement('a')
+  element.setAttribute('href', 'data:text/plain;base64,' + encodeURIComponent(text))
+  element.setAttribute('download', filename)
+  element.style.display = 'none'
+  document.body.appendChild(element)
+  element.click()
+  document.body.removeChild(element)
 }
 
 function browserDownloadExcel (filename, base64Text) { // eslint-disable-line no-unused-vars
-  const element = document.createElement('a');
+  const element = document.createElement('a')
   element.setAttribute(
     'href',
     'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + encodeURIComponent(base64Text)
-  );
-  element.setAttribute('download', filename);
-  element.style.display = 'none';
-  document.body.appendChild(element);
-  element.click();
-  document.body.removeChild(element);
-}
-
-function browserDownloadBase64 (filename, content, type) { // eslint-disable-line no-unused-vars
-  if (type === 'text') {
-    browserDownloadText(filename, content);
-  } else if (type === 'excel') {
-    browserDownloadExcel(filename, content);
-  } else {
-    console.error("Download type invalid: " + type);
-  }
-}
-
-function browserDownloadBase64 (filename, content, type) { // eslint-disable-line no-unused-vars
-  if (type === 'text') {
-    browserDownloadText(filename, content)
-  } else if (type === 'excel') {
-    browserDownloadExcel(filename, content)
-  } else {
-    console.error('Download type invalid: ' + type)
-  }
+  )
+  element.setAttribute('download', filename)
+  element.style.display = 'none'
+  document.body.appendChild(element)
+  element.click()
+  document.body.removeChild(element)
 }
 
 function browserDownloadBase64 (filename, content, type) { // eslint-disable-line no-unused-vars

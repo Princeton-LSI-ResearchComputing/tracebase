@@ -58,6 +58,6 @@ function deleteCookie (name) { // eslint-disable-line no-unused-vars
  */
 function deleteCookies (names) { // eslint-disable-line no-unused-vars
   for (let i = 0; i < names.length; i++) {
-    deleteCookie(names[i]);
+    deleteCookie(names[i])
   }
 }
