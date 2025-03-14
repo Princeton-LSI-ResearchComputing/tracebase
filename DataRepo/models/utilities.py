@@ -1,12 +1,18 @@
 import importlib
-from typing import List, Optional, Type, Union
 import warnings
+from typing import List, Optional, Type, Union
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db.models import Model, Field
+from django.db.models import Field, Model
+from django.db.models.fields.related_descriptors import (
+    ForwardManyToOneDescriptor,
+    ManyToManyDescriptor,
+    ReverseManyToOneDescriptor,
+)
+from django.db.models.query_utils import DeferredAttribute
 from django.urls import resolve
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -115,25 +121,76 @@ def get_all_fields_named(target_field):
     return found_fields
 
 
-def get_field_from_model_path(model: Type[Model], path: Union[str, List[str]]) -> Optional[Field]:
+def resolve_field(
+    field: Union[
+        Field,
+        DeferredAttribute,
+        ForwardManyToOneDescriptor,
+        ManyToManyDescriptor,
+        ReverseManyToOneDescriptor,
+    ]
+):
+    """A field at the end of a model path can be a deferred attribute or any of a series of 4 descriptors.  This method
+    takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied field).
+    """
+    field_containers = [
+        DeferredAttribute,
+        ForwardManyToOneDescriptor,
+        ManyToManyDescriptor,
+        ReverseManyToOneDescriptor,
+    ]
+    return (
+        field.field if any(isinstance(field, fc) for fc in field_containers) else field
+    )
+
+
+def is_many_related(field: Field, source_model: Optional[Model] = None):
+    """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
+    model, (which is assumed to the the model where the field was defined, if source_model is None).
+    """
+    return (
+        field.many_to_many
+        or (
+            source_model is not None
+            and (
+                (source_model == field.related_model and field.many_to_one)
+                or (source_model != field.related_model and field.one_to_many)
+            )
+        )
+        or (source_model is None and field.one_to_many)
+    )
+
+
+def field_path_to_field(
+    model: Type[Model], path: Union[str, List[str]]
+) -> Optional[Field]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
-    the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc."""
+    the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
+    """
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return get_field_from_model_path(model, path.split("__"))
+        return field_path_to_field(model, path.split("__"))
     if len(path) == 1:
         if hasattr(model, path[0]):
-            return getattr(model, path[0])
-        raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
-    attr = getattr(model, path[0])
-    many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
-    next_model = attr.field.model if many_related else attr.field.related_model
-    print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
-    return get_field_from_model_path(next_model, path[1:])
+            return resolve_field(getattr(model, path[0]))
+        raise ValueError(
+            f"Model: {model.__name__} does not have a field attribute named: '{path[0]}'."
+        )
+    return field_path_to_field(get_next_model(model, path[0]), path[1:])
 
 
-def field_path_to_model_path(model: Type[Model], path: Union[str, List[str]], _output: str = "") -> Optional[str]:
+def get_next_model(current_model: Model, field_name: str):
+    """Given a current model and a foreign key field name from a field path, return the model associated with the
+    field.
+    """
+    field = resolve_field(getattr(current_model, field_name))
+    return field.model if current_model != field.model else field.related_model
+
+
+def field_path_to_model_path(
+    model: Type[Model], path: Union[str, List[str]], _output: str = ""
+) -> Optional[str]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the path to the model at the
     end of the path (excluding the field).  The utility here is to be able to supply all related models to
     prefetch_related."""
@@ -144,54 +201,47 @@ def field_path_to_model_path(model: Type[Model], path: Union[str, List[str]], _o
     new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
     if len(path) == 1:
         if hasattr(model, path[0]):
-            tail = getattr(model, path[0])
-            if tail.__class__.__name__ in ["DeferredAttribute", "ForwardManyToOneDescriptor", "ManyToManyDescriptor", "ReverseManyToOneDescriptor", "ReverseManyToManyDescriptor"]:
-                tail = tail.field
-            try:
-                if tail.is_relation:
-                    return new_output
-                else:
-                    return _output if _output != "" else None
-            except AttributeError as ae:
-                print(f"{tail.__class__.__name__} ATTRIBUTES: {dir(tail)}")
-                raise ae
-        raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
-    attr = getattr(model, path[0])
-    many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
-    next_model = attr.field.model if many_related else attr.field.related_model
-    print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
-    return field_path_to_model_path(next_model, path[1:], new_output)
+            tail = resolve_field(getattr(model, path[0]))
+            if tail.is_relation:
+                return new_output
+            else:
+                return _output if _output != "" else None
+        raise ValueError(
+            f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
+        )
+    return field_path_to_model_path(
+        get_next_model(model, path[0]), path[1:], new_output
+    )
 
 
-def model_path_to_related_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
+def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the model class at the end of
     the path."""
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return model_path_to_related_model(model, path.split("__"))
+        return model_path_to_model(model, path.split("__"))
     if len(path) == 1:
         if hasattr(model, path[0]):
-            tail = getattr(model, path[0])
-            if tail.__class__.__name__ in ["DeferredAttribute", "ForwardManyToOneDescriptor", "ManyToManyDescriptor", "ReverseManyToOneDescriptor", "ReverseManyToManyDescriptor"]:
-                tail = tail.field
-            try:
-                if tail.is_relation:
-                    return tail.related_model
-                else:
-                    raise ValueError("Non-relation Field encountered: ''.  Only model paths are supported.  Use field_path_to_model_path.")
-            except AttributeError as ae:
-                print(f"{tail.__class__.__name__} ATTRIBUTES: {dir(tail)}")
-                raise ae
-        raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
-    attr = getattr(model, path[0])
-    many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
-    next_model = attr.field.model if many_related else attr.field.related_model
-    print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
-    return model_path_to_related_model(next_model, path[1:])
+            return get_next_model(model, path[0])
+        raise ValueError(
+            f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
+        )
+    return model_path_to_model(get_next_model(model, path[0]), path[1:])
 
 
-def is_string_field(field: Optional[Field], default: bool = False) -> bool:
+def is_string_field(
+    field: Optional[
+        Union[
+            Field,
+            DeferredAttribute,
+            ForwardManyToOneDescriptor,
+            ManyToManyDescriptor,
+            ReverseManyToOneDescriptor,
+        ]
+    ],
+    default: bool = False,
+) -> bool:
     str_field_names = [
         "CharField",
         "EmailField",
@@ -203,13 +253,23 @@ def is_string_field(field: Optional[Field], default: bool = False) -> bool:
         "UUIDField",
     ]
     if field is not None:
-        if field.__class__.__name__ == "DeferredAttribute":
-            field = field.field
+        field = resolve_field(field)
         return field.__class__.__name__ in str_field_names
     return default
 
 
-def is_number_field(field: Optional[Field], default: bool = False) -> bool:
+def is_number_field(
+    field: Optional[
+        Union[
+            Field,
+            DeferredAttribute,
+            ForwardManyToOneDescriptor,
+            ManyToManyDescriptor,
+            ReverseManyToOneDescriptor,
+        ]
+    ],
+    default: bool = False,
+) -> bool:
     num_field_names = [
         "AutoField",
         "BigAutoField",
@@ -224,16 +284,24 @@ def is_number_field(field: Optional[Field], default: bool = False) -> bool:
         "SmallIntegerField",
     ]
     if field is not None:
-        if field.__class__.__name__ == "DeferredAttribute":
-            field = field.field
+        field = resolve_field(field)
         return field.__class__.__name__ in num_field_names
     return default
 
 
-def is_unique_field(field: Optional[Field]) -> bool:
+def is_unique_field(
+    field: Optional[
+        Union[
+            Field,
+            DeferredAttribute,
+            ForwardManyToOneDescriptor,
+            ManyToManyDescriptor,
+            ReverseManyToOneDescriptor,
+        ]
+    ],
+) -> bool:
     if field is not None:
-        if field.__class__.__name__ == "DeferredAttribute":
-            field = field.field
+        field = resolve_field(field)
         return field.unique
     return False
 
