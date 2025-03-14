@@ -1,5 +1,6 @@
+import re
 import textwrap
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 
 def autowrap(text: str, default_width: int = 80, **kwargs):
@@ -499,3 +500,79 @@ def sigfigfilter(
     query_dict[upper_bound_key] = greater_value
 
     return query_dict
+
+
+def camel_to_title(string: str, delim: str = " "):
+    """Converts a camelcase-string to a word/acronym-delimited string.
+
+    Example:
+        camel_to_title('MSRunSample') -> 'MS Run Sample'
+    Args:
+        string (str): A camel-cased string containing words and acronyms potentially not delimited with whitespaces.
+        delim (str) [ ]: Output word delimiter.
+    Exceptions:
+        None
+    Returns:
+        (str): A string of delimited words that have been split up at every point before a capital letter followed by a
+            lower-case letter.
+    """
+    return delim.join(re.split(r"(?<!^)(?=[A-Z][a-z])", string))
+
+
+def underscored_to_title(string: str, delim: str = " "):
+    """Converts an underscore/space-string to a delimited title-case string, with exceptions (conventionally lowercased
+    words and words already containing capital letters).
+
+    Example:
+        underscored_to_title('this_is_a__function_tEST') -> 'This is a Function tEST'
+    Args:
+        string (str): An underscore or white-space-delimited string containing a capitalization mix of words
+        delim (str) [ ]: Output word delimiter.
+    Exceptions:
+        None
+    Returns:
+        (str): A delimited string of words converted to title-case if not already containing capital letters and not in
+            a static list of conventional uncapitalized title words.
+    """
+    # See: https://prowritingaid.com/list-of-words-not-capitalized-in-titles
+    subsequent_lowers = [
+        "a",
+        "and",
+        "as",
+        "at",
+        "but",
+        "by",
+        "down",
+        "for",
+        "from",
+        "if",
+        "in",
+        "into",
+        "like",
+        "near",
+        "nor",
+        "of",
+        "off",
+        "on",
+        "once",
+        "onto",
+        "or",
+        "over",
+        "past",
+        "so",
+        "than",
+        "that",
+        "to",
+        "upon",
+        "when",
+        "with",
+        "yet",
+        "is",  # My exception
+    ]
+    words: List[str] = re.split(r"(?:[\s_]+)", string)
+    return delim.join(
+        [
+            w.title() if (i == 0 or w.islower()) and w not in subsequent_lowers else w
+            for i, w in enumerate(words)
+        ]
+    )

@@ -1,6 +1,7 @@
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.text_utils import (
     autowrap,
+    camel_to_title,
     get_num_parts,
     getsigfig,
     iswhole,
@@ -8,6 +9,7 @@ from DataRepo.utils.text_utils import (
     sigfigceil,
     sigfigfilter,
     sigfigfloor,
+    underscored_to_title,
 )
 
 
@@ -189,4 +191,12 @@ class TextUtilsTests(TracebaseTestCase):
         self.assertDictEqual(
             {"field__gt": -1.45, "field__lte": -1.44},
             sigfigfilter(-1.445, "field", figures=3),
+        )
+
+    def test_camel_to_title(self):
+        self.assertEqual(camel_to_title("MSRunSample"), "MS Run Sample")
+
+    def test_underscored_to_title(self):
+        self.assertEqual(
+            underscored_to_title("this_is_a__function_tEST"), "This is a Function tEST"
         )
