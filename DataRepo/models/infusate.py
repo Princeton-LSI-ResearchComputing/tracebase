@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import math
 from functools import reduce
+import math
 from typing import TYPE_CHECKING, Optional
 
 from django.core.exceptions import ValidationError

@@ -16,7 +16,6 @@ class LCMethod(models.Model):
     The LCMethod class is a Django model of the concept of a liquid
     chromatography methodology
     """
-
     detail_name = "lcmethod_detail"
 
     DEFAULT_TYPE = "unknown"
