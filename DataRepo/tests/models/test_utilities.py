@@ -1,13 +1,29 @@
 from datetime import timedelta
 
 from django.apps import apps
+from django.db.models import CharField, Field, FloatField, ManyToManyField
+from django.db.models.query_utils import DeferredAttribute
 from django.forms import ValidationError, model_to_dict
 
-from DataRepo.models import LCMethod
+from DataRepo.models import ArchiveFile, LCMethod
+from DataRepo.models.animal import Animal
+from DataRepo.models.archive_file import DataFormat
+from DataRepo.models.peak_data import PeakData
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.study import Study
 from DataRepo.models.utilities import (
     dereference_field,
+    field_path_to_field,
+    field_path_to_model_path,
     get_all_models,
     get_model_by_name,
+    get_next_model,
+    is_many_related,
+    is_number_field,
+    is_string_field,
+    is_unique_field,
+    model_path_to_model,
+    resolve_field,
     update_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
@@ -102,3 +118,97 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         update_dict["run_length"] = timedelta(minutes=25)
         with self.assertRaises(ValidationError):
             update_rec(lcm, update_dict)
+
+    def test_resolve_field(self):
+        self.assertIsInstance(ArchiveFile.filename, DeferredAttribute)
+        self.assertIsInstance(resolve_field(ArchiveFile.filename), Field)
+
+    def test_is_many_related(self):
+        # "many related" means many to many or many to one
+        # ArchiveFile.filename is not a foreign key field, so it can't be many related
+        self.assertFalse(is_many_related(ArchiveFile.filename.field))
+        # The default is based on where the foreign key is defined (i.e. in ArchiveFile), so this is one to many, not
+        # many to ...
+        self.assertFalse(is_many_related(ArchiveFile.data_format.field))
+        # From the perspective of DataFormat, it is a many to ... relationship
+        self.assertTrue(is_many_related(ArchiveFile.data_format.field, DataFormat))
+        # The link from PeakGroup to ArchiveFile is one to many, but this asks if the link from the source model
+        # (PeakGroup) to ArchiveFile is many to ...
+        self.assertFalse(is_many_related(ArchiveFile.peak_groups.field, PeakGroup))
+        # The default is based on where the foreign key is defined (i.e. in PeakGroup)
+        self.assertFalse(is_many_related(ArchiveFile.peak_groups.field))
+        # But if we're asking from the perspective of ArchiveFile, it is many to ...
+        self.assertTrue(is_many_related(ArchiveFile.peak_groups.field, ArchiveFile))
+
+    def test_field_path_to_field(self):
+        ra_field = field_path_to_field(
+            ArchiveFile, "peak_groups__peak_data__raw_abundance"
+        )
+        self.assertIsInstance(ra_field, FloatField)
+        self.assertEqual("raw_abundance", ra_field.name)
+        # Many to many Foreign Key
+        studies_field = field_path_to_field(
+            ArchiveFile, "peak_groups__msrun_sample__sample__animal__studies"
+        )
+        self.assertIsInstance(studies_field, ManyToManyField)
+        self.assertEqual("studies", studies_field.name)
+        # Many to many field
+        study_name_field = field_path_to_field(
+            ArchiveFile, "peak_groups__msrun_sample__sample__animal__studies__name"
+        )
+        self.assertIsInstance(study_name_field, CharField)
+        self.assertEqual("name", study_name_field.name)
+
+    def test_get_next_model(self):
+        self.assertEqual(PeakGroup, get_next_model(ArchiveFile, "peak_groups"))
+        self.assertEqual(Study, get_next_model(Animal, "studies"))
+
+    def test_field_path_to_model_path(self):
+        self.assertEqual(
+            "peak_groups__peak_data",
+            field_path_to_model_path(
+                ArchiveFile, "peak_groups__peak_data__raw_abundance"
+            ),
+        )
+        self.assertEqual(
+            "peak_groups__peak_data",
+            field_path_to_model_path(ArchiveFile, "peak_groups__peak_data"),
+        )
+
+    def test_model_path_to_model(self):
+        # Reverse relation
+        self.assertEqual(
+            PeakData, model_path_to_model(ArchiveFile, "peak_groups__peak_data")
+        )
+        # Mixed Reverse/Forward relations
+        self.assertEqual(
+            Animal,
+            model_path_to_model(
+                ArchiveFile, "peak_groups__msrun_sample__sample__animal"
+            ),
+        )
+        # Many to many relation
+        self.assertEqual(
+            Study,
+            model_path_to_model(
+                ArchiveFile, "peak_groups__msrun_sample__sample__animal__studies"
+            ),
+        )
+
+    def test_is_string_field(self):
+        self.assertFalse(is_string_field(PeakData.raw_abundance))
+        self.assertFalse(is_string_field(PeakData.raw_abundance.field))
+        self.assertTrue(is_string_field(PeakGroup.name))
+        self.assertTrue(is_string_field(PeakGroup.name.field))
+
+    def test_is_number_field(self):
+        self.assertTrue(is_number_field(PeakData.raw_abundance))
+        self.assertTrue(is_number_field(PeakData.raw_abundance.field))
+        self.assertFalse(is_number_field(PeakGroup.name))
+        self.assertFalse(is_number_field(PeakGroup.name.field))
+
+    def test_is_unique_field(self):
+        self.assertFalse(is_unique_field(ArchiveFile.filename))
+        self.assertFalse(is_unique_field(ArchiveFile.filename.field))
+        self.assertTrue(is_unique_field(ArchiveFile.checksum))
+        self.assertTrue(is_unique_field(ArchiveFile.checksum.field))
