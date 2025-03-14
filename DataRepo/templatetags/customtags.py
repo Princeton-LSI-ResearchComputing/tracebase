@@ -1,5 +1,6 @@
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.db.models import Model
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
@@ -49,11 +50,24 @@ def index(indexable, i):
         v = indexable[i]
     except (TypeError, KeyError) as e:
         print(
-            f"Warning: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
+            f"WARNING: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
             f"Caught error: [{str(e)}].  Returning None.",
         )
         v = None
     return v
+
+
+@register.filter
+def has_detail_url(model_object_or_class):
+    return hasattr(model_object_or_class, "get_absolute_url")
+
+
+@register.filter
+def get_detail_url(model_object: Model):
+    url = model_object.get_absolute_url()
+    if url is not None and url != "":
+        return url
+    return None
 
 
 @register.simple_tag
@@ -242,9 +256,8 @@ def get_case_insensitive_synonyms(case_qs):
     return list(case_insensitive_dict.values())
 
 
-@register.simple_tag(
-    takes_context=True
-)  # Prepends context to submitted args (do not explicitly supply)
+# Prepends context to submitted args (do not explicitly supply)
+@register.simple_tag(takes_context=True)
 def get_template_cookie(context, template_name, cookie_name, cookie_default):
     request = context["request"]
     full_cookie_name = ".".join([template_name, cookie_name])

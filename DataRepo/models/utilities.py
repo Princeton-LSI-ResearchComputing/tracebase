@@ -6,6 +6,7 @@ from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Model
+from django.urls import resolve
 
 # Generally, child tables are at the top and parent tables are at the bottom
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
@@ -200,3 +201,7 @@ def update_rec(rec: Model, rec_dict: dict):
         setattr(rec, fld, val)
     rec.full_clean()
     rec.save()
+
+
+def get_detail_url_name(model_object: Model):
+    return resolve(model_object.get_absolute_url()).url_name
