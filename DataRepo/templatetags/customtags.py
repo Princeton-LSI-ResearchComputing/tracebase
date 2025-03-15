@@ -1,6 +1,16 @@
+from datetime import datetime
+from typing import List, Optional, Union
+
 from django import template
-from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.core.exceptions import (
+    MultipleObjectsReturned,
+    ObjectDoesNotExist,
+    FieldError,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.db.models import Model
+from django.http import Http404
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
@@ -43,6 +53,30 @@ def decimalPlaces(number, places):
     return floatformat(number, places)
 
 
+@register.filter
+def multiply(left, right):
+    try:
+        return float(left) * float(right)
+    except (ValueError, TypeError) as e:
+        print(
+            f"WARNING: multiplication of '{left}' * '{right}' failed. ",
+            f"Caught error: [{str(e)}].  Returning '{left}'.",
+        )
+        return left
+
+
+@register.filter
+def intmultiply(left, right):
+    try:
+        return int(float(left) * float(right))
+    except (ValueError, TypeError) as e:
+        print(
+            f"WARNING: multiplication of '{left}' * '{right}' failed. ",
+            f"Caught error: [{str(e)}].  Returning '{left}'.",
+        )
+        return int(left)
+
+
 # This allows indexing a list or dict
 @register.filter
 def index(indexable, i):
@@ -57,6 +91,20 @@ def index(indexable, i):
     return v
 
 
+# This allows indexing an attribute from an object with a variable
+@register.filter
+def get_attr(object, attr, default=None):
+    try:
+        v = getattr(object, attr, default)
+    except (TypeError, KeyError) as e:
+        print(
+            f"WARNING: Lookup performed on object: '{object}' with attribute: '{attr}'. ",
+            f"Caught error: [{type(e).__name__}: {str(e)}].  Returning default '{default}'.",
+        )
+        v = default
+    return v
+
+
 @register.filter
 def has_detail_url(model_object_or_class):
     return hasattr(model_object_or_class, "get_absolute_url")
@@ -68,6 +116,12 @@ def get_detail_url(model_object: Model):
     if url is not None and url != "":
         return url
     return None
+
+
+@register.filter
+def is_model_obj(field):
+    # Based on
+    return isinstance(field, Model)
 
 
 @register.simple_tag
@@ -118,8 +172,9 @@ def createDict():
 
 
 @register.simple_tag
-def addToDict(theDict, theKey, theVal):
-    theDict[theKey] = theVal
+def addToDict(theDict: dict, theKey, theVal, overwrite=False):
+    if overwrite or (overwrite is False and theKey not in theDict.keys()):
+        theDict[theKey] = theVal
     # We don't need to return the dict, because the one created by createDict is still in memory and will reflect this
     # addition, but we don't want there to be a visible effect in the template either, so return an empty string
     return ""
@@ -220,6 +275,24 @@ def convert_iso_date(value):
 
 
 @register.filter
+def format_date(date: Union[datetime, str], fmt: str):
+    return dateparse.parse_datetime(str(date)).strftime(fmt) if date is not None else None
+
+
+@register.simple_tag
+def append_unique(lst: list, val):
+    if val is not None and val not in lst:
+        lst.append(val)
+    return ""
+
+
+@register.simple_tag
+def append(lst: list, val):
+    lst.append(val)
+    return ""
+
+
+@register.filter
 def duration_iso_to_mins(value):
     if value is None:
         return None
@@ -297,10 +370,19 @@ def get_serum_tracer_peak_groups_first_searched(qry):
 
 @register.filter
 def gt(x, y):
-    """
-    This is here to get around htmlhint's spec-char-escape error even though {% if x > y %} works.
-    """
-    return x > y
+    """This is here to get around htmlhint's spec-char-escape error even though {% if x > y %} works."""
+    # Treat None as lesser and equal to itself
+    if x is None and y is None:
+        return False
+    elif x is None or y is None:
+        return x is not None
+    return ((x is None) != (y is None) and x is not None) or x > y
+
+
+@register.filter
+def lte(x, y):
+    """This is here to get around htmlhint's spec-char-escape error even though {% if x < y %} works."""
+    return x <= y
 
 
 @register.simple_tag
@@ -356,7 +438,7 @@ def get_model_rec_by_id(mdl_name, pk):
 
 
 @register.filter
-def polarity_name_to_sign(name):
+def polarity_name_to_sign(name:str):
     if name is None:
         return None
     elif name.lower().startswith("p"):
@@ -414,6 +496,14 @@ def display_filter(filter):
     ncmp = filter["queryGroup"][0]["ncmp"]
     val = filter["queryGroup"][0]["val"]
     return f"{ncmp} {val}"
+
+
+@register.simple_tag
+def log(*args, timestamp: bool = True):
+    """Print the args to the server log.  Intended for debugging template performance."""
+    if timestamp:
+        print(f"{datetime.now()}: ", end="")
+    print(*args)
 
 
 class NotYetImplemented(Exception):
