@@ -1,6 +1,7 @@
 from urllib.parse import unquote
 
-from django.core.paginator import PageNotAnInteger, EmptyPage, Paginator
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+
 
 def get_cookie(request, cookie_name, cookie_default=None):
     val = request.COOKIES.get(cookie_name, "")
@@ -57,8 +58,9 @@ class ZipBuffer:
 
 
 class GracefulPaginator(Paginator):
-    """This derived class of Paginator prevents page not found errors by defaulting to page 1 when the page is either
-    out of range or not a number."""
+    """This derived class of Paginator prevents page not found errors by defaulting to page 1 when the page is not a
+    number or the last lage if it is out of range."""
+
     # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
     def page(self, num):
         try:

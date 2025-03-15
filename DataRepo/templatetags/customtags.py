@@ -1,16 +1,9 @@
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import Union
 
 from django import template
-from django.core.exceptions import (
-    MultipleObjectsReturned,
-    ObjectDoesNotExist,
-    FieldError,
-    ObjectDoesNotExist,
-    ValidationError,
-)
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Model
-from django.http import Http404
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
@@ -55,6 +48,7 @@ def decimalPlaces(number, places):
 
 @register.filter
 def multiply(left, right):
+    """Multiply operator"""
     try:
         return float(left) * float(right)
     except (ValueError, TypeError) as e:
@@ -67,6 +61,7 @@ def multiply(left, right):
 
 @register.filter
 def intmultiply(left, right):
+    """Multiply and int the result"""
     try:
         return int(float(left) * float(right))
     except (ValueError, TypeError) as e:
@@ -77,9 +72,9 @@ def intmultiply(left, right):
         return int(left)
 
 
-# This allows indexing a list or dict
 @register.filter
 def index(indexable, i):
+    """This allows you to index a list, tuple, dict, etc. using a template variable."""
     try:
         v = indexable[i]
     except (TypeError, KeyError) as e:
@@ -91,9 +86,9 @@ def index(indexable, i):
     return v
 
 
-# This allows indexing an attribute from an object with a variable
 @register.filter
 def get_attr(object, attr, default=None):
+    """This allows you to get an attribute of an object using a template variable."""
     try:
         v = getattr(object, attr, default)
     except (TypeError, KeyError) as e:
@@ -107,11 +102,13 @@ def get_attr(object, attr, default=None):
 
 @register.filter
 def has_detail_url(model_object_or_class):
+    """Check if a model object or class has a get_absolute_url method."""
     return hasattr(model_object_or_class, "get_absolute_url")
 
 
 @register.filter
 def get_detail_url(model_object: Model):
+    """Get a model object's detail URL."""
     url = model_object.get_absolute_url()
     if url is not None and url != "":
         return url
@@ -120,7 +117,7 @@ def get_detail_url(model_object: Model):
 
 @register.filter
 def is_model_obj(field):
-    # Based on
+    """Determine if a template variable is a model object."""
     return isinstance(field, Model)
 
 
@@ -276,11 +273,13 @@ def convert_iso_date(value):
 
 @register.filter
 def format_date(date: Union[datetime, str], fmt: str):
-    return dateparse.parse_datetime(str(date)).strftime(fmt) if date is not None else None
+    fdate = dateparse.parse_datetime(str(date))
+    return fdate.strftime(fmt) if fdate is not None else str(date)
 
 
 @register.simple_tag
 def append_unique(lst: list, val):
+    """Append a value to a list if it's not already in the list."""
     if val is not None and val not in lst:
         lst.append(val)
     return ""
@@ -288,6 +287,7 @@ def append_unique(lst: list, val):
 
 @register.simple_tag
 def append(lst: list, val):
+    """Append a value to a list."""
     lst.append(val)
     return ""
 
@@ -371,17 +371,19 @@ def get_serum_tracer_peak_groups_first_searched(qry):
 @register.filter
 def gt(x, y):
     """This is here to get around htmlhint's spec-char-escape error even though {% if x > y %} works."""
-    # Treat None as lesser and equal to itself
+    # Treat Nones as negative infinity - always lesser than not None.
+    # Nones are equal
     if x is None and y is None:
         return False
     elif x is None or y is None:
+        # Treat None as lesser and equal to itself
         return x is not None
-    return ((x is None) != (y is None) and x is not None) or x > y
+    return x > y
 
 
 @register.filter
 def lte(x, y):
-    """This is here to get around htmlhint's spec-char-escape error even though {% if x < y %} works."""
+    """This is here to get around htmlhint's spec-char-escape error even though {% if x <= y %} works."""
     return x <= y
 
 
@@ -438,7 +440,7 @@ def get_model_rec_by_id(mdl_name, pk):
 
 
 @register.filter
-def polarity_name_to_sign(name:str):
+def polarity_name_to_sign(name: str):
     if name is None:
         return None
     elif name.lower().startswith("p"):
