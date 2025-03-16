@@ -1,11 +1,22 @@
 from django.core.management import call_command
+from django.utils import dateparse
 
 from DataRepo.models import CompoundSynonym, MaintainedModel, PeakGroup, Study
 from DataRepo.templatetags.customtags import (
+    append,
+    append_unique,
     compile_stats,
     display_filter,
+    format_date,
+    get_attr,
     get_case_insensitive_synonyms,
+    get_detail_url,
     get_many_related_rec,
+    has_detail_url,
+    intmultiply,
+    is_model_obj,
+    lte,
+    multiply,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
@@ -106,3 +117,58 @@ class CustomTagsTests(TracebaseTestCase):
             "short": "testing (9), try...",
         }
         self.assertEqual(got, expected)
+
+    def test_multiply(self):
+        self.assertEqual(6.2, multiply(2.0, 3.1))
+
+    def test_intmultiply(self):
+        self.assertEqual(6, intmultiply(2.0, 3.1))
+
+    def test_get_attr(self):
+        s = Study.objects.first()
+        self.assertEqual(s.name, get_attr(s, "name"))
+
+    def test_has_detail_url(self):
+        self.assertTrue(has_detail_url(Study.objects.first()))
+        self.assertTrue(has_detail_url(Study))
+        self.assertFalse(has_detail_url(CompoundSynonym))
+
+    def test_get_detail_url(self):
+        s = Study.objects.first()
+        self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_detail_url(s))
+
+    def test_is_model_obj(self):
+        self.assertTrue(is_model_obj(Study.objects.first()))
+        self.assertFalse(is_model_obj(Study))
+        self.assertFalse(is_model_obj("Study"))
+
+    def test_format_date(self):
+        self.assertEqual("1977.02.11", format_date("1977-02-11", "%Y.%m.%d"))
+        self.assertEqual(
+            "1977.02.11",
+            format_date(dateparse.parse_datetime("1977-02-11"), "%Y.%m.%d"),
+        )
+        # dateparse.parse_datetime cannot parse "Feb 11, 1977".  Fallback is the input date
+        self.assertEqual("Feb 11, 1977", format_date("Feb 11, 1977", "%Y-$m-%d"))
+
+    def test_append_unique(self):
+        lst = [1, 2, 3]
+        self.assertEqual("", append_unique(lst, 4))
+        self.assertEqual([1, 2, 3, 4], lst)
+        append_unique(lst, 3)
+        self.assertEqual([1, 2, 3, 4], lst)
+
+    def test_append(self):
+        lst = [1, 2, 3]
+        self.assertEqual("", append(lst, 4))
+        self.assertEqual([1, 2, 3, 4], lst)
+        append(lst, 4)
+        self.assertEqual([1, 2, 3, 4, 4], lst)
+
+    def test_lte(self):
+        self.assertTrue(lte(3, 4))
+        self.assertTrue(lte(4, 4))
+        self.assertFalse(lte(5, 4))
+        self.assertTrue(lte("a", "b"))
+        self.assertTrue(lte("b", "b"))
+        self.assertFalse(lte("c", "b"))
