@@ -17,6 +17,10 @@ yamllint==1.35.1
 # note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
 types-PyYAML>=6.0.12.12
 
+# For reasonable pylint output on the command line:
+# pylint --rcfile .pylintrc --load-plugins pylint_django --django-settings-module TraceBase.settings -d E1101 ...
+pylint-django
+
 # MKDocs for building docs
 mkdocs>=1.4.2
 mkdocs-roamlinks-plugin>=0.1.3
