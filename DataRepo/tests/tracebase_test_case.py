@@ -4,7 +4,7 @@ import os
 import shutil
 import time
 from collections import defaultdict
-from typing import Type
+from typing import Type, TypeVar
 
 from django.conf import settings
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -36,6 +36,7 @@ TEST_MODULE_REPLACEMENT = ("DataRepo", "DataRepo.tests")
 LONG_TEST_THRESH_SECS = 20
 LONG_TEST_ALERT_STR = f" [ALERT > {LONG_TEST_THRESH_SECS}]"
 
+T = TypeVar("T", TestCase, TransactionTestCase)
 
 # See: https://stackoverflow.com/a/61345284/2057516
 if "unittest.util" in __import__("sys").modules:
@@ -43,7 +44,7 @@ if "unittest.util" in __import__("sys").modules:
     __import__("sys").modules["unittest.util"]._MAX_LENGTH = 999999999
 
 
-def test_case_class_factory(base_class) -> Type[TestCase]:
+def test_case_class_factory(base_class: Type[T]) -> Type[T]:
     """
     Class creation factory where the base class is an argument.  Note, it must receive a TestCase-compatible class.
     """
@@ -51,7 +52,7 @@ def test_case_class_factory(base_class) -> Type[TestCase]:
     # The default django test client will cause a 301 error for every get/post when SECURE_SSL_REDIRECT=True
     # https://stackoverflow.com/questions/49626899/
     @override_settings(SECURE_SSL_REDIRECT=False)
-    class TracebaseTestCaseTemplate(base_class):
+    class TracebaseTestCaseTemplate(base_class):  # type: ignore
         """
         This wrapper of both TestCase and TransactionTestCase makes the necessary/desirable settings for all test
         classes and implements running time reporting.
@@ -138,8 +139,10 @@ def reportRunTime(id, startTime):
 
 
 # Classes created by the factory with different base classes:
-TracebaseTestCase: TestCase = test_case_class_factory(TestCase)
-TracebaseTransactionTestCase: TestCase = test_case_class_factory(TransactionTestCase)
+TracebaseTestCase: Type[TestCase] = test_case_class_factory(TestCase)
+TracebaseTransactionTestCase: Type[TransactionTestCase] = test_case_class_factory(
+    TransactionTestCase
+)
 
 
 @override_settings(
