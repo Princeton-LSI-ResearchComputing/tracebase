@@ -125,7 +125,8 @@ class CustomTagsTests(TracebaseTestCase):
         self.assertEqual(6, intmultiply(2.0, 3.1))
 
     def test_get_attr(self):
-        self.assertEqual("Small OBOB", get_attr(Study.objects.first(), "name"))
+        s = Study.objects.first()
+        self.assertEqual(s.name, get_attr(s, "name"))
 
     def test_has_detail_url(self):
         self.assertTrue(has_detail_url(Study.objects.first()))
@@ -133,7 +134,8 @@ class CustomTagsTests(TracebaseTestCase):
         self.assertFalse(has_detail_url(CompoundSynonym))
 
     def test_get_detail_url(self):
-        self.assertEqual("/DataRepo/studies/1/", get_detail_url(Study.objects.first()))
+        s = Study.objects.first()
+        self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_detail_url(s))
 
     def test_is_model_obj(self):
         self.assertTrue(is_model_obj(Study.objects.first()))
