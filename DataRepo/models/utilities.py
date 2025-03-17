@@ -169,32 +169,20 @@ def get_field_from_model_path(model: Type[Model], path: Union[str, List[str]]) -
 #     return field_path_to_model_path(next_model, path[1:], new_output)
 
 
-def model_path_to_related_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
+def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the model class at the end of
     the path."""
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return model_path_to_related_model(model, path.split("__"))
+        return model_path_to_model(model, path.split("__"))
     if len(path) == 1:
         if hasattr(model, path[0]):
-            tail = getattr(model, path[0])
-            if tail.__class__.__name__ in ["DeferredAttribute", "ForwardManyToOneDescriptor", "ManyToManyDescriptor", "ReverseManyToOneDescriptor", "ReverseManyToManyDescriptor"]:
-                tail = tail.field
-            try:
-                if tail.is_relation:
-                    return tail.related_model
-                else:
-                    raise ValueError("Non-relation Field encountered: ''.  Only model paths are supported.  Use field_path_to_model_path.")
-            except AttributeError as ae:
-                print(f"{tail.__class__.__name__} ATTRIBUTES: {dir(tail)}")
-                raise ae
-        raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
-    attr = getattr(model, path[0])
-    many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
-    next_model = attr.field.model if many_related else attr.field.related_model
-    print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
-    return model_path_to_related_model(next_model, path[1:])
+            return get_next_model(model, path[0])
+        raise ValueError(
+            f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
+        )
+    return model_path_to_model(get_next_model(model, path[0]), path[1:])
 
 
 def is_string_field(field: Optional[Field], default: bool = False) -> bool:

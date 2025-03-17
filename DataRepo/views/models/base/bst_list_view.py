@@ -19,8 +19,8 @@ from django.template import loader
 from django.utils.functional import classproperty
 from django.views.generic import ListView
 
-from DataRepo.models.utilities import field_path_to_field, field_path_to_model_path, get_field_from_model_path, is_many_related, is_number_field, is_string_field, is_unique_field, model_path_to_related_model
-from DataRepo.utils.exceptions import MutuallyExclusiveArgs
+from DataRepo.models.utilities import field_path_to_field, field_path_to_model_path, get_field_from_model_path, is_many_related, is_number_field, is_string_field, is_unique_field, model_path_to_model
+from DataRepo.utils.exceptions import AggregatedErrors, MutuallyExclusiveArgs
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.utils import GracefulPaginator, get_cookie, reduceuntil
 
@@ -1274,6 +1274,7 @@ class BootstrapTableListView(ListView):
         # TODO: I can add the count annotation name to the column and set the related_limit to stop at that many and save a ton of time!!!
         if col.mm_count is not None and (getattr(rec, col.mm_count, related_limit) < related_limit or related_limit == 0):
             related_limit = getattr(rec, col.mm_count)
+            print(f"STOPPING {rec.pk} SEARCH FOR {col.name} AT {related_limit}")
 
         # Get the annotated version (because it's faster to skip the rigor below if it is None)
         val, _, _ = self._get_rec_val_helper(rec, col.name.split("__"))
@@ -1313,7 +1314,7 @@ class BootstrapTableListView(ListView):
 
         return val
 
-    def _get_many_related_rec_val_helper(
+    def _get_many_related_rec_val_helperTEST(  # Tried this for speed. Didn't really work.  Same speed
         self,
         rec: Model,
         field: str,
@@ -1340,7 +1341,7 @@ class BootstrapTableListView(ListView):
         print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC {rec.pk} AND SORT FIELD '{sort_field}'")
 
         related_model_path = field_path_to_model_path(rec.__class__, field)
-        related_model = model_path_to_related_model(rec.__class__, related_model_path)
+        related_model = model_path_to_model(rec.__class__, related_model_path)
         if field != related_model_path:
             distinct_fields = [field]
         else:
@@ -1398,7 +1399,8 @@ class BootstrapTableListView(ListView):
         #         "consider accounting for this case somehow and removing this try/except block."
         #     ).with_traceback(e.__traceback__)
 
-    def _get_many_related_rec_val_helperOLD(
+    # AHHHHH!!! MY TEST FIX OF reduceuntil using many_related iterators WORKED!. This now is faster than _get_many_related_rec_val_helperTEST above, which was fairly fast (though still twice as slow as the initial version where all the logic was embedded in the template)
+    def _get_many_related_rec_val_helper(  # OLD
         self,
         rec: Model,
         field: str,
@@ -1487,7 +1489,7 @@ class BootstrapTableListView(ListView):
             (Optional[Union[List[Any], Any]]): A list if passing through a populated many-related model or a field
                 value.
         """
-        print(f"_get_rec_val_helper CALLED WITH FIELD '{field_path}' ON A {type(rec).__name__} REC {rec.pk} AND SORT FIELD '{sort_field_path}'")
+        print(f"_get_rec_val_helper CALLED WITH FIELD '{field_path}' ON A {type(rec).__name__} REC {rec.pk} AND SORT FIELD '{sort_field_path}' RELATED LIMIT {related_limit}")
         if len(field_path) == 0 or rec is None:
             # print(f"field_path {field_path} cannot be an empty list and rec '{rec}' cannot be None.")
             return None, None, None
@@ -1521,26 +1523,32 @@ class BootstrapTableListView(ListView):
 
 
                 # TESTING THIS CODE... SEE COMMENTED PORTION BELOW
-                lst = list(
-                    (
-                        rec,  # Model object is the value returned
-                        # Each rec gets its own sort value.
-                        self.lower(self._get_rec_val_helper(rec, sort_field_path[1:])[0]) if sort_field_path is not None and len(sort_field_path) > 1 else str(rec).lower(),
-                        rec.pk,  # We don't need pk for uniqueness when including model objects, but callers expect it
-                    )
+                uniq_vals = reduceuntil(
+                    lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                    lambda val: related_limit is not None and len(val) >= related_limit,
                     # DOING .all() here, followed by a reduce below, is MUCH faster than calling .distinct()
                     # for rec in val_or_rec.distinct()
-                    for rec in val_or_rec.all()
+                    # [
+                    #     (
+                    #         rec,  # Model object is the value returned
+                    #         # Each rec gets its own sort value.
+                    #         self.lower(self._get_rec_val_helper(rec, sort_field_path[1:])[0]) if sort_field_path is not None and len(sort_field_path) > 1 else str(rec).lower(),
+                    #         rec.pk,  # We don't need pk for uniqueness when including model objects, but callers expect it
+                    #     ) for rec in val_or_rec.all()
+                    # ],
+                    self.many_rec_iterator(val_or_rec, sort_field_path),
+                    [],
                 )
-                uniq_vals = [
-                    rec_tpl
-                    for rec_tpl in reduceuntil(
-                        lambda ulst, val: ulst + [val] if val not in ulst else ulst,
-                        lambda val: related_limit is not None and len(val) >= related_limit,
-                        lst,
-                        [],
-                    )
-                ]
+                print(f"GOT {len(uniq_vals)} UNIQUE VALS. The limit was {related_limit}")
+                # uniq_vals = [
+                #     rec_tpl
+                #     for rec_tpl in reduceuntil(
+                #         lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                #         lambda val: related_limit is not None and len(val) >= related_limit,
+                #         lst,
+                #         [],
+                #     )
+                # ]
                 return uniq_vals
 
 
@@ -1617,34 +1625,29 @@ class BootstrapTableListView(ListView):
             _sort_val = sort_val
 
         if type(val_or_rec).__name__ == "RelatedManager" or type(val_or_rec).__name__ == "ManyRelatedManager":
-            if val_or_rec.count() > 0:
-                possibly_nested_list = list(
-                    self._get_rec_val_helper(
-                        rel_rec,
-                        field_path[1:],
-                        related_limit=related_limit,
-                        sort_field_path=next_sort_field_path,
-                        _sort_val=_sort_val,
-                    )
-                    # for rel_rec in val_or_rec.distinct()
-                    for rel_rec in val_or_rec.all()
+            if val_or_rec.exists() > 0:
+                uniq_vals = reduceuntil(
+                    lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                    lambda val: related_limit is not None and len(val) >= related_limit,
+                    self.inner_many_rec_iterator(val_or_rec, field_path, next_sort_field_path, related_limit, _sort_val),
+                    [],
                 )
-                if len(possibly_nested_list) == 0 or not isinstance(possibly_nested_list[0], list):
-                    return possibly_nested_list
-                lst = list(item for sublist in possibly_nested_list for item in sublist)
+                # if len(possibly_nested_list) == 0 or not isinstance(possibly_nested_list[0], list):
+                #     return possibly_nested_list
+                # lst = list(item for sublist in possibly_nested_list for item in sublist)
 
 
 
-                # TESTING THIS CODE... SEE COMMENTED PORTION BELOW
-                uniq_vals = [
-                    rec_tpl
-                    for rec_tpl in reduceuntil(
-                        lambda ulst, val: ulst + [val] if val not in ulst else ulst,
-                        lambda val: related_limit is not None and len(val) >= related_limit,
-                        lst,
-                        [],
-                    )
-                ]
+                # # TESTING THIS CODE... SEE COMMENTED PORTION BELOW
+                # uniq_vals = [
+                #     rec_tpl
+                #     for rec_tpl in reduceuntil(
+                #         lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                #         lambda val: related_limit is not None and len(val) >= related_limit,
+                #         lst,
+                #         [],
+                #     )
+                # ]
 
 
 
@@ -1653,11 +1656,13 @@ class BootstrapTableListView(ListView):
 
 
 
+                print(f"GOT {len(uniq_vals)} INNER UNIQUE VALS. The limit was {related_limit}")
 
                 # print(f"RETURNING 1 {type(uniq_vals).__name__}.{type(uniq_vals[0]).__name__}: {uniq_vals}")
                 return uniq_vals
             return []
 
+        print("RETURNING ALONG THE CHAIN")
         # TODO: I should probably use reduce here and remove the call to reduce from _get_many_related_rec_val_helper, because I think it will otherwise be called a few times in a row (from other places in this method and in _get_many_related_rec_val_helper)
         return self._get_rec_val_helper(
             val_or_rec,
@@ -1666,6 +1671,33 @@ class BootstrapTableListView(ListView):
             sort_field_path=next_sort_field_path,
             _sort_val=_sort_val,
         )
+
+    def many_rec_iterator(self, mrrec, sort_field_path):
+        print(AggregatedErrors.get_trace())
+        print(f"many_rec_iterator 1")
+        for rec in mrrec.all():
+            print(f"many_rec_iterator 2")
+            yield (
+                rec,  # Model object is the value returned
+                # Each rec gets its own sort value.
+                self.lower(self._get_rec_val_helper(rec, sort_field_path[1:])[0]) if sort_field_path is not None and len(sort_field_path) > 1 else str(rec).lower(),
+                rec.pk,  # We don't need pk for uniqueness when including model objects, but callers expect it
+            )
+
+    def inner_many_rec_iterator(self, imrrec, field_path, next_sort_field_path, related_limit, _sort_val):
+        print(AggregatedErrors.get_trace())
+        print(f"many_rec_iterator A")
+        for rel_rec in imrrec.distinct():
+            print(f"many_rec_iterator B")
+            # for rel_rec in val_or_rec.all()
+            for tpl in self._get_rec_val_helper(
+                rel_rec,
+                field_path[1:],
+                related_limit=related_limit,
+                sort_field_path=next_sort_field_path,
+                _sort_val=_sort_val,
+            ):
+                yield tpl
 
     @classmethod
     def lower(cls, val):
