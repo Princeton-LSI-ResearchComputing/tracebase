@@ -57,9 +57,12 @@ class ArchiveFileListView(BSTListView):
                 # "related_sort_fld": "data_format__name",
                 "header": "File Format",
             },
-            "pgstudies": {"field": "peak_groups__msrun_sample__sample__animal__studies", "many_related": True, "mm_list_name": "pgs"},
-            "mzstudies": {"field": "mz_to_msrunsamples__sample__animal__studies", "many_related": True, "mm_list_name": "mzs"},
-            "rwstudies": {"field": "raw_to_msrunsamples__sample__animal__studies", "many_related": True, "mm_list_name": "rws"},
+            "pgstudies_count": {"converter": Count("peak_groups__msrun_sample__sample__animal__studies", distinct=True)},
+            "mzstudies_count": {"converter": Count("mz_to_msrunsamples__sample__animal__studies", distinct=True)},
+            "rwstudies_count": {"converter": Count("raw_to_msrunsamples__sample__animal__studies", distinct=True)},
+            "pgstudies": {"field": "peak_groups__msrun_sample__sample__animal__studies", "many_related": True, "mm_list_name": "pgs", "mm_count_annot_name": "pgstudies_count"},
+            "mzstudies": {"field": "mz_to_msrunsamples__sample__animal__studies", "many_related": True, "mm_list_name": "mzs", "mm_count_annot_name": "mzstudies_count"},
+            "rwstudies": {"field": "raw_to_msrunsamples__sample__animal__studies", "many_related": True, "mm_list_name": "rws", "mm_count_annot_name": "rwstudies_count"},
             # "study": {
             #     "many_related": True,
             #     "field": [

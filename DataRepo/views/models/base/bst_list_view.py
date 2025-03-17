@@ -1271,6 +1271,10 @@ class BootstrapTableListView(ListView):
         if not col.many_related:
             raise ValueError(f"Column {col.name} is not many-related.")
 
+        # TODO: I can add the count annotation name to the column and set the related_limit to stop at that many and save a ton of time!!!
+        if col.mm_count is not None and (getattr(rec, col.mm_count, related_limit) < related_limit or related_limit == 0):
+            related_limit = getattr(rec, col.mm_count)
+
         # Get the annotated version (because it's faster to skip the rigor below if it is None)
         val, _, _ = self._get_rec_val_helper(rec, col.name.split("__"))
         if val is None or isinstance(val, list) and len(val) == 0:

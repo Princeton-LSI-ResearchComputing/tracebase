@@ -105,6 +105,7 @@ class BootstrapTableColumn:
         sort_nocase: bool = False,  # Case insensitive sort
         many_related_delim: str = DEF_DELIM,
         mm_list_name: str = None,
+        mm_count_annot_name: int = None,
         strict_select: Optional[bool] = None,
         # Tell BSTListView to link the column's values the detail page via object.get_absolute_url
         link_to_detail: Optional[bool] = None,
@@ -283,6 +284,7 @@ class BootstrapTableColumn:
         self.validate()
 
         self.mm_list = mm_list_name
+        self.mm_count = mm_count_annot_name
 
     def __str__(self):
         return self.render_th()
