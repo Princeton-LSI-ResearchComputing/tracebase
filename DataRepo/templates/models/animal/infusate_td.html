@@ -1,0 +1,9 @@
+<td>
+    {% if object.infusate is None %}
+        <span class="text-muted">None</span>
+    {% else %}
+        <a href="{{ object.infusate.get_absolute_url }}">
+            <span class="newlines">{{ object.infusate.pretty_name }}</span>
+        </a>
+    {% endif %}
+</td>

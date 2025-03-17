@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Archive Files{% endblock %}
 
@@ -6,71 +7,138 @@
 <h4>List of Archive Files</h4>
 <br>
 <div>
-    {% if archive_file_list %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
-        id="file_list"
+        id="{{ table_id }}"
         data-toggle="table"
-        data-buttons-class="primary"
         data-buttons-align="left"
+        data-buttons-class="primary"
+        data-buttons="customButtonsFunction"
+        data-export-types="['csv', 'txt', 'excel']"
+        data-export-data-type="all"
         data-filter-control="true"
         data-search="true"
         data-search-align="left"
+        data-search-on-enter-key="true"
+        data-search-text="{{ search_term }}"
+        data-sort-name="{{ order_by }}"
+        data-sort-order="{{ order_dir }}"
         data-show-search-clear-button="true"
         data-show-multi-sort="true"
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
-        data-show-export="true"
-        data-export-types="['csv', 'txt', 'excel']"
-        data-export-data-type="all"
-        data-height="1200"
-        data-virtual-scroll="true"
-        data-pagination="true"
-        data-page-size="25"
-        data-page-list="[25, 50, 100, 200, 500, All]">
+        data-show-export="false">
         <thead>
             <tr>
-                <th data-field="AccuCor-File-Name" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">AccuCor File Name</th>
-                <th data-field="File-Import-Timestamp" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
-                <th data-field="File-Format" data-filter-control="input" data-sortable="true">File Format</th>
-                <th data-field="PeakGroup-Data" data-valign="top" data-sortable="false">Peak Group Data</th>
-                <th data-field="Peakdata" data-valign="top" data-sortable="false">Peak Data</th>
+                {{ filename }}
+                {{ imported_timestamp_str }}
+                {{ data_type__name }}
+                {{ data_format__name }}
+                {{ first_study }}
+                {{ peak_groups__id }}
+                {{ peak_data }}
             </tr>
         </thead>
         <tbody>
             {% for archive_file in archive_file_list %}
                 <tr>
                     <td><a href="{% url 'archive_file_detail' archive_file.pk %}">{{ archive_file.filename }}</a></td>
-                    <td>{{ archive_file.imported_timestamp }}</td>
+                    <td>{{ archive_file.imported_timestamp_str }}</td>
+                    <td>{{ archive_file.data_type.name }}</td>
                     <td>{{ archive_file.data_format.name }}</td>
                     <td>
-                        {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
-                        {% elif archive_file.data_format.code == "ms_raw" %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
-                        {% elif archive_file.data_format.code == "mzxml" %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
+                        <!-- Hidden value for sorting -->
+                        <span style="display:none">{{ archive_file.first_study }}</span>
+                        {# Rendering performance of this template is dramatically improved by only rendering archive_file.first_study when the study_count annotation is greater than 1. #}
+                        {% if archive_file.study_count|gt:1 %}
+                            {# Collect all the studies (when there's more than 1) #}
+                            {% with studies=""|make_list %}
+                                {# This assumes that all the peak groups or msrunsample records that link to this peak annotation ArchiveFile record link to the same Animal, and hence, studies #}
+                                {% if archive_file.data_format.code == "mzxml" %}
+                                    {% for msrs in archive_file.mz_to_msrunsamples.all %}
+                                        {% for study in msrs.sample.animal.studies.all %}
+                                            {% append_unique studies study %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% elif archive_file.data_format.code == "ms_raw" %}
+                                    {% for msrs in archive_file.raw_to_msrunsamples.all %}
+                                        {% for study in msrs.sample.animal.studies.all %}
+                                            {% append_unique studies study %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% elif archive_file.data_type.code == "ms_peak_annotation" %}
+                                    {% for pg in archive_file.peak_groups.all %}
+                                        {% for study in pg.msrun_sample.sample.animal.studies.all %}
+                                            {% append_unique studies study %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% endif %}
+
+                                {% if order_dir|lower == "desc" %}
+                                    {% for study in studies|dictsortreversed:"name" %}
+                                        <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    {% for study in studies|dictsort:"name" %}
+                                        <a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% if not forloop.last %};<br>{% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endwith %}
+                        {% elif archive_file.first_study %}
+                            <a href="{% url 'study_detail' archive_file.first_study_id %}">{{ archive_file.first_study }}</a>
                         {% else %}
-                            No peak groups are linked to this file
+                            <span title="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file, so the associated study cannot be linked.  (There may be other files with this same name that are linked.)" class="text-muted">None</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if archive_file.data_type.code == "ms_peak_annotation" %}
-                            <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a></h5>
+                            {% if archive_file.peak_groups.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
                         {% elif archive_file.data_format.code == "ms_raw" %}
-                            <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Group Data</a></h5>
+                            {% if archive_file.raw_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
                         {% elif archive_file.data_format.code == "mzxml" %}
-                            <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Group Data</a></h5>
+                            {% if archive_file.mz_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Groups</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">None</a>
+                            {% endif %}
                         {% else %}
-                            No peak data are linked to this file
+                            <span title="No peak group records are linked to this file" class="text-muted">None</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if archive_file.data_type.code == "ms_peak_annotation" %}
+                            {% if archive_file.peak_groups.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'PeakAnnotationFile' 'id' 'iexact' archive_file.id 'peakdata' %}">None</a>
+                            {% endif %}
+                        {% elif archive_file.data_format.code == "ms_raw" %}
+                            {% if archive_file.raw_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'RAWFile' 'id' 'iexact' archive_file.id 'peakdata' %}">None</a>
+                            {% endif %}
+                        {% elif archive_file.data_format.code == "mzxml" %}
+                            {% if archive_file.mz_to_msrunsamples.count|gt:0 %}
+                                <a href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">Peak Data</a>
+                            {% else %}
+                                <a title="No peak group records are linked to this file, probably because it was not used in the production of a peak annotation file. Click to search for peak groups linked to other files that have the same name." class="text-muted" href="{% url 'search_basic' 'MZFile' 'id' 'iexact' archive_file.id 'peakdata' %}">None</a>
+                            {% endif %}
+                        {% else %}
+                            <span title="No peak data records are linked to this file" class="text-muted">None</span>
                         {% endif %}
                     </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-        <p>There are no Archive Files.</p>
-    {% endif %}
 </div>
 {% endblock %}

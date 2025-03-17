@@ -1,0 +1,8 @@
+# {{ table }}
+# Time: {{ date }}
+# Rows: {{ total }}
+# Global Search Term: {% if search %}'{{ search }}'{% else %}None{% endif %}
+# Column Filters: {% for filter in filters %}
+#   {{ filter.column }}: '{{ filter.filter }}'{% empty %}None{% endfor %}
+# Sort: {{ sort }}
+#

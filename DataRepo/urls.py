@@ -34,6 +34,7 @@ from .views import (
     PeakDataListView,
     InfusateListView,
     InfusateDetailView,
+    TracerListView,
 )
 
 urlpatterns = [
@@ -154,4 +155,5 @@ urlpatterns = [
         InfusateDetailView.as_view(),
         name=InfusateDetailView.model.detail_name,
     ),
+    path("tracers/", TracerListView.as_view(), name="tracer_list"),
 ]

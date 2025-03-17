@@ -8,6 +8,12 @@ from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Model, Field
 from django.urls import resolve
+from django.db.models.fields.related_descriptors import (
+    ForwardManyToOneDescriptor,
+    ManyToManyDescriptor,
+    ReverseManyToOneDescriptor,
+)
+from django.db.models.query_utils import DeferredAttribute
 
 # Generally, child tables are at the top and parent tables are at the bottom
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
@@ -133,34 +139,34 @@ def get_field_from_model_path(model: Type[Model], path: Union[str, List[str]]) -
     return get_field_from_model_path(next_model, path[1:])
 
 
-def field_path_to_model_path(model: Type[Model], path: Union[str, List[str]], _output: str = "") -> Optional[str]:
-    """Recursive method to take a root model and a dunderscore-delimited path and return the path to the model at the
-    end of the path (excluding the field).  The utility here is to be able to supply all related models to
-    prefetch_related."""
-    if len(path) == 0:
-        raise ValueError("path string/list must have a non-zero length.")
-    if isinstance(path, str):
-        return field_path_to_model_path(model, path.split("__"))
-    new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
-    if len(path) == 1:
-        if hasattr(model, path[0]):
-            tail = getattr(model, path[0])
-            if tail.__class__.__name__ in ["DeferredAttribute", "ForwardManyToOneDescriptor", "ManyToManyDescriptor", "ReverseManyToOneDescriptor", "ReverseManyToManyDescriptor"]:
-                tail = tail.field
-            try:
-                if tail.is_relation:
-                    return new_output
-                else:
-                    return _output if _output != "" else None
-            except AttributeError as ae:
-                print(f"{tail.__class__.__name__} ATTRIBUTES: {dir(tail)}")
-                raise ae
-        raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
-    attr = getattr(model, path[0])
-    many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
-    next_model = attr.field.model if many_related else attr.field.related_model
-    print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
-    return field_path_to_model_path(next_model, path[1:], new_output)
+# def field_path_to_model_path(model: Type[Model], path: Union[str, List[str]], _output: str = "") -> Optional[str]:
+#     """Recursive method to take a root model and a dunderscore-delimited path and return the path to the model at the
+#     end of the path (excluding the field).  The utility here is to be able to supply all related models to
+#     prefetch_related."""
+#     if len(path) == 0:
+#         raise ValueError("path string/list must have a non-zero length.")
+#     if isinstance(path, str):
+#         return field_path_to_model_path(model, path.split("__"))
+#     new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
+#     if len(path) == 1:
+#         if hasattr(model, path[0]):
+#             tail = getattr(model, path[0])
+#             if tail.__class__.__name__ in ["DeferredAttribute", "ForwardManyToOneDescriptor", "ManyToManyDescriptor", "ReverseManyToOneDescriptor", "ReverseManyToManyDescriptor"]:
+#                 tail = tail.field
+#             try:
+#                 if tail.is_relation:
+#                     return new_output
+#                 else:
+#                     return _output if _output != "" else None
+#             except AttributeError as ae:
+#                 print(f"{tail.__class__.__name__} ATTRIBUTES: {dir(tail)}")
+#                 raise ae
+#         raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
+#     attr = getattr(model, path[0])
+#     many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
+#     next_model = attr.field.model if many_related else attr.field.related_model
+#     print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
+#     return field_path_to_model_path(next_model, path[1:], new_output)
 
 
 def model_path_to_related_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
@@ -329,3 +335,96 @@ def update_rec(rec: Model, rec_dict: dict):
 
 def get_detail_url_name(model_object: Model):
     return resolve(model_object.get_absolute_url()).url_name
+
+
+def field_path_to_model_path(
+    model: Type[Model], path: Union[str, List[str]], _output: str = ""
+) -> Optional[str]:
+    """Recursive method to take a root model and a dunderscore-delimited path and return the path to the model at the
+    end of the path (excluding the field).  The utility here is to be able to supply all related models to
+    prefetch_related."""
+    if len(path) == 0:
+        raise ValueError("path string/list must have a non-zero length.")
+    if isinstance(path, str):
+        return field_path_to_model_path(model, path.split("__"))
+    new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
+    if len(path) == 1:
+        if hasattr(model, path[0]):
+            tail = resolve_field(getattr(model, path[0]))
+            if tail.is_relation:
+                return new_output
+            else:
+                return _output if _output != "" else None
+        raise ValueError(
+            f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
+        )
+    return field_path_to_model_path(
+        get_next_model(model, path[0]), path[1:], new_output
+    )
+
+
+def get_next_model(current_model: Model, field_name: str):
+    """Given a current model and a foreign key field name from a field path, return the model associated with the
+    field.
+    """
+    field = resolve_field(getattr(current_model, field_name))
+    return field.model if current_model != field.model else field.related_model
+
+
+def resolve_field(
+    field: Union[
+        Field,
+        DeferredAttribute,
+        ForwardManyToOneDescriptor,
+        ManyToManyDescriptor,
+        ReverseManyToOneDescriptor,
+    ]
+):
+    """A field at the end of a model path can be a deferred attribute or any of a series of 4 descriptors.  This method
+    takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied field).
+    """
+    field_containers = [
+        DeferredAttribute,
+        ForwardManyToOneDescriptor,
+        ManyToManyDescriptor,
+        ReverseManyToOneDescriptor,
+    ]
+    return (
+        field.field if any(isinstance(field, fc) for fc in field_containers) else field
+    )
+
+
+def field_path_to_field(
+    model: Type[Model], path: Union[str, List[str]]
+) -> Optional[Field]:
+    """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
+    the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
+    """
+    if len(path) == 0:
+        raise ValueError("path string/list must have a non-zero length.")
+    if isinstance(path, str):
+        return field_path_to_field(model, path.split("__"))
+    if len(path) == 1:
+        if hasattr(model, path[0]):
+            return resolve_field(getattr(model, path[0]))
+        raise ValueError(
+            f"Model: {model.__name__} does not have a field attribute named: '{path[0]}'."
+        )
+    return field_path_to_field(get_next_model(model, path[0]), path[1:])
+
+
+def is_many_related(field: Field, source_model: Optional[Model] = None):
+    """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
+    model, (which is assumed to the the model where the field was defined, if source_model is None).
+    """
+    return (
+        field.many_to_many
+        or (
+            source_model is not None
+            and (
+                (source_model == field.related_model and field.many_to_one)
+                or (source_model != field.related_model and field.one_to_many)
+            )
+        )
+        or (source_model is None and field.one_to_many)
+    )
