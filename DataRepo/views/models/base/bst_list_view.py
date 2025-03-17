@@ -1314,7 +1314,7 @@ class BootstrapTableListView(ListView):
 
         return val
 
-    def _get_many_related_rec_val_helperTEST(  # Tried this for speed. Didn't really work.  Same speed
+    def _get_many_related_rec_val_helper(  # Tried this for speed. Didn't really work.  Same speed
         self,
         rec: Model,
         field: str,
@@ -1400,7 +1400,8 @@ class BootstrapTableListView(ListView):
         #     ).with_traceback(e.__traceback__)
 
     # AHHHHH!!! MY TEST FIX OF reduceuntil using many_related iterators WORKED!. This now is faster than _get_many_related_rec_val_helperTEST above, which was fairly fast (though still twice as slow as the initial version where all the logic was embedded in the template)
-    def _get_many_related_rec_val_helper(  # OLD
+    # UGH, well, it didn't do that well on dev.  First load took 1m, then every subsequent load took 20s.  Not sure what the deal is there.  AND, a 10 row page takes about 4s!  Sheesh.  What is the deal?!
+    def _get_many_related_rec_val_helperOLD(  # OLD
         self,
         rec: Model,
         field: str,
@@ -1662,7 +1663,6 @@ class BootstrapTableListView(ListView):
                 return uniq_vals
             return []
 
-        print("RETURNING ALONG THE CHAIN")
         # TODO: I should probably use reduce here and remove the call to reduce from _get_many_related_rec_val_helper, because I think it will otherwise be called a few times in a row (from other places in this method and in _get_many_related_rec_val_helper)
         return self._get_rec_val_helper(
             val_or_rec,
