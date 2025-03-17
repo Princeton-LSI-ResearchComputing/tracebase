@@ -436,7 +436,8 @@ class BootstrapTableListView(ListView):
 
     # THIS WORKS!!!
     def paginate_queryset(self, *args, **kwargs):
-        """An override of the superclass method intended to only set total and raw_total instance attributes."""
+        """An override of the superclass method intended to create attributes on the base model containing a list of
+        related objects."""
         print("CALLING PAGINATE_QUERYSET")
         paginator, page, object_list, is_paginated = super().paginate_queryset(*args, **kwargs)
         for rec in object_list:
@@ -1334,8 +1335,8 @@ class BootstrapTableListView(ListView):
         """
         print(f"_get_many_related_rec_val_helper CALLED WITH FIELD '{field}' ON A {type(rec).__name__} REC {rec.pk} AND SORT FIELD '{sort_field}'")
 
-        related_model = model_path_to_related_model(rec.__class__, field)
         related_model_path = field_path_to_model_path(rec.__class__, field)
+        related_model = model_path_to_related_model(rec.__class__, related_model_path)
         if field != related_model_path:
             distinct_fields = [field]
         else:
