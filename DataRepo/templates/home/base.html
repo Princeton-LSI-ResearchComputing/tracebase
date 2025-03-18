@@ -1,0 +1,39 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block head_extras %}
+    {{ block.super }}
+    <style>
+        .bg-card-1 {
+            background-color: #fef5ed;
+        }
+        .bg-card-2 {
+            background-color: #eff3ee;
+        }
+    </style>
+
+    {% endblock %}
+
+{% block content %}
+<div>
+    <div style="text-align: center;"><img src="{% static 'images/logo.png' %}" alt="TraceBase" width="700"></div>
+    <br>
+    <h4>TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to quantify metabolism in vivo. Lab members submit peak data exported from El-Maven and processed by AccuCor or IsoCorr, along with details about their experiment. TraceBase computes useful metrics such as enrichment, normalized labeling, and estimated FCirc (rate of appearance/disappearance), making it simple to browse, collate, compare, and download the data.
+    </h4>
+</div>
+<br>
+<div class="row">
+    {% for card_row in card_grid %}
+        {% for i in card_row %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            {% include "home/obj_count_link_card.html" %}
+        </div>
+        {% endfor %}
+    {% endfor %}
+</div>
+<br>
+<div>
+    {% include "home/leaderboards.html" %}
+</div>
+
+{% endblock %}

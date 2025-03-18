@@ -16,7 +16,7 @@ class InfusateViewTests(ModelViewTests):
         ).first()
         response = self.client.get(reverse("infusate_detail", args=[infusate.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/infusate_detail.html")
+        self.assertTemplateUsed(response, "models/infusate/infusate_detail.html")
 
     @tag("compound")
     def test_infusate_detail_404(self):
@@ -28,7 +28,7 @@ class InfusateViewTests(ModelViewTests):
     def test_infusate_list(self):
         response = self.client.get(reverse("infusate_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/infusate_list.html")
+        self.assertTemplateUsed(response, "models/infusate/infusate_list.html")
         self.assertEqual(len(response.context["infusate_list"]), 1)
         self.assertEqual(len(response.context["df"]), 1)
 

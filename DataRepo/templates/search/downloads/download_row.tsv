@@ -1,0 +1,1 @@
+{% if qry.selectedtemplate == "pgtemplate" %}{% include "search/downloads/peakgroups_row.tsv" %}{% elif qry.selectedtemplate == "pdtemplate" %}{% include "search/downloads/peakdata_row.tsv" %}{% elif qry.selectedtemplate == "fctemplate" %}{% include "search/downloads/fcirc_row.tsv" %}{% endif %}

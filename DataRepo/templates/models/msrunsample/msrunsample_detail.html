@@ -1,0 +1,36 @@
+{% extends "base/base.html" %}
+
+{% block title %}MS Run Sample Record - {{ msrun_sample }}{% endblock %}
+
+{% block content %}
+<div>
+    <h4>MS Run Sample Record - {{ msrun_sample }}</h4>
+    <br>
+    <table class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Sample</td>
+            <td><a href="{% url 'sample_detail' msrun_sample.sample.id %}">{{ msrun_sample.sample.name }}</a></td>
+        </tr>
+        <tr>
+            <td>MS Run Sequence</td>
+            <td><a href="{% url 'msrunsequence_detail' msrun_sample.msrun_sequence.id %}">{{ msrun_sample.msrun_sequence }}</a></td>
+        </tr>
+        <tr>
+            <td>Polarity</td>
+            <td>{% if msrun_sample.polarity %}{{ msrun_sample.polarity }}{% else %}None{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Raw File</td>
+            <td>{% if msrun_sample.ms_raw_file %}<a href="{% url 'archive_file_detail' msrun_sample.ms_raw_file.id %}">{{ msrun_sample.ms_raw_file }}</a>{% else %}None{% endif %}</td>
+        </tr>
+        <tr>
+            <td>MZ File</td>
+            <td>{% if msrun_sample.ms_data_file %}<a href="{% url 'archive_file_detail' msrun_sample.ms_data_file.id %}">{{ msrun_sample.ms_data_file }}</a>{% else %}None{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Peak Groups</td>
+            <td><a href="{% url 'peakgroup_list' %}?msrun_sample_id={{ msrun_sample.id }}">{{ msrun_sample.peak_groups.count }}</a></td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

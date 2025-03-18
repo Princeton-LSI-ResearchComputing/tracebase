@@ -1,0 +1,146 @@
+{% extends "base/base.html" %}
+{% load customtags %}
+{% load static %}
+
+{% block head_extras %}
+    {{ block.super }}
+
+    {% if mode != "view" %}
+
+        <!-- The hierarchical_formsets items were inspired by both:
+
+            - https://github.com/elo80ka/django-dynamic-formset/
+            - https://stackoverflow.com/questions/50736373/html-unlimited-hierarchy-input-to-form
+
+            The 2 were incompatible, so the result is a re-implementation of the stack one to add to the first one in pure javascript.
+
+        -->
+
+        <link href="{% static 'css/extras.css' %}" rel="stylesheet">
+        <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+        <script src="{% static 'js/hierarchical_formsets.js' %}"></script>
+
+        {{ root_group|json_script:"root_group" }} <!-- unpopulated qry object -->
+        {{ ncmp_choices|json_script:"ncmp_choices" }} <!-- dynamic ncmp select list population -->
+        {{ fld_types|json_script:"fld_types" }} <!-- dynamic ncmp select list population -->
+        {{ fld_choices|json_script:"fld_choices" }} <!-- dynamic fld select list population -->
+        {{ fld_units|json_script:"fld_units" }} <!-- dynamic units select list population -->
+
+        {% if qry %}
+            <!-- qry has a value when search results are being loaded.  It is used to reconstruct the search form, so the user
+                can tweak their search.  This tag (json_script) turns the qry dict into a json-ized HTML object that is
+                consumed by javascript below, which it injests via JSON.parse. -->
+
+            {{ qry|json_script:"initGroup" }} <!-- previous/executed qry object -->
+
+        {% endif %}
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function(){
+
+                // If a search has been performed, restore the form
+                {% if qry %}
+                    init(JSON.parse(document.getElementById('initGroup').textContent),
+                        JSON.parse(document.getElementById('ncmp_choices').textContent),
+                        JSON.parse(document.getElementById('fld_types').textContent),
+                        JSON.parse(document.getElementById('fld_choices').textContent),
+                        JSON.parse(document.getElementById('fld_units').textContent))
+                {% else %}
+                    init(JSON.parse(document.getElementById('root_group').textContent),
+                        JSON.parse(document.getElementById('ncmp_choices').textContent),
+                        JSON.parse(document.getElementById('fld_types').textContent),
+                        JSON.parse(document.getElementById('fld_choices').textContent),
+                        JSON.parse(document.getElementById('fld_units').textContent))
+                    {% if format and mode and mode == "browse" and not qry %}
+                        {% if format not in forms.keys %}
+                            rootGroup.selectedtemplate = "{{ default_format }}"
+                        {% else %}
+                            rootGroup.selectedtemplate = "{{ format }}"
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+                const allforms = document.querySelector('.hierarchical-search')
+                initializeRootSearchQuery(allforms)
+
+                var myform = document.getElementById("hierarchical-search-form")
+                myform.addEventListener("submit", function () {
+                    saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
+                    myform.submit();
+                })
+
+                {% if res %}
+                    var dlforms = document.getElementsByClassName("advanced-search-download-form");
+                    for (let i = 0; i < dlforms.length; i++) {
+                        let dlform = dlforms[i];
+                        dlform.querySelectorAll('button[id="advanced-download-submit"]')[0].addEventListener("click", function () {
+                            dlform.submit(function (event) {
+                                // Stop form from submitting normally
+                                event.preventDefault();
+                            })
+                        })
+                    }
+                {% endif %}
+
+            })
+        </script>
+
+    {% endif %}
+
+{% endblock %}
+
+{% block content %}
+    {% if mode != "view" %}
+
+        <div>
+            <h3>Advanced Search</h3>
+
+            {% for template_key in forms.keys %}
+                {% with forms|index:template_key as frm %}
+                    <!-- Form template for the given output format from django's forms.py -->
+                    {% with frm.empty_form as f %}
+                        <div id="{{ template_key }}" style="display:none;">
+                            {{ f.pos }}
+                            {{ f.static }}
+                            {{ f.fld }}
+                            {{ f.ncmp }}
+                            {{ f.val }}
+                            {{ f.units }}
+                            <label class="text-danger"> {{ f.val.errors }} </label>
+                        </div>
+                    {% endwith %}
+                {% endwith %}
+            {% endfor %}
+
+            <form action="/DataRepo/search_advanced/" id="hierarchical-search-form" method="POST">
+                {% csrf_token %}
+                <div class="hierarchical-search"></div>
+                <button type="submit" class="btn btn-primary" id="advanced-search-submit" name="advanced-search-submit">Search</button>
+                <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
+                {% with forms|index:default_format as managing_form %}
+                    {{ managing_form.errors.val }}
+                    {{ managing_form.management_form }}
+                {% endwith %}
+                <label id="formerror" class="text-danger temporal-text">{{ error }}</label>
+            </form>
+            <a id="browselink" href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>
+        </div>
+
+        {% if debug %}
+            The following only prints in DEBUG mode, controlled by settings.DEBUG:<br>
+            {% if qry %}
+                Query: {{ qry }}
+            {% else %}
+                Query was empty
+            {% endif %}
+        {% endif %}
+
+    {% else %}
+        <div>
+            <h3>Advanced Search Interface Disabled for This View</h3>
+            No search parameters available/provided.
+        </div>
+    {% endif %}
+
+    {% include "search/results/display.html" %}
+
+{% endblock %}

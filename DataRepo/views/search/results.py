@@ -7,7 +7,7 @@ def view_search_results(request, format, queryset):
     not allow the user to refine the search.  To do so would require a qry object.
     """
 
-    format_template = "DataRepo/search/query.html"
+    format_template = "search/query.html"
 
     return render(
         request,

@@ -24,7 +24,7 @@ from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import LCMethod, MSRunSequence, Researcher
 from DataRepo.utils.file_utils import date_to_string, is_excel
-from DataRepo.widgets import (
+from DataRepo.widgets.base import (
     AutoCompleteTextInput,
     MultipleFileInput,
     RowsPerPageSelectWidget,

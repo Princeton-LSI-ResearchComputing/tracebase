@@ -1,0 +1,52 @@
+{% extends "base/base.html" %}
+
+{% block title %}Peak Group Record - {{ peakgroup.name }}{% endblock %}
+
+{% block content %}
+<div>
+    <h4>Peak Group Record - {{ peakgroup.name }}</h4>
+    <br>
+    <table class="table table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Name</td>
+            <td>
+                {% for compound in peakgroup.compounds.all %}
+                    <a href="{% url 'compound_detail' compound.id %}">{{ compound.name }}</a>
+                        {% if not forloop.last %} / {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        <tr>
+            <td>Formula</td>
+            <td>{{ peakgroup.formula }}</td>
+        </tr>
+        <tr>
+            <td>Peak Annotation Filename</td>
+            <td>
+                {% if peakgroup.peak_annotation_file %}
+                <a href="{% url 'archive_file_detail' peakgroup.peak_annotation_file.id %}">
+                    {{ peakgroup.peak_annotation_file.filename }}
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>MS Run Sample</td>
+            <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample }}</a></td>
+        </tr>
+        <tr>
+            <td>Sample</td>
+            <td>
+                <a href="{% url 'sample_detail' peakgroup.msrun_sample.sample.id %}">
+                    {{ peakgroup.msrun_sample.sample.name }}
+                </a>
+            </td>
+        </tr>
+    </table>
+    <p>
+        <a href="{% url 'peakdata_list' %}?peak_group_id={{ peakgroup.id }}">
+            View {{ peakgroup.peak_data.count }} Peak Measurement Data
+        </a>
+    </p>
+</div>
+{% endblock %}

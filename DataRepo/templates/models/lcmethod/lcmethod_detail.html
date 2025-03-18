@@ -1,0 +1,29 @@
+{% extends "base/base.html" %}
+{% load customtags %}
+
+{% block title %}Liquid Chromatography Protocol Details - {{ lcmethod.name }}{% endblock %}
+
+{% block content %}
+<div>
+    <h3>Liquid Chromoatography Protocol Details - <span class="fst-italic">{{ lcmethod.name }}</span></h3>
+    <br>
+    <table class="table table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Name</td>
+            <td>{{ lcmethod.name }}</td>
+        </tr>
+        <tr>
+            <td>Method</td>
+            <td>{{ lcmethod.type }}</td>
+        </tr>
+        <tr>
+            <td>Run Legnth (m)</td>
+            <td>{{ lcmethod.run_length|durationToMins|decimalPlaces:0 }}</td>
+        </tr>
+        <tr>
+            <td>Description</td>
+            <td>{{ lcmethod.description }}</td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

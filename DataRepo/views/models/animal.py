@@ -9,7 +9,7 @@ class AnimalListView(ListView):
 
     model = Animal
     context_object_name = "animal_list"
-    template_name = "DataRepo/animal_list.html"
+    template_name = "models/animal/animal_list.html"
     ordering = ["name"]
 
     def get_context_data(self, **kwargs):
@@ -28,7 +28,7 @@ class AnimalDetailView(DetailView):
     """Generic class-based detail view for an animal"""
 
     model = Animal
-    template_name = "DataRepo/animal_detail.html"
+    template_name = "models/animal/animal_detail.html"
 
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context

@@ -13,7 +13,7 @@ class PeakGroupListView(ListView):
 
     queryset = PeakGroup.objects.all()
     context_object_name = "peakgroup_list"
-    template_name = "DataRepo/peakgroup_list.html"
+    template_name = "models/peakgroup/peakgroup_list.html"
     ordering = ["msrun_sample_id", "peak_annotation_file_id", "name"]
     paginate_by = 50
 
@@ -32,4 +32,4 @@ class PeakGroupDetailView(DetailView):
     """Generic class-based detail view for a peak group"""
 
     model = PeakGroup
-    template_name = "DataRepo/peakgroup_detail.html"
+    template_name = "models/peakgroup/peakgroup_detail.html"

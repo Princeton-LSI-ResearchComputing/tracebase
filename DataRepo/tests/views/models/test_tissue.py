@@ -13,7 +13,7 @@ class TissueViewTests(ModelViewTests):
     def test_tissue_list(self):
         response = self.client.get(reverse("tissue_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/tissue_list.html")
+        self.assertTemplateUsed(response, "models/tissue/tissue_list.html")
         self.assertEqual(len(response.context["tissue_list"]), self.ALL_TISSUES_COUNT)
 
     @tag("tissue")
@@ -21,7 +21,7 @@ class TissueViewTests(ModelViewTests):
         t1 = Tissue.objects.filter(name="brown_adipose_tissue").get()
         response = self.client.get(reverse("tissue_detail", args=[t1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/tissue_detail.html")
+        self.assertTemplateUsed(response, "models/tissue/tissue_detail.html")
         self.assertEqual(response.context["tissue"].name, "brown_adipose_tissue")
 
     @tag("tissue")

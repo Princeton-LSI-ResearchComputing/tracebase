@@ -1,0 +1,85 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load customtags %}
+
+{% block title %}Animal Record - {{ animal.name }}{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus1.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div>
+    <h4>Animal Record - {{ animal.name }}</h4>
+
+    <table id="animal_detail" class="table table-sm table-hover table-bordered table-striped" w-auto mw-100>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Genotype</th>
+                <th>Infusate</th>
+                <th>Infusion Rate (ul/min/g)</th>
+                <th>Treatment</th>
+                <th>Body Weight</th>
+                <th>Age (weeks)</th>
+                <th>Sex</th>
+                <th>Diet</th>
+                <th>Feeding Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ animal.name }}</td>
+                <td>{{ animal.genotype }}</td>
+                <td>
+                {% if animal.infusate_id %}
+                    <a href="{% url 'infusate_detail' animal.infusate_id %}">
+                        {{ animal.infusate }}
+                    </a>
+                {% else %}
+                    None
+                {% endif %}
+                </td>
+                <td>{{ animal.infusion_rate }}</td>
+                <td>
+                    {% if animal.treatment %}
+                        <a href="{% url 'protocol_detail' animal.treatment_id %}">{{ animal.treatment }}</a>
+                    {% else %}
+                        {{ animal.treatment }}
+                    {% endif %}
+                </td>
+                <td>{{ animal.body_weight }}</td>
+                <td>{{ animal.age|durationToWeeks }}</td>
+                <td>{{ animal.sex }}</td>
+                <td>{{ animal.diet }}</td>
+                <td>{{ animal.feeding_status }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakgroups' %}">Peak Groups</a></li>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakdata' %}">Peak Data</a></li>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'fcirc' %}">Fcirc Data</a></li>
+</div>
+<br>
+<div>
+    <h6>Sample Data for the Animal</h6>
+    {% with out_df=df %}
+        {% include "models/includes/animal_sample_msrun_table.html" %}
+    {% endwith %}
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
+    <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.60;
+        let vHeight = setTableHeight(divID, pctVH);
+        $('#sample_list').bootstrapTable({
+            height: vHeight,
+            virtualScroll: true
+        })
+    </script>
+{% endblock %}

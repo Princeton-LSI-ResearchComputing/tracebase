@@ -122,4 +122,4 @@ def home(request):
     context["card_grid"] = card_grid
     context["leaderboards"] = Researcher.leaderboard_data()
 
-    return render(request, "home.html", context)
+    return render(request, "home/base.html", context)

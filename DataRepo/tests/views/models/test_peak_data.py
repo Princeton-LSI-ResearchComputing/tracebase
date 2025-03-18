@@ -14,7 +14,7 @@ class PeakDataViewTests(ModelViewTests):
         response = self.client.get("/DataRepo/peakdata/")
         pd = PeakData.objects.all()
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/peakdata_list.html")
+        self.assertTemplateUsed(response, "models/peakdata/peakdata_list.html")
         self.assertEqual(len(response.context["peakdata_list"]), pd.count())
 
     def test_peakdata_list_per_peakgroup(self):
@@ -22,7 +22,7 @@ class PeakDataViewTests(ModelViewTests):
         pd1 = PeakData.objects.filter(peak_group_id=pg1.pk)
         response = self.client.get("/DataRepo/peakdata/?peak_group_id=" + str(pg1.pk))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/peakdata_list.html")
+        self.assertTemplateUsed(response, "models/peakdata/peakdata_list.html")
         self.assertEqual(len(response.context["peakdata_list"]), pd1.count())
 
 

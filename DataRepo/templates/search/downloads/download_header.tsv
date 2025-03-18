@@ -1,0 +1,2 @@
+{% include "search/downloads/search_metadata.txt" %}
+{% if qry.selectedtemplate == "pgtemplate" %}{% include "search/downloads/peakgroups_colheads.tsv" %}{% elif qry.selectedtemplate == "pdtemplate" %}{% include "search/downloads/peakdata_colheads.tsv" %}{% elif qry.selectedtemplate == "fctemplate" %}{% include "search/downloads/fcirc_colheads.tsv" %}{% endif %}

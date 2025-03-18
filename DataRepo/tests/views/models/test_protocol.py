@@ -22,7 +22,7 @@ class ProtocolViewTests(TracebaseTestCase):
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/animal_treatments.html")
+        self.assertTemplateUsed(response, "models/protocol/animal_treatments.html")
         self.assertEqual(len(response.context["animal_treatment_list"]), 8)
         self.assertTrue(
             any(

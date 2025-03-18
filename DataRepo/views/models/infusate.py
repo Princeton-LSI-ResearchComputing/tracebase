@@ -8,7 +8,7 @@ class InfusateDetailView(DetailView):
     """Generic class-based detail view for an infusate"""
 
     model = Infusate
-    template_name = "DataRepo/infusate_detail.html"
+    template_name = "models/infusate/infusate_detail.html"
 
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
@@ -30,7 +30,7 @@ class InfusateListView(ListView):
 
     model = Infusate
     context_object_name = "infusate_list"
-    template_name = "DataRepo/infusate_list.html"
+    template_name = "models/infusate/infusate_list.html"
     ordering = ["name"]
 
     def get_context_data(self, **kwargs):

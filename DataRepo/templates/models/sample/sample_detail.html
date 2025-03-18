@@ -1,0 +1,50 @@
+{% extends "base/base.html" %}
+
+{% block title %}Sample Record - {{ sample.name }}{% endblock %}
+
+{% block content %}
+<div>
+    <h4>Sample Record - {{ sample.name }}</h4>
+    <br>
+    <table id="sample_detail" class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Name</td>
+            <td>{{ sample.name }}</td>
+        </tr>
+        <tr>
+            <td>Collection Date</td>
+            <td>{{ sample.date }}</td>
+        </tr>
+        <tr>
+            <td>Researcher</td>
+            <td>{{ sample.researcher }}</td>
+        </tr>
+        <tr>
+            <td>Animal</td>
+            <td><a href="{% url 'animal_detail' sample.animal.id %}">{{ sample.animal.name }}</a></td>
+        </tr>
+        <tr>
+            <td>Tissue</td>
+            <td><a href="{% url 'tissue_detail' sample.tissue.id %}">{{ sample.tissue.name }}</a></td>
+        </tr>
+        <tr>
+            <td>Time Collected After Infusion (hh:mm:ss)</td>
+            <td>{{ sample.time_collected }}</td>
+        </tr>
+        <tr>
+            <td>Infusate</td>
+            <td>
+                {% if sample.animal.infusate_id %}
+                <a href="{% url 'infusate_detail' sample.animal.infusate_id %}">{{ sample.animal.infusate }}</a>
+                {% else %}
+                    None
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>Tracer Infusion Rate (ul/min/g)</td>
+            <td>{{ sample.animal.infusion_rate }}</td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

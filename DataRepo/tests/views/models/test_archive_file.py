@@ -11,7 +11,7 @@ class ArchiveFileViewTests(ModelViewTests):
     def test_archive_file_list(self):
         response = self.client.get(reverse("archive_file_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/archive_file_list.html")
+        self.assertTemplateUsed(response, "models/archive_file/archive_file_list.html")
         # 2 mzXML's, 2 raw, and 2 peak annotation files
         self.assertEqual(6, len(response.context["archive_file_list"]))
 
@@ -21,7 +21,9 @@ class ArchiveFileViewTests(ModelViewTests):
         ).get()
         response = self.client.get(reverse("archive_file_detail", args=[af1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/archive_file_detail.html")
+        self.assertTemplateUsed(
+            response, "models/archive_file/archive_file_detail.html"
+        )
         self.assertEqual(
             response.context["archivefile"].filename, "small_obob_maven_6eaas_inf.xlsx"
         )

@@ -1,0 +1,20 @@
+{% extends "base/base.html" %}
+
+{% block title %}Protocols{% endblock %}
+
+{% block content %}
+<br>
+<div>
+    {% for key, value in protocol_list.items %}
+        {% if key == "animal_treatment" %}
+            <h4>Animal Treatment Protocols:</h4>
+        {% else %}
+            <h4>Protocols in other categories:</h4>
+        {% endif %}
+        {% with protocols=value %}
+            {% include "models/includes/protocol_table.html" %}
+        {% endwith %}
+        <br>
+    {% endfor %}
+</div>
+{% endblock %}

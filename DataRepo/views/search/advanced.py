@@ -63,7 +63,7 @@ class AdvancedSearchView(MultiFormsView):
     download_forms: List[Tuple[str, AdvSearchDownloadForm, str]]
 
     # MultiFormView class vars
-    template_name = "DataRepo/search/query.html"
+    template_name = "search/query.html"
     success_url = ""
 
     def __init__(self, *args, **kwargs):

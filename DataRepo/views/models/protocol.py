@@ -12,7 +12,7 @@ class AnimalTreatmentListView(ListView):
 
     model = Protocol
     context_object_name = "animal_treatment_list"
-    template_name = "DataRepo/animal_treatments.html"
+    template_name = "models/protocol/animal_treatments.html"
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -26,7 +26,7 @@ class ProtocolDetailView(DetailView):
     """Generic class-based detail view for a protocol"""
 
     model = Protocol
-    template_name = "DataRepo/protocol_detail.html"
+    template_name = "models/protocol/protocol_detail.html"
 
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context

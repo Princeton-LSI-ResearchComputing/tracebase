@@ -14,7 +14,7 @@ class SampleListView(ListView):
     # return all samples without query filter
     queryset = Sample.objects.all()
     context_object_name = "sample_list"
-    template_name = "DataRepo/sample_list.html"
+    template_name = "models/sample/sample_list.html"
     ordering = ["animal_id", "name"]
 
     def get_context_data(self, **kwargs):
@@ -34,4 +34,4 @@ class SampleDetailView(DetailView):
     """Generic class-based detail view for a sample"""
 
     model = Sample
-    template_name = "DataRepo/sample_detail.html"
+    template_name = "models/sample/sample_detail.html"

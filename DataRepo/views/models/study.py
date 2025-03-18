@@ -10,7 +10,7 @@ class StudyListView(ListView):
 
     model = Study
     context_object_name = "study_list"
-    template_name = "DataRepo/study_list.html"
+    template_name = "models/study/study_list.html"
     ordering = ["name"]
 
     def get_context_data(self, **kwargs):
@@ -28,7 +28,7 @@ class StudyDetailView(DetailView):
     """Generic class-based detail view for a study."""
 
     model = Study
-    template_name = "DataRepo/study_detail.html"
+    template_name = "models/study/study_detail.html"
 
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
@@ -59,4 +59,4 @@ def study_summary(request):
     # convert DataFrame to a list of dictionary
     data = qs2df.df_to_list_of_dict(all_stud_msrun_df)
     context = {"df": data}
-    return render(request, "DataRepo/study_summary.html", context)
+    return render(request, "models/study/study_summary.html", context)

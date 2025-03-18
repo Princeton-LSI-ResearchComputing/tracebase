@@ -13,7 +13,7 @@ class AnimalViewTests(ModelViewTests):
     def test_animal_list(self):
         response = self.client.get(reverse("animal_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/animal_list.html")
+        self.assertTemplateUsed(response, "models/animal/animal_list.html")
         self.assertEqual(len(response.context["animal_list"]), self.ALL_ANIMALS_COUNT)
         self.assertEqual(len(response.context["df"]), self.ALL_ANIMALS_COUNT)
 
@@ -22,7 +22,7 @@ class AnimalViewTests(ModelViewTests):
         a1 = Animal.objects.filter(name="971").get()
         response = self.client.get(reverse("animal_detail", args=[a1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/animal_detail.html")
+        self.assertTemplateUsed(response, "models/animal/animal_detail.html")
         self.assertEqual(response.context["animal"].name, "971")
         self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 

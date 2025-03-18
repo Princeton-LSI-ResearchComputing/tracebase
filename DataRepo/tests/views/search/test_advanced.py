@@ -16,7 +16,7 @@ class AdvancedSearchViewTests(ModelViewTests):
             "/DataRepo/search_advanced/?mode=browse&format=pdtemplate"
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search/query.html")
+        self.assertTemplateUsed(response, "search/query.html")
         self.assertEqual(response.context["mode"], "browse")
         self.assertEqual(response.context["format"], "pdtemplate")
 
@@ -26,7 +26,7 @@ class AdvancedSearchViewTests(ModelViewTests):
         """
         response = self.client.get("/DataRepo/search_advanced/")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search/query.html")
+        self.assertTemplateUsed(response, "search/query.html")
         self.assertEqual(response.context["mode"], "search")
 
     def get_advanced_search_inputs(self):
@@ -136,7 +136,7 @@ class AdvancedSearchViewTests(ModelViewTests):
         [filledform, qry, _] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search/query.html")
+        self.assertTemplateUsed(response, "search/query.html")
         self.assertEqual(len(response.context["res"]), qs.count())
         self.assertEqual(qry, response.context["qry"])
 
@@ -151,7 +151,7 @@ class AdvancedSearchViewTests(ModelViewTests):
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = ""
         response = self.client.post("/DataRepo/search_advanced/", invalidform)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search/query.html")
+        self.assertTemplateUsed(response, "search/query.html")
         self.assertEqual(len(response.context["res"]), 0)
         self.assertEqual(qry, response.context["qry"])
 

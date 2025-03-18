@@ -46,11 +46,11 @@ class AdvancedSearchDownloadView(FormView):
     basv_metadata = SearchGroup()
     date_format = "%d/%m/%Y %H:%M:%S"
     datestamp_format = "%d.%m.%Y.%H.%M.%S"
-    header_template = "DataRepo/search/downloads/download_header.tsv"
-    row_template = "DataRepo/search/downloads/download_row.tsv"
+    header_template = "search/downloads/download_header.tsv"
+    row_template = "search/downloads/download_row.tsv"
     content_type = "application/text"
     # This is only used for form_invalid, so that form submissions that are invalid go to the advanced search page
-    template_name = "DataRepo/search/query.html"
+    template_name = "search/query.html"
 
     def get_qry(self, form):
         qry = {}
@@ -336,7 +336,7 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
     PeakGroupsFormat and PeakDataFormat).  It is for streaming a download of the mzXML metadata in a TSV format.
     """
 
-    header_template = "DataRepo/search/downloads/search_metadata.txt"
+    header_template = "search/downloads/search_metadata.txt"
     content_type = "application/text"
 
     def __init__(self, qry=None, res=None):

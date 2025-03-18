@@ -243,8 +243,8 @@ function addSearchFieldForm (myDiv, query, templateId) {
   }
 
   // Initialize the ncmp choices
-  updateNcmpChoices(fldInitVal, ncmpClone, templateId)
   ncmpClone.value = ncmpInitVal
+  updateNcmpChoices(fldInitVal, ncmpClone, templateId)
 
   // Initialize the units choices
   unitsClone.value = unitsInitVal
