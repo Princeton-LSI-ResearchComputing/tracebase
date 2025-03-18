@@ -1367,7 +1367,7 @@ class BootstrapTableListView(ListView):
             print(f"field == related_model_path: {field} == {related_model_path} VALUES: {qs.values_list(field, flat=True)} related_model: {related_model}")
             vals_list = list([related_model.objects.get(pk=val) for val in qs.values_list(field, flat=True)[0:related_limit] if val is not None])
         else:
-            vals_list = list(val for val in qs.values_list(field, flat=True) if val is not None)
+            vals_list = list(val for val in qs.values_list(field, flat=True)[0:related_limit] if val is not None)
 
         # vals_list = self._get_rec_val_helper(rec, field.split("__"), sort_field_path=sort_field.split("__"), related_limit=related_limit)
         if len(vals_list) < 2:
