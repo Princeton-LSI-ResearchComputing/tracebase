@@ -26,3 +26,8 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("DataRepo/", include("DataRepo.urls"), name="home"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if settings.DEBUG_TOOLBAR_ENABLED:
+    from debug_toolbar.toolbar import debug_toolbar_urls
+
+    urlpatterns.extend(debug_toolbar_urls())
