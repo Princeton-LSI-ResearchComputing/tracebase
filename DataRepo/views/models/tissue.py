@@ -8,7 +8,7 @@ class TissueListView(ListView):
 
     model = Tissue
     context_object_name = "tissue_list"
-    template_name = "DataRepo/tissue_list.html"
+    template_name = "models/tissue/tissue_list.html"
     ordering = ["name"]
 
 
@@ -16,4 +16,4 @@ class TissueDetailView(DetailView):
     """Generic class-based detail view for a tissue"""
 
     model = Tissue
-    template_name = "DataRepo/tissue_detail.html"
+    template_name = "models/tissue/tissue_detail.html"

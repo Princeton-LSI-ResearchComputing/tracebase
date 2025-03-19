@@ -13,7 +13,7 @@ class PeakDataListView(ListView):
 
     queryset = PeakData.objects.all()
     context_object_name = "peakdata_list"
-    template_name = "DataRepo/peakdata_list.html"
+    template_name = "models/peakdata/peakdata_list.html"
     ordering = ["peak_group_id", "id"]
     paginate_by = 200
 

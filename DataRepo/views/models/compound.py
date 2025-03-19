@@ -9,7 +9,7 @@ class CompoundListView(ListView):
 
     model = Compound
     context_object_name = "compound_list"
-    template_name = "DataRepo/compound_list.html"
+    template_name = "models/compound/compound_list.html"
     ordering = ["name"]
 
     def get_context_data(self, **kwargs):
@@ -27,7 +27,7 @@ class CompoundDetailView(DetailView):
     """Generic class-based detail view for a compound"""
 
     model = Compound
-    template_name = "DataRepo/compound_detail.html"
+    template_name = "models/compound/compound_detail.html"
 
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context

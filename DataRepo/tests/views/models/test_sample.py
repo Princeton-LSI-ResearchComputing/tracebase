@@ -13,7 +13,7 @@ class SampleViewTests(ModelViewTests):
     def test_sample_list(self):
         response = self.client.get("/DataRepo/samples/")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/sample_list.html")
+        self.assertTemplateUsed(response, "models/sample/sample_list.html")
         self.assertEqual(self.ALL_SAMPLES_COUNT, len(response.context["sample_list"]))
         self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
@@ -23,7 +23,7 @@ class SampleViewTests(ModelViewTests):
         s1 = Sample.objects.filter(animal_id=a1.id)
         response = self.client.get("/DataRepo/samples/?animal_id=" + str(a1.pk))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/sample_list.html")
+        self.assertTemplateUsed(response, "models/sample/sample_list.html")
         self.assertEqual(s1.count(), len(response.context["sample_list"]))
         self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
@@ -32,7 +32,7 @@ class SampleViewTests(ModelViewTests):
         s1 = Sample.objects.filter(name="BAT-xz971").get()
         response = self.client.get(reverse("sample_detail", args=[s1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/sample_detail.html")
+        self.assertTemplateUsed(response, "models/sample/sample_detail.html")
         self.assertEqual(response.context["sample"].name, "BAT-xz971")
 
     @tag("sample")

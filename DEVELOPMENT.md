@@ -53,14 +53,14 @@ This document will serve to guide developers on implementing new code.
       - If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
 
-5. `DataRepo/templates/DataRepo/search/results/display.html`
+5. `DataRepo/templates/search/results/display.html`
    - Copy the `{% elif selfmt == "pdtemplate"...` line and the include line below it, paste it above the following `else`, and make the following edits:
       - Replace both occurrences of `pdtemplate` with the ID you assigned at the top of step 1
       - Replace the filename on the include line with the file created in step 3 above
 
-6. `DataRepo/templates/DataRepo/search/downloads/download_{header,row}.tsv`
+6. `DataRepo/templates/search/downloads/download_{header,row}.tsv`
    - In both files, copy the `elif` that looks like:
-     `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata_{colheads,row}.tsv" %}`
+     `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "search/downloads/peakdata_{colheads,row}.tsv" %}`
      Paste it before the `endif` and make the following edits:
       - Replace `pdtemplate` with the ID you assigned at the top of step 1
       - Replace the filename on the include line with the file created in step 4 above

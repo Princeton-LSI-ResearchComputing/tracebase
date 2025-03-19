@@ -14,8 +14,8 @@ from DataRepo.views.search.download import AdvancedSearchDownloadView
 class StudiesExporter:
     sg = SearchGroup()
     all_data_types = [fmtobj.name for fmtobj in sg.modeldata.values()]
-    header_template = get_template("DataRepo/search/downloads/download_header.tsv")
-    row_template = get_template("DataRepo/search/downloads/download_row.tsv")
+    header_template = get_template("search/downloads/download_header.tsv")
+    row_template = get_template("search/downloads/download_row.tsv")
 
     def __init__(
         self,

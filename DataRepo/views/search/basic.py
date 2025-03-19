@@ -45,7 +45,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
         order_dir_field="order_direction",
     )
 
-    format_template = "DataRepo/search/query.html"
+    format_template = "search/query.html"
     fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
     if fmtkey is None:
         names = basv_metadata.getFormatNames()

@@ -15,7 +15,7 @@ class UrlTests(TracebaseTestCase):
     def test_home(self):
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "home.html")
+        self.assertTemplateUsed(response, "home/base.html")
 
     def test_list_urls(self):
         self.assertEqual("/DataRepo/studies/", reverse("study_list"))

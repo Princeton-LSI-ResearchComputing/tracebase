@@ -11,7 +11,7 @@ class MSRunSampleViewTests(ModelViewTests):
     def test_msrun_sample_list(self):
         response = self.client.get(reverse("msrunsample_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrunsample_list.html")
+        self.assertTemplateUsed(response, "models/msrunsample/msrunsample_list.html")
         self.assertEqual(
             len(response.context["msrun_samples"]), self.ALL_MSRUN_SAMPLES_COUNT
         )
@@ -19,7 +19,9 @@ class MSRunSampleViewTests(ModelViewTests):
     def test_msrun_sequence_list(self):
         response = self.client.get(reverse("msrunsequence_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrunsequence_list.html")
+        self.assertTemplateUsed(
+            response, "models/msrunsequence/msrunsequence_list.html"
+        )
         self.assertEqual(len(response.context["sequences"]), self.ALL_SEQUENCES_COUNT)
 
     def test_msrun_sample_detail(self):
@@ -28,7 +30,7 @@ class MSRunSampleViewTests(ModelViewTests):
         ).get()
         response = self.client.get(reverse("msrunsample_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrunsample_detail.html")
+        self.assertTemplateUsed(response, "models/msrunsample/msrunsample_detail.html")
         self.assertEqual(response.context["msrun_sample"].sample.name, "BAT-xz971")
 
     def test_msrun_sample_detail_404(self):
@@ -43,7 +45,9 @@ class MSRunSampleViewTests(ModelViewTests):
         ).get()
         response = self.client.get(reverse("msrunsequence_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrunsequence_detail.html")
+        self.assertTemplateUsed(
+            response, "models/msrunsequence/msrunsequence_detail.html"
+        )
         self.assertEqual(
             self.ALL_MSRUN_SAMPLES_COUNT,
             response.context["sequence"].msrun_samples.count(),

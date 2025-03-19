@@ -8,7 +8,7 @@ class ArchiveFileListView(ListView):
 
     model = ArchiveFile
     context_object_name = "archive_file_list"
-    template_name = "DataRepo/archive_file_list.html"
+    template_name = "models/archive_file/archive_file_list.html"
     ordering = ["id"]
 
 
@@ -16,4 +16,4 @@ class ArchiveFileDetailView(DetailView):
     """Generic class-based detail view for an ArchiveFile"""
 
     model = ArchiveFile
-    template_name = "DataRepo/archive_file_detail.html"
+    template_name = "models/archive_file/archive_file_detail.html"

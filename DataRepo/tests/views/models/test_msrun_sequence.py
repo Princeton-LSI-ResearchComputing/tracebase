@@ -15,7 +15,9 @@ class MSRunSequenceViewTests(ModelViewTests):
         ).get()
         response = self.client.get(reverse("msrunsequence_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrunsequence_detail.html")
+        self.assertTemplateUsed(
+            response, "models/msrunsequence/msrunsequence_detail.html"
+        )
         self.assertEqual(
             self.ALL_MSRUN_SAMPLES_COUNT,
             response.context["sequence"].msrun_samples.count(),

@@ -13,7 +13,7 @@ class StudyViewTests(ModelViewTests):
     def test_study_list(self):
         response = self.client.get(reverse("study_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/study_list.html")
+        self.assertTemplateUsed(response, "models/study/study_list.html")
         self.assertEqual(len(response.context["study_list"]), 1)
         self.assertEqual(len(response.context["df"]), 1)
 
@@ -21,14 +21,14 @@ class StudyViewTests(ModelViewTests):
     def test_study_summary(self):
         response = self.client.get("/DataRepo/studies/study_summary/")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/study_summary.html")
+        self.assertTemplateUsed(response, "models/study/study_summary.html")
 
     @tag("study")
     def test_study_detail(self):
         obob_fasted = Study.objects.filter(name="Small OBOB").get()
         response = self.client.get(reverse("study_detail", args=[obob_fasted.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/study_detail.html")
+        self.assertTemplateUsed(response, "models/study/study_detail.html")
         self.assertEqual(response.context["study"].name, "Small OBOB")
         self.assertEqual(len(response.context["stats_df"]), 1)
 
