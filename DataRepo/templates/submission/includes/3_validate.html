@@ -93,7 +93,7 @@
 
         <a class="btn {% if valid %}btn-success{% elif state == 'FAILED' %}btn-danger{% elif state == 'WARNING' %}btn-warning{% else %}btn-secondary{% endif %}" href="{% url 'submission' %}?page=Submit" role="button" style="float: right;">{% if results %}Next{% else %}Skip{% endif %}</a>
         <button type="submit" class="btn btn-primary" id="submit">Validate &amp; Repair</button>
-        <button type="reset" class="btn btn-secondary" id="clear" onclick="document.getElementById('drop-area-input').value = null;document.getElementById('submission-validation').reset();clearPeakAnnotFiles();disablePeakAnnotForm();">Clear</button>
+        <button type="reset" class="btn btn-secondary" id="clear" onclick="clearSubmissionForm();">Clear</button>
     </form>
 </div>
 
