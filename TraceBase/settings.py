@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Dict
 
@@ -179,7 +180,7 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
-STATIC_URL = "/static/"
+STATIC_URL = "static/"
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 # File storage location
@@ -299,3 +300,45 @@ if SQL_LOGGING is True:
             }
         },
     }
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+# See: django-debug-toolbar.readthedocs.io/en/latest/installation.html#disable-the-toolbar-when-running-tests-optional
+DEBUG_TOOLBAR_ENABLED = False
+TESTING = "test" in sys.argv
+try:
+    import debug_toolbar  # noqa: F401
+
+    DEBUG_TOOLBAR_INSTALLED = True
+except ImportError:
+    DEBUG_TOOLBAR_INSTALLED = False
+
+if (
+    DEBUG
+    and not TESTING
+    and DEBUG_TOOLBAR_INSTALLED
+    # Static files are configured to debug_toolbar's requirements
+    and "django.contrib.staticfiles" in INSTALLED_APPS
+    and STATIC_URL == "static/"
+    # Templates are configured to debug_toolbar's requirements
+    and any(
+        [
+            template["BACKEND"] == "django.template.backends.django.DjangoTemplates"
+            and template["APP_DIRS"] is True
+            for template in TEMPLATES
+        ]
+    )
+):
+    DEBUG_TOOLBAR_ENABLED = True
+    INSTALLED_APPS.append("debug_toolbar")
+    # See https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#add-the-middleware
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
+    INTERNAL_IPS = ALLOWED_HOSTS[:]
