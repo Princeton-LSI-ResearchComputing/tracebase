@@ -79,7 +79,7 @@ function getSortValue (v) {
 
   // Regular expression to see if the a string starts with an html element
   // See: https://stackoverflow.com/a/23076716/2057516
-  isHTMLregex = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]*))$/
+  const isHTMLregex = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]*))$/
 
   // Extract the inner HTML, if the content is inside an HTML element
   if (isHTMLregex.test(v)) v = $(v).text().trim()
