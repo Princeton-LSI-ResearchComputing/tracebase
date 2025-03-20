@@ -52,16 +52,18 @@ class BSTSorter:
         SORTER_JS_NUMERIC,
         SORTER_JS_DJANGO,
     ]
+
     JAVASCRIPT = "js/bst_list_view/sorter.js"
 
     # The default sorter - sorting handled server-side by Django.  Use client_sorter for client-side sorting.
-    sorter = SORTER_JS_DJANGO
+    server_sorter = SORTER_JS_DJANGO
 
     def __init__(
         self,
         field: Optional[Field] = None,
         client_sorter: Optional[str] = None,
         transform=None,
+        client_mode: bool = False,
     ):
         """Construct a BSTSorter object.
 
@@ -71,7 +73,10 @@ class BSTSorter:
                 default is alphanumericSorter if field is not supplied, otherwise if the field type is a number field,
                 numericSorter is set.
             transform (Combinable) [BSTSorter.identity]: A method used for transforming the Django ORM order_by field,
-                e.g. django.db.models.functions.Lower.  The default is an identity function (i.e. no transform).
+                e.g. django.db.models.functions.Lower.  The default is an identity function (i.e. no transform).  Note,
+                this should match the behavior of client_sorter.
+            client_mode (bool): Set to True if the initial table is not filtered and the page queryset is the same size
+                as the total queryset.
         Exceptions:
             ValueError when transform is invalid.
         Returns:
@@ -101,8 +106,16 @@ class BSTSorter:
             # Rely on Django for the sorting.  Don't apply a javascript sort on top of it.
             self.client_sorter = self.SORTER_JS_ALPHANUMERIC
 
+        self.client_mode = client_mode
+
     def __str__(self) -> str:
-        return self.sorter
+        return self.client_sorter if self.client_mode else self.server_sorter
+
+    def set_client_mode(self, enabled: bool = True):
+        self.client_mode = enabled
+
+    def set_server_mode(self, enabled: bool = True):
+        self.client_mode = not enabled
 
     @classmethod
     def identity(cls, expression: Union[str, Combinable]) -> Union[str, Combinable]:
@@ -112,7 +125,7 @@ class BSTSorter:
 
     @classproperty
     def javascript(cls) -> str:  # pylint: disable=no-self-argument
-        """Returns an HTML script tag whose source points to cls.BST_JAVASCRIPT.
+        """Returns an HTML script tag whose source points to cls.JAVASCRIPT.
 
         Example:
             # BSTListView.__init__

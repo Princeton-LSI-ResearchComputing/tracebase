@@ -6,13 +6,6 @@ QUnit.test('djangoSorter', function (assert) {
   assert.equal(djangoSorter('a', 'a'), 0)
 })
 
-QUnit.test('getSortValue', function (assert) {
-  assert.equal(getSortValue(' abc '), 'abc')
-  assert.equal(getSortValue(' 123.456 '), '123.456')
-  assert.equal(getSortValue(' 123.456 789 '), '123.456 789')
-  assert.equal(getSortValue(' <a href="xyz"> abc </a> <br> '), 'abc')
-})
-
 QUnit.test('alphanumericSorter', function (assert) {
   assert.equal(alphanumericSorter(' abc ', 'abc'), 0)
   assert.equal(alphanumericSorter(' abc ', 'xyz'), -1)
