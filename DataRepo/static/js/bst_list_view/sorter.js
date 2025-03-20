@@ -21,8 +21,8 @@ function djangoSorter (a, b) { // eslint-disable-line no-unused-vars
 function alphanumericSorter (a, b) { // eslint-disable-line no-unused-vars
   /* eslint-env jquery */
 
-  a = getSortValue(a)
-  b = getSortValue(b)
+  a = getVisibleValue(a) // eslint-disable-line no-undef
+  b = getVisibleValue(b) // eslint-disable-line no-undef
 
   // Do not alphabetically sort "None" (special case from Python/Django)
   // Nones should appear first (or last if desc sorting)
@@ -42,52 +42,26 @@ function alphanumericSorter (a, b) { // eslint-disable-line no-unused-vars
  * When the BSTListView is displaying ALL rows, it is faster and more efficient to allow BST to do the sorting.
  * This method sorts the visible content, ignoring differences inside the HTML elements' attributes.
  * Compare values a and b as floats/numbers.
- * @param {*} a First value to compare, potentially containing html evements whose attributes should be ignored.
- * @param {*} b Second value to compare, potentially containing html evements whose attributes should be ignored.
+ * @param {*} x First value to compare, potentially containing html evements whose attributes should be ignored.
+ * @param {*} y Second value to compare, potentially containing html evements whose attributes should be ignored.
  * @returns -1, 0, or 1 indicating a<b, a==b, or a>b
  */
-function numericSorter (a, b) { // eslint-disable-line no-unused-vars
+function numericSorter (x, y) { // eslint-disable-line no-unused-vars
   /* eslint-env jquery */
 
-  a = getSortValue(a)
-  b = getSortValue(b)
-
-  console.log("Sort val a: '" + a + "' b: '" + b + "'")
+  x = getVisibleValue(x) // eslint-disable-line no-undef
+  y = getVisibleValue(y) // eslint-disable-line no-undef
 
   // Do not alphabetically sort "None" (special case from Python/Django)
   // Nones should appear first (or last if desc sorting)
-  if (typeof a === 'undefined' && typeof b !== 'undefined') return -1
-  if (typeof a !== 'undefined' && typeof b === 'undefined') return 1
-  if (typeof a === 'undefined' && typeof b === 'undefined') return 0
+  if (typeof x === 'undefined' && typeof y !== 'undefined') return -1
+  if (typeof x !== 'undefined' && typeof y === 'undefined') return 1
+  if (typeof x === 'undefined' && typeof y === 'undefined') return 0
 
-  a = parseFloat(a)
-  b = parseFloat(b)
+  x = parseFloat(x)
+  y = parseFloat(y)
 
-  if (a < b) return -1
-  if (a > b) return 1
+  if (x < y) return -1
+  if (x > y) return 1
   return 0
-}
-
-/**
- * Take a string possibly containing html and return the content without the html elements.
- * Assumes proper html syntax.
- * @param {*} v String possibly containing html elements.
- * @returns The input v with html elements and leading/trailing whitespace extracted
- */
-function getSortValue (v) {
-  /* eslint-env jquery */
-
-  // Regular expression to see if the a string starts with an html element
-  // See: https://stackoverflow.com/a/23076716/2057516
-  const isHTMLregex = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]*))$/
-
-  // Extract the inner HTML, if the content is inside an HTML element
-  if (isHTMLregex.test(v)) v = $(v).text().trim()
-  else v = v.trim()
-
-  // Do not alphabetically sort "None" (special case from Python/Django)
-  // Nones should appear first (or last if desc sorting)
-  if (v === 'None') v = undefined
-
-  return v
 }
