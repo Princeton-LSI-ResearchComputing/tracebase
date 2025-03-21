@@ -11,15 +11,17 @@
 #   Methods
 #     init_filters
 
+import warnings
 from functools import reduce
 from typing import Dict, List, Optional, Union
 
+from django.conf import settings
 from django.db.models import Field
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
-from DataRepo.models.utilities import is_number_field
+from DataRepo.models.utilities import is_number_field, is_string_field
 
 
 class BSTFilterer:
@@ -58,6 +60,9 @@ class BSTFilterer:
         FILTERER_STRICT,
         FILTERER_DJANGO,
     ]
+
+    LOOKUP_CONTAINS = "icontains"
+    LOOKUP_EXACT = "iexact"
 
     JAVASCRIPT = "js/bst_list_view/filterer.js"
 
@@ -149,7 +154,7 @@ class BSTFilterer:
             if field.choices is not None and len(field.choices) > 0:
                 self.client_filterer = self.FILTERER_STRICT
                 self.input_method = self.INPUT_METHOD_SELECT
-                self.choices = dict(*field.choices)
+                self.choices = dict(field.choices)
             else:
                 self.client_filterer = (
                     self.FILTERER_CONTAINS
@@ -166,17 +171,33 @@ class BSTFilterer:
 
         # Let the caller override the default client filterer
         if client_filterer is not None:
+            if (
+                settings.DEBUG
+                and client_filterer not in self.FILTERERS
+                and not client_mode
+                and lookup is None
+            ):
+                warnings.warn(
+                    f"Custom client_filterer '{client_filterer}' supplied in server mode without a custom lookup.  "
+                    "Server filtering may differ from client filtering."
+                )
             self.client_filterer = client_filterer
 
         self.lookup: Optional[str]
         if lookup is not None:
             self.lookup = lookup
+        elif field is not None and is_string_field(field) and self.choices is None:
+            self.lookup = self.LOOKUP_CONTAINS
         else:
             self.lookup = None
 
         self.client_mode = client_mode
 
     def __str__(self) -> str:
+        return self.filterer
+
+    @property
+    def filterer(self):
         return self.client_filterer if self.client_mode else self.server_filterer
 
     def set_client_mode(self, enabled: bool = True):
