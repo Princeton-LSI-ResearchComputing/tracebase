@@ -1,27 +1,18 @@
-# BSTFilterer
-#   Class Attributes
-#     BST_FILTER_CHOICES
-#     LV_FILTER_CHOICES
-#   Instance Attributes
-#     bst_filterer, default INPUT (SELECT requires select_list)
-#     lv_filterer, default None
-#     filter_control, default based on bst_filterer
-#     select_list, default None
-#     strict_select, default False
-#   Methods
-#     init_filters
-
 import warnings
 from functools import reduce
 from typing import Dict, List, Optional, Union
 
 from django.conf import settings
-from django.db.models import Field
+from django.db.models import Field, Model
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
-from DataRepo.models.utilities import is_number_field, is_string_field
+from DataRepo.models.utilities import (
+    is_many_related,
+    is_number_field,
+    is_string_field,
+)
 
 
 class BSTFilterer:
@@ -77,6 +68,7 @@ class BSTFilterer:
         lookup: Optional[str] = None,
         choices: Optional[Union[Dict[str, str], List[str]]] = None,
         client_mode: bool = False,
+        source_model: Optional[Model] = None,
     ):
         """Construct a BSTFilterer object.
 
@@ -97,11 +89,23 @@ class BSTFilterer:
                 TODO: choices could be used for auto-complete in the text input method.
             client_mode (bool): Set to True if the initial table is not filtered and the page queryset is the same size
                 as the total queryset.
+            source_model (Optional[Field]): Ignored unless field is provided.  Used to change the default
+                client_filterer when the input_method ends up being "select" but the field is a many-related field.
+                Explanation: Many-related fields are displayed as delimited values, but the client filterer javascript
+                code is unaware of that, so the default of strict (full match) filtering will not match any delimited
+                values.  Many to many relations can be changed without the source model, but one to many related fields
+                are only one-to-many relative to the model you are coming from.  If you look at it from the perspective
+                of the table's model, there will/can be multiple delimited values and so the filterer should be
+                "contains".  But if the field is defined in the related model (i.e. it's a reverse relation), it will
+                say it is one-to-many, but from the perspective of the table's model, it should be many-to-one.
+                Supplying the source model allows us to determine the true case.
         Exceptions:
             ValueError when an argument is invalid.
         Returns:
             None
         """
+        self.source_model = source_model
+
         if input_method is not None:
             self.input_method = input_method
 
@@ -111,6 +115,7 @@ class BSTFilterer:
                 )
 
             if input_method == self.INPUT_METHOD_SELECT:
+                # NOTE: If a column is many-related, this should be explicitly set to FILTERER_CONTAINS
                 self.client_filterer = self.FILTERER_STRICT
                 self.choices = choices
                 if choices is None:
@@ -152,7 +157,10 @@ class BSTFilterer:
 
         elif field is not None:
             if field.choices is not None and len(field.choices) > 0:
-                self.client_filterer = self.FILTERER_STRICT
+                if is_many_related(field, source_model=source_model):
+                    self.client_filterer = self.FILTERER_CONTAINS
+                else:
+                    self.client_filterer = self.FILTERER_STRICT
                 self.input_method = self.INPUT_METHOD_SELECT
                 self.choices = dict(field.choices)
             else:
