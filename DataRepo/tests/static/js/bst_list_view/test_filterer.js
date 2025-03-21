@@ -7,7 +7,7 @@ QUnit.test('djangoFilterer defined', function (assert) {
 })
 
 QUnit.test('djangoFilterer undefined', function (assert) {
-  const undef = void 0
+  const undef = undefined
   assert.equal(djangoFilterer('a', undef), true)
   assert.equal(djangoFilterer(undef, undef), true)
   assert.equal(djangoFilterer('a', 'None'), true)
@@ -25,7 +25,7 @@ QUnit.test('containsFilterer defined', function (assert) {
 })
 
 QUnit.test('containsFilterer undefined', function (assert) {
-  const undef = void 0
+  const undef = undefined
   assert.equal(containsFilterer('a', undef), false)
   assert.equal(containsFilterer('a', 'None'), false)
   assert.equal(containsFilterer(undef, undef), true)
@@ -41,7 +41,7 @@ QUnit.test('strictFilterer defined', function (assert) {
 })
 
 QUnit.test('strictFilterer undefined', function (assert) {
-  const undef = void 0
+  const undef = undefined
   assert.equal(strictFilterer('a', undef), false)
   assert.equal(strictFilterer('a', 'None'), false)
   assert.equal(strictFilterer(undef, undef), true)

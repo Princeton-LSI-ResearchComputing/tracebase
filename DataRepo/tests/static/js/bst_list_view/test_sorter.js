@@ -7,7 +7,7 @@ QUnit.test('djangoSorter defined', function (assert) {
 })
 
 QUnit.test('djangoSorter undefined', function (assert) {
-  const undef = void 0
+  const undef = undefined
   assert.equal(djangoSorter('a', undef), 0)
   assert.equal(djangoSorter(undef, undef), 0)
   assert.equal(djangoSorter('a', 'None'), 0)
@@ -23,7 +23,7 @@ QUnit.test('alphanumericSorter defined', function (assert) {
 })
 
 QUnit.test('alphanumericSorter undefined', function (assert) {
-  const undef = void 0
+  const undef = undefined
   assert.equal(alphanumericSorter(undef, 'abc'), -1)
   assert.equal(alphanumericSorter('abc', undef), 1)
   assert.equal(alphanumericSorter(undef, undef), 0)
@@ -44,7 +44,7 @@ QUnit.test('numericSorter defined', function (assert) {
 })
 
 QUnit.test('numericSorter undefined', function (assert) {
-  const undef = void 0
+  const undef = undefined
   assert.equal(numericSorter(undef, '-5'), -1)
   assert.equal(numericSorter('5', undef), 1)
   assert.equal(numericSorter(undef, undef), 0)

@@ -6,7 +6,7 @@ QUnit.test('getVisibleValue', function (assert) {
   assert.equal(getVisibleValue(' 123.456 789 '), '123.456 789')
   assert.equal(getVisibleValue(' <a href="xyz"> abc </a> <br> '), 'abc')
   // undefined case
-  const undef = void 0
+  const undef = undefined
   assert.equal(typeof getVisibleValue(undef) === 'undefined', true)
   // Special django case where "None" should be undefined
   assert.equal(typeof getVisibleValue('None') === 'undefined', true)
