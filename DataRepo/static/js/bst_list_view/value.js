@@ -5,8 +5,11 @@
  * @param {*} v String possibly containing html elements.
  * @returns The input v with html elements and leading/trailing whitespace extracted
  */
-function getVisibleValue (v) {
+function getVisibleValue (v) { // eslint-disable-line no-unused-vars
   /* eslint-env jquery */
+
+  if (typeof v === 'undefined') return v
+  if (typeof v !== 'string') v = v.toString()
 
   // Regular expression to see if the a string starts with an html element
   // See: https://stackoverflow.com/a/23076716/2057516

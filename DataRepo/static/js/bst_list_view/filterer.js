@@ -26,16 +26,17 @@ function djangoFilterer (term, colval, colname, alldata) { // eslint-disable-lin
 function containsFilterer (term, colval, colname, alldata) { // eslint-disable-line no-unused-vars
   /* eslint-env jquery */
 
-  let val = getVisibleValue(colval) // eslint-disable-line no-undef
-
-  if (typeof val === 'undefined') return false
-
-  val = val.toLowerCase()
-
-  // There should be no HTML in the search term, but there could be leading/trailing spaces.
+  colval = getVisibleValue(colval) // eslint-disable-line no-undef
   term = getVisibleValue(term) // eslint-disable-line no-undef
 
-  return val.includes(term)
+  if (typeof colval === 'undefined' || typeof term === 'undefined') {
+    return (typeof term === 'undefined') === (typeof colval === 'undefined')
+  }
+
+  colval = colval.toLowerCase()
+  term = term.toLowerCase()
+
+  return colval.includes(term)
 }
 
 /**
@@ -51,14 +52,15 @@ function containsFilterer (term, colval, colname, alldata) { // eslint-disable-l
 function strictFilterer (term, colval, colname, alldata) { // eslint-disable-line no-unused-vars
   /* eslint-env jquery */
 
-  let val = getVisibleValue(colval) // eslint-disable-line no-undef
-
-  if (typeof val === 'undefined') return false
-
-  val = val.toLowerCase()
-
-  // There should be no HTML in the search term, but there could be leading/trailing spaces.
   term = getVisibleValue(term) // eslint-disable-line no-undef
+  colval = getVisibleValue(colval) // eslint-disable-line no-undef
 
-  return val === term
+  if (typeof colval === 'undefined' || typeof term === 'undefined') {
+    return (typeof term === 'undefined') === (typeof colval === 'undefined')
+  }
+
+  term = term.toLowerCase()
+  colval = colval.toLowerCase()
+
+  return colval === term
 }
