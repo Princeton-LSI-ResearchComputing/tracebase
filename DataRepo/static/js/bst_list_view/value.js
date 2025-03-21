@@ -1,4 +1,3 @@
-
 /**
  * Take a string possibly containing html and return the content without the html elements.
  * Assumes proper html syntax.
