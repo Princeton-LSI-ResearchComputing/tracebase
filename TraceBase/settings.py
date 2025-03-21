@@ -158,15 +158,21 @@ AUTH_PASSWORD_VALIDATORS = [
 # Security
 # https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
-SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=False)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=False)
+# Redirect HTTP to HTTPS
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
+# Subdomains must use HTTPS
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False
+)
+# Prevent modern browser access when cert expired
+SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
 
-# This tells browsers to refuse to connect to your domain via an insecure connection for a given period of time
+# If any of the HTTPS rules above fail, this tells browsers to refuse to connect to your domain via an insecure
+# connection for the indicated number of seconds
 # https://docs.djangoproject.com/en/5.1/ref/middleware/#http-strict-transport-security
-
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
