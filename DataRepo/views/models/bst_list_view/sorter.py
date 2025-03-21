@@ -97,8 +97,16 @@ class BSTSorter:
             self.transform = BSTSorter.identity
 
         if client_sorter is not None:
-            if settings.DEBUG and client_sorter not in self.SORTERS:
-                warnings.warn(f"Custom client_sorter '{client_sorter}' supplied.")
+            if (
+                settings.DEBUG
+                and client_sorter not in self.SORTERS
+                and not client_mode
+                and transform is None
+            ):
+                warnings.warn(
+                    f"Custom client_sorter '{client_sorter}' supplied in server mode without a custom transform.  "
+                    "Server sort may differ from client sort."
+                )
             self.client_sorter = client_sorter
         elif is_number_field(field):
             self.client_sorter = self.SORTER_JS_NUMERIC
@@ -109,6 +117,10 @@ class BSTSorter:
         self.client_mode = client_mode
 
     def __str__(self) -> str:
+        return self.sorter
+
+    @property
+    def sorter(self):
         return self.client_sorter if self.client_mode else self.server_sorter
 
     def set_client_mode(self, enabled: bool = True):
