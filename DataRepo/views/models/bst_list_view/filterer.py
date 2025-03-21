@@ -3,13 +3,14 @@ from functools import reduce
 from typing import Dict, List, Optional, Union
 
 from django.conf import settings
-from django.db.models import Field, Model
+from django.db.models import Model
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
 from DataRepo.models.utilities import (
-    is_many_related,
+    field_path_to_field,
+    is_many_related_to_root,
     is_number_field,
     is_string_field,
 )
@@ -27,11 +28,11 @@ class BSTFilterer:
     See BSTListView for control of:
     - data-filter-data
 
-    If the Django Model Field is provided
+    If the field path and source model are provided
     - The default server-side Django lookup for string fields will be icontains (i.e. case insensitive), otherwise
       (effectively) exact.
     - The default client-side Bootstrap Table filter-control will be "select" if the field has "choices".
-      'data-filter-strict-search' will be true.
+    - The client_filterer will be "strictFilterer" if the field has "choices" and is not many-related.
     """
 
     INPUT_METHOD_TEXT = "input"
@@ -62,7 +63,7 @@ class BSTFilterer:
 
     def __init__(
         self,
-        field: Optional[Field] = None,
+        field_path: Optional[str] = None,
         input_method: Optional[str] = None,
         client_filterer: Optional[str] = None,
         lookup: Optional[str] = None,
@@ -104,7 +105,16 @@ class BSTFilterer:
         Returns:
             None
         """
+        self.field_path = field_path
         self.source_model = source_model
+        if field_path is not None and source_model is not None:
+            self.field = field_path_to_field(source_model, field_path)
+            self.many_related = is_many_related_to_root(field_path, source_model)
+        elif field_path is None and source_model is None:
+            self.field = None
+            self.many_related = False
+        else:
+            raise ValueError("field_path and source_model must be supplied together.")
 
         if input_method is not None:
             self.input_method = input_method
@@ -155,18 +165,18 @@ class BSTFilterer:
                     )
                 )
 
-        elif field is not None:
-            if field.choices is not None and len(field.choices) > 0:
-                if is_many_related(field, source_model=source_model):
+        elif self.field is not None:
+            if self.field.choices is not None and len(self.field.choices) > 0:
+                if self.many_related:
                     self.client_filterer = self.FILTERER_CONTAINS
                 else:
                     self.client_filterer = self.FILTERER_STRICT
                 self.input_method = self.INPUT_METHOD_SELECT
-                self.choices = dict(field.choices)
+                self.choices = dict(self.field.choices)
             else:
                 self.client_filterer = (
                     self.FILTERER_CONTAINS
-                    if not is_number_field(field)
+                    if not is_number_field(self.field)
                     else self.FILTERER_STRICT
                 )
                 self.input_method = self.INPUT_METHOD_TEXT
@@ -194,7 +204,11 @@ class BSTFilterer:
         self.lookup: Optional[str]
         if lookup is not None:
             self.lookup = lookup
-        elif field is not None and is_string_field(field) and self.choices is None:
+        elif (
+            self.field is not None
+            and is_string_field(self.field)
+            and self.choices is None
+        ):
             self.lookup = self.LOOKUP_CONTAINS
         else:
             self.lookup = None

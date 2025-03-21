@@ -1,7 +1,8 @@
-from django.db.models import CharField, IntegerField
 from django.templatetags.static import static
 from django.test import override_settings
 
+from DataRepo.models.sample import Sample
+from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views.models.bst_list_view.filterer import BSTFilterer
 
@@ -16,7 +17,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_charfield(self):
-        f = BSTFilterer(field=CharField())
+        f = BSTFilterer(field_path="name", source_model=Sample)
         self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
         self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
         self.assertIsNone(f.choices)
@@ -24,7 +25,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_integerfield(self):
-        f = BSTFilterer(field=IntegerField())
+        f = BSTFilterer(field_path="animal__body_weight", source_model=Sample)
         self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
         self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
         self.assertIsNone(f.choices)
@@ -32,10 +33,18 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_choicesfield(self):
-        f = BSTFilterer(field=CharField(choices=[("A", "A"), ("B", "B")]))
+        f = BSTFilterer(field_path="animal__sex", source_model=Sample)
         self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
         self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
-        self.assertEqual({"A": "A", "B": "B"}, f.choices)
+        self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
+        self.assertIsNone(f.lookup)
+        self.assertFalse(f.client_mode)
+
+    def test_init_choicesmanyrelatedfield(self):
+        f = BSTFilterer(field_path="animals__sex", source_model=Study)
+        self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
+        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
+        self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
         self.assertIsNone(f.lookup)
         self.assertFalse(f.client_mode)
 

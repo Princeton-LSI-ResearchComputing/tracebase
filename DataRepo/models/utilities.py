@@ -161,6 +161,32 @@ def is_many_related(field: Field, source_model: Optional[Model] = None):
     )
 
 
+def is_many_related_to_root(field_path: Union[str, List[str]], source_model: Model):
+    """Takes a field path and source model and returns whether the leaf field is many-related relative to the first
+    source model.
+
+    Args:
+        field_path (Union[str, List[str]]): A dunderscore delimited field path (or list).
+        source_model (Model): The model that the first field in the field path belongs to.
+    Exceptions:
+        ValueError when the field path is invalid
+    Returns:
+        (bool): Whether the leaf field in the field path is many-related with the root model.
+    """
+    if len(field_path) == 0:
+        raise ValueError("field_path string/list must have a non-zero length.")
+    if isinstance(field_path, str):
+        return is_many_related_to_root(field_path.split("__"), source_model)
+    field = resolve_field(getattr(source_model, field_path[0]))
+    if is_many_related(field, source_model=source_model):
+        return True
+    if len(field_path) == 1:
+        return False
+    return is_many_related_to_root(
+        field_path[1:], get_next_model(source_model, field_path[0])
+    )
+
+
 def field_path_to_field(
     model: Type[Model], path: Union[str, List[str]]
 ) -> Optional[Field]:
