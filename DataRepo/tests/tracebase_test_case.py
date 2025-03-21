@@ -120,6 +120,38 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
         class Meta:
             abstract = True
 
+        @classmethod
+        def assertNotWarns(cls, unexpected_warning=UserWarning):
+            """This is a decorator.  Apply it to tests that should not raise a warning.
+
+            Usage:
+                @MyTestCase.assertNotWarns()
+                def test_no_warnings(self):
+                    do_something_that_should_not_warn()
+
+                @MyTestCase.assertNotWarns(SpecificWarning)
+                def test_no_SpecificWarning(self):
+                    do_something_that_does_not_raise_specific_warning()
+            """
+            tmp_instance = cls()
+
+            def decorator(fn):
+                def wrapper(*args, **kwargs):
+                    with tmp_instance.assertRaises(AssertionError) as ar:
+                        with tmp_instance.assertWarns(unexpected_warning):
+                            return fn(*args, **kwargs)
+                    if (
+                        str(ar.exception)
+                        != f"{unexpected_warning.__name__} not triggered"
+                    ):
+                        raise AssertionError(
+                            f"Unexpected {unexpected_warning.__name__} triggered: {ar.exception}"
+                        )
+
+                return wrapper
+
+            return decorator
+
     return TracebaseTestCaseTemplate
 
 
