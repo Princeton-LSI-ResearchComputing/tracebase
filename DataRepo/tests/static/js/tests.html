@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <meta charset="utf-8">
+    <title>QUnit</title>
+    <link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-2.24.1.css">
+    <body>
+        <div id="qunit"></div>
+        <div id="qunit-fixture"></div>
+        <script src="https://code.jquery.com/qunit/qunit-2.24.1.js"></script>
+
+        <!-- jQuery JS -->
+        <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+        <script src="https://unpkg.com/tableexport.jquery.plugin/tableExport.min.js"></script>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+            crossorigin="anonymous">
+        </script>
+
+        <!-- Bootstrap Table JS -->
+        <script src="https://unpkg.com/bootstrap-table@1.21.1/dist/bootstrap-table.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.21.1/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.21.1/dist/extensions/export/bootstrap-table-export.min.js"></script>
+
+        <!-- Javascript tests
+
+        To run these tests...
+
+        From the tracebase root directory, run:
+
+            python -m http.server
+
+        In a browser, go to:
+
+            http://127.0.0.1:8000/DataRepo/tests/static/js/tests.html
+
+        To add more tests, like for the tests in package:
+
+            /static/js/{whatever-folder}/{package-name}.js
+
+        1. Create files like:
+
+            DataRepo/tests/js_tests/{whatever-folder}/test_{package-name}.js
+
+        2. Add a script tag importing the package below using an absolute URL, e.g.
+
+            <script src="/static/js/{whatever-folder}/{package-name}.js"></script>
+
+        3. Add a script tag importing the corresponding test package below (leaving off 'js_tests'), e.g.
+
+            <script src="{whatever-folder}/test_{package-name}.js"></script>
+        -->
+
+        <!-- Sorter Tests -->
+        <script src="/DataRepo/static/js/bst_list_view/sorter.js"></script>
+        <script src="bst_list_view/test_sorter.js"></script>
+
+    </body>
+</html>
