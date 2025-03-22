@@ -76,3 +76,18 @@ class BSTSorterTests(TracebaseTestCase):
             f"<script src='{static(BSTSorter.JAVASCRIPT)}'></script>",
             BSTSorter.javascript,
         )
+
+    def test_set_client_mode(self):
+        s = BSTSorter()
+        self.assertFalse(s.client_mode)
+        s.set_client_mode()
+        self.assertTrue(s.client_mode)
+        s.set_client_mode(enabled=False)
+        self.assertFalse(s.client_mode)
+
+    def test_set_server_mode(self):
+        s = BSTSorter()
+        s.set_server_mode()
+        self.assertFalse(s.client_mode)
+        s.set_server_mode(enabled=False)
+        self.assertTrue(s.client_mode)

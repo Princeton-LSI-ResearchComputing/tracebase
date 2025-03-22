@@ -19,6 +19,7 @@ from DataRepo.models.utilities import (
     get_model_by_name,
     get_next_model,
     is_many_related,
+    is_many_related_to_root,
     is_number_field,
     is_string_field,
     is_unique_field,
@@ -139,6 +140,20 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertFalse(is_many_related(ArchiveFile.peak_groups.field))
         # But if we're asking from the perspective of ArchiveFile, it is many to ...
         self.assertTrue(is_many_related(ArchiveFile.peak_groups.field, ArchiveFile))
+
+    def test_is_many_related_to_root(self):
+        self.assertFalse(is_many_related_to_root("filename", ArchiveFile))
+        self.assertFalse(is_many_related_to_root("data_format__code", ArchiveFile))
+        self.assertTrue(is_many_related_to_root("peak_groups__name", ArchiveFile))
+        self.assertTrue(
+            is_many_related_to_root(
+                "msrun_sample__sample__animal__studies__name", PeakGroup
+            )
+        )
+        self.assertFalse(
+            is_many_related_to_root("msrun_sample__sample__animal__name", PeakGroup)
+        )
+        self.assertFalse(is_many_related_to_root("description", Study))
 
     def test_field_path_to_field(self):
         ra_field = field_path_to_field(
