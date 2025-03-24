@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import Dict, Type, TypeVar
 
 from django.conf import settings
-from django.db.models import Model, Field, AutoField
+from django.db.models import AutoField, Field, Model
 from django.test import TestCase, TransactionTestCase, override_settings
 
 from DataRepo.models.utilities import get_all_models
@@ -177,7 +177,9 @@ TracebaseTransactionTestCase: Type[TransactionTestCase] = test_case_class_factor
 )
 
 
-def create_test_model(model_name:str, fields:Dict[str, Field], attrs: dict = {}) -> Type[Model]:
+def create_test_model(
+    model_name: str, fields: Dict[str, Field], attrs: dict = {}
+) -> Type[Model]:
     """Dynamically create a Django model for testing purposes.
 
     Example:

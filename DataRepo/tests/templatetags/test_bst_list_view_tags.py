@@ -3,12 +3,13 @@ from django.urls import reverse
 
 from DataRepo.templatetags.bst_list_view_tags import (
     get_attr,
-    is_model_obj,
     has_detail_url,
+    is_model_obj,
 )
-
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase, create_test_model
-
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
+    create_test_model,
+)
 
 # Dynamically create models for these tests
 BSTLVStudy = create_test_model(
@@ -18,7 +19,9 @@ BSTLVStudy = create_test_model(
         "description": CharField(),
     },
     attrs={
-        "get_absolute_url": lambda self: reverse("study_detail", kwargs={"pk": self.pk}),
+        "get_absolute_url": lambda self: reverse(
+            "study_detail", kwargs={"pk": self.pk}
+        ),
     },
 )
 
