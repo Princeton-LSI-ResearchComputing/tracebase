@@ -1,0 +1,14 @@
+{% load bsl_list_view %}
+
+{% with columnValue=object|get_attr:column.name %}
+    {% if columnValue|is_model_obj and columnValue|has_detail_url %}
+        {# Render model object in string context for the link's display value #}
+        <a href="{{ columnValue|get_detail_url }}">{{ columnValue }}</a>
+    {% else %}
+        {% if columnValue is None %}
+            <span class="text-muted">None</span>
+        {% else %}
+            {{ columnValue }}
+        {% endif %}
+    {% endif %}
+{% endwith %}
