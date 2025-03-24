@@ -6,7 +6,7 @@
 flake8==7.0.0
 black==24.3.0
 isort==5.13.2
-pylint==3.1.0
+pylint>=3.3.6
 mypy==1.9.0
 yamllint==1.35.1
 
@@ -19,7 +19,7 @@ types-PyYAML>=6.0.12.12
 
 # For reasonable pylint output on the command line:
 # pylint --rcfile .pylintrc --load-plugins pylint_django --django-settings-module TraceBase.settings -d E1101 ...
-pylint-django
+pylint-django>=2.6.1
 
 # MKDocs for building docs
 mkdocs>=1.4.2
