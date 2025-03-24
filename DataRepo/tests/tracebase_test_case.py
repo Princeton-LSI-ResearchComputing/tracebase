@@ -4,9 +4,10 @@ import os
 import shutil
 import time
 from collections import defaultdict
-from typing import Type, TypeVar
+from typing import Dict, Type, TypeVar
 
 from django.conf import settings
+from django.db.models import Model, Field, AutoField
 from django.test import TestCase, TransactionTestCase, override_settings
 
 from DataRepo.models.utilities import get_all_models
@@ -174,6 +175,46 @@ TracebaseTestCase: Type[TestCase] = test_case_class_factory(TestCase)
 TracebaseTransactionTestCase: Type[TransactionTestCase] = test_case_class_factory(
     TransactionTestCase
 )
+
+
+def create_test_model(model_name:str, fields:Dict[str, Field], attrs: dict = {}) -> Type[Model]:
+    """Dynamically create a Django model for testing purposes.
+
+    Example:
+        TestModel = create_test_model("TestModel", {
+            "name": models.CharField(max_length=255),
+            "value": models.IntegerField(),
+        })
+    Args:
+        model_name (str): The name of the model.
+        fields (dict): A dictionary of model fields, where keys are field names and values are field instances
+            (e.g., models.CharField(max_length=255)).
+    Exceptions:
+        None
+    Returns:
+        A dynamically created Django model class.
+    """
+    if not any(f.primary_key for f in fields.values()):
+        if not any(n == "id" for n in fields.keys()):
+            fields["id"] = AutoField(primary_key=True)
+        else:
+            raise ValueError(f"Primary key for test model {model_name} required.")
+
+    model_attrs = {
+        "__module__": __name__,
+        **fields,
+        "Meta": type(
+            "Meta",
+            (),
+            # TODO: Change "loader" to something disassociated with the loader classes
+            {"app_label": "loader"},
+        ),
+    }
+    model_attrs.update(attrs)
+
+    model: Type[Model] = type(model_name, (Model,), model_attrs)
+
+    return model
 
 
 @override_settings(
