@@ -1,21 +1,14 @@
 <th data-field="{{ column.name }}"
     data-valign="top"
     {% if column.searchable %}
-        data-filter-control="{{ column.filter_control }}"
-        {% if column.filter_control == column.FILTER_CONTROL_CHOICES.SELECT %}
-            data-filter-data="obj:filterSelectOptions.{{ column.name }}"
-            {% if column.many_related %}
-                data-filter-strict-search="false"
-            {% elif column.strict_select is True %}
-                data-filter-strict-search="true"
-            {% else %}
-                data-filter-strict-search="false"
-            {% endif %}
+        data-filter-control="{{ column.filterer.input_method }}"
+        data-filter-custom-search="{{ column.filterer }}"
+        {% if column.filterer.initial %}
+            data-filter-default="{{ column.filterer.initial }}"
         {% endif %}
-        data-filter-default="{{ column.filter }}"
     {% endif %}
     {% if column.sortable %}
-        data-sortable="{{ column.sortable }}"
+        data-sortable="{{ column.sortable|lower }}"
         data-sorter="{{ column.sorter }}"
     {% endif %}
     data-visible="{{ column.visible }}">

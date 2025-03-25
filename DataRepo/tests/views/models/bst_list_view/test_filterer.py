@@ -17,7 +17,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_charfield(self):
-        f = BSTFilterer(field_path="name", source_model=Sample)
+        f = BSTFilterer(field_path="name", model=Sample)
         self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
         self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
         self.assertIsNone(f.choices)
@@ -25,7 +25,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_integerfield(self):
-        f = BSTFilterer(field_path="animal__body_weight", source_model=Sample)
+        f = BSTFilterer(field_path="animal__body_weight", model=Sample)
         self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
         self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
         self.assertIsNone(f.choices)
@@ -33,7 +33,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_choicesfield(self):
-        f = BSTFilterer(field_path="animal__sex", source_model=Sample)
+        f = BSTFilterer(field_path="animal__sex", model=Sample)
         self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
         self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
         self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
@@ -41,7 +41,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_choicesmanyrelatedfield(self):
-        f = BSTFilterer(field_path="animals__sex", source_model=Study)
+        f = BSTFilterer(field_path="animals__sex", model=Study)
         self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
         self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
         self.assertDictEqual({"F": "female", "M": "male"}, f.choices)

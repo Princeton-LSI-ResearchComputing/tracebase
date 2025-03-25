@@ -3,7 +3,7 @@ from functools import reduce
 from typing import Dict, List, Optional, Union
 
 from django.conf import settings
-from django.db.models import Model
+from django.db.models import Expression, Model
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
@@ -13,6 +13,7 @@ from DataRepo.models.utilities import (
     is_many_related_to_root,
     is_number_field,
     is_string_field,
+    resolve_field_path,
 )
 
 
@@ -69,7 +70,8 @@ class BSTFilterer:
         lookup: Optional[str] = None,
         choices: Optional[Union[Dict[str, str], List[str]]] = None,
         client_mode: bool = False,
-        source_model: Optional[Model] = None,
+        model: Optional[Model] = None,
+        initial: Optional[Union[Expression, str]] = None,
     ):
         """Construct a BSTFilterer object.
 
@@ -90,8 +92,9 @@ class BSTFilterer:
                 TODO: choices could be used for auto-complete in the text input method.
             client_mode (bool): Set to True if the initial table is not filtered and the page queryset is the same size
                 as the total queryset.
-            source_model (Optional[Field]): Ignored unless field is provided.  Used to change the default
-                client_filterer when the input_method ends up being "select" but the field is a many-related field.
+            model (Optional[Model]): The root model that the field_path starts from.  Ignored unless field is provided.
+                Used to change the default client_filterer when the input_method ends up being "select" but the field is
+                a many-related field.
                 Explanation: Many-related fields are displayed as delimited values, but the client filterer javascript
                 code is unaware of that, so the default of strict (full match) filtering will not match any delimited
                 values.  Many to many relations can be changed without the source model, but one to many related fields
@@ -100,17 +103,18 @@ class BSTFilterer:
                 "contains".  But if the field is defined in the related model (i.e. it's a reverse relation), it will
                 say it is one-to-many, but from the perspective of the table's model, it should be many-to-one.
                 Supplying the source model allows us to determine the true case.
+            initial (Optional[Union[Expression, str]]): Initial filter search term.
         Exceptions:
             ValueError when an argument is invalid.
         Returns:
             None
         """
         self.field_path = field_path
-        self.source_model = source_model
-        if field_path is not None and source_model is not None:
-            self.field = field_path_to_field(source_model, field_path)
-            self.many_related = is_many_related_to_root(field_path, source_model)
-        elif field_path is None and source_model is None:
+        self.model = model
+        if field_path is not None and model is not None:
+            self.field = field_path_to_field(model, field_path)
+            self.many_related = is_many_related_to_root(field_path, model)
+        elif field_path is None and model is None:
             self.field = None
             self.many_related = False
         else:
@@ -214,6 +218,10 @@ class BSTFilterer:
             self.lookup = None
 
         self.client_mode = client_mode
+
+        self.initial: Optional[str] = None
+        if initial is not None:
+            self.initial = resolve_field_path(initial)
 
     def __str__(self) -> str:
         return self.filterer

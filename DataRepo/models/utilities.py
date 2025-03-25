@@ -6,7 +6,9 @@ from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db.models import Field, Model
+from django.db import ProgrammingError
+from django.db.models import Expression, F, Field, Model
+from django.db.models.expressions import Combinable
 from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
     ManyToManyDescriptor,
@@ -129,7 +131,7 @@ def resolve_field(
         ManyToManyDescriptor,
         ReverseManyToOneDescriptor,
     ]
-):
+) -> Field:
     """A field at the end of a model path can be a deferred attribute or any of a series of 4 descriptors.  This method
     takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied field).
     """
@@ -143,6 +145,42 @@ def resolve_field(
         field.field if any(isinstance(field, fc) for fc in field_containers) else field
     )
 
+
+def resolve_field_path(field_or_expression: Union[str, Combinable, Field]) -> str:
+    """Takes a representation of a field, e.g. from Model._meta.ordering, which can have transform functions applied
+    (like Lower('field_name')) and returns the field path.
+
+    Assumptions:
+        1. In the case of field_or_expression being a Field, the "field path" returned assumes that the context of the
+            field path is the immediate model that the Field belongs to.
+    Limitations:
+        1. Only supports a single source field path.
+    Args:
+        field_or_expression (Union[str, Combinable]): A str (e.g. a field path), Combinable (e.g. an F, Transform [like
+            Lower("name")], Expression, etc object), or a Model Field.
+    Exceptions:
+        ValueError when the field_or_expression contains multiple field paths.
+    Returns
+        field_path (str): The field path that either was the field_or_expression or its wrapper
+    """
+    if isinstance(field_or_expression, str):
+        return field_or_expression
+    elif isinstance(field_or_expression, Field):
+        return field_or_expression.name
+    elif isinstance(field_or_expression, Expression):
+        field_reps = field_or_expression.get_source_expressions()
+        if len(field_reps) != 1:
+            raise ValueError(f"Not one field name in field representation {[f.name for f in field_reps]}.")
+        if isinstance(field_reps[0], Expression):
+            return resolve_field_path(field_reps[0])
+        elif isinstance(field_reps[0], F):
+            return field_reps[0].name
+        else:
+            raise ProgrammingError(f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'.")
+    elif isinstance(field_or_expression, F):
+        return field_or_expression.name
+    else:
+        raise ProgrammingError(f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'.")
 
 def is_many_related(field: Field, source_model: Optional[Model] = None):
     """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
