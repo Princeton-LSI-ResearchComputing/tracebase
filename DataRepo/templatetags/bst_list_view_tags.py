@@ -11,9 +11,9 @@ def is_model_obj(field):
 
 
 @register.filter
-def has_detail_url(model_object_or_class):
-    """Check if a model object or class has a get_absolute_url method."""
-    return hasattr(model_object_or_class, "get_absolute_url")
+def has_attr(object, attr: str):
+    """This allows you to check if a template variable has an attribute."""
+    return hasattr(object, attr)
 
 
 @register.filter
@@ -28,3 +28,12 @@ def get_attr(object, attr, default=None):
         )
         v = default
     return v
+
+
+@register.filter
+def get_absolute_url(model_object: Model):
+    """Get a model object's detail URL."""
+    url = model_object.get_absolute_url()
+    if url is not None and url != "":
+        return url
+    return None
