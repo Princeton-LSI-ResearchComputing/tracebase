@@ -137,15 +137,21 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
 
             def decorator(fn):
                 def wrapper(testcase_obj, *args, **kwargs):
-                    with testcase_obj.assertRaises(AssertionError) as ar:
-                        with testcase_obj.assertWarns(unexpected_warning):
-                            return fn(testcase_obj, *args, **kwargs)
-                    if (
-                        str(ar.exception)
-                        != f"{unexpected_warning.__name__} not triggered"
-                    ):
+                    aw = None
+                    try:
+                        with testcase_obj.assertRaises(AssertionError):
+                            with testcase_obj.assertWarns(unexpected_warning) as aw:
+                                return fn(testcase_obj, *args, **kwargs)
+                    except AssertionError as ae:
+                        # The test may raise AssertionErrors unrelated to the above AssertRaises.  We need to allow them
+                        # to be raised.
+                        if aw is None or len(aw.warnings) == 0:
+                            raise ae
+
+                    if len(aw.warnings) > 0:
+                        uws = "\n\t".join([str(w.message) for w in aw.warnings])
                         raise AssertionError(
-                            f"Unexpected {unexpected_warning.__name__} triggered: {ar.exception}"
+                            f"{len(aw.warnings)} unexpected {unexpected_warning.__name__} triggered:\n\t{uws}"
                         )
 
                 return wrapper

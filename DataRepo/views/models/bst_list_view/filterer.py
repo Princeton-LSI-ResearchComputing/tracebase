@@ -226,6 +226,9 @@ class BSTFilterer:
     def __str__(self) -> str:
         return self.filterer
 
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
     @property
     def filterer(self):
         return self.client_filterer if self.client_mode else self.server_filterer
