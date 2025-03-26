@@ -1,10 +1,14 @@
 from __future__ import annotations
-from warnings import warn
+
 from typing import Optional, Type, Union
 
-from django.db.models import Field, Model
+from django.db.models import Model
 
-from DataRepo.models.utilities import field_path_to_field, is_many_related_to_root, is_unique_field
+from DataRepo.models.utilities import (
+    field_path_to_field,
+    is_many_related_to_root,
+    is_unique_field,
+)
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.models.bst_list_view.filterer import BSTFilterer
 from DataRepo.views.models.bst_list_view.sorter import BSTSorter
@@ -48,22 +52,8 @@ class BSTColumn:
         {% include typecol.td_template %}
 
     It's also important to note that in order for search and sort to work as expected, each column should be converted
-    to a simple string or number annotation that is compatible with django's annotate method.
-
-    For example, as a DateTimeField, imported_timestamp, will sort correctly on the server side, but Bootstrap Table
-    will sort the page's worth of results using alphanumeric sorting.  You can make the sorting behavior consistent by
-    supplying a function using the converter argument, like this:
-
-        BSTColumn(
-            "imported_timestamp_str",
-            field="imported_timestamp",
-            converter=Func(
-                F("imported_timestamp"),
-                Value("YYYY-MM-DD HH:MI a.m."),
-                output_field=CharField(),
-                function="to_char",
-            ),
-        )
+    to a simple string or number annotation that is compatible with django's annotate method.  To supply the annotation,
+    see BSTAnnotColumn.
     """
 
     is_annotation: bool = False
@@ -85,10 +75,8 @@ class BSTColumn:
         visible: bool = True,
         exported: bool = True,
         link: bool = False,
-
         sorter: Optional[Union[str, BSTSorter]] = None,
         filterer: Optional[Union[str, BSTFilterer]] = None,
-
         th_template: str = "models/bst_list_view/th.html",
         td_template: str = "models/bst_list_view/bst_td.html",
         value_template: str = "models/bst_list_view/bst_value.html",
@@ -145,6 +133,7 @@ class BSTColumn:
         # Initialized below
         self.sorter: BSTSorter
         self.filterer: BSTFilterer
+        self.name: str  # Used in derived classes
 
         if self.field_path is None and not self.is_annotation:
             raise ValueError(
@@ -154,20 +143,26 @@ class BSTColumn:
         if not hasattr(self, "name") or self.name is None:
             if self.is_annotation:
                 raise ValueError("name not set by BSTAnnotColumn.")
-            self.name = self.field_path
+            if self.field_path is not None:
+                self.name = self.field_path
+            else:
+                raise ValueError("field_path is required (when not a BSTAnnotColumn).")
 
         if self.header is None:
             self.header = self.generate_header()
 
-        is_many_related = is_many_related_to_root(self.field_path, self.model)
-        if is_many_related and not self.is_many_related and not self.is_annotation:
-            raise ValueError(
-                f"field_path '{field_path}' must not be many-related with model '{self.model.__name__}'.  Use "
-                "BSTAnnotColumn or BSTManyRelatedColumn instead."
-            )
+        if self.field_path is not None:
+            is_many_related = is_many_related_to_root(self.field_path, self.model)
+            if is_many_related and not self.is_many_related and not self.is_annotation:
+                raise ValueError(
+                    f"field_path '{field_path}' must not be many-related with model '{self.model.__name__}'.  Use "
+                    "BSTAnnotColumn or BSTManyRelatedColumn instead."
+                )
 
         if self.link:
-            if is_many_related:
+            if self.field_path is None:
+                raise ValueError("link must not be true when field_path is None.")
+            elif is_many_related:
                 raise ValueError(
                     f"link must not be true when field_path '{field_path}' is many-related with model "
                     f"'{self.model.__name__}'."
@@ -185,7 +180,9 @@ class BSTColumn:
         if sorter is None:
             self.sorter = BSTSorter(self.field_path, model=self.model)
         elif isinstance(sorter, str):
-            self.sorter = BSTSorter(self.field_path, model=self.model, client_sorter=sorter)
+            self.sorter = BSTSorter(
+                self.field_path, model=self.model, client_sorter=sorter
+            )
         elif isinstance(sorter, BSTSorter):
             self.sorter = sorter
         else:
@@ -204,25 +201,28 @@ class BSTColumn:
         else:
             raise ValueError("filterer must be a str or a BSTFilterer.")
 
-    def __eq__(self, other: Optional[Union[str, BSTColumn]]):
+    def __eq__(self, other):
         """This is a convenience override to be able to compare a column name with a column object to see if the object
         is for that column.  It also enables the `in` operator to work between strings and objects.
 
         Args:
             other (Optional[Union[str, BSTColumn]]): A value to equate with self
+                NOTE: Cannot apply this type hint due to mypy superclass requirements that it be 'object'.
         Exceptions:
             NotImplementedError when the type of other is invalid
         Returns:
             (bool)
         """
-        if isinstance(other, __class__):
-            return self.name == other.name
+        if isinstance(other, __class__):  # type: ignore
+            return self.__dict__ == other.__dict__
         elif isinstance(other, str):
             return self.name == other
         elif other is None:
             return False
         else:
-            raise NotImplementedError(f"Equivalence of {__class__.__name__} to {type(other).__name__} not implemented.")
+            raise NotImplementedError(
+                f"Equivalence of {__class__.__name__} to {type(other).__name__} not implemented."  # type: ignore
+            )
 
     def generate_header(self):
         """Generate a column header from the field_path, model name, or column name.
@@ -235,24 +235,40 @@ class BSTColumn:
             None
         """
         # If this column is an annotation, use self.name
-        if self.is_annotation is None:
+        if self.is_annotation is True:
             return underscored_to_title(self.name)
 
         # Get the field
         field = field_path_to_field(self.model, self.field_path)
 
-        # If the field has a verbose name, use it
-        if any(c.isupper() for c in field.verbose_name):
-            return field.verbose_name
+        # If the field has a verbose name different from name, use it
+        if field.name != field.verbose_name:
+            if any(c.isupper() for c in field.verbose_name):
+                # If the field has a verbose name with caps, use it as-is
+                return field.verbose_name
+            else:
+                # Otherwise convert it to a title
+                return underscored_to_title(field.verbose_name)
 
         # Special case: If the name of the field is name, use the model name
         if self.field_path == "name" and is_unique_field(field):
-            try:
-                # Use the model's verbose name (if present)
-                return underscored_to_title(self.model._meta.__dict__["verbose_name"])
-            except:
+            verbose_model_name_without_automods = self.model._meta.__dict__[
+                "verbose_name"
+            ].replace(" ", "")
+            if (
+                self.model.__name__.lower()
+                != verbose_model_name_without_automods.lower()
+            ):
+                # Use the model's verbose name
+                if any(c.isupper() for c in self.model._meta.__dict__["verbose_name"]):
+                    # If the verbose name contains upper-case characters
+                    return self.model._meta.__dict__["verbose_name"]
+                else:
+                    return underscored_to_title(
+                        self.model._meta.__dict__["verbose_name"]
+                    )
+            else:
                 # Use the model name
-                warn(f"Model {self.model.__name__} has no Meta.verbose_name.")
                 return camel_to_title(self.model.__name__)
 
         # Grab as many of the last 2 items from the field_path as is present

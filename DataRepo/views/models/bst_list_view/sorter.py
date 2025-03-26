@@ -1,5 +1,5 @@
-from warnings import warn
 from typing import Optional, Union
+from warnings import warn
 
 from django.conf import settings
 from django.db.models import F, Field, Model
@@ -9,7 +9,11 @@ from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
-from DataRepo.models.utilities import field_path_to_field, is_number_field, is_string_field, resolve_field, resolve_field_path
+from DataRepo.models.utilities import (
+    field_path_to_field,
+    is_number_field,
+    resolve_field_path,
+)
 
 
 class BSTSorter:
@@ -63,7 +67,7 @@ class BSTSorter:
         field_expression: Union[Combinable, Field, str],
         client_sorter: Optional[str] = None,
         client_mode: bool = False,
-        model: Optional[Model] = None
+        model: Optional[Model] = None,
     ):
         """Construct a BSTSorter object.
 
@@ -104,13 +108,24 @@ class BSTSorter:
             if self.model is not None:
                 self.field = field_path_to_field(self.model, self.field_path)
                 if (
-                    (isinstance(field_expression, str) or not isinstance(field_expression, Expression))
-                    and not is_number_field(self.field)
-                ):
+                    isinstance(field_expression, str)
+                    or not isinstance(field_expression, Expression)
+                ) and not is_number_field(self.field):
                     self.sort_expression = Lower(self.field_path)
                 elif isinstance(field_expression, str):
                     self.sort_expression = F(field_expression)
                 else:
+                    if (
+                        not isinstance(field_expression, Lower)
+                        and client_sorter is None
+                        and settings.DEBUG
+                    ):
+                        warn(
+                            f"field_expression ({field_expression}) supplied without a corresponding client_sorter.  "
+                            "Unable to select a client_sorter that matches the expression.  Server sort may "
+                            "differ from client sort.  Selecting a default client_sorter based on the field type "
+                            f"'{type(self.field).__name__}'."
+                        )
                     self.sort_expression = field_expression
             else:
                 self.field = None
@@ -137,6 +152,9 @@ class BSTSorter:
 
     def __str__(self) -> str:
         return self.sorter
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
 
     @property
     def sorter(self):
