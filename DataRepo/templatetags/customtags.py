@@ -3,7 +3,6 @@ from typing import Union
 
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db.models import Model
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
