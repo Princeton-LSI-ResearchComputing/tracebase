@@ -170,17 +170,24 @@ def resolve_field_path(field_or_expression: Union[str, Combinable, Field]) -> st
     elif isinstance(field_or_expression, Expression):
         field_reps = field_or_expression.get_source_expressions()
         if len(field_reps) != 1:
-            raise ValueError(f"Not one field name in field representation {[f.name for f in field_reps]}.")
+            raise ValueError(
+                f"Not one field name in field representation {[f.name for f in field_reps]}."
+            )
         if isinstance(field_reps[0], Expression):
             return resolve_field_path(field_reps[0])
         elif isinstance(field_reps[0], F):
             return field_reps[0].name
         else:
-            raise ProgrammingError(f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'.")
+            raise ProgrammingError(
+                f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
+            )
     elif isinstance(field_or_expression, F):
         return field_or_expression.name
     else:
-        raise ProgrammingError(f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'.")
+        raise ProgrammingError(
+            f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
+        )
+
 
 def is_many_related(field: Field, source_model: Optional[Model] = None):
     """Takes a field (and optional source model) and returns whether that field is many-related relative to the source

@@ -55,5 +55,5 @@ class BSTListViewTagsTests(TracebaseTestCase):
         self.assertFalse(has_attr(BSTLVCompoundSynonym, "get_absolute_url"))
 
     def test_get_detail_url(self):
-        self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_absolute_url(s))
         s = BSTLVStudy.objects.first()
+        self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_absolute_url(s))

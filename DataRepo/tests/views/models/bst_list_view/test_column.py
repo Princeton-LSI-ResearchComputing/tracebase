@@ -229,9 +229,9 @@ class BSTColumnTests(TracebaseTestCase):
         c = BSTColumn(BSTCStudyTestModel, "name")
         sh = c.generate_header()
         self.assertEqual(
-            BSTCStudyTestModel._meta.__dict__[
+            BSTCStudyTestModel._meta.__dict__[  # pylint: disable=no-member
                 "verbose_name"
-            ],  # pylint: disable=no-member
+            ],
             sh,
         )
 
@@ -241,9 +241,9 @@ class BSTColumnTests(TracebaseTestCase):
         ah = c.generate_header()
         self.assertEqual(
             underscored_to_title(
-                BSTCAnimalTestModel._meta.__dict__[
+                BSTCAnimalTestModel._meta.__dict__[  # pylint: disable=no-member
                     "verbose_name"
-                ]  # pylint: disable=no-member
+                ]
             ),
             ah,
         )
