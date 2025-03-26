@@ -154,7 +154,7 @@ class BSTSorter:
         return self.sorter
 
     def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+        return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
 
     @property
     def sorter(self):

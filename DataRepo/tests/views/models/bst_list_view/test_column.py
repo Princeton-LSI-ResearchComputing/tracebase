@@ -228,14 +228,24 @@ class BSTColumnTests(TracebaseTestCase):
         # Test caps model verbose_name used as-is
         c = BSTColumn(BSTCStudyTestModel, "name")
         sh = c.generate_header()
-        self.assertEqual(BSTCStudyTestModel._meta.__dict__["verbose_name"], sh)
+        self.assertEqual(
+            BSTCStudyTestModel._meta.__dict__[
+                "verbose_name"
+            ],  # pylint: disable=no-member
+            sh,
+        )
 
     def test_generate_header_field_name_to_model_diff_verbose_name(self):
         # Test diff model verbose_name used as-is
         c = BSTColumn(BSTCAnimalTestModel, "name")
         ah = c.generate_header()
         self.assertEqual(
-            underscored_to_title(BSTCAnimalTestModel._meta.__dict__["verbose_name"]), ah
+            underscored_to_title(
+                BSTCAnimalTestModel._meta.__dict__[
+                    "verbose_name"
+                ]  # pylint: disable=no-member
+            ),
+            ah,
         )
 
     def test_generate_header_field_name_not_unique_not_changed_to_model_name(self):
