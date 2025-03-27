@@ -3,7 +3,6 @@ import os
 from copy import deepcopy
 from io import BytesIO
 
-from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
@@ -1175,11 +1174,6 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
             num_warnings,
         ] = self.validate_some_files(sf, afs)
 
-        if settings.DEBUG:
-            print(
-                f"VALID: {valid}\nALL RESULTS: {results}\nALL EXCEPTIONS: {exceptions}"
-            )
-
         # NOTE: When the unknown researcher error is raised, the sample table load would normally be rolled back.  The
         # subsequent accucor load would then fail (to find any more errors), because it can't find the same names in
         # the database.  Sample table loader needs to raise the exception to communicate the issues to the validate
@@ -1358,11 +1352,6 @@ class BuildSubmissionViewTests2(TracebaseTransactionTestCase):
                     num_errors[file] += 1
                 else:
                     num_warnings[file] += 1
-
-        print(
-            f"VALID: {valid}\nALL RESULTS: {results}\nALL EXCEPTIONS: {exceptions}\nNUM ERRORS: {num_errors}\n"
-            f"NUM WARNING: {num_warnings}"
-        )
 
         return results, valid, exceptions, num_errors, num_warnings
 
