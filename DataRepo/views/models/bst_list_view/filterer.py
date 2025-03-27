@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Union
 
 from django.conf import settings
 from django.db.models import Model
-from django.db.models.expressions import Expression
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
