@@ -1,16 +1,29 @@
 from datetime import timedelta
 
 from django.apps import apps
-from django.db.models import CharField, Field, FloatField, ManyToManyField
+from django.db import ProgrammingError
+from django.db.models import (
+    CharField,
+    Count,
+    F,
+    Field,
+    FloatField,
+    ManyToManyField,
+    Min,
+)
+from django.db.models.functions import Concat, Lower, Upper
 from django.db.models.query_utils import DeferredAttribute
 from django.forms import ValidationError, model_to_dict
 
-from DataRepo.models import ArchiveFile, LCMethod
-from DataRepo.models.animal import Animal
-from DataRepo.models.archive_file import DataFormat
-from DataRepo.models.peak_data import PeakData
-from DataRepo.models.peak_group import PeakGroup
-from DataRepo.models.study import Study
+from DataRepo.models import (
+    Animal,
+    ArchiveFile,
+    DataFormat,
+    LCMethod,
+    PeakData,
+    PeakGroup,
+    Study,
+)
 from DataRepo.models.utilities import (
     dereference_field,
     field_path_to_field,
@@ -25,6 +38,7 @@ from DataRepo.models.utilities import (
     is_unique_field,
     model_path_to_model,
     resolve_field,
+    resolve_field_path,
     update_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
@@ -227,3 +241,29 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertFalse(is_unique_field(ArchiveFile.filename.field))
         self.assertTrue(is_unique_field(ArchiveFile.checksum))
         self.assertTrue(is_unique_field(ArchiveFile.checksum.field))
+
+    def test_resolve_field_path(self):
+        # Assumed base model = Sample
+        self.assertEqual("animal__sex", resolve_field_path("animal__sex"))
+        self.assertEqual("animal__sex", resolve_field_path(Lower("animal__sex")))
+        self.assertEqual("animal__sex", resolve_field_path(Lower(F("animal__sex"))))
+        self.assertEqual("animal__sex", resolve_field_path(Upper(Lower("animal__sex"))))
+        self.assertEqual("animal__sex", resolve_field_path(F("animal__sex")))
+        self.assertEqual("animal__sex", resolve_field_path(Count(F("animal__sex"))))
+        self.assertEqual("animal__sex", resolve_field_path(Min(F("animal__sex"))))
+        # Assumed base model = Animal
+        self.assertEqual("sex", resolve_field_path(Animal.sex))
+        self.assertEqual("sex", resolve_field_path(CharField(name="sex")))
+        # Unsupported
+        with self.assertRaises(ValueError) as ar:
+            resolve_field_path(Concat(F("animal__sex"), F("animal__body_weight")))
+        self.assertEqual(
+            "Not one field name in field representation ['animal__sex', 'animal__body_weight'].",
+            str(ar.exception),
+        )
+        with self.assertRaises(ProgrammingError) as ar:
+            print(resolve_field_path(1))
+        self.assertEqual(
+            "Unexpected field_or_expression type: 'int'.",
+            str(ar.exception),
+        )
