@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Union
 
 from django.conf import settings
 from django.db.models import Model
+from django.db.models.expressions import Expression
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
@@ -69,19 +70,21 @@ class BSTFilterer:
         lookup: Optional[str] = None,
         choices: Optional[Union[Dict[str, str], List[str]]] = None,
         client_mode: bool = False,
-        source_model: Optional[Model] = None,
+        model: Optional[Model] = None,
+        initial: Optional[str] = None,
     ):
         """Construct a BSTFilterer object.
 
         Args:
-            field (Optional[Field]): A Model field, used for automatically selecting a client_filterer and input_method.
+            field_path (Optional[str]): A field path, used (with model) to derive the Field in order to automatically
+                select a client_filterer and input_method.
             input_method (Optional[str]) [auto]: The string to set the Bootstrap Table data-filter-control attribute.
                 The default is "select" int he field has a populated choices attribute.  Otherwise it is "input".
                 TODO: "datepicker" is not yet supported.
             client_filterer (Optional[str]) [auto]: The string to set the Bootstrap Table data-filter-custom-search
                 attribute.  The default is strictFilterer if self.choices is None or field is numeric, otherwise
                 containsFilterer is set.
-                Note that the client_filterer behavior should match the lookup behavior.
+                NOTE: The client_filterer behavior should match the lookup behavior.
             lookup (Optional[str]): A Django Field Lookup.  Note, this should match the behavior of client_filterer.
                 Note that the lookup behavior should match the client_filterer behavior.
                 See https://docs.djangoproject.com/en/5.1/topics/db/queries/#field-lookups.
@@ -90,8 +93,9 @@ class BSTFilterer:
                 TODO: choices could be used for auto-complete in the text input method.
             client_mode (bool): Set to True if the initial table is not filtered and the page queryset is the same size
                 as the total queryset.
-            source_model (Optional[Field]): Ignored unless field is provided.  Used to change the default
-                client_filterer when the input_method ends up being "select" but the field is a many-related field.
+            model (Optional[Model]): The root model that the field_path starts from.  Ignored unless field is provided.
+                Used to change the default client_filterer when the input_method ends up being "select" but the field is
+                a many-related field.
                 Explanation: Many-related fields are displayed as delimited values, but the client filterer javascript
                 code is unaware of that, so the default of strict (full match) filtering will not match any delimited
                 values.  Many to many relations can be changed without the source model, but one to many related fields
@@ -100,17 +104,18 @@ class BSTFilterer:
                 "contains".  But if the field is defined in the related model (i.e. it's a reverse relation), it will
                 say it is one-to-many, but from the perspective of the table's model, it should be many-to-one.
                 Supplying the source model allows us to determine the true case.
+            initial (Optional[str]): Initial filter search term.
         Exceptions:
             ValueError when an argument is invalid.
         Returns:
             None
         """
         self.field_path = field_path
-        self.source_model = source_model
-        if field_path is not None and source_model is not None:
-            self.field = field_path_to_field(source_model, field_path)
-            self.many_related = is_many_related_to_root(field_path, source_model)
-        elif field_path is None and source_model is None:
+        self.model = model
+        if field_path is not None and model is not None:
+            self.field = field_path_to_field(model, field_path)
+            self.many_related = is_many_related_to_root(field_path, model)
+        elif field_path is None and model is None:
             self.field = None
             self.many_related = False
         else:
@@ -215,8 +220,15 @@ class BSTFilterer:
 
         self.client_mode = client_mode
 
+        self.initial: Optional[str] = None
+        if initial is not None:
+            self.initial = initial
+
     def __str__(self) -> str:
         return self.filterer
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
 
     @property
     def filterer(self):
