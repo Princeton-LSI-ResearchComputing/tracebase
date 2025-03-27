@@ -2,8 +2,9 @@ from django.db.models import CharField
 from django.urls import reverse
 
 from DataRepo.templatetags.bst_list_view_tags import (
+    get_absolute_url,
     get_attr,
-    has_detail_url,
+    has_attr,
     is_model_obj,
 )
 from DataRepo.tests.tracebase_test_case import (
@@ -49,6 +50,10 @@ class BSTListViewTagsTests(TracebaseTestCase):
         self.assertEqual(s.name, get_attr(s, "name"))
 
     def test_has_detail_url(self):
-        self.assertTrue(has_detail_url(BSTLVStudy.objects.first()))
-        self.assertTrue(has_detail_url(BSTLVStudy))
-        self.assertFalse(has_detail_url(BSTLVCompoundSynonym))
+        self.assertTrue(has_attr(BSTLVStudy.objects.first(), "get_absolute_url"))
+        self.assertTrue(has_attr(BSTLVStudy, "get_absolute_url"))
+        self.assertFalse(has_attr(BSTLVCompoundSynonym, "get_absolute_url"))
+
+    def test_get_detail_url(self):
+        s = BSTLVStudy.objects.first()
+        self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_absolute_url(s))

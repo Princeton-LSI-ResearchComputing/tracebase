@@ -3,7 +3,6 @@ from typing import Union
 
 from django import template
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db.models import Model
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
@@ -84,15 +83,6 @@ def index(indexable, i):
         )
         v = None
     return v
-
-
-@register.filter
-def get_detail_url(model_object: Model):
-    """Get a model object's detail URL."""
-    url = model_object.get_absolute_url()
-    if url is not None and url != "":
-        return url
-    return None
 
 
 @register.simple_tag

@@ -9,7 +9,6 @@ from DataRepo.templatetags.customtags import (
     display_filter,
     format_date,
     get_case_insensitive_synonyms,
-    get_detail_url,
     get_many_related_rec,
     intmultiply,
     lte,
@@ -120,10 +119,6 @@ class CustomTagsTests(TracebaseTestCase):
 
     def test_intmultiply(self):
         self.assertEqual(6, intmultiply(2.0, 3.1))
-
-    def test_get_detail_url(self):
-        s = Study.objects.first()
-        self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_detail_url(s))
 
     def test_format_date(self):
         self.assertEqual("1977.02.11", format_date("1977-02-11", "%Y.%m.%d"))
