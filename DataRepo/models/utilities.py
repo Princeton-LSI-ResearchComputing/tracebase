@@ -146,10 +146,22 @@ def resolve_field(
     )
 
 
-def resolve_field_path(field_or_expression: Union[str, Combinable, Field]) -> str:
+def resolve_field_path(
+    field_or_expression: Union[str, Combinable, DeferredAttribute, Field]
+) -> str:
     """Takes a representation of a field, e.g. from Model._meta.ordering, which can have transform functions applied
     (like Lower('field_name')) and returns the field path.
 
+    Examples:
+        Assumed base model = Sample
+            resolve_field_path("animal__sex")  # Outputs: "animal__sex"
+            resolve_field_path(Lower("animal__sex"))  # Outputs: "animal__sex"
+            resolve_field_path(F("animal__sex"))  # Outputs: "animal__sex"
+        Assumed base model = Animal
+            resolve_field_path(Animal.sex)  # Outputs: "sex"
+            resolve_field_path(CharField(name="sex"))  # Outputs: "sex"
+        Unsupported:
+            resolve_field_path(CONCAT(F("animal__sex"), F("animal__body_weight")))  # ERROR
     Assumptions:
         1. In the case of field_or_expression being a Field, the "field path" returned assumes that the context of the
             field path is the immediate model that the Field belongs to.
@@ -167,6 +179,8 @@ def resolve_field_path(field_or_expression: Union[str, Combinable, Field]) -> st
         return field_or_expression
     elif isinstance(field_or_expression, Field):
         return field_or_expression.name
+    elif isinstance(field_or_expression, DeferredAttribute):
+        return field_or_expression.field.name
     elif isinstance(field_or_expression, Expression):
         field_reps = field_or_expression.get_source_expressions()
         if len(field_reps) != 1:
