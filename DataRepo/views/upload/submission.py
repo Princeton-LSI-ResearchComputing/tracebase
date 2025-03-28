@@ -2555,9 +2555,9 @@ class BuildSubmissionView(FormView):
                             print(
                                 f"FILLING IN VALIDATION FOR COLUMN {header} ON ROW {index}"
                             )
-                            self.validation_autofill_dict[sheet][header][
-                                index
-                            ] = sheet_dict[header]
+                            self.validation_autofill_dict[sheet][header][index] = (
+                                sheet_dict[header]
+                            )
                         else:
                             print(f"FILLING IN {sheet_dict[header]} ON ROW {index}")
                             # Add the new data
@@ -3015,9 +3015,9 @@ class BuildSubmissionView(FormView):
                 self.studies_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                StudiesLoader.DataSheetName
-            ] = self.studies_loader.get_dataframe_template()
+            dfs_dict[StudiesLoader.DataSheetName] = (
+                self.studies_loader.get_dataframe_template()
+            )
 
         if (
             AnimalsLoader.DataSheetName in dfs_dict.keys()
@@ -3029,9 +3029,9 @@ class BuildSubmissionView(FormView):
                 self.animals_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                AnimalsLoader.DataSheetName
-            ] = self.animals_loader.get_dataframe_template()
+            dfs_dict[AnimalsLoader.DataSheetName] = (
+                self.animals_loader.get_dataframe_template()
+            )
 
         if (
             SamplesLoader.DataSheetName in dfs_dict.keys()
@@ -3043,9 +3043,9 @@ class BuildSubmissionView(FormView):
                 self.samples_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                SamplesLoader.DataSheetName
-            ] = self.samples_loader.get_dataframe_template()
+            dfs_dict[SamplesLoader.DataSheetName] = (
+                self.samples_loader.get_dataframe_template()
+            )
 
         if ProtocolsLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3054,11 +3054,11 @@ class BuildSubmissionView(FormView):
                 self.treatments_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                ProtocolsLoader.DataSheetName
-            ] = self.treatments_loader.get_dataframe_template(
-                populate=True,
-                filter={"category": Protocol.ANIMAL_TREATMENT},
+            dfs_dict[ProtocolsLoader.DataSheetName] = (
+                self.treatments_loader.get_dataframe_template(
+                    populate=True,
+                    filter={"category": Protocol.ANIMAL_TREATMENT},
+                )
             )
 
         if TissuesLoader.DataSheetName in dfs_dict.keys():
@@ -3068,9 +3068,9 @@ class BuildSubmissionView(FormView):
                 self.tissues_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                TissuesLoader.DataSheetName
-            ] = self.tissues_loader.get_dataframe_template(populate=True)
+            dfs_dict[TissuesLoader.DataSheetName] = (
+                self.tissues_loader.get_dataframe_template(populate=True)
+            )
 
         if CompoundsLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3079,9 +3079,9 @@ class BuildSubmissionView(FormView):
                 self.compounds_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                CompoundsLoader.DataSheetName
-            ] = self.compounds_loader.get_dataframe_template()
+            dfs_dict[CompoundsLoader.DataSheetName] = (
+                self.compounds_loader.get_dataframe_template()
+            )
 
         if TracersLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3090,9 +3090,9 @@ class BuildSubmissionView(FormView):
                 self.tracers_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                TracersLoader.DataSheetName
-            ] = self.tracers_loader.get_dataframe_template()
+            dfs_dict[TracersLoader.DataSheetName] = (
+                self.tracers_loader.get_dataframe_template()
+            )
 
         if InfusatesLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3101,9 +3101,9 @@ class BuildSubmissionView(FormView):
                 self.infusates_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                InfusatesLoader.DataSheetName
-            ] = self.infusates_loader.get_dataframe_template()
+            dfs_dict[InfusatesLoader.DataSheetName] = (
+                self.infusates_loader.get_dataframe_template()
+            )
 
         if LCProtocolsLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3112,9 +3112,9 @@ class BuildSubmissionView(FormView):
                 self.lcprotocols_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                LCProtocolsLoader.DataSheetName
-            ] = self.lcprotocols_loader.get_dataframe_template(populate=True)
+            dfs_dict[LCProtocolsLoader.DataSheetName] = (
+                self.lcprotocols_loader.get_dataframe_template(populate=True)
+            )
 
         if SequencesLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3123,9 +3123,9 @@ class BuildSubmissionView(FormView):
                 self.sequences_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                SequencesLoader.DataSheetName
-            ] = self.sequences_loader.get_dataframe_template()
+            dfs_dict[SequencesLoader.DataSheetName] = (
+                self.sequences_loader.get_dataframe_template()
+            )
 
         if MSRunsLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3134,9 +3134,9 @@ class BuildSubmissionView(FormView):
                 self.msruns_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                MSRunsLoader.DataSheetName
-            ] = self.msruns_loader.get_dataframe_template()
+            dfs_dict[MSRunsLoader.DataSheetName] = (
+                self.msruns_loader.get_dataframe_template()
+            )
 
         if PeakAnnotationFilesLoader.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3145,9 +3145,9 @@ class BuildSubmissionView(FormView):
                 self.peakannotfiles_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                PeakAnnotationFilesLoader.DataSheetName
-            ] = self.peakannotfiles_loader.get_dataframe_template()
+            dfs_dict[PeakAnnotationFilesLoader.DataSheetName] = (
+                self.peakannotfiles_loader.get_dataframe_template()
+            )
 
         if PeakGroupConflicts.DataSheetName in dfs_dict.keys():
             self.fill_in_missing_columns(
@@ -3156,9 +3156,9 @@ class BuildSubmissionView(FormView):
                 self.peakgroupconflicts_loader.get_dataframe_template(),
             )
         else:
-            dfs_dict[
-                PeakGroupConflicts.DataSheetName
-            ] = self.peakgroupconflicts_loader.get_dataframe_template()
+            dfs_dict[PeakGroupConflicts.DataSheetName] = (
+                self.peakgroupconflicts_loader.get_dataframe_template()
+            )
 
         return dfs_dict
 
