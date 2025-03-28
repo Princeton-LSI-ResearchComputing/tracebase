@@ -183,10 +183,14 @@ def resolve_field_path(
         return field_or_expression.field.name
     elif isinstance(field_or_expression, Expression):
         field_reps = field_or_expression.get_source_expressions()
-        if len(field_reps) != 1:
-            raise ValueError(
-                f"Not one field name in field representation {[f.name for f in field_reps]}."
+
+        if len(field_reps) == 0:
+            raise NoFields("No field name in field representation.")
+        elif len(field_reps) > 1:
+            raise MultipleFields(
+                f"Multiple field names in field representation {[f.name for f in field_reps]}."
             )
+
         if isinstance(field_reps[0], Expression):
             return resolve_field_path(field_reps[0])
         elif isinstance(field_reps[0], F):
@@ -259,7 +263,7 @@ def field_path_to_field(
     if len(path) == 1:
         if hasattr(model, path[0]):
             return resolve_field(getattr(model, path[0]))
-        raise ValueError(
+        raise AttributeError(
             f"Model: {model.__name__} does not have a field attribute named: '{path[0]}'."
         )
     return field_path_to_field(get_next_model(model, path[0]), path[1:])
@@ -482,3 +486,11 @@ def update_rec(rec: Model, rec_dict: dict):
 
 def get_detail_url_name(model_object: Model):
     return resolve(model_object.get_absolute_url()).url_name
+
+
+class NoFields(Exception):
+    pass
+
+
+class MultipleFields(Exception):
+    pass
