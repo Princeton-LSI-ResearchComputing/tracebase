@@ -3,6 +3,7 @@ import os
 from copy import deepcopy
 from io import BytesIO
 
+from django.core.exceptions import PermissionDenied
 from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
@@ -995,7 +996,7 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
 
     @override_settings(READONLY=True)
     def test_readonly_exception(self):
-        with self.assertRaises(PermissionError):
+        with self.assertRaises(PermissionDenied):
             BuildSubmissionView()
 
     def test_get_existing_dfs_index(self):

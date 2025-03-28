@@ -10,7 +10,7 @@ import pandas as pd
 import xlsxwriter
 import xlsxwriter.worksheet
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db.utils import ProgrammingError
 from django.forms import ValidationError, formset_factory
 from django.views.generic.edit import FormView
@@ -111,9 +111,7 @@ class BuildSubmissionView(FormView):
 
     def __init__(self):
         if settings.READONLY:
-            raise PermissionError(
-                "The ability to upload data is restricted on this site."
-            )
+            raise PermissionDenied
 
         super().__init__()
 
