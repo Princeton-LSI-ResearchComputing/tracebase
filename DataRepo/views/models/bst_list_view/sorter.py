@@ -10,6 +10,7 @@ from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
 from DataRepo.models.utilities import (
+    NoFields,
     field_path_to_field,
     is_number_field,
     resolve_field_path,
@@ -81,7 +82,8 @@ class BSTSorter:
             1. Only supports a single source field path.
         Args:
             field_expression (Union[Combinable, Field, str]): A Model Field, Combinable (e.g. Expression, Transform), or
-                str (e.g. a field path or name) used for automatically selecting a client_sorter and transform.
+                str (e.g. a field path or name [i.e. an annotation]) used for automatically selecting a client_sorter
+                and transform.
             client_sorter (Optional[str]) [auto]: The string to set the Bootstrap Table data-sorter attribute.  The
                 default is alphanumericSorter if field is not supplied, otherwise if the field type is a number field,
                 numericSorter is set.
@@ -94,23 +96,48 @@ class BSTSorter:
         Returns:
             None
         """
+        # We will assume a field is an annotation if the attribute is not found on the model.  We could accept
+        # 'is_annotation' as an argument, but inferring it is sufficient and keepts the interface simple.
+        self.is_annotation: bool = False
+
         self.model = model
-        # Set field_path, field, and sort_expression
-        if isinstance(field_expression, Field):
+        self.field_path: Optional[str]
+
+        try:
+            # NOTE: field_path may end up being an annotation field.
             self.field_path = resolve_field_path(field_expression)
-            self.field = field_expression
-            if not is_number_field(self.field):
-                self.sort_expression = Lower(self.field.name)
+        except NoFields:
+            # Assume the field is an annotation
+            self.is_annotation = True
+            self.field_path = None
+
+        # Set model_field and sort_expression
+        if isinstance(field_expression, Field):
+            self.model_field = field_expression
+            if not is_number_field(self.model_field):
+                self.sort_expression = Lower(self.model_field.name)
             else:
                 self.sort_expression = F(field_expression.name)
         else:
-            self.field_path = resolve_field_path(field_expression)
-            if self.model is not None:
-                self.field = field_path_to_field(self.model, self.field_path)
+            if self.field_path is not None and self.model is not None:
+                try:
+                    self.model_field = field_path_to_field(self.model, self.field_path)
+                except AttributeError as ae:
+                    # Assume it is an annotation if the field is definitely not a field path (i.e. contains a
+                    # dunderscore)
+                    if "__" not in self.field_path:
+                        self.is_annotation = True
+                    else:
+                        raise ae
+
                 if (
-                    isinstance(field_expression, str)
-                    or not isinstance(field_expression, Expression)
-                ) and not is_number_field(self.field):
+                    self.model_field is not None
+                    and not is_number_field(self.model_field)
+                    and (
+                        isinstance(field_expression, str)
+                        or not isinstance(field_expression, Expression)
+                    )
+                ):
                     self.sort_expression = Lower(self.field_path)
                 elif isinstance(field_expression, str):
                     self.sort_expression = F(field_expression)
@@ -124,11 +151,11 @@ class BSTSorter:
                             f"field_expression ({field_expression}) supplied without a corresponding client_sorter.  "
                             "Unable to select a client_sorter that matches the expression.  Server sort may "
                             "differ from client sort.  Selecting a default client_sorter based on the field type "
-                            f"'{type(self.field).__name__}'."
+                            f"'{type(self.model_field).__name__}'."
                         )
                     self.sort_expression = field_expression
             else:
-                self.field = None
+                self.model_field = None
                 if settings.DEBUG:
                     warn(
                         f"field_expression ({field_expression}) supplied without a model.  Unable to determine field "
@@ -142,7 +169,7 @@ class BSTSorter:
 
         if client_sorter is not None:
             self.client_sorter = client_sorter
-        elif self.field is not None and is_number_field(self.field):
+        elif self.model_field is not None and is_number_field(self.model_field):
             self.client_sorter = self.SORTER_JS_NUMERIC
         else:
             # Rely on Django for the sorting.  Don't apply a javascript sort on top of it.

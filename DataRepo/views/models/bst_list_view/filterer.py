@@ -63,7 +63,7 @@ class BSTFilterer:
 
     def __init__(
         self,
-        field_path: Optional[str] = None,
+        field: Optional[str] = None,
         input_method: Optional[str] = None,
         client_filterer: Optional[str] = None,
         lookup: Optional[str] = None,
@@ -75,8 +75,9 @@ class BSTFilterer:
         """Construct a BSTFilterer object.
 
         Args:
-            field_path (Optional[str]): A field path, used (with model) to derive the Field in order to automatically
-                select a client_filterer and input_method.
+            field (Optional[str]): A model field path or annotation field, used (with model) to derive the Field in
+                order to automatically select a client_filterer and input_method (if model is provided - if model is not
+                provided, it is assumed to be an annotation).
             input_method (Optional[str]) [auto]: The string to set the Bootstrap Table data-filter-control attribute.
                 The default is "select" int he field has a populated choices attribute.  Otherwise it is "input".
                 TODO: "datepicker" is not yet supported.
@@ -92,7 +93,7 @@ class BSTFilterer:
                 TODO: choices could be used for auto-complete in the text input method.
             client_mode (bool): Set to True if the initial table is not filtered and the page queryset is the same size
                 as the total queryset.
-            model (Optional[Model]): The root model that the field_path starts from.  Ignored unless field is provided.
+            model (Optional[Model]): The root model that the field starts from.  Ignored unless field is provided.
                 Used to change the default client_filterer when the input_method ends up being "select" but the field is
                 a many-related field.
                 Explanation: Many-related fields are displayed as delimited values, but the client filterer javascript
@@ -109,16 +110,35 @@ class BSTFilterer:
         Returns:
             None
         """
-        self.field_path = field_path
+        # We will assume a field is an annotation if the attribute is not found on the model.  We could accept
+        # 'is_annotation' as an argument, but inferring it is sufficient and keepts the interface simple.
+        self.is_annotation: bool = False
+
+        self.field = field
         self.model = model
-        if field_path is not None and model is not None:
-            self.field = field_path_to_field(model, field_path)
-            self.many_related = is_many_related_to_root(field_path, model)
-        elif field_path is None and model is None:
-            self.field = None
-            self.many_related = False
+        if field is not None and model is not None:
+            try:
+                self.model_field = field_path_to_field(model, field)
+                self.many_related = is_many_related_to_root(field, model)
+            except AttributeError as ae:
+                # Assume it is an annotation if the field is definitely not a field path (i.e. contains a dunderscore)
+                if "__" not in field:
+                    self.is_annotation = True
+                    self.model_field = None
+                    self.many_related = False
+                else:
+                    raise ae
+        elif field is not None and "__" in field:
+            # An annotation can theoretically be an attribute of an object further down the field path, but BSTListView
+            # does not support that
+            raise ValueError(
+                "field and model must be supplied together when not an annotation."
+            )
         else:
-            raise ValueError("field_path and source_model must be supplied together.")
+            # Assume it is an annotation
+            self.is_annotation = True
+            self.model_field = None
+            self.many_related = False
 
         if input_method is not None:
             self.input_method = input_method
@@ -169,18 +189,21 @@ class BSTFilterer:
                     )
                 )
 
-        elif self.field is not None:
-            if self.field.choices is not None and len(self.field.choices) > 0:
+        elif self.model_field is not None:
+            if (
+                self.model_field.choices is not None
+                and len(self.model_field.choices) > 0
+            ):
                 if self.many_related:
                     self.client_filterer = self.FILTERER_CONTAINS
                 else:
                     self.client_filterer = self.FILTERER_STRICT
                 self.input_method = self.INPUT_METHOD_SELECT
-                self.choices = dict(self.field.choices)
+                self.choices = dict(self.model_field.choices)
             else:
                 self.client_filterer = (
                     self.FILTERER_CONTAINS
-                    if not is_number_field(self.field)
+                    if not is_number_field(self.model_field)
                     else self.FILTERER_STRICT
                 )
                 self.input_method = self.INPUT_METHOD_TEXT
@@ -209,8 +232,8 @@ class BSTFilterer:
         if lookup is not None:
             self.lookup = lookup
         elif (
-            self.field is not None
-            and is_string_field(self.field)
+            self.model_field is not None
+            and is_string_field(self.model_field)
             and self.choices is None
         ):
             self.lookup = self.LOOKUP_CONTAINS

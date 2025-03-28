@@ -86,11 +86,11 @@ class BSTColumnTests(TracebaseTestCase):
         self.assertIn("field_path is required", str(ar.exception))
 
     def test_init_annot_requires_name(self):
-        # Test when name not set and self.is_annotation - ValueError - "name not set by BSTAnnotColumn"
+        # Test when name not set and self.is_annotation - AttributeError - "name not set by BSTAnnotColumn"
         BSTColumn.is_annotation = True
-        with self.assertRaises(ValueError) as ar:
+        with self.assertRaises(AttributeError) as ar:
             BSTColumn(BSTCStudyTestModel, "annot")
-        self.assertIn("name not set by BSTAnnotColumn", str(ar.exception))
+        self.assertIn("'name' not set by BSTAnnotColumn", str(ar.exception))
 
     def test_init_name_set_to_field_path(self):
         # Test self.name == self.field_path
@@ -101,7 +101,7 @@ class BSTColumnTests(TracebaseTestCase):
         # Test if sorter is None - self.sorter = BSTSorter(self.field_path, model=self.model)
         self.assertEqual(BSTSorter(fld, model=mdl), c.sorter)
         # Test if filterer is None - self.filterer = BSTFilterer(model=self.model, field_path=self.field_path)
-        self.assertEqual(BSTFilterer(field_path=fld, model=mdl), c.filterer)
+        self.assertEqual(BSTFilterer(field=fld, model=mdl), c.filterer)
 
     def test_init_no_many_related(self):
         # Test if is_many_related and not self.is_many_related and not self.is_annotation - ValueError
@@ -116,7 +116,7 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(ValueError) as ar:
             BSTColumn(BSTCSampleTestModel, "animal__studies__name", link=True)
         self.assertIn(
-            "link must not be true when field_path 'animal__studies__name' is many-related",
+            "'link' must not be true when 'field_path' 'animal__studies__name' is many-related",
             str(ar.exception),
         )
 
@@ -125,7 +125,7 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(ValueError) as ar:
             BSTColumn(BSTCSampleTestModel, "animal__body_weight", link=True)
         self.assertIn(
-            "link must not be true when field_path 'animal__body_weight' passes through a related model",
+            "'link' must not be true when 'field_path' 'animal__body_weight' passes through a related model",
             str(ar.exception),
         )
 
@@ -134,7 +134,7 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(ValueError) as ar:
             BSTColumn(BSTCStudyTestModel, "name", link=True)
         self.assertIn(
-            "link must not be true when model 'BSTCStudyTestModel' does not have a 'get_absolute_url'",
+            "'link' must not be true when 'model' 'BSTCStudyTestModel' does not have a 'get_absolute_url'",
             str(ar.exception),
         )
         # No error = successful test:
@@ -152,7 +152,7 @@ class BSTColumnTests(TracebaseTestCase):
             str(BSTSorter(fld, model=mdl, client_sorter=my_sorter)), str(c.sorter)
         )
         self.assertEqual(
-            str(BSTFilterer(field_path=fld, model=mdl, client_filterer=my_filterer)),
+            str(BSTFilterer(field=fld, model=mdl, client_filterer=my_filterer)),
             str(c.filterer),
         )
 
@@ -164,7 +164,7 @@ class BSTColumnTests(TracebaseTestCase):
         my_sorter = "mySorter"
         my_filterer = "myFilterer"
         bsts = BSTSorter(fld, model=mdl, client_sorter=my_sorter)
-        bstf = BSTFilterer(field_path=fld, model=mdl, client_filterer=my_filterer)
+        bstf = BSTFilterer(field=fld, model=mdl, client_filterer=my_filterer)
         c = BSTColumn(mdl, fld, sorter=bsts, filterer=bstf)
         self.assertEqual(bsts, c.sorter)
         self.assertEqual(bstf, c.filterer)
