@@ -10,6 +10,7 @@ from django.db.models import (
     FloatField,
     ManyToManyField,
     Min,
+    Value,
 )
 from django.db.models.functions import Concat, Lower, Upper
 from django.db.models.query_utils import DeferredAttribute
@@ -25,6 +26,8 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.models.utilities import (
+    MultipleFields,
+    NoFields,
     dereference_field,
     field_path_to_field,
     field_path_to_model_path,
@@ -255,10 +258,16 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual("sex", resolve_field_path(Animal.sex))
         self.assertEqual("sex", resolve_field_path(CharField(name="sex")))
         # Unsupported
-        with self.assertRaises(ValueError) as ar:
+        with self.assertRaises(NoFields) as ar:
+            resolve_field_path(Value(0))
+        self.assertEqual(
+            "No field name in field representation.",
+            str(ar.exception),
+        )
+        with self.assertRaises(MultipleFields) as ar:
             resolve_field_path(Concat(F("animal__sex"), F("animal__body_weight")))
         self.assertEqual(
-            "Not one field name in field representation ['animal__sex', 'animal__body_weight'].",
+            "Multiple field names in field representation ['animal__sex', 'animal__body_weight'].",
             str(ar.exception),
         )
         with self.assertRaises(ProgrammingError) as ar:
