@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Type, Union
+from typing import Optional, Type, Union, cast
 
 from django.db.models import Model
 
@@ -67,7 +67,7 @@ class BSTColumn:
 
     def __init__(
         self,
-        model: Type[Model],
+        model: Optional[Type[Model]],
         field_path: Optional[str],
         header: Optional[str] = None,
         searchable: bool = True,
@@ -85,7 +85,7 @@ class BSTColumn:
         model.
 
         Args:
-            model (Type[Model]): Model class that the field_path starts from.
+            model (Optional[Type[Model]]): Model class that the field_path starts from.
             field_path (Optional[str]): Name of the database field (including the field path) corresponding to the
                 column.  A value must be supplied, but that value may be None (to support derived classes that do not
                 use it).
@@ -115,6 +115,7 @@ class BSTColumn:
                 the value inside the td element for a column cell.
         Exceptions:
             ValueError when arguments are invalid
+            AttributeError when 'name' not set by BSTAnnotColumn
         Returns:
             None
         """
@@ -135,65 +136,75 @@ class BSTColumn:
         self.filterer: BSTFilterer
         self.name: str  # Used in derived classes
 
-        if self.field_path is None and not self.is_annotation:
-            raise ValueError(
-                "field_path is required for non-annotation fields.  Use BSTAnnotColumn for annotation fields."
-            )
+        is_many_related = False
 
-        if not hasattr(self, "name") or self.name is None:
-            if self.is_annotation:
-                raise ValueError("name not set by BSTAnnotColumn.")
-            if self.field_path is not None:
-                self.name = self.field_path
-            else:
-                raise ValueError("field_path is required (when not a BSTAnnotColumn).")
+        if self.is_annotation:
+            if not hasattr(self, "name") or self.name is None:
+                raise AttributeError("Attribute 'name' not set by BSTAnnotColumn.")
+        else:
+            if self.field_path is None:
+                raise ValueError(
+                    "field_path is required for non-annotation fields.  Use BSTAnnotColumn for annotation fields."
+                )
+            elif self.model is None:
+                raise ValueError(
+                    "model is required for non-annotation fields.  Use BSTAnnotColumn for annotation fields."
+                )
 
-        if self.header is None:
-            self.header = self.generate_header()
+            self.field_path = cast(str, self.field_path)
+            self.model = cast(Type[Model], self.model)
+            self.name = self.field_path
 
-        if self.field_path is not None:
             is_many_related = is_many_related_to_root(self.field_path, self.model)
-            if is_many_related and not self.is_many_related and not self.is_annotation:
+            if is_many_related and not self.is_many_related:
                 raise ValueError(
                     f"field_path '{field_path}' must not be many-related with model '{self.model.__name__}'.  Use "
                     "BSTAnnotColumn or BSTManyRelatedColumn instead."
                 )
 
-        if self.link:
-            if self.field_path is None:
-                raise ValueError("link must not be true when field_path is None.")
-            elif is_many_related:
-                raise ValueError(
-                    f"link must not be true when field_path '{field_path}' is many-related with model "
-                    f"'{self.model.__name__}'."
-                )
-            elif "__" in self.field_path:
-                raise ValueError(
-                    f"link must not be true when field_path '{field_path}' passes through a related model."
-                )
-            elif not hasattr(self.model, "get_absolute_url"):
-                raise ValueError(
-                    f"link must not be true when model '{self.model.__name__}' does not have a 'get_absolute_url' "
-                    "method."
-                )
+            if self.link:
+                if self.field_path is None:
+                    raise ValueError(
+                        "Argument 'link' must not be true when 'field_path' is None."
+                    )
+                elif is_many_related:
+                    raise ValueError(
+                        f"Argument 'link' must not be true when 'field_path' '{field_path}' is many-related with model "
+                        f"'{self.model.__name__}'."
+                    )
+                elif "__" in self.field_path:
+                    raise ValueError(
+                        f"Argument 'link' must not be true when 'field_path' '{field_path}' passes through a related "
+                        "model."
+                    )
+                elif not hasattr(self.model, "get_absolute_url"):
+                    # NOTE: An annotation can link as well, but no need to force supplying a model just to check for
+                    # get_absolute_url.  It will be checked in the template.
+                    raise ValueError(
+                        f"Argument 'link' must not be true when 'model' '{self.model.__name__}' does not have a "
+                        "'get_absolute_url' method."
+                    )
 
+        if self.header is None:
+            self.header = self.generate_header()
+
+        # NOTE: self.name will be either a field_path or an annotation field.
         if sorter is None:
-            self.sorter = BSTSorter(self.field_path, model=self.model)
+            self.sorter = BSTSorter(self.name, model=self.model)
         elif isinstance(sorter, str):
-            self.sorter = BSTSorter(
-                self.field_path, model=self.model, client_sorter=sorter
-            )
+            self.sorter = BSTSorter(self.name, model=self.model, client_sorter=sorter)
         elif isinstance(sorter, BSTSorter):
             self.sorter = sorter
         else:
             raise ValueError("sorter must be a str or a BSTSorter.")
 
+        # NOTE: self.name will be either a field_path or an annotation field.
         if filterer is None:
-            self.filterer = BSTFilterer(model=self.model, field_path=self.field_path)
+            self.filterer = BSTFilterer(model=self.model, field=self.name)
         elif isinstance(filterer, str):
             self.filterer = BSTFilterer(
                 model=self.model,
-                field_path=self.field_path,
+                field=self.name,
                 client_filterer=filterer,
             )
         elif isinstance(filterer, BSTFilterer):
@@ -235,7 +246,7 @@ class BSTColumn:
             None
         """
         # If this column is an annotation, use self.name
-        if self.is_annotation is True:
+        if self.is_annotation:
             return underscored_to_title(self.name)
 
         # Get the field
