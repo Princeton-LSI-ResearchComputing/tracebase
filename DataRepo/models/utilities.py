@@ -256,7 +256,9 @@ def field_path_to_field(
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
     """
-    if len(path) == 0:
+    if model is None:
+        raise ValueError("model must not be None.")
+    if path is None or len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
         return field_path_to_field(model, path.split("__"))
