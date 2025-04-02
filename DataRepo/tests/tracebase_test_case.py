@@ -228,7 +228,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                     aw = None
                     other_exception = None
                     try:
-                        with testcase_obj.assertRaises(AssertionError):
+                        with testcase_obj.assertRaises(AssertionError) as ar:
                             with testcase_obj.assertWarns(unexpected_warning) as aw:
                                 try:
                                     return fn(testcase_obj, *args, **kwargs)
