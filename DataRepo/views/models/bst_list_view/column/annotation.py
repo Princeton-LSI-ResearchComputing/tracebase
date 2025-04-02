@@ -1,15 +1,19 @@
-from typing import Optional, Type
 from warnings import warn
 
 from django.conf import settings
-from django.db.models import Model
 from django.db.models.expressions import Combinable
 from django.db.models.functions import Coalesce
 
-from DataRepo.views.models.bst_list_view.column import BSTColumn
+from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
+from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
+    BSTAnnotFilterer,
+)
+from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
+    BSTAnnotSorter,
+)
 
 
-class BSTAnnotColumn(BSTColumn):
+class BSTAnnotColumn(BSTBaseColumn):
     """Class to extend BSTColumn to support annotations.
 
     BSTAnnotColumn sets 'name' to the name of the annotation field, which is used for sorting and filtering based on the
@@ -43,16 +47,13 @@ class BSTAnnotColumn(BSTColumn):
     The BSTSorter and BSTFilterer provided by the base class will use the annotation field for their operations.
     """
 
-    # Overrides BSTColumn.is_annotation
+    # Overrides BSTBaseColumn.is_annotation
     is_annotation = True
 
     def __init__(
         self,
         name: str,
         converter: Combinable,
-        *args,
-        model: Optional[Type[Model]] = None,
-        field_path: Optional[str] = None,
         **kwargs,
     ):
         """Constructor.
@@ -84,37 +85,31 @@ class BSTAnnotColumn(BSTColumn):
                     Build your own:
                         Func
                         etc.
-            model (Optional[Type[Model]]): Passed to super().__init__().  Providing the model and field_path is used to
-                infer the field type of the annotation in limited cases, for selecting default behaviors for filtering
-                and sorting.  For example, to decide whether to match the entire value or a substring of the value.
-                Numeric values match the entire value by default.  A BSTSorter and BSTFilterer can be supplied if the
-                default is not ideal.
-            field_path (Optional[str]): Passed to super().__init__().  Checked to make sure not the same as name.
-                Providing the model and field_path is used to infer the field type of the annotation in limited cases,
-                for selecting default behaviors for filtering and sorting.  For example, to decide whether to match the
-                entire value or a substring of the value.  Numeric values match the entire value by default.  A
-                BSTSorter and BSTFilterer can be supplied if the default is not ideal.
-        Super Args Notes:
-            model (Optional[Type[Model]]): Supply this if you want to have the annotation link to the detail
-            field_path (Optional[str]): Name of the database field (including the field path) corresponding to the
-                column.  A value must be supplied, but that value may be None (to support derived classes that do not
-                use it).
-                NOTE: Adding a many-related field will increase the number of resulting rows in the table.  See
-                BSTManyRelatedColumn to prevent this (and display many-related records as delimited values).
-
-            link (bool) [False]: Whether or not to link the value in the column to a detail page for the model record
-                the row represents.  The model must have a "get_absolute_url" method.
         Exceptions:
-            None
+            TypeError when the provided sorter/filterer is the wrong type
         Returns:
             None
         """
-        self.name = name
         self.converter = converter
+        sorter = kwargs.get("sorter")
+        filterer = kwargs.get("filterer")
 
-        if field_path is not None and name == field_path:
-            raise ValueError(
-                f"The annotation name '{name}' cannot be the same as the field_path '{field_path}'."
+        if sorter is None:
+            sorter = BSTAnnotSorter(name, name=name)
+        elif isinstance(sorter, str):
+            sorter = BSTAnnotSorter(name, name=name, client_sorter=sorter)
+        elif not isinstance(sorter, BSTAnnotSorter):
+            raise TypeError(
+                f"sorter must be a BSTAnnotSorter, not {type(sorter).__name__}"
+            )
+
+        if filterer is None:
+            filterer = BSTAnnotFilterer(name)
+        elif isinstance(filterer, str):
+            filterer = BSTAnnotFilterer(name, client_filterer=filterer)
+        elif not isinstance(filterer, BSTAnnotFilterer):
+            raise TypeError(
+                f"filterer must be a BSTAnnotFilterer, not {type(filterer).__name__}"
             )
 
         if settings.DEBUG and isinstance(self.converter, Coalesce):
@@ -123,4 +118,11 @@ class BSTAnnotColumn(BSTColumn):
                 "changing the converter to a different function, such as 'Case'."
             )
 
-        super().__init__(model, field_path, *args, **kwargs)
+        kwargs.update(
+            {
+                "sorter": sorter,
+                "filterer": filterer,
+            }
+        )
+
+        super().__init__(name, **kwargs)
