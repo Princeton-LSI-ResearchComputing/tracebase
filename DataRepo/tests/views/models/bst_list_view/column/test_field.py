@@ -171,7 +171,9 @@ class BSTColumnTests(TracebaseTestCase):
         fld = "name"
         with self.assertRaises(TypeError) as ar:
             BSTColumn(fld, model=mdl, sorter=1)
-        self.assertIn("sorter must be a BSTSorter, not int", str(ar.exception))
+        self.assertIn(
+            "sorter must be a str or a BSTBaseSorter, not a 'int'", str(ar.exception)
+        )
 
     def test_init_filterer_wrong_type(self):
         # Test if filterer type wrong - ValueError("filterer must be a str or a BSTFilterer.")
@@ -179,7 +181,10 @@ class BSTColumnTests(TracebaseTestCase):
         fld = "name"
         with self.assertRaises(TypeError) as ar:
             BSTColumn(fld, model=mdl, filterer=1)
-        self.assertIn("filterer must be a BSTFilterer, not int", str(ar.exception))
+        self.assertIn(
+            "filterer must be a str or a BSTBaseFilterer, not a 'int'",
+            str(ar.exception),
+        )
 
     def test_eq(self):
         # Test __eq__ works when other val is string

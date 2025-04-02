@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Optional, Union
 
 from DataRepo.utils.text_utils import underscored_to_title
@@ -78,6 +78,7 @@ class BSTBaseColumn(ABC):
                 the value inside the td element for a column cell.
         Exceptions:
             ValueError when arguments are invalid
+            TypeError when arguments are invalid
             AttributeError when 'name' not set by BSTAnnotColumn
         Returns:
             None
@@ -113,30 +114,27 @@ class BSTBaseColumn(ABC):
 
         # NOTE: self.name will be either a field_path or an annotation field.
         if sorter is None:
-            self.sorter = BSTBaseSorter(name=self.name, sort_expression=self.name)
+            self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
-            self.sorter = BSTBaseSorter(
-                name=self.name,
-                sort_expression=self.name,
-                client_sorter=sorter,
-            )
+            self.sorter = self.create_sorter(sorter=sorter)
         elif isinstance(sorter, BSTBaseSorter):
             self.sorter = sorter
         else:
-            raise ValueError("sorter must be a str or a BSTBaseSorter.")
+            raise TypeError(
+                f"sorter must be a str or a BSTBaseSorter, not a '{type(sorter).__name__}'."
+            )
 
         # NOTE: self.name will be either a field_path or an annotation field.
         if filterer is None:
-            self.filterer = BSTBaseFilterer(name=self.name)
+            self.filterer = self.create_filterer()
         elif isinstance(filterer, str):
-            self.filterer = BSTBaseFilterer(
-                name=self.name,
-                client_filterer=filterer,
-            )
+            self.filterer = self.create_filterer(filterer=filterer)
         elif isinstance(filterer, BSTBaseFilterer):
             self.filterer = filterer
         else:
-            raise ValueError("filterer must be a str or a BSTBaseFilterer.")
+            raise TypeError(
+                f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'."
+            )
 
     def __eq__(self, other):
         """This is a convenience override to be able to compare a column name with a column object to see if the object
@@ -164,3 +162,13 @@ class BSTBaseColumn(ABC):
     def generate_header(self):
         """Generate a column header from the column name."""
         return underscored_to_title(self.name)
+
+    @abstractmethod
+    def create_sorter(self, sorter: Optional[str] = None) -> BSTBaseSorter:
+        """Derived classes must define this method to set self.sorter"""
+        pass
+
+    @abstractmethod
+    def create_filterer(self, filterer: Optional[str] = None) -> BSTBaseFilterer:
+        """Derived classes must define this method to set self.filterer"""
+        pass
