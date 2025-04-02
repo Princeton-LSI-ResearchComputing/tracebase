@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import NamedTuple, Optional, Union
 from warnings import warn
 
@@ -44,7 +45,7 @@ class UnknownServerSorter(Combinable):
     pass
 
 
-class BSTBaseSorter:
+class BSTBaseSorter(ABC):
     """This class manages sorting of rows/objects based on a column in the Bootstrap Table of a ListView by providing a
     sorter for each column to both the Bootstrap Table javascript code and a transform to the field supplied to the
     Django ORM's order_by.

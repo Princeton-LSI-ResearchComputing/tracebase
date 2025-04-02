@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Type
+from typing import Optional, Type
 
 from django.db.models import Model
 
@@ -140,19 +140,21 @@ class BSTColumn(BSTBaseColumn):
             sorter = BSTSorter(self.field_path, model=model)
         elif isinstance(sorter, str):
             sorter = BSTSorter(self.field_path, model=model, client_sorter=sorter)
-        elif type(sorter) is BSTSorter:
+        elif type(sorter) is not BSTSorter:
             # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
-            raise TypeError(f"sorter must be a BSTSorter, not {type(sorter).__name__}")
+            raise TypeError(
+                f"sorter must be a str or a BSTBaseSorter, not a '{type(sorter).__name__}'"
+            )
 
         # Set a default filterer, if necessary
         if filterer is None:
             filterer = BSTFilterer(name, model)
         elif isinstance(filterer, str):
             filterer = BSTFilterer(name, model, client_filterer=filterer)
-        elif type(filterer) is BSTFilterer:
+        elif type(filterer) is not BSTFilterer:
             # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
             raise TypeError(
-                f"filterer must be a BSTFilterer, not {type(filterer).__name__}"
+                f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'"
             )
 
         kwargs.update(
@@ -216,3 +218,27 @@ class BSTColumn(BSTBaseColumn):
 
         # Default is to use the last 2 elements of the path
         return underscored_to_title("_".join(path_tail))
+
+    def create_sorter(self, sorter: Optional[str] = None) -> BSTSorter:
+        if sorter is None:
+            sorter_obj = BSTSorter(self.field_path, model=self.model)
+        elif isinstance(sorter, str):
+            sorter_obj = BSTSorter(
+                self.field_path, model=self.model, client_sorter=sorter
+            )
+        else:
+            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
+            raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
+        return sorter_obj
+
+    def create_filterer(self, filterer: Optional[str] = None) -> BSTFilterer:
+        if filterer is None:
+            filterer_obj = BSTFilterer(self.name, model=self.model)
+        elif isinstance(filterer, str):
+            filterer_obj = BSTFilterer(
+                self.name, model=self.model, client_filterer=filterer
+            )
+        else:
+            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
+            raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
+        return filterer_obj
