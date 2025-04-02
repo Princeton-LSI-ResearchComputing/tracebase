@@ -1,3 +1,4 @@
+from typing import Optional
 from warnings import warn
 
 from django.conf import settings
@@ -126,3 +127,23 @@ class BSTAnnotColumn(BSTBaseColumn):
         )
 
         super().__init__(name, **kwargs)
+
+    def create_sorter(self, sorter: Optional[str] = None) -> BSTAnnotSorter:
+        if sorter is None:
+            sorter_obj = BSTAnnotSorter(self.name)
+        elif isinstance(sorter, str):
+            sorter_obj = BSTAnnotSorter(self.name, client_sorter=sorter)
+        else:
+            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
+            raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
+        return sorter_obj
+
+    def create_filterer(self, filterer: Optional[str] = None) -> BSTAnnotFilterer:
+        if filterer is None:
+            filterer_obj = BSTAnnotFilterer(self.name)
+        elif isinstance(filterer, str):
+            filterer_obj = BSTAnnotFilterer(self.name, client_filterer=filterer)
+        else:
+            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
+            raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
+        return filterer_obj
