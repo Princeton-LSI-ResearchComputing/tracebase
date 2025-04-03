@@ -133,13 +133,26 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_client_filterer_custom_warns(self):
-        with self.assertWarns(UserWarning):
+        with self.assertWarns(UserWarning) as aw:
             f = BSTFilterer(
                 BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
                 BSTFStudyTestModel,
                 client_filterer="myFilterer",
             )
-        # TODO: Assert warning content
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "Cannot guarantee that the behavior of the default _server_filterer 'icontains'",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn("based on the input method 'input'", str(aw.warnings[0].message))
+        self.assertIn(
+            "custom client_filterer 'myFilterer'", str(aw.warnings[0].message)
+        )
+        self.assertIn(
+            "Server filtering may differ from client filtering",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn("Supply a custom _server_filterer", str(aw.warnings[0].message))
         self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
         self.assertEqual("myFilterer", f.client_filterer)
         self.assertIsNone(f.choices)
@@ -165,13 +178,24 @@ class BSTFiltererTests(TracebaseTestCase):
         )
 
     def test_init_server_filterer(self):
-        with self.assertWarns(UserWarning):
+        with self.assertWarns(UserWarning) as aw:
             f = BSTFilterer(
                 BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
                 BSTFStudyTestModel,
                 _server_filterer="istartswith",
             )
-        # TODO: Assert warning content
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "Cannot guarantee that the client_filterer 'djangoFilterer' behavior will match",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn(
+            "_server_filterer 'CustomLookup' behavior", str(aw.warnings[0].message)
+        )
+        self.assertIn(
+            "Server filtering may differ from client filtering.",
+            str(aw.warnings[0].message),
+        )
         self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
         self.assertEqual(f.CLIENT_FILTERERS.NONE, f.client_filterer)
         self.assertIsNone(f.choices)

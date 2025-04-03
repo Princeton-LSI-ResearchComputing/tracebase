@@ -140,7 +140,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                     aw = None
                     other_exception = None
                     try:
-                        with testcase_obj.assertRaises(AssertionError) as ar:
+                        with testcase_obj.assertRaises(AssertionError):
                             with testcase_obj.assertWarns(unexpected_warning) as aw:
                                 try:
                                     return fn(testcase_obj, *args, **kwargs)
@@ -154,7 +154,6 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
 
                     # if f"{unexpected_warning.__name__} not triggered" not in str(ar.exception):
                     if other_exception is not None:
-                        print(ar.exception.__traceback__)
                         raise other_exception.with_traceback(
                             other_exception.__traceback__
                         )
