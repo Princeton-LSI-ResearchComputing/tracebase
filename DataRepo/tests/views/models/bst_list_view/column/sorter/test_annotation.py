@@ -9,8 +9,8 @@ from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
 )
 
 
+@override_settings(DEBUG=True)
 class BSTAnnotSorterTests(TracebaseTestCase):
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_str_expression(self):
         s = BSTAnnotSorter(
@@ -23,7 +23,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertIsInstance(s.sort_expression, Lower)
         self.assertFalse(s.client_mode)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_f_expression(self):
         s = BSTAnnotSorter(
@@ -34,7 +33,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertIsInstance(s.sort_expression, Lower)
         self.assertEqual(s.SERVER_SORTERS.ALPHANUMERIC, s._server_sorter)
 
-    @override_settings(DEBUG=True)
     def test_init_expression_nofield_only(self):
         # We assert NOT warns because Upper has a default output_field type which we recognize and can apply our case
         # insensitivity to (using Lower).  This is a nonsensical example, but where this makes sense is when for
@@ -56,14 +54,12 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertEqual("name", s.name)
         self.assertIsInstance(s.sort_expression, Upper)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_expression_nofield_server_sorter_known(self):
         BSTAnnotSorter(
             Upper("name"), _server_sorter=BSTAnnotSorter.SERVER_SORTERS.ALPHANUMERIC
         )
 
-    @override_settings(DEBUG=True)
     def test_init_expression_nofield_server_sorter_custom(self):
         # Allow users to craft their own server sorter, but warn that we cannot apply case insensitivity due to the lack
         # of an output_field and we cannot guranatee that the client sort will match if a custom client_sorter is not
@@ -79,7 +75,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
             str(aw.warnings[1].message),
         )
 
-    @override_settings(DEBUG=True)
     def test_init_expression_nofield_client_sorter_known_debug(self):
         with self.assertWarns(UserWarning) as aw:
             BSTAnnotSorter(
@@ -102,7 +97,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
             Upper("name"), client_sorter=BSTAnnotSorter.CLIENT_SORTERS.ALPHANUMERIC
         )
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_expression_nofield_client_sorter_unknown(self):
         # We assert NOT warns because Upper has a default output_field type which we recognize and can apply our case
@@ -111,7 +105,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         # applied if the **output_field** is a compatible type.
         BSTAnnotSorter(Upper("name"), client_sorter="myUpperSorter")
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_expression_field_charfield(self):
         # We assert NOT warns because Upper has a default output_field type which we recognize and can apply our case
@@ -124,7 +117,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertEqual("name", s.name)
         self.assertIsInstance(s.sort_expression, Lower)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_expression_nofield_and_clientsorter(self):
         s = BSTAnnotSorter(Upper("name"), client_sorter="upperSorter")
@@ -133,7 +125,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertIsInstance(s.sort_expression, Upper)
         self.assertEqual(BSTAnnotSorter.SERVER_SORTERS.UNKNOWN, s._server_sorter)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_str(self):
         self.assertEqual(
@@ -163,7 +154,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
             ),
         )
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_sorter(self):
         self.assertEqual(
@@ -193,7 +183,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
             BSTAnnotSorter.javascript,
         )
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_set_client_mode(self):
         s = BSTAnnotSorter(
@@ -206,7 +195,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         s.set_client_mode(enabled=False)
         self.assertFalse(s.client_mode)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_set_server_mode(self):
         s = BSTAnnotSorter(

@@ -18,8 +18,8 @@ BSTSTestModel = create_test_model(
 )
 
 
+@override_settings(DEBUG=True)
 class BSTSorterTests(TracebaseTestCase):
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_charfield(self):
         s = BSTSorter(CharField(name="name"), BSTSTestModel)
@@ -27,7 +27,6 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
         self.assertIsInstance(s.sort_expression, Lower)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_integerfield(self):
         s = BSTSorter(IntegerField(name="value"), BSTSTestModel)
@@ -35,7 +34,6 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertIsInstance(s.sort_expression, F)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NUMERIC, s.client_sorter)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_str_and_model(self):
         s = BSTSorter("value", BSTSTestModel)
@@ -43,7 +41,6 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NUMERIC, s.client_sorter)
         self.assertIsInstance(s.sort_expression, F)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_f_and_model(self):
         s = BSTSorter(F("name"), BSTSTestModel)
@@ -51,7 +48,6 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_expression_and_model(self):
         # We assert NOT warns because Upper has a default output_field type which we recognize and can apply our case
@@ -63,12 +59,10 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertEqual(BSTSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
         self.assertIsInstance(s.sort_expression, Lower)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_expression_model_and_clientsorter(self):
         BSTSorter(Upper("name"), BSTSTestModel, client_sorter="upperSorter")
 
-    @override_settings(DEBUG=True)
     def test_init_sorter_custom(self):
         with self.assertWarns(UserWarning) as aw:
             s = BSTSorter("value", BSTSTestModel, client_sorter="mySorter")
@@ -89,7 +83,6 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertEqual("mySorter", s.client_sorter)
         self.assertIsInstance(s.sort_expression, F)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_str(self):
         self.assertEqual(
@@ -103,7 +96,6 @@ class BSTSorterTests(TracebaseTestCase):
             BSTSorter.javascript,
         )
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_set_client_mode(self):
         s = BSTSorter(CharField(name="name"), BSTSTestModel)
@@ -113,7 +105,6 @@ class BSTSorterTests(TracebaseTestCase):
         s.set_client_mode(enabled=False)
         self.assertFalse(s.client_mode)
 
-    @override_settings(DEBUG=True)
     @TracebaseTestCase.assertNotWarns()
     def test_set_server_mode(self):
         s = BSTSorter(CharField(name="name"), BSTSTestModel)
