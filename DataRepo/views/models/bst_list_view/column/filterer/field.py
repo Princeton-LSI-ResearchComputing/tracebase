@@ -4,6 +4,7 @@ from django.db.models import Model
 
 from DataRepo.models.utilities import (
     field_path_to_field,
+    get_distinct_fields,
     is_many_related_to_root,
     is_number_field,
 )
@@ -16,8 +17,8 @@ class BSTFilterer(BSTBaseFilterer):
     """This class manages filtering of rows/objects based on a column in the Bootstrap Table for a model field of a
     ListView.
 
-    - The default server-side Django lookup for string fields will be icontains (i.e. case insensitive), otherwise
-      (effectively) exact.
+    - The default _server_filterer for string fields will be icontains (i.e. case insensitive), otherwise (effectively)
+      exact.
     - The default client-side Bootstrap Table filter-control will be "select" if the field has "choices".
     - The client_filterer will be "strictFilterer" if the field has "choices" and is not many-related.
     """
@@ -29,6 +30,7 @@ class BSTFilterer(BSTBaseFilterer):
         field_path: str,
         model: Type[Model],
         *args,
+        distinct_choices: bool = False,
         **kwargs,
     ):
         """Constructor.
@@ -56,11 +58,12 @@ class BSTFilterer(BSTBaseFilterer):
 
         self.field_path = field_path
         self.model = model
+        self.distinct_choices = distinct_choices
 
-        name = field_path
+        name = field_path  # The field_path argument takes the place of the superclass's name argument
         choices = kwargs.get("choices")
         client_filterer = kwargs.get("client_filterer")
-        lookup = kwargs.get("lookup")
+        _server_filterer = kwargs.get("_server_filterer")
 
         try:
             self.field = field_path_to_field(model, field_path)
@@ -68,13 +71,30 @@ class BSTFilterer(BSTBaseFilterer):
         except AttributeError as ae:
             if "__" not in field_path:
                 raise AttributeError(
-                    f"{ae}  If field_path '{field_path}' is an annotation, use BSTAnnotFilterer"
+                    f"{ae}\nIf field_path '{field_path}' is an annotation, use BSTAnnotFilterer"
                 ).with_traceback(ae.__traceback__)
             else:
                 raise ae
 
-        if (
+        if choices is not None and len(choices) > 0 and distinct_choices:
+            raise ValueError(
+                f"choices {choices} and distinct_choices '{distinct_choices}' are mutually exclusive."
+            )
+        elif (choices is None or len(choices) == 0) and distinct_choices:
+            # If field_path is a foreign key, the way to construct the query is by getting all of the related model's
+            # ordering fields, to avoid errors
+            distinct_fields = get_distinct_fields(self.model, self.field_path)
+            choices = {}
+            for val in list(
+                self.model.objects.order_by(*distinct_fields)
+                .distinct(*distinct_fields)
+                .values_list(self.field_path, flat=True)
+            ):
+                # The displayed and searchable values will be how the related model's objects render in string context
+                choices[str(val)] = str(val)
+        elif (
             (choices is None or len(choices) == 0)
+            and hasattr(self.field, "choices")
             and self.field.choices is not None
             and len(self.field.choices) > 0
         ):
@@ -83,30 +103,46 @@ class BSTFilterer(BSTBaseFilterer):
             choices = None
 
         if client_filterer is None:
-            client_filterer = (
-                self.FILTERER_CONTAINS if self._relaxed() else self.FILTERER_STRICT
-            )
+            if _server_filterer is not None:
+                _server_filterer = self.process_server_filterer(_server_filterer)
+                try:
+                    server_filterer_key = self.SERVER_FILTERERS.get_key(
+                        _server_filterer
+                    )
+                    client_filterer = getattr(
+                        self.CLIENT_FILTERERS, server_filterer_key
+                    )
+                except ValueError:
+                    # We cannot match a custom server filterer, so just disable client filtereing to guarantee matching
+                    # behavior, albeit inefficient when the user loads all rows.
+                    client_filterer = self.CLIENT_FILTERERS.NONE
+            else:
+                # Base the default on the field type, the input method (via choices), and the field's relationship with
+                # the root model
+                client_filterer = self.get_default_client_filterer(choices)
 
-        if lookup is None:
-            lookup = (
-                self.LOOKUP_CONTAINS
-                if not is_number_field(self.field)
-                else self.LOOKUP_STRICT
-            )
+        if _server_filterer is None:
+            try:
+                client_filterer_key = self.CLIENT_FILTERERS.get_key(client_filterer)
+                _server_filterer = getattr(self.SERVER_FILTERERS, client_filterer_key)
+            except ValueError:
+                # Allow the base class to select a default, because if we explicitly select one, it will conflict and
+                # raise a ValueError.  Allowing the base class to select one based on the input method and will simply
+                # result in a warning about potentially different behavior.
+                pass
 
         kwargs.update(
             {
                 "choices": choices,
                 "client_filterer": client_filterer,
-                "lookup": lookup,
+                "_server_filterer": _server_filterer,
             }
         )
 
         super().__init__(name, *args, **kwargs)
 
-    def _relaxed(self):
-        """Determines whether the default client_filterer should match a substring or not (i.e. should match full
-        values).
+    def get_default_client_filterer(self, choices):
+        """Returns a default client_filterer.
 
         - The client filterer should require a full match if the field is numeric (because it match no sense to look for
           specific digits anywhere in a number).
@@ -114,10 +150,28 @@ class BSTFilterer(BSTBaseFilterer):
           because the BST code delimits multiple values in a column.
         - The client filterer should require a full match if the input method will be a select list (except when the
           column is many-related).  (And the input_method will be "select" if choices are provided.)
+
+        Args:
+            choices (Optional[Any]): The choices that were supplied to the superclass constructor.
+        Exceptions:
+            None
+        Returns:
+            (str): A value from self.CLIENT_FILTERERS
         """
+        select_list = (
+            self.distinct_choices
+            or choices is not None
+            or (self.field.choices is not None and len(self.field.choices) > 0)
+        )
+        if select_list:
+            return (
+                self.CLIENT_FILTERERS.STRICT_MULTIPLE
+                if self.many_related
+                else self.CLIENT_FILTERERS.STRICT_SINGLE
+            )
+
         return (
-            not is_number_field(self.field)
-            or self.many_related
-            or self.field.choices is None
-            or len(self.field.choices) == 0
+            self.CLIENT_FILTERERS.CONTAINS
+            if not is_number_field(self.field)
+            else self.CLIENT_FILTERERS.STRICT_SINGLE
         )
