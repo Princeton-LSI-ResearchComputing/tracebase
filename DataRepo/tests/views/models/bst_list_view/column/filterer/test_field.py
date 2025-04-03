@@ -41,151 +41,231 @@ BSTFSampleTestModel = create_test_model(
 )
 
 
+@override_settings(DEBUG=True)
 class BSTFiltererTests(TracebaseTestCase):
-    def test_init_none(self):
-        f = BSTFilterer()
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
-        self.assertIsNone(f.choices)
-        self.assertIsNone(f.lookup)
-        self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_charfield(self):
-        f = BSTFilterer(field_path="name", model=BSTFSampleTestModel)
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
+        f = BSTFilterer("name", BSTFSampleTestModel)
+        self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.CONTAINS, f.client_filterer)
         self.assertIsNone(f.choices)
-        self.assertEqual(f.LOOKUP_CONTAINS, f.lookup)
+        self.assertEqual(f.SERVER_FILTERERS.CONTAINS, f._server_filterer)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_integerfield(self):
-        f = BSTFilterer(field_path="animal__body_weight", model=BSTFSampleTestModel)
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
-        self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
+        f = BSTFilterer("animal__body_weight", BSTFSampleTestModel)
+        self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.STRICT_SINGLE, f.client_filterer)
         self.assertIsNone(f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(f.SERVER_FILTERERS.STRICT_SINGLE, f._server_filterer)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_choicesfield(self):
-        f = BSTFilterer(field_path="animal__sex", model=BSTFSampleTestModel)
-        self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
-        self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
+        f = BSTFilterer("animal__sex", BSTFSampleTestModel)
+        self.assertEqual(f.INPUT_METHODS.SELECT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.STRICT_SINGLE, f.client_filterer)
         self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(f.SERVER_FILTERERS.STRICT_SINGLE, f._server_filterer)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_choicesmanyrelatedfield(self):
-        f = BSTFilterer(field_path="animals__sex", model=BSTFStudyTestModel)
-        self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
+        f = BSTFilterer("animals__sex", BSTFStudyTestModel)
+        self.assertEqual(f.INPUT_METHODS.SELECT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.STRICT_MULTIPLE, f.client_filterer)
         self.assertDictEqual({"F": "female", "M": "male"}, f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(f.SERVER_FILTERERS.STRICT_MULTIPLE, f._server_filterer)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_input_method_select_error(self):
         with self.assertRaises(ValueError) as ar:
-            BSTFilterer(input_method=BSTFilterer.INPUT_METHOD_SELECT)
+            BSTFilterer(
+                BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                BSTFStudyTestModel,
+                input_method=BSTFilterer.INPUT_METHODS.SELECT,
+            )
         self.assertIn("choices", str(ar.exception))
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_input_method_select_works(self):
         f = BSTFilterer(
-            input_method=BSTFilterer.INPUT_METHOD_SELECT, choices=["A", "B"]
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+            input_method=BSTFilterer.INPUT_METHODS.SELECT,
+            choices=["A", "B"],
         )
-        self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
-        self.assertEqual(f.FILTERER_STRICT, f.client_filterer)
-        self.assertEqual(["A", "B"], f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(f.INPUT_METHODS.SELECT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.STRICT_SINGLE, f.client_filterer)
+        self.assertEqual({"A": "A", "B": "B"}, f.choices)
+        self.assertEqual(f.SERVER_FILTERERS.STRICT_SINGLE, f._server_filterer)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_input_method_text(self):
-        f = BSTFilterer(input_method=BSTFilterer.INPUT_METHOD_TEXT)
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
-        self.assertIsNone(f.lookup)
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+            input_method=BSTFilterer.INPUT_METHODS.TEXT,
+        )
+        self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.CONTAINS, f.client_filterer)
+        self.assertEqual(f.SERVER_FILTERERS.CONTAINS, f._server_filterer)
         self.assertIsNone(f.choices)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_client_filterer_works(self):
         f = BSTFilterer(
-            input_method=BSTFilterer.INPUT_METHOD_SELECT,
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+            input_method=BSTFilterer.INPUT_METHODS.SELECT,
             choices=["A", "B"],
-            client_filterer=BSTFilterer.FILTERER_CONTAINS,
+            client_filterer=BSTFilterer.CLIENT_FILTERERS.CONTAINS,
         )
-        self.assertEqual(f.INPUT_METHOD_SELECT, f.input_method)
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
-        self.assertEqual(["A", "B"], f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(f.INPUT_METHODS.SELECT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.CONTAINS, f.client_filterer)
+        self.assertEqual({"A": "A", "B": "B"}, f.choices)
+        self.assertEqual(f.SERVER_FILTERERS.CONTAINS, f._server_filterer)
         self.assertFalse(f.client_mode)
 
-    @override_settings(DEBUG=True)
     def test_init_client_filterer_custom_warns(self):
         with self.assertWarns(UserWarning):
-            f = BSTFilterer(client_filterer="myFilterer")
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
+            f = BSTFilterer(
+                BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                BSTFStudyTestModel,
+                client_filterer="myFilterer",
+            )
+        # TODO: Assert warning content
+        self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
         self.assertEqual("myFilterer", f.client_filterer)
         self.assertIsNone(f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(f.SERVER_FILTERERS.CONTAINS, f._server_filterer)
         self.assertFalse(f.client_mode)
 
     @override_settings(DEBUG=False)
     @TracebaseTestCase.assertNotWarns()
-    def test_init_client_filterer_custom_nowarn_prod(self):
-        BSTFilterer(client_filterer="myFilterer")
+    def test_init_client_filterer_custom_nowarn_in_production(self):
+        BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+            client_filterer="myFilterer",
+        )
 
-    @override_settings(DEBUG=False)
     @TracebaseTestCase.assertNotWarns()
     def test_init_client_filterer_custom_nowarn_valid(self):
-        BSTFilterer(client_filterer="myFilterer", lookup="mylookup")
+        BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+            client_filterer="myFilterer",
+            _server_filterer="mylookup",
+        )
 
-    def test_init_lookup(self):
-        f = BSTFilterer(lookup="istartswith")
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
-        # TODO: Enforce somehow that the client filterer must match the lookup (e.g. "startswith" instead of "contains")
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
+    def test_init_server_filterer(self):
+        with self.assertWarns(UserWarning):
+            f = BSTFilterer(
+                BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                BSTFStudyTestModel,
+                _server_filterer="istartswith",
+            )
+        # TODO: Assert warning content
+        self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.NONE, f.client_filterer)
         self.assertIsNone(f.choices)
-        self.assertEqual("istartswith", f.lookup)
+        self.assertEqual("istartswith", str(f._server_filterer))
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_init_client_mode(self):
-        f = BSTFilterer(client_mode=True)
-        self.assertEqual(f.INPUT_METHOD_TEXT, f.input_method)
-        self.assertEqual(f.FILTERER_CONTAINS, f.client_filterer)
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+            client_mode=True,
+        )
+        self.assertEqual(f.INPUT_METHODS.TEXT, f.input_method)
+        self.assertEqual(f.CLIENT_FILTERERS.CONTAINS, f.client_filterer)
         self.assertIsNone(f.choices)
-        self.assertIsNone(f.lookup)
+        self.assertEqual(BSTFilterer.SERVER_FILTERERS.CONTAINS, f._server_filterer)
         self.assertTrue(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_filterer_client_mode(self):
-        self.assertEqual(BSTFilterer.FILTERER_DJANGO, str(BSTFilterer()))
+        self.assertEqual(
+            BSTFilterer.CLIENT_FILTERERS.NONE,
+            str(
+                BSTFilterer(
+                    BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                    BSTFStudyTestModel,
+                )
+            ),
+        )
 
+    @TracebaseTestCase.assertNotWarns()
     def test_filterer_server_mode(self):
         self.assertEqual(
-            BSTFilterer.FILTERER_CONTAINS, str(BSTFilterer(client_mode=True))
+            BSTFilterer.CLIENT_FILTERERS.CONTAINS,
+            str(
+                BSTFilterer(
+                    BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                    BSTFStudyTestModel,
+                    client_mode=True,
+                )
+            ),
         )
 
+    @TracebaseTestCase.assertNotWarns()
     def test_str_client_mode(self):
-        self.assertEqual(BSTFilterer.FILTERER_DJANGO, str(BSTFilterer()))
+        self.assertEqual(
+            BSTFilterer.CLIENT_FILTERERS.NONE,
+            str(
+                BSTFilterer(
+                    BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                    BSTFStudyTestModel,
+                )
+            ),
+        )
 
+    @TracebaseTestCase.assertNotWarns()
     def test_str_server_mode(self):
         self.assertEqual(
-            BSTFilterer.FILTERER_CONTAINS, str(BSTFilterer(client_mode=True))
+            BSTFilterer.CLIENT_FILTERERS.CONTAINS,
+            str(
+                BSTFilterer(
+                    BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+                    BSTFStudyTestModel,
+                    client_mode=True,
+                )
+            ),
         )
 
+    @TracebaseTestCase.assertNotWarns()
     def test_javascript(self):
         self.assertEqual(
             f"<script src='{static(BSTFilterer.JAVASCRIPT)}'></script>",
             BSTFilterer.javascript,
         )
 
+    @TracebaseTestCase.assertNotWarns()
     def test_set_client_mode(self):
-        f = BSTFilterer()
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+        )
         self.assertFalse(f.client_mode)
         f.set_client_mode()
         self.assertTrue(f.client_mode)
         f.set_client_mode(enabled=False)
         self.assertFalse(f.client_mode)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_set_server_mode(self):
-        f = BSTFilterer()
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+        )
         f.set_server_mode()
         self.assertFalse(f.client_mode)
         f.set_server_mode(enabled=False)
