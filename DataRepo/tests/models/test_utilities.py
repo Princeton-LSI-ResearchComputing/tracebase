@@ -22,8 +22,11 @@ from DataRepo.models import (
     DataFormat,
     LCMethod,
     PeakData,
+    PeakDataLabel,
     PeakGroup,
     Study,
+    Tracer,
+    TracerLabel,
 )
 from DataRepo.models.utilities import (
     MultipleFields,
@@ -32,6 +35,7 @@ from DataRepo.models.utilities import (
     field_path_to_field,
     field_path_to_model_path,
     get_all_models,
+    get_distinct_fields,
     get_model_by_name,
     get_next_model,
     is_many_related,
@@ -144,19 +148,37 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
     def test_is_many_related(self):
         # "many related" means many to many or many to one
         # ArchiveFile.filename is not a foreign key field, so it can't be many related
-        self.assertFalse(is_many_related(ArchiveFile.filename.field))
+        self.assertFalse(
+            is_many_related(ArchiveFile.filename.field)  # pylint: disable=no-member
+        )
         # The default is based on where the foreign key is defined (i.e. in ArchiveFile), so this is one to many, not
         # many to ...
-        self.assertFalse(is_many_related(ArchiveFile.data_format.field))
+        self.assertFalse(
+            is_many_related(ArchiveFile.data_format.field)  # pylint: disable=no-member
+        )
         # From the perspective of DataFormat, it is a many to ... relationship
-        self.assertTrue(is_many_related(ArchiveFile.data_format.field, DataFormat))
+        self.assertTrue(
+            is_many_related(
+                ArchiveFile.data_format.field, DataFormat  # pylint: disable=no-member
+            )
+        )
         # The link from PeakGroup to ArchiveFile is one to many, but this asks if the link from the source model
         # (PeakGroup) to ArchiveFile is many to ...
-        self.assertFalse(is_many_related(ArchiveFile.peak_groups.field, PeakGroup))
+        self.assertFalse(
+            is_many_related(
+                ArchiveFile.peak_groups.field, PeakGroup  # pylint: disable=no-member
+            )
+        )
         # The default is based on where the foreign key is defined (i.e. in PeakGroup)
-        self.assertFalse(is_many_related(ArchiveFile.peak_groups.field))
+        self.assertFalse(
+            is_many_related(ArchiveFile.peak_groups.field)  # pylint: disable=no-member
+        )
         # But if we're asking from the perspective of ArchiveFile, it is many to ...
-        self.assertTrue(is_many_related(ArchiveFile.peak_groups.field, ArchiveFile))
+        self.assertTrue(
+            is_many_related(
+                ArchiveFile.peak_groups.field, ArchiveFile  # pylint: disable=no-member
+            )
+        )
 
     def test_is_many_related_to_root(self):
         self.assertFalse(is_many_related_to_root("filename", ArchiveFile))
@@ -229,21 +251,33 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_is_string_field(self):
         self.assertFalse(is_string_field(PeakData.raw_abundance))
-        self.assertFalse(is_string_field(PeakData.raw_abundance.field))
+        self.assertFalse(
+            is_string_field(PeakData.raw_abundance.field)  # pylint: disable=no-member
+        )
         self.assertTrue(is_string_field(PeakGroup.name))
-        self.assertTrue(is_string_field(PeakGroup.name.field))
+        self.assertTrue(
+            is_string_field(PeakGroup.name.field)  # pylint: disable=no-member
+        )
 
     def test_is_number_field(self):
         self.assertTrue(is_number_field(PeakData.raw_abundance))
-        self.assertTrue(is_number_field(PeakData.raw_abundance.field))
+        self.assertTrue(
+            is_number_field(PeakData.raw_abundance.field)  # pylint: disable=no-member
+        )
         self.assertFalse(is_number_field(PeakGroup.name))
-        self.assertFalse(is_number_field(PeakGroup.name.field))
+        self.assertFalse(
+            is_number_field(PeakGroup.name.field)  # pylint: disable=no-member
+        )
 
     def test_is_unique_field(self):
         self.assertFalse(is_unique_field(ArchiveFile.filename))
-        self.assertFalse(is_unique_field(ArchiveFile.filename.field))
+        self.assertFalse(
+            is_unique_field(ArchiveFile.filename.field)  # pylint: disable=no-member
+        )
         self.assertTrue(is_unique_field(ArchiveFile.checksum))
-        self.assertTrue(is_unique_field(ArchiveFile.checksum.field))
+        self.assertTrue(
+            is_unique_field(ArchiveFile.checksum.field)  # pylint: disable=no-member
+        )
 
     def test_resolve_field_path(self):
         # Assumed base model = Sample
@@ -275,4 +309,19 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(
             "Unexpected field_or_expression type: 'int'.",
             str(ar.exception),
+        )
+
+    def test_get_distinct_fields_nonkeyfield(self):
+        self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
+
+    def test_get_distinct_fields_keyfield_with_expression(self):
+        # Tracer has 'Lower' in its meta ordering
+        self.assertEqual(["tracer__name"], get_distinct_fields(TracerLabel, "tracer"))
+
+    def test_get_distinct_fields_recursive_keyfield_with_negation(self):
+        # PeakData has "-corrected_abundance" - ensure the "-" is stripped
+        # PeakDataLabel links to PeakData, which links to PeakGroup via their orderings
+        self.assertEqual(
+            ["peak_data__peak_group__name", "peak_data__corrected_abundance"],
+            get_distinct_fields(PeakDataLabel, "peak_data"),
         )

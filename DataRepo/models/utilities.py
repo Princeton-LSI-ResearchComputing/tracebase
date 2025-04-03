@@ -176,7 +176,11 @@ def resolve_field_path(
         field_path (str): The field path that either was the field_or_expression or its wrapper
     """
     if isinstance(field_or_expression, str):
-        return field_or_expression
+        return (
+            field_or_expression
+            if not field_or_expression.startswith("-")
+            else field_or_expression[1:]
+        )
     elif isinstance(field_or_expression, Field):
         return field_or_expression.name
     elif isinstance(field_or_expression, DeferredAttribute):
@@ -250,9 +254,7 @@ def is_many_related_to_root(field_path: Union[str, List[str]], source_model: Mod
     )
 
 
-def field_path_to_field(
-    model: Type[Model], path: Union[str, List[str]]
-) -> Optional[Field]:
+def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Field:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
     """
@@ -271,7 +273,7 @@ def field_path_to_field(
     return field_path_to_field(get_next_model(model, path[0]), path[1:])
 
 
-def get_next_model(current_model: Model, field_name: str):
+def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
     """Given a current model and a foreign key field name from a field path, return the model associated with the
     field.
     """
@@ -319,6 +321,60 @@ def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type
             f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
         )
     return model_path_to_model(get_next_model(model, path[0]), path[1:])
+
+
+def get_distinct_fields(model: Type[Model], field_path: str):
+    """Collects all of the order-by fields associated with self.field_path.  For non-foreign-key fields, it just
+    returns a single-member list containing self.field_path.  Otherwise, it returns all of the fields in the related
+    model's Meta.ordering.  It calls a recursive helper method in case any related model's meta ordering also contains a
+    foreign key field.
+
+    Args:
+        model (Type[Model])
+        field_path (str)
+    Exceptions:
+        None
+    Returns:
+        distinct_fields (List[str]): A list of field_paths from the provided field_path that are either just the
+            field_path supplied or a series of field_paths from the related model's ordering, if the field at the end of
+            the path is a foreign key.
+    """
+    return _get_distinct_fields_helper(model, field_path)
+
+
+def _get_distinct_fields_helper(model: Type[Model], field_path: str):
+    """Collects all of the order-by fields associated with field_path.  For non-foreign-key fields, it just returns
+    a single-member list containing field_path.  Otherwise, it returns all of the fields in the related model's
+    Meta.ordering.  It recursively retrieves any other related model's meta ordering if the current ordering also
+    contains a foreign key field.
+
+    Args:
+        model (Type[Model])
+        field_path (str)
+    Exceptions:
+        None
+    Returns:
+        distinct_fields (List[str]): A list of field_paths from the provided field_path that are either just the
+            field_path supplied or a series of field_paths from the related model's ordering, if the field at the end of
+            the path is a foreign key.
+    """
+    related_model_path = field_path_to_model_path(model, field_path)
+    distinct_fields = []
+    if field_path != related_model_path:
+        distinct_fields.append(field_path)
+    else:
+        related_model = model_path_to_model(model, related_model_path)
+        # To use .distinct(), you need the ordering fields from the related model, otherwise you get an exception
+        # about the order_by and distinct fields being different
+        for obf_exp in related_model._meta.ordering:
+            obf = resolve_field_path(obf_exp)
+            obf_path = f"{field_path}__{obf}"
+            obf_related_model_path = field_path_to_model_path(model, obf_path)
+            if obf_path != obf_related_model_path:
+                distinct_fields.append(obf_path)
+            else:
+                distinct_fields.extend(_get_distinct_fields_helper(model, obf_path))
+    return distinct_fields
 
 
 def is_string_field(
