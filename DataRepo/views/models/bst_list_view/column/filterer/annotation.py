@@ -11,3 +11,6 @@ class BSTAnnotFilterer(BSTBaseFilterer):
     """
 
     is_annotation = True
+
+    # TODO: Create a constructor that takes converter and uses its output_field to set input_method, choices, and
+    # filterers automatically.  Right now, it's all manual.

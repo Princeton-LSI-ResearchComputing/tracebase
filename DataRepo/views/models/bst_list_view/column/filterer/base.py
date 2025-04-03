@@ -133,9 +133,6 @@ class BSTBaseFilterer(ABC):
     - data-filter-data
     """
 
-    INPUT_METHOD_TEXT = "input"
-    INPUT_METHOD_SELECT = "select"
-    INPUT_METHOD_DATEPICKER = "datepicker"
     INPUT_METHODS = InputMethods(
         TEXT="input",
         SELECT="select",
@@ -400,11 +397,18 @@ class BSTBaseFilterer(ABC):
             or self.client_filterer not in self.CLIENT_FILTERERS._asdict().values()
         ) != (isinstance(self._server_filterer, CustomLookup)):
             # Both the client & server filterers are explicitly defined & one is UNKNOWN(/custom)
-            warn(
-                f"Cannot guarantee that the client_filterer '{self.client_filterer}' behavior will match the "
-                f"_server_filterer '{type(self._server_filterer).__name__}' behavior.  Server filtering may differ "
-                "from client filtering."
-            )
+            if self.client_filterer == self.CLIENT_FILTERERS.UNKNOWN:
+                warn(
+                    f"Client filtering disabled with '{self.client_filterer}'.  Supply a custom client_filterer that "
+                    f"matches the behavior of _server_filterer '{self._server_filterer}' to enable efficient filtering "
+                    "when a user views 'all' rows.  Doing so reduces wait times in the 'all' rows use-case."
+                )
+            else:
+                warn(
+                    f"Cannot guarantee that the client_filterer '{self.client_filterer}' behavior will match the "
+                    f"_server_filterer '{type(self._server_filterer).__name__}' behavior.  Server filtering may differ "
+                    "from client filtering."
+                )
 
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled
