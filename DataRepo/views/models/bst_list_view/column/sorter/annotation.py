@@ -11,3 +11,6 @@ class BSTAnnotSorter(BSTBaseSorter):
     """
 
     is_annotation = True
+
+    # TODO: Create a constructor that takes converter and uses its output_field to set the client and server sorters
+    # automatically.  Right now, it's all manual.
