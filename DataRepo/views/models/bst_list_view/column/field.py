@@ -6,6 +6,7 @@ from django.db.models import Model
 
 from DataRepo.models.utilities import (
     field_path_to_field,
+    is_key_field,
     is_many_related_to_root,
     is_unique_field,
 )
@@ -127,13 +128,15 @@ class BSTColumn(BSTBaseColumn):
         ):
             raise ValueError(
                 f"field_path '{field_path}' must not be many-related with model '{model.__name__}'.  Instead, use "
-                "BSTAnnotColumn to create an annotation or BSTManyRelatedColumn to create a delimited-value column."
+                "BSTManyRelatedColumn to create a delimited-value column."
             )
         elif linked and "__" in self.field_path:
             raise ValueError(
                 f"Argument 'linked' must not be true when 'field_path' '{field_path}' passes through a related "
                 "model."
             )
+
+        self.is_fk = is_key_field(self.model, self.field_path)
 
         # Set a default sorter, if necessary
         if sorter is None:
