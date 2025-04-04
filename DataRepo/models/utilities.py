@@ -46,9 +46,7 @@ ALL_MODELS_IN_SAFE_DELETION_ORDER = [
 
 
 def value_from_choices_label(label, choices):
-    """
-    Return the choices value for a given label
-    """
+    """Return the choices value for a given label"""
     # Search choices by label
     result = None
     for choices_value, choices_label in choices:
@@ -86,11 +84,9 @@ def atom_count_in_formula(formula, atom):
 
 
 def get_all_models():
-    """
-    Retrieves all models (that were explicitly defined, i.e. no hidden related models) from DataRepo and returns them
+    """Retrieves all models (that were explicitly defined, i.e. no hidden related models) from DataRepo and returns them
     as a list ordered in a way that they can all have their contents deleted without running afould of "restrict"
-    constraints
-    """
+    constraints"""
     module = importlib.import_module("DataRepo.models")
     mdls = [
         getattr(module, class_name) for class_name in ALL_MODELS_IN_SAFE_DELETION_ORDER
@@ -99,9 +95,7 @@ def get_all_models():
 
 
 def get_model_fields(model):
-    """
-    Retrieves all non-auto- and non-relation- fields from the supplied model and returns as a list
-    """
+    """Retrieves all non-auto- and non-relation- fields from the supplied model and returns as a list"""
     return [
         f
         for f in model._meta.get_fields()
@@ -110,9 +104,7 @@ def get_model_fields(model):
 
 
 def get_all_fields_named(target_field):
-    """
-    Dynamically retrieves all fields from any model with a specific name
-    """
+    """Dynamically retrieves all fields from any model with a specific name"""
     models = get_all_models()
     found_fields = []
     for model in models:
@@ -134,6 +126,14 @@ def resolve_field(
 ) -> Field:
     """A field at the end of a model path can be a deferred attribute or any of a series of 4 descriptors.  This method
     takes the field and returns the actual field (if it is deferred or a descriptor, otherwise, the supplied field).
+
+    Args:
+        field (Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+            ReverseManyToOneDescriptor]): A representation of a Field.
+    Exceptions:
+        None
+    Returns:
+        (Field): A Field instance, resolved from one of a number of representations of a Field.
     """
     field_containers = [
         DeferredAttribute,
@@ -214,6 +214,16 @@ def resolve_field_path(
 def is_many_related(field: Field, source_model: Optional[Model] = None):
     """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
     model, (which is assumed to the the model where the field was defined, if source_model is None).
+
+    Args:
+        field (Field): A Field instance.
+        source_model (Optional[Model]): The model where field is being accessed.  NOTE: A related field has 2 associated
+            models, one of which may not be many-related with the other that is, so the result depends on the
+            source_model from which you are accessing the field.
+    Exceptions:
+        None
+    Returns:
+        (bool): Whether the field is many-related from the perspective of source_model.
     """
     return (
         field.many_to_many
@@ -257,6 +267,15 @@ def is_many_related_to_root(field_path: Union[str, List[str]], source_model: Mod
 def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Field:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
+
+    Args:
+        model (Type[Model]): Model class at the root of the path.
+        path (Union[str, List[str]]): Dunderscore-delimited field path string or list of dunderscore-split fields.
+    Exceptions:
+        ValueError when an argument is invalid.
+        AttributeError when any field in the path is not present on the associated model.
+    Returns:
+        (Field): A Field instance for the field at the end of the path
     """
     if model is None:
         raise ValueError("model must not be None.")
@@ -276,6 +295,19 @@ def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Fiel
 def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
     """Given a current model and a foreign key field name from a field path, return the model associated with the
     field.
+
+    Args:
+        current_model (Model): The model referencing field_name.  In a field path, this is the model associated with the
+            foreign key just before the supplied field_name.
+        field_name (str): A field name accessible from a model.  This can be a forward or reverse relation, which is why
+            current_model is necessary, because the field has a 'model' attribute that is the model where the field is
+            defined, and a 'related_model' attribute which is the model the field references.  The supplied field name
+            however can be either of those models.  current_model thus indicates the direction and the returned model is
+            the 'other' one.
+    Exceptions:
+        None
+    Returns:
+        (Type[Model]): The model class that does not match the current_model, i.e. the "next" model.
     """
     field = resolve_field(getattr(current_model, field_name))
     return field.model if current_model != field.model else field.related_model
@@ -284,9 +316,23 @@ def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
 def field_path_to_model_path(
     model: Type[Model], path: Union[str, List[str]], _output: str = ""
 ) -> Optional[str]:
-    """Recursive method to take a root model and a dunderscore-delimited path and return the path to the model at the
-    end of the path (excluding the field).  The utility here is to be able to supply all related models to
-    prefetch_related."""
+    """Recursive method to take a root model and a dunderscore-delimited path and return the path to the last foreign
+    key (treated here as "a model", because a queryset constructed using this field path results in a model object (or
+    related manager, if it is many-related)).  If the last element in the field path is not a foreign key, it is
+    ignored, but if it *is* a foreign key, it is retained.  This can be used to later infer if the field_path ends in a
+    foreign key/model or not.  The original intention of this method is its utility in being able to supply all related
+    models to prefetch_related.
+
+    Args:
+        model (Type[Model]): The Django Model class upon which the path can be used in filtering, etc.
+        path (Union[str, List[str]]): A dunderscore-delimited lookup string (or list of the dunderscore-split) field
+            path, which can be used in filtering, etc. off the model.
+        _output (str) [""]: Used in recursion to build up the resulting model path.
+    Exceptions:
+        ValueError if the field path is too short
+    Returns:
+        _output (Optional[str]): The path to the last foreign key ("model") in the supplied path
+    """
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
@@ -307,9 +353,60 @@ def field_path_to_model_path(
     )
 
 
+def is_key_field(
+    model: Optional[Type[Model]],
+    path: Union[
+        str,
+        List[str],
+        Field,
+        DeferredAttribute,
+        ForwardManyToOneDescriptor,
+        ManyToManyDescriptor,
+        ReverseManyToOneDescriptor,
+    ],
+):
+    """Takes a path (or field representation) and a model and returns whether or not the field at the end of the path is
+    a foreign key.
+
+    Args:
+        model (Optional[Type[Model]]): A Model.  Must not be None if path is a str or list.
+        path (Union[str, List[str], Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+            ReverseManyToOneDescriptor]): A field or dunderscore-delimited field path (i.e. a Django lookup).
+    Exceptions:
+        ValueError when model is None and field is a str or list
+        TypeError when field is an unsupported type
+    Returns:
+        (bool): Whether the field at the end of the path is a foreign key.
+    """
+    if not isinstance(path, str) and not isinstance(path, list):
+        return resolve_field(path).is_relation
+    if isinstance(path, str) or isinstance(path, list):
+        if model is not None and issubclass(model, Model):
+            field_path = path
+            if isinstance(path, list):
+                field_path = "__".join(path)
+            model_path = field_path_to_model_path(model, path)
+            return field_path == model_path
+        raise ValueError("model is required when path is a str or list.")
+    raise TypeError(
+        f"Invalid path type: '{type(path).__name__}'.  Must be one of: [str, list, Field, DeferredAttribute, "
+        "ForwardManyToOneDescriptor, ManyToManyDescriptor, or ReverseManyToOneDescriptor]."
+    )
+
+
 def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the model class at the end of
-    the path."""
+    the path.
+
+    Args:
+        model (Type[Model]): Model class at the root of the path.
+        path (Union[str, List[str]]): Dunderscore-delimited field path string or list of dunderscore-split fields.
+    Exceptions:
+        ValueError when an argument is invalid.
+        AttributeError when any field in the path is not present on the associated model.
+    Returns:
+        (Type[Model]): The model class associated with the last foreign key field in the path.
+    """
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
@@ -317,7 +414,7 @@ def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type
     if len(path) == 1:
         if hasattr(model, path[0]):
             return get_next_model(model, path[0])
-        raise ValueError(
+        raise AttributeError(
             f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
         )
     return model_path_to_model(get_next_model(model, path[0]), path[1:])
@@ -389,6 +486,18 @@ def is_string_field(
     ],
     default: bool = False,
 ) -> bool:
+    """Returns whether the supplied field is a string/text-type field.  Intended for use in deciding whether to apply
+    case-insensitive sorting and/or substring searching.
+
+    Args:
+        field (Optional[Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+            ReverseManyToOneDescriptor]): A field or field representation.
+        default (bool) [False]: What to return if field is None.
+    Exceptions:
+        None
+    Returns:
+        (bool): Whether the supplied field is a string/text-type field.
+    """
     str_field_names = [
         "CharField",
         "EmailField",
@@ -417,6 +526,18 @@ def is_number_field(
     ],
     default: bool = False,
 ) -> bool:
+    """Returns whether the supplied field is a numeric-type field.  Intended for use in deciding whether to apply
+    case-insensitive sorting and/or substring searching.
+
+    Args:
+        field (Optional[Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+            ReverseManyToOneDescriptor]): A field or field representation.
+        default (bool) [False]: What to return if field is None.
+    Exceptions:
+        None
+    Returns:
+        (bool): Whether the supplied field is a numeric-type field.
+    """
     num_field_names = [
         "AutoField",
         "BigAutoField",
@@ -446,14 +567,41 @@ def is_unique_field(
             ReverseManyToOneDescriptor,
         ]
     ],
+    default: bool = False,
 ) -> bool:
+    """Returns whether the supplied field is unique.  Intended for use in deciding whether a field is appropriate to be
+    linked to a detail record by default.
+
+    Args:
+        field (Optional[Union[Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
+            ReverseManyToOneDescriptor]): A field or field representation.
+        default (bool) [False]: What to return if field is None.
+    Exceptions:
+        None
+    Returns:
+        (bool): Whether the supplied field is unique.
+    """
     if field is not None:
         field = resolve_field(field)
         return field.unique
-    return False
+    return default
 
 
-def dereference_field(field_name, model_name):
+def dereference_field(field_name: str, model_name: str) -> str:
+    """Takes a model name and a field name and returns a dunderscore-delimited path to a non-foreign-key field.  If a
+    field is a foreign key, "__pk" is appended.  The intended purpose of this method is to aid in compiling a list of
+    distinct fields, where order is unimportant.  The reason this is useful is that fields supplied to .distinct() must
+    also be supplied to .order_by(), and .order_by() does something not entirely transparent when given a foreign key -
+    it expands the foreign key to all of the related models' ordering fields defined in its Meta.
+
+    Args:
+        field_name (str): Name of a model field.
+        model_name (str): Name of a model.
+    Exceptions:
+        None
+    Returns:
+        (Field): A Field instance for the field at the end of the path
+    """
     mdl = get_model_by_name(model_name)
     fld = getattr(mdl, field_name)
     deref_field = field_name
@@ -468,8 +616,7 @@ def get_model_by_name(model_name):
 
 
 def create_is_null_field(field_with_null):
-    """
-    The Django ORM's order_by always puts null fields at the end, which can be a problem if you want the last record
+    """The Django ORM's order_by always puts null fields at the end, which can be a problem if you want the last record
     ordered by a date field.  This method will return a dict that contains the `select` and `order_by arguments for the
     .extra(method, along with the name of the added "is null field that you can use as an argument to `order_by`)`.
 
@@ -507,10 +654,9 @@ def create_is_null_field(field_with_null):
 
 
 def exists_in_db(mdl_obj):
-    """
-    This takes a model object and returns a boolean to indicate whether the object exists in the database.
+    """This takes a model object and returns a boolean to indicate whether the object exists in the database.
 
-    Note, it does not assert that the values of the fields are the same.
+    NOTE: it does not assert that the values of the fields are the same.
     """
     if not hasattr(mdl_obj, "pk"):
         return False
@@ -528,6 +674,7 @@ def update_rec(rec: Model, rec_dict: dict):
     This could be accomplished using a queryset.update() call, but if it changes a field that was used in the original
     query, and that query no longer matches, you cannot iterate through the records of the queryset to save the changes
     you've made, thus the need for this method.
+
     Args:
         rec (Model)
         rec_dict (dict): field values keyed on field name
@@ -546,6 +693,7 @@ def get_detail_url_name(model_object: Model):
     return resolve(model_object.get_absolute_url()).url_name
 
 
+# TODO: Figure out a way to move these exception classes to exceptions.py without hitting a circular import
 class NoFields(Exception):
     pass
 
