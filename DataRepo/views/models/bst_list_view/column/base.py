@@ -28,9 +28,6 @@ class BSTBaseColumn(ABC):
     is_annotation: bool = False
     # See: BSTAnnotColumn (For rendering an annotation)
 
-    is_fk: bool = False
-    # See: BSTRelatedColumn (For rendering a one-related foreign key using the related object)
-
     is_many_related: bool = False
     # See: BSTManyRelatedColumn (For rendering a many-related foreign key using the related object)
 
@@ -98,6 +95,9 @@ class BSTBaseColumn(ABC):
         # Initialized below
         self.sorter: BSTBaseSorter
         self.filterer: BSTBaseFilterer
+
+        if getattr(self, "is_fk", None) is None:
+            self.is_fk = False
 
         if self.linked:
             if self.is_many_related:
