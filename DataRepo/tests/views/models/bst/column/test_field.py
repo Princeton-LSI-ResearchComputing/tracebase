@@ -190,6 +190,7 @@ class BSTColumnTests(TracebaseTestCase):
         )
 
     def test_init_is_fk(self):
+<<<<<<< HEAD:DataRepo/tests/views/models/bst/column/test_field.py
         self.assertTrue(BSTColumn("animal", BSTCSampleTestModel).is_fk)
         self.assertFalse(BSTColumn("name", BSTCSampleTestModel).is_fk)
 
@@ -200,6 +201,13 @@ class BSTColumnTests(TracebaseTestCase):
         self.assertTrue(d.wrapped)
         c = BSTColumn("comment", BSTCStudyTestModel)
         self.assertTrue(c.wrapped)
+=======
+        self.assertTrue(BSTColumn("animal", model=BSTCSampleTestModel).is_fk)
+        self.assertFalse(BSTColumn("name", model=BSTCSampleTestModel).is_fk)
+        # TODO: Put this test in the tests for BSTRelatedColumn
+        # self.assertTrue(BSTColumn("animal__studies", model=BSTCSampleTestModel).is_fk)
+        # self.assertFalse(BSTColumn("animal__studies__name", model=BSTCSampleTestModel).is_fk)
+>>>>>>> Turned is_fk into an instance attribute of the BSTColumn class instead of a class attribute of the BSTBaseColumn class.:DataRepo/tests/views/models/bst_list_view/column/test_field.py
 
     def test_eq(self):
         # Test __eq__ works when other val is string
