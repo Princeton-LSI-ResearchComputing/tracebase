@@ -55,10 +55,7 @@ from DataRepo.models.utilities import (
     field_to_manager_name,
     get_all_models,
     get_distinct_fields,
-<<<<<<< HEAD
     get_many_related_field_val_by_subquery,
-=======
->>>>>>> Refactored the filterer classes to align them with the design paradigms established with the sorters and added some features to the model utilities.
     get_model_by_name,
     get_next_model,
     is_long_field,
