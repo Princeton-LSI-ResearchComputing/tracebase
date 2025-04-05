@@ -4360,6 +4360,10 @@ class MultipleStudyDocVersions(StudyDocVersionException):
         self.matching_version_numbers = matching_version_numbers
 
 
+class DeveloperWarning(Warning):
+    pass
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
