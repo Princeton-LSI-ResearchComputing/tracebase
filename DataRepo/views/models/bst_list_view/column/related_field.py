@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Type, cast
+from typing import List, Optional, Type, cast
 from warnings import warn
 
 from django.db.models import Field, Model
@@ -28,8 +28,8 @@ class BSTRelatedColumn(BSTColumn):
     Usage:
         You can create a simple model field column using field paths like this:
 
-            frmtcol = BSTColumn("data_format", model=ArchiveFile)
-            typecol = BSTColumn("data_type__name", model=ArchiveFile)
+            frmtcol = BSTRelatedColumn("data_format", model=ArchiveFile)
+            typecol = BSTRelatedColumn("data_type__name", model=ArchiveFile)
 
         Use django "field path lookups" relative to the base model.
         See https://docs.djangoproject.com/en/5.1/topics/db/queries/#lookups-that-span-relationships
@@ -46,7 +46,7 @@ class BSTRelatedColumn(BSTColumn):
     def __init__(
         self,
         *args,
-        display_field: Optional[str],
+        display_field_path: Optional[str] = None,
         **kwargs,
     ):
         """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
@@ -62,10 +62,10 @@ class BSTRelatedColumn(BSTColumn):
         Returns:
             None
         """
-        self.display_field = display_field
+        self.display_field_path = display_field_path
 
         # Get some superclass instance members we need for checks
-        field_path: str = cast(str, kwargs.get("field_path"))
+        field_path: str = cast(str, args[0])
         model: Type[Model] = cast(Type[Model], kwargs.get("model"))
 
         # We need to initialize/check the display_field_path before we call the superclass constructor, because the
@@ -75,17 +75,19 @@ class BSTRelatedColumn(BSTColumn):
 
         if (
             not self.is_fk
-            and self.display_field is not None
-            and self.display_field != field_path
+            and self.display_field_path is not None
+            and self.display_field_path != field_path
         ):
             raise ValueError(
-                f"display_field_path '{display_field}' is only allowed to differ from field_path '{field_path}' when "
-                "the field is a foreign key."
+                f"display_field_path '{display_field_path}' is only allowed to differ from field_path '{field_path}' "
+                "when the field is a foreign key."
             )
 
-        if self.display_field is None:
-            self.display_field = self.get_default_display_field(field_path, model)
-            if self.is_fk and self.display_field is None:
+        if self.display_field_path is None:
+            self.display_field_path = self.get_default_display_field(field_path, model)
+            if self.is_fk and (
+                self.display_field_path is None or self.display_field_path == field_path
+            ):
                 # If a default could not be automatically selected, we must disallow search/sort
                 disallowed = []
 
@@ -110,10 +112,10 @@ class BSTRelatedColumn(BSTColumn):
                         "sortable": False,
                     }
                 )
-        elif not self.display_field.startswith(field_path):
+        elif not self.display_field_path.startswith(field_path):
             # Check the display field
             raise ValueError(
-                f"display_field_path '{display_field}' must start with the field_path '{field_path}'."
+                f"display_field_path '{display_field_path}' must start with the field_path '{field_path}'."
             )
 
         super().__init__(*args, **kwargs)
@@ -142,33 +144,34 @@ class BSTRelatedColumn(BSTColumn):
         else:
             # Grab the first non-ID field from the related model that is unique, if one exists
             f: Field
+            non_relations: List[Field] = []
             for f in related_model._meta.get_fields():
                 related_field = resolve_field(f)
-                if (
-                    not related_field.is_relation
-                    and related_field.unique
-                    and related_field.name != "id"
-                ):
-                    return f"{field_path}__{related_field.name}"
+                if not related_field.is_relation and related_field.name != "id":
+                    if related_field.unique:
+                        return f"{field_path}__{related_field.name}"
+                    else:
+                        non_relations.append(related_field)
+            if len(non_relations) == 1:
+                return f"{field_path}__{non_relations[0].name}"
         warn(
             "Unable to automatically select an appropriate display_field_path for the foreign key field_path "
-            f"'{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]  when only 1 ordering field "
-            f"is defined, or the first non-ID unique field in '{related_model.__name__}', but neither default "
-            "existed.  This column cannot be searchable or sortable unless a display_field_path is supplied."
+            f"'{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when only 1 ordering field "
+            f"is defined, the first non-ID unique field in '{related_model.__name__}', or the only field if there is "
+            "only 1 non-ID field, but none of those default cases existed.  This column cannot be searchable or "
+            "sortable unless a display_field_path is supplied."
         )
 
     def create_sorter(self, sorter: Optional[str] = None) -> BSTSorter:
         name: str
-        if isinstance(self.display_field, str):
-            name = self.display_field
+        if isinstance(self.display_field_path, str):
+            name = self.display_field_path
         else:
             name = self.name
         if sorter is None:
-            sorter_obj = BSTSorter(self.name, model=self.model)
+            sorter_obj = BSTSorter(name, model=self.model)
         elif isinstance(sorter, str):
-            sorter_obj = BSTSorter(
-                self.name, model=self.model, client_sorter=sorter
-            )
+            sorter_obj = BSTSorter(name, model=self.model, client_sorter=sorter)
         else:
             # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
             raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
@@ -176,16 +179,14 @@ class BSTRelatedColumn(BSTColumn):
 
     def create_filterer(self, filterer: Optional[str] = None) -> BSTFilterer:
         name: str
-        if isinstance(self.display_field, str):
-            name = self.display_field
+        if isinstance(self.display_field_path, str):
+            name = self.display_field_path
         else:
             name = self.name
         if filterer is None:
-            filterer_obj = BSTFilterer(self.name, model=self.model)
+            filterer_obj = BSTFilterer(name, model=self.model)
         elif isinstance(filterer, str):
-            filterer_obj = BSTFilterer(
-                self.name, model=self.model, client_filterer=filterer
-            )
+            filterer_obj = BSTFilterer(name, model=self.model, client_filterer=filterer)
         else:
             # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
             raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
