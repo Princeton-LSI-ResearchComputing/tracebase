@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Optional, Type, cast
 from warnings import warn
 
+from django.conf import settings
 from django.db.models import Field, Model
 
 from DataRepo.models.utilities import (
@@ -11,6 +12,7 @@ from DataRepo.models.utilities import (
     resolve_field,
     resolve_field_path,
 )
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.field import BSTColumn
 from DataRepo.views.models.bst_list_view.column.filterer.field import (
     BSTFilterer,
@@ -154,13 +156,15 @@ class BSTRelatedColumn(BSTColumn):
                         non_relations.append(related_field)
             if len(non_relations) == 1:
                 return f"{field_path}__{non_relations[0].name}"
-        warn(
-            "Unable to automatically select an appropriate display_field_path for the foreign key field_path "
-            f"'{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when only 1 ordering field "
-            f"is defined, the first non-ID unique field in '{related_model.__name__}', or the only field if there is "
-            "only 1 non-ID field, but none of those default cases existed.  This column cannot be searchable or "
-            "sortable unless a display_field_path is supplied."
-        )
+        if settings.DEBUG:
+            warn(
+                "Unable to automatically select an appropriate display_field_path for the foreign key field_path "
+                f"'{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when only 1 ordering "
+                f"field is defined, the first non-ID unique field in '{related_model.__name__}', or the only field if "
+                "there is only 1 non-ID field, but none of those default cases existed.  This column cannot be "
+                "searchable or sortable unless a display_field_path is supplied.",
+                DeveloperWarning,
+            )
 
     def create_sorter(self, sorter: Optional[str] = None) -> BSTSorter:
         name: str

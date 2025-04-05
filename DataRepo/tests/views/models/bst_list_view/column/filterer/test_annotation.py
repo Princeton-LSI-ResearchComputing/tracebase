@@ -2,6 +2,7 @@ from django.templatetags.static import static
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
     BSTAnnotFilterer,
 )
@@ -109,7 +110,7 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
         )
 
     def test_init_client_filterer_none_text_input(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTAnnotFilterer(
                 "name",
                 client_filterer=BSTAnnotFilterer.CLIENT_FILTERERS.NONE,
@@ -161,7 +162,7 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
         )
 
     def test_init_client_filterer_unknown(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTAnnotFilterer(
                 "name",
                 client_filterer="myFilterer",
