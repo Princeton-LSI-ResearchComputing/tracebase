@@ -122,7 +122,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
             abstract = True
 
         @staticmethod
-        def assertNotWarns(unexpected_warning=UserWarning):
+        def assertNotWarns(unexpected_warning=Warning):
             """This is a decorator.  Apply it to tests that should not raise a warning.
 
             Usage:

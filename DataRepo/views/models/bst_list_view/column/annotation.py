@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db.models.expressions import Combinable
 from django.db.models.functions import Coalesce
 
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
 from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
     BSTAnnotFilterer,
@@ -116,7 +117,8 @@ class BSTAnnotColumn(BSTBaseColumn):
         if settings.DEBUG and isinstance(self.converter, Coalesce):
             warn(
                 "Usage of Coalesce in annotations is discouraged due to performance in searches and sorting.  Try "
-                "changing the converter to a different function, such as 'Case'."
+                "changing the converter to a different function, such as 'Case'.",
+                DeveloperWarning,
             )
 
         kwargs.update(
