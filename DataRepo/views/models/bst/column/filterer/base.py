@@ -11,6 +11,8 @@ from django.db.models import Q
 
 from DataRepo.utils.exceptions import DeveloperWarning, trace
 
+from DataRepo.utils.exceptions import DeveloperWarning
+
 
 class InputMethods(NamedTuple):
     TEXT: str

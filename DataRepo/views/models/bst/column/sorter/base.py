@@ -153,7 +153,7 @@ class BSTBaseSorter(ABC):
                     warn(
                         f"expression {expression} has no output_field set.  Unable to apply default server-"
                         "side sort behavior.  To avoid this, either set the output_field or supply a _server_sorter "
-                        f"from SERVER_SORTERS or a custom client_sorter to the constructor.",
+                        "from SERVER_SORTERS or a custom client_sorter to the constructor.",
                         DeveloperWarning,
                     )
         elif expression is None:
