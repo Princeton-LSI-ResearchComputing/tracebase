@@ -125,6 +125,13 @@ class BSTRelatedColumn(BSTColumn):
     def get_default_display_field(self, field_path: str, model: Type[Model]):
         """Select the best display field.
 
+        A display field is chosen based on the following criteria, in order of precedence:
+
+        1. The related model's _meta.ordering field is chosen if there is only 1
+        2. The first non-ID field that is unique is chosen, if such a field exists
+        3. If the model has only 1 non-ID field, it is chosen.
+        4. Otherwise, None is returned and a warning is issued.
+
         Args:
             field_path (str)
             model (Type[Model])
