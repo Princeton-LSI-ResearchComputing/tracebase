@@ -582,11 +582,13 @@ def is_key_field(
             ReverseManyToOneDescriptor]): A field or dunderscore-delimited field path (i.e. a Django lookup).
         model (Optional[Type[Model]]): A Model.  Must not be None if path is a str or list.
     Exceptions:
-        ValueError when model is None and field is a str or list
+        ValueError when model is None and field is a str or list, or when path is None
         TypeError when field is an unsupported type
     Returns:
         (bool): Whether the field at the end of the path is a foreign key.
     """
+    if path is None:
+        raise ValueError("path must not be None")
     if not isinstance(path, str) and not isinstance(path, list):
         return resolve_field(path).is_relation
     if isinstance(path, str) or isinstance(path, list):
