@@ -354,7 +354,6 @@ def field_path_to_model_path(
 
 
 def is_key_field(
-    model: Optional[Type[Model]],
     path: Union[
         str,
         List[str],
@@ -364,14 +363,15 @@ def is_key_field(
         ManyToManyDescriptor,
         ReverseManyToOneDescriptor,
     ],
-):
+    model: Optional[Type[Model]] = None,
+) -> bool:
     """Takes a path (or field representation) and a model and returns whether or not the field at the end of the path is
     a foreign key.
 
     Args:
-        model (Optional[Type[Model]]): A Model.  Must not be None if path is a str or list.
         path (Union[str, List[str], Field, DeferredAttribute, ForwardManyToOneDescriptor, ManyToManyDescriptor,
             ReverseManyToOneDescriptor]): A field or dunderscore-delimited field path (i.e. a Django lookup).
+        model (Optional[Type[Model]]): A Model.  Must not be None if path is a str or list.
     Exceptions:
         ValueError when model is None and field is a str or list
         TypeError when field is an unsupported type

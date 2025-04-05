@@ -25,17 +25,15 @@ class BSTColumn(BSTBaseColumn):
         1. Annotations are not supported.  See BSTAnnotColumn.
         2. Related columns are only partially supported, as they will not be linked.  See BSTRelatedColumn.
         3. Many-related columns are not supported.  See BSTManyRelatedColumn.
+        4. Foreign keys cannot be searchable or sortable.  See BSTRelatedColumn.
 
     Usage:
-        You can create a simple model field column using field paths like this:
+        You can create a simple model field column using the field names like this:
 
             filecol = BSTColumn("filename", model=ArchiveFile)
             timecol = BSTColumn("imported_timestamp", model=ArchiveFile)
-            frmtcol = BSTColumn("data_format__name", model=ArchiveFile)
-            typecol = BSTColumn("data_type__name", model=ArchiveFile)
-
-        Use django "field path lookups" relative to the base model.
-        See https://docs.djangoproject.com/en/5.1/topics/db/queries/#lookups-that-span-relationships
+            frmtcol = BSTColumn("data_format", model=ArchiveFile)
+            typecol = BSTColumn("data_type", model=ArchiveFile)
 
         Alter whatever settings you want in the constructor calls.  In the BootstrapTableListView's template, all you
         have to do to render the th element for each column is just include the associated generic template:
@@ -45,13 +43,13 @@ class BSTColumn(BSTBaseColumn):
             {% include frmtcol.th_template %}
             {% include typecol.th_template %}
 
-        Note that the column headers (by default) will use a title version of the last 2 values in django's dunderscore-
-        delimited field path.  For example, the header generated from the above objects would be:
+        Note that the column headers (by default) will be a title version of the field name.  For example, the headers
+        generated from the above objects would be:
 
             Filename
             Imported Timestamp
-            Data Format Name
-            Data Type Name
+            Data Format
+            Data Type
 
         You can supply custom templates for the th, td, and value (rendered inside the td element).  To include the td
         element:
@@ -61,9 +59,10 @@ class BSTColumn(BSTBaseColumn):
             {% include frmtcol.td_template %}
             {% include typecol.td_template %}
 
-        It's also important to note that in order for search and sort to work as expected, each column should be
-        converted to a simple string or number annotation that is compatible with django's annotate method.  To supply
-        the annotation, see BSTAnnotColumn.
+        It's also important to note that in order for search and sort to work as expected, each column whose string-
+        context rendered value (as appears in the template) does not exactly match the database's text version of the
+        value, should be converted to a simple string or number annotation that is the same as seen in the rendered
+        template and in the database.  See BSTAnnotColumn.
     """
 
     def __init__(
@@ -94,8 +93,6 @@ class BSTColumn(BSTBaseColumn):
 
         # Get some superclass instance members we need for checks
         linked = kwargs.get("linked")
-        sorter = kwargs.get("sorter")
-        filterer = kwargs.get("filterer")
 
         # Set the name for the superclass based on field_path
         name = self.field_path
@@ -136,36 +133,8 @@ class BSTColumn(BSTBaseColumn):
                 "model."
             )
 
-        self.is_fk = is_key_field(self.model, self.field_path)
-
-        # Set a default sorter, if necessary
-        if sorter is None:
-            sorter = BSTSorter(self.field_path, model=model)
-        elif isinstance(sorter, str):
-            sorter = BSTSorter(self.field_path, model=model, client_sorter=sorter)
-        elif type(sorter) is not BSTSorter:
-            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
-            raise TypeError(
-                f"sorter must be a str or a BSTBaseSorter, not a '{type(sorter).__name__}'"
-            )
-
-        # Set a default filterer, if necessary
-        if filterer is None:
-            filterer = BSTFilterer(name, model)
-        elif isinstance(filterer, str):
-            filterer = BSTFilterer(name, model, client_filterer=filterer)
-        elif type(filterer) is not BSTFilterer:
-            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
-            raise TypeError(
-                f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'"
-            )
-
-        kwargs.update(
-            {
-                "sorter": sorter,
-                "filterer": filterer,
-            }
-        )
+        self.field = field_path_to_field(self.model, self.field_path)
+        self.is_fk = is_key_field(self.field)
 
         super().__init__(name, *args, **kwargs)
 
@@ -179,20 +148,17 @@ class BSTColumn(BSTBaseColumn):
         Returns:
             None
         """
-        # Get the field
-        field = field_path_to_field(self.model, self.field_path)
-
         # If the field has a verbose name different from name, use it
-        if field.name != field.verbose_name:
-            if any(c.isupper() for c in field.verbose_name):
+        if self.field.name != self.field.verbose_name:
+            if any(c.isupper() for c in self.field.verbose_name):
                 # If the field has a verbose name with caps, use it as-is
-                return field.verbose_name
+                return self.field.verbose_name
             else:
                 # Otherwise convert it to a title
-                return underscored_to_title(field.verbose_name)
+                return underscored_to_title(self.field.verbose_name)
 
         # Special case: If the name of the field is name, use the model name
-        if self.field_path == "name" and is_unique_field(field):
+        if self.field_path == "name" and is_unique_field(self.field):
             verbose_model_name_without_automods = self.model._meta.__dict__[
                 "verbose_name"
             ].replace(" ", "")
@@ -216,7 +182,11 @@ class BSTColumn(BSTBaseColumn):
         path_tail = self.field_path.split("__")[-2:]
 
         # If the length is 2, the last element is "name", and the field is unique, use the related model name
-        if len(path_tail) == 2 and path_tail[1] == "name" and is_unique_field(field):
+        if (
+            len(path_tail) == 2
+            and path_tail[1] == "name"
+            and is_unique_field(self.field)
+        ):
             return underscored_to_title(path_tail[0])
 
         # Default is to use the last 2 elements of the path
