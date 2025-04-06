@@ -12,6 +12,7 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.filterer.field import (
     BSTFilterer,
 )
@@ -133,7 +134,7 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
 
     def test_init_client_filterer_custom_warns(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTFilterer(
                 BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
                 BSTFStudyTestModel,
@@ -178,7 +179,7 @@ class BSTFiltererTests(TracebaseTestCase):
         )
 
     def test_init_server_filterer(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             f = BSTFilterer(
                 BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
                 BSTFStudyTestModel,

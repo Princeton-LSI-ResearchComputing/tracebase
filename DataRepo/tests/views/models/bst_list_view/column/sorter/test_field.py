@@ -7,6 +7,7 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
 
 BSTSTestModel = create_test_model(
@@ -64,7 +65,7 @@ class BSTSorterTests(TracebaseTestCase):
         BSTSorter(Upper("name"), BSTSTestModel, client_sorter="upperSorter")
 
     def test_init_sorter_custom(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             s = BSTSorter("value", BSTSTestModel, client_sorter="mySorter")
         self.assertEqual(1, len(aw.warnings))
         self.assertIn(

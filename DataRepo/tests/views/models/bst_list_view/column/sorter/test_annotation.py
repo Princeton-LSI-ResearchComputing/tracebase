@@ -4,6 +4,7 @@ from django.templatetags.static import static
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
     BSTAnnotSorter,
 )
@@ -38,7 +39,7 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         # insensitivity to (using Lower).  This is a nonsensical example, but where this makes sense is when for
         # example, fields are being concatenated or other operations are happening.  The point is that 'Lower' is
         # applied if the **output_field** is a compatible type.
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             s = BSTAnnotSorter(Upper("name"))
         self.assertEqual(2, len(aw.warnings))
         self.assertIn(
@@ -64,7 +65,7 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         # Allow users to craft their own server sorter, but warn that we cannot apply case insensitivity due to the lack
         # of an output_field and we cannot guranatee that the client sort will match if a custom client_sorter is not
         # also specified.
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             BSTAnnotSorter(Upper("name"), _server_sorter=Upper)
         self.assertIn(
             "Upper(F(name)) has no output_field",
@@ -76,7 +77,7 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         )
 
     def test_init_expression_nofield_client_sorter_known_debug(self):
-        with self.assertWarns(UserWarning) as aw:
+        with self.assertWarns(DeveloperWarning) as aw:
             BSTAnnotSorter(
                 Upper("name"), client_sorter=BSTAnnotSorter.CLIENT_SORTERS.ALPHANUMERIC
             )
