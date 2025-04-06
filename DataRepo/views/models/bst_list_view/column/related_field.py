@@ -175,23 +175,21 @@ class BSTRelatedColumn(BSTColumn):
             )
 
     def create_sorter(
-        self, field_representation: Optional[Union[Combinable, Field, str]], **kwargs
+        self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
     ) -> BSTSorter:
-        if field_representation is not None:
-            field_expression = field_representation
+        if field is not None:
+            field_expression = field
         elif self.display_field_path is not None:
             field_expression = self.display_field_path
         else:
             field_expression = self.name
-        return super().create_sorter(field_expression, **kwargs)
+        return super().create_sorter(field=field_expression, **kwargs)
 
-    def create_filterer(
-        self, field_representation: Optional[str], **kwargs
-    ) -> BSTFilterer:
-        if field_representation is not None:
-            field_path = field_representation
+    def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:
+        if field is not None:
+            field_path = field
         elif self.display_field_path is not None:
             field_path = self.display_field_path
         else:
             field_path = self.name
-        return super().create_filterer(field_path, **kwargs)
+        return super().create_filterer(field=field_path, **kwargs)
