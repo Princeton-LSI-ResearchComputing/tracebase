@@ -154,9 +154,9 @@ class BSTBaseColumn(ABC):
         # NOTE: self.name will be either a field_path or an annotation field.
         # NOTE: We set a sorter even if the field is not sortable.
         if sorter is None:
-            self.sorter = self.create_sorter(None)
+            self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
-            self.sorter = self.create_sorter(None, client_sorter=sorter)
+            self.sorter = self.create_sorter(client_sorter=sorter)
         elif isinstance(sorter, BSTBaseSorter):
             self.sorter = sorter
         else:
@@ -167,9 +167,9 @@ class BSTBaseColumn(ABC):
         # NOTE: self.name will be either a field_path or an annotation field.
         # NOTE: We set a filterer even if the field is not searchable.
         if filterer is None:
-            self.filterer = self.create_filterer(None)
+            self.filterer = self.create_filterer()
         elif isinstance(filterer, str):
-            self.filterer = self.create_filterer(None, client_filterer=filterer)
+            self.filterer = self.create_filterer(client_filterer=filterer)
         elif isinstance(filterer, BSTBaseFilterer):
             self.filterer = filterer
         else:
@@ -205,11 +205,11 @@ class BSTBaseColumn(ABC):
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, field_representation, **kwargs) -> BSTBaseSorter:
+    def create_sorter(self, field=None, **kwargs) -> BSTBaseSorter:
         """Derived classes must define this method to set self.sorter"""
         pass
 
     @abstractmethod
-    def create_filterer(self, field_representation, **kwargs) -> BSTBaseFilterer:
+    def create_filterer(self, field=None, **kwargs) -> BSTBaseFilterer:
         """Derived classes must define this method to set self.filterer"""
         pass

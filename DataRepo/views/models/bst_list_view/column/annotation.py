@@ -132,17 +132,13 @@ class BSTAnnotColumn(BSTBaseColumn):
         super().__init__(name, **kwargs)
 
     def create_sorter(
-        self, field_representation: Optional[Union[Combinable, Field, str]], **kwargs
+        self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
     ) -> BSTAnnotSorter:
-        field_expression = (
-            field_representation if field_representation is not None else self.name
-        )
+        field_expression = field if field is not None else self.name
         return BSTAnnotSorter(field_expression, **kwargs)
 
     def create_filterer(
-        self, field_representation: Optional[str], **kwargs
+        self, field: Optional[str] = None, **kwargs
     ) -> BSTAnnotFilterer:
-        field_path = (
-            field_representation if field_representation is not None else self.name
-        )
+        field_path = field if field is not None else self.name
         return BSTAnnotFilterer(field_path, **kwargs)
