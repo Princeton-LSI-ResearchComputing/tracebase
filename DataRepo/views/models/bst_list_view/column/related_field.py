@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Optional, Type, cast
+from typing import List, Optional, Type, Union, cast
 from warnings import warn
 
 from django.conf import settings
 from django.db.models import Field, Model
+from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
     is_key_field,
@@ -173,32 +174,24 @@ class BSTRelatedColumn(BSTColumn):
                 DeveloperWarning,
             )
 
-    def create_sorter(self, sorter: Optional[str] = None) -> BSTSorter:
-        name: str
-        if isinstance(self.display_field_path, str):
-            name = self.display_field_path
+    def create_sorter(
+        self, field_representation: Optional[Union[Combinable, Field, str]], **kwargs
+    ) -> BSTSorter:
+        if field_representation is not None:
+            field_expression = field_representation
+        elif self.display_field_path is not None:
+            field_expression = self.display_field_path
         else:
-            name = self.name
-        if sorter is None:
-            sorter_obj = BSTSorter(name, model=self.model)
-        elif isinstance(sorter, str):
-            sorter_obj = BSTSorter(name, model=self.model, client_sorter=sorter)
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
-            raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
-        return sorter_obj
+            field_expression = self.name
+        return super().create_sorter(field_expression, **kwargs)
 
-    def create_filterer(self, filterer: Optional[str] = None) -> BSTFilterer:
-        name: str
-        if isinstance(self.display_field_path, str):
-            name = self.display_field_path
+    def create_filterer(
+        self, field_representation: Optional[str], **kwargs
+    ) -> BSTFilterer:
+        if field_representation is not None:
+            field_path = field_representation
+        elif self.display_field_path is not None:
+            field_path = self.display_field_path
         else:
-            name = self.name
-        if filterer is None:
-            filterer_obj = BSTFilterer(name, model=self.model)
-        elif isinstance(filterer, str):
-            filterer_obj = BSTFilterer(name, model=self.model, client_filterer=filterer)
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
-            raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
-        return filterer_obj
+            field_path = self.name
+        return super().create_filterer(field_path, **kwargs)

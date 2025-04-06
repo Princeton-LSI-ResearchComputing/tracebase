@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, Union
 from warnings import warn
 
 from django.conf import settings
+from django.db.models import Field
 from django.db.models.expressions import Combinable
 from django.db.models.functions import Coalesce
 
@@ -130,22 +131,18 @@ class BSTAnnotColumn(BSTBaseColumn):
 
         super().__init__(name, **kwargs)
 
-    def create_sorter(self, sorter: Optional[str] = None) -> BSTAnnotSorter:
-        if sorter is None:
-            sorter_obj = BSTAnnotSorter(self.name)
-        elif isinstance(sorter, str):
-            sorter_obj = BSTAnnotSorter(self.name, client_sorter=sorter)
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
-            raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
-        return sorter_obj
+    def create_sorter(
+        self, field_representation: Optional[Union[Combinable, Field, str]], **kwargs
+    ) -> BSTAnnotSorter:
+        field_expression = (
+            field_representation if field_representation is not None else self.name
+        )
+        return BSTAnnotSorter(field_expression, **kwargs)
 
-    def create_filterer(self, filterer: Optional[str] = None) -> BSTAnnotFilterer:
-        if filterer is None:
-            filterer_obj = BSTAnnotFilterer(self.name)
-        elif isinstance(filterer, str):
-            filterer_obj = BSTAnnotFilterer(self.name, client_filterer=filterer)
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
-            raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
-        return filterer_obj
+    def create_filterer(
+        self, field_representation: Optional[str], **kwargs
+    ) -> BSTAnnotFilterer:
+        field_path = (
+            field_representation if field_representation is not None else self.name
+        )
+        return BSTAnnotFilterer(field_path, **kwargs)
