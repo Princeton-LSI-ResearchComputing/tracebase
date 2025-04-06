@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional, Type
+from typing import Optional, Type, Union
 
-from django.db.models import Model
+from django.db.models import Field, Model
+from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
     field_path_to_field,
@@ -192,26 +193,20 @@ class BSTColumn(BSTBaseColumn):
         # Default is to use the last 2 elements of the path
         return underscored_to_title("_".join(path_tail))
 
-    def create_sorter(self, sorter: Optional[str] = None) -> BSTSorter:
-        if sorter is None:
-            sorter_obj = BSTSorter(self.field_path, model=self.model)
-        elif isinstance(sorter, str):
-            sorter_obj = BSTSorter(
-                self.field_path, model=self.model, client_sorter=sorter
-            )
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedSorter or BSTManyRelatedSorter
-            raise TypeError(f"sorter must be a str, not {type(sorter).__name__}")
-        return sorter_obj
+    def create_sorter(
+        self, field_representation: Optional[Union[Combinable, Field, str]], **kwargs
+    ) -> BSTSorter:
+        field_expression = (
+            field_representation
+            if field_representation is not None
+            else self.field_path
+        )
+        return BSTSorter(field_expression, self.model, **kwargs)
 
-    def create_filterer(self, filterer: Optional[str] = None) -> BSTFilterer:
-        if filterer is None:
-            filterer_obj = BSTFilterer(self.name, model=self.model)
-        elif isinstance(filterer, str):
-            filterer_obj = BSTFilterer(
-                self.name, model=self.model, client_filterer=filterer
-            )
-        else:
-            # Checks exact type bec. we don't want this to be a BSTRelatedFilterer or BSTManyRelatedFilterer
-            raise TypeError(f"filterer must be a str, not {type(filterer).__name__}")
-        return filterer_obj
+    def create_filterer(
+        self, field_representation: Optional[str], **kwargs
+    ) -> BSTFilterer:
+        field_path = (
+            field_representation if field_representation is not None else self.name
+        )
+        return BSTFilterer(field_path, self.model, **kwargs)
