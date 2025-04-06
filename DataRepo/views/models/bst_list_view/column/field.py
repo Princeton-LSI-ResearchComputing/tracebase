@@ -194,19 +194,11 @@ class BSTColumn(BSTBaseColumn):
         return underscored_to_title("_".join(path_tail))
 
     def create_sorter(
-        self, field_representation: Optional[Union[Combinable, Field, str]], **kwargs
+        self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
     ) -> BSTSorter:
-        field_expression = (
-            field_representation
-            if field_representation is not None
-            else self.field_path
-        )
+        field_expression = field if field is not None else self.field_path
         return BSTSorter(field_expression, self.model, **kwargs)
 
-    def create_filterer(
-        self, field_representation: Optional[str], **kwargs
-    ) -> BSTFilterer:
-        field_path = (
-            field_representation if field_representation is not None else self.name
-        )
+    def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:
+        field_path = field if field is not None else self.name
         return BSTFilterer(field_path, self.model, **kwargs)
