@@ -75,7 +75,7 @@ class BSTSorter(BSTBaseSorter):
         self.model = model
         self.field_path: str = resolve_field_path(field_expression)
         self.model_field = None
-        sort_expression = kwargs.get("sort_expression")
+        expression = kwargs.get("expression")
         client_sorter = kwargs.get("client_sorter")
 
         if field_expression is None:
@@ -83,9 +83,9 @@ class BSTSorter(BSTBaseSorter):
         elif model is None:
             raise ValueError("model must not be None.")
 
-        if sort_expression is not None:
+        if expression is not None:
             raise ValueError(
-                "sort_expression is not allowed as an argument in this class.  "
+                "expression is not allowed as an argument in this class.  "
                 "It is automatically discerned from field_expression."
             )
 
@@ -105,13 +105,11 @@ class BSTSorter(BSTBaseSorter):
 
         # Set _server_sorter
         _server_sorter: Type[Combinable] = self.SERVER_SORTERS.UNKNOWN
-        if self.model_field is not None and not (
-            # A custom expression and client_sorter have been supplied
-            client_sorter is not None
-            and client_sorter not in self.CLIENT_SORTERS
-            and isinstance(field_expression, Combinable)
-            and not isinstance(field_expression, F)
-            and type(field_expression) not in self.SERVER_SORTERS
+        if self.model_field is not None and (
+            # The field_expression is a raw field
+            isinstance(field_expression, str)
+            or isinstance(field_expression, F)
+            or isinstance(field_expression, Field)
         ):
             if is_number_field(self.model_field):
                 if self.SERVER_SORTERS.NUMERIC is not None:
@@ -119,24 +117,24 @@ class BSTSorter(BSTBaseSorter):
             elif self.SERVER_SORTERS.ALPHANUMERIC is not None:
                 _server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
 
-        # Set sort_expression
+        # Set expression
         if isinstance(field_expression, Field):
             if _server_sorter is not IdentityServerSorter:
-                sort_expression = _server_sorter(self.model_field.name)
+                expression = _server_sorter(self.model_field.name)
             else:
-                sort_expression = F(self.model_field.name)
+                expression = F(self.model_field.name)
         elif isinstance(field_expression, F):
             if _server_sorter is not IdentityServerSorter:
-                sort_expression = _server_sorter(self.field_path)
+                expression = _server_sorter(self.field_path)
             else:
-                sort_expression = F(self.field_path)
+                expression = F(self.field_path)
         elif isinstance(field_expression, str):
             if _server_sorter is not IdentityServerSorter:
-                sort_expression = _server_sorter(field_expression)
+                expression = _server_sorter(field_expression)
             else:
-                sort_expression = F(field_expression)
+                expression = F(field_expression)
         else:  # Combinable
-            sort_expression = field_expression
+            expression = field_expression
 
         kwargs.update(
             {
@@ -145,8 +143,4 @@ class BSTSorter(BSTBaseSorter):
             }
         )
 
-        super().__init__(
-            sort_expression,
-            *args,
-            **kwargs,
-        )
+        super().__init__(expression, *args, **kwargs)
