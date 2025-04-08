@@ -126,7 +126,7 @@ class BSTBaseSorter(ABC):
                 # field type, so that we can know whether applying case insensitivity is feasible.
                 # NOTE: If you want to guarantee that default sorting is applied, a derived class must do it.
                 sort_field = expression.output_field
-            except AttributeError as ae:
+            except AttributeError:
                 # TODO: Implement a fallback to infer the field from the outer expression type, e.g. Upper -> CharField
                 # The user must set output_field when defining the expression object, otherwise, you get:
                 # AttributeError: 'F' object has no attribute '_output_field_or_none'.

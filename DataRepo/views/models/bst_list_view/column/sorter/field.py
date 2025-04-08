@@ -51,7 +51,7 @@ class BSTSorter(BSTBaseSorter):
         *args,
         **kwargs,
     ):
-        """Construct a BSTSorter object.
+        """Constructor.  Extends BSTBaseSorter.__init__.
 
         Assumptions:
             1. In the case of field_expression being a Field, the "field path" returned assumes that the context of the
@@ -74,7 +74,7 @@ class BSTSorter(BSTBaseSorter):
         """
         self.model = model
         self.field_path: str = resolve_field_path(field_expression)
-        self.model_field = None
+        self.field = None
         expression = kwargs.get("expression")
         client_sorter = kwargs.get("client_sorter")
 
@@ -91,10 +91,10 @@ class BSTSorter(BSTBaseSorter):
 
         # Set self.model_field
         if isinstance(field_expression, Field):
-            self.model_field = field_expression
+            self.field = field_expression
         else:
             try:
-                self.model_field = field_path_to_field(self.model, self.field_path)
+                self.field = field_path_to_field(self.model, self.field_path)
             except AttributeError as ae:
                 if "__" not in self.field_path:
                     raise AttributeError(
@@ -105,13 +105,13 @@ class BSTSorter(BSTBaseSorter):
 
         # Set _server_sorter
         _server_sorter: Type[Combinable] = self.SERVER_SORTERS.UNKNOWN
-        if self.model_field is not None and (
+        if self.field is not None and (
             # The field_expression is a raw field
             isinstance(field_expression, str)
             or isinstance(field_expression, F)
             or isinstance(field_expression, Field)
         ):
-            if is_number_field(self.model_field):
+            if is_number_field(self.field):
                 if self.SERVER_SORTERS.NUMERIC is not None:
                     _server_sorter = self.SERVER_SORTERS.NUMERIC
             elif self.SERVER_SORTERS.ALPHANUMERIC is not None:
@@ -120,9 +120,9 @@ class BSTSorter(BSTBaseSorter):
         # Set expression
         if isinstance(field_expression, Field):
             if _server_sorter is not IdentityServerSorter:
-                expression = _server_sorter(self.model_field.name)
+                expression = _server_sorter(self.field.name)
             else:
-                expression = F(self.model_field.name)
+                expression = F(self.field.name)
         elif isinstance(field_expression, F):
             if _server_sorter is not IdentityServerSorter:
                 expression = _server_sorter(self.field_path)
