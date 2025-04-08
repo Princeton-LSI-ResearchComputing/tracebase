@@ -6,7 +6,9 @@ import time
 from collections import defaultdict
 from typing import Dict, Type, TypeVar
 
+from django.apps import apps
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models import AutoField, Field, Model
 from django.test import TestCase, TransactionTestCase, override_settings
 
@@ -212,6 +214,11 @@ def create_test_model(
     Returns:
         A dynamically created Django model class.
     """
+    app_label = "loader"
+    model_names = [mdl.__name__ for mdl in apps.get_app_config(app_label).get_models()]
+    if model_name in model_names:
+        raise ProgrammingError(f"A model named '{model_name}' already exists.")
+
     if not any(f.primary_key for f in fields.values()):
         if not any(n == "id" for n in fields.keys()):
             fields["id"] = AutoField(primary_key=True)
@@ -225,7 +232,7 @@ def create_test_model(
             "Meta",
             (),
             # TODO: Change "loader" to something disassociated with the loader classes
-            {"app_label": "loader"},
+            {"app_label": app_label},
         ),
     }
     model_attrs.update(attrs)

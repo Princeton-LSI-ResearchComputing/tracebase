@@ -1,9 +1,10 @@
 from warnings import warn
 
 from django.conf import settings
-from django.db.models import Max, Min
+from django.db.models import Field, Max, Min
 from django.db.models.aggregates import Aggregate
 
+from DataRepo.models.utilities import is_many_related_to_root
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
 
@@ -25,10 +26,13 @@ class BSTManyRelatedSorter(BSTSorter):
     """
 
     def __init__(self, *args, **kwargs):
-        """Constructor.
+        """Constructor.  Extends BSTSorter.__init__.
 
         Args:
-            None
+            *args (field_expression, model): This class uses self.expression set by field_expression and model in the
+                superclass.  See superclass.
+            **kwargs (asc, name, client_sorter, client_mode, _server_sorter): This class uses self.asc set by the asc
+                arg.  See superclass.
         Exceptions:
             None
         Returns:
@@ -57,3 +61,10 @@ class BSTManyRelatedSorter(BSTSorter):
             )
         elif not isinstance(self.expression, Aggregate):
             self.expression = agg(self.expression)
+
+        if isinstance(self.field, Field) and not is_many_related_to_root(
+            self.field_path, self.model
+        ):
+            raise ValueError(
+                f"field_path '{self.field_path}' must be many-related with the model '{self.model.__name__}'."
+            )
