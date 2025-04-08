@@ -135,7 +135,8 @@ class BSTColumn(BSTBaseColumn):
             )
 
         self.field = field_path_to_field(self.model, self.field_path)
-        self.is_fk = is_key_field(self.field)
+        if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
+            self.is_fk = is_key_field(self.field)
 
         super().__init__(name, *args, **kwargs)
 
@@ -197,6 +198,7 @@ class BSTColumn(BSTBaseColumn):
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
     ) -> BSTSorter:
         field_expression = field if field is not None else self.field_path
+        kwargs.update({"name": kwargs.get("name", self.name)})
         return BSTSorter(field_expression, self.model, **kwargs)
 
     def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:

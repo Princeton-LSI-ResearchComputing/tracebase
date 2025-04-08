@@ -70,10 +70,12 @@ class BSTBaseSorter(ABC):
     JAVASCRIPT = "js/bst_list_view/sorter.js"
 
     is_annotation = False
+    asc: bool = True
 
     def __init__(
         self,
-        sort_expression: Union[Combinable, str],
+        expression: Union[Combinable, str],
+        asc: bool = asc,
         name: Optional[str] = None,
         client_sorter: Optional[str] = None,
         client_mode: bool = False,
@@ -82,19 +84,20 @@ class BSTBaseSorter(ABC):
         """Constructor.
 
         Args:
-            sort_expression (Union[Combinable, str]): A string or Combinable expression to use for django sorting of
+            expression (Union[Combinable, str]): A string or Combinable expression to use for django sorting of
                 either an annotation of a model field path.  A Combinable can be things like a Transform, F, or
                 Expression for example.
+            asc (bool) [True]: Sort is ascending (or descending).  This is the default/initial sort.
             client_sorter (Optional[str]) [auto]: The string to set the Bootstrap Table data-sorter attribute.  The
                 default is alphanumericSorter if field is not supplied, otherwise if the field type is a number field,
                 numericSorter is set.
             client_mode (bool) [False]: Set to True if the initial table is not filtered and the page queryset is the
                 same size as the total queryset.
-            name (Optional[str]) [auto]: The name of the BSTColumn being sorted.  Will be inferred from sort_expression.
-                NOTE: Required if unable to unambiguously discern from sort_expression.
+            name (Optional[str]) [auto]: The name of the BSTColumn being sorted.  Will be inferred from expression.
+                NOTE: Required if unable to unambiguously discern from expression.
             _server_sorter (Optional[Combinable]) [auto]: Explicitly set the server sorter to a Combinable
                 (see super().SERVER_SORTERS for the defaults).  Set this to override (or apply on top of) the value
-                derived from typing sort_expression.  Instead of supplying this, just make sure that sort_expression has
+                derived from typing expression.  Instead of supplying this, just make sure that expression has
                 an output_field set, but note that BSTSorter (and its derived classes) automatically sets
                 _server_sorter.
         Exceptions:
@@ -102,15 +105,16 @@ class BSTBaseSorter(ABC):
         Returns:
             None
         """
-        self.sort_expression = sort_expression
+        self.expression = expression
         self.name = name
+        self.asc = asc
         self.client_sorter = client_sorter
         self.client_mode = client_mode
         self._server_sorter = _server_sorter
 
         sort_field: Optional[Field] = None
 
-        if isinstance(sort_expression, Expression) and (
+        if isinstance(expression, Expression) and (
             # The default server sorter is unknown
             _server_sorter is None
             or _server_sorter not in self.SERVER_SORTERS
@@ -121,8 +125,8 @@ class BSTBaseSorter(ABC):
                 # sort on top of what was supplied if it is an Expression (e.g. Lower).  That allows us to know the
                 # field type, so that we can know whether applying case insensitivity is feasible.
                 # NOTE: If you want to guarantee that default sorting is applied, a derived class must do it.
-                sort_field = sort_expression.output_field
-            except AttributeError:
+                sort_field = expression.output_field
+            except AttributeError as ae:
                 # TODO: Implement a fallback to infer the field from the outer expression type, e.g. Upper -> CharField
                 # The user must set output_field when defining the expression object, otherwise, you get:
                 # AttributeError: 'F' object has no attribute '_output_field_or_none'.
@@ -131,7 +135,7 @@ class BSTBaseSorter(ABC):
                     client_sorter is None or client_sorter in self.CLIENT_SORTERS
                 ):
                     warn(
-                        f"sort_expression {sort_expression} has no output_field set.  Unable to apply default server-"
+                        f"expression {expression} has no output_field set.  Unable to apply default server-"
                         "side sort behavior.  To avoid this, either set the output_field or supply a _server_sorter "
                         "from SERVER_SORTERS or a custom client_sorter to the constructor.",
                         DeveloperWarning,
@@ -145,15 +149,15 @@ class BSTBaseSorter(ABC):
                     self._server_sorter = self.SERVER_SORTERS.NUMERIC
                 else:
                     self._server_sorter = (
-                        type(sort_expression)
-                        if isinstance(sort_expression, Combinable)
+                        type(expression)
+                        if isinstance(expression, Combinable)
                         else self.SERVER_SORTERS.UNKNOWN
                     )
             elif (
-                isinstance(sort_expression, Expression)
-                and type(sort_expression) in self.SERVER_SORTERS
+                isinstance(expression, Expression)
+                and type(expression) in self.SERVER_SORTERS
             ):
-                self._server_sorter = type(sort_expression)
+                self._server_sorter = type(expression)
             else:
                 self._server_sorter = self.SERVER_SORTERS.UNKNOWN
 
@@ -163,7 +167,7 @@ class BSTBaseSorter(ABC):
         if issubclass(self._server_sorter, Combinable):
             # If we have a field type for sorting and the client sorter is either not specified, or it is a known client
             # sorter, apply default server sorting (either on top of or in the absense of an existing sort expression)
-            self.init_sort_expression(sort_expression)
+            self.init_expression(expression)
         self.server_sort_type_known = (
             self._server_sorter in self.SERVER_SORTERS._asdict().values()
             and self._server_sorter != self.SERVER_SORTERS.UNKNOWN
@@ -171,10 +175,10 @@ class BSTBaseSorter(ABC):
 
         if name is None:
             try:
-                self.name = resolve_field_path(sort_expression)
+                self.name = resolve_field_path(expression)
             except (NoFields, MultipleFields) as fe:
                 raise ValueError(
-                    f"name argument required.  (Unable to discern column name from sort_expression '{sort_expression}' "
+                    f"name argument required.  (Unable to discern column name from expression '{expression}' "
                     f"due to '{type(fe).__name__}' error: {fe}.)"
                 )
 
@@ -199,9 +203,10 @@ class BSTBaseSorter(ABC):
             settings.DEBUG
             and self.server_sort_type_known != self.client_sort_type_known
             and self.client_sorter != self.CLIENT_SORTERS.UNKNOWN
+            and self.client_sorter != self.CLIENT_SORTERS.NONE
         ):
             warn(
-                f"Cannot guarantee that the server-side Django sort expression '{self.sort_expression}' and "
+                f"Cannot guarantee that the server-side Django sort expression '{self.expression}' and "
                 f"client_sorter '{self.client_sorter}' are equivalent.  Server sort may differ from client sort.  "
                 "Be sure to explicitly set the field_expression and/or client_sorter to match.",
                 DeveloperWarning,
@@ -228,12 +233,12 @@ class BSTBaseSorter(ABC):
     def set_server_mode(self, enabled: bool = True):
         self.client_mode = not enabled
 
-    def init_sort_expression(self, sort_expression: Union[Combinable, str]):
-        """Initializes self.sort_expression based on self._server_sorter, applying a default sort constraint potentially
+    def init_expression(self, expression: Union[Combinable, str]):
+        """Initializes self.expression based on self._server_sorter, applying a default sort constraint potentially
         on top of customized sort criteria, e.g. applying case insensitivity.
 
         Args:
-            sort_expression (Union[Combinable, str]): A field name or F or other Combinable, like an Expression,
+            expression (Union[Combinable, str]): A field name or F or other Combinable, like an Expression,
                 Transform, field addition, concatenation, etc. to which default sort constraints will be applied, such
                 as Lower() to impose case insensitivity.
         Exceptions:
@@ -244,41 +249,39 @@ class BSTBaseSorter(ABC):
         # If we have a field type for sorting and the client sorter is either not specified, or it is a known client
         # sorter, apply default server sorting (either on top of or in the absense of an existing sort expression)
         if self._server_sorter == self.SERVER_SORTERS.NONE:
-            if not isinstance(sort_expression, self.SERVER_SORTERS.NONE):
-                self.sort_expression = self.SERVER_SORTERS.NONE(sort_expression)
+            if not isinstance(expression, self.SERVER_SORTERS.NONE):
+                self.expression = self.SERVER_SORTERS.NONE(expression)
             else:
-                self.sort_expression = sort_expression
+                self.expression = expression
         elif self._server_sorter == self.SERVER_SORTERS.ALPHANUMERIC:
-            if not isinstance(sort_expression, self.SERVER_SORTERS.ALPHANUMERIC):
+            if not isinstance(expression, self.SERVER_SORTERS.ALPHANUMERIC):
                 if self.SERVER_SORTERS.ALPHANUMERIC != IdentityServerSorter:
-                    self.sort_expression = self.SERVER_SORTERS.ALPHANUMERIC(
-                        sort_expression
-                    )
-                elif not isinstance(sort_expression, F):
-                    self.sort_expression = F(sort_expression)
+                    self.expression = self.SERVER_SORTERS.ALPHANUMERIC(expression)
+                elif not isinstance(expression, F):
+                    self.expression = F(expression)
                 else:
-                    self.sort_expression = sort_expression
+                    self.expression = expression
             else:
-                self.sort_expression = sort_expression
+                self.expression = expression
         elif self._server_sorter == self.SERVER_SORTERS.NUMERIC:
-            if not isinstance(sort_expression, self.SERVER_SORTERS.NUMERIC):
+            if not isinstance(expression, self.SERVER_SORTERS.NUMERIC):
                 if self.SERVER_SORTERS.NUMERIC != IdentityServerSorter:
-                    self.sort_expression = self.SERVER_SORTERS.NUMERIC(sort_expression)
-                elif not isinstance(sort_expression, F):
-                    self.sort_expression = F(sort_expression)
+                    self.expression = self.SERVER_SORTERS.NUMERIC(expression)
+                elif not isinstance(expression, F):
+                    self.expression = F(expression)
                 else:
-                    self.sort_expression = sort_expression
+                    self.expression = expression
             else:
-                self.sort_expression = sort_expression
+                self.expression = expression
         elif self._server_sorter == self.SERVER_SORTERS.UNKNOWN:
-            if isinstance(sort_expression, str):
-                self.sort_expression = F(sort_expression)
+            if isinstance(expression, str):
+                self.expression = F(expression)
             else:
-                self.sort_expression = sort_expression
-        elif isinstance(sort_expression, str):
-            self.sort_expression = F(sort_expression)
-        else:  # sort_expression is Combinable
-            self.sort_expression = sort_expression
+                self.expression = expression
+        elif isinstance(expression, str):
+            self.expression = F(expression)
+        else:  # expression is Combinable
+            self.expression = expression
 
     def client_server_sort_mismatch(self):
         """Returns whether the server and client sort methods definitely mismatch.  Does not report as a mismatch if
