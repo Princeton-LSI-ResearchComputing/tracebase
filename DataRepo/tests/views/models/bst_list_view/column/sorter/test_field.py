@@ -26,13 +26,13 @@ class BSTSorterTests(TracebaseTestCase):
         s = BSTSorter(CharField(name="name"), BSTSTestModel)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
-        self.assertIsInstance(s.sort_expression, Lower)
+        self.assertIsInstance(s.expression, Lower)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_integerfield(self):
         s = BSTSorter(IntegerField(name="value"), BSTSTestModel)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
-        self.assertIsInstance(s.sort_expression, F)
+        self.assertIsInstance(s.expression, F)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NUMERIC, s.client_sorter)
 
     @TracebaseTestCase.assertNotWarns()
@@ -40,25 +40,39 @@ class BSTSorterTests(TracebaseTestCase):
         s = BSTSorter("value", BSTSTestModel)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NUMERIC, s.client_sorter)
-        self.assertIsInstance(s.sort_expression, F)
+        self.assertIsInstance(s.expression, F)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_f_and_model(self):
         s = BSTSorter(F("name"), BSTSTestModel)
-        self.assertIsInstance(s.sort_expression, Lower)
+        self.assertIsInstance(s.expression, Lower)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
         self.assertEqual(BSTSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
 
-    @TracebaseTestCase.assertNotWarns()
     def test_init_path_expression_and_model(self):
-        # We assert NOT warns because Upper has a default output_field type which we recognize and can apply our case
-        # insensitivity to (using Lower).  This is a nonsensical example, but where this makes sense is when for
-        # example, fields are being concatenated or other operations are happening.  The point is that 'Lower' is
-        # applied if the **output_field** is a compatible type.
-        s = BSTSorter(Upper("name"), BSTSTestModel)
+        # We assert warns because Upper doesn't have a default output_field set and we have no way to know the default
+        # output field type that Upper works on.  In the future, a feature to infer the default output field type would
+        # be nice.
+        with self.assertWarns(DeveloperWarning) as aw:
+            s = BSTSorter(Upper("name"), BSTSTestModel)
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "expression Upper(F(name)) has no output_field", str(aw.warnings[0].message)
+        )
+        self.assertIn(
+            "Unable to apply default server-side sort behavior",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn(
+            "set the output_field or supply a _server_sorter",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn(
+            "or a custom client_sorter to the constructor", str(aw.warnings[0].message)
+        )
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
-        self.assertEqual(BSTSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
-        self.assertIsInstance(s.sort_expression, Lower)
+        self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.client_sorter)
+        self.assertIsInstance(s.expression, Upper)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_path_expression_model_and_clientsorter(self):
@@ -82,7 +96,7 @@ class BSTSorterTests(TracebaseTestCase):
         )
         self.assertEqual(BSTSorter.CLIENT_SORTERS.NONE, s.sorter)
         self.assertEqual("mySorter", s.client_sorter)
-        self.assertIsInstance(s.sort_expression, F)
+        self.assertIsInstance(s.expression, F)
 
     @TracebaseTestCase.assertNotWarns()
     def test_str(self):

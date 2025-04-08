@@ -213,7 +213,7 @@ def resolve_field_path(
 
 def is_many_related(field: Field, source_model: Optional[Model] = None):
     """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
-    model, (which is assumed to the the model where the field was defined, if source_model is None).
+    model, (which is assumed to be the model where the field was defined, if source_model is None).
 
     Args:
         field (Field): A Field instance.
@@ -314,7 +314,11 @@ def get_next_model(current_model: Model, field_name: str) -> Type[Model]:
 
 
 def field_path_to_model_path(
-    model: Type[Model], path: Union[str, List[str]], _output: str = ""
+    model: Type[Model],
+    path: Union[str, List[str]],
+    many_related: bool = False,
+    _output: str = "",
+    _mr_output: str = "",
 ) -> Optional[str]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the path to the last foreign
     key (treated here as "a model", because a queryset constructed using this field path results in a model object (or
@@ -327,19 +331,46 @@ def field_path_to_model_path(
         model (Type[Model]): The Django Model class upon which the path can be used in filtering, etc.
         path (Union[str, List[str]]): A dunderscore-delimited lookup string (or list of the dunderscore-split) field
             path, which can be used in filtering, etc. off the model.
+        many_related (bool) [False]: Return the path to the last many-related model in the supplied path, instead of the
+            last model.
         _output (str) [""]: Used in recursion to build up the resulting model path.
+        _mr_output (str) [""]: Used in recursion to build up the resulting many-related model path (only used if
+            many_related is True).
     Exceptions:
-        ValueError if the field path is too short
+        ValueError if the field path is too short, a model is missing a field in the field path, or if a many-related
+            model was requested and none was found.
     Returns:
         _output (Optional[str]): The path to the last foreign key ("model") in the supplied path
     """
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
     if isinstance(path, str):
-        return field_path_to_model_path(model, path.split("__"))
+        return field_path_to_model_path(
+            model, path.split("__"), many_related=many_related
+        )
+
     new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
-    if len(path) == 1:
+
+    # If we only want the last many-related model, update _mr_output
+    if many_related:
         if hasattr(model, path[0]):
+            fld = resolve_field(getattr(model, path[0]))
+            if fld.is_relation and is_many_related(fld, model):
+                _mr_output = new_output
+        else:
+            raise ValueError(
+                f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
+            )
+
+    # If we're at the end of the path - no more recursion - return the result
+    if len(path) == 1:
+        if many_related:
+            if _mr_output == "":
+                raise ValueError(
+                    f"No many-related model was found in the path '{new_output}'."
+                )
+            return _mr_output
+        elif hasattr(model, path[0]):
             tail = resolve_field(getattr(model, path[0]))
             if tail.is_relation:
                 return new_output
@@ -348,8 +379,14 @@ def field_path_to_model_path(
         raise ValueError(
             f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
         )
+
+    # Recurse
     return field_path_to_model_path(
-        get_next_model(model, path[0]), path[1:], new_output
+        get_next_model(model, path[0]),
+        path[1:],
+        many_related=many_related,
+        _output=new_output,
+        _mr_output=_mr_output,
     )
 
 

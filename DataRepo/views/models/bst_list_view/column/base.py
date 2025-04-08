@@ -105,7 +105,7 @@ class BSTBaseColumn(ABC):
         self.sorter: BSTBaseSorter
         self.filterer: BSTBaseFilterer
 
-        if getattr(self, "is_fk", None) is None:
+        if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
             self.is_fk = False
 
         if self.linked:
