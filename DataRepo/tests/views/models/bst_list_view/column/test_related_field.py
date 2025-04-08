@@ -103,7 +103,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_display_field_fk(self):
-        c = BSTRelatedColumn("sample", model=BSTRCMSRunSampleTestModel)
+        c = BSTRelatedColumn("sample", BSTRCMSRunSampleTestModel)
         self.assertEqual(
             "sample__name",
             c.display_field_path,
@@ -112,7 +112,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertTrue(c.sortable)
         self.assertTrue(c.searchable)
 
-        c = BSTRelatedColumn("sample__animal", model=BSTRCMSRunSampleTestModel)
+        c = BSTRelatedColumn("sample__animal", BSTRCMSRunSampleTestModel)
         self.assertEqual(
             "sample__animal__name",
             c.display_field_path,
@@ -121,7 +121,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertTrue(c.sortable)
         self.assertTrue(c.searchable)
 
-        c = BSTRelatedColumn("tissue", model=BSTRCSampleTestModel)
+        c = BSTRelatedColumn("tissue", BSTRCSampleTestModel)
         self.assertEqual(
             "tissue__name",
             c.display_field_path,
@@ -132,7 +132,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
 
         c = BSTRelatedColumn(
             "sample",
-            model=BSTRCMSRunSampleTestModel,
+            BSTRCMSRunSampleTestModel,
             display_field_path="sample__characteristic",
         )
         self.assertEqual(
@@ -145,7 +145,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
 
         c = BSTRelatedColumn(
             "sample",
-            model=BSTRCMSRunSampleTestModel,
+            BSTRCMSRunSampleTestModel,
             display_field_path="sample__animal__name",
         )
         self.assertEqual(
@@ -158,7 +158,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_display_field_nonfk(self):
-        c = BSTRelatedColumn("sample__characteristic", model=BSTRCMSRunSampleTestModel)
+        c = BSTRelatedColumn("sample__characteristic", BSTRCMSRunSampleTestModel)
         self.assertEqual(
             "sample__characteristic",
             c.display_field_path,
@@ -173,7 +173,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
             # Different field
             BSTRelatedColumn(
                 "sample__characteristic",
-                model=BSTRCMSRunSampleTestModel,
+                BSTRCMSRunSampleTestModel,
                 display_field_path="sample__name",
             ),
         self.assertEqual(
@@ -190,7 +190,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
             # Different field not under path
             BSTRelatedColumn(
                 "sample__animal",
-                model=BSTRCMSRunSampleTestModel,
+                BSTRCMSRunSampleTestModel,
                 display_field_path="sample__name",
             ),
         self.assertEqual(
@@ -200,12 +200,13 @@ class BSTRelatedColumnTests(TracebaseTestCase):
 
     def test_init_searchable_disabled(self):
         with self.assertWarns(DeveloperWarning) as aw:
-            c = BSTRelatedColumn("treatment", model=BSTRCAnimalTestModel)
+            c = BSTRelatedColumn("treatment", BSTRCAnimalTestModel)
         self.assertFalse(c.searchable)
-        self.assertIsNone(c.display_field_path)
+        self.assertEqual("treatment", c.display_field_path)
+        self.assertIsInstance(c.display_field, ForeignKey)
         self.assertEqual(1, len(aw.warnings))
         self.assertIn(
-            "Unable to automatically select an appropriate display_field_path",
+            "Unable to automatically select a searchable/sortable display_field_path",
             str(aw.warnings[0].message),
         )
         self.assertIn("foreign key field_path 'treatment'", str(aw.warnings[0].message))
@@ -220,32 +221,28 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertIn(
             "only field if there is only 1 non-ID field", str(aw.warnings[0].message)
         )
-        self.assertIn("cannot be searchable or sortable", str(aw.warnings[0].message))
-        self.assertIn(
-            "unless a display_field_path is supplied", str(aw.warnings[0].message)
-        )
 
     def test_init_sortable_disabled(self):
         with self.assertWarns(DeveloperWarning) as aw:
-            c = BSTRelatedColumn("treatment", model=BSTRCAnimalTestModel)
+            c = BSTRelatedColumn("treatment", BSTRCAnimalTestModel)
         self.assertFalse(c.sortable)
-        self.assertIsNone(c.display_field_path)
+        self.assertEqual("treatment", c.display_field_path)
+        self.assertIsInstance(c.display_field, ForeignKey)
         self.assertEqual(1, len(aw.warnings))
 
     def test_init_searchable_sortable_disabled(self):
         with self.assertWarns(DeveloperWarning) as aw:
-            c = BSTRelatedColumn("treatment", model=BSTRCAnimalTestModel)
+            c = BSTRelatedColumn("treatment", BSTRCAnimalTestModel)
         self.assertFalse(c.sortable)
         self.assertFalse(c.searchable)
-        self.assertIsNone(c.display_field_path)
+        self.assertEqual("treatment", c.display_field_path)
+        self.assertIsInstance(c.display_field, ForeignKey)
         self.assertEqual(1, len(aw.warnings))
 
     def test_init_searchable_disallowed(self):
         with self.assertWarns(DeveloperWarning):
             with self.assertRaises(ValueError) as ar:
-                BSTRelatedColumn(
-                    "treatment", model=BSTRCAnimalTestModel, searchable=True
-                )
+                BSTRelatedColumn("treatment", BSTRCAnimalTestModel, searchable=True)
         self.assertIn("['searchable'] cannot be True", str(ar.exception))
         self.assertIn("field_path is a foreign key", str(ar.exception))
         self.assertIn(
@@ -258,7 +255,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
     def test_init_sortable_disallowed(self):
         with self.assertWarns(DeveloperWarning):
             with self.assertRaises(ValueError) as ar:
-                BSTRelatedColumn("treatment", model=BSTRCAnimalTestModel, sortable=True)
+                BSTRelatedColumn("treatment", BSTRCAnimalTestModel, sortable=True)
         self.assertIn("['sortable'] cannot be True", str(ar.exception))
         self.assertIn("field_path is a foreign key", str(ar.exception))
         self.assertIn(
@@ -273,7 +270,7 @@ class BSTRelatedColumnTests(TracebaseTestCase):
             with self.assertRaises(ValueError) as ar:
                 BSTRelatedColumn(
                     "treatment",
-                    model=BSTRCAnimalTestModel,
+                    BSTRCAnimalTestModel,
                     searchable=True,
                     sortable=True,
                 )
