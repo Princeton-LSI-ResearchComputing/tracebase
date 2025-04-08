@@ -21,7 +21,7 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertEqual(BSTAnnotSorter.CLIENT_SORTERS.NONE, s.sorter)
         self.assertEqual("name", s.name)
         self.assertEqual(s.SERVER_SORTERS.ALPHANUMERIC, s._server_sorter)
-        self.assertIsInstance(s.sort_expression, Lower)
+        self.assertIsInstance(s.expression, Lower)
         self.assertFalse(s.client_mode)
 
     @TracebaseTestCase.assertNotWarns()
@@ -31,29 +31,21 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         )
         self.assertEqual(BSTAnnotSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
         self.assertEqual("name", s.name)
-        self.assertIsInstance(s.sort_expression, Lower)
+        self.assertIsInstance(s.expression, Lower)
         self.assertEqual(s.SERVER_SORTERS.ALPHANUMERIC, s._server_sorter)
 
     def test_init_expression_nofield_only(self):
-        # We assert NOT warns because Upper has a default output_field type which we recognize and can apply our case
-        # insensitivity to (using Lower).  This is a nonsensical example, but where this makes sense is when for
-        # example, fields are being concatenated or other operations are happening.  The point is that 'Lower' is
-        # applied if the **output_field** is a compatible type.
         with self.assertWarns(DeveloperWarning) as aw:
             s = BSTAnnotSorter(Upper("name"))
-        self.assertEqual(2, len(aw.warnings))
+        self.assertEqual(1, len(aw.warnings))
         self.assertIn(
             "Unable to apply default server-side sort behavior",
             str(aw.warnings[0].message),
         )
-        self.assertIn(
-            "Server sort may differ from client",
-            str(aw.warnings[1].message),
-        )
         self.assertEqual(BSTAnnotSorter.CLIENT_SORTERS.NONE, s.client_sorter)
         self.assertEqual(BSTAnnotSorter.SERVER_SORTERS.UNKNOWN, s._server_sorter)
         self.assertEqual("name", s.name)
-        self.assertIsInstance(s.sort_expression, Upper)
+        self.assertIsInstance(s.expression, Upper)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_expression_nofield_server_sorter_known(self):
@@ -63,17 +55,13 @@ class BSTAnnotSorterTests(TracebaseTestCase):
 
     def test_init_expression_nofield_server_sorter_custom(self):
         # Allow users to craft their own server sorter, but warn that we cannot apply case insensitivity due to the lack
-        # of an output_field and we cannot guranatee that the client sort will match if a custom client_sorter is not
-        # also specified.
+        # of an output_field.
         with self.assertWarns(DeveloperWarning) as aw:
             BSTAnnotSorter(Upper("name"), _server_sorter=Upper)
+        self.assertEqual(1, len(aw.warnings))
         self.assertIn(
             "Upper(F(name)) has no output_field",
             str(aw.warnings[0].message),
-        )
-        self.assertIn(
-            "Server sort may differ from client",
-            str(aw.warnings[1].message),
         )
 
     def test_init_expression_nofield_client_sorter_known_debug(self):
@@ -116,14 +104,14 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertEqual(Lower, s._server_sorter)
         self.assertEqual(BSTAnnotSorter.CLIENT_SORTERS.ALPHANUMERIC, s.client_sorter)
         self.assertEqual("name", s.name)
-        self.assertIsInstance(s.sort_expression, Lower)
+        self.assertIsInstance(s.expression, Lower)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_expression_nofield_and_clientsorter(self):
         s = BSTAnnotSorter(Upper("name"), client_sorter="upperSorter")
         self.assertEqual("upperSorter", s.client_sorter)
         self.assertEqual("name", s.name)
-        self.assertIsInstance(s.sort_expression, Upper)
+        self.assertIsInstance(s.expression, Upper)
         self.assertEqual(BSTAnnotSorter.SERVER_SORTERS.UNKNOWN, s._server_sorter)
 
     @TracebaseTestCase.assertNotWarns()
