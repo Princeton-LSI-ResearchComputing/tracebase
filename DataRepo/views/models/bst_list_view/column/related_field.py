@@ -8,6 +8,8 @@ from django.db.models import Field, Model
 from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
+    field_path_to_field,
+    field_path_to_model_path,
     is_key_field,
     model_path_to_model,
     resolve_field,
@@ -69,7 +71,7 @@ class BSTRelatedColumn(BSTColumn):
 
         # Get some superclass instance members we need for checks
         field_path: str = cast(str, args[0])
-        model: Type[Model] = cast(Type[Model], kwargs.get("model"))
+        model: Type[Model] = cast(Type[Model], args[1])
 
         # We need to initialize/check the display_field_path before we call the superclass constructor, because the
         # display field is used in the sorter/filterer initialized by the superclass constructor.  And for that, we need
@@ -85,6 +87,12 @@ class BSTRelatedColumn(BSTColumn):
                 f"display_field_path '{display_field_path}' is only allowed to differ from field_path '{field_path}' "
                 "when the field is a foreign key."
             )
+
+        if (
+            not hasattr(self, "related_model_path")
+            or getattr(self, "related_model_path") is None
+        ):
+            self.related_model_path = field_path_to_model_path(model, field_path)
 
         if self.display_field_path is None:
             self.display_field_path = self.get_default_display_field(field_path, model)
@@ -109,6 +117,10 @@ class BSTRelatedColumn(BSTColumn):
                         "display_field_path could not be determined.  Supply display_field_path to allow search/sort."
                     )
 
+                # Fall back to the actual foreign key as the display field.  This will end up rendering related objects
+                # in string context, which is what is not searchable/sortable.
+                self.display_field_path = field_path
+
                 kwargs.update(
                     {
                         "searchable": False,
@@ -120,6 +132,8 @@ class BSTRelatedColumn(BSTColumn):
             raise ValueError(
                 f"display_field_path '{display_field_path}' must start with the field_path '{field_path}'."
             )
+
+        self.display_field = field_path_to_field(model, self.display_field_path)
 
         super().__init__(*args, **kwargs)
 
@@ -144,6 +158,7 @@ class BSTRelatedColumn(BSTColumn):
         if not self.is_fk:
             return field_path
 
+        # We know that field_path is a model path because of the is_fk conditional above
         related_model = model_path_to_model(model, field_path)
 
         if len(related_model._meta.ordering) == 1:
@@ -166,11 +181,10 @@ class BSTRelatedColumn(BSTColumn):
                 return f"{field_path}__{non_relations[0].name}"
         if settings.DEBUG:
             warn(
-                "Unable to automatically select an appropriate display_field_path for the foreign key field_path "
-                f"'{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when only 1 ordering "
-                f"field is defined, the first non-ID unique field in '{related_model.__name__}', or the only field if "
-                "there is only 1 non-ID field, but none of those default cases existed.  This column cannot be "
-                "searchable or sortable unless a display_field_path is supplied.",
+                "Unable to automatically select a searchable/sortable display_field_path for the foreign key "
+                f"field_path '{field_path}'.  The default is '{related_model.__name__}._meta.ordering[0]' when only 1 "
+                f"ordering field is defined, the first non-ID unique field in '{related_model.__name__}', or the only "
+                "field if there is only 1 non-ID field, but none of those default cases existed.",
                 DeveloperWarning,
             )
 
@@ -183,6 +197,9 @@ class BSTRelatedColumn(BSTColumn):
             field_expression = self.display_field_path
         else:
             field_expression = self.name
+
+        kwargs.update({"name": kwargs.get("name", self.name)})
+
         return super().create_sorter(field=field_expression, **kwargs)
 
     def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:
