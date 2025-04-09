@@ -39,6 +39,7 @@ from DataRepo.models.utilities import (
     get_model_by_name,
     get_next_model,
     is_many_related,
+    is_many_related_to_parent,
     is_many_related_to_root,
     is_number_field,
     is_string_field,
@@ -193,6 +194,37 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             is_many_related_to_root("msrun_sample__sample__animal__name", PeakGroup)
         )
         self.assertFalse(is_many_related_to_root("description", Study))
+
+    def test_is_many_related_to_parent(self):
+        self.assertFalse(is_many_related_to_parent("data_format", ArchiveFile))
+        self.assertTrue(is_many_related_to_parent("peak_groups", ArchiveFile))
+        self.assertTrue(
+            is_many_related_to_parent(
+                "msrun_sample__sample__animal__studies", PeakGroup
+            )
+        )
+        self.assertFalse(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal", ArchiveFile
+            )
+        )
+        # Works when ends in non-relation
+        self.assertFalse(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__name", ArchiveFile
+            )
+        )
+        self.assertTrue(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__studies", ArchiveFile
+            )
+        )
+        # Works when ends in non-relation
+        self.assertTrue(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__studies__name", ArchiveFile
+            )
+        )
 
     def test_field_path_to_field(self):
         ra_field = field_path_to_field(

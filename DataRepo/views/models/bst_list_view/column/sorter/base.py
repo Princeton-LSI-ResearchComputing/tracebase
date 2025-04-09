@@ -70,12 +70,12 @@ class BSTBaseSorter(ABC):
     JAVASCRIPT = "js/bst_list_view/sorter.js"
 
     is_annotation = False
-    asc: bool = True
+    ascending: bool = True
 
     def __init__(
         self,
         expression: Union[Combinable, str],
-        asc: bool = asc,
+        asc: Optional[bool] = None,
         name: Optional[str] = None,
         client_sorter: Optional[str] = None,
         client_mode: bool = False,
@@ -87,7 +87,7 @@ class BSTBaseSorter(ABC):
             expression (Union[Combinable, str]): A string or Combinable expression to use for django sorting of
                 either an annotation of a model field path.  A Combinable can be things like a Transform, F, or
                 Expression for example.
-            asc (bool) [True]: Sort is ascending (or descending).  This is the default/initial sort.
+            asc (bool) [self.ascending]: Sort is ascending (or descending).  This is the default/initial sort.
             client_sorter (Optional[str]) [auto]: The string to set the Bootstrap Table data-sorter attribute.  The
                 default is alphanumericSorter if field is not supplied, otherwise if the field type is a number field,
                 numericSorter is set.
@@ -107,7 +107,7 @@ class BSTBaseSorter(ABC):
         """
         self.expression = expression
         self.name = name
-        self.asc = asc
+        self.asc = asc if asc is not None else self.ascending
         self.client_sorter = client_sorter
         self.client_mode = client_mode
         self._server_sorter = _server_sorter
