@@ -264,6 +264,37 @@ def is_many_related_to_root(field_path: Union[str, List[str]], source_model: Mod
     )
 
 
+def is_many_related_to_parent(field_path: Union[str, List[str]], source_model: Model):
+    """Takes a field path and source model and returns whether the leaf field is many-related to its immediate parent
+    model.
+
+    Args:
+        field_path (Union[str, List[str]]): A dunderscore delimited field path (or list).
+        source_model (Model): The model that the first field in the field path belongs to.
+    Exceptions:
+        ValueError when the field path is invalid
+    Returns:
+        (bool): Whether the leaf field in the field path is many-related with its parent model.
+    """
+    if len(field_path) == 0:
+        raise ValueError("field_path string/list must have a non-zero length.")
+    if isinstance(field_path, str):
+        return is_many_related_to_parent(field_path.split("__"), source_model)
+    if len(field_path) == 1:
+        field = resolve_field(getattr(source_model, field_path[0]))
+        return is_many_related(field, source_model=source_model)
+    elif len(field_path) == 2:
+        field = resolve_field(getattr(source_model, field_path[0]))
+        next_model = get_next_model(source_model, field_path[0])
+        # if the last field in the field_path is not a foreign key
+        if not resolve_field(getattr(next_model, field_path[1])).is_relation:
+            # Return whether the last foreign key is many-related to its parent
+            return is_many_related(field, source_model=source_model)
+    return is_many_related_to_parent(
+        field_path[1:], get_next_model(source_model, field_path[0])
+    )
+
+
 def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Field:
     """Recursive method to take a root model and a dunderscore-delimited path and return the Field class at the end of
     the path.  The intention is so that the Field can be interrogated as to type or retrieve choices, etc.
@@ -340,7 +371,8 @@ def field_path_to_model_path(
         ValueError if the field path is too short, a model is missing a field in the field path, or if a many-related
             model was requested and none was found.
     Returns:
-        _output (Optional[str]): The path to the last foreign key ("model") in the supplied path
+        _output (Optional[str]): The path to the last foreign key ("model") in the supplied path or None if there are no
+            foreign keys in the path (i.e. it's just a field name).
     """
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")

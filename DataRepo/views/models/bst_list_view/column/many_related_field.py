@@ -5,7 +5,10 @@ from typing import Optional, Type, Union, cast
 from django.db.models import Field, Model
 from django.db.models.expressions import Combinable
 
-from DataRepo.models.utilities import field_path_to_model_path
+from DataRepo.models.utilities import (
+    field_path_to_model_path,
+    is_many_related_to_root,
+)
 from DataRepo.views.models.bst_list_view.column.related_field import (
     BSTRelatedColumn,
 )
@@ -60,7 +63,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         delim: Optional[str] = delimiter,
         limit: int = limit,
         sort_expression: Optional[Union[Combinable, Field, str]] = None,
-        asc: bool = ascending,
+        asc: Optional[bool] = None,
         **kwargs,
     ):
         """Defines options used to populate the Bootstrap Table columns for a BootstrapListView and a single reference
@@ -79,7 +82,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 values in the resulting Bootstrap Table.  The purpose of this argument is to provide a means of sorting
                 multiple fields (all from the same many-related model) the same, so that they visually align.  The
                 default value is the display_field (which is based on field_path).
-            asc (bool) [BSTManyRelatedColumn.ascending]: Initial sort of the delimited values in each table cell.
+            asc (Optional[bool]) [BSTManyRelatedColumn.ascending]: Initial sort of the delimited values in each table
+                cell.
                 NOTE: This will be changed when the user sorts based on this column.  If the initial value here is
                 False, the first time a user sorts the table based on this column, it will be changed to True to match
                 the table row sort.
@@ -93,7 +97,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         self.delim = delim
         self.limit = limit
         self.sort_expression = sort_expression
-        self.asc = asc
+        self.asc = asc if asc is not None else self.ascending
 
         # Create attribute names to use to assign a list of related model objects and their count to the root model
         if self.list_attr_name is None or self.count_attr_name is None:
@@ -101,7 +105,15 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             field_path: str = cast(str, args[0])
             model: Type[Model] = cast(Type[Model], args[1])
 
-            self.related_model_path = field_path_to_model_path(model, field_path)
+            if not is_many_related_to_root(field_path, model):
+                raise ValueError(
+                    f"field_path '{field_path}' must be many-related to model '{model.__name__}'."
+                )
+
+            # We are guaranteed to get a path/str
+            self.related_model_path: str = cast(
+                str, field_path_to_model_path(model, field_path)
+            )
             if self.related_model_path == field_path:
                 stub = field_path.split("__")[-1]
             else:
@@ -113,9 +125,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             if self.count_attr_name is None:
                 self.count_attr_name = stub + self.count_attr_tail
 
-        # NOTE: I don't think setting related_model_path to the last many-related model is necessary for
-        # BSTManyRelatedColumn.  I only need to do that for BSTColumnGroup.
-        # self.related_model_path = field_path_to_model_path(model, field_path, many_related=True)
+        # NOTE: It is not necessary to set related_model_path to the last many-related model.  It is only need to be a
+        # many-related model path when it is a member of BSTColumnGroup.
 
         super().__init__(*args, **kwargs)
 
@@ -149,6 +160,11 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             raise ValueError(
                 f"The field path '{self.field_path}' must start with the supplied related_model_path "
                 f"'{related_model_path}'."
+            )
+
+        if not is_many_related_to_root(related_model_path, self.model):
+            raise ValueError(
+                f"related_model_path '{related_model_path}' must be many-related to model '{self.model.__name__}'."
             )
 
     def create_sorter(
