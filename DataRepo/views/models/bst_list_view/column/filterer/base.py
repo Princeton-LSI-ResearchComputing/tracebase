@@ -7,7 +7,6 @@ from warnings import warn
 
 from django.conf import settings
 from django.templatetags.static import static
-from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -158,7 +157,7 @@ class BSTBaseFilterer(ABC):
         UNKNOWN=CustomLookup(),
     )
 
-    JAVASCRIPT = "js/bst_list_view/filterers.js"
+    script_name = "js/bst_list_view/filterers.js"
 
     is_annotation = False
 
@@ -422,7 +421,7 @@ class BSTBaseFilterer(ABC):
     def set_server_mode(self, enabled: bool = True):
         self.client_mode = not enabled
 
-    @classproperty
-    def javascript(cls) -> str:  # pylint: disable=no-self-argument
-        """Returns an HTML script tag whose source points to cls.JAVASCRIPT."""
-        return mark_safe(f"<script src='{static(cls.JAVASCRIPT)}'></script>")
+    @property
+    def script(self) -> str:
+        """Returns an HTML script tag whose source points to self.script_name."""
+        return mark_safe(f"<script src='{static(self.script_name)}'></script>")
