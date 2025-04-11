@@ -31,7 +31,7 @@ class BSTSorter(BSTBaseSorter):
             context["sorter"] = self.sorter
 
         # Template
-            {{ sorter.javascript }}
+            {{ sorter.script }}
             <th data-sorter="{% if total|lte:raw_total %}{{ sorter }}{% else %}{{ sorter.client_sorter }}{% endif %}">
 
         # Template result
