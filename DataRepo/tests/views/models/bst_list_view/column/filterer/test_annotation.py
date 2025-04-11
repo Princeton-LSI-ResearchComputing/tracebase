@@ -45,10 +45,14 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_javascript(self):
+    def test_script(self):
+        f = BSTAnnotFilterer(
+            "name",
+            _server_filterer=BSTAnnotFilterer.SERVER_FILTERERS.CONTAINS,
+        )
         self.assertEqual(
-            f"<script src='{static(BSTAnnotFilterer.JAVASCRIPT)}'></script>",
-            BSTAnnotFilterer.javascript,
+            f"<script src='{static(BSTAnnotFilterer.script_name)}'></script>",
+            f.script,
         )
 
     @TracebaseTestCase.assertNotWarns()
