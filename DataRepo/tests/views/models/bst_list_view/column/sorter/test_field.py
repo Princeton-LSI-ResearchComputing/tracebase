@@ -105,10 +105,11 @@ class BSTSorterTests(TracebaseTestCase):
             str(BSTSorter(CharField(name="name"), BSTSTestModel)),
         )
 
-    def test_javascript(self):
+    def test_script(self):
+        s = BSTSorter(CharField(name="name"), BSTSTestModel)
         self.assertEqual(
-            f"<script src='{static(BSTSorter.JAVASCRIPT)}'></script>",
-            BSTSorter.javascript,
+            f"<script src='{static(BSTSorter.script_name)}'></script>",
+            s.script,
         )
 
     @TracebaseTestCase.assertNotWarns()
