@@ -11,6 +11,7 @@ from DataRepo.views.models.bst_list_view.client_interface import (
 class CookieRequest:
     def __init__(self, **cookies):
         self.COOKIES = cookies if len(cookies) > 0 else {}
+        self.GET = {}
 
 
 @override_settings(DEBUG=True)
