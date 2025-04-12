@@ -1,6 +1,287 @@
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from django.db.models import CharField, ManyToManyField
+from django.db.models.functions import Lower
+from django.http import HttpRequest
+from django.test import override_settings
+
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
+    create_test_model,
+)
+from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.views.models.bst_list_view.base import BSTListView
+from DataRepo.views.models.bst_list_view.column.field import BSTColumn
+from DataRepo.views.models.bst_list_view.column.many_related_field import (
+    BSTManyRelatedColumn,
+)
+from DataRepo.views.models.bst_list_view.column.many_related_group import (
+    BSTColumnGroup,
+)
+
+BSTLVStudyTestModel = create_test_model(
+    "BSTLVStudyTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "desc": CharField(max_length=255),
+    },
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "ordering": [Lower("-name")]},
+        ),
+    },
+)
+
+BSTLVAnimalTestModel = create_test_model(
+    "BSTLVAnimalTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "desc": CharField(max_length=255),
+        "studies": ManyToManyField(
+            to="loader.BSTLVStudyTestModel", related_name="animals"
+        ),
+    },
+)
 
 
+class StudyLV(BSTListView):
+    model = BSTLVStudyTestModel
+
+
+@override_settings(DEBUG=True)
 class BSTListViewTests(TracebaseTestCase):
-    # TODO: Implement tests
-    pass
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_init_success_no_cookies(self):
+        blv = BSTListView()
+        blv.request = HttpRequest()
+
+        self.assertEqual([], blv.ordering)
+        self.assertIsNone(blv.search)
+        self.assertEqual({}, blv.filters)
+        self.assertEqual({}, blv.visibles)
+        self.assertIsNone(blv.sortcol)
+        self.assertTrue(blv.asc)
+        self.assertFalse(blv.ordered)
+        self.assertEqual(0, blv.total)
+        self.assertEqual(0, blv.raw_total)
+        self.assertEqual(15, blv.limit)
+        self.assertEqual({}, blv.column_settings)
+        self.assertEqual([], blv.warnings)
+        self.assertEqual({}, blv.columns)
+        self.assertEqual({}, blv.groups)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_init_success_cookies(self):
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "StudyLV-visible-name": "true",
+                "StudyLV-visible-desc": "false",
+                "StudyLV-filter-name": "",
+                "StudyLV-filter-desc": "description",
+                "StudyLV-search": "",
+                "StudyLV-sortcol": "name",
+                "StudyLV-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        blv = StudyLV(request=request)
+
+        self.assertEqual([Lower("-name")], blv.ordering)
+        self.assertIsNone(blv.search)
+        self.assertEqual({"desc": "description"}, blv.filters)
+        self.assertEqual({"name": True, "desc": False}, blv.visibles)
+        self.assertEqual("name", blv.sortcol)
+        self.assertFalse(blv.asc)
+        self.assertTrue(blv.ordered)
+        self.assertEqual(20, blv.limit)
+        self.assertEqual(0, blv.total)
+        self.assertEqual(0, blv.raw_total)
+        self.assertEqual([], blv.warnings)
+        self.assertEqual({}, blv.column_settings)
+        self.assertEqual({}, blv.columns)
+        self.assertEqual({}, blv.groups)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_init_warnings(self):
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "StudyLV-visible-name": "true",
+                "StudyLV-visible-desc": "wrong",
+                "StudyLV-filter-stale": "description",
+            }
+        )
+        with self.assertWarns(DeveloperWarning):
+            blv = StudyLV(request=request)
+
+        self.assertEqual({"stale": "description"}, blv.filters)
+        self.assertEqual({"name": True}, blv.visibles)
+        self.assertTrue(blv.asc)
+        self.assertFalse(blv.ordered)
+        self.assertEqual(15, blv.limit)
+        self.assertEqual(0, blv.total)
+        self.assertEqual(0, blv.raw_total)
+        self.assertEqual(
+            [
+                "Invalid 'visible' cookie value encountered for column 'desc': 'wrong'.  "
+                "Clearing cookie 'StudyLV-visible-desc'."
+            ],
+            blv.warnings,
+        )
+        self.assertEqual(["StudyLV-visible-desc"], blv.cookie_resets)
+
+    def test_model_title_plural(self):
+        self.assertEqual("BSTLV Study Test Models", StudyLV.model_title_plural)
+
+    def test_model_title(self):
+        self.assertEqual("BSTLV Study Test Model", StudyLV.model_title)
+
+    def test_init_column_settings_list_supplied_for_columns(self):
+        blv = BSTListView()
+
+        with self.assertRaises(TypeError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings([1])
+        self.assertIn(
+            "When supplying a list of all columns' settings", str(ar.exception)
+        )
+        self.assertIn(
+            "value's type must be one of [str, dict, BSTBaseColumn, or BSTColumnGroup]",
+            str(ar.exception),
+        )
+        self.assertIn(
+            "value of the column settings at index '0' was 'int'", str(ar.exception)
+        )
+
+        blv.init_column_settings(
+            [
+                "field1",  # str -> "field1": {}
+                # dict with field_path -> self.column_settings["field2"]: {}
+                {"field_path": "field2"},
+                # dict with name, model and visible -> self.column_settings["field3"]: {"visible": False}
+                {"name": "field3", "model": BSTLVStudyTestModel, "visible": False},
+                BSTColumn(
+                    "name", BSTLVStudyTestModel
+                ),  # BSTBaseColumn -> self.column_settings[colobj.name]: colobj
+                BSTColumnGroup(  # BSTColumnGroup -> self.column_settings[colobj.name] = colobj
+                    BSTManyRelatedColumn("animals__name", BSTLVStudyTestModel),
+                    BSTManyRelatedColumn("animals__desc", BSTLVStudyTestModel),
+                ),
+            ],
+        )
+        self.assertEqual(
+            set(["field1", "field2", "field3", "name", "animals_group"]),
+            set(blv.column_settings.keys()),
+        )
+        self.assertEqual({}, blv.column_settings["field1"])
+        self.assertEqual({}, blv.column_settings["field2"])
+        self.assertEqual({"visible": False}, blv.column_settings["field3"])
+        self.assertEqual(
+            BSTColumn("name", BSTLVStudyTestModel), blv.column_settings["name"]
+        )
+        self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
+
+    def test_init_column_settings_dict_supplied_for_columns(self):
+        blv = BSTListView()
+
+        with self.assertRaises(TypeError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings({"field1": 1})
+        self.assertIn(
+            "When supplying a dict of all columns' settings", str(ar.exception)
+        )
+        self.assertIn(
+            "type must be one of [str, dict, BSTBaseColumn, or BSTColumnGroup]",
+            str(ar.exception),
+        )
+        self.assertIn(
+            "value of the column settings at key 'field1' was 'int'.", str(ar.exception)
+        )
+
+        with self.assertRaises(ValueError) as ar:
+            # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
+            blv.init_column_settings({"field1": "otherfield"})
+        self.assertIn("The column settings key 'field1'", str(ar.exception))
+        self.assertIn(
+            "must be identical to the field_path string provided 'otherfield'",
+            str(ar.exception),
+        )
+
+        blv.init_column_settings(
+            {
+                "field1": "field1",  # str -> "field1": {}
+                # dict with field_path -> self.column_settings["field2"]: {}
+                "field2": {"field_path": "field2"},
+                # dict with name, model and visible -> self.column_settings["field3"]: {"visible": False}
+                "field3": {
+                    "name": "field3",
+                    "model": BSTLVStudyTestModel,
+                    "visible": False,
+                },
+                "name": BSTColumn(
+                    "name", BSTLVStudyTestModel
+                ),  # BSTBaseColumn -> self.column_settings[colobj.name]: colobj
+                "animals_group": BSTColumnGroup(  # BSTColumnGroup -> self.column_settings[colobj.name] = colobj
+                    BSTManyRelatedColumn("animals__name", BSTLVStudyTestModel),
+                    BSTManyRelatedColumn("animals__desc", BSTLVStudyTestModel),
+                ),
+            },
+        )
+        self.assertEqual({}, blv.column_settings["field1"])
+        self.assertEqual(
+            set(["field1", "field2", "field3", "name", "animals_group"]),
+            set(blv.column_settings.keys()),
+        )
+        self.assertEqual({"visible": False}, blv.column_settings["field3"])
+        self.assertEqual({}, blv.column_settings["field2"])
+        self.assertEqual(
+            BSTColumn("name", BSTLVStudyTestModel), blv.column_settings["name"]
+        )
+        self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
+
+    def test_prepare_column_kwargs(self):
+        blv = BSTListView()
+
+        with self.assertRaises(KeyError) as ar:
+            # dict with no name or field_path key -> KeyError
+            blv.prepare_column_kwargs({"x": "y"})
+        self.assertIn("When supplying column settings in a dict", str(ar.exception))
+        self.assertIn(
+            "must have either a 'name' or 'field_path' key", str(ar.exception)
+        )
+        self.assertIn("['x'].", str(ar.exception))
+
+        with self.assertRaises(ValueError) as ar:
+            # dict with no name or field_path key -> KeyError
+            blv.prepare_column_kwargs({"name": "field1"}, settings_name="nomatch")
+        self.assertIn(
+            "When supplying all columns' settings as a dict containing dicts",
+            str(ar.exception),
+        )
+        self.assertIn(
+            "each column's settings dict must contain a 'name' or 'field_path' key",
+            str(ar.exception),
+        )
+        self.assertIn(
+            "value 'field1' must be identical to the outer dict key 'nomatch'",
+            str(ar.exception),
+        )
+
+        d1 = {"field_path": "field2"}
+        self.assertEqual("field2", blv.prepare_column_kwargs(d1))
+        self.assertEqual({}, d1)
+        d2 = {"name": "field3", "model": BSTLVStudyTestModel, "visible": False}
+        self.assertEqual("field3", blv.prepare_column_kwargs(d2))
+        self.assertEqual({"visible": False}, d2)
+        d3 = {"field_path": "field2"}
+        self.assertEqual(
+            "field2", blv.prepare_column_kwargs(d3, settings_name="field2")
+        )
+        self.assertEqual({}, d3)
+        d4 = {"name": "field3", "model": BSTLVStudyTestModel, "visible": False}
+        self.assertEqual(
+            "field3", blv.prepare_column_kwargs(d4, settings_name="field3")
+        )
+        self.assertEqual({"visible": False}, d4)

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, cast
 
 from django.utils.functional import classproperty
 
@@ -77,7 +77,7 @@ class BSTListView(BSTClientInterface):
 
         # This is only here to silence Django Warnings.  It specifies the default order of the model objects, which is
         # already set in the model.
-        self.ordering = self.model._meta.ordering
+        self.ordering = self.model._meta.ordering if self.model is not None else []
 
         # Initialize the values obtained from cookies
         self.search: Optional[str] = self.get_cookie("search")
@@ -85,24 +85,20 @@ class BSTListView(BSTClientInterface):
         self.visibles = self.get_boolean_column_cookie_dict("visible")
         self.sortcol: Optional[str] = self.get_cookie("sortcol")
         self.asc: bool = self.get_boolean_cookie("asc", True)
-        self.ordered = self.sortcol != ""
+        self.ordered = self.sortcol is not None
 
         # Initialize values obtained from URL parameters (or cookies)
-        self.limit = self.request.GET.get("limit", "")
-        if self.limit == "":
+        limit_param = self.get_param("limit")
+        if limit_param is None:
             cookie_limit = self.get_cookie("limit")
             # Never set limit to 0 from a cookie, because if the page times out, the users will never be able to load it
             # without deleting their browser cookie.
-            if (
-                cookie_limit is not None
-                and cookie_limit != ""
-                and int(cookie_limit) != 0
-            ):
+            if cookie_limit is not None and int(cookie_limit) != 0:
                 self.limit = int(cookie_limit)
             else:
                 self.limit = self.paginate_by
         else:
-            self.limit = int(self.limit)
+            self.limit = int(limit_param)
 
         # Basics
         self.total = 0
@@ -176,35 +172,22 @@ class BSTListView(BSTClientInterface):
             # - dict (like str, but also including BSTAnnotColumn and/or custom settings. Must contain positional args.)
             # - BSTBaseColumn (BSTBaseColumn.name will be the key in the returned dict)
             # - BSTColumnGroup (BSTColumnGroup.name will be the key in the returned dict)
-            for colobj in columns:
+            for i, colobj in enumerate(columns):
                 if isinstance(colobj, str):
                     # This only works for model field_paths.  Annotations must be supplied in one of the other types.
                     self.column_settings[colobj] = {}
                 elif isinstance(colobj, dict):
-                    # Remove positional "args" (with the exception of a BSTAnnotColumn 'converter') from the dict,
-                    # so it can be used as kwargs
-                    name_arg = colobj.pop("name", None)
-                    field_path = colobj.pop("field_path", None)
-                    colobj.pop(
-                        "model", None
-                    )  # Differences with self.model will be ignored
-                    name = name_arg or field_path
-
-                    if name is None:
-                        raise KeyError(
-                            f"When supplying a list of column settings containing a dict (such as {colobj}), either an "
-                            "annotation 'name' or model 'field_path' key must be supplied."
-                        )
-
-                    self.column_settings[name] = colobj
+                    settings_name = self.prepare_column_kwargs(colobj)
+                    self.column_settings[settings_name] = colobj
                 elif isinstance(colobj, BSTBaseColumn):
                     self.column_settings[colobj.name] = colobj
                 elif isinstance(colobj, BSTColumnGroup):
                     self.column_settings[colobj.name] = colobj
                 else:
                     raise TypeError(
-                        "When supplying a list of column settings, the type must be one of [str, dict, BSTBaseColumn, "
-                        f"or BSTColumnGroup], not '{type(colobj).__name__}'."
+                        "When supplying a list of all columns' settings, the value's type must be one of [str, dict, "
+                        f"BSTBaseColumn, or BSTColumnGroup], but the value of the column settings at index '{i}' was "
+                        f"'{type(colobj).__name__}'."
                     )
         elif isinstance(columns, dict):
             # CASE 2: A dict was supplied, potentially containing:
@@ -214,59 +197,113 @@ class BSTListView(BSTClientInterface):
             #   'name' must be identical to outer dict key.)
             # - BSTBaseColumn (BSTBaseColumn.name will be the key in the returned dict)
             # - BSTColumnGroup (BSTColumnGroup.name will be the key in the returned dict)
-            for colname, colobj in columns.items():
+            for settings_name, colobj in columns.items():
                 if isinstance(colobj, str):
                     # This only works for model field_paths.  Annotations must be supplied in one of the other types.
-                    if colname != colobj:
+                    if settings_name != colobj:
                         raise ValueError(
-                            f"The value (the column's model field_path) of the columns dict key '{colname}' (when it "
-                            f"is a str) must be identical to the outer dict's key, but the value '{colobj}' does not "
-                            "match."
+                            f"The column settings key '{settings_name}' must be identical to the field_path string "
+                            f"provided '{colobj}'."
                         )
                     self.column_settings[colobj] = {}
                 elif isinstance(colobj, dict):
-                    # Remove positional "args" (with the exception of a BSTAnnotColumn 'converter') from the dict, so it
-                    # can be used as kwargs
-                    name_arg = colobj.pop("name", None)
-                    field_path = colobj.pop("field_path", None)
-                    colobj.pop(
-                        "model", None
-                    )  # Differences with self.model will be ignored
-                    name = name_arg or field_path
-
-                    if name is not None and colname != name:
-                        raise ValueError(
-                            f"The value (the 'name' and/or 'field_path' key) of the columns dict key '{colname}' (when "
-                            f"its value is a dict) must be identical to the outer dict's key, but the value '{name}' "
-                            "does not match."
-                        )
-
-                    self.column_settings[colname] = colobj
-                elif isinstance(colobj, BSTBaseColumn):
-                    self.column_settings[colobj.name] = colobj
+                    self.prepare_column_kwargs(colobj, settings_name)
+                    self.column_settings[settings_name] = colobj
                 elif isinstance(colobj, BSTColumnGroup):
+                    self.column_settings[colobj.name] = colobj
+                elif isinstance(colobj, BSTBaseColumn):
                     self.column_settings[colobj.name] = colobj
                 else:
                     raise TypeError(
-                        f"The value associated with the columns dict key '{colname}' must be of type [str, dict, "
-                        f"BSTBaseColumn, or BSTColumnGroup], not '{type(colobj).__name__}'."
+                        "When supplying a dict of all columns' settings, the value's type must be one of [str, dict, "
+                        "BSTBaseColumn, or BSTColumnGroup], but the value of the column settings at key "
+                        f"'{settings_name}' was '{type(colobj).__name__}'."
                     )
         else:
             raise TypeError(
                 f"Invalid columns type: '{type(columns).__name__}'.  Must be a dict or list."
             )
 
+    def prepare_column_kwargs(
+        self, column_settings: dict, settings_name: Optional[str] = None
+    ) -> str:
+        """This method turns a dict of column settings into a kwargs dict meant for any BSTBaseColumn constructor (with
+        the exception of handling the converter positional arg that the BSTAnnotColumn constructor requires).
+
+        This method alters the supplied column_settings dict to act as the kwargs dict and returns the key that should
+        be used in the outer dict containing all columns' settings.
+
+        Args:
+            column_settings (dict): A dict containing both kwargs and positional args for a BSTBaseColumnConstructor.
+            settings_name (Optional[str]): The key for the ultimate output settings dict that will contain all of the
+                columns' settings dicts.
+        Exceptions:
+            ValueError when a list is supplied containing a dict whose value is a str and does not match the key.  Or
+                when a dict is supplied and the 'name' and/or 'field_path' key does not match the outer dict key.
+                NOTE: Support for str values in a list of dicts is simply for convenience.  Both the key and value
+                specify the field_path for a model field, intended to create a BSTColumn with all default settings.
+            KeyError when a dict is supplied containing a dict and does not contain required positional arguments to the
+                BST*Column constructors (e.g. required keys are 'name', 'field_path', and optionally 'model' [provided
+                by this class's model class attribute]).  Note that the required 'converter' positional argument for
+                BSTAnnotColumn is not checked and would raise an error downstream of this method, if missing.
+        Returns:
+            settings_name (str): The key to be used for the outer dict, which should be the 'field_path' for BSTColumn
+                and its derived classes or 'name' for BSTAnnotColumn.
+        """
+
+        # Remove positional "args" (with the exception of a BSTAnnotColumn 'converter') from the dict,
+        # so it can be used as kwargs
+        orig = column_settings.copy()
+        name_arg = column_settings.pop("name", None)
+        field_path = column_settings.pop("field_path", None)
+        # Differences with self.model will be ignored
+        column_settings.pop("model", None)
+        # Conflicts between name and field_path (which must be the same) will be left to the constructors to
+        # raise
+        name = name_arg or field_path or settings_name
+
+        if name is None:
+            raise KeyError(
+                "When supplying column settings in a dict, that dict must have either a 'name' or 'field_path' key.  "
+                f"Non-positional keys found: {list(orig.keys())}."
+            )
+
+        if settings_name is None:
+            settings_name = name
+
+        if settings_name != name:
+            raise ValueError(
+                "When supplying all columns' settings as a dict containing dicts, each column's settings dict must "
+                f"contain a 'name' or 'field_path' key whose value '{name}' must be identical to the outer dict key "
+                f"'{settings_name}'."
+            )
+
+        return cast(str, settings_name)
+
     @classproperty
     def model_title_plural(cls):  # pylint: disable=no-self-argument
         try:
-            return underscored_to_title(cls.model._meta.__dict__["verbose_name_plural"])
+            vname = cls.model._meta.__dict__["verbose_name_plural"]
+            if any([c.isupper() for c in vname]):
+                return underscored_to_title(vname)
+            else:
+                return f"{camel_to_title(cls.model.__name__)}s"
         except Exception:
             return f"{camel_to_title(cls.model.__name__)}s"
 
     @classproperty
     def model_title(cls):  # pylint: disable=no-self-argument
         try:
-            return underscored_to_title(cls.model._meta.__dict__["verbose_name"])
+            vname = cls.model._meta.__dict__["verbose_name"]
+            sanitized = vname.replace(" ", "")
+            sanitized = sanitized.replace("_", "")
+            if (
+                any([c.isupper() for c in vname])
+                and cls.model.__name__.lower() == sanitized
+            ):
+                return underscored_to_title(vname)
+            else:
+                return camel_to_title(cls.model.__name__)
         except Exception:
             return camel_to_title(cls.model.__name__)
 
