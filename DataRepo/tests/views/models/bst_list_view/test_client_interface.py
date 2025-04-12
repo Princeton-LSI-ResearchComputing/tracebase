@@ -193,3 +193,14 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertEqual(
             "mydef", c.get_column_cookie(column_name, view_cookie_name, default="mydef")
         )
+
+    def test_get_param(self):
+        c = BSTClientInterface()
+        param_name = "cname"
+        c.request = CookieRequest()
+        c.request.GET.update({"cname": "x"})
+        self.assertEqual("x", c.get_param(param_name))
+        self.assertEqual("mydef", c.get_param("notthere", default="mydef"))
+        c.request.GET.update({"cname": ""})
+        self.assertIsNone(c.get_param(param_name))
+        self.assertEqual("mydef", c.get_param("notthere", default="mydef"))
