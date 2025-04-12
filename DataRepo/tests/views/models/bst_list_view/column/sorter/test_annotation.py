@@ -166,10 +166,13 @@ class BSTAnnotSorterTests(TracebaseTestCase):
             ).sorter,
         )
 
-    def test_javascript(self):
+    def test_script(self):
+        s = BSTAnnotSorter(
+            "name", _server_sorter=BSTAnnotSorter.SERVER_SORTERS.ALPHANUMERIC
+        )
         self.assertEqual(
-            f"<script src='{static(BSTAnnotSorter.JAVASCRIPT)}'></script>",
-            BSTAnnotSorter.javascript,
+            f"<script src='{static(BSTAnnotSorter.script_name)}'></script>",
+            s.script,
         )
 
     @TracebaseTestCase.assertNotWarns()

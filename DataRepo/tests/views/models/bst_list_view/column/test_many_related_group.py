@@ -265,6 +265,8 @@ class BSTColumnGroupTests(TracebaseTestCase):
                 "animal__infusate__tracer_links__concentration", BSTCGSampleTestModel
             ),
         )
+        # name
+        self.assertEqual("animal_infusate_tracer_links_group", cgasc.name)
         # asc
         self.assertTrue(cgasc.asc)
         # initial
@@ -305,7 +307,10 @@ class BSTColumnGroupTests(TracebaseTestCase):
                 BSTCGSampleTestModel,
                 asc=False,
             ),
+            name="custom__name",
         )
+        # name
+        self.assertEqual("custom_name_group", cgdsc.name)
         # sorter.asc
         self.assertFalse(cgdsc.sorter.asc)
         # sorter.expression
@@ -457,3 +462,8 @@ class BSTColumnGroupTests(TracebaseTestCase):
         )
         # columns' sorters
         self.assert_sorters(cg3)
+
+    def test_get_or_fix_name(self):
+        self.assertEqual(
+            "this_is_a_test_group", BSTColumnGroup.get_or_fix_name("this__is__a__test")
+        )

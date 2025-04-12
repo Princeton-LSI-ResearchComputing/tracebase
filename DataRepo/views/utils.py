@@ -1,6 +1,20 @@
+from typing import Optional
 from urllib.parse import unquote
 
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+
+
+def get_cookie_dict(request, prefix: Optional[str] = None, exclude_empties=True):
+    matching_cookies = {}
+    fullname: str
+    for fullname, val in request.COOKIES.items():
+        if (
+            prefix is None or (fullname.startswith(prefix) and prefix != fullname)
+        ) and (not exclude_empties or val != ""):
+            name = fullname if prefix is None else fullname.replace(prefix, "", 1)
+            val = get_cookie(request, fullname)
+            matching_cookies[name] = val
+    return matching_cookies
 
 
 def get_cookie(request, cookie_name, cookie_default=None):

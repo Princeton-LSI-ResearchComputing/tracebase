@@ -31,6 +31,7 @@ class BSTColumnGroup:
         *columns: BSTManyRelatedColumn,
         initial: Optional[str] = None,
         related_model_path: Optional[str] = None,
+        name: Optional[str] = None,
     ):
         """Constructor.
 
@@ -57,6 +58,10 @@ class BSTColumnGroup:
                 default is based on the last many-related model path of the first column.  You should only need to
                 provide this if a column's field_path traverses mutliple many-related models and the last one in the
                 first column is not common among all of the supplied columns (and there exists another that is common).
+            name (Optional[str]) [auto]: Arbitrary object name.  Must not match the name of any included BSTBaseColumn
+                objects.  The default is based on related_model_path, with dunderscores replaced with underscores, and
+                "_group" appended.
+                NOTE: related_model_path can change after instantiation, but the name remains as initially set.
         Exceptions:
             TypeError when columns are not all BSTManyRelatedColumn objects.
             ValueError when
@@ -102,6 +107,9 @@ class BSTColumnGroup:
                 )
             ),
         )
+
+        # Sanitize/generate an object name and base name on related_model_path (unless supplied)
+        self.name = self.get_or_fix_name(name or self.related_model_path)
 
         self.sorter: BSTManyRelatedSorter
         self.controlling_column: BSTManyRelatedColumn
@@ -182,6 +190,22 @@ class BSTColumnGroup:
 
         # Finally, update all of the columns' sorters
         self.set_sorters()
+
+    @staticmethod
+    def get_or_fix_name(name: str) -> str:
+        """This will take self.related_model_path (or self.name) and return a name that has been sanitized to (likely)
+        not conflict with BSTBaseColumn.name.
+
+        NOTE: This is a static method in order to generate a name before the object is created.
+
+        Args:
+            name (str): Supply an arbitrary name or (recommended) self.related_model_path.
+        Exceptions:
+            None
+        Returns:
+            (str): A sanitized object name intended for self.name
+        """
+        return name.replace("__", "_") + "_group"
 
     def set_sorters(self, column: Optional[str] = None, asc: Optional[bool] = None):
         """Sets the sorter of every column in the group so that each column's many-related values will be sorted the

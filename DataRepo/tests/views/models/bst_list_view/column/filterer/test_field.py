@@ -267,10 +267,14 @@ class BSTFiltererTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_javascript(self):
+    def test_script(self):
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+        )
         self.assertEqual(
-            f"<script src='{static(BSTFilterer.JAVASCRIPT)}'></script>",
-            BSTFilterer.javascript,
+            f"<script src='{static(BSTFilterer.script_name)}'></script>",
+            f.script,
         )
 
     @TracebaseTestCase.assertNotWarns()

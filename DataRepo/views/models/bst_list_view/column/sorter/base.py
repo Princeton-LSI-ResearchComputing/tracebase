@@ -7,7 +7,6 @@ from django.db.models import F, Field
 from django.db.models.expressions import Combinable, Expression
 from django.db.models.functions import Lower
 from django.templatetags.static import static
-from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
 from DataRepo.models.utilities import (
@@ -67,7 +66,7 @@ class BSTBaseSorter(ABC):
         UNKNOWN=UnknownServerSorter,
     )
 
-    JAVASCRIPT = "js/bst_list_view/sorter.js"
+    script_name = "js/bst_list_view/sorter.js"
 
     is_annotation = False
     ascending: bool = True
@@ -316,18 +315,16 @@ class BSTBaseSorter(ABC):
             client_sort_key = "UNKNOWN"
         return server_sort_key != client_sort_key
 
-    @classproperty
-    def javascript(cls) -> str:  # pylint: disable=no-self-argument
-        """Returns an HTML script tag whose source points to cls.JAVASCRIPT.
+    @property
+    def script(self) -> str:
+        """Returns an HTML script tag whose source points to self.script_name.
 
         Example:
-            # BSTListView.__init__
-                self.sorter = BSTSorter(field=Model.name.field)  # name is a CharField
-            # BSTListView.get_context_data
-                context["sorter"] = self.sorter
+            # In the view's get_context_data
+                context["sorter"] = BSTSorter(field=Model.name.field)  # name is a CharField
             # Template
-                {{ sorter.javascript }}
+                {{ sorter.script }}
             # Template result (assuming settings.STATIC_URL = "static/")
-                <script src='static/js/bst_list_view/sorter.js'></script> -->
+                <script src='static/js/bst_list_view/sorter.js'></script>
         """
-        return mark_safe(f"<script src='{static(cls.JAVASCRIPT)}'></script>")
+        return mark_safe(f"<script src='{static(self.script_name)}'></script>")
