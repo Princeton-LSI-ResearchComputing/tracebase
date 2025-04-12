@@ -52,6 +52,23 @@ class BSTClientInterface(ListView):
         """
         return mark_safe(f"<script src='{static(self.script_name)}'></script>")
 
+    def get_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
+        """Retrieves a URL parameter.
+
+        Args:
+            name (str)
+            default (str)
+        Exceptions:
+            None
+        Returns:
+            (Optional[str]): The param value for the supplied name obtained from self.request or the default if the
+                parameter was not found (or was an empty string).
+        """
+        if hasattr(self, "request"):
+            val = self.request.GET.get(name, default)
+            return val if val is not None and val != "" else default
+        return default
+
     def get_cookie_name(self, name: str) -> str:
         """Retrieves a cookie name using a prepended view name.
 
@@ -69,7 +86,7 @@ class BSTClientInterface(ListView):
 
         Args:
             name (str)
-            default (str) [""]
+            default (str)
         Exceptions:
             None
         Returns:
@@ -148,7 +165,7 @@ class BSTClientInterface(ListView):
         if not hasattr(self, "request") or self.clear_cookies:
             # This is to avoid exceptions when testing in the shell.  That's when there's no request.
             return {}
-        return get_cookie_dict(self.request, f"{self.cookie_prefix}{name}-")
+        return get_cookie_dict(self.request, prefix=f"{self.cookie_prefix}{name}-")
 
     def get_boolean_column_cookie_dict(self, name: str) -> Dict[str, bool]:
         """Retrieves a dict of values where the column names are the keys and the values are the boolean version of the
