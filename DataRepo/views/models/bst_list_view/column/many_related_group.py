@@ -91,7 +91,7 @@ class BSTColumnGroup:
             )
 
         # Defaults
-        self.columns = columns
+        self.columns = list(columns)
         self.initial = initial if initial is not None else columns[0].name
         self.model = columns[0].model
 
@@ -140,9 +140,10 @@ class BSTColumnGroup:
             )
 
         # Check that each column's field_path starts with the same many-related model
-        # And set each column's related_model_path to match
+        # Set each column's related_model_path to match and indicate that the column is in a group.
         not_common_mr_models = []
         for c in columns:
+            c._in_group = True
             if not c.field_path.startswith(self.related_model_path):
                 not_common_mr_models.append(c.field_path)
             else:
@@ -206,6 +207,29 @@ class BSTColumnGroup:
             (str): A sanitized object name intended for self.name
         """
         return name.replace("__", "_") + "_group"
+
+    def __eq__(self, other):
+        """This is a convenience override to be able to compare a group name with a group object to see if the object
+        is for that group.  It also enables the `in` operator to work between strings and objects.
+
+        Args:
+            other (Optional[Union[str, BSTColumnGroup]]): A value to equate with self
+                NOTE: Cannot apply this type hint due to mypy superclass requirements that it be 'object'.
+        Exceptions:
+            NotImplementedError when the type of other is invalid
+        Returns:
+            (bool)
+        """
+        if isinstance(other, __class__):  # type: ignore
+            return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
+        elif isinstance(other, str):
+            return self.name == other
+        elif other is None:
+            return False
+        else:
+            raise NotImplementedError(
+                f"Equivalence of {__class__.__name__} to {type(other).__name__} not implemented."  # type: ignore
+            )
 
     def set_sorters(self, column: Optional[str] = None, asc: Optional[bool] = None):
         """Sets the sorter of every column in the group so that each column's many-related values will be sorted the

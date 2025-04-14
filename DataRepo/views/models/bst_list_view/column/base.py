@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Optional, Union
+from warnings import warn
 
+from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst_list_view.column.filterer.base import (
     BSTBaseFilterer,
@@ -105,6 +107,9 @@ class BSTBaseColumn(ABC):
         self.sorter: BSTBaseSorter
         self.filterer: BSTBaseFilterer
 
+        # Modified by BSTColumnGroup
+        self._in_group = False
+
         if not hasattr(self, "is_fk") or getattr(self, "is_fk", None) is None:
             self.is_fk = False
 
@@ -177,6 +182,9 @@ class BSTBaseColumn(ABC):
                 f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'."
             )
 
+    def __str__(self):
+        return self.name
+
     def __eq__(self, other):
         """This is a convenience override to be able to compare a column name with a column object to see if the object
         is for that column.  It also enables the `in` operator to work between strings and objects.
@@ -190,7 +198,13 @@ class BSTBaseColumn(ABC):
             (bool)
         """
         if isinstance(other, __class__):  # type: ignore
-            return self.__dict__ == other.__dict__
+            if self._in_group != other._in_group:
+                warn(
+                    "Equating BSTBaseColumns where one is in a group and the other is not will always fail because "
+                    "BSTColumnGroup modifies the sorter.",
+                    DeveloperWarning,
+                )
+            return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
         elif isinstance(other, str):
             return self.name == other
         elif other is None:
