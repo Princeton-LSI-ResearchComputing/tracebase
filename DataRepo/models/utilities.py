@@ -94,7 +94,7 @@ def get_all_models():
     return mdls
 
 
-def get_model_fields(model):
+def get_model_fields(model: Type[Model]):
     """Retrieves all non-auto- and non-relation- fields from the supplied model and returns as a list"""
     return [
         f
@@ -211,15 +211,39 @@ def resolve_field_path(
         )
 
 
-def is_many_related(field: Field, source_model: Optional[Model] = None):
-    """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
-    model, (which is assumed to be the model where the field was defined, if source_model is None).
+def is_related(field_path: str, model: Type[Model]):
+    """Takes a field path and root model and returns whether the first field in the path is a foreign key.
 
     Args:
+        field_path (Union[str, List[str]]): A dunderscore delimited field path.
+        model (Model): The model that the first field in the field path belongs to.
+    Exceptions:
+        None
+    Returns:
+        (bool): Whether the first field in the field path is a foreign key.
+    """
+    first_field_name = field_path.split("__")
+    first_field = field_path_to_field(model, first_field_name)
+    return "__" in field_path or first_field.is_relation
+
+
+def is_many_related(field: Field, source_model: Optional[Model] = None):
+    """Takes a field (and optional source model) and returns whether that field is many-related relative to the source
+    model.
+
+    Example:
+        is_many_related(ArchiveFile.data_format.field, DataFormat) -> True (many to one)
+        # ArchiveFile.data_format describes its field as a one_to_many relationship with DataFormat, so from the
+        # perspective of the DataFormat model, the relationship from DataFormat to ArchiveFile is many_to_one.
+        is_many_related(ArchiveFile.data_format.field, ArchiveFile) -> False (one to many)
+        is_many_related(Animal.studies.field) -> True (many to many)
+    Assumptions:
+        1. source_model is assumed to be the model where the field was defined, if source_model is None.
+    Args:
         field (Field): A Field instance.
-        source_model (Optional[Model]): The model where field is being accessed.  NOTE: A related field has 2 associated
-            models, one of which may not be many-related with the other that is, so the result depends on the
-            source_model from which you are accessing the field.
+        source_model (Optional[Model]): The model where field is being accessed.
+            NOTE: A related field has 2 associated models, one of which may not be many-related with the other that is,
+            so the result depends on the source_model from which you are accessing the field.
     Exceptions:
         None
     Returns:
@@ -238,15 +262,17 @@ def is_many_related(field: Field, source_model: Optional[Model] = None):
     )
 
 
-def is_many_related_to_root(field_path: Union[str, List[str]], source_model: Model):
+def is_many_related_to_root(
+    field_path: Union[str, List[str]], source_model: Type[Model]
+):
     """Takes a field path and source model and returns whether the leaf field is many-related relative to the first
     source model.
 
     Args:
         field_path (Union[str, List[str]]): A dunderscore delimited field path (or list).
-        source_model (Model): The model that the first field in the field path belongs to.
+        source_model (Type[Model]): The model that the first field in the field path belongs to.
     Exceptions:
-        ValueError when the field path is invalid
+        ValueError when the field path is invalid.
     Returns:
         (bool): Whether the leaf field in the field path is many-related with the root model.
     """
@@ -264,13 +290,15 @@ def is_many_related_to_root(field_path: Union[str, List[str]], source_model: Mod
     )
 
 
-def is_many_related_to_parent(field_path: Union[str, List[str]], source_model: Model):
+def is_many_related_to_parent(
+    field_path: Union[str, List[str]], source_model: Type[Model]
+):
     """Takes a field path and source model and returns whether the leaf field is many-related to its immediate parent
     model.
 
     Args:
-        field_path (Union[str, List[str]]): A dunderscore delimited field path (or list).
-        source_model (Model): The model that the first field in the field path belongs to.
+        field_path (Union[str, List[str]]): A dunderscore delimited field path (or list)
+        source_model (Type[Model]): The model that the first field in the field path belongs to
     Exceptions:
         ValueError when the field path is invalid
     Returns:
@@ -315,10 +343,11 @@ def field_path_to_field(model: Type[Model], path: Union[str, List[str]]) -> Fiel
     if isinstance(path, str):
         return field_path_to_field(model, path.split("__"))
     if len(path) == 1:
-        if hasattr(model, path[0]):
-            return resolve_field(getattr(model, path[0]))
+        name = resolve_field_path(path[0])
+        if hasattr(model, name):
+            return resolve_field(getattr(model, name))
         raise AttributeError(
-            f"Model: {model.__name__} does not have a field attribute named: '{path[0]}'."
+            f"Model: {model.__name__} does not have a field attribute named: '{name}'."
         )
     return field_path_to_field(get_next_model(model, path[0]), path[1:])
 
