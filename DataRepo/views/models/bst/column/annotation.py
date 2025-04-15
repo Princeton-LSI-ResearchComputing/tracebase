@@ -7,13 +7,11 @@ from django.db.models.expressions import Combinable
 from django.db.models.functions import Coalesce
 
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
-from DataRepo.views.models.bst_list_view.column.filterer.annotation import (
+from DataRepo.views.models.bst.column.base import BSTBaseColumn
+from DataRepo.views.models.bst.column.filterer.annotation import (
     BSTAnnotFilterer,
 )
-from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
-    BSTAnnotSorter,
-)
+from DataRepo.views.models.bst.column.sorter.annotation import BSTAnnotSorter
 
 
 class BSTAnnotColumn(BSTBaseColumn):

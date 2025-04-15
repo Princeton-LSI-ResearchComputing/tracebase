@@ -6,12 +6,8 @@ from warnings import warn
 
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
-from DataRepo.views.models.bst_list_view.column.filterer.base import (
-    BSTBaseFilterer,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.base import (
-    BSTBaseSorter,
-)
+from DataRepo.views.models.bst.column.filterer.base import BSTBaseFilterer
+from DataRepo.views.models.bst.column.sorter.base import BSTBaseSorter
 
 
 class BSTBaseColumn(ABC):
@@ -47,9 +43,9 @@ class BSTBaseColumn(ABC):
         linked: bool = False,
         sorter: Optional[Union[str, BSTBaseSorter]] = None,
         filterer: Optional[Union[str, BSTBaseFilterer]] = None,
-        th_template: str = "models/bst_list_view/th.html",
-        td_template: str = "models/bst_list_view/bst_td.html",
-        value_template: str = "models/bst_list_view/bst_value.html",
+        th_template: str = "models/bst/th.html",
+        td_template: str = "models/bst/bst_td.html",
+        value_template: str = "models/bst/bst_value.html",
     ):
         """Defines options used to customize bootstrap table columns.
 
@@ -78,11 +74,11 @@ class BSTBaseColumn(ABC):
             filterer (Optional[Union[str, BSTbaseFilterer]]) [auto]: If the value is a str, must be in
                 BSTbaseFilterer.FILTERERS.  Default will be based on the name and the filterer (if it is a str).
 
-            th_template (str) ["models/bst_list_view/th.html"]: Template path to an html file used to render the th
+            th_template (str) ["models/bst/th.html"]: Template path to an html file used to render the th
                 element for the column header.  This must handle the initial sort field, search term, and filter term.
-            td_template (str) ["models/bst_list_view/bst_td.html"]: Template path to an html file used to render the td
+            td_template (str) ["models/bst/bst_td.html"]: Template path to an html file used to render the td
                 element for a column cell.
-            value_template (str) ["models/bst_list_view/bst_value.html"]: Template path to an html file used to render
+            value_template (str) ["models/bst/bst_value.html"]: Template path to an html file used to render
                 the value inside the td element for a column cell.
         Exceptions:
             ValueError when arguments are invalid

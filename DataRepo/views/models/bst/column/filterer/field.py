@@ -8,9 +8,7 @@ from DataRepo.models.utilities import (
     is_many_related_to_root,
     is_number_field,
 )
-from DataRepo.views.models.bst_list_view.column.filterer.base import (
-    BSTBaseFilterer,
-)
+from DataRepo.views.models.bst.column.filterer.base import BSTBaseFilterer
 
 
 class BSTFilterer(BSTBaseFilterer):

@@ -9,10 +9,8 @@ from DataRepo.models.utilities import (
     field_path_to_model_path,
     is_many_related_to_root,
 )
-from DataRepo.views.models.bst_list_view.column.related_field import (
-    BSTRelatedColumn,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.many_related_field import (
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
+from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
 

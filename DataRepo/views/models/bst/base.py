@@ -7,23 +7,15 @@ from django.utils.functional import classproperty
 from DataRepo.models.utilities import is_many_related_to_root, is_related
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
-from DataRepo.views.models.bst_list_view.client_interface import (
-    BSTClientInterface,
-)
-from DataRepo.views.models.bst_list_view.column.annotation import (
-    BSTAnnotColumn,
-)
-from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
-from DataRepo.views.models.bst_list_view.column.field import BSTColumn
-from DataRepo.views.models.bst_list_view.column.many_related_field import (
+from DataRepo.views.models.bst.client_interface import BSTClientInterface
+from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
+from DataRepo.views.models.bst.column.base import BSTBaseColumn
+from DataRepo.views.models.bst.column.field import BSTColumn
+from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
-from DataRepo.views.models.bst_list_view.column.many_related_group import (
-    BSTColumnGroup,
-)
-from DataRepo.views.models.bst_list_view.column.related_field import (
-    BSTRelatedColumn,
-)
+from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.utils import GracefulPaginator
 
 
@@ -49,8 +41,8 @@ class BSTBaseListView(BSTClientInterface):
             rows.
         paginator_class (Paginator) [GracefulPaginator]: The paginator class set for the ListView super (super) class.
         paginate_by (int) [15]: The default number of rows per page.
-        template_name (str) ["DataRepo/templates/models/bst_list_view/base.html"]: The template used to render the
-            Bootstrap Table.
+        template_name (str) ["DataRepo/templates/models/bst/base.html"]: The template used to render the Bootstrap
+            Table.
     Usage:
         # Just create a class that inherits from BSTListView and sets a model
         class MyModelListView(BSTListView):
@@ -80,7 +72,7 @@ class BSTBaseListView(BSTClientInterface):
     paginator_class = GracefulPaginator
     paginate_by = 15
 
-    template_name = "DataRepo/templates/models/bst_list_view/base.html"
+    template_name = "DataRepo/templates/models/bst/base.html"
 
     def __init__(
         self,

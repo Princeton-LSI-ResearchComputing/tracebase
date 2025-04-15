@@ -1,6 +1,4 @@
-from DataRepo.views.models.bst_list_view.column.sorter.base import (
-    BSTBaseSorter,
-)
+from DataRepo.views.models.bst.column.sorter.base import BSTBaseSorter
 
 
 class BSTAnnotSorter(BSTBaseSorter):

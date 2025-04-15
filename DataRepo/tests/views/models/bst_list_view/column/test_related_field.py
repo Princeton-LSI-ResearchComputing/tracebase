@@ -13,9 +13,7 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.related_field import (
-    BSTRelatedColumn,
-)
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
 BSTRCStudyTestModel = create_test_model(
     "BSTRCStudyTestModel",

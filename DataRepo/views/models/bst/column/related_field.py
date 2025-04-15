@@ -16,11 +16,9 @@ from DataRepo.models.utilities import (
     resolve_field_path,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.field import BSTColumn
-from DataRepo.views.models.bst_list_view.column.filterer.field import (
-    BSTFilterer,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
+from DataRepo.views.models.bst.column.field import BSTColumn
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
+from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
 
 class BSTRelatedColumn(BSTColumn):

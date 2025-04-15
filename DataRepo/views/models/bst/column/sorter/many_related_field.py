@@ -6,7 +6,7 @@ from django.db.models.aggregates import Aggregate
 
 from DataRepo.models.utilities import is_many_related_to_root
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
+from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
 
 class BSTManyRelatedSorter(BSTSorter):
