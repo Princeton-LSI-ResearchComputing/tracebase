@@ -31,6 +31,23 @@ class BSTListView(BSTClientInterface):
     """Generic class-based view for a Model record list to make pages load faster, using server-side behavior for
     pagination.
 
+    Class Attributes:
+        column_ordering (List[str]) [[]]: This is a list of column names (which can be either a field_path or annotation
+            name).  An instance attribute is created and initialized using a copy of this class attribute.  The exclude
+            attribute overrides (i.e. removes) anything added here.  You will see a warning if a manually added column
+            name (either from a derived class override or via the constructor) is in the exclude list.  The default is
+            an empty list, but the instance attribute automatically gets fields from self.model added in the order
+            defined in the model class (except with many-related fields put at the end).  It is further appended to by
+            column names supplied to the constructor (from the column_settings dict keys).
+        exclude (List[str]) ["id"]: This is a list of column names (which can be either a field_path or annotation
+            name).  And column name added here will cause a matching value in the column_rdering to be skipped.
+        PER_PAGE_CHOICES (List[int]) [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]: The rows per page select list will
+            be populated by these increments (up to the number of rows among the results).  A value of 0 means "ALL"
+            rows.
+        paginator_class (Paginator) [GracefulPaginator]: The paginator class set for the ListView super (super) class.
+        paginate_by (int) [15]: The default number of rows per page.
+        template_name (str) ["DataRepo/templates/models/bst_list_view/base.html"]: The template used to render the
+            Bootstrap Table.
     Usage:
         # Just create a class that inherits from BSTListView and sets a model
         class MyModelListView(BSTListView):
@@ -54,7 +71,8 @@ class BSTListView(BSTClientInterface):
     # column_ordering default comes from: self.model._meta.get_fields()
     exclude: List[str] = ["id"]
 
-    PER_PAGE_CHOICES = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]  # 0 = "ALL"
+    # 0 = "ALL"
+    PER_PAGE_CHOICES: List[int] = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]
 
     paginator_class = GracefulPaginator
     paginate_by = 15
@@ -91,8 +109,8 @@ class BSTListView(BSTClientInterface):
         # users to supply groups by column name and/or settings
         super().__init__(**kwargs)
 
-        # This is only here to silence Django Warnings.  It specifies the default row ordering of the model objects,
-        # which is already set in the model.
+        # This is an override of ListView.ordering, defined here to silence Django Warnings.  It specifies the default
+        # *row* ordering of the model objects, which is already set in the model.
         self.ordering = self.model._meta.ordering if self.model is not None else []
 
         # Initialize the values obtained from cookies
@@ -178,10 +196,6 @@ class BSTListView(BSTClientInterface):
                 when a dict is supplied and the 'name' and/or 'field_path' key does not match the outer dict key.
                 NOTE: Support for str values in a list of dicts is simply for convenience.  Both the key and value
                 specify the field_path for a model field, intended to create a BSTColumn with all default settings.
-            KeyError when a dict is supplied containing a dict and does not contain required positional arguments to the
-                BST*Column constructors (e.g. required keys are 'name', 'field_path', and optionally 'model' [provided
-                by this class's model class attribute]).  Note that the required 'converter' positional argument for
-                BSTAnnotColumn is not checked and would raise an error downstream of this method, if missing.
         Returns:
             None
         """
@@ -306,10 +320,11 @@ class BSTListView(BSTClientInterface):
     def model_title_plural(cls):  # pylint: disable=no-self-argument
         """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
         particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
-        title-casing in existing verbose values so as to not lower-case acronyms in the model name, e.g. MSRunSample.
+        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
         """
         try:
-            vname = cls.model._meta.__dict__["verbose_name_plural"]
+            vname: str = cls.model._meta.__dict__["verbose_name_plural"]
             if any([c.isupper() for c in vname]):
                 return underscored_to_title(vname)
             else:
@@ -321,10 +336,11 @@ class BSTListView(BSTClientInterface):
     def model_title(cls):  # pylint: disable=no-self-argument
         """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
         particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
-        title-casing in existing verbose values so as to not lower-case acronyms in the model name, e.g. MSRunSample.
+        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
         """
         try:
-            vname = cls.model._meta.__dict__["verbose_name"]
+            vname: str = cls.model._meta.__dict__["verbose_name"]
             sanitized = vname.replace(" ", "")
             sanitized = sanitized.replace("_", "")
             if (
@@ -402,8 +418,6 @@ class BSTListView(BSTClientInterface):
     def init_columns(self):
         """Traverses self.column_ordering and populates self.columns with BSTBaseColumn objects.
 
-        Assumptions:
-            1. self.column_ordering has been initialized
         Args:
             None
         Exceptions:
