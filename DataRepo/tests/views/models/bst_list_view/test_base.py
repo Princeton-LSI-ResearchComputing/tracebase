@@ -14,7 +14,7 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.base import BSTListView
+from DataRepo.views.models.bst_list_view.base import BSTBaseListView
 from DataRepo.views.models.bst_list_view.column.annotation import (
     BSTAnnotColumn,
 )
@@ -66,15 +66,15 @@ BSTLVTreatmentTestModel = create_test_model(
 )
 
 
-class StudyLV(BSTListView):
+class StudyLV(BSTBaseListView):
     model = BSTLVStudyTestModel
 
 
-class AnimalLV(BSTListView):
+class AnimalLV(BSTBaseListView):
     model = BSTLVAnimalTestModel
 
 
-class AnimalNoStudiesLV(BSTListView):
+class AnimalNoStudiesLV(BSTBaseListView):
     model = BSTLVAnimalTestModel
     exclude = ["id", "studies"]
 
@@ -84,7 +84,7 @@ class BSTListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_success_no_cookies(self):
-        blv = BSTListView()
+        blv = BSTBaseListView()
         blv.request = HttpRequest()
 
         self.assertEqual([], blv.ordering)
@@ -177,7 +177,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual("BSTLV Study Test Model", StudyLV.model_title)
 
     def test_init_column_settings_list_supplied_for_columns(self):
-        blv = BSTListView()
+        blv = BSTBaseListView()
 
         with self.assertRaises(TypeError) as ar:
             # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
@@ -222,7 +222,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
 
     def test_init_column_settings_dict_supplied_for_columns(self):
-        blv = BSTListView()
+        blv = BSTBaseListView()
 
         with self.assertRaises(TypeError) as ar:
             # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
@@ -280,7 +280,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
 
     def test_prepare_column_kwargs(self):
-        blv = BSTListView()
+        blv = BSTBaseListView()
 
         with self.assertRaises(KeyError) as ar:
             # dict with no name or field_path key -> KeyError
