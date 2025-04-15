@@ -43,23 +43,6 @@ class BSTBaseListView(BSTClientInterface):
         paginate_by (int) [15]: The default number of rows per page.
         template_name (str) ["DataRepo/templates/models/bst/base.html"]: The template used to render the Bootstrap
             Table.
-    Usage:
-        # Just create a class that inherits from BSTListView and sets a model
-        class MyModelListView(BSTListView):
-            model = MyModel
-
-        # Set more fields
-        class MyModelListView(BSTListView):
-            model = MyModel
-            column_ordering = ["field1", "field2", "related__field3", "reverse_related_field4"]
-
-        # Customize the fields
-        class MyModelListView(BSTListView):
-            model = MyModel
-            def __init__(self):
-                # All of the other model fields are auto-added
-                columns = {"field1": {"visible": False}}
-                super().__init__(columns)
     """
 
     column_ordering: List[str] = []
