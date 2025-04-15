@@ -15,10 +15,10 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.many_related_field import (
+from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
-from DataRepo.views.models.bst_list_view.column.sorter.many_related_field import (
+from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
 

@@ -11,15 +11,11 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
-from DataRepo.views.models.bst_list_view.column.many_related_field import (
+from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
-from DataRepo.views.models.bst_list_view.column.many_related_group import (
-    BSTColumnGroup,
-)
-from DataRepo.views.models.bst_list_view.column.related_field import (
-    BSTRelatedColumn,
-)
+from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
 BSTCGCompoundTestModel = create_test_model(
     "BSTCGCompoundTestModel",
