@@ -7,7 +7,7 @@ from django.utils.safestring import mark_safe
 from django.views.generic import ListView
 
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
+from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.utils import get_cookie, get_cookie_dict
 
 
@@ -17,7 +17,7 @@ class BSTClientInterface(ListView):
     intended to inherit from this class).  This is not intended to be used on its own.
     """
 
-    script_name = "DataRepo/static/js/bst_list_view/base.js"
+    script_name = "DataRepo/static/js/bst/base.js"
 
     def __init__(self, **kwargs):
         """An extension of the ListView constructor intended to initialize the javascript and cookie interface.  It
@@ -48,7 +48,7 @@ class BSTClientInterface(ListView):
             # Template
                 {{ bst_object.script }}
             # Template result (assuming settings.STATIC_URL = "static/")
-                <script src='static/js/bst_list_view/base.js'></script>
+                <script src='static/js/bst/base.js'></script>
         """
         return mark_safe(f"<script src='{static(self.script_name)}'></script>")
 

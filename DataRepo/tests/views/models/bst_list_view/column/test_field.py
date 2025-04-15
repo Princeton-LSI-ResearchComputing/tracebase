@@ -11,11 +11,9 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
-from DataRepo.views.models.bst_list_view.column.field import BSTColumn
-from DataRepo.views.models.bst_list_view.column.filterer.field import (
-    BSTFilterer,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
+from DataRepo.views.models.bst.column.field import BSTColumn
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
+from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
 BSTCStudyTestModel = create_test_model(
     "BSTCStudyTestModel",

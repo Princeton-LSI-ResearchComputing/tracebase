@@ -12,11 +12,9 @@ from DataRepo.models.utilities import (
     is_unique_field,
 )
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
-from DataRepo.views.models.bst_list_view.column.base import BSTBaseColumn
-from DataRepo.views.models.bst_list_view.column.filterer.field import (
-    BSTFilterer,
-)
-from DataRepo.views.models.bst_list_view.column.sorter.field import BSTSorter
+from DataRepo.views.models.bst.column.base import BSTBaseColumn
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
+from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
 
 class BSTColumn(BSTBaseColumn):

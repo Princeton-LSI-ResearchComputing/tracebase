@@ -1,6 +1,4 @@
-from DataRepo.views.models.bst_list_view.column.filterer.base import (
-    BSTBaseFilterer,
-)
+from DataRepo.views.models.bst.column.filterer.base import BSTBaseFilterer
 
 
 class BSTAnnotFilterer(BSTBaseFilterer):
