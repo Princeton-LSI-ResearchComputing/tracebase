@@ -27,9 +27,12 @@ from DataRepo.views.models.bst_list_view.column.related_field import (
 from DataRepo.views.utils import GracefulPaginator
 
 
-class BSTListView(BSTClientInterface):
+class BSTBaseListView(BSTClientInterface):
     """Generic class-based view for a Model record list to make pages load faster, using server-side behavior for
-    pagination.
+    pagination.  This "base" class (which inherits the client interface and Django ListView) is responsible for all of
+    the automatic initialization of the columns in the Bootstrap Table, based on the model (set by a derivation of this
+    class).  It uses the client interface to set the values that will be used in BSTListView to perform queries and
+    serve results.
 
     Class Attributes:
         column_ordering (List[str]) [[]]: This is a list of column names (which can be either a field_path or annotation
