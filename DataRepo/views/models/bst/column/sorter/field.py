@@ -8,7 +8,7 @@ from DataRepo.models.utilities import (
     is_number_field,
     resolve_field_path,
 )
-from DataRepo.views.models.bst_list_view.column.sorter.base import (
+from DataRepo.views.models.bst.column.sorter.base import (
     BSTBaseSorter,
     IdentityServerSorter,
 )
@@ -35,7 +35,7 @@ class BSTSorter(BSTBaseSorter):
             <th data-sorter="{% if total|lte:raw_total %}{{ sorter }}{% else %}{{ sorter.client_sorter }}{% endif %}">
 
         # Template result
-            <script src='{settings.STATIC_URL}js/bst_list_view/sorter.js'></script>
+            <script src='{settings.STATIC_URL}js/bst/sorter.js'></script>
             <th data-sorter="djangoSorter">
 
         # BSTListView.get_queryset

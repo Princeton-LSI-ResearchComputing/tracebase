@@ -3,9 +3,7 @@ from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.client_interface import (
-    BSTClientInterface,
-)
+from DataRepo.views.models.bst.client_interface import BSTClientInterface
 
 
 class CookieRequest:

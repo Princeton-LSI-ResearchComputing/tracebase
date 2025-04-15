@@ -14,20 +14,14 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.base import BSTBaseListView
-from DataRepo.views.models.bst_list_view.column.annotation import (
-    BSTAnnotColumn,
-)
-from DataRepo.views.models.bst_list_view.column.field import BSTColumn
-from DataRepo.views.models.bst_list_view.column.many_related_field import (
+from DataRepo.views.models.bst.base import BSTBaseListView
+from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
+from DataRepo.views.models.bst.column.field import BSTColumn
+from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
-from DataRepo.views.models.bst_list_view.column.many_related_group import (
-    BSTColumnGroup,
-)
-from DataRepo.views.models.bst_list_view.column.related_field import (
-    BSTRelatedColumn,
-)
+from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
 BSTLVStudyTestModel = create_test_model(
     "BSTLVStudyTestModel",

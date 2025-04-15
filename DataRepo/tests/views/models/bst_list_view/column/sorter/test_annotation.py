@@ -5,9 +5,7 @@ from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.sorter.annotation import (
-    BSTAnnotSorter,
-)
+from DataRepo.views.models.bst.column.sorter.annotation import BSTAnnotSorter
 
 
 @override_settings(DEBUG=True)

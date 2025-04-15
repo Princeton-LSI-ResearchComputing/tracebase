@@ -13,9 +13,7 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.views.models.bst_list_view.column.filterer.field import (
-    BSTFilterer,
-)
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
 
 BSTFStudyTestModel = create_test_model(
     "BSTFStudyTestModel",
