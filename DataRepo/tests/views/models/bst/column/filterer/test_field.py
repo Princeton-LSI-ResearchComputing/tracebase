@@ -297,3 +297,8 @@ class BSTFiltererTests(TracebaseTestCase):
         self.assertFalse(f.client_mode)
         f.set_server_mode(enabled=False)
         self.assertTrue(f.client_mode)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_filter(self):
+        # TODO: Implement test
+        pass

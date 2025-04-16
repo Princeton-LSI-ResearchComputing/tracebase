@@ -95,6 +95,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual([], blv.warnings)
         self.assertEqual({}, blv.columns)
         self.assertEqual({}, blv.groups)
+        self.assertEqual([], blv.searchcols)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_success_cookies(self):
@@ -436,3 +437,13 @@ class BSTBaseListViewTests(TracebaseTestCase):
             },
             alv.groups,
         )
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_reset_filter_cookies(self):
+        # TODO: Implement test
+        pass
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_reset_search_cookie(self):
+        # TODO: Implement test
+        pass
