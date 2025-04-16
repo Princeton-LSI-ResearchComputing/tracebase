@@ -270,7 +270,7 @@ class BSTColumnGroupTests(TracebaseTestCase):
         # model
         self.assertEqual(BSTCGSampleTestModel, cgasc.model)
         # related_model_path
-        self.assertEqual("animal__infusate__tracer_links", cgasc.related_model_path)
+        self.assertEqual("animal__infusate__tracer_links", cgasc.many_related_model_path)
         # controlling_column
         self.assertEqual(
             "animal__infusate__tracer_links__tracer__name",
