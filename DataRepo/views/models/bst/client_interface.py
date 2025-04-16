@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 from warnings import warn
 
 from django.conf import settings
@@ -222,3 +222,26 @@ class BSTClientInterface(ListView):
                 self.request, self.get_column_cookie_name(column, name), default
             )
         return default
+
+    def reset_column_cookies(self, columns: List[Union[str, BSTBaseColumn]], name: str):
+        """Adds cookies to the cookie_resets list.
+
+        Args:
+            columns (List[Union[str, BSTBaseColumn]]): A list of BST columns or column names.
+            name (str): The name of the cookie variable specific to the column.
+        Exceptions:
+            ValueError when columns is invalid.
+        Returns:
+            None
+        """
+        if columns is None or len(columns) == 0:
+            raise ValueError(f"Invalid columns: [{columns}].  Must be a non-empty list of strs or BSTBaseColumns.")
+        for col in columns:
+            cookie_name = self.get_column_cookie_name(str(col), name)
+            if cookie_name not in self.cookie_resets:
+                self.cookie_resets.append(cookie_name)
+
+    def reset_cookie(self, name: str):
+        cookie_name = self.get_cookie_name(name)
+        if cookie_name not in self.cookie_resets:
+            self.cookie_resets.append(cookie_name)

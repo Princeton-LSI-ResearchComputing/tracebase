@@ -57,6 +57,14 @@ class BSTBaseListView(BSTClientInterface):
 
     template_name = "DataRepo/templates/models/bst/base.html"
 
+    # Cookie names
+    search_cookie_name = "search"
+    filter_cookie_name = "filter"
+    visible_cookie_name = "visible"
+    sortcol_cookie_name = "sortcol"
+    asc_cookie_name = "asc"
+    limit_cookie_name = "limit"
+
     def __init__(
         self,
         columns: Optional[
@@ -92,17 +100,17 @@ class BSTBaseListView(BSTClientInterface):
         self.ordering = self.model._meta.ordering if self.model is not None else []
 
         # Initialize the values obtained from cookies
-        self.search: Optional[str] = self.get_cookie("search")
-        self.filters = self.get_column_cookie_dict("filter")
-        self.visibles = self.get_boolean_column_cookie_dict("visible")
-        self.sortcol: Optional[str] = self.get_cookie("sortcol")
-        self.asc: bool = self.get_boolean_cookie("asc", True)
+        self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
+        self.filter_terms = self.get_column_cookie_dict(self.filter_cookie_name)
+        self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
+        self.sortcol: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
+        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
         self.ordered = self.sortcol is not None
 
         # Initialize values obtained from URL parameters (or cookies)
-        limit_param = self.get_param("limit")
+        limit_param = self.get_param(self.limit_cookie_name)
         if limit_param is None:
-            cookie_limit = self.get_cookie("limit")
+            cookie_limit = self.get_cookie(self.limit_cookie_name)
             # Never set limit to 0 from a cookie, because if the page times out, the users will never be able to load it
             # without deleting their browser cookie.
             if cookie_limit is not None and int(cookie_limit) != 0:
@@ -129,6 +137,8 @@ class BSTBaseListView(BSTClientInterface):
         self.columns: Dict[str, BSTBaseColumn] = {}
         self.groups: Dict[str, BSTColumnGroup] = {}
         self.init_columns()
+
+        self.searchcols: List[str] = [c.name for c in self.columns.values() if c.searchable]
 
     def init_column_settings(
         self,
@@ -476,3 +486,9 @@ class BSTBaseListView(BSTClientInterface):
         for col in colgroup.columns:
             self.columns[col.name] = col
             self.groups[col.name] = colgroup
+
+    def reset_filter_cookies(self):
+        self.reset_column_cookies(list(self.filter_terms.keys()), self.filter_cookie_name)
+
+    def reset_search_cookie(self):
+        self.reset_cookie(self.search_cookie_name)

@@ -86,11 +86,8 @@ class BSTRelatedColumn(BSTColumn):
                 "when the field is a foreign key."
             )
 
-        if (
-            not hasattr(self, "related_model_path")
-            or getattr(self, "related_model_path") is None
-        ):
-            self.related_model_path = field_path_to_model_path(model, field_path)
+        # Used to supply to prefetch
+        self.related_model_path = field_path_to_model_path(model, field_path)
 
         if self.display_field_path is None:
             self.display_field_path = self.get_default_display_field(field_path, model)
