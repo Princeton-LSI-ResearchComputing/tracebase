@@ -226,6 +226,13 @@ class BSTBaseSorter(ABC):
     def sorter(self):
         return self.client_sorter if self.client_mode else self.CLIENT_SORTERS.NONE
 
+    @property
+    def order_by(self):
+        """Returns an expression that can be supplied to a Django order_by() call."""
+        if self.asc:
+            return self.expression.asc(nulls_first=True)
+        return self.expression.desc(nulls_last=True)
+
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled
 

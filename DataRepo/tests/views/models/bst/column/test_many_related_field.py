@@ -106,28 +106,9 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_set_related_model_path_success(self):
+    def test_init_many_related_model_path(self):
         c = BSTManyRelatedColumn("animals__samples__tissue__name", BSTMRCStudyTestModel)
-        c.set_related_model_path("animals")
-        self.assertEqual("animals", c.related_model_path)
-
-    @TracebaseTestCase.assertNotWarns()
-    def test_set_related_model_path_error_empty(self):
-        c = BSTManyRelatedColumn("animals__samples__tissue__name", BSTMRCStudyTestModel)
-        with self.assertRaises(ValueError) as ar:
-            c.set_related_model_path("")
-        self.assertIn("must be a non-empty string", str(ar.exception))
-
-    @TracebaseTestCase.assertNotWarns()
-    def test_set_related_model_path_error_conflict(self):
-        c = BSTManyRelatedColumn("animals__samples__tissue__name", BSTMRCStudyTestModel)
-        with self.assertRaises(ValueError) as ar:
-            c.set_related_model_path("animals__treatment")
-        self.assertIn(
-            "field path 'animals__samples__tissue__name' must start with",
-            str(ar.exception),
-        )
-        self.assertIn("related_model_path 'animals__treatment'", str(ar.exception))
+        self.assertEqual("animals", c.many_related_model_path)
 
     @TracebaseTestCase.assertNotWarns()
     def test_create_sorter_default_char(self):
