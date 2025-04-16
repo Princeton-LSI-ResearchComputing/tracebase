@@ -74,7 +74,7 @@ class AnimalNoStudiesLV(BSTBaseListView):
 
 
 @override_settings(DEBUG=True)
-class BSTListViewTests(TracebaseTestCase):
+class BSTBaseListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_success_no_cookies(self):
