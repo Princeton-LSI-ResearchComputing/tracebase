@@ -82,8 +82,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
         blv.request = HttpRequest()
 
         self.assertEqual([], blv.ordering)
-        self.assertIsNone(blv.search)
-        self.assertEqual({}, blv.filters)
+        self.assertIsNone(blv.search_term)
+        self.assertEqual({}, blv.filter_terms)
         self.assertEqual({}, blv.visibles)
         self.assertIsNone(blv.sortcol)
         self.assertTrue(blv.asc)
@@ -114,8 +114,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
         blv = StudyLV(request=request)
 
         self.assertEqual([Lower("-name")], blv.ordering)
-        self.assertIsNone(blv.search)
-        self.assertEqual({"desc": "description"}, blv.filters)
+        self.assertIsNone(blv.search_term)
+        self.assertEqual({"desc": "description"}, blv.filter_terms)
         self.assertEqual({"name": True, "desc": False}, blv.visibles)
         self.assertEqual("name", blv.sortcol)
         self.assertFalse(blv.asc)
@@ -148,7 +148,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         with self.assertWarns(DeveloperWarning):
             blv = StudyLV(request=request)
 
-        self.assertEqual({"stale": "description"}, blv.filters)
+        self.assertEqual({"stale": "description"}, blv.filter_terms)
         self.assertEqual({"name": True}, blv.visibles)
         self.assertTrue(blv.asc)
         self.assertFalse(blv.ordered)

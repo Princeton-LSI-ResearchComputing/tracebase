@@ -6,6 +6,7 @@ from typing import Dict, List, NamedTuple, Optional, Union
 from warnings import warn
 
 from django.conf import settings
+from django.db.models import Q
 from django.templatetags.static import static
 from django.utils.safestring import mark_safe
 
@@ -206,7 +207,7 @@ class BSTBaseFilterer(ABC):
         self.choices: Optional[Dict[str, str]]
         self._server_filterer: Optional[ServerLookup]
 
-        self._server_filterer = self.process_server_filterer(_server_filterer)
+        self._server_filterer = self._process_server_filterer(_server_filterer)
 
         if choices is None or len(choices) == 0:
             self.choices = None
@@ -270,7 +271,7 @@ class BSTBaseFilterer(ABC):
         return self.client_filterer if self.client_mode else self.CLIENT_FILTERERS.NONE
 
     @classmethod
-    def process_server_filterer(
+    def _process_server_filterer(
         cls, _server_filterer: Optional[Union[ServerLookup, str]]
     ) -> Optional[ServerLookup]:
         """Takes a server filterer specification as input and returns a ServerLookup or None."""
@@ -414,6 +415,10 @@ class BSTBaseFilterer(ABC):
                     "from client filtering.",
                     DeveloperWarning,
                 )
+
+    def filter(self, term) -> Q:
+        """Returns a Q expression that can be supplied to a Django filter() call."""
+        return Q(**{f"{self.name}__{self._server_filterer.lookup}": term})
 
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled

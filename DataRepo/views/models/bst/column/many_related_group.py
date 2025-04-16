@@ -30,7 +30,6 @@ class BSTColumnGroup:
         self,
         *columns: BSTManyRelatedColumn,
         initial: Optional[str] = None,
-        related_model_path: Optional[str] = None,
         name: Optional[str] = None,
     ):
         """Constructor.
@@ -54,21 +53,16 @@ class BSTColumnGroup:
             *columns (BSTManyRelatedColumn): Minimum of 2 BSTManyRelatedColumn objects.
             initial (Optional[str]) [columns[0].name]: The name of the BSTManyRelatedColumn in columns that the sort
                 will be based on.
-            related_model_path (Optional[str]) [auto]: The many-related model path common among all of the columns.  The
-                default is based on the last many-related model path of the first column.  You should only need to
-                provide this if a column's field_path traverses mutliple many-related models and the last one in the
-                first column is not common among all of the supplied columns (and there exists another that is common).
             name (Optional[str]) [auto]: Arbitrary object name.  Must not match the name of any included BSTBaseColumn
-                objects.  The default is based on related_model_path, with dunderscores replaced with underscores, and
-                "_group" appended.
-                NOTE: related_model_path can change after instantiation, but the name remains as initially set.
+                objects.  The default is based on self.many_related_model_path, with dunderscores replaced with
+                underscores, and "_group" appended.
+                NOTE: self.many_related_model_path is set from the column's many_related_model_path (all are the same).
         Exceptions:
             TypeError when columns are not all BSTManyRelatedColumn objects.
             ValueError when
                 - columns has fewer than 2 columns.
                 - columns don't all have the same root model
                 - columns don't all start with the same many-related model
-                - related_model_path is not many-related to the root model
                 - initial does not match any of the columns
         Returns:
             None
@@ -95,21 +89,11 @@ class BSTColumnGroup:
         self.initial = initial if initial is not None else columns[0].name
         self.model = columns[0].model
 
-        # We are guaranteed to have a non-None related_model_path, because BSTManyRelatedColumn requires one, so we can
-        # cast the result
-        self.related_model_path = cast(
-            str,
-            (
-                related_model_path
-                if related_model_path is not None
-                else field_path_to_model_path(
-                    columns[0].model, columns[0].related_model_path, many_related=True
-                )
-            ),
-        )
+        # NOTE: All contained columns must have the same many_related_model_path
+        self.many_related_model_path = columns[0].many_related_model_path
 
-        # Sanitize/generate an object name and base name on related_model_path (unless supplied)
-        self.name = self.get_or_fix_name(name or self.related_model_path)
+        # Sanitize/generate an object name and base name on many_related_model_path (unless supplied)
+        self.name = self.get_or_fix_name(name or self.many_related_model_path)
 
         self.sorter: BSTManyRelatedSorter
         self.controlling_column: BSTManyRelatedColumn
@@ -140,41 +124,21 @@ class BSTColumnGroup:
             )
 
         # Check that each column's field_path starts with the same many-related model
-        # Set each column's related_model_path to match and indicate that the column is in a group.
+        # Set each column's many_related_model_path to match and indicate that the column is in a group.
         not_common_mr_models = []
         for c in columns:
             c._in_group = True
-            if not c.field_path.startswith(self.related_model_path):
-                not_common_mr_models.append(c.field_path)
-            else:
-                c.set_related_model_path(self.related_model_path)
+            if c.many_related_model_path != self.many_related_model_path:
+                not_common_mr_models.append(f"{c.name}: {c.many_related_model_path}")
+
         if len(not_common_mr_models) > 0:
             nlt = "\n\t"
             raise ValueError(
-                f"All columns' field_paths must start with the same many-related model '{self.related_model_path}'.  "
-                "The following column field_path(s) do not match:\n"
+                f"All columns' many_related_model_path must be the same: '{self.many_related_model_path}'.  "
+                "The following column(s) have a many_related_model_path that does not match:\n"
                 f"\t{nlt.join(not_common_mr_models)}\n"
-                "Either supply different columns, adjust their field_paths, or supply related_model_path with the "
-                "common many-related path."
-            )
-
-        # Make sure that self.related_model_path is many-related
-        if not is_many_related_to_parent(self.related_model_path, self.model):
-            try:
-                mm_model = field_path_to_model_path(
-                    self.model, self.controlling_column.field_path, many_related=True
-                )
-                suggestion = (
-                    f"Try setting '{mm_model}', which leads to a many-related model."
-                )
-            except Exception as e:
-                if isinstance(e, ValueError) and "No many-related model" in str(e):
-                    suggestion = "Supply columns that contain a many-related model to the model root."
-                else:
-                    suggestion = f"There was a problem trying to find a many-related model to suggest: {e}"
-            raise ValueError(
-                f"The related_model_path '{self.related_model_path}' is not many-related to the root model "
-                f"'{self.model.__name__}'.  {suggestion}"
+                "Either supply different columns or adjust their field_paths to all start with the same many-related "
+                "model path."
             )
 
         # Check for duplicate column names
@@ -194,13 +158,13 @@ class BSTColumnGroup:
 
     @staticmethod
     def get_or_fix_name(name: str) -> str:
-        """This will take self.related_model_path (or self.name) and return a name that has been sanitized to (likely)
-        not conflict with BSTBaseColumn.name.
+        """This will take self.many_related_model_path (or self.name) and return a name that has been sanitized to
+        (likely) not conflict with BSTBaseColumn.name.
 
         NOTE: This is a static method in order to generate a name before the object is created.
 
         Args:
-            name (str): Supply an arbitrary name or (recommended) self.related_model_path.
+            name (str): Supply an arbitrary name or (recommended) self.many_related_model_path.
         Exceptions:
             None
         Returns:
