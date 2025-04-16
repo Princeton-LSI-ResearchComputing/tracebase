@@ -195,3 +195,8 @@ class BSTAnnotSorterTests(TracebaseTestCase):
         self.assertFalse(s.client_mode)
         s.set_server_mode(enabled=False)
         self.assertTrue(s.client_mode)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_order_by(self):
+        # TODO: Implement test
+        pass

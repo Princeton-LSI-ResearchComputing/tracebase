@@ -231,3 +231,8 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
             initial="A",
         )
         self.assertEqual("A", f.initial)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_filter(self):
+        # TODO: Implement test
+        pass
