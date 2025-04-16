@@ -1,7 +1,7 @@
 from django.db.models import Value
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.tests.views.models.bst_list_view.column.test_field import (
+from DataRepo.tests.views.models.bst.column.test_field import (
     BSTCStudyTestModel,
 )
 from DataRepo.utils.text_utils import underscored_to_title
