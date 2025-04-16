@@ -202,3 +202,13 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         c.request.GET.update({"cname": ""})
         self.assertIsNone(c.get_param(param_name))
         self.assertEqual("mydef", c.get_param("notthere", default="mydef"))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_reset_column_cookies(self):
+        # TODO: Implement test
+        pass
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_reset_cookie(self):
+        # TODO: Implement test
+        pass
