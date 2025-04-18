@@ -23,8 +23,8 @@ from DataRepo.views.models.bst.column.many_related_field import (
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
-BSTLVStudyTestModel = create_test_model(
-    "BSTLVStudyTestModel",
+BSTBLVStudyTestModel = create_test_model(
+    "BSTBLVStudyTestModel",
     {
         "name": CharField(max_length=255, unique=True),
         "desc": CharField(max_length=255),
@@ -38,38 +38,38 @@ BSTLVStudyTestModel = create_test_model(
     },
 )
 
-BSTLVAnimalTestModel = create_test_model(
-    "BSTLVAnimalTestModel",
+BSTBLVAnimalTestModel = create_test_model(
+    "BSTBLVAnimalTestModel",
     {
         "name": CharField(max_length=255, unique=True),
         "desc": CharField(max_length=255),
         "studies": ManyToManyField(
-            to="loader.BSTLVStudyTestModel", related_name="animals"
+            to="loader.BSTBLVStudyTestModel", related_name="animals"
         ),
         "treatment": ForeignKey(
-            to="loader.BSTLVTreatmentTestModel",
+            to="loader.BSTBLVTreatmentTestModel",
             related_name="animals",
             on_delete=CASCADE,
         ),
     },
 )
 
-BSTLVTreatmentTestModel = create_test_model(
-    "BSTLVTreatmentTestModel",
+BSTBLVTreatmentTestModel = create_test_model(
+    "BSTBLVTreatmentTestModel",
     {"name": CharField(unique=True), "desc": CharField()},
 )
 
 
-class StudyLV(BSTBaseListView):
-    model = BSTLVStudyTestModel
+class StudyBLV(BSTBaseListView):
+    model = BSTBLVStudyTestModel
 
 
-class AnimalLV(BSTBaseListView):
-    model = BSTLVAnimalTestModel
+class AnimalBLV(BSTBaseListView):
+    model = BSTBLVAnimalTestModel
 
 
-class AnimalNoStudiesLV(BSTBaseListView):
-    model = BSTLVAnimalTestModel
+class AnimalNoStudiesBLV(BSTBaseListView):
+    model = BSTBLVAnimalTestModel
     exclude = ["id", "studies"]
 
 
@@ -85,11 +85,9 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertIsNone(blv.search_term)
         self.assertEqual({}, blv.filter_terms)
         self.assertEqual({}, blv.visibles)
-        self.assertIsNone(blv.sortcol)
+        self.assertIsNone(blv.sort_name)
         self.assertTrue(blv.asc)
         self.assertFalse(blv.ordered)
-        self.assertEqual(0, blv.total)
-        self.assertEqual(0, blv.raw_total)
         self.assertEqual(15, blv.limit)
         self.assertEqual({}, blv.column_settings)
         self.assertEqual([], blv.warnings)
@@ -102,74 +100,70 @@ class BSTBaseListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                "StudyLV-visible-name": "true",
-                "StudyLV-visible-desc": "false",
-                "StudyLV-filter-name": "",
-                "StudyLV-filter-desc": "description",
-                "StudyLV-search": "",
-                "StudyLV-sortcol": "name",
-                "StudyLV-asc": "false",
+                "StudyBLV-visible-name": "true",
+                "StudyBLV-visible-desc": "false",
+                "StudyBLV-sortcol": "name",
+                "StudyBLV-asc": "false",
+                "StudyBLV-filter-name": "",
+                "StudyBLV-filter-desc": "description",
+                "StudyBLV-search": "",
             }
         )
         request.GET.update({"limit": "20"})
-        blv = StudyLV(request=request)
+        slv = StudyBLV(request=request)
 
-        self.assertEqual([Lower("-name")], blv.ordering)
-        self.assertIsNone(blv.search_term)
-        self.assertEqual({"desc": "description"}, blv.filter_terms)
-        self.assertEqual({"name": True, "desc": False}, blv.visibles)
-        self.assertEqual("name", blv.sortcol)
-        self.assertFalse(blv.asc)
-        self.assertTrue(blv.ordered)
-        self.assertEqual(20, blv.limit)
-        self.assertEqual(0, blv.total)
-        self.assertEqual(0, blv.raw_total)
-        self.assertEqual([], blv.warnings)
-        self.assertEqual({}, blv.column_settings)
+        self.assertEqual([Lower("-name")], slv.ordering)
+        self.assertIsNone(slv.search_term)
+        self.assertEqual({"desc": "description"}, slv.filter_terms)
+        self.assertEqual({"name": True, "desc": False}, slv.visibles)
+        self.assertEqual("name", slv.sort_name)
+        self.assertFalse(slv.asc)
+        self.assertTrue(slv.ordered)
+        self.assertEqual(20, slv.limit)
+        self.assertEqual([], slv.warnings)
+        self.assertEqual({}, slv.column_settings)
         self.assertEqual(
             {
-                "name": BSTColumn("name", BSTLVStudyTestModel),
-                "desc": BSTColumn("desc", BSTLVStudyTestModel),
-                "animals": BSTManyRelatedColumn("animals", BSTLVStudyTestModel),
+                "name": BSTColumn("name", BSTBLVStudyTestModel),
+                "desc": BSTColumn("desc", BSTBLVStudyTestModel),
+                "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
-            blv.columns,
+            slv.columns,
         )
-        self.assertEqual({}, blv.groups)
+        self.assertEqual({}, slv.groups)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_warnings(self):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                "StudyLV-visible-name": "true",
-                "StudyLV-visible-desc": "wrong",
-                "StudyLV-filter-stale": "description",
+                "StudyBLV-visible-name": "true",
+                "StudyBLV-visible-desc": "wrong",
+                "StudyBLV-filter-stale": "description",
             }
         )
         with self.assertWarns(DeveloperWarning):
-            blv = StudyLV(request=request)
+            blv = StudyBLV(request=request)
 
         self.assertEqual({"stale": "description"}, blv.filter_terms)
         self.assertEqual({"name": True}, blv.visibles)
         self.assertTrue(blv.asc)
         self.assertFalse(blv.ordered)
         self.assertEqual(15, blv.limit)
-        self.assertEqual(0, blv.total)
-        self.assertEqual(0, blv.raw_total)
         self.assertEqual(
             [
                 "Invalid 'visible' cookie value encountered for column 'desc': 'wrong'.  "
-                "Clearing cookie 'StudyLV-visible-desc'."
+                "Clearing cookie 'StudyBLV-visible-desc'."
             ],
             blv.warnings,
         )
-        self.assertEqual(["StudyLV-visible-desc"], blv.cookie_resets)
+        self.assertEqual(["StudyBLV-visible-desc"], blv.cookie_resets)
 
     def test_model_title_plural(self):
-        self.assertEqual("BSTLV Study Test Models", StudyLV.model_title_plural)
+        self.assertEqual("BSTBLV Study Test Models", StudyBLV.model_title_plural)
 
     def test_model_title(self):
-        self.assertEqual("BSTLV Study Test Model", StudyLV.model_title)
+        self.assertEqual("BSTBLV Study Test Model", StudyBLV.model_title)
 
     def test_init_column_settings_list_supplied_for_columns(self):
         blv = BSTBaseListView()
@@ -194,25 +188,36 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 # dict with field_path -> self.column_settings["field2"]: {}
                 {"field_path": "field2"},
                 # dict with name, model and visible -> self.column_settings["field3"]: {"visible": False}
-                {"name": "field3", "model": BSTLVStudyTestModel, "visible": False},
+                {"name": "field3", "model": BSTBLVStudyTestModel, "visible": False},
                 BSTColumn(
-                    "name", BSTLVStudyTestModel
+                    "name", BSTBLVStudyTestModel
                 ),  # BSTBaseColumn -> self.column_settings[colobj.name]: colobj
                 BSTColumnGroup(  # BSTColumnGroup -> self.column_settings[colobj.name] = colobj
-                    BSTManyRelatedColumn("animals__name", BSTLVStudyTestModel),
-                    BSTManyRelatedColumn("animals__desc", BSTLVStudyTestModel),
+                    BSTManyRelatedColumn("animals__name", BSTBLVStudyTestModel),
+                    BSTManyRelatedColumn("animals__desc", BSTBLVStudyTestModel),
                 ),
             ],
+            clear=True,
         )
         self.assertEqual(
-            set(["field1", "field2", "field3", "name", "animals_group"]),
+            set(
+                [
+                    "field1",
+                    "field2",
+                    "field3",
+                    "name",
+                    "animals_group",
+                    "animals__name",
+                    "animals__desc",
+                ]
+            ),
             set(blv.column_settings.keys()),
         )
         self.assertEqual({}, blv.column_settings["field1"])
         self.assertEqual({}, blv.column_settings["field2"])
         self.assertEqual({"visible": False}, blv.column_settings["field3"])
         self.assertEqual(
-            BSTColumn("name", BSTLVStudyTestModel), blv.column_settings["name"]
+            BSTColumn("name", BSTBLVStudyTestModel), blv.column_settings["name"]
         )
         self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
 
@@ -221,7 +226,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
 
         with self.assertRaises(TypeError) as ar:
             # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
-            blv.init_column_settings({"field1": 1})
+            blv.init_column_settings({"field1": 1}, clear=True)
         self.assertIn(
             "When supplying a dict of all columns' settings", str(ar.exception)
         )
@@ -235,7 +240,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
 
         with self.assertRaises(ValueError) as ar:
             # not str, dict, BSTBaseColumn, or BSTColumnGroup -> TypeError
-            blv.init_column_settings({"field1": "otherfield"})
+            blv.init_column_settings({"field1": "otherfield"}, clear=True)
         self.assertIn("The column settings key 'field1'", str(ar.exception))
         self.assertIn(
             "must be identical to the field_path string provided 'otherfield'",
@@ -250,27 +255,38 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 # dict with name, model and visible -> self.column_settings["field3"]: {"visible": False}
                 "field3": {
                     "name": "field3",
-                    "model": BSTLVStudyTestModel,
+                    "model": BSTBLVStudyTestModel,
                     "visible": False,
                 },
                 "name": BSTColumn(
-                    "name", BSTLVStudyTestModel
+                    "name", BSTBLVStudyTestModel
                 ),  # BSTBaseColumn -> self.column_settings[colobj.name]: colobj
                 "animals_group": BSTColumnGroup(  # BSTColumnGroup -> self.column_settings[colobj.name] = colobj
-                    BSTManyRelatedColumn("animals__name", BSTLVStudyTestModel),
-                    BSTManyRelatedColumn("animals__desc", BSTLVStudyTestModel),
+                    BSTManyRelatedColumn("animals__name", BSTBLVStudyTestModel),
+                    BSTManyRelatedColumn("animals__desc", BSTBLVStudyTestModel),
                 ),
             },
+            clear=True,
         )
         self.assertEqual({}, blv.column_settings["field1"])
         self.assertEqual(
-            set(["field1", "field2", "field3", "name", "animals_group"]),
+            set(
+                [
+                    "field1",
+                    "field2",
+                    "field3",
+                    "name",
+                    "animals_group",
+                    "animals__name",
+                    "animals__desc",
+                ]
+            ),
             set(blv.column_settings.keys()),
         )
         self.assertEqual({"visible": False}, blv.column_settings["field3"])
         self.assertEqual({}, blv.column_settings["field2"])
         self.assertEqual(
-            BSTColumn("name", BSTLVStudyTestModel), blv.column_settings["name"]
+            BSTColumn("name", BSTBLVStudyTestModel), blv.column_settings["name"]
         )
         self.assertIsInstance(blv.column_settings["animals_group"], BSTColumnGroup)
 
@@ -305,7 +321,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         d1 = {"field_path": "field2"}
         self.assertEqual("field2", blv.prepare_column_kwargs(d1))
         self.assertEqual({}, d1)
-        d2 = {"name": "field3", "model": BSTLVStudyTestModel, "visible": False}
+        d2 = {"name": "field3", "model": BSTBLVStudyTestModel, "visible": False}
         self.assertEqual("field3", blv.prepare_column_kwargs(d2))
         self.assertEqual({"visible": False}, d2)
         d3 = {"field_path": "field2"}
@@ -313,14 +329,14 @@ class BSTBaseListViewTests(TracebaseTestCase):
             "field2", blv.prepare_column_kwargs(d3, settings_name="field2")
         )
         self.assertEqual({}, d3)
-        d4 = {"name": "field3", "model": BSTLVStudyTestModel, "visible": False}
+        d4 = {"name": "field3", "model": BSTBLVStudyTestModel, "visible": False}
         self.assertEqual(
             "field3", blv.prepare_column_kwargs(d4, settings_name="field3")
         )
         self.assertEqual({"visible": False}, d4)
 
     def test_init_column_ordering(self):
-        slv = StudyLV()
+        slv = StudyBLV()
         # Defaults case (excludes "id", added by create_test_model)
         slv.column_ordering = []
         slv.init_column_ordering()
@@ -343,7 +359,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns(DeveloperWarning)
     def test_add_to_column_ordering(self):
-        slv = StudyLV()
+        slv = StudyBLV()
         slv.add_to_column_ordering("animals__desc")
         self.assertEqual("animals__desc", slv.column_ordering[-1])
 
@@ -366,45 +382,57 @@ class BSTBaseListViewTests(TracebaseTestCase):
         slv.add_to_column_ordering("id", _warn=False)
 
     def test_init_columns(self):
-        alv = AnimalNoStudiesLV(
+        group = BSTColumnGroup(
+            BSTManyRelatedColumn("studies__name", BSTBLVAnimalTestModel),
+            BSTManyRelatedColumn("studies__desc", BSTBLVAnimalTestModel),
+        )
+        alv = AnimalNoStudiesBLV(
             [
                 {"name": "study_count", "converter": Count("studies")},
                 "treatment__desc",
-                BSTColumnGroup(
-                    BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel),
-                    BSTManyRelatedColumn("studies__desc", BSTLVAnimalTestModel),
-                ),
+                group,
             ]
         )
         alv.columns = {}
         # Re-init the column_settings for study_count, because the forst pass would have removed the name:
-        print(f"settings {alv.column_settings}")
         alv.init_columns()
-        self.assertDictEqual(
-            {
-                "studies__name": BSTManyRelatedColumn(
-                    "studies__name", BSTLVAnimalTestModel
-                ),
-                "studies__desc": BSTManyRelatedColumn(
-                    "studies__desc", BSTLVAnimalTestModel
-                ),
-                "treatment": BSTRelatedColumn("treatment", BSTLVAnimalTestModel),
-                "treatment__desc": BSTRelatedColumn(
-                    "treatment__desc", BSTLVAnimalTestModel
-                ),
-                "desc": BSTColumn("desc", BSTLVAnimalTestModel),
-                "name": BSTColumn("name", BSTLVAnimalTestModel),
-                "study_count": BSTAnnotColumn("study_count", Count("studies")),
-            },
-            alv.columns,
+        self.assertEqual(
+            set(
+                [
+                    "studies__name",
+                    "studies__desc",
+                    "treatment",
+                    "treatment__desc",
+                    "desc",
+                    "name",
+                    "study_count",
+                ]
+            ),
+            set(list(alv.columns.keys())),
+        )
+        # NOTE: Groups modify their columns, so we must equate with the ones in the group.
+        self.assertEqual(group.columns[0], alv.columns["studies__name"])
+        self.assertEqual(group.columns[1], alv.columns["studies__desc"])
+        self.assertEqual(
+            BSTRelatedColumn("treatment", BSTBLVAnimalTestModel),
+            alv.columns["treatment"],
+        )
+        self.assertEqual(
+            BSTRelatedColumn("treatment__desc", BSTBLVAnimalTestModel),
+            alv.columns["treatment__desc"],
+        )
+        self.assertEqual(BSTColumn("desc", BSTBLVAnimalTestModel), alv.columns["desc"])
+        self.assertEqual(BSTColumn("name", BSTBLVAnimalTestModel), alv.columns["name"])
+        self.assertEqual(
+            BSTAnnotColumn("study_count", Count("studies")), alv.columns["study_count"]
         )
 
     def test_init_column(self):
-        alv = AnimalLV()
+        alv = AnimalBLV()
         alv.columns = {}
         alv.init_column("treatment__desc")
         self.assertEqual(
-            BSTRelatedColumn("treatment__desc", BSTLVAnimalTestModel),
+            BSTRelatedColumn("treatment__desc", BSTBLVAnimalTestModel),
             alv.columns["treatment__desc"],
         )
         alv.column_settings["study_count"] = {"converter": Count("studies")}
@@ -413,37 +441,107 @@ class BSTBaseListViewTests(TracebaseTestCase):
             BSTAnnotColumn("study_count", Count("studies")), alv.columns["study_count"]
         )
 
-    def test_init_column_group(self):
-        alv = AnimalNoStudiesLV()
-        alv.column_settings["studies_group"] = BSTColumnGroup(
-            BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel),
-            BSTManyRelatedColumn("studies__desc", BSTLVAnimalTestModel),
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_column_name(self):
+        alv = AnimalBLV()
+        self.assertEqual("field1", alv.get_column_name("field1"))
+        self.assertEqual("field1", alv.get_column_name({"name": "field1"}))
+        self.assertEqual(
+            "desc", alv.get_column_name(BSTColumn("desc", BSTBLVAnimalTestModel))
         )
-        size_before = len(alv.columns.keys())
+        self.assertEqual(
+            "studies_group",
+            alv.get_column_name(
+                BSTColumnGroup(
+                    BSTManyRelatedColumn("studies__name", BSTBLVAnimalTestModel),
+                    BSTManyRelatedColumn("studies__desc", BSTBLVAnimalTestModel),
+                )
+            ),
+        )
+        with self.assertRaises(TypeError) as ar:
+            alv.get_column_name(1, 0)
+        # States the context of the problem
+        self.assertIn("list of all columns' settings", str(ar.exception))
+        # States the requirement
+        self.assertIn("value's type must be one of", str(ar.exception))
+        # Shows the required data
+        # Suggests how to fix it
+        self.assertIn(
+            "[str, dict, BSTBaseColumn, or BSTColumnGroup]", str(ar.exception)
+        )
+        # Explains the problem
+        self.assertIn("value of the column settings", str(ar.exception))
+        # Shows the problem scope
+        self.assertIn("at index '0'", str(ar.exception))
+        # Shows the problem data
+        self.assertIn("was 'int'", str(ar.exception))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_init_column_setting(self):
+        alv = AnimalBLV()
+
+        alv.init_column_setting({"field_path": "field1"}, "field1")
+        self.assertEqual({}, alv.column_settings["field1"])
+
+        # dict with name, model and visible -> self.column_settings["field3"]: {"visible": False}
+        alv.init_column_setting(
+            {"name": "field2", "model": BSTBLVStudyTestModel, "visible": False},
+            "field2",
+        )
+        self.assertEqual({"visible": False}, alv.column_settings["field2"])
+
+        alv.init_column_setting(
+            BSTColumn("name", BSTBLVStudyTestModel),
+            "name",
+        )
+        self.assertEqual(
+            BSTColumn("name", BSTBLVStudyTestModel), alv.column_settings["name"]
+        )
+
         group = BSTColumnGroup(
-            BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel),
-            BSTManyRelatedColumn("studies__desc", BSTLVAnimalTestModel),
+            BSTManyRelatedColumn("animals__name", BSTBLVStudyTestModel),
+            BSTManyRelatedColumn("animals__desc", BSTBLVStudyTestModel),
         )
-        alv.init_column_group(group)
-        self.assertEqual(size_before + 2, len(alv.columns.keys()))
-        # NOTE: Creating a BSTManyRelatedColumn on the fly will not be equal to the one added to columns, because the
-        # group constructor modifies it (so they sort the same).
-        self.assertEqual(group.columns[0], alv.columns["studies__name"])
-        self.assertEqual(group.columns[1], alv.columns["studies__desc"])
-        self.assertDictEqual(
-            {
-                "studies__name": group,
-                "studies__desc": group,
-            },
-            alv.groups,
-        )
+        alv.init_column_setting(group, "animals_group")
+        self.assertEqual(group, alv.column_settings["animals_group"])
+        self.assertEqual(group.columns[0], alv.column_settings["animals__name"])
+        self.assertEqual(group.columns[1], alv.column_settings["animals__desc"])
 
     @TracebaseTestCase.assertNotWarns()
     def test_reset_filter_cookies(self):
-        # TODO: Implement test
-        pass
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "StudyBLV-visible-name": "true",
+                "StudyBLV-visible-desc": "false",
+                "StudyBLV-filter-name": "",
+                "StudyBLV-filter-desc": "description",
+                "StudyBLV-search": "",
+                "StudyBLV-sortcol": "name",
+                "StudyBLV-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        slv = StudyBLV(request=request)
+        slv.reset_filter_cookies()
+        # Only deletes the ones that are "set" (and empty string is eval'ed as None)
+        self.assertEqual(["StudyBLV-filter-desc"], slv.cookie_resets)
 
     @TracebaseTestCase.assertNotWarns()
     def test_reset_search_cookie(self):
-        # TODO: Implement test
-        pass
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "StudyBLV-visible-name": "true",
+                "StudyBLV-visible-desc": "false",
+                "StudyBLV-filter-name": "",
+                "StudyBLV-filter-desc": "description",
+                "StudyBLV-search": "term",
+                "StudyBLV-sortcol": "name",
+                "StudyBLV-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        slv = StudyBLV(request=request)
+        slv.reset_search_cookie()
+        self.assertEqual(["StudyBLV-search"], slv.cookie_resets)

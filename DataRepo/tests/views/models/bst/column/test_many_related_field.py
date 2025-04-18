@@ -108,7 +108,11 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_init_many_related_model_path(self):
         c = BSTManyRelatedColumn("animals__samples__tissue__name", BSTMRCStudyTestModel)
-        self.assertEqual("animals", c.many_related_model_path)
+        self.assertEqual(
+            "animals__samples",
+            c.many_related_model_path,
+            msg="The last many-related foreign key is set as the many_related_model_path",
+        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_create_sorter_default_char(self):
