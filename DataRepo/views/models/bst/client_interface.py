@@ -223,6 +223,25 @@ class BSTClientInterface(ListView):
             )
         return default
 
+    def reset_column_cookie(self, column: Union[str, BSTBaseColumn], name: str):
+        """Adds a cookie to the cookie_resets list.
+
+        Args:
+            column (Union[str, BSTBaseColumn]): A BST columns or column name.
+            name (str): The name of the cookie variable specific to the column.
+        Exceptions:
+            TypeError when column is invalid.
+        Returns:
+            None
+        """
+        if column is None:
+            raise TypeError(
+                f"Invalid column: [{column}].  Must be a str or BSTBaseColumn."
+            )
+        cookie_name = self.get_column_cookie_name(str(column), name)
+        if cookie_name not in self.cookie_resets:
+            self.cookie_resets.append(cookie_name)
+
     def reset_column_cookies(self, columns: List[Union[str, BSTBaseColumn]], name: str):
         """Adds cookies to the cookie_resets list.
 
@@ -235,13 +254,22 @@ class BSTClientInterface(ListView):
             None
         """
         if columns is None or len(columns) == 0:
-            raise ValueError(f"Invalid columns: [{columns}].  Must be a non-empty list of strs or BSTBaseColumns.")
+            raise ValueError(
+                f"Invalid columns: [{columns}].  Must be a non-empty list of strs or BSTBaseColumns."
+            )
         for col in columns:
-            cookie_name = self.get_column_cookie_name(str(col), name)
-            if cookie_name not in self.cookie_resets:
-                self.cookie_resets.append(cookie_name)
+            self.reset_column_cookie(col, name)
 
     def reset_cookie(self, name: str):
+        """Adds a cookie to the cookie_resets list.
+
+        Args:
+            name (str): The name of the cookie variable.
+        Exceptions:
+            None
+        Returns:
+            None
+        """
         cookie_name = self.get_cookie_name(name)
         if cookie_name not in self.cookie_resets:
             self.cookie_resets.append(cookie_name)

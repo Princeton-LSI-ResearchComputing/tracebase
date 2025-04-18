@@ -175,53 +175,27 @@ class BSTColumnGroupTests(TracebaseTestCase):
                 ),
             )
         # States the requirement
+        # Shows the required data
         self.assertIn(
-            "All columns' field_paths must start with the same many-related model 'animal__infusate__tracer_links'",
+            "All columns' many_related_model_path must be the same: 'animal__infusate__tracer_links'",
             str(ar.exception),
         )
         # Shows the problem scope
-        self.assertIn(
-            "The following column field_path(s) do not match",
-            str(ar.exception),
-        )
-        # Shows the required data
-        self.assertIn(
-            "'animal__infusate__tracer_links'",
-            str(ar.exception),
-        )
         # Explains the problem
-        self.assertIn("field_path(s) do not match", str(ar.exception))
+        self.assertIn(
+            "The following column(s) have a many_related_model_path that does not match",
+            str(ar.exception),
+        )
         # Shows the problem data
-        self.assertIn("\tanimal__infusate__tracers__compound\n", str(ar.exception))
+        self.assertIn(
+            "\tanimal__infusate__tracers__compound: animal__infusate__tracers\n",
+            str(ar.exception),
+        )
         # Suggests how to fix it
         self.assertIn(
-            "supply different columns, adjust their field_paths, or supply related_model_path",
+            "supply different columns or adjust their field_paths to all start with the same many-related model path",
             str(ar.exception),
         )
-
-    def test_init_invalid_related_model(self):
-        with self.assertRaises(ValueError) as ar:
-            BSTColumnGroup(
-                BSTManyRelatedColumn(
-                    "animal__infusate__tracer_links__tracer__name", BSTCGSampleTestModel
-                ),
-                BSTManyRelatedColumn(
-                    "animal__infusate__tracer_links__tracer__compound",
-                    BSTCGSampleTestModel,
-                ),
-                related_model_path="animal__infusate__tracer_links__tracer",
-            )
-        # Shows the problem scope
-        self.assertIn("The related_model_path", str(ar.exception))
-        # States the requirement
-        # Explains the problem
-        self.assertIn("not many-related to the root model", str(ar.exception))
-        # Shows the required data
-        self.assertIn("BSTCGSampleTestModel", str(ar.exception))
-        # Shows the problem data
-        self.assertIn("animal__infusate__tracer_links__tracer", str(ar.exception))
-        # Suggests how to fix it
-        self.assertIn("Try setting 'animal__infusate__tracer_links'", str(ar.exception))
 
     def test_init_dupe_col_name(self):
         with self.assertRaises(ValueError) as ar:
@@ -245,6 +219,8 @@ class BSTColumnGroupTests(TracebaseTestCase):
         self.assertIn("2 occurrences", str(ar.exception))
 
     def assert_sorters(self, cg: BSTColumnGroup):
+        """Asserts that every column's sorter is the same.  It sorts with the same expression/field, has the same
+        _server_sorter, and the same client_sorter"""
         for c in cg.columns:
             self.assertEqual(cg.sorter, c.sorter)
 
@@ -270,7 +246,9 @@ class BSTColumnGroupTests(TracebaseTestCase):
         # model
         self.assertEqual(BSTCGSampleTestModel, cgasc.model)
         # related_model_path
-        self.assertEqual("animal__infusate__tracer_links", cgasc.many_related_model_path)
+        self.assertEqual(
+            "animal__infusate__tracer_links", cgasc.many_related_model_path
+        )
         # controlling_column
         self.assertEqual(
             "animal__infusate__tracer_links__tracer__name",

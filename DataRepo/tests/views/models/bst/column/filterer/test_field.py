@@ -4,6 +4,7 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     ManyToManyField,
+    Q,
 )
 from django.templatetags.static import static
 from django.test import override_settings
@@ -300,5 +301,8 @@ class BSTFiltererTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_filter(self):
-        # TODO: Implement test
-        pass
+        f = BSTFilterer(
+            BSTFStudyTestModel.name.field.name,  # pylint: disable=no-member
+            BSTFStudyTestModel,
+        )
+        self.assertEqual(Q(**{"name__icontains": "test"}), f.filter("test"))

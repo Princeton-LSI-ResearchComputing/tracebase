@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.templatetags.static import static
 from django.test import override_settings
 
@@ -234,5 +235,8 @@ class BSTAnnotFiltererTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_filter(self):
-        # TODO: Implement test
-        pass
+        f = BSTAnnotFilterer("name")
+        # NOTE: icontains actually works on anything.  The DB (or Django?) does a conversion.  It clearly works for
+        # numeric fields and date fields, so what BSTAnnotSorter does (without knowing the field type), is it infers
+        # whether to use icontains or iexact based on the input method.
+        self.assertEqual(Q(**{"name__icontains": "test"}), f.filter("test"))

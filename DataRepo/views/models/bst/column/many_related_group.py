@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Optional, cast
+from typing import Optional
 
-from DataRepo.models.utilities import (
-    field_path_to_model_path,
-    is_many_related_to_parent,
-)
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
