@@ -124,8 +124,18 @@ class BSTBaseSorter(ABC):
                 # sort on top of what was supplied if it is an Expression (e.g. Lower).  That allows us to know the
                 # field type, so that we can know whether applying case insensitivity is feasible.
                 # NOTE: If you want to guarantee that default sorting is applied, a derived class must do it.
-                sort_field = expression.output_field
-            except AttributeError:
+                if isinstance(expression.output_field, type):
+                    sort_field = expression.output_field()
+                else:
+                    sort_field = expression.output_field
+            except AttributeError as ae:
+                if hasattr(expression, "output_field"):
+                    msg = (
+                        f"Invalid output_field in expression '{expression}'.  Try submitting the output_field as a F"
+                        f"ield instance.  [Original error: {ae}]"
+                    )
+                    raise AttributeError(msg).with_traceback(ae.__traceback__)
+
                 # TODO: Implement a fallback to infer the field from the outer expression type, e.g. Upper -> CharField
                 # The user must set output_field when defining the expression object, otherwise, you get:
                 # AttributeError: 'F' object has no attribute '_output_field_or_none'.
@@ -136,7 +146,7 @@ class BSTBaseSorter(ABC):
                     warn(
                         f"expression {expression} has no output_field set.  Unable to apply default server-"
                         "side sort behavior.  To avoid this, either set the output_field or supply a _server_sorter "
-                        "from SERVER_SORTERS or a custom client_sorter to the constructor.",
+                        f"from SERVER_SORTERS or a custom client_sorter to the constructor.",
                         DeveloperWarning,
                     )
 

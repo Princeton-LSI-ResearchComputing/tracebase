@@ -1,3 +1,4 @@
+from django.http import HttpRequest
 from django.templatetags.static import static
 from django.test import override_settings
 
@@ -205,10 +206,43 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_reset_column_cookies(self):
-        # TODO: Implement test
-        pass
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "BSTClientInterface-visible-name": "true",
+                "BSTClientInterface-visible-desc": "false",
+                "BSTClientInterface-search": "",
+                "BSTClientInterface-filter-name": "",
+                "BSTClientInterface-filter-desc": "description",
+                "BSTClientInterface-sortcol": "name",
+                "BSTClientInterface-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        bci = BSTClientInterface(request=request)
+        bci.reset_column_cookies(["name", "desc"], "visible")
+        # Only deletes the ones that are "set" (and empty string is eval'ed as None)
+        self.assertEqual(
+            ["BSTClientInterface-visible-name", "BSTClientInterface-visible-desc"],
+            bci.cookie_resets,
+        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_reset_cookie(self):
-        # TODO: Implement test
-        pass
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "BSTClientInterface-visible-name": "true",
+                "BSTClientInterface-visible-desc": "false",
+                "BSTClientInterface-filter-name": "",
+                "BSTClientInterface-filter-desc": "description",
+                "BSTClientInterface-search": "",
+                "BSTClientInterface-sortcol": "name",
+                "BSTClientInterface-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        bci = BSTClientInterface(request=request)
+        bci.reset_cookie("sortcol")
+        # Only deletes the ones that are "set" (and empty string is eval'ed as None)
+        self.assertEqual(["BSTClientInterface-sortcol"], bci.cookie_resets)
