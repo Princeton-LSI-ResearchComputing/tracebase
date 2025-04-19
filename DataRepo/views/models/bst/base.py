@@ -2,10 +2,15 @@ from typing import Dict, List, Optional, Union, cast
 from warnings import warn
 
 from django.conf import settings
+from django.db import ProgrammingError
 from django.db.models.expressions import Combinable
 from django.utils.functional import classproperty
 
-from DataRepo.models.utilities import is_many_related_to_root, is_related
+from DataRepo.models.utilities import (
+    is_many_related_to_root,
+    is_related,
+    select_representative_field,
+)
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
 from DataRepo.views.models.bst.client_interface import BSTClientInterface
@@ -96,7 +101,7 @@ class BSTBaseListView(BSTClientInterface):
         Returns:
             None
         """
-        # TODO: Automatically detect and create column groups based on collumn related_model_path or otherwise allow
+        # TODO: Automatically detect and create column groups based on many_related_model_path or otherwise allow
         # users to supply groups by column name and/or settings
         super().__init__(**kwargs)
 
@@ -108,9 +113,8 @@ class BSTBaseListView(BSTClientInterface):
         self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
         self.filter_terms = self.get_column_cookie_dict(self.filter_cookie_name)
         self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
-        tmp_sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
-        self.ordered = tmp_sort_name is not None
-        self.sort_name: str = "" if tmp_sort_name is None else tmp_sort_name
+        self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
+        self.ordered = self.sort_name is not None
         self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
 
         # Initialize values obtained from URL parameters (or cookies)
@@ -145,6 +149,19 @@ class BSTBaseListView(BSTClientInterface):
         self.searchcols: List[str] = [
             c.name for c in self.columns.values() if c.searchable
         ]
+        if isinstance(self.sort_name, str):
+            self.sort_col = self.columns[self.sort_name]
+        elif self.model is not None:
+            rep_field = select_representative_field(self.model, force=True)
+            if isinstance(rep_field, str):
+                self.sort_col = self.columns[rep_field]
+            else:
+                raise ProgrammingError(
+                    "Invalid return from select_representative_field"
+                )
+        elif len(self.columns.keys()) > 0:
+            # Arbitrary column - does not matter without a model
+            self.sort_col = list(self.columns.values())[0]
 
     def init_column_settings(
         self,
