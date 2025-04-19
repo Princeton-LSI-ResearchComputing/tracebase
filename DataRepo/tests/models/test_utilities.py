@@ -48,6 +48,7 @@ from DataRepo.models.utilities import (
     model_path_to_model,
     resolve_field,
     resolve_field_path,
+    select_representative_field,
     update_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
@@ -370,3 +371,27 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             ["peak_data__peak_group__name", "peak_data__corrected_abundance"],
             get_distinct_fields(PeakDataLabel, "peak_data"),
         )
+
+    def test_select_representative_field(self):
+        self.assertEqual("name", select_representative_field(Animal))
+        self.assertEqual("checksum", select_representative_field(ArchiveFile))
+        self.assertEqual("code", select_representative_field(DataFormat))
+        self.assertEqual("name", select_representative_field(LCMethod))
+        self.assertEqual("name", select_representative_field(PeakGroup))
+        self.assertEqual("name", select_representative_field(Study))
+        self.assertEqual("name", select_representative_field(Tracer))
+
+        # No suitable field in these models (no single order-by and no unique that are not key fields whose values are
+        # not guaranteed from load-to-load)
+        self.assertIsNone(select_representative_field(PeakData))
+        self.assertIsNone(select_representative_field(PeakDataLabel))
+        self.assertIsNone(select_representative_field(TracerLabel))
+
+        # When there's no suitable field, you can force it...
+        self.assertEqual(
+            "raw_abundance", select_representative_field(PeakData, force=True)
+        )
+        self.assertEqual(
+            "element", select_representative_field(PeakDataLabel, force=True)
+        )
+        self.assertEqual("name", select_representative_field(TracerLabel, force=True))

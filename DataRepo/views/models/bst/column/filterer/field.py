@@ -102,7 +102,7 @@ class BSTFilterer(BSTBaseFilterer):
 
         if client_filterer is None:
             if _server_filterer is not None:
-                _server_filterer = self.process_server_filterer(_server_filterer)
+                _server_filterer = self._process_server_filterer(_server_filterer)
                 try:
                     server_filterer_key = self.SERVER_FILTERERS.get_key(
                         _server_filterer

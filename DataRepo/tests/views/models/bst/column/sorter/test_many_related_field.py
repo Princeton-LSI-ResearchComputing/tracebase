@@ -174,3 +174,14 @@ class BSTManyRelatedSorterTests(TracebaseTestCase):
     def test_init_reverse_relation(self):
         s = BSTManyRelatedSorter(F("children__name"), BSTMRSMiddleTestModel, asc=False)
         self.assertEqual("Max(Lower(F(children__name)))", str(s.expression))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_order_by(self):
+        self.assertEqual(
+            "OrderBy(Max(Lower(F(children__name))), descending=True)",
+            str(
+                BSTManyRelatedSorter(
+                    F("children__name"), BSTMRSMiddleTestModel, asc=False
+                ).order_by
+            ),
+        )
