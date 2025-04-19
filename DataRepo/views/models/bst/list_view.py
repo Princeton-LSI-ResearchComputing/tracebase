@@ -54,17 +54,16 @@ class BSTListView(BSTBaseListView):
             self.postfilter_annots,
         ) = self.get_annotations()
 
-        # Update the many-related sort settings in self.columns, based on self.groups, if the sortcol is in a group.
+        # Update the many-related sort settings in self.columns, based on self.groups, if the sort col is in a group.
         # NOTE: These are used for sorting delimited values the same in the many-related columns that are in a group
         # (i.e. from the same many-related model).
         if self.ordered:
             for group in [
-                g for g in self.groups.values() if self.sort_name in g.columns
+                g for g in self.groups.values() if self.sort_col.name in g.columns
             ]:
-                group.set_sorters(self.sort_name, self.asc)
+                group.set_sorters(self.sort_col.name, self.asc)
             else:
-                sortcol = self.columns[self.sort_name]
-                sortcol.sorter = sortcol.create_sorter(asc=self.asc)
+                self.sort_col.sorter = self.sort_col.create_sorter(asc=self.asc)
 
     def get_queryset(self):
         """An extension of the superclass method intended to only set total and raw_total instance attributes."""
@@ -146,7 +145,7 @@ class BSTListView(BSTBaseListView):
             qs = self.apply_annotations(qs, self.postfilter_annots)
 
         if self.ordered:
-            qs = qs.order_by(self.columns[self.sort_name].sorter.order_by)
+            qs = qs.order_by(self.sort_col.sorter.order_by)
 
         qs = qs.distinct()
 
