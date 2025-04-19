@@ -1,10 +1,11 @@
 import importlib
-import warnings
 from typing import List, Optional, Type, Union
+from warnings import warn
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import ProgrammingError
 from django.db.models import Expression, F, Field, Model
@@ -74,7 +75,7 @@ def atom_count_in_formula(formula, atom):
     try:
         count = substance.composition.get(atomic_number(atom))
     except (ValueError, AttributeError):
-        warnings.warn(f"{atom} not found in list of elements")
+        warn(f"{atom} not found in list of elements")
         count = None
     else:
         if count is None:
@@ -198,7 +199,7 @@ def resolve_field_path(
         if isinstance(field_reps[0], Expression):
             return resolve_field_path(field_reps[0])
         elif isinstance(field_reps[0], F):
-            return field_reps[0].name
+            return resolve_field_path(field_reps[0].name)
         else:
             raise ProgrammingError(
                 f"Unexpected field_or_expression type: '{type(field_or_expression).__name__}'."
@@ -449,6 +450,67 @@ def field_path_to_model_path(
         _output=new_output,
         _mr_output=_mr_output,
     )
+
+
+def select_representative_field(model: Type[Model], force=False) -> Optional[str]:
+    """(Arbitrarily) select the best single field to represent a model.
+
+    A field is chosen based on the following criteria, in order of precedence:
+
+    1. The model's _meta.ordering field is chosen, if only 1 exists.
+    2. The first non-ID field that is unique is chosen, if one exists.
+    3. The first non-ID field is chosen, if only 1 exists.
+    4. The first non-ID field, if any exist and force=True, and a warning is issued^.
+    5. The first non-foreign key field, if any exist and force=True, and a warning is issued^.
+    6. If force=True, pk, and a warning is issued^.
+    7. Otherwise None
+
+    ^ Warnings are only issued in DEBUG mode.
+
+    Args:
+        model (Type[Model])
+        force (bool) [False]: Force a field to be selected as a representative when there is no single ordering field
+            and there are no unique fields that are not the arbitrary primary key or foreign keys.
+    Exceptions:
+        None
+    Returns:
+        (Optional[str]): The name of the selected field to represent the model.
+    """
+    if len(model._meta.ordering) == 1:
+        # If there's only 1 ordering field, use it
+        return resolve_field_path(model._meta.ordering[0])
+
+    all_fields = model._meta.get_fields()
+
+    # Grab the first non-ID field from the related model that is unique, if one exists
+    f: Field
+    non_relations: List[Field] = []
+    for f in all_fields:
+        related_field = resolve_field(f)
+        if not related_field.is_relation and related_field.name != "id":
+            if related_field.unique:
+                return related_field.name
+            else:
+                non_relations.append(related_field)
+
+    if len(non_relations) == 1:
+        return non_relations[0].name
+
+    if not force:
+        return None
+
+    fldname = "pk"
+    if len(non_relations) > 0:
+        fldname = non_relations[0].name
+    elif "id" in all_fields:
+        fldname = "id"
+
+    if settings.DEBUG:
+        warn(
+            f"Unable to select a representative field for model '{model.__name__}'.  Defaulting to '{fldname}'."
+        )
+
+    return fldname
 
 
 def is_key_field(
