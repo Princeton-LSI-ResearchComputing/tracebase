@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Optional, Type, Union, cast
 
+from django.db import ProgrammingError
 from django.db.models import Field, Model
 from django.db.models.expressions import Combinable
 
 from DataRepo.models.utilities import (
     field_path_to_model_path,
+    is_many_related_to_parent,
     is_many_related_to_root,
 )
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
@@ -121,7 +123,10 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             if isinstance(count_attr_name, str):
                 self.count_attr_name = count_attr_name
             else:
-                self.count_attr_name = self.get_count_name(field_path, model)
+                # We only want 1 count for the many-related model records
+                self.count_attr_name = self.get_count_name(
+                    self.many_related_model_path, model
+                )
 
         super().__init__(*args, **kwargs)
 
@@ -129,25 +134,63 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             self.sort_expression = self.display_field_path
 
     @classmethod
-    def get_attr_stub(cls, field_path: str, model: Type[Model]) -> str:
+    def get_attr_stub(cls, path: str, model: Type[Model]) -> str:
+        """Creates the unique portion of an attribute name to be applied to the model objects of the root model in a
+        queryset.
+
+        Args:
+            path (str): A dunderscore-delimited path.
+            model (Type[Model])
+        Exceptions:
+            None
+        Returns:
+            stub (str)
+        """
         many_related_model_path: str = cast(
-            str, field_path_to_model_path(model, field_path, many_related=True)
+            str, field_path_to_model_path(model, path, many_related=True)
         )
 
         # Create attribute names for many-related values and a many-related count
-        if many_related_model_path == field_path:
-            stub = field_path.split("__")[-1]
+        if many_related_model_path == path:
+            stub = path.split("__")[-1]
         else:
-            stub = "_".join(field_path.split("__")[-2:])
+            stub = "_".join(path.split("__")[-2:])
 
         return stub
 
     @classmethod
-    def get_count_name(cls, field_path: str, model: Type[Model]) -> str:
-        return cls.get_attr_stub(field_path, model) + cls.count_attr_tail
+    def get_count_name(cls, many_related_model_path: str, model: Type[Model]) -> str:
+        """Creates an attribute name to be applied to the model objects of the root model in a queryset, denoting the
+        count of the unique values associated with the root model record.
+
+        Args:
+            many_related_model_path (str): A dunderscore-delimited path.
+            model (Type[Model])
+        Exceptions:
+            None
+        Returns:
+            stub (str)
+        """
+        if not is_many_related_to_parent(many_related_model_path, model):
+            raise ProgrammingError(
+                "get_count_name must only be used for many_related_model_path, but the last field in the path "
+                f"'{many_related_model_path}' is not many-related to its parent field."
+            )
+        return cls.get_attr_stub(many_related_model_path, model) + cls.count_attr_tail
 
     @classmethod
     def get_list_name(cls, field_path: str, model: Type[Model]) -> str:
+        """Creates an attribute name to be applied to the model objects of the root model in a queryset, denoting a
+        list of values associated with the root model record.
+
+        Args:
+            field_path (str): A dunderscore-delimited path.
+            model (Type[Model])
+        Exceptions:
+            None
+        Returns:
+            stub (str)
+        """
         return cls.get_attr_stub(field_path, model) + cls.list_attr_tail
 
     def create_sorter(
