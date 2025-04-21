@@ -60,25 +60,10 @@ class BSTManyRelatedSorter(BSTSorter):
                 "column, use BSTAnnotColumn instead.",
                 DeveloperWarning,
             )
-            if self.asc:
-                self.many_expression = self.SERVER_SORTERS.NONE(self.field_path).asc(
-                    nulls_first=True
-                )
-            else:
-                self.many_expression = self.SERVER_SORTERS.NONE(self.field_path).desc(
-                    nulls_last=True
-                )
+            self.many_expression = self.SERVER_SORTERS.NONE(self.field_path)
         elif not isinstance(self.expression, Aggregate):
-            if isinstance(self.expression, Expression):
-                if self.asc:
-                    self.many_expression = self.expression.asc(nulls_first=True)
-                else:
-                    self.many_expression = self.expression.desc(nulls_last=True)
-            elif isinstance(self.expression, F):
-                if self.asc:
-                    self.many_expression = self.expression.asc(nulls_first=True)
-                else:
-                    self.many_expression = self.expression.desc(nulls_last=True)
+            if isinstance(self.expression, (Expression, F)):
+                self.many_expression = self.expression
             else:
                 raise NotImplementedError(
                     f"self.expression type '{type(self.expression).__name__}' not supported."
@@ -95,11 +80,7 @@ class BSTManyRelatedSorter(BSTSorter):
     @property
     def many_order_by(self):
         """Returns an expression that can be supplied to a Django order_by() call."""
-        if isinstance(self.many_expression, Expression):
-            if self.asc:
-                return self.many_expression.asc(nulls_first=True)
-            return self.many_expression.desc(nulls_last=True)
-        elif isinstance(self.many_expression, F):
+        if isinstance(self.expression, (Expression, F)):
             if self.asc:
                 return self.many_expression.asc(nulls_first=True)
             return self.many_expression.desc(nulls_last=True)
