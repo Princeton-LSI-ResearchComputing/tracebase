@@ -217,3 +217,15 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
             "intended to be an annotation column, use BSTAnnotColumn",
             str(aw.warnings[0].message),
         )
+
+    def test_get_attr_stub(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_count_name(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_list_name(self):
+        # TODO: Implement test
+        pass
