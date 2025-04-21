@@ -173,10 +173,10 @@ class BSTListView(BSTBaseListView):
         Exceptions:
             None
         Returns:
-            paginator
-            page
-            object_list
-            is_paginated
+            paginator (Paginator)
+            page (Page)
+            object_list (QuerySet)
+            is_paginated (bool)
         """
         paginator, page, object_list, is_paginated = super().paginate_queryset(
             *args, **kwargs

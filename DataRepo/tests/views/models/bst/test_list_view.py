@@ -1,3 +1,4 @@
+from django.core.paginator import Page
 from django.db.models import (
     CASCADE,
     CharField,
@@ -24,6 +25,7 @@ from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
 from DataRepo.views.models.bst.list_view import BSTListView
+from DataRepo.views.utils import GracefulPaginator
 
 BSTLVStudyTestModel = create_test_model(
     "BSTLVStudyTestModel",
@@ -342,9 +344,9 @@ class BSTListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_apply_annotations(self):
-        alv = StudyLV()
+        slv = StudyLV()
         qs = BSTLVStudyTestModel.objects.all()
-        aqs = alv.apply_annotations(qs, alv.get_annotations()[1])
+        aqs = slv.apply_annotations(qs, slv.get_annotations()[1])
         self.assertEqual(
             set(["S1", "S2"]), set(list(aqs.values_list("description", flat=True)))
         )
@@ -353,9 +355,9 @@ class BSTListViewTests(TracebaseTestCase):
     def test_apply_filters_success(self):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-name": "2"}
-        alv = StudyLV(request=request)
+        slv = StudyLV(request=request)
         qs = BSTLVStudyTestModel.objects.all()
-        fqs = alv.apply_filters(qs)
+        fqs = slv.apply_filters(qs)
         self.assertQuerySetEqual(
             BSTLVStudyTestModel.objects.filter(name__icontains="2"),
             fqs,
@@ -367,8 +369,8 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-desc": "2"}
         qs = BSTLVStudyTestModel.objects.all()
         with self.assertWarns(DeveloperWarning) as aw:
-            alv = StudyLV(request=request)
-            fqs = alv.apply_filters(qs)
+            slv = StudyLV(request=request)
+            fqs = slv.apply_filters(qs)
         self.assertEqual(1, len(aw.warnings))
         self.assertIn("Column 'desc' filter '2' failed", str(aw.warnings[0].message))
         self.assertIn("Column not found", str(aw.warnings[0].message))
@@ -378,18 +380,65 @@ class BSTListViewTests(TracebaseTestCase):
             fqs,
         )
         self.assertEqual(
-            [f"StudyLV-{StudyLV.filter_cookie_name}-desc"], alv.cookie_resets
+            [f"StudyLV-{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets
         )
 
-    def test_paginate_queryset(self):
-        # TODO: Implement test
-        pass
-
-    def test_set_many_related_records_list(self):
-        # TODO: Implement test
-        pass
+    def test__lower(self):
+        self.assertEqual("test string", BSTListView._lower("Test String"))
+        self.assertEqual(5, BSTListView._lower(5))
+        self.assertIsNone(BSTListView._lower(None))
 
     def test_get_paginate_by(self):
+        for n in range(50):
+            BSTLVStudyTestModel.objects.create(name=f"ts{n}")
+        qs = BSTLVStudyTestModel.objects.all()
+
+        slv1 = StudyLV()
+        self.assertEqual(slv1.paginate_by, slv1.get_paginate_by(qs))
+
+        request = HttpRequest()
+
+        # Sets to the cookie value
+        request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "30"}
+        slv2 = StudyLV(request=request)
+        self.assertEqual(30, slv2.get_paginate_by(qs))
+
+        # Defaults to paginate_by if cookie limit is 0
+        request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "0"}
+        slv2 = StudyLV(request=request)
+        self.assertEqual(slv1.paginate_by, slv2.get_paginate_by(qs))
+
+        # Sets to the param value
+        request.GET = {"limit": "20"}
+        slv3 = StudyLV(request=request)
+        self.assertEqual(20, slv3.get_paginate_by(qs))
+
+        # Defaults to count if param limit is 0
+        request.GET = {"limit": "0"}
+        slv3 = StudyLV(request=request)
+        self.assertEqual(52, slv3.get_paginate_by(qs))
+
+        # Defaults to count if limit is greater than count
+        request.GET = {"limit": "60"}
+        slv3 = StudyLV(request=request)
+        self.assertEqual(52, slv3.get_paginate_by(qs))
+
+    def test_paginate_queryset(self):
+        request = HttpRequest()
+        request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "1"}
+        qs = BSTLVStudyTestModel.objects.all()
+        slv = StudyLV(request=request)
+        page_size = slv.get_paginate_by(qs)
+        paginator, page, object_list, is_paginated = slv.paginate_queryset(
+            qs, page_size
+        )
+        self.assertIsInstance(paginator, GracefulPaginator)
+        self.assertIsInstance(page, Page)
+        self.assertEqual("<Page 1 of 2>", str(page))
+        self.assertQuerySetEqual(qs.all()[0:1], object_list)
+        self.assertTrue(is_paginated)
+
+    def test_set_many_related_records_list(self):
         # TODO: Implement test
         pass
 
@@ -422,9 +471,5 @@ class BSTListViewTests(TracebaseTestCase):
         pass
 
     def test__get_many_related_rec_val_by_subquery_helper(self):
-        # TODO: Implement test
-        pass
-
-    def test__lower(self):
         # TODO: Implement test
         pass
