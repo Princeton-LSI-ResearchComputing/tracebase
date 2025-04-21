@@ -855,6 +855,58 @@ def get_detail_url_name(model_object: Model):
     return resolve(model_object.get_absolute_url()).url_name
 
 
+def model_title(model: Type[Model]) -> str:
+    """Creates a title-case string from the supplied model, accounting for potentially set verbose settings.  Pays
+    particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
+    title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+    MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+
+    Args:
+        model (Type[Model])
+    Exceptions:
+        None
+    Returns:
+        (str): The title-case version of the model name.
+    """
+    from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
+
+    try:
+        vname: str = model._meta.__dict__["verbose_name"]
+        sanitized = vname.replace(" ", "")
+        sanitized = sanitized.replace("_", "")
+        if any([c.isupper() for c in vname]) and model.__name__.lower() == sanitized:
+            return underscored_to_title(vname)
+        else:
+            return camel_to_title(model.__name__)
+    except Exception:
+        return camel_to_title(model.__name__)
+
+
+def model_title_plural(model: Type[Model]) -> str:
+    """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
+    particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
+    title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+    MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+
+    Args:
+        model (Type[Model])
+    Exceptions:
+        None
+    Returns:
+        (str): The title-case version of the model name.
+    """
+    from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
+
+    try:
+        vname: str = model._meta.__dict__["verbose_name_plural"]
+        if any([c.isupper() for c in vname]):
+            return underscored_to_title(vname)
+        else:
+            return f"{camel_to_title(model.__name__)}s"
+    except Exception:
+        return f"{camel_to_title(model.__name__)}s"
+
+
 # TODO: Figure out a way to move these exception classes to exceptions.py without hitting a circular import
 class NoFields(Exception):
     pass

@@ -1,17 +1,28 @@
 import traceback
-from typing import Dict, List, Tuple
+from functools import reduce
+from typing import Any, Dict, List, Optional, Tuple
 from warnings import warn
 
 from django.conf import settings
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import Q, QuerySet, Value
+from django.db.models import Model, Q, QuerySet, Value
 from django.db.models.expressions import Combinable
 
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.base import BSTBaseListView
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
+from DataRepo.views.models.bst.column.base import BSTBaseColumn
+from DataRepo.views.models.bst.column.many_related_field import (
+    BSTManyRelatedColumn,
+)
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
+from DataRepo.views.models.bst.column.sorter.many_related_field import (
+    BSTManyRelatedSorter,
+)
+from DataRepo.views.utils import reduceuntil
+
+QUERY_MODE = True
 
 
 class BSTListView(BSTBaseListView):
@@ -150,6 +161,86 @@ class BSTListView(BSTBaseListView):
         qs = qs.distinct()
 
         return qs
+
+    def paginate_queryset(self, *args, **kwargs):
+        """An extension of the superclass method intended to create attributes on the base model containing a list of
+        related objects.
+
+        Args:
+            *args (Any): Superclass positional arguments
+            **kwargs (Any): Superclass keyword arguments
+        Exceptions:
+            None
+        Returns:
+            paginator
+            page
+            object_list
+            is_paginated
+        """
+        paginator, page, object_list, is_paginated = super().paginate_queryset(
+            *args, **kwargs
+        )
+        for rec in object_list:
+            for column in self.columns.values():
+                if isinstance(column, BSTManyRelatedColumn):
+                    if QUERY_MODE:
+                        subrecs = self.get_many_related_rec_val_by_subquery(rec, column)
+                    else:
+                        subrecs = self.get_rec_val_by_iteration(rec, column)
+                    self.set_many_related_records_list(rec, column, subrecs)
+        return paginator, page, object_list, is_paginated
+
+    def set_many_related_records_list(
+        self, rec: Model, column: BSTManyRelatedColumn, subrecs: List[Model]
+    ):
+        """Adds the sub-list and metadata of many-related records as attributes off the root model record.  Also
+        replaces the last list element with an ellipsis if there are more records not shown.
+
+        Args:
+            rec (Model): A record from self.model.
+            column (BSTManyRelatedColumn): A column object that describes the many-related metadata.
+            subrecs (List[Model]): A list of Model record fields or objects from a model that is many-related with
+                self.model.
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        if len(subrecs) == (column.limit + 1):
+            if hasattr(rec, column.count_attr_name):
+                count = getattr(rec, column.count_attr_name)
+                subrecs[-1] = column.more_msg.format(count)
+            else:
+                subrecs[-1] = "..."
+
+        if hasattr(rec, column.list_attr_name):
+            raise ProgrammingError(
+                f"Attribute '{column.list_attr_name}' already exists on '{self.model.__name__}' object."
+            )
+
+        setattr(rec, column.list_attr_name, subrecs)
+
+    def get_paginate_by(self, qs: QuerySet):
+        """An override of the superclass method to allow the user to change the rows per page.
+
+        self.limit was already set in the constructor based on both the URL param and cookie, but if it is 0 (meaning
+        "all"), we are going to update it based on the queryset.
+
+        Args:
+            qs (QuerySet)
+        Exceptions:
+            None
+        Returns:
+            self.limit (int): The number of table rows per page.
+        """
+
+        # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
+        # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
+        # adding an odd value to the rows per page select list and instead selecting "all".
+        if self.limit == 0 or self.limit > qs.count():
+            self.limit = qs.count()
+
+        return self.limit
 
     def get_prefetches(self):
         """Generate a list of strings that can be provided to Django's .prefetch_related() method, to speed up database
@@ -336,3 +427,377 @@ class BSTListView(BSTBaseListView):
             self.reset_search_cookie()
             self.reset_filter_cookies()
         return qs
+
+    def get_rec_val_by_iteration(
+        self, rec: Model, col: BSTBaseColumn, related_limit: int = 5
+    ):
+        """Given a model record, i.e. row-data, e.g. from a queryset, and a column, return the column value.
+
+        NOTE: While this supports many-related columns, it is more efficient to call get_many_related_rec_val directly.
+
+        Args:
+            rec (Model)
+            col (BSTBaseColumn)
+            related_limit (int) [5]: Truncate/stop at this many (many-related) records.
+        Exceptions:
+            None
+        Returns:
+            (Any): Column value or values (if many-related).
+        """
+        # _get_rec_val_by_iteration_helper returns the value, which can be any value from a field in the DB or a list of
+        # values (if the field in question is many-related with self.model).  If it is many-related, the second return
+        # value is the sort value (which we do not need) and the third values is a primary key intended to have been
+        # used to return the correct number of unique values (also which we do not need).  The last 2 values of the
+        # return are only needed in the method's recursion.
+        val, _, _ = self._get_rec_val_by_iteration_helper(
+            rec, col.name.split("__"), related_limit=related_limit
+        )
+        return val if not isinstance(val, str) or val != "" else None
+
+    def get_many_related_rec_val_by_subquery(
+        self, rec: Model, col: BSTManyRelatedColumn
+    ) -> list:
+        """Method to improve performance by grabbing the annotated value first and if it is not None, does an exhaustive
+        search for all many-related values.
+
+        Args:
+            rec (Model)
+            col (BSTColumn)
+        Exceptions:
+            TypeError when col is not a BSTManyRelatedColumn.
+        Returns:
+            (list): Sorted unique (to the many-related model) values.
+        """
+        if not isinstance(col, BSTManyRelatedColumn):
+            raise TypeError(f"Column '{col}' is not many-related.")
+
+        count = getattr(rec, col.count_attr_name, None)
+        # It's faster to skip if we already know there are no records
+        if count is not None and count == 0:
+            return []
+
+        # Set a limit to the retrieved records (count or supplied limit: whichever is lesser and not 0 [i.e. all])
+        related_limit = col.limit + 1 if col.limit > 0 else 0
+        if isinstance(count, int) and (related_limit == 0 or count < related_limit):
+            related_limit = count
+
+        return self._get_many_related_rec_val_by_subquery_helper(
+            rec,
+            col,
+            related_limit=related_limit,
+        )
+
+    def _get_rec_val_by_iteration_helper(
+        self,
+        rec: Model,
+        field_path: List[str],
+        related_limit: int = 5,
+        sort_field_path: Optional[List[str]] = None,
+        _sort_val: Optional[List[str]] = None,
+    ):
+        """Private recursive method that takes a record and a path and traverses the record along the path to return
+        whatever ORM object's field value is at the end of the path.  If it traverses through a many-related model, it
+        returns a list of such objects or None if empty.
+
+        Assumptions:
+            1. The related_sort_fld value will be a field under the related_model_path
+        Args:
+            rec (Model): A Model object.
+            field_path (List[str]): A path from the rec object to a field/column value, that has been split by
+                dunderscores.
+            related_limit (int) [5]: Truncate/stop at this many (many-related) records.
+            sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
+                dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
+            _sort_val (Optional[List[str]]): Do not supply.  This holds the sort value if the field path is longer than
+                the sort field path.
+        Exceptions:
+            ValueError when the sort field returns more than 1 value.
+        Returns:
+            (Optional[Union[List[Any], Any]]): A list if passing through a populated many-related model or a field
+                value.
+        """
+        if len(field_path) == 0 or rec is None:
+            return None, None, None
+        elif (
+            type(rec).__name__ != "RelatedManager"
+            and type(rec).__name__ != "ManyRelatedManager"
+        ):
+            return self._get_rec_val_by_iteration_single_helper(
+                rec,
+                field_path,
+                related_limit,
+                sort_field_path,
+                _sort_val,
+            )
+        else:
+            return self._get_rec_val_by_iteration_many_helper(
+                rec,
+                field_path,
+                related_limit,
+                sort_field_path,
+                _sort_val,
+            )
+
+    def _get_rec_val_by_iteration_single_helper(
+        self,
+        rec: Model,
+        field_path: List[str],
+        related_limit: int = 5,
+        sort_field_path: Optional[List[str]] = None,
+        _sort_val: Optional[List[str]] = None,
+    ):
+        """Private recursive method that takes a record and a path and traverses the record along the path to return
+        whatever ORM object's field value is at the end of the path.  If it traverses through a many-related model, it
+        returns a list of such objects or None if empty.
+
+        Assumptions:
+            1. The related_sort_fld value will be a field under the related_model_path
+        Args:
+            rec (Model): A Model object.
+            field_path (List[str]): A path from the rec object to a field/column value, that has been split by
+                dunderscores.
+            related_limit (int) [5]: Truncate/stop at this many (many-related) records.
+            sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
+                dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
+            _sort_val (Optional[List[str]]): Do not supply.  This holds the sort value if the field path is longer than
+                the sort field path.
+        Exceptions:
+            ValueError when the sort field returns more than 1 value.
+        Returns:
+            (Optional[Union[List[Any], Any]]): A list if passing through a populated many-related model or a field
+                value.
+        """
+        if (
+            type(rec).__name__ != "RelatedManager"
+            and type(rec).__name__ != "ManyRelatedManager"
+        ):
+            val_or_rec = getattr(rec, field_path[0])
+        else:
+            raise TypeError(
+                "_get_rec_val_by_iteration_single_helper called with a related manager"
+            )
+
+        if len(field_path) == 1:
+            uniq_val = val_or_rec
+            if isinstance(val_or_rec, Model):
+                uniq_val = val_or_rec.pk
+            return val_or_rec, _sort_val, uniq_val
+
+        next_sort_field_path = (
+            sort_field_path[1:] if sort_field_path is not None else None
+        )
+        # If we're at the end of the field path, we need to issue a separate recursive call to get the sort value
+        if sort_field_path is not None and (
+            sort_field_path[0] != field_path[0]
+            or (len(sort_field_path) == len(field_path) and len(field_path) == 1)
+        ):
+            sort_val, _, _ = self._get_rec_val_by_iteration_helper(
+                rec, sort_field_path, related_limit=2
+            )
+            if isinstance(sort_val, list):
+                uniq_vals: List[Any] = reduce(
+                    lambda lst, val: lst + [val] if val not in lst else lst,
+                    sort_val,
+                    [],
+                )
+                if len(uniq_vals) > 1:
+                    raise ValueError("Multiple values returned")
+                elif len(uniq_vals) == 1:
+                    self._lower(uniq_vals[0])
+                else:
+                    sort_val = None
+            next_sort_field_path = None
+            _sort_val = sort_val
+
+        return self._get_rec_val_by_iteration_helper(
+            val_or_rec,
+            field_path[1:],
+            related_limit=related_limit,
+            sort_field_path=next_sort_field_path,
+            _sort_val=_sort_val,
+        )
+
+    def _get_rec_val_by_iteration_many_helper(
+        self,
+        rec: Model,
+        field_path: List[str],
+        related_limit: int = 5,
+        sort_field_path: Optional[List[str]] = None,
+        _sort_val: Optional[List[str]] = None,
+    ):
+        """Private recursive method that takes a record and a path and traverses the record along the path to return
+        whatever ORM object's field value is at the end of the path.  If it traverses through a many-related model, it
+        returns a list of such objects or None if empty.
+
+        Assumptions:
+            1. The sort_field_path value starts with the field_path
+        Args:
+            rec (Model): A Model object.
+            field_path (List[str]): A path from the rec object to a field/column value, that has been split by
+                dunderscores.
+            related_limit (int) [5]: Truncate/stop at this many (many-related) records.
+            sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
+                dunderscores.  Only relevant if you know the field path to traverse through a many-related model.
+            _sort_val (Optional[List[str]]): Do not supply.  This holds the sort value if the field path is longer than
+                the sort field path.
+        Exceptions:
+            ValueError when the sort field returns more than 1 value.
+        Returns:
+            (Optional[Union[List[Any], Any]]): A list if passing through a populated many-related model or a field
+                value.
+        """
+        if (
+            type(rec).__name__ != "RelatedManager"
+            and type(rec).__name__ != "ManyRelatedManager"
+        ):
+            raise TypeError(
+                "_get_rec_val_by_iteration_many_related_helper called with a related manager"
+            )
+
+        if len(field_path) == 1:
+            if rec is None or rec.count() == 0:
+                return []
+
+            uniq_vals = reduceuntil(
+                lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                lambda val: related_limit is not None and len(val) >= related_limit,
+                self._last_many_rec_iterator(rec, sort_field_path),
+                [],
+            )
+
+            return uniq_vals
+
+        next_sort_field_path = (
+            sort_field_path[1:] if sort_field_path is not None else None
+        )
+        # If the sort_field_path has diverged from the field_path, retrieve its value
+        if sort_field_path is not None and sort_field_path[0] != field_path[0]:
+            sort_val, _, _ = self._get_rec_val_by_iteration_helper(
+                rec,
+                sort_field_path,
+                # We only expect 1 value and are going to assume that the sort field was properly checked/generated to
+                # not go through another many-related relationship.  Still, we specify the limit to be safe.
+                related_limit=1,
+            )
+            if isinstance(sort_val, list):
+                raise ProgrammingError(
+                    "The sort value must not be many-related with the value for the column"
+                )
+                # uniq_vals = reduce(lambda lst, val: lst + [val] if val not in lst else lst, sort_val, [])
+                # if len(uniq_vals) > 1:
+                #     raise ValueError("Multiple values returned")
+                # elif len(uniq_vals) == 1:
+                #     sort_val = self.lower(uniq_vals[0])
+                # else:
+                #     sort_val = None
+            next_sort_field_path = None
+            _sort_val = sort_val
+
+        if rec.exists() > 0:
+            uniq_vals = reduceuntil(
+                lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                lambda val: related_limit is not None and len(val) >= related_limit,
+                self._recursive_many_rec_iterator(
+                    rec, field_path, next_sort_field_path, related_limit, _sort_val
+                ),
+                [],
+            )
+            return uniq_vals
+
+        return []
+
+    def _last_many_rec_iterator(
+        self,
+        mr_qs: QuerySet,
+        sort_field_path,
+    ):
+        """Private method to help _get_rec_val_by_iteration_many_related_helper.  Allows it to stop when it reaches its
+        goal.  This is called when we're at the end of the field_path.  It will make a recursive call if the
+        sort_field_path is deeper than the field_path."""
+        mr_rec: Model
+        for mr_rec in mr_qs.all():
+            yield (
+                # Model object is the value returned
+                mr_rec,
+                # Each rec gets its own sort value.
+                (
+                    self._lower(
+                        self._get_rec_val_by_iteration_helper(
+                            mr_rec, sort_field_path[1:]
+                        )[0]
+                    )
+                    if sort_field_path is not None and len(sort_field_path) > 1
+                    else str(mr_rec).lower()
+                ),
+                # We don't need pk for uniqueness when including model objects, but callers expect it
+                mr_rec.pk,
+            )
+
+    def _recursive_many_rec_iterator(
+        self,
+        mr_qs: QuerySet,
+        field_path,
+        next_sort_field_path,
+        related_limit,
+        _sort_val,
+    ):
+        """Private method to help _get_rec_val_by_iteration_many_related_helper.  Allows it to stop when it reaches its
+        goal.  This is called when a many-related model is encountered before we're at the end of the field_path.
+        """
+        mr_rec: Model
+        for mr_rec in mr_qs.all():
+            for tpl in self._get_rec_val_by_iteration_helper(
+                mr_rec,
+                field_path[1:],
+                related_limit=related_limit,
+                sort_field_path=next_sort_field_path,
+                _sort_val=_sort_val,
+            ):
+                yield tpl
+
+    def _get_many_related_rec_val_by_subquery_helper(
+        self,
+        rec: Model,
+        col: BSTManyRelatedColumn,
+        related_limit: int = 5,
+    ) -> list:
+        """
+
+        Args:
+            rec (Model): A Model object.
+            field (str): A path from the rec object to a field/column value, delimited by dunderscores.
+            sort_field (str): A path from the rec object to a sort field, delimited by dunderscores.
+            reverse (bool) [False]: Whether the many-related values should be reverse sorted.
+        Exceptions:
+            ProgrammingError when an exception occurs during the sorting of the value received from _get_rec_val_helper.
+        Returns:
+            vals_list (list): A unique list of values from the many-related model at the end of the field path.
+        """
+
+        if not isinstance(col.sorter, BSTManyRelatedSorter):
+            raise ProgrammingError(
+                "This conditional is here to assure mypy that col.sorter is indeed a BSTManyRelatedSorter."
+            )
+
+        qs = (
+            rec.__class__.objects.filter(pk=rec.pk)
+            .order_by(col.sorter.many_order_by, *col.distinct_fields)
+            .distinct(*col.distinct_fields)
+        )
+
+        vals_list = [
+            # Return an object, like an actual queryset does, if val is a foreign key field
+            col.related_model.objects.get(pk=val) if col.is_fk else val
+            for val in qs.values_list(col.field_path, flat=True)[0:related_limit]
+            if val is not None
+        ]
+
+        return vals_list
+
+    @classmethod
+    def _lower(cls, val):
+        """Intended for use in list comprehensions to lower-case the sort value, IF IT IS A STRING.
+        Otherwise it returns the unmodified value."""
+        if isinstance(val, str):
+            return val.lower()
+        return val

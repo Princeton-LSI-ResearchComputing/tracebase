@@ -1,5 +1,12 @@
-from django.db.models import CASCADE, CharField, ForeignKey, ManyToManyField, Q
-from django.db.models.aggregates import Max
+from django.db.models import (
+    CASCADE,
+    CharField,
+    ForeignKey,
+    IntegerField,
+    ManyToManyField,
+    Q,
+)
+from django.db.models.aggregates import Count, Max
 from django.db.models.functions import Lower, Upper
 from django.http import HttpRequest
 from django.test import override_settings
@@ -92,7 +99,6 @@ class BSTListViewTests(TracebaseTestCase):
         a2 = BSTLVAnimalTestModel.objects.create(name="A2", desc="a2", treatment=t2)
         a2.studies.add(s1)
         a2.studies.add(s2)
-        print(f"COUNT OF ANIMALS: {BSTLVAnimalTestModel.objects.count()}")
         super().setUpTestData()
 
     @TracebaseTestCase.assertNotWarns()
@@ -102,8 +108,14 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(0, slv.total)
         self.assertEqual(["animals"], slv.prefetches)
         self.assertEqual(Q(), slv.filters)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            slv.postfilter_annots,
+        )
         self.assertEqual(0, len(slv.prefilter_annots.keys()))
-        self.assertDictEqual({"description": Upper("desc")}, slv.postfilter_annots)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_search_cookie(self):
@@ -111,10 +123,17 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES.update({f"StudyLV-{StudyLV.search_cookie_name}": "test"})
         slv = StudyLV(request=request)
         q = Q(**{"name__icontains": "test"})
+        q |= Q(**{"animals_mm_count__icontains": "test"})
         q |= Q(**{"animals__name__icontains": "test"})
         q |= Q(**{"description__icontains": "test"})
         self.assertEqual(q, slv.filters)
-        self.assertDictEqual({"description": Upper("desc")}, slv.prefilter_annots)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            slv.prefilter_annots,
+        )
         self.assertEqual(0, len(slv.postfilter_annots))
 
     @TracebaseTestCase.assertNotWarns()
@@ -123,9 +142,15 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES.update({f"StudyLV-{StudyLV.filter_cookie_name}-name": "test"})
         slv = StudyLV(request=request)
         q = Q(**{"name__icontains": "test"})
-        self.assertEqual(q, slv.filters)
         self.assertEqual(0, len(slv.prefilter_annots.keys()))
-        self.assertDictEqual({"description": Upper("desc")}, slv.postfilter_annots)
+        self.assertEqual(q, slv.filters)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            slv.postfilter_annots,
+        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_sort_cookie(self):
@@ -139,7 +164,13 @@ class BSTListViewTests(TracebaseTestCase):
         slv = StudyLV(request=request)
         self.assertEqual(Q(), slv.filters)
         self.assertEqual(0, len(slv.prefilter_annots.keys()))
-        self.assertDictEqual({"description": Upper("desc")}, slv.postfilter_annots)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            slv.postfilter_annots,
+        )
         self.assertEqual(
             Lower("name").desc(nulls_last=True),
             slv.columns[slv.sort_name].sorter.order_by,
@@ -265,14 +296,26 @@ class BSTListViewTests(TracebaseTestCase):
         alv1 = StudyLV()
         before, after = alv1.get_annotations()
         self.assertDictEqual({}, before)
-        self.assertDictEqual({"description": Upper("desc")}, after)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            after,
+        )
 
         # Search
         request = HttpRequest()
         request.COOKIES.update({"StudyLV-search": "test1"})
         alv2 = StudyLV(request=request)
         before, after = alv2.get_annotations()
-        self.assertDictEqual({"description": Upper("desc")}, before)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            before,
+        )
         self.assertDictEqual({}, after)
 
         # Filter
@@ -280,14 +323,22 @@ class BSTListViewTests(TracebaseTestCase):
         alv3 = StudyLV(request=request)
         before, after = alv3.get_annotations()
         self.assertDictEqual({"description": Upper("desc")}, before)
-        self.assertDictEqual({}, after)
+        self.assertDictEquivalent(
+            {"animals_mm_count": Count("animals", output_field=IntegerField())}, after
+        )
 
         # No search or filter (but cookies)
         request.COOKIES = {"StudyLV-asc": "false"}
         alv4 = StudyLV(request=request)
         before, after = alv4.get_annotations()
         self.assertDictEqual({}, before)
-        self.assertDictEqual({"description": Upper("desc")}, after)
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "description": Upper("desc"),
+            },
+            after,
+        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_apply_annotations(self):
@@ -329,3 +380,51 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(
             [f"StudyLV-{StudyLV.filter_cookie_name}-desc"], alv.cookie_resets
         )
+
+    def test_paginate_queryset(self):
+        # TODO: Implement test
+        pass
+
+    def test_set_many_related_records_list(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_paginate_by(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_rec_val_by_iteration(self):
+        # TODO: Implement test
+        pass
+
+    def test_get_many_related_rec_val_by_subquery(self):
+        # TODO: Implement test
+        pass
+
+    def test__get_rec_val_by_iteration_helper(self):
+        # TODO: Implement test
+        pass
+
+    def test__get_rec_val_by_iteration_single_helper(self):
+        # TODO: Implement test
+        pass
+
+    def test__get_rec_val_by_iteration_many_helper(self):
+        # TODO: Implement test
+        pass
+
+    def test__last_many_rec_iterator(self):
+        # TODO: Implement test
+        pass
+
+    def test__recursive_many_rec_iterator(self):
+        # TODO: Implement test
+        pass
+
+    def test__get_many_related_rec_val_by_subquery_helper(self):
+        # TODO: Implement test
+        pass
+
+    def test__lower(self):
+        # TODO: Implement test
+        pass

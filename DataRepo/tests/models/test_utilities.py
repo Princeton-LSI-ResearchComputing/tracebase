@@ -351,7 +351,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             str(ar.exception),
         )
         with self.assertRaises(ProgrammingError) as ar:
-            print(resolve_field_path(1))
+            resolve_field_path(1)
         self.assertEqual(
             "Unexpected field_or_expression type: 'int'.",
             str(ar.exception),
@@ -395,3 +395,11 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             "element", select_representative_field(PeakDataLabel, force=True)
         )
         self.assertEqual("name", select_representative_field(TracerLabel, force=True))
+
+    def test_model_title(self):
+        # TODO: Implement test
+        pass
+
+    def test_model_title_plural(self):
+        # TODO: Implement test
+        pass
