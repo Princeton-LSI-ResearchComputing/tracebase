@@ -90,15 +90,15 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         Returns:
             None
         """
-        self.list_attr_name = list_attr_name
-        self.count_attr_name = count_attr_name
+        self.list_attr_name: str
+        self.count_attr_name: str
         self.delim = delim
         self.limit = limit
         self.sort_expression = sort_expression
         self.asc = asc if asc is not None else self.ascending
 
         # Create attribute names to use to assign a list of related model objects and their count to the root model
-        if self.list_attr_name is None or self.count_attr_name is None:
+        if list_attr_name is None or count_attr_name is None:
             # Get the required superclass constructor arguments we need for checks
             field_path: str = cast(str, args[0])
             model: Type[Model] = cast(Type[Model], args[1])
@@ -113,22 +113,42 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 str, field_path_to_model_path(model, field_path, many_related=True)
             )
 
-            # Create attribute names for many-related values and a many-related count
-            if self.many_related_model_path == field_path:
-                stub = field_path.split("__")[-1]
+            if isinstance(list_attr_name, str):
+                self.list_attr_name = list_attr_name
             else:
-                stub = "_".join(field_path.split("__")[-2:])
+                self.list_attr_name = self.get_list_name(field_path, model)
 
-            if self.list_attr_name is None:
-                self.list_attr_name = stub + self.list_attr_tail
-
-            if self.count_attr_name is None:
-                self.count_attr_name = stub + self.count_attr_tail
+            if isinstance(count_attr_name, str):
+                self.count_attr_name = count_attr_name
+            else:
+                self.count_attr_name = self.get_count_name(field_path, model)
 
         super().__init__(*args, **kwargs)
 
         if self.sort_expression is None:
             self.sort_expression = self.display_field_path
+
+    @classmethod
+    def get_attr_stub(cls, field_path: str, model: Type[Model]) -> str:
+        many_related_model_path: str = cast(
+            str, field_path_to_model_path(model, field_path, many_related=True)
+        )
+
+        # Create attribute names for many-related values and a many-related count
+        if many_related_model_path == field_path:
+            stub = field_path.split("__")[-1]
+        else:
+            stub = "_".join(field_path.split("__")[-2:])
+
+        return stub
+
+    @classmethod
+    def get_count_name(cls, field_path: str, model: Type[Model]) -> str:
+        return cls.get_attr_stub(field_path, model) + cls.count_attr_tail
+
+    @classmethod
+    def get_list_name(cls, field_path: str, model: Type[Model]) -> str:
+        return cls.get_attr_stub(field_path, model) + cls.list_attr_tail
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
