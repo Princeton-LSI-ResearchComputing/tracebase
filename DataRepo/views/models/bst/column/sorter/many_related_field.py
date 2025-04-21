@@ -3,6 +3,7 @@ from warnings import warn
 from django.conf import settings
 from django.db.models import F, Field, Max, Min
 from django.db.models.aggregates import Aggregate
+from django.db.models.expressions import Expression
 
 from DataRepo.models.utilities import is_many_related_to_root
 from DataRepo.utils.exceptions import DeveloperWarning
