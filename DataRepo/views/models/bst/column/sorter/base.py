@@ -39,10 +39,11 @@ class IdentityServerSorter(F):
         super().__init__(*args, **kwargs)
 
 
-class UnknownServerSorter(Combinable):
+class UnknownServerSorter(F):
     """The server sort could not be determined, e.g. we don't know the type of model field or annotation output_field"""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class BSTBaseSorter(ABC):
@@ -104,7 +105,7 @@ class BSTBaseSorter(ABC):
         Returns:
             None
         """
-        self.expression = expression
+        self.expression: Combinable
         self.name = name
         self.asc = asc if asc is not None else self.ascending
         self.client_sorter = client_sorter
@@ -171,12 +172,9 @@ class BSTBaseSorter(ABC):
                 self._server_sorter = self.SERVER_SORTERS.UNKNOWN
 
         # Apply our sort criteria (potentially on top of the users' sort criteria)
-        # NOTE: self._server_sorter should not be None here and MUST be a Combinable.  issubclass is only used here to
-        # tell mypy that everything is kosher here.
-        if issubclass(self._server_sorter, Combinable):
-            # If we have a field type for sorting and the client sorter is either not specified, or it is a known client
-            # sorter, apply default server sorting (either on top of or in the absense of an existing sort expression)
-            self.init_expression(expression)
+        # NOTE: self._server_sorter should not be None here and MUST be a Combinable.
+        self.init_expression(expression)
+
         self.server_sort_type_known = (
             self._server_sorter in self.SERVER_SORTERS._asdict().values()
             and self._server_sorter != self.SERVER_SORTERS.UNKNOWN
@@ -239,9 +237,17 @@ class BSTBaseSorter(ABC):
     @property
     def order_by(self):
         """Returns an expression that can be supplied to a Django order_by() call."""
-        if self.asc:
-            return self.expression.asc(nulls_first=True)
-        return self.expression.desc(nulls_last=True)
+        if isinstance(self.expression, Expression):
+            if self.asc:
+                return self.expression.asc(nulls_first=True)
+            return self.expression.desc(nulls_last=True)
+        elif isinstance(self.expression, F):
+            if self.asc:
+                return self.expression.asc(nulls_first=True)
+            return self.expression.desc(nulls_last=True)
+        raise NotImplementedError(
+            f"self.expression type '{type(self.expression).__name__}' not supported."
+        )
 
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled
@@ -265,39 +271,41 @@ class BSTBaseSorter(ABC):
         # If we have a field type for sorting and the client sorter is either not specified, or it is a known client
         # sorter, apply default server sorting (either on top of or in the absense of an existing sort expression)
         if self._server_sorter == self.SERVER_SORTERS.NONE:
-            if not isinstance(expression, self.SERVER_SORTERS.NONE):
+            if isinstance(expression, self.SERVER_SORTERS.NONE):
+                self.expression = expression
+            else:
                 self.expression = self.SERVER_SORTERS.NONE(expression)
-            else:
-                self.expression = expression
         elif self._server_sorter == self.SERVER_SORTERS.ALPHANUMERIC:
-            if not isinstance(expression, self.SERVER_SORTERS.ALPHANUMERIC):
-                if self.SERVER_SORTERS.ALPHANUMERIC != IdentityServerSorter:
-                    self.expression = self.SERVER_SORTERS.ALPHANUMERIC(expression)
-                elif not isinstance(expression, F):
-                    self.expression = F(expression)
-                else:
-                    self.expression = expression
-            else:
+            if isinstance(expression, self.SERVER_SORTERS.ALPHANUMERIC):
                 self.expression = expression
-        elif self._server_sorter == self.SERVER_SORTERS.NUMERIC:
-            if not isinstance(expression, self.SERVER_SORTERS.NUMERIC):
-                if self.SERVER_SORTERS.NUMERIC != IdentityServerSorter:
-                    self.expression = self.SERVER_SORTERS.NUMERIC(expression)
-                elif not isinstance(expression, F):
-                    self.expression = F(expression)
-                else:
-                    self.expression = expression
-            else:
+            elif self.SERVER_SORTERS.ALPHANUMERIC != IdentityServerSorter:
+                self.expression = self.SERVER_SORTERS.ALPHANUMERIC(expression)
+            elif isinstance(expression, Combinable):
                 self.expression = expression
-        elif self._server_sorter == self.SERVER_SORTERS.UNKNOWN:
-            if isinstance(expression, str):
+            else:
                 self.expression = F(expression)
-            else:
+        elif self._server_sorter == self.SERVER_SORTERS.NUMERIC:
+            if isinstance(expression, self.SERVER_SORTERS.NUMERIC):
                 self.expression = expression
+            elif self.SERVER_SORTERS.NUMERIC != IdentityServerSorter:
+                self.expression = self.SERVER_SORTERS.NUMERIC(expression)
+            elif isinstance(expression, Combinable):
+                self.expression = expression
+            else:
+                self.expression = F(expression)
+        elif self._server_sorter == self.SERVER_SORTERS.UNKNOWN:
+            if isinstance(expression, Combinable):
+                self.expression = expression
+            else:
+                self.expression = F(expression)
         elif isinstance(expression, str):
             self.expression = F(expression)
-        else:  # expression is Combinable
+        elif isinstance(expression, Combinable):
             self.expression = expression
+        else:
+            raise TypeError(
+                f"Invalid expression type: '{type(expression).__name__}'.  Expression: {expression}."
+            )
 
     def client_server_sort_mismatch(self):
         """Returns whether the server and client sort methods definitely mismatch.  Does not report as a mismatch if

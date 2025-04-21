@@ -3,6 +3,7 @@ from django.db.models import (
     CharField,
     Count,
     ForeignKey,
+    IntegerField,
     ManyToManyField,
 )
 from django.db.models.functions import Lower
@@ -121,11 +122,24 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertTrue(slv.ordered)
         self.assertEqual(20, slv.limit)
         self.assertEqual([], slv.warnings)
-        self.assertEqual({}, slv.column_settings)
-        self.assertEqual(
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": {
+                    "converter": Count("animals", output_field=IntegerField()),
+                    "header": "Animals Count",
+                }
+            },
+            slv.column_settings,
+        )
+        self.assertDictEquivalent(
             {
                 "name": BSTColumn("name", BSTBLVStudyTestModel),
                 "desc": BSTColumn("desc", BSTBLVStudyTestModel),
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                ),
                 "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
             slv.columns,
@@ -340,14 +354,17 @@ class BSTBaseListViewTests(TracebaseTestCase):
         # Defaults case (excludes "id", added by create_test_model)
         slv.column_ordering = []
         slv.init_column_ordering()
-        self.assertEqual(["name", "desc", "animals"], slv.column_ordering)
+        self.assertEqual(
+            ["name", "desc", "animals_mm_count", "animals"], slv.column_ordering
+        )
 
         # User added a related column
         slv.column_settings = {"animals__desc": {}}
         slv.column_ordering = []
         slv.init_column_ordering()
         self.assertEqual(
-            ["name", "desc", "animals", "animals__desc"], slv.column_ordering
+            ["name", "desc", "animals_mm_count", "animals", "animals__desc"],
+            slv.column_ordering,
         )
 
         # User changes exclude (id appears in order defined, added by create_test_model)
@@ -545,3 +562,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         slv = StudyBLV(request=request)
         slv.reset_search_cookie()
         self.assertEqual(["StudyBLV-search"], slv.cookie_resets)
+
+    def test_add_default_many_related_column_settings(self):
+        # TODO: Implement test
+        pass

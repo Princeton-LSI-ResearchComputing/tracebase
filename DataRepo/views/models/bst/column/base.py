@@ -215,11 +215,11 @@ class BSTBaseColumn(ABC):
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, field=None, **kwargs) -> BSTBaseSorter:
-        """Derived classes must define this method to set self.sorter"""
+    def create_sorter(self, field=None, **kwargs):
+        """Derived classes must define this method to set self.sorter to a BSTBaseSorter"""
         pass
 
     @abstractmethod
-    def create_filterer(self, field=None, **kwargs) -> BSTBaseFilterer:
-        """Derived classes must define this method to set self.filterer"""
+    def create_filterer(self, field=None, **kwargs):
+        """Derived classes must define this method to set self.filterer to a BSTBaseFilterer"""
         pass
