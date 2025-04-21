@@ -22,6 +22,7 @@ from DataRepo.views.models.bst.column.sorter.many_related_field import (
 )
 from DataRepo.views.utils import reduceuntil
 
+# TODO: After performance testing, remove this global variable and any methods deemed to be inferior
 QUERY_MODE = True
 
 
