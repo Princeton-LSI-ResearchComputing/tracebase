@@ -564,5 +564,15 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual(["StudyBLV-search"], slv.cookie_resets)
 
     def test_add_default_many_related_column_settings(self):
-        # TODO: Implement test
-        pass
+        slv = StudyBLV()
+        slv.column_settings = {}
+        slv.add_default_many_related_column_settings()
+        self.assertDictEquivalent(
+            {
+                "animals_mm_count": {
+                    "converter": Count("animals", output_field=IntegerField()),
+                    "header": "Animals Count",
+                },
+            },
+            slv.column_settings,
+        )
