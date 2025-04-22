@@ -194,8 +194,11 @@ class BSTListView(BSTBaseListView):
     def set_many_related_records_list(
         self, rec: Model, column: BSTManyRelatedColumn, subrecs: List[Model]
     ):
-        """Adds the sub-list and metadata of many-related records as attributes off the root model record.  Also
-        replaces the last list element with an ellipsis if there are more records not shown.
+        """Adds the sub-list of many-related records as an attribute of the root model record.  Also replaces the last
+        list element with an ellipsis if there are more records not shown.
+
+        NOTE: The count of the total many-related records is already added to the records of the queryset, because it is
+        added in the query as an annotation.
 
         Args:
             rec (Model): A record from self.model.
@@ -210,8 +213,10 @@ class BSTListView(BSTBaseListView):
         if len(subrecs) == (column.limit + 1):
             if hasattr(rec, column.count_attr_name):
                 count = getattr(rec, column.count_attr_name)
-                subrecs[-1] = column.more_msg.format(count)
+                subrecs[-1] = column.more_msg.format(count - column.limit)
             else:
+                # The derived class must've eliminated the {colname}_mm_count column, so we cannot tell them how many
+                # there are left to display.
                 subrecs[-1] = "..."
 
         if hasattr(rec, column.list_attr_name):

@@ -70,7 +70,7 @@ class StudyLV(BSTListView):
     exclude = ["id", "desc"]
 
 
-class AnimalLV(BSTListView):
+class AnimalWithMultipleStudyColsLV(BSTListView):
     model = BSTLVAnimalTestModel
     column_ordering = ["name", "desc", "treatment", "studies__name", "studies__desc"]
     exclude = ["id", "studies"]
@@ -80,12 +80,20 @@ class AnimalLV(BSTListView):
             *args,
             columns=[
                 BSTColumnGroup(
-                    BSTManyRelatedColumn("studies__name", AnimalLV.model),
-                    BSTManyRelatedColumn("studies__desc", AnimalLV.model),
+                    BSTManyRelatedColumn(
+                        "studies__name", AnimalWithMultipleStudyColsLV.model
+                    ),
+                    BSTManyRelatedColumn(
+                        "studies__desc", AnimalWithMultipleStudyColsLV.model
+                    ),
                 ),
             ],
             **kwargs,
         )
+
+
+class AnimalDefaultLV(BSTListView):
+    model = BSTLVAnimalTestModel
 
 
 @override_settings(DEBUG=True)
@@ -94,13 +102,13 @@ class BSTListViewTests(TracebaseTestCase):
     def setUpTestData(cls):
         t1 = BSTLVTreatmentTestModel.objects.create(name="T1", desc="t1")
         t2 = BSTLVTreatmentTestModel.objects.create(name="oddball", desc="t2")
-        s1 = BSTLVStudyTestModel.objects.create(name="S1", desc="s1")
-        s2 = BSTLVStudyTestModel.objects.create(name="S2", desc="s2")
+        cls.s1 = BSTLVStudyTestModel.objects.create(name="S1", desc="s1")
+        cls.s2 = BSTLVStudyTestModel.objects.create(name="S2", desc="s2")
         a1 = BSTLVAnimalTestModel.objects.create(name="A1", desc="a1", treatment=t1)
-        a1.studies.add(s1)
-        a2 = BSTLVAnimalTestModel.objects.create(name="A2", desc="a2", treatment=t2)
-        a2.studies.add(s1)
-        a2.studies.add(s2)
+        a1.studies.add(cls.s1)
+        cls.a2 = BSTLVAnimalTestModel.objects.create(name="A2", desc="a2", treatment=t2)
+        cls.a2.studies.add(cls.s1)
+        cls.a2.studies.add(cls.s2)
         super().setUpTestData()
 
     @TracebaseTestCase.assertNotWarns()
@@ -183,11 +191,13 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                f"AnimalLV-{AnimalLV.sortcol_cookie_name}": "studies__desc",
-                f"AnimalLV-{AnimalLV.asc_cookie_name}": "false",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.sortcol_cookie_name}": "studies__desc",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.asc_cookie_name}": "false",
             }
         )
-        alv = AnimalLV(request=request)
+        alv = AnimalWithMultipleStudyColsLV(request=request)
         self.assertEqual(Q(), alv.filters)
         self.assertEqual(
             Max(Lower("studies__desc")).desc(nulls_last=True),
@@ -210,7 +220,7 @@ class BSTListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_queryset(self):
-        alv = AnimalLV()
+        alv = AnimalWithMultipleStudyColsLV()
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.distinct(), alv.get_queryset(), ordered=False
         )
@@ -220,12 +230,15 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                f"AnimalLV-{AnimalLV.sortcol_cookie_name}": "name",
-                f"AnimalLV-{AnimalLV.asc_cookie_name}": "false",
-                f"AnimalLV-{AnimalLV.filter_cookie_name}-studies__name": "s",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.sortcol_cookie_name}": "name",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.asc_cookie_name}": "false",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-studies__name": "s",
             }
         )
-        alv1 = AnimalLV(request=request)
+        alv1 = AnimalWithMultipleStudyColsLV(request=request)
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.filter(studies__name__icontains="s")
             .order_by("-name")
@@ -235,11 +248,13 @@ class BSTListViewTests(TracebaseTestCase):
 
         request.COOKIES.update(
             {
-                f"AnimalLV-{AnimalLV.filter_cookie_name}-studies__name": "2",
-                f"AnimalLV-{AnimalLV.asc_cookie_name}": "true",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-studies__name": "2",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.asc_cookie_name}": "true",
             }
         )
-        alv2 = AnimalLV(request=request)
+        alv2 = AnimalWithMultipleStudyColsLV(request=request)
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.filter(studies__name__icontains="2")
             .order_by("name")
@@ -248,9 +263,10 @@ class BSTListViewTests(TracebaseTestCase):
         )
 
         request.COOKIES = {
-            f"AnimalLV-{AnimalLV.filter_cookie_name}-treatment": "ball",
+            f"{AnimalWithMultipleStudyColsLV.__name__}-"
+            f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-treatment": "ball",
         }
-        alv3 = AnimalLV(request=request)
+        alv3 = AnimalWithMultipleStudyColsLV(request=request)
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.filter(
                 treatment__name__icontains="ball"
@@ -260,7 +276,7 @@ class BSTListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_prefetches(self):
-        alv = AnimalLV()
+        alv = AnimalWithMultipleStudyColsLV()
         self.assertEqual(set(["studies", "treatment"]), set(alv.get_prefetches()))
 
     @TracebaseTestCase.assertNotWarns()
@@ -268,11 +284,13 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update(
             {
-                f"AnimalLV-{AnimalLV.filter_cookie_name}-studies__name": "test1",
-                f"AnimalLV-{AnimalLV.filter_cookie_name}-desc": "test2",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-studies__name": "test1",
+                f"{AnimalWithMultipleStudyColsLV.__name__}-"
+                f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-desc": "test2",
             }
         )
-        alv = AnimalLV(request=request)
+        alv = AnimalWithMultipleStudyColsLV(request=request)
         self.assertEqual(
             "(AND: ('studies__name__icontains', 'test1'), ('desc__icontains', 'test2'))",
             str(alv.get_filters()),
@@ -281,8 +299,10 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_search(self):
         request = HttpRequest()
-        request.COOKIES.update({"AnimalLV-search": "test1"})
-        alv = AnimalLV(request=request)
+        request.COOKIES.update(
+            {f"{AnimalWithMultipleStudyColsLV.__name__}-search": "test1"}
+        )
+        alv = AnimalWithMultipleStudyColsLV(request=request)
         self.assertEqual(
             "(OR: ('name__icontains', 'test1'), "
             "('desc__icontains', 'test1'), "
@@ -439,8 +459,41 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertTrue(is_paginated)
 
     def test_set_many_related_records_list(self):
-        # TODO: Implement test
-        pass
+        alv1 = AnimalDefaultLV()
+        studycol: BSTManyRelatedColumn = alv1.columns["studies"]
+        alv1.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+        self.assertTrue(hasattr(self.a2, studycol.list_attr_name))
+        self.assertEqual([self.s1, self.s2], getattr(self.a2, studycol.list_attr_name))
+
+        # Now let's adjust the column's limit to the number of many-related values to display and test the ellipsis.
+        # We are still sending in 2 study records, because that's what the code outside this does: it retrieves the
+        # limit + 1.
+        delattr(self.a2, studycol.list_attr_name)
+        alv2 = AnimalDefaultLV()
+        studycol: BSTManyRelatedColumn = alv2.columns["studies"]
+        # save_limit = studycol.limit
+        studycol.limit = 1
+        alv2.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+        # We also haven't added the count annotation, so just a plain ellipsis...
+        self.assertEqual([self.s1, "..."], getattr(self.a2, studycol.list_attr_name))
+
+        # Now let's simulate a count annotation having been added as an attribute/annotation
+        delattr(self.a2, studycol.list_attr_name)
+        setattr(self.a2, studycol.count_attr_name, 2)
+        alv3 = AnimalDefaultLV()
+        studycol: BSTManyRelatedColumn = alv3.columns["studies"]
+        studycol.limit = 1
+        alv3.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+        # We also haven't added the count annotation, so just a plain ellipsis...
+        self.assertEqual(
+            [self.s1, "... (+1 more)"], getattr(self.a2, studycol.list_attr_name)
+        )
+
+        # Now clean up so other tests do not fail
+        delattr(self.a2, studycol.list_attr_name)
+        delattr(self.a2, studycol.count_attr_name)
+        # # Restore the class attribute value
+        # studycol.limit = save_limit
 
     def test_get_rec_val_by_iteration(self):
         # TODO: Implement test
