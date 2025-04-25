@@ -95,10 +95,13 @@ class BSTAnnotColumn(BSTBaseColumn):
         sorter = kwargs.get("sorter")
         filterer = kwargs.get("filterer")
 
+        server_sorter = BSTAnnotSorter.get_server_sorter_matching_expression(converter)
         if sorter is None:
-            sorter = BSTAnnotSorter(name, name=name)
+            sorter = BSTAnnotSorter(name, name=name, _server_sorter=server_sorter)
         elif isinstance(sorter, str):
-            sorter = BSTAnnotSorter(name, name=name, client_sorter=sorter)
+            sorter = BSTAnnotSorter(
+                name, name=name, client_sorter=sorter, _server_sorter=server_sorter
+            )
         elif not isinstance(sorter, BSTAnnotSorter):
             raise TypeError(
                 f"sorter must be a BSTAnnotSorter, not {type(sorter).__name__}"

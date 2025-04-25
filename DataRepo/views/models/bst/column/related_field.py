@@ -140,6 +140,7 @@ class BSTRelatedColumn(BSTColumn):
         if self.is_fk:
             # To use .distinct(), you need the ordering fields from the related model, otherwise you get an exception
             # about the order_by and distinct fields being different
+            # TODO: This needs to be recursive
             self.distinct_fields = [
                 f"{self.field_path}__{f}" for f in self.related_model._meta.ordering
             ]
