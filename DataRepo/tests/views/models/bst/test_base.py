@@ -73,6 +73,11 @@ class AnimalNoStudiesBLV(BSTBaseListView):
     model = BSTBLVAnimalTestModel
     exclude = ["id", "studies"]
 
+class AnimalWithMultipleStudyColsBLV(BSTBaseListView):
+    model = BSTBLVAnimalTestModel
+    column_ordering = ["name", "desc", "treatment", "studies__name", "studies__desc"]
+    exclude = ["id", "studies"]
+
 
 @override_settings(DEBUG=True)
 class BSTBaseListViewTests(TracebaseTestCase):
@@ -124,10 +129,13 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual([], slv.warnings)
         self.assertDictEquivalent(
             {
-                "animals_mm_count": {
-                    "converter": Count("animals", output_field=IntegerField()),
-                    "header": "Animals Count",
-                }
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                )
             },
             slv.column_settings,
         )
@@ -139,6 +147,8 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "animals_mm_count",
                     Count("animals", output_field=IntegerField()),
                     header="Animals Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
                 ),
                 "animals": BSTManyRelatedColumn("animals", BSTBLVStudyTestModel),
             },
@@ -405,7 +415,6 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         alv = AnimalNoStudiesBLV(
             [
-                {"name": "study_count", "converter": Count("studies")},
                 "treatment__desc",
                 group,
             ]
@@ -422,7 +431,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "treatment__desc",
                     "desc",
                     "name",
-                    "study_count",
+                    "studies_mm_count",
                 ]
             ),
             set(list(alv.columns.keys())),
@@ -440,8 +449,15 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         self.assertEqual(BSTColumn("desc", BSTBLVAnimalTestModel), alv.columns["desc"])
         self.assertEqual(BSTColumn("name", BSTBLVAnimalTestModel), alv.columns["name"])
-        self.assertEqual(
-            BSTAnnotColumn("study_count", Count("studies")), alv.columns["study_count"]
+        self.assertEquivalent(
+            BSTAnnotColumn(
+                "studies_mm_count",
+                Count("studies", output_field=IntegerField()),
+                header="Studies Count",
+                filterer="strictFilterer",
+                sorter="numericSorter",
+            ),
+            alv.columns["studies_mm_count"],
         )
 
     def test_init_column(self):
@@ -569,10 +585,21 @@ class BSTBaseListViewTests(TracebaseTestCase):
         slv.add_default_many_related_column_settings()
         self.assertDictEquivalent(
             {
-                "animals_mm_count": {
-                    "converter": Count("animals", output_field=IntegerField()),
-                    "header": "Animals Count",
-                },
+                "animals_mm_count": BSTAnnotColumn(
+                    "animals_mm_count",
+                    Count("animals", output_field=IntegerField()),
+                    header="Animals Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                ),
             },
             slv.column_settings,
         )
+
+    def test_many_related_columns_exist(self):
+        alv1 = AnimalWithMultipleStudyColsBLV()
+        self.assertTrue(alv1.many_related_columns_exist("studies"))
+        alv2 = AnimalNoStudiesBLV()
+        self.assertFalse(alv2.many_related_columns_exist("studies"))
+        alv3 = AnimalBLV()
+        self.assertFalse(alv3.many_related_columns_exist("studies"))

@@ -423,17 +423,43 @@ class BSTBaseListView(BSTClientInterface):
             count_annot_name = BSTManyRelatedColumn.get_count_name(fld.name, self.model)
 
             if (
-                fld.name not in self.exclude
+                (
+                    fld.name not in self.exclude
+                    or self.many_related_columns_exist(fld.name)
+                )
                 and count_annot_name not in self.exclude
                 and count_annot_name not in self.column_settings.keys()
             ):
-                self.column_settings[count_annot_name] = {
-                    "converter": Count(fld.name, output_field=IntegerField()),
-                    "header": underscored_to_title(
+                self.column_settings[count_annot_name] = BSTAnnotColumn(
+                    count_annot_name,
+                    Count(fld.name, output_field=IntegerField()),
+                    header=underscored_to_title(
                         BSTManyRelatedColumn.get_attr_stub(fld.name, self.model)
                     )
                     + " Count",
-                }
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                )
+
+    def many_related_columns_exist(self, mr_model_path: str):
+        """Checks if a supplied many-related model path is the parent of any field among the column_settings keys or
+        column_ordering field paths.
+
+        Assumptions:
+            1. mr_model_path ends in a foreign key field
+            2. The self.column_settings have been initialized
+        Args:
+            mr_model_path (str): A dunderscore-delimited path to a foreign key that is many-related to the root model.
+        Exceptions:
+            None
+        Returns:
+            (bool): True if any field defined among the column_settings or column_ordering starts with the mr_model_path
+        """
+        return any(
+            f.startswith(f"{mr_model_path}__") for f in self.column_ordering
+        ) or any(
+            f.startswith(f"{mr_model_path}__") for f in self.column_settings.keys()
+        )
 
     def prepare_column_kwargs(
         self, column_settings: dict, settings_name: Optional[str] = None
