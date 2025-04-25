@@ -3355,8 +3355,25 @@ class BuildSubmissionView(FormView):
         load_status_data = MultiLoadStatus(load_keys=self.all_infile_names)
 
         try:
-            # Get the StudyLoader for the version of the input file
-            df_dict = read_from_file(self.study_file, sheet=None)
+            # Generate the df_dict, accounting for the data types by supplying the dtype argument.  We will use
+            # optional_mode to avoid pandas errors about types that do not allow empty values.
+            aes = AggregatedErrors()
+            df_dict = {}
+            sheets = get_sheet_names(self.study_file)
+            for ldr in StudyLoader.Loaders._asdict().values():
+                if (
+                    ldr is not None
+                    and issubclass(ldr, TableLoader)
+                    and ldr.DataSheetName in sheets
+                ):
+                    ldr_dtypes, ldr_aes = ldr._get_column_types(optional_mode=True)
+                    aes.merge_aggregated_errors_object(ldr_aes)
+
+                    # Get the StudyLoader for the version of the input file
+                    df_dict[ldr.DataSheetName] = self.read_from_file(
+                        self.study_file, sheet=ldr.DataSheetName, dtype=ldr_dtypes
+                    )
+
             loader_class = StudyLoader.get_derived_class(df_dict)
             sl: StudyLoader = loader_class(
                 df=df_dict,
@@ -3366,6 +3383,8 @@ class BuildSubmissionView(FormView):
                 annot_files_dict=self.annot_files_dict,
             )
             sl.load_data()
+
+            load_status_data.set_load_exception(aes, StudyLoader.ConversionHeading)
         except (
             InvalidStudyDocVersion,
             UnknownStudyDocVersion,
