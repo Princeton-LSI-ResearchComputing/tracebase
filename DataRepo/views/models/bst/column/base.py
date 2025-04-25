@@ -70,9 +70,9 @@ class BSTBaseColumn(ABC):
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
 
             sorter (Optional[Union[str, BSTBaseSorter]]) [auto]: If the value is a str, must be in
-                BSTBaseSorter.SORTERS.  Default will be based on the name and the sorter (if it is a str).
-            filterer (Optional[Union[str, BSTbaseFilterer]]) [auto]: If the value is a str, must be in
-                BSTbaseFilterer.FILTERERS.  Default will be based on the name and the filterer (if it is a str).
+                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).
+            filterer (Optional[Union[str, BSTBaseFilterer]]) [auto]: If the value is a str, must be in
+                BSTBaseFilterer.CLIENT_FILTERERS.  Default will be based on the name and the filterer (if it is a str).
 
             th_template (str) ["models/bst/th.html"]: Template path to an html file used to render the th
                 element for the column header.  This must handle the initial sort field, search term, and filter term.
