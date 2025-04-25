@@ -73,6 +73,7 @@ class AnimalNoStudiesBLV(BSTBaseListView):
     model = BSTBLVAnimalTestModel
     exclude = ["id", "studies"]
 
+
 class AnimalWithMultipleStudyColsBLV(BSTBaseListView):
     model = BSTBLVAnimalTestModel
     column_ordering = ["name", "desc", "treatment", "studies__name", "studies__desc"]
