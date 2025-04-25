@@ -929,17 +929,15 @@ class TracersLoader(TableLoader):
 
         return rec, created
 
-    def parse_label_positions(self, positions_str):
+    def parse_label_positions(self, positions_str: str):
         """Create a list of integers from a delimited string of integers.
 
         Args:
-            positions_str (string): delimited string of integers
-
-        Raises:
-            Nothing
-
+            positions_str (str): delimited string of integers
+        Exceptions:
+            None
         Returns:
-            positions (Optional[list of integers])
+            positions (Optional[List[int]])
         """
         positions = None
         if positions_str is None:
@@ -961,7 +959,7 @@ class TracersLoader(TableLoader):
                 )
                 # Package errors (like IntegrityError and ValidationError) with relevant details
                 # This also updates the skip row indexes
-                self.aggregated_errors_object.buffer_error(exc)
+                self.aggregated_errors_object.buffer_error(exc, orig_exception=e)
 
         return positions
 
