@@ -52,6 +52,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
     limit: int = 3
     ascending: bool = True
     more_msg = "... (+{0} more)"
+    more_unknown_msg = "..."
     list_attr_tail = "_mm_list"
     count_attr_tail = "_mm_count"
 
@@ -99,21 +100,29 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         self.sort_expression = sort_expression
         self.asc = asc if asc is not None else self.ascending
 
+        # Get the required superclass constructor arguments we need for checks
+        field_path: str = cast(str, args[0])
+        model: Type[Model] = cast(Type[Model], args[1])
+
+        if not is_many_related_to_root(field_path, model):
+            raise ValueError(
+                f"field_path '{field_path}' must be many-related to model '{model.__name__}'."
+            )
+
+        # We are guaranteed to get a path/str
+        self.many_related_model_path: str = cast(
+            str, field_path_to_model_path(model, field_path, many_related=True)
+        )
+
+        self.relative_many_related_field_path = field_path
+        self.relative_many_related_field_path.replace(self.many_related_model_path, "")
+        if self.many_related_model_path == field_path:
+            self.relative_many_related_field_path = "pk"
+        else:
+            self.relative_many_related_field_path.replace("__", "", 1)
+
         # Create attribute names to use to assign a list of related model objects and their count to the root model
         if list_attr_name is None or count_attr_name is None:
-            # Get the required superclass constructor arguments we need for checks
-            field_path: str = cast(str, args[0])
-            model: Type[Model] = cast(Type[Model], args[1])
-
-            if not is_many_related_to_root(field_path, model):
-                raise ValueError(
-                    f"field_path '{field_path}' must be many-related to model '{model.__name__}'."
-                )
-
-            # We are guaranteed to get a path/str
-            self.many_related_model_path: str = cast(
-                str, field_path_to_model_path(model, field_path, many_related=True)
-            )
 
             if isinstance(list_attr_name, str):
                 self.list_attr_name = list_attr_name
@@ -214,3 +223,38 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         )
 
         return BSTManyRelatedSorter(field_expression, self.model, **kwargs)
+
+    @property
+    def many_order_bys(self):
+        """Returns a list of expressions that can be supplied to a Django order_by() call in conjunction with a followup
+        call to .distinct().
+
+        NOTE: This is necessary because Django automatically adds Model._meta.ordering fields, recursively, in those
+        fields are foreign-keys, and it will error with an error reading something like 'SELECT DISTINCT ON expressions
+        must match initial ORDER BY expressions' if any ordering includes a foreign key.
+
+        Assumptions:
+            1. self.sorter.many_order_by does not contain a foreign key.  This is by design.  The sorter is created
+               intentionally with a non-foreign-key field.
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            obs (List[OrderBy])
+        """
+        self.sorter: BSTManyRelatedSorter
+        obs = [self.sorter.many_order_by]
+        for df in self.distinct_fields:
+            if df != self.sorter.field_path:
+                obs.append(df)
+        return obs
+
+    @property
+    def many_distinct_fields(self):
+        self.sorter: BSTManyRelatedSorter
+        obs = [self.sorter.many_expression]
+        for df in self.distinct_fields:
+            if df != self.sorter.field_path:
+                obs.append(df)
+        return obs
