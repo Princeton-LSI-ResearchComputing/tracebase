@@ -480,8 +480,8 @@ class BSTListView(BSTBaseListView):
             # proceed expeditiously.  If the count annotation is absent from the rec, we go with the limit, even though
             # that could mean we don't get fully ordered results.
             # We add 1 to col.limit so that we can display an ellipsis if more exist
-            limit = getattr(rec, col.count_attr_name)
-            if limit is None:
+            limit = getattr(rec, col.count_attr_name, -1)
+            if limit == -1:
                 limit = col.limit + 1
                 if settings.DEBUG:
                     warn(
@@ -491,6 +491,8 @@ class BSTListView(BSTBaseListView):
                     )
             sort_field_path = col.sorter.field_path.split("__")
             asc = col.asc
+        elif isinstance(col, BSTAnnotColumn):
+            return getattr(rec, col.name)
 
         # This method handles both singly-related and many-related column values and returns either a tuple (singly-
         # related) or a list of tuples (many-related)
@@ -671,9 +673,14 @@ class BSTListView(BSTBaseListView):
             sort_field_path[1:] if sort_field_path is not None else None
         )
         # If we're at the end of the field path, we need to issue a separate recursive call to get the sort value
-        if sort_field_path is not None and (
-            sort_field_path[0] != field_path[0]
-            or (len(sort_field_path) == len(field_path) and len(field_path) == 1)
+        if (
+            sort_field_path is not None
+            and _sort_val is None
+            and (
+                sort_field_path[0] != field_path[0]
+                or len(sort_field_path) == 1
+                or len(field_path) == 1
+            )
         ):
             sort_val, _, _ = self._get_rec_val_by_iteration_helper(
                 rec, sort_field_path, related_limit=2
@@ -752,19 +759,6 @@ class BSTListView(BSTBaseListView):
 
         mr_qs: QuerySet = getattr(rec, field_path[0])
 
-        if len(field_path) == 1:
-            if mr_qs.count() == 0:
-                return []
-
-            uniq_vals = reduceuntil(
-                lambda ulst, val: ulst + [val] if val not in ulst else ulst,
-                lambda val: related_limit is not None and len(val) >= related_limit,
-                self._last_many_rec_iterator(mr_qs, sort_field_path),
-                [],
-            )
-
-            return uniq_vals
-
         next_sort_field_path = (
             sort_field_path[1:] if sort_field_path is not None else []
         )
@@ -784,12 +778,29 @@ class BSTListView(BSTBaseListView):
             next_sort_field_path = []
             _sort_val = sort_val
 
+        if len(field_path) == 1:
+            if mr_qs.count() == 0:
+                return []
+
+            uniq_vals = reduceuntil(
+                lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+                lambda val: related_limit is not None and len(val) >= related_limit,
+                self._last_many_rec_iterator(mr_qs, next_sort_field_path),
+                [],
+            )
+
+            return uniq_vals
+
         if mr_qs.exists() > 0:
             uniq_vals = reduceuntil(
                 lambda ulst, val: ulst + [val] if val not in ulst else ulst,
                 lambda val: related_limit is not None and len(val) >= related_limit,
                 self._recursive_many_rec_iterator(
-                    mr_qs, field_path, next_sort_field_path, related_limit, _sort_val
+                    mr_qs,
+                    field_path[1:],
+                    next_sort_field_path,
+                    related_limit,
+                    _sort_val,
                 ),
                 [],
             )
@@ -800,15 +811,20 @@ class BSTListView(BSTBaseListView):
     def _last_many_rec_iterator(
         self,
         mr_qs: QuerySet,
-        sort_field_path: Optional[List[str]],
+        next_sort_field_path: List[str],
     ):
-        """Private iterator to help _get_rec_val_by_iteration_many_related_helper.  Allows it to stop when it reaches
-        its goal.  This is called when we're at the end of the field_path.  It will make a recursive call if the
+        """Private iterator to help _get_rec_val_by_iteration_many_related_helper.  It iterates through the queryset,
+        converting the many-related records to tuples of the record, the sort value, and the primary key.  This allows
+        the caller to stop when it reaches its goal.  This is called when we're at the end of the field_path.  I.e. the
+        end of the field_path is a foreign key to a many-related model.  It will make a recursive call if the
         sort_field_path is deeper than the field_path.
+
+        NOTE: This lower-cases the sort value (if it is a str).
 
         Args:
             mr_qs: (QuerySet): A queryset of values that are many-related to self.model.
-            sort_field_path (Optional[List[str]])
+            next_sort_field_path (Optional[List[str]]): The next sort_field_path that can be supplied directly to
+                recursive calls to _get_rec_val_by_iteration_helper without slicing it.
         Exceptions:
             None
         Returns:
@@ -823,10 +839,11 @@ class BSTListView(BSTBaseListView):
                 (
                     self._lower(
                         self._get_rec_val_by_iteration_helper(
-                            mr_rec, sort_field_path[1:]
+                            mr_rec, next_sort_field_path
                         )[0]
                     )
-                    if sort_field_path is not None and len(sort_field_path) > 1
+                    if len(next_sort_field_path) > 0
+                    # Lower-case the string version of the many-related model object
                     else str(mr_rec).lower()
                 ),
                 # We don't need pk for uniqueness when including model objects, but callers expect it
@@ -836,18 +853,22 @@ class BSTListView(BSTBaseListView):
     def _recursive_many_rec_iterator(
         self,
         mr_qs: QuerySet,
-        field_path: List[str],
+        next_field_path: List[str],
         next_sort_field_path: List[str],
         related_limit: int,
         _sort_val,
     ):
-        """Private iterator to help _get_rec_val_by_iteration_many_related_helper.  Allows it to stop when it reaches
-        its goal.  This is called when a many-related model is encountered before we're at the end of the field_path.
+        """Private iterator to help _get_rec_val_by_iteration_many_related_helper.  It iterates through the queryset,
+        retrieving the values at the end of the path using recursive calls.  This allows the caller to stop when it
+        reaches its goal.  This is called when a many-related model is encountered before we're at the end of the
+        field_path.
 
         Args:
             mr_qs: (QuerySet): A queryset of values that are many-related to self.model.
             field_path (List[str])
-            next_sort_field_path (List[str])
+            next_sort_field_path (List[str]): In order to simplify this method, instead of taking sort_field_path (which
+                needs to be checked and converted to the next path, because it can diverge or be a different length from
+                the field_path), that work must be done before calling this method.
             related_limit (int)
             _sort_val (Any)
         Exceptions:
@@ -859,7 +880,7 @@ class BSTListView(BSTBaseListView):
         for mr_rec in mr_qs.all():
             val = self._get_rec_val_by_iteration_helper(
                 mr_rec,
-                field_path[1:],
+                next_field_path,
                 related_limit=related_limit,
                 sort_field_path=next_sort_field_path,
                 _sort_val=_sort_val,

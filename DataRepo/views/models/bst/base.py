@@ -109,8 +109,12 @@ class BSTBaseListView(BSTClientInterface):
         # users to supply groups by column name and/or settings
         super().__init__(**kwargs)
 
-        # This is an override of ListView.ordering, defined here to silence Django Warnings.  It specifies the default
-        # *row* ordering of the model objects, which is already set in the model.
+        # This is an override of ListView.ordering, defined here to silence this warning from Django:
+        #   Pagination may yield inconsistent results with an unordered object_list:
+        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
+        # It specifies the default *row* ordering of the model objects, which is already set in the model.
+        # NOTE: You can still get this warning if the model has no ordering in its Meta and the user hasn't ordered the
+        # rows manually.
         self.ordering = self.model._meta.ordering if self.model is not None else []
 
         # Initialize the values obtained from cookies
