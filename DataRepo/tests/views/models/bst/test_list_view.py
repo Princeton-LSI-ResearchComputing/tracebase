@@ -17,10 +17,13 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
+from DataRepo.views.models.bst.column.field import BSTColumn
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
+from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
@@ -54,6 +57,13 @@ BSTLVAnimalTestModel = create_test_model(
             to="loader.BSTLVTreatmentTestModel",
             related_name="animals",
             on_delete=CASCADE,
+        ),
+    },
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "ordering": ["-name"]},
         ),
     },
 )
@@ -100,13 +110,17 @@ class AnimalDefaultLV(BSTListView):
 class BSTListViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        t1 = BSTLVTreatmentTestModel.objects.create(name="T1", desc="t1")
-        t2 = BSTLVTreatmentTestModel.objects.create(name="oddball", desc="t2")
+        cls.t1 = BSTLVTreatmentTestModel.objects.create(name="T1", desc="t1")
+        cls.t2 = BSTLVTreatmentTestModel.objects.create(name="oddball", desc="t2")
         cls.s1 = BSTLVStudyTestModel.objects.create(name="S1", desc="s1")
         cls.s2 = BSTLVStudyTestModel.objects.create(name="S2", desc="s2")
-        a1 = BSTLVAnimalTestModel.objects.create(name="A1", desc="a1", treatment=t1)
-        a1.studies.add(cls.s1)
-        cls.a2 = BSTLVAnimalTestModel.objects.create(name="A2", desc="a2", treatment=t2)
+        cls.a1 = BSTLVAnimalTestModel.objects.create(
+            name="A1", desc="a1", treatment=cls.t1
+        )
+        cls.a1.studies.add(cls.s1)
+        cls.a2 = BSTLVAnimalTestModel.objects.create(
+            name="A2", desc="a2", treatment=cls.t2
+        )
         cls.a2.studies.add(cls.s1)
         cls.a2.studies.add(cls.s2)
         super().setUpTestData()
@@ -406,11 +420,13 @@ class BSTListViewTests(TracebaseTestCase):
             [f"StudyLV-{StudyLV.filter_cookie_name}-desc"], slv.cookie_resets
         )
 
+    @TracebaseTestCase.assertNotWarns()
     def test__lower(self):
         self.assertEqual("test string", BSTListView._lower("Test String"))
         self.assertEqual(5, BSTListView._lower(5))
         self.assertIsNone(BSTListView._lower(None))
 
+    @TracebaseTestCase.assertNotWarns()
     def test_get_paginate_by(self):
         for n in range(50):
             BSTLVStudyTestModel.objects.create(name=f"ts{n}")
@@ -450,6 +466,7 @@ class BSTListViewTests(TracebaseTestCase):
         qs = slv5.get_queryset()
         self.assertEqual(52, slv5.get_paginate_by(qs))
 
+    @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset(self):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "1"}
@@ -463,6 +480,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertQuerySetEqual(qs.all()[0:1], object_list)
         self.assertTrue(is_paginated)
 
+    @TracebaseTestCase.assertNotWarns()
     def test_set_many_related_records_list(self):
         alv1 = AnimalDefaultLV()
         studycol: BSTManyRelatedColumn = alv1.columns["studies"]
@@ -476,7 +494,6 @@ class BSTListViewTests(TracebaseTestCase):
         delattr(self.a2, studycol.list_attr_name)
         alv2 = AnimalDefaultLV()
         studycol: BSTManyRelatedColumn = alv2.columns["studies"]
-        # save_limit = studycol.limit
         studycol.limit = 1
         alv2.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
         # We also haven't added the count annotation, so just a plain ellipsis...
@@ -506,6 +523,7 @@ class BSTListViewTests(TracebaseTestCase):
         studydesccol.limit = 1
         qs = alv4.get_queryset()
         _, _, object_list, _ = alv4.paginate_queryset(qs, 1)
+        # The model's ordering is "-name"
         a2 = object_list[0]
         # The study *name* order is ascending by default (even though the excluded studies column is descending
         # according to the model's _meta.ordering, so we expect s1
@@ -519,37 +537,158 @@ class BSTListViewTests(TracebaseTestCase):
         # Now clean up so other tests do not fail
         delattr(self.a2, studycol.list_attr_name)
         delattr(self.a2, studycol.count_attr_name)
-        # # Restore the class attribute value
-        # studycol.limit = save_limit
 
-    def test_get_rec_val_by_iteration(self):
-        # TODO: Implement test
-        pass
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_rec_val_by_iteration_with_annot(self):
+        alv1 = AnimalDefaultLV()
+        qs1 = BSTLVAnimalTestModel.objects.annotate(
+            studies_mm_count=Count(
+                "studies", distinct=True, output_field=IntegerField()
+            )
+        ).all()
+        namecol = BSTColumn("name", BSTLVAnimalTestModel)
+        trtdsccol = BSTRelatedColumn("treatment__desc", BSTLVAnimalTestModel)
+        stdynmcol = BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel)
+        stdycntcol = BSTAnnotColumn(
+            "studies_mm_count",
+            Count("studies", distinct=True, output_field=IntegerField()),
+            header="Studies Count",
+            filterer="strictFilterer",
+            sorter="numericSorter",
+        )
+        rec1 = qs1.first()
+        self.assertEqual("A1", alv1.get_rec_val_by_iteration(rec1, namecol))
+        self.assertEqual("t1", alv1.get_rec_val_by_iteration(rec1, trtdsccol))
+        self.assertEqual(1, alv1.get_rec_val_by_iteration(rec1, stdycntcol))
+        self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
 
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_rec_val_by_iteration_annot_excluded(self):
+        alv1 = AnimalDefaultLV()
+        qs1 = BSTLVAnimalTestModel.objects.order_by("name")
+        stdynmcol = BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel)
+        rec1 = qs1.first()
+        with self.assertWarns(DeveloperWarning) as aw:
+            self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "The count annotation for column studies__name is absent",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn(
+            "Cannot guarantee the top 3 records will include the the min/max",
+            str(aw.warnings[0].message),
+        )
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__get_rec_val_by_iteration_helper(self):
+        alv1 = AnimalDefaultLV()
+        val, sval, id = alv1._get_rec_val_by_iteration_helper(
+            self.a1,
+            ["treatment"],
+            sort_field_path=["treatment", "name"],
+        )
+        self.assertEqual(self.t1, val)
+        # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
+        # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
+        # up the methods... so I should look into the possibility of remove it.
+        self.assertEqual("T1", sval)
+        self.assertIsInstance(id, int)
+
+        alv2 = AnimalDefaultLV()
+        vals = alv2._get_rec_val_by_iteration_helper(
+            self.a2,
+            ["studies"],
+            related_limit=2,
+            sort_field_path=["studies", "name"],
+        )
+        expected1 = set([self.s2, self.s1])
+        expected2 = set(["s1", "s2"])
+        vals1 = set([v[0] for v in vals])
+        vals2 = set([v[1] for v in vals])
+        vals3 = set([v[2] for v in vals])
+        self.assertEqual(expected1, vals1)
+        self.assertEqual(expected2, vals2)
+        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__get_rec_val_by_iteration_single_helper(self):
+        alv = AnimalDefaultLV()
+        val, sval, id = alv._get_rec_val_by_iteration_single_helper(
+            self.a1,
+            ["treatment"],
+            sort_field_path=["treatment", "name"],
+        )
+        self.assertEqual(self.t1, val)
+        # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
+        # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
+        # up the methods... so I should look into the possibility of remove it.
+        self.assertEqual("T1", sval)
+        self.assertIsInstance(id, int)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__get_rec_val_by_iteration_many_helper(self):
+        alv = AnimalDefaultLV()
+        vals = alv._get_rec_val_by_iteration_many_helper(
+            self.a2,
+            ["studies"],
+            related_limit=2,
+            sort_field_path=["studies", "name"],
+        )
+        expected2 = set(["s1", "s2"])
+        expected1 = set([self.s2, self.s1])
+        vals1 = set([v[0] for v in vals])
+        vals2 = set([v[1] for v in vals])
+        vals3 = set([v[2] for v in vals])
+        self.assertEqual(expected2, vals2)
+        self.assertEqual(expected1, vals1)
+        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__last_many_rec_iterator(self):
+        alv = AnimalDefaultLV()
+        mr_qs = BSTLVStudyTestModel.objects.all()
+        iterator = iter(alv._last_many_rec_iterator(mr_qs, ["name"]))
+        expected1 = set([self.s2, self.s1])
+        # The names are lower-cased
+        expected2 = set(["s1", "s2"])
+        val1 = next(iterator)
+        val2 = next(iterator)
+        vals1 = set([val1[0], val2[0]])
+        vals2 = set([val1[1], val2[1]])
+        vals3 = set([val1[2], val2[2]])
+        self.assertEqual(expected1, vals1)
+        self.assertEqual(expected2, vals2)
+        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test__recursive_many_rec_iterator(self):
+        alv = AnimalWithMultipleStudyColsLV()
+        mr_qs = BSTLVStudyTestModel.objects.all()
+        iterator = iter(
+            alv._recursive_many_rec_iterator(mr_qs, ["name"], ["name"], 2, None)
+        )
+        expected = set([("S2", "S2", "S2"), ("S1", "S1", "S1")])
+        vals = set(
+            [
+                next(iterator),
+                next(iterator),
+            ]
+        )
+        self.assertEqual(expected, vals)
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
+    @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_rec_val_by_subquery(self):
         # TODO: Implement test
+        # BUG: CURRENTLY BROKEN
         pass
 
-    def test__get_rec_val_by_iteration_helper(self):
-        # TODO: Implement test
-        pass
-
-    def test__get_rec_val_by_iteration_single_helper(self):
-        # TODO: Implement test
-        pass
-
-    def test__get_rec_val_by_iteration_many_helper(self):
-        # TODO: Implement test
-        pass
-
-    def test__last_many_rec_iterator(self):
-        # TODO: Implement test
-        pass
-
-    def test__recursive_many_rec_iterator(self):
-        # TODO: Implement test
-        pass
-
+    @TracebaseTestCase.assertNotWarns()
     def test__get_many_related_rec_val_by_subquery_helper(self):
         # TODO: Implement test
+        # BUG: CURRENTLY BROKEN
         pass
