@@ -452,7 +452,9 @@ def field_path_to_model_path(
     )
 
 
-def select_representative_field(model: Type[Model], force=False) -> Optional[str]:
+def select_representative_field(
+    model: Type[Model], force=False, include_expression=False
+) -> Optional[Union[str, Expression]]:
     """(Arbitrarily) select the best single field to represent a model.
 
     A field is chosen based on the following criteria, in order of precedence:
@@ -471,6 +473,8 @@ def select_representative_field(model: Type[Model], force=False) -> Optional[str
         model (Type[Model])
         force (bool) [False]: Force a field to be selected as a representative when there is no single ordering field
             and there are no unique fields that are not the arbitrary primary key or foreign keys.
+        include_expression (bool) [False]: If a suitable single field is selected from the model's ordering, return it
+            as-is, instead of just returning a string version of the field name.
     Exceptions:
         None
     Returns:
@@ -478,6 +482,8 @@ def select_representative_field(model: Type[Model], force=False) -> Optional[str
     """
     if len(model._meta.ordering) == 1:
         # If there's only 1 ordering field, use it
+        if include_expression:
+            return model._meta.ordering[0]
         return resolve_field_path(model._meta.ordering[0])
 
     all_fields = model._meta.get_fields()
