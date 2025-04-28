@@ -7,12 +7,13 @@ from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     InvalidStudyDocVersion,
     MultipleStudyDocVersions,
     OptionsNotAvailable,
     UnknownStudyDocVersion,
 )
-from DataRepo.utils.file_utils import read_from_file
+from DataRepo.utils.file_utils import get_sheet_names, read_from_file
 
 
 class Command(LoadTableCommand):
@@ -155,9 +156,28 @@ class Command(LoadTableCommand):
                 )
 
         try:
-            df = read_from_file(self.get_infile(), sheet=None)
+            # Generate the df_dict, accounting for the data types by supplying the dtype argument.  We will use
+            # optional_mode to avoid pandas errors about types that do not allow empty values.
+            aes: AggregatedErrors = AggregatedErrors()
+            df_dict = {}
+            ldr: TableLoader
+            sheets = get_sheet_names(self.get_infile())
+            for ldr in StudyLoader.Loaders._asdict().values():
+                if (
+                    ldr is not None
+                    and issubclass(ldr, TableLoader)
+                    and ldr.DataSheetName in sheets
+                ):
+                    ldr_dtypes, ldr_aes = ldr._get_column_types(optional_mode=True)
+                    aes.merge_aggregated_errors_object(ldr_aes)
+
+                    # Get the StudyLoader for the version of the input file
+                    df_dict[ldr.DataSheetName] = read_from_file(
+                        self.get_infile(), sheet=ldr.DataSheetName, dtype=ldr_dtypes
+                    )
+
             self.loader_class = StudyLoader.get_derived_class(
-                df,
+                df_dict,
                 version=options.get("infile_version"),
             )
         except InvalidStudyDocVersion as isdv:
@@ -175,6 +195,7 @@ class Command(LoadTableCommand):
         self.init_loader(
             mzxml_dir=options.get("mzxml_dir"),
             exclude_sheets=exclude_sheets,
+            aes=aes,
         )
 
         self.load_data()

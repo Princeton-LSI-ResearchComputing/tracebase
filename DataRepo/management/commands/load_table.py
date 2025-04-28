@@ -147,10 +147,12 @@ class LoadTableCommand(ABC, BaseCommand):
         # The handle_wrapper method uses saved_aes to manage AggregatedErrors exceptions raised by the loader(s)
         self.saved_aes = None
 
-    def init_loader(self, *args, **kwargs):
+    def init_loader(self, *args, aes: Optional[AggregatedErrors] = None, **kwargs):
         # These are used to copy derived class headers and defaults to newly created objects
         saved_headers = None
         saved_defaults = None
+
+        self.loader: TableLoader
 
         if hasattr(self, "loader"):
             # The derived class code may have called set_headers or set_defaults to establish dynamic headers/defaults.
@@ -214,7 +216,7 @@ class LoadTableCommand(ABC, BaseCommand):
 
             # Intermediate loader state (needed before calling get_dataframe, because it performs checks on the sheet,
             # and the sheet's headers can be changed by the constructor based on the type of input file)
-            self.loader: TableLoader = self.loader_class(*args, **kwargs)
+            self.loader = self.loader_class(*args, **kwargs)
 
             # Now we can parse the dataframe using the user-customized dtype dict
             kwargs["df"] = self.get_dataframe()
@@ -222,7 +224,11 @@ class LoadTableCommand(ABC, BaseCommand):
         # Before handle() has been called (with options), just initialize the loader with all supplied arguments.
         # Note that the derived class MUST have a defined value for the class attribute `loader_class`, so if the
         # derived class is an abstract class as well, you must set a default loader_class.
-        self.loader: TableLoader = self.loader_class(*args, **kwargs)
+        self.loader = self.loader_class(*args, **kwargs)
+
+        if aes is not None:
+            # If there were errors/warnings before initializing the loader, merge them
+            self.loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.
