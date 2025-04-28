@@ -50,7 +50,8 @@ class BSTBaseColumn(ABC):
         """Defines options used to customize bootstrap table columns.
 
         Args:
-            name (str): The column name (used for identifying the correct sorter object).
+            name (str): The column name used by Bootstrap Table to uniquely identify a column, particularly for sorting
+                and filtering operations.
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
 

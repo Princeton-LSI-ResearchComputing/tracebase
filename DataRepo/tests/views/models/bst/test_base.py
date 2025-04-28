@@ -34,7 +34,7 @@ BSTBLVStudyTestModel = create_test_model(
         "Meta": type(
             "Meta",
             (),
-            {"app_label": "loader", "ordering": [Lower("-name")]},
+            {"app_label": "loader", "ordering": [Lower("name").desc()]},
         ),
     },
 )
@@ -88,7 +88,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         blv = BSTBaseListView()
         blv.request = HttpRequest()
 
-        self.assertEqual([], blv.ordering)
+        self.assertEqual(["id"], blv.ordering)
         self.assertIsNone(blv.search_term)
         self.assertEqual({}, blv.filter_terms)
         self.assertEqual({}, blv.visibles)
@@ -119,7 +119,9 @@ class BSTBaseListViewTests(TracebaseTestCase):
         request.GET.update({"limit": "20"})
         slv = StudyBLV(request=request)
 
-        self.assertEqual([Lower("-name")], slv.ordering)
+        self.assertEqual(
+            "[OrderBy(Lower(F(name)), descending=True)]", str(slv.ordering)
+        )
         self.assertIsNone(slv.search_term)
         self.assertEqual({"desc": "description"}, slv.filter_terms)
         self.assertEqual({"name": True, "desc": False}, slv.visibles)
