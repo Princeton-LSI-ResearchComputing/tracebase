@@ -113,9 +113,21 @@ class BSTBaseListView(BSTClientInterface):
         #   Pagination may yield inconsistent results with an unordered object_list:
         #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
         # It specifies the default *row* ordering of the model objects, which is already set in the model.
-        # NOTE: You can still get this warning if the model has no ordering in its Meta and the user hasn't ordered the
-        # rows manually.
-        self.ordering = self.model._meta.ordering if self.model is not None else []
+        self.ordering: Optional[list]
+        has_ordering = (
+            hasattr(self, "ordering")
+            and self.ordering is not None
+            and len(self.ordering) > 0
+        )
+        if self.model is not None and not has_ordering:
+            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
+            # way to apply that ordering by the user.  It is just the default initial ordering.
+            ordering_field = select_representative_field(
+                self.model, force=True, include_expression=True
+            )
+            self.ordering = [ordering_field]
+        elif not has_ordering:
+            self.ordering = ["id"]
 
         # Initialize the values obtained from cookies
         self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
