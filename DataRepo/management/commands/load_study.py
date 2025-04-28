@@ -156,19 +156,32 @@ class Command(LoadTableCommand):
                 )
 
         try:
+            # TODO: All this rigor between here and the setting of self.loader_class is fairly ugly.  Needing to check
+            # StudyLoader.CustomLoaderKwargs is a big hassle.  It is caused by pandas' awkwardness in handling types
+            # whose values can be None (i.e. they are optional).  E.g. If pandas is told a column is an int, it balks if
+            # a cell is empty.  Pandas does have optional equivalent types, so that might be a possibility.  But this
+            # could all be circumvented by simply letting pandas determine types dynamically and just casting the
+            # expected value in TableLoader.get_row_val when it gets it wrong.
+
             # Generate the df_dict, accounting for the data types by supplying the dtype argument.  We will use
             # optional_mode to avoid pandas errors about types that do not allow empty values.
             aes: AggregatedErrors = AggregatedErrors()
             df_dict = {}
             ldr: TableLoader
             sheets = get_sheet_names(self.get_infile())
-            for ldr in StudyLoader.Loaders._asdict().values():
+            for key, ldr in StudyLoader.Loaders._asdict().items():
                 if (
                     ldr is not None
                     and issubclass(ldr, TableLoader)
                     and ldr.DataSheetName in sheets
                 ):
-                    ldr_dtypes, ldr_aes = ldr._get_column_types(optional_mode=True)
+                    kwargs = getattr(StudyLoader.CustomLoaderKwargs, key, None)
+                    headers = None
+                    if kwargs is not None and "headers" in kwargs.keys():
+                        headers = kwargs["headers"]
+                    ldr_dtypes, ldr_aes = ldr._get_column_types(
+                        headers=headers, optional_mode=True
+                    )
                     aes.merge_aggregated_errors_object(ldr_aes)
 
                     # Get the StudyLoader for the version of the input file
