@@ -1,15 +1,19 @@
-import warnings
 from typing import Optional, Union
+from warnings import warn
 
 from django.conf import settings
-from django.db.models import Field
-from django.db.models.expressions import Combinable
+from django.db.models import F, Field, Model
+from django.db.models.expressions import Combinable, Expression
 from django.db.models.functions import Lower
 from django.templatetags.static import static
 from django.utils.functional import classproperty
 from django.utils.safestring import mark_safe
 
-from DataRepo.models.utilities import is_number_field, is_string_field
+from DataRepo.models.utilities import (
+    field_path_to_field,
+    is_number_field,
+    resolve_field_path,
+)
 
 
 class BSTSorter:
@@ -60,55 +64,85 @@ class BSTSorter:
 
     def __init__(
         self,
-        field: Optional[Field] = None,
+        field_expression: Union[Combinable, Field, str],
         client_sorter: Optional[str] = None,
-        transform=None,
         client_mode: bool = False,
+        model: Optional[Model] = None,
     ):
         """Construct a BSTSorter object.
 
+        Assumptions:
+            1. In the case of field_expression being a Field, the "field path" returned assumes that the context of the
+                field path is the immediate model that the Field belongs to.
+            2. The output type of the field_expression is the same as the field it contains.  E.g. if the
+                field_expression is Lower("files__name"), then the output type of Lower is assumed to be the same type
+                as the field type of "files__name", e.g. a CharField.
+        Limitations:
+            1. Only supports a single source field path.
         Args:
-            field (Optional[Field]): A Model field, used for automatically selecting a sorter and transform.
+            field_expression (Union[Combinable, Field, str]): A Model Field, Combinable (e.g. Expression, Transform), or
+                str (e.g. a field path or name) used for automatically selecting a client_sorter and transform.
             client_sorter (Optional[str]) [auto]: The string to set the Bootstrap Table data-sorter attribute.  The
                 default is alphanumericSorter if field is not supplied, otherwise if the field type is a number field,
                 numericSorter is set.
-            transform (Combinable) [BSTSorter.identity]: A method used for transforming the Django ORM order_by field,
-                e.g. django.db.models.functions.Lower.  The default is an identity function (i.e. no transform).  Note,
-                this should match the behavior of client_sorter.
             client_mode (bool): Set to True if the initial table is not filtered and the page queryset is the same size
                 as the total queryset.
+            model (Optional[Model]): The root model of the field path, only used if field_expression is/contains a field
+                path, to obtain the Field type and set the client_sorter based on it.
         Exceptions:
             ValueError when transform is invalid.
         Returns:
             None
         """
-        if transform is not None:
-            try:
-                if not issubclass(transform, Combinable):
-                    raise ValueError(
-                        "transform must be a Combinable, e.g. type Transform."
-                    )
-            except TypeError:
-                raise ValueError("transform must be a Combinable, e.g. type Transform.")
-            self.transform = transform
-        elif is_string_field(field):
-            self.transform = Lower
+        self.model = model
+        # Set field_path, field, and sort_expression
+        if isinstance(field_expression, Field):
+            self.field_path = resolve_field_path(field_expression)
+            self.field = field_expression
+            if not is_number_field(self.field):
+                self.sort_expression = Lower(self.field.name)
+            else:
+                self.sort_expression = F(field_expression.name)
         else:
-            self.transform = BSTSorter.identity
+            self.field_path = resolve_field_path(field_expression)
+            if self.model is not None:
+                self.field = field_path_to_field(self.model, self.field_path)
+                if (
+                    isinstance(field_expression, str)
+                    or not isinstance(field_expression, Expression)
+                ) and not is_number_field(self.field):
+                    self.sort_expression = Lower(self.field_path)
+                elif isinstance(field_expression, str):
+                    self.sort_expression = F(field_expression)
+                else:
+                    if (
+                        not isinstance(field_expression, Lower)
+                        and client_sorter is None
+                        and settings.DEBUG
+                    ):
+                        warn(
+                            f"field_expression ({field_expression}) supplied without a corresponding client_sorter.  "
+                            "Unable to select a client_sorter that matches the expression.  Server sort may "
+                            "differ from client sort.  Selecting a default client_sorter based on the field type "
+                            f"'{type(self.field).__name__}'."
+                        )
+                    self.sort_expression = field_expression
+            else:
+                self.field = None
+                if settings.DEBUG:
+                    warn(
+                        f"field_expression ({field_expression}) supplied without a model.  Unable to determine field "
+                        "type and apply default transform ('Lower') that matches the client_sorter.  Server sort may "
+                        "differ from client sort.  Defaulting to expression as-is."
+                    )
+                if isinstance(field_expression, str):
+                    self.sort_expression = F(field_expression)
+                else:
+                    self.sort_expression = field_expression
 
         if client_sorter is not None:
-            if (
-                settings.DEBUG
-                and client_sorter not in self.SORTERS
-                and not client_mode
-                and transform is None
-            ):
-                warnings.warn(
-                    f"Custom client_sorter '{client_sorter}' supplied in server mode without a custom transform.  "
-                    "Server sort may differ from client sort."
-                )
             self.client_sorter = client_sorter
-        elif is_number_field(field):
+        elif self.field is not None and is_number_field(self.field):
             self.client_sorter = self.SORTER_JS_NUMERIC
         else:
             # Rely on Django for the sorting.  Don't apply a javascript sort on top of it.
@@ -119,6 +153,9 @@ class BSTSorter:
     def __str__(self) -> str:
         return self.sorter
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.__dict__ == other.__dict__
+
     @property
     def sorter(self):
         return self.client_sorter if self.client_mode else self.server_sorter
@@ -128,12 +165,6 @@ class BSTSorter:
 
     def set_server_mode(self, enabled: bool = True):
         self.client_mode = not enabled
-
-    @classmethod
-    def identity(cls, expression: Union[str, Combinable]) -> Union[str, Combinable]:
-        """identity() needs to work on any combinable or string it is given.  In other words, and value you can give to
-        .order_by()"""
-        return expression
 
     @classproperty
     def javascript(cls) -> str:  # pylint: disable=no-self-argument
