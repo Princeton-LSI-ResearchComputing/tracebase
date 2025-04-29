@@ -1,3 +1,4 @@
+import pandas as pd
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
@@ -84,3 +85,32 @@ class LoadStudyTests(TracebaseTestCase):
             PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_get_dataframe(self):
+        """Asserts that the '1' in the Label Positions column of the Tracers sheet is read in as a string and not an
+        int.  This basically tests that code in get_dataframe correctly compiles a dtype dict and passes it on to
+        read_from_file so that pandas doesn't dynamically assign a type it thinks the column is, when we know that the
+        type should be something else.  In this case, the Label Positions should be a string because we call .split on
+        it to divide comma-separated values."""
+        from DataRepo.management.commands.load_study import Command
+
+        lsc = Command()
+        lsc.options = {
+            "infile": "DataRepo/data/tests/load_study/single_tracer_label_position.xlsx"
+        }
+        df_dict = lsc.get_dataframe()
+        pd.testing.assert_frame_equal(
+            pd.DataFrame.from_dict(
+                {
+                    "Tracer Row Group": [1],
+                    "Compound": ["creatine"],
+                    "Mass Number": [13],
+                    "Element": ["C"],
+                    "Label Count": [1],
+                    "Label Positions": ["1"],  # Ensure this is a string!
+                    "Tracer Name": ["creatine-[1-13C1]"],
+                },
+            ),
+            df_dict["Tracers"],
+            check_like=True,
+        )
