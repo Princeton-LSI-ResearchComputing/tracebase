@@ -40,11 +40,13 @@ def read_from_file(
         filepath (str): Path to infile
         sheet (str): Name of excel sheet
         filetype (str): Enumeration ["csv", "tsv", "excel", "yaml"]
-        dtype (Dict(str)): header: type
+        dtype (Dict[str, Union[Type, Dict[str, Type]]]): This is either a dict of types keyed in column headers or a 2D
+            dict of the same thing where the outer keys are sheet names (i.e. dicts of types keyed on sheets and
+            headers).
         keep_default_na (bool): The keep_default_na arg to pandas
         dropna (bool): Whether to drop na
         na_values (bool): The na_values arg to pandas
-        expected_headers (List(str)): List of all expected header names
+        expected_headers (List[str]): List of all expected header names
     Exceptions:
         None
     Returns:
