@@ -147,7 +147,7 @@ class LoadTableCommand(ABC, BaseCommand):
         # The handle_wrapper method uses saved_aes to manage AggregatedErrors exceptions raised by the loader(s)
         self.saved_aes = None
 
-    def init_loader(self, *args, aes: Optional[AggregatedErrors] = None, **kwargs):
+    def init_loader(self, *args, **kwargs):
         # These are used to copy derived class headers and defaults to newly created objects
         saved_headers = None
         saved_defaults = None
@@ -225,10 +225,6 @@ class LoadTableCommand(ABC, BaseCommand):
         # Note that the derived class MUST have a defined value for the class attribute `loader_class`, so if the
         # derived class is an abstract class as well, you must set a default loader_class.
         self.loader = self.loader_class(*args, **kwargs)
-
-        if aes is not None:
-            # If there were errors/warnings before initializing the loader, merge them
-            self.loader.aggregated_errors_object.merge_aggregated_errors_object(aes)
 
     def apply_handle_wrapper(self):
         """This applies a decorator to the derived class's handle method.

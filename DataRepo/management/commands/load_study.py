@@ -105,7 +105,40 @@ class Command(LoadTableCommand):
         if file is None:
             return None
 
-        return read_from_file(file, sheet=None)
+        # TODO: All this rigor between here and the return is fairly ugly.  Needing to check
+        # StudyLoader.CustomLoaderKwargs is a big hassle.  It is caused by pandas' awkwardness in handling types
+        # whose values can be None (i.e. they are optional).  E.g. If pandas is told a column is an int, it balks if
+        # a cell is empty.  Pandas does have optional equivalent types, so that might be a possibility.  But this
+        # could all be circumvented by simply letting pandas determine types dynamically and just casting the
+        # expected value in TableLoader.get_row_val when it gets it wrong.
+
+        # Generate the df_dict, accounting for the data types by supplying the dtype argument.  We will use
+        # optional_mode to avoid pandas errors about types that do not allow empty values.
+        df_dict = {}
+        ldr: TableLoader
+        sheets = get_sheet_names(file)
+        for key, ldr in StudyLoader.Loaders._asdict().items():
+            if (
+                ldr is not None
+                and issubclass(ldr, TableLoader)
+                and ldr.DataSheetName in sheets
+            ):
+                kwargs = getattr(StudyLoader.CustomLoaderKwargs, key, None)
+                headers = None
+                if kwargs is not None and "headers" in kwargs.keys():
+                    headers = kwargs["headers"]
+                # TODO: The second argument of the return is an AggregatedErrors object.  This should be saved and
+                # issues incorporated.  For now, it is just warnings, so it's NBD.
+                ldr_dtypes, _ = ldr._get_column_types(
+                    headers=headers, optional_mode=True
+                )
+
+                # Get the StudyLoader for the version of the input file
+                df_dict[ldr.DataSheetName] = read_from_file(
+                    file, sheet=ldr.DataSheetName, dtype=ldr_dtypes
+                )
+
+        return df_dict
 
     def handle(self, *args, **options):
         """Code to run when the command is called from the command line.
@@ -156,39 +189,8 @@ class Command(LoadTableCommand):
                 )
 
         try:
-            # TODO: All this rigor between here and the setting of self.loader_class is fairly ugly.  Needing to check
-            # StudyLoader.CustomLoaderKwargs is a big hassle.  It is caused by pandas' awkwardness in handling types
-            # whose values can be None (i.e. they are optional).  E.g. If pandas is told a column is an int, it balks if
-            # a cell is empty.  Pandas does have optional equivalent types, so that might be a possibility.  But this
-            # could all be circumvented by simply letting pandas determine types dynamically and just casting the
-            # expected value in TableLoader.get_row_val when it gets it wrong.
-
-            # Generate the df_dict, accounting for the data types by supplying the dtype argument.  We will use
-            # optional_mode to avoid pandas errors about types that do not allow empty values.
-            aes: AggregatedErrors = AggregatedErrors()
-            df_dict = {}
-            ldr: TableLoader
-            sheets = get_sheet_names(self.get_infile())
-            for key, ldr in StudyLoader.Loaders._asdict().items():
-                if (
-                    ldr is not None
-                    and issubclass(ldr, TableLoader)
-                    and ldr.DataSheetName in sheets
-                ):
-                    kwargs = getattr(StudyLoader.CustomLoaderKwargs, key, None)
-                    headers = None
-                    if kwargs is not None and "headers" in kwargs.keys():
-                        headers = kwargs["headers"]
-                    ldr_dtypes, ldr_aes = ldr._get_column_types(
-                        headers=headers, optional_mode=True
-                    )
-                    aes.merge_aggregated_errors_object(ldr_aes)
-
-                    # Get the StudyLoader for the version of the input file
-                    df_dict[ldr.DataSheetName] = read_from_file(
-                        self.get_infile(), sheet=ldr.DataSheetName, dtype=ldr_dtypes
-                    )
-
+            # We only need sheets and column headers to determine the study doc version
+            df_dict = read_from_file(self.get_infile(), sheet=None)
             self.loader_class = StudyLoader.get_derived_class(
                 df_dict,
                 version=options.get("infile_version"),
@@ -208,7 +210,6 @@ class Command(LoadTableCommand):
         self.init_loader(
             mzxml_dir=options.get("mzxml_dir"),
             exclude_sheets=exclude_sheets,
-            aes=aes,
         )
 
         self.load_data()
