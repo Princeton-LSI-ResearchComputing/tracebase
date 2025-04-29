@@ -7,7 +7,6 @@ from DataRepo.loaders.base.table_loader import TableLoader
 from DataRepo.loaders.study_loader import StudyLoader, StudyV3Loader
 from DataRepo.management.commands.load_table import LoadTableCommand
 from DataRepo.utils.exceptions import (
-    AggregatedErrors,
     InvalidStudyDocVersion,
     MultipleStudyDocVersions,
     OptionsNotAvailable,
