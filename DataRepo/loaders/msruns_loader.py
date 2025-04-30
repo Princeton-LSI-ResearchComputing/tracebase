@@ -665,6 +665,7 @@ class MSRunsLoader(TableLoader):
                 else:
                     dirs = list(self.mzxml_dict[mzxml_name_no_ext].keys())
 
+                print(f"CHECKING MZXML NAME {mzxml_name_no_ext} WITH DIRS: {dirs}")
                 if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
                     if len(dirs) == 0:
                         # The sample (header) / mzXML file has been explicitly skipped by having added the directory
@@ -731,6 +732,7 @@ class MSRunsLoader(TableLoader):
                         )
                         continue
 
+                print("NOT SKIPPED")
                 # Guess the sample based on the mzXML file's basename
                 # mzxml_name_no_ext may or may not have had dashes converted to underscores based on exact_mode
                 exact_sample_header_from_mzxml = mzxml_name_no_ext
