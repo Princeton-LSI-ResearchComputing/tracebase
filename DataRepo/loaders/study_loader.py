@@ -922,6 +922,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     exc_cls(exc_lst, succinct=succinct, suggestion=suggestion),
                     load_key,
                     top=True,
+                    default_is_error=any(
+                        e.is_error for e in exc_lst if hasattr(e, "is_error")
+                    ),
+                    default_is_fatal=any(
+                        e.is_fatal for e in exc_lst if hasattr(e, "is_fatal")
+                    ),
                 )
 
     @classmethod

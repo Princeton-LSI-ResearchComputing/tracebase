@@ -2305,9 +2305,6 @@ class TableLoader(ABC):
                     # Summarize multiple types of exceptions that are subclasses of SummarizableError
                     for exc_cls in self.aggregated_errors_object.get_exception_types():
                         if issubclass(exc_cls, SummarizableError):
-                            # TODO: Change this behavior to always leave exceptions unmodified, so that their
-                            # application to Excel shows their unchanged severity
-
                             # Get the exceptions with their original attributes
                             orig_errors = (
                                 self.aggregated_errors_object.get_exception_type(

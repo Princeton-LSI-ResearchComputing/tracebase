@@ -1010,24 +1010,44 @@ class MSRunsLoader(TableLoader):
             )
 
             if num_samples == len(likely_missing_sample_names):
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     NoSamples(
                         likely_missing_dnes,
                         suggestion=(
                             f"Did you forget to include these {self.headers.SAMPLENAME}s in the "
                             f"{SamplesLoader.DataHeaders.SAMPLE} column of the {SamplesLoader.DataSheetName} sheet?"
                         ),
-                    )
+                    ),
+                    is_error=any(
+                        e.is_error
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_error")
+                    ),
+                    is_fatal=any(
+                        e.is_fatal
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_fatal")
+                    ),
                 )
             else:
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     MissingSamples(
                         likely_missing_dnes,
                         suggestion=(
                             f"Did you forget to include these {self.headers.SAMPLENAME}s in the "
                             f"'{SamplesLoader.DataHeaders.SAMPLE}' column of the {SamplesLoader.DataSheetName} sheet?"
                         ),
-                    )
+                    ),
+                    is_error=any(
+                        e.is_error
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_error")
+                    ),
+                    is_fatal=any(
+                        e.is_fatal
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_fatal")
+                    ),
                 )
 
         if len(possible_blank_dnes) > 0:
@@ -1702,7 +1722,7 @@ class MSRunsLoader(TableLoader):
                                         name__endswith=orig_mzxml_sample_name
                                     ).values_list("name", flat=True)
                                 )
-                                self.aggregated_errors_object.buffer_error(
+                                self.aggregated_errors_object.buffer_exception(
                                     MultipleRecordsReturned(
                                         Sample,
                                         {"name": sample_name},
@@ -1721,6 +1741,7 @@ class MSRunsLoader(TableLoader):
                                             f"row and fill in the '{self.headers.SKIP}' column."
                                         ),
                                     ),
+                                    is_error=not Sample.is_a_blank(sample_name),
                                     orig_exception=dne,
                                 )
                                 return None
@@ -1730,7 +1751,7 @@ class MSRunsLoader(TableLoader):
                                 name__endswith=sample_name
                             ).values_list("name", flat=True)
                         )
-                        self.aggregated_errors_object.buffer_error(
+                        self.aggregated_errors_object.buffer_exception(
                             MultipleRecordsReturned(
                                 Sample,
                                 {"name": sample_name},
@@ -1748,6 +1769,7 @@ class MSRunsLoader(TableLoader):
                                     f"mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
                                 ),
                             ),
+                            is_error=not Sample.is_a_blank(sample_name),
                             orig_exception=dne,
                         )
                         return None
@@ -1782,7 +1804,7 @@ class MSRunsLoader(TableLoader):
 
                             return rec
 
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     RecordDoesNotExist(
                         Sample,
                         {"name": sample_name},
@@ -1797,10 +1819,11 @@ class MSRunsLoader(TableLoader):
                             f"mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
                         ),
                     ),
+                    is_error=not Sample.is_a_blank(sample_name),
                     orig_exception=dne,
                 )
             else:
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     RecordDoesNotExist(
                         Sample,
                         {"name": sample_name},
@@ -1809,6 +1832,7 @@ class MSRunsLoader(TableLoader):
                         column=self.headers.SAMPLENAME,
                         rownum=self.rownum,
                     ),
+                    is_error=not Sample.is_a_blank(sample_name),
                     orig_exception=dne,
                 )
         return rec
