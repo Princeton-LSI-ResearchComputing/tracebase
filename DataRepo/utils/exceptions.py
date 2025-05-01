@@ -1853,6 +1853,7 @@ class AggregatedErrors(Exception):
         modify=True,
         attr_name=None,
         attr_val=None,
+        is_error=None,
     ):
         """
         This method is provided to retrieve exceptions (if they exist in the exceptions list) from this object and
@@ -1864,20 +1865,27 @@ class AggregatedErrors(Exception):
             modify (boolean): Whether the convert a removed exception to a warning
             attr_name (str): An attribute required to be in the exception in order to match
             attr_val (object): The value of attr_name required to match in the exception
+            is_error (Optional[bool]): The exceptions' is_error attribute must have this value (if not None)
+        Exceptions:
+            None
         Returns:
             matched_exceptions (List[Exception]): Exceptions from self.exception that matched the search criteria
         """
         matched_exceptions = []
         unmatched_exceptions = []
-        is_fatal = False
-        is_error = False
+        final_is_fatal = False
+        final_is_error = False
         num_errors = 0
         num_warnings = 0
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if self.exception_matches(
-                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+                exception,
+                exception_class,
+                attr_name=attr_name,
+                attr_val=attr_val,
+                is_error=is_error,
             ):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
@@ -1891,16 +1899,16 @@ class AggregatedErrors(Exception):
                 else:
                     num_warnings += 1
                 if exception.is_fatal:
-                    is_fatal = True
+                    final_is_fatal = True
                 if exception.is_error:
-                    is_error = True
+                    final_is_error = True
                 unmatched_exceptions.append(exception)
 
         if remove:
             self.num_errors = num_errors
             self.num_warnings = num_warnings
-            self.is_fatal = is_fatal
-            self.is_error = is_error
+            self.is_fatal = final_is_fatal
+            self.is_error = final_is_error
 
             # Reinitialize this object
             self.exceptions = unmatched_exceptions
@@ -2047,7 +2055,7 @@ class AggregatedErrors(Exception):
         if not self.custom_message:
             super().__init__(self.get_default_message())
 
-    def remove_exception_type(self, exception_class, modify=True):
+    def remove_exception_type(self, exception_class, modify=True, is_error=None):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
@@ -2056,8 +2064,15 @@ class AggregatedErrors(Exception):
         Args:
             exception_class (Exception): The class of exceptions to remove
             modify (boolean): Whether to convert the removed exception to a warning
+            is_error (Optional[bool]): Restricts the summarized exceptions to errors or warnings (or either when None)
+        Exceptions:
+            None
+        Returns:
+            (List[Exception])
         """
-        return self.get_exception_type(exception_class, remove=True, modify=modify)
+        return self.get_exception_type(
+            exception_class, remove=True, modify=modify, is_error=is_error
+        )
 
     def get_default_message(self):
         should_raise_message = (

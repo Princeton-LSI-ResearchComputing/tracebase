@@ -2309,31 +2309,64 @@ class TableLoader(ABC):
                             # application to Excel shows their unchanged severity
 
                             # Get the exceptions with their original attributes
-                            orig_excs = (
+                            orig_errors = (
                                 self.aggregated_errors_object.get_exception_type(
-                                    exc_cls, modify=False
+                                    exc_cls, modify=False, is_error=True
                                 )
                             )
-                            # Determine the severity of the summarized exception
-                            is_fatal = False
-                            is_error = False
-                            for exc in orig_excs:
-                                if exc.is_error:
-                                    is_error = True
-                                if exc.is_fatal:
-                                    is_fatal = True
-                                if is_error and is_fatal:
-                                    break
-                            # Remove the exceptions (this modifies them to warnings (to de-emphasize them))
-                            excs = self.aggregated_errors_object.remove_exception_type(
-                                exc_cls
+                            if len(orig_errors) > 0:
+                                # Determine the severity of the summarized exception
+                                is_fatal = False
+                                is_error = False
+                                for exc in orig_errors:
+                                    if exc.is_error:
+                                        is_error = True
+                                    if exc.is_fatal:
+                                        is_fatal = True
+                                    if is_error and is_fatal:
+                                        break
+                                # Remove the exceptions (this modifies them to warnings (to de-emphasize them))
+                                errors = (
+                                    self.aggregated_errors_object.remove_exception_type(
+                                        exc_cls, is_error=True
+                                    )
+                                )
+                                # Buffer the summarized exception
+                                self.aggregated_errors_object.buffer_exception(
+                                    exc_cls.SummarizerExceptionClass(errors),
+                                    is_error=is_error,
+                                    is_fatal=is_fatal,
+                                )
+
+                            # Get the exceptions with their original attributes
+                            orig_warnings = (
+                                self.aggregated_errors_object.get_exception_type(
+                                    exc_cls, modify=False, is_error=False
+                                )
                             )
-                            # Buffer the summarized exception
-                            self.aggregated_errors_object.buffer_exception(
-                                exc_cls.SummarizerExceptionClass(excs),
-                                is_error=is_error,
-                                is_fatal=is_fatal,
-                            )
+                            if len(orig_warnings) > 0:
+                                # Determine the severity of the summarized exception
+                                is_fatal = False
+                                is_error = False
+                                for exc in orig_warnings:
+                                    if exc.is_error:
+                                        is_error = True
+                                    if exc.is_fatal:
+                                        is_fatal = True
+                                    if is_error and is_fatal:
+                                        break
+                                # Remove the exceptions (this modifies them to warnings (to de-emphasize them))
+                                warnings = (
+                                    self.aggregated_errors_object.remove_exception_type(
+                                        exc_cls, is_error=False
+                                    )
+                                )
+                                # Buffer the summarized exception
+                                self.aggregated_errors_object.buffer_exception(
+                                    exc_cls.SummarizerExceptionClass(warnings),
+                                    is_error=is_error,
+                                    is_fatal=is_fatal,
+                                )
 
                     if aes_set is not None:
                         # Right now, individual loader classes set the load key manually to the friendly filename.  This
