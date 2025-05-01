@@ -2322,7 +2322,7 @@ class AggregatedErrors(Exception):
                 return True
         return False
 
-    def remove_matching_exceptions(self, cls, attr_name, attr_val):
+    def remove_matching_exceptions(self, cls, attr_name, attr_val, is_error=None):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
@@ -2333,6 +2333,7 @@ class AggregatedErrors(Exception):
             attr_name (str): An attribute the buffered exception class has.
             attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
                 must take a single argument (the value of the attribute) and return a boolean.
+            is_error (Optional[bool]): Only match when the exception is or is not an error(/warning).
         Exceptions:
             None
         Returns (List[Exception]): A list of exceptions of the supplied type, and containing the supplied attribute with
@@ -2347,7 +2348,9 @@ class AggregatedErrors(Exception):
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if self.exception_matches(exception, cls, attr_name, attr_val):
+            if (
+                is_error is None or exception.is_error == is_error
+            ) and self.exception_matches(exception, cls, attr_name, attr_val):
                 matched_exceptions.append(exception)
             else:
                 if exception.is_error:

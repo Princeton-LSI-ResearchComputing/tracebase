@@ -981,7 +981,7 @@ class MSRunsLoader(TableLoader):
         """
         # Extract exceptions about missing Sample records
         sample_dnes = self.aggregated_errors_object.remove_matching_exceptions(
-            RecordDoesNotExist, "model", Sample
+            RecordDoesNotExist, "model", Sample, is_error=True
         )
 
         # Separate the exceptions based on whether they appear to be blanks or not
@@ -1646,6 +1646,7 @@ class MSRunsLoader(TableLoader):
                 None
             Buffers:
                 RecordDoesNotExist
+                MultipleRecordsReturned
         Returns:
             Optional[Sample]
         """
@@ -1755,7 +1756,7 @@ class MSRunsLoader(TableLoader):
 
                             # Buffer an error that says that we're going to proceed assuming the found sample is a
                             # match
-                            self.aggregated_errors_object.buffer_error(
+                            self.aggregated_errors_object.buffer_warning(
                                 RecordDoesNotExist(
                                     Sample,
                                     {"name": sample_name},
