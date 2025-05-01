@@ -262,6 +262,8 @@ class MSRunsLoader(TableLoader):
             Superclass Args:
                 df (Optional[pandas dataframe]): Data, e.g. as parsed from a table-like file.
                 dry_run (Optional[boolean]) [False]: Dry run mode.
+                debug (bool) [False]: Debug mode causes all buffered exception traces to be printed.  Normally, if an
+                    exception is a subclass of SummarizableError, the printing of its trace is suppressed.
                 defer_rollback (Optional[boolean]) [False]: Defer rollback mode.  DO NOT USE MANUALLY - A PARENT SCRIPT
                     MUST HANDLE THE ROLLBACK.
                 data_sheet (Optional[str]): Sheet name (for error reporting).
@@ -298,7 +300,13 @@ class MSRunsLoader(TableLoader):
                     name that matches the sample header, it will consider dashes and underscores as equal.  When True,
                     only sample headers that exactly match the file name will be considered matches.
         Exceptions:
-            None
+            Buffered:
+                InfileError when a paths to a peak annotation file is absolute
+                MutuallyExclusiveArgs
+                DefaultSequenceNotFound
+                MultipleDefaultSequencesFound
+            Raised:
+                AggregatedErrors
         Returns:
             None
         """
@@ -1675,7 +1683,7 @@ class MSRunsLoader(TableLoader):
                         # see if the user potentially prepended the sample name and the rest of it happens to be
                         # unique
                         rec = Sample.objects.get(name__endswith=sample_name)
-                    except Sample.DoesNotExist or Sample.MultipleObjectsReturned:
+                    except Sample.DoesNotExist:
                         # It's possible the dash was already replaced in sample_name, but the researcher manually
                         # included the dash in the DB sample name, so try WITH the dash.
                         if orig_mzxml_sample_name != sample_name:
@@ -1687,6 +1695,61 @@ class MSRunsLoader(TableLoader):
                             except Sample.DoesNotExist:
                                 # Ignore this attempt and press on with processing the original exception
                                 pass
+                            except Sample.MultipleObjectsReturned:
+                                matching_samples = list(
+                                    Sample.objects.filter(
+                                        name__endswith=orig_mzxml_sample_name
+                                    ).values_list("name", flat=True)
+                                )
+                                self.aggregated_errors_object.buffer_error(
+                                    MultipleRecordsReturned(
+                                        Sample,
+                                        {"name": sample_name},
+                                        file=self.friendly_file,
+                                        sheet=self.sheet,
+                                        column=self.headers.MZXMLNAME,
+                                        rownum="no row - sample name was derived from an mzXML filename",
+                                        message=(
+                                            f"{Sample.__name__} record matching the exact mzXML file's basename "
+                                            f"[{sample_name_used}] does not exist, but the filename starts with a "
+                                            "number, which means that the peak annotation software would have "
+                                            "required the name to be prepended with a letter.  There are multiple "
+                                            f"samples that end with this name: {matching_samples}.  Please "
+                                            f"identify the associated sample(s) and add a the file '{from_mzxml}' to "
+                                            "%s.  If no such row exists and this is an unanalyzed mzXML file, add a "
+                                            f"row and fill in the '{self.headers.SKIP}' column."
+                                        ),
+                                    ),
+                                    orig_exception=dne,
+                                )
+                                return None
+                    except Sample.MultipleObjectsReturned:
+                        matching_samples = list(
+                            Sample.objects.filter(
+                                name__endswith=sample_name
+                            ).values_list("name", flat=True)
+                        )
+                        self.aggregated_errors_object.buffer_error(
+                            MultipleRecordsReturned(
+                                Sample,
+                                {"name": sample_name},
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                column=self.headers.MZXMLNAME,
+                                rownum="no row - sample name was derived from an mzXML filename",
+                                message=(
+                                    f"{Sample.__name__} record matching the exact mzXML file's basename "
+                                    f"[{sample_name}] does not exist, but the filename starts with a number, which "
+                                    "means that the peak annotation software would have required the name to be "
+                                    "prepended with a letter.  There are multiple samples that end with this name: "
+                                    f"{matching_samples}.  Please identify the associated sample(s) and add a the "
+                                    f"file '{from_mzxml}' to %s.  If no such row exists and this is an unanalyzed "
+                                    f"mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
+                                ),
+                            ),
+                            orig_exception=dne,
+                        )
+                        return None
                     finally:
                         if rec is not None:
 
