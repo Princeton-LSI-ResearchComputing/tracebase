@@ -1932,7 +1932,8 @@ class AggregatedErrors(Exception):
         Args:
             exception_class (Exception): The class of exceptions to modify
             is_fatal (bool): Change matching exceptions' is_fatal attribute to this value
-            is_error (bool): Change matching exceptions' is_error attribute to this value
+            is_error (bool): Change matching exceptions' is_error attribute to this value (but only match the exception
+                if it is NOT is_error [os is_error is None])
             status_message (str): Change matching exceptions' aes_status_message attribute to this value
             attr_name (str): An attribute required to be in the exception in order to match
             attr_val (object): The value of attr_name required to match in the exception
@@ -1948,7 +1949,11 @@ class AggregatedErrors(Exception):
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if self.exception_matches(
-                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+                exception,
+                exception_class,
+                attr_name=attr_name,
+                attr_val=attr_val,
+                is_error=(is_error if is_error is None else not is_error),
             ):
                 if is_error is not None:
                     exception.is_error = is_error
@@ -2283,25 +2288,45 @@ class AggregatedErrors(Exception):
     def exception_type_exists(self, exc_cls):
         return exc_cls in [type(exc) for exc in self.exceptions]
 
-    def exception_matches(self, exception, cls, attr_name=None, attr_val=None):
+    def exception_matches(
+        self, exception, cls, attr_name=None, attr_val=None, is_error=None
+    ):
+        """Returns whether the supplied exception matches the supplied class, has an attribute with a specific value and
+        is an error or warning.
+
+        Args:
+            exception (Exception)
+            cls (Type[Exception]): The exception's type must exactly match this class.
+            attr_name (Optional[str]): The exception must have this attribute (if not None)
+            attr_val (Optional[Any]): The exceptions attribute must have this value (if the attr_name is not None)
+            is_error (Optional[bool]): The exception's is_error attribute must have this value (if not None)
+        Exceptions:
+            None
+        Returns:
+            (bool)
+        """
         # Intentionally looks for exact type (not isinstance).  isinstance is not what we want here, because I cannot
         # separate MissingSamples exceptions from NoSamples exceptions (because NoSamples is a subclass of
         # MissingSamples))
-        return type(exception).__name__ == cls.__name__ and (
-            attr_name is None
-            or (
-                hasattr(exception, attr_name)
-                and (
-                    (
-                        not type(attr_val).__name__ == "function"
-                        and getattr(exception, attr_name) == attr_val
-                    )
-                    or (
-                        type(attr_val).__name__ == "function"
-                        and attr_val(getattr(exception, attr_name))
+        return (
+            type(exception).__name__ == cls.__name__
+            and (
+                attr_name is None
+                or (
+                    hasattr(exception, attr_name)
+                    and (
+                        (
+                            not type(attr_val).__name__ == "function"
+                            and getattr(exception, attr_name) == attr_val
+                        )
+                        or (
+                            type(attr_val).__name__ == "function"
+                            and attr_val(getattr(exception, attr_name))
+                        )
                     )
                 )
             )
+            and (is_error is None or exception.is_error == is_error)
         )
 
     def exception_exists(self, cls, attr_name, attr_val):
