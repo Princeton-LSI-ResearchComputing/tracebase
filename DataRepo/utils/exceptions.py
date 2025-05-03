@@ -2898,11 +2898,35 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
         self.label = label
 
 
-class UnexpectedLabels(InfileError):
+class AllUnexpectedLabels(Exception):
+    def __init__(self, exceptions: List[UnexpectedLabels]):
+        counts: Dict[str, dict] = defaultdict(lambda: {"files": [], "observations": 0})
+        for exc in exceptions:
+            for element in exc.unexpected:
+                if exc.file not in counts[element]["files"]:
+                    counts[element]["files"].append(exc.file)
+                counts[element]["observations"] += 1
+        message = "The following peak label observations were not among the label(s) in the tracer(s):\n"
+        for element, stats in counts.items():
+            message += (
+                f"\t{element}: observed {stats['observations']} times across {len(stats['files'])} peak annotation "
+                "files\n"
+            )
+        message += "There may be contamination."
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.counts = counts
+
+
+class UnexpectedLabels(InfileError, SummarizableError):
+    SummarizerExceptionClass = AllUnexpectedLabels
+
     def __init__(self, unexpected, possible, **kwargs):
         message = (
-            f"Observed peak label(s) {unexpected} were not among the labels in the tracer(s): {possible}.  There may "
-            "be contamination."
+            f"One or more observed peak labels were not among the label(s) in the tracer(s):\n"
+            f"\tObserved: {unexpected}\n"
+            f"\tExpected: {possible}\n"
+            "There may be contamination.  (Note, the reported observed are only the unexpected labels.)"
         )
         super().__init__(message, **kwargs)
         self.possible = possible
@@ -3322,6 +3346,137 @@ class MzxmlSampleHeaderMismatch(InfileError):
         self.header = header
         self.mzxml_basename = mzxml_basename
         self.mzxml_file = mzxml_file
+
+
+class AssumedMzxmlSampleMatches(Exception):
+    """Takes a list of AssumedMzxmlSampleMatch exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions: List[AssumedMzxmlSampleMatch], message=None):
+        if message is None:
+            message = (
+                "Assuming the following imperfect (but unique) mzXML to sample name matches are due to peak annotation "
+                "file header edits:\n"
+            )
+            matches_by_annot_file = defaultdict(list)
+            exc: AssumedMzxmlSampleMatch
+            for exc in exceptions:
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                )
+                matches_by_annot_file[loc].append(exc)
+            for loc, exc_list in sorted(
+                matches_by_annot_file.items(), key=lambda tpl: tpl[0]
+            ):
+                message += f"\t{loc}\n"
+                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
+                    message += f"\t\t'{exc.mzxml_name}' -> '{exc.sample_name}'\n"
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
+    SummarizerExceptionClass = AssumedMzxmlSampleMatches
+
+    def __init__(self, sample_name, mzxml_file, **kwargs):
+        mzxml_name, _ = os.path.splitext(os.path.basename(mzxml_file))
+        message = (
+            "Sample uniquely but imprecisely matches the mzXML filename in %s:\n"
+            f"\tSample: [{sample_name}]\n"
+            f"\tmzXML:  [{mzxml_name}] (path: [{mzxml_file}])\n"
+            "Assuming that the sample header was modified and that this is the intended sample."
+        )
+        super().__init__(message, **kwargs)
+        self.sample_name = sample_name
+        self.mzxml_name = mzxml_name
+        self.mzxml_file = mzxml_file
+
+
+class UnmatchedMzXMLs(Exception):
+    """Takes a list of UnmatchedMzXML exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions: List[UnmatchedMzXML]):
+        # Assumes that the file/sheet/column are all the same and that there is at least 1 exception
+        loc = generate_file_location_string(
+            file=exceptions[0].file,
+            sheet=exceptions[0].sheet,
+            column=exceptions[0].column,
+        )
+        message = f"{len(exceptions)} mzXMLs could not be mapped to a {exceptions[0].sample_header_col}:\n"
+        for exc in exceptions:
+            message += f"\t{exc.mzxml_name} (file: '{exc.mzxml_file}')\n"
+        message += (
+            "Either these files were not included in any peak annotation analysis or the sample headers were modified "
+            f"and could not be automatically matched to existing sample headers in {loc}.\n"
+            "Either update rows to include these files or if any are unanalyzed mzXMLs, add a row and fill in the "
+            f"'{exceptions[0].skip_col}' column."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class UnmatchedMzXML(InfileError, SummarizableError):
+    SummarizerExceptionClass = UnmatchedMzXMLs
+
+    def __init__(
+        self, mzxml_file: str, sample_header_col: str, skip_col: str, **kwargs
+    ):
+        mzxml_name = os.path.splitext(os.path.basename(mzxml_file))[0]
+        message = (
+            f"mzXML name '{mzxml_name}' (from file '{mzxml_file}') could not be mapped to a {sample_header_col}.\n"
+            "Either this file was not included in a peak annotation analysis or the sample header was modified and "
+            "could not be automatically matched.\n"
+            f"Either update a row that includes '{mzxml_file}' or if this is an unanalyzed mzXML, add a row and fill "
+            f"in the '{skip_col}' column, including %s to resolve this."
+        )
+        super().__init__(message, **kwargs)
+        self.skip_col = skip_col
+        self.mzxml_name = mzxml_name
+        self.mzxml_file = mzxml_file
+        self.sample_header_col = sample_header_col
+
+
+class UnmatchedBlankMzXMLs(Exception):
+    """Takes a list of UnmatchedMzXML exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions: List[UnmatchedBlankMzXML]):
+        # Assumes that the file/sheet/column are all the same and that there is at least 1 exception
+        loc = generate_file_location_string(
+            file=exceptions[0].file,
+            sheet=exceptions[0].sheet,
+            column=exceptions[0].column,
+        )
+        message = f"{len(exceptions)} mzXMLs could not be mapped to a {exceptions[0].sample_header_col}:\n"
+        for exc in exceptions:
+            message += f"\t{exc.mzxml_name} (file: '{exc.mzxml_file}')\n"
+        message += (
+            "Either these files were not included in any peak annotation analysis or the sample headers were modified "
+            f"and could not be automatically matched to existing sample headers in {loc}.\n"
+            f"Add rows and fill in the '{exceptions[0].column}' and '{exceptions[0].skip_col}' columns for each file."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class UnmatchedBlankMzXML(InfileError, SummarizableError):
+    SummarizerExceptionClass = UnmatchedBlankMzXMLs
+
+    def __init__(
+        self, mzxml_file: str, sample_header_col: str, skip_col: str, **kwargs
+    ):
+        mzxml_name = os.path.splitext(os.path.basename(mzxml_file))[0]
+        message = (
+            f"mzXML name '{mzxml_name}' (from file '{mzxml_file}') could not be mapped to a {sample_header_col}.\n"
+            "Either this file was not included in a peak annotation analysis or the sample header was modified and "
+            "could not be automatically matched.\n"
+            f"Either update a row that includes '{mzxml_file}' or if this is an unanalyzed mzXML, add a row and fill "
+            f"in the '{skip_col}' column, including %s to resolve this."
+        )
+        super().__init__(message, **kwargs)
+        self.skip_col = skip_col
+        self.mzxml_name = mzxml_name
+        self.mzxml_file = mzxml_file
+        self.sample_header_col = sample_header_col
 
 
 class InvalidHeaders(InfileError, ValidationError):

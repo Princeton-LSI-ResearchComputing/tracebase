@@ -32,6 +32,7 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AssumedMzxmlSampleMatch,
     ConditionallyRequiredArgs,
     DefaultSequenceNotFound,
     InfileError,
@@ -54,6 +55,8 @@ from DataRepo.utils.exceptions import (
     RequiredColumnValue,
     RequiredColumnValues,
     RollbackException,
+    UnmatchedBlankMzXML,
+    UnmatchedMzXML,
     UnskippedBlanks,
 )
 from DataRepo.utils.file_utils import is_excel, read_from_file, string_to_date
@@ -1779,49 +1782,45 @@ class MSRunsLoader(TableLoader):
                             # Buffer an error that says that we're going to proceed assuming the found sample is a
                             # match
                             self.aggregated_errors_object.buffer_warning(
-                                RecordDoesNotExist(
-                                    Sample,
-                                    {"name": sample_name},
+                                AssumedMzxmlSampleMatch(
+                                    sample_name=rec.name,
+                                    mzxml_file=from_mzxml,
                                     file=self.friendly_file,
                                     sheet=self.sheet,
                                     column=self.headers.MZXMLNAME,
                                     rownum="no row - sample name was derived from an mzXML filename",
-                                    message=(
-                                        f"{Sample.__name__} record matching the mzXML file's basename "
-                                        f"[{sample_name_used}] does not exist, but the filename starts with a number "
-                                        f"and happens to otherwise uniquely match sample '{rec.name}'.  Please "
-                                        f"identify the associated sample(s) and add a the file '{from_mzxml}' to %s.  "
-                                        "If no such row exists and this is an unanalyzed mzXML file, add a row and "
-                                        f"fill in the '{self.headers.SKIP}' column."
-                                    ),
-                                    suggestion=(
-                                        "Proceeding with the assumption that the mzXML-derived sample name "
-                                        f"'{sample_name}' is intended to match sample '{rec.name}'."
-                                    ),
                                 ),
                                 orig_exception=dne,
                             )
 
                             return rec
 
-                self.aggregated_errors_object.buffer_exception(
-                    RecordDoesNotExist(
-                        Sample,
-                        {"name": sample_name},
-                        file=self.friendly_file,
-                        sheet=self.sheet,
-                        column=self.headers.MZXMLNAME,
-                        rownum="no row - sample name was derived from an mzXML filename",
-                        message=(
-                            f"{Sample.__name__} record matching the mzXML file's{' exact' if self.exact_mode else ''} "
-                            f"basename [{sample_name}] does not exist.  Please identify the associated sample(s) and "
-                            f"add a the file '{from_mzxml}' to %s.  If no such row exists and this is an unanalyzed "
-                            f"mzXML file, add a row and fill in the '{self.headers.SKIP}' column."
+                if Sample.is_a_blank(sample_name):
+                    self.aggregated_errors_object.buffer_warning(
+                        UnmatchedBlankMzXML(
+                            from_mzxml,
+                            self.headers.SAMPLEHEADER,
+                            self.headers.SKIP,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            column=self.headers.MZXMLNAME,
+                            rownum="no row - sample name was derived from an mzXML filename",
                         ),
-                    ),
-                    is_error=not Sample.is_a_blank(sample_name),
-                    orig_exception=dne,
-                )
+                        orig_exception=dne,
+                    )
+                else:
+                    self.aggregated_errors_object.buffer_error(
+                        UnmatchedMzXML(
+                            from_mzxml,
+                            self.headers.SAMPLEHEADER,
+                            self.headers.SKIP,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            column=self.headers.MZXMLNAME,
+                            rownum="no row - sample name was derived from an mzXML filename",
+                        ),
+                        orig_exception=dne,
+                    )
             else:
                 self.aggregated_errors_object.buffer_exception(
                     RecordDoesNotExist(
@@ -1835,6 +1834,7 @@ class MSRunsLoader(TableLoader):
                     is_error=not Sample.is_a_blank(sample_name),
                     orig_exception=dne,
                 )
+
         return rec
 
     @transaction.atomic
@@ -2286,6 +2286,7 @@ class MSRunsLoader(TableLoader):
             (bool): Whether there were multiple matching mzXML files
         """
         mzxml_string_dir = ""
+        mzxml_basename = ""
         mzxml_name = None
         multiple_mzxml_dict = None
         # Placeholder MSRunSample records have no polarity/mz/archivefile recs/file, but we do want to track if they've
