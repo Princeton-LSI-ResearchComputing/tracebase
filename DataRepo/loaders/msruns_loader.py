@@ -1805,6 +1805,7 @@ class MSRunsLoader(TableLoader):
                             sheet=self.sheet,
                             column=self.headers.MZXMLNAME,
                             rownum="no row - sample name was derived from an mzXML filename",
+                            suggestion="This file will not be linked to any sample.",
                         ),
                         orig_exception=dne,
                     )

@@ -65,6 +65,7 @@ from DataRepo.utils.exceptions import (
     AllMissingTissues,
     AllMissingTreatments,
     AllMultiplePeakGroupRepresentations,
+    AllUnexpectedLabels,
     BlankRemoved,
     BlanksRemoved,
     ConditionallyRequiredArgs,
@@ -84,6 +85,7 @@ from DataRepo.utils.exceptions import (
     PlaceholderAdded,
     PlaceholdersAdded,
     RecordDoesNotExist,
+    UnexpectedLabels,
     UnknownStudyDocVersion,
 )
 from DataRepo.utils.file_utils import (
@@ -349,6 +351,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         self.no_sample_record_exceptions = []
         self.missing_tissue_record_exceptions = []
         self.missing_treatment_record_exceptions = []
+        self.unexpected_labels_exceptions = []
         self.missing_compound_record_exceptions = []
         self.multiple_pg_reps_exceptions = []
         self.load_statuses = MultiLoadStatus()
@@ -830,6 +833,14 @@ class StudyLoader(ConvertedTableLoader, ABC):
             mpgr_exc.set_formatted_message(suggestion=self.representations_suggestion)
             self.multiple_pg_reps_exceptions.extend(mpgr_exc.exceptions)
 
+        # Unexpected labels exceptions
+        uel_excs = aes.modify_exception_type(
+            UnexpectedLabels, is_fatal=False, is_error=False
+        )
+        uel_exc: UnexpectedLabels
+        for uel_exc in uel_excs:
+            self.unexpected_labels_exceptions.extend(uel_exc.exceptions)
+
     def extract_missing_records_exception(
         self,
         aes: AggregatedErrors,
@@ -910,6 +921,13 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 "Peak Groups Check",
                 True,
                 self.representations_suggestion,
+            ),
+            (
+                AllUnexpectedLabels,
+                self.unexpected_labels_exceptions,
+                "Contamination Check",
+                True,
+                None,
             ),
         ]:
             # Add this load key (if not already present anong the load keys).
@@ -1161,6 +1179,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
             loader_class (StudyLoader): A derived class of StudyLoader matching the study doc version
         """
         loader_class: TableLoader
+        match_data = {}
 
         if version is not None:
             matching_version_numbers = [version]

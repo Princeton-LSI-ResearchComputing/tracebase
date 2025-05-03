@@ -54,7 +54,7 @@ from DataRepo.utils.exceptions import (
     SummarizableError,
     SummarizedInfileError,
     UnequalColumnGroups,
-    UnexpectedLabels,
+    UnexpectedLabel,
     UnexpectedSamples,
     UnknownHeader,
     UnskippedBlanks,
@@ -1098,7 +1098,7 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_UnexpectedLabels(self):
-        exc = UnexpectedLabels(["D"], ["C", "N"])
+        exc = UnexpectedLabel(["D"], ["C", "N"])
         self.assertIn(
             "label(s) ['D'] were not among the labels in the tracer(s): ['C', 'N']",
             str(exc),

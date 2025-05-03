@@ -2899,7 +2899,7 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
 
 
 class AllUnexpectedLabels(Exception):
-    def __init__(self, exceptions: List[UnexpectedLabels]):
+    def __init__(self, exceptions: List[UnexpectedLabel]):
         counts: Dict[str, dict] = defaultdict(lambda: {"files": [], "observations": 0})
         for exc in exceptions:
             for element in exc.unexpected:
@@ -2918,8 +2918,23 @@ class AllUnexpectedLabels(Exception):
         self.counts = counts
 
 
-class UnexpectedLabels(InfileError, SummarizableError):
-    SummarizerExceptionClass = AllUnexpectedLabels
+class UnexpectedLabels(Exception):
+    def __init__(self, exceptions: List[UnexpectedLabel]):
+        counts: Dict[str, int] = defaultdict(int)
+        for exc in exceptions:
+            for element in exc.unexpected:
+                counts[element] += 1
+        message = "The following peak label observations were not among the label(s) in the tracer(s):\n"
+        for element, count in counts.items():
+            message += f"\t{element}: observed {count} times\n"
+        message += "There may be contamination."
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.counts = counts
+
+
+class UnexpectedLabel(InfileError, SummarizableError):
+    SummarizerExceptionClass = UnexpectedLabels
 
     def __init__(self, unexpected, possible, **kwargs):
         message = (
@@ -3450,9 +3465,10 @@ class UnmatchedBlankMzXMLs(Exception):
         for exc in exceptions:
             message += f"\t{exc.mzxml_name} (file: '{exc.mzxml_file}')\n"
         message += (
-            "Either these files were not included in any peak annotation analysis or the sample headers were modified "
-            f"and could not be automatically matched to existing sample headers in {loc}.\n"
-            f"Add rows and fill in the '{exceptions[0].column}' and '{exceptions[0].skip_col}' columns for each file."
+            "These mzXML files, that appear to be for blank samples, could not be automatically matched to existing "
+            f"skipped blank sample headers in {loc}.\n"
+            f"Either update or add rows and fill in the '{exceptions[0].column}' and '{exceptions[0].skip_col}' "
+            "columns for each file."
         )
         super().__init__(message)
         self.exceptions = exceptions
@@ -3466,11 +3482,11 @@ class UnmatchedBlankMzXML(InfileError, SummarizableError):
     ):
         mzxml_name = os.path.splitext(os.path.basename(mzxml_file))[0]
         message = (
-            f"mzXML name '{mzxml_name}' (from file '{mzxml_file}') could not be mapped to a {sample_header_col}.\n"
-            "Either this file was not included in a peak annotation analysis or the sample header was modified and "
-            "could not be automatically matched.\n"
-            f"Either update a row that includes '{mzxml_file}' or if this is an unanalyzed mzXML, add a row and fill "
-            f"in the '{skip_col}' column, including %s to resolve this."
+            f"mzXML name '{mzxml_name}' (from file '{mzxml_file}'), that appears to be for a blank sample, could not "
+            f"be mapped to a {sample_header_col}.\n"
+            "The file could not be automatically matched to an existing skipped blank sample header.\n"
+            f"Either update a row that includes '{mzxml_name}' or add a row and fill in the '{skip_col}' column, "
+            "including %s to resolve this."
         )
         super().__init__(message, **kwargs)
         self.skip_col = skip_col

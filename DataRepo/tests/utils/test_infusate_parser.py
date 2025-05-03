@@ -7,7 +7,7 @@ from DataRepo.utils.exceptions import (
     IsotopeStringDupe,
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
-    UnexpectedLabels,
+    UnexpectedLabel,
 )
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
@@ -556,7 +556,7 @@ class InfusateValidationTests(InfusateTestData):
                 parent=True,
             ),
         ]
-        with self.assertRaises(UnexpectedLabels):
+        with self.assertRaises(UnexpectedLabel):
             parse_isotope_label(label, possible_obs)
 
     def test_parse_isotope_label_IsotopeStringDupe(self):

@@ -50,7 +50,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     RollbackException,
-    UnexpectedLabels,
+    UnexpectedLabel,
     UnexpectedSamples,
     UnskippedBlanks,
     generate_file_location_string,
@@ -1407,7 +1407,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             label_observations = parse_isotope_label(
                 isotope_label, possible_isotope_observations
             )
-        except UnexpectedLabels as olnp:
+        except UnexpectedLabel as olnp:
             suggestion = None
             if pgrec is not None:
                 suggestion = (
