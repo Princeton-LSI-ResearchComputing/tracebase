@@ -40,8 +40,8 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
+    PossibleDuplicateSample,
     PossibleDuplicateSamples,
-    PossibleDuplicateSamplesError,
     RecordDoesNotExist,
     RequiredArgument,
     RequiredColumnValue,
@@ -1330,8 +1330,8 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("neglect to include the C12 PARENT peak", str(mcpp))
 
     def test_PossibleDuplicateSamplesError(self):
-        pds = PossibleDuplicateSamples("s1", ["s1_pos", "s1_neg"])
-        pdse = PossibleDuplicateSamplesError([pds])
+        pds = PossibleDuplicateSample("s1", ["s1_pos", "s1_neg"])
+        pdse = PossibleDuplicateSamples([pds])
         # Check problem described
         self.assertIn(
             "same name that are associated with different database samples", str(pdse)

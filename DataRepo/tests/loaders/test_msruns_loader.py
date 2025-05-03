@@ -36,7 +36,7 @@ from DataRepo.utils.exceptions import (
     MzxmlColocatedWithMultipleAnnot,
     MzxmlNotColocatedWithAnnot,
     NoSamples,
-    PossibleDuplicateSamples,
+    PossibleDuplicateSample,
     RecordDoesNotExist,
     RequiredColumnValue,
     RollbackException,
@@ -1887,7 +1887,7 @@ class MSRunsLoaderTests(TracebaseTestCase):
         msrl.check_sample_headers()
         self.assertEqual(1, len(msrl.aggregated_errors_object.exceptions))
         self.assertIsInstance(
-            msrl.aggregated_errors_object.exceptions[0], PossibleDuplicateSamples
+            msrl.aggregated_errors_object.exceptions[0], PossibleDuplicateSample
         )
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_error)
         self.assertFalse(msrl.aggregated_errors_object.exceptions[0].is_fatal)

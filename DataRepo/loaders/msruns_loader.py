@@ -50,7 +50,7 @@ from DataRepo.utils.exceptions import (
     MzXMLSkipRowError,
     NoSamples,
     NoScans,
-    PossibleDuplicateSamples,
+    PossibleDuplicateSample,
     RecordDoesNotExist,
     RequiredColumnValue,
     RequiredColumnValues,
@@ -950,7 +950,7 @@ class MSRunsLoader(TableLoader):
                     sample_names.append(sn)
                     rows.extend(self.header_to_sample_name[sample_header][sn])
                 self.aggregated_errors_object.buffer_exception(
-                    PossibleDuplicateSamples(
+                    PossibleDuplicateSample(
                         sample_header,
                         sample_names,
                         file=self.friendly_file,

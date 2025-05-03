@@ -3370,7 +3370,7 @@ class AssumedMzxmlSampleMatches(Exception):
         if message is None:
             message = (
                 "Assuming the following imperfect (but unique) mzXML to sample name matches are due to peak annotation "
-                "file header edits:\n"
+                "file header edits, and that they are correctly mapped:\n"
             )
             matches_by_annot_file = defaultdict(list)
             exc: AssumedMzxmlSampleMatch
@@ -3385,7 +3385,7 @@ class AssumedMzxmlSampleMatches(Exception):
             ):
                 message += f"\t{loc}\n"
                 for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
-                    message += f"\t\t'{exc.mzxml_name}' -> '{exc.sample_name}'\n"
+                    message += f"\t\t'{exc.sample_name}' <- '{exc.mzxml_name}' ('{exc.mzxml_file}')\n"
         super().__init__(message)
         self.exceptions = exceptions
 
@@ -3968,7 +3968,7 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         return self.message
 
 
-class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
+class PossibleDuplicateSamples(SummarizedInfileError, Exception):
     """Summary of all PossibleDuplicateSamples errors
 
     Attributes:
@@ -3977,13 +3977,13 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
 
     def __init__(
         self,
-        exceptions: list[PossibleDuplicateSamples],
+        exceptions: list[PossibleDuplicateSample],
         suggestion=None,
     ):
         SummarizedInfileError.__init__(self, exceptions)
         headers_str = ""
         include_loc = len(self.file_dict.keys()) > 1
-        exc: PossibleDuplicateSamples
+        exc: PossibleDuplicateSample
         for loc, exc_list in self.file_dict.items():
             if include_loc:
                 headers_str += f"\t{loc}\n"
@@ -3992,7 +3992,7 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
                     headers_str += "\t"
                 rowlist = summarize_int_list(exc.rownum)
                 rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
-                headers_str += f"\t{exc.sample_header}: {exc.sample_names}{rowstr}\n"
+                headers_str += f"\theader '{exc.sample_header}' maps to samples: {exc.sample_names}{rowstr}\n"
         loc = ""
         if not include_loc:
             loc = " in " + list(self.file_dict.keys())[0]
@@ -4007,8 +4007,8 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
         Exception.__init__(self, message)
 
 
-class PossibleDuplicateSamples(InfileError, SummarizableError):
-    SummarizerExceptionClass = PossibleDuplicateSamplesError
+class PossibleDuplicateSample(InfileError, SummarizableError):
+    SummarizerExceptionClass = PossibleDuplicateSamples
 
     def __init__(self, sample_header: str, sample_names: List[str], **kwargs):
         nlt = "\n\t"
