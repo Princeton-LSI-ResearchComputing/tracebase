@@ -186,6 +186,7 @@ class LoadAccucorSmallObobCommandTests(TracebaseTestCase):
         call_command(
             "load_msruns",
             infile="DataRepo/data/tests/blank_samples/blanks1/blank_sample_warn_study.xlsx",
+            debug=True,
         )
 
         # This should also skip a sample *column* named "blank" in blank_samples/blanks1/accucor_with_blank.xlsx with a

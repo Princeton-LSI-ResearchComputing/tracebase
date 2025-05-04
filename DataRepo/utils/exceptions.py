@@ -2381,8 +2381,8 @@ class AggregatedErrors(Exception):
         """
         matched_exceptions = []
         unmatched_exceptions = []
-        is_fatal = False
-        is_error = False
+        final_is_fatal = False
+        final_is_error = False
         num_errors = 0
         num_warnings = 0
 
@@ -2398,15 +2398,15 @@ class AggregatedErrors(Exception):
                 else:
                     num_warnings += 1
                 if exception.is_fatal:
-                    is_fatal = True
+                    final_is_fatal = True
                 if exception.is_error:
-                    is_error = True
+                    final_is_error = True
                 unmatched_exceptions.append(exception)
 
         self.num_errors = num_errors
         self.num_warnings = num_warnings
-        self.is_fatal = is_fatal
-        self.is_error = is_error
+        self.is_fatal = final_is_fatal
+        self.is_error = final_is_error
 
         # Reinitialize this object
         self.exceptions = unmatched_exceptions

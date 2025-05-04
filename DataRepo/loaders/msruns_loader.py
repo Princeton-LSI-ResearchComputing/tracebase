@@ -659,7 +659,6 @@ class MSRunsLoader(TableLoader):
                 )
                 # Otherwise, we errored about it not being found already
 
-            print(f"self.skip_msrunsample_by_mzxml: {self.skip_msrunsample_by_mzxml}")
             for mzxml_name_no_ext in self.mzxml_dict.keys():
 
                 # We will skip creating MSRunSample records for rows marked with 'skip' (e.g. blanks), because to have
@@ -676,7 +675,6 @@ class MSRunsLoader(TableLoader):
                 else:
                     dirs = list(self.mzxml_dict[mzxml_name_no_ext].keys())
 
-                print(f"CHECKING MZXML NAME {mzxml_name_no_ext} WITH DIRS: {dirs}")
                 if mzxml_name_no_ext in self.skip_msrunsample_by_mzxml.keys():
                     if len(dirs) == 0:
                         # The sample (header) / mzXML file has been explicitly skipped by having added the directory
@@ -739,11 +737,11 @@ class MSRunsLoader(TableLoader):
                                     "be included for each mzXML file in the mzXML file name column so that we can tell "
                                     "which ones to load and which to skip)."
                                 ),
-                            )
+                            ),
+                            is_fatal=self.validate,
                         )
                         continue
 
-                print("NOT SKIPPED")
                 # Guess the sample based on the mzXML file's basename
                 # mzxml_name_no_ext may or may not have had dashes converted to underscores based on exact_mode
                 exact_sample_header_from_mzxml = mzxml_name_no_ext
@@ -1062,7 +1060,8 @@ class MSRunsLoader(TableLoader):
                         f"'{SamplesLoader.DataHeaders.SAMPLE}' column of the '{SamplesLoader.DataSheetName}' sheet or "
                         f"must have 'skip' in the '{self.headers.SKIP}' column."
                     ),
-                )
+                ),
+                is_fatal=self.validate,
             )
 
     def get_loaded_msrun_sample_dict(self, peak_annot_file: str) -> dict:
@@ -1548,7 +1547,6 @@ class MSRunsLoader(TableLoader):
                 self.existed(MSRunSample.__name__)
 
         except Exception as e:
-            print(f"Skipping because a {type(e).__name__} occurred: {mzxml_metadata}")
             self.handle_load_db_errors(e, MSRunSample, msrs_rec_dict)
             self.errored(MSRunSample.__name__)
             raise RollbackException()
@@ -1745,6 +1743,8 @@ class MSRunsLoader(TableLoader):
                                         ),
                                     ),
                                     is_error=not Sample.is_a_blank(sample_name),
+                                    is_fatal=not Sample.is_a_blank(sample_name)
+                                    or self.validate,
                                     orig_exception=dne,
                                 )
                                 return None
@@ -1773,6 +1773,8 @@ class MSRunsLoader(TableLoader):
                                 ),
                             ),
                             is_error=not Sample.is_a_blank(sample_name),
+                            is_fatal=not Sample.is_a_blank(sample_name)
+                            or self.validate,
                             orig_exception=dne,
                         )
                         return None
@@ -1790,6 +1792,7 @@ class MSRunsLoader(TableLoader):
                                     column=self.headers.MZXMLNAME,
                                     rownum="no row - sample name was derived from an mzXML filename",
                                 ),
+                                is_fatal=self.validate,
                                 orig_exception=dne,
                             )
 
@@ -1807,6 +1810,7 @@ class MSRunsLoader(TableLoader):
                             rownum="no row - sample name was derived from an mzXML filename",
                             suggestion="This file will not be linked to any sample.",
                         ),
+                        is_fatal=self.validate,
                         orig_exception=dne,
                     )
                 else:
@@ -1833,6 +1837,7 @@ class MSRunsLoader(TableLoader):
                         rownum=self.rownum,
                     ),
                     is_error=not Sample.is_a_blank(sample_name),
+                    is_fatal=not Sample.is_a_blank(sample_name) or self.validate,
                     orig_exception=dne,
                 )
 
@@ -1999,7 +2004,8 @@ class MSRunsLoader(TableLoader):
                         annot_dirs=list(self.annotdir_to_seq_dict.keys()),
                         file=os.path.join(mzxml_dir, mzxml_filename),
                         suggestion=f"Using the default sequence '{default_msrun_sequence.sequence_name}'.",
-                    )
+                    ),
+                    is_fatal=self.validate,
                 )
                 msrun_sequence = default_msrun_sequence
             else:
