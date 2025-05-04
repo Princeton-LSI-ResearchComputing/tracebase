@@ -3,6 +3,7 @@ from typing import List, Tuple, Union
 from django.db import ProgrammingError
 from django.forms import Widget
 from django.forms.widgets import ClearableFileInput, Select, TextInput
+from django.template import Context, Template
 from django.utils.safestring import mark_safe
 
 
@@ -99,32 +100,52 @@ class MultipleFileInput(ClearableFileInput):
 
 class BSTHeader(Widget):
     template_name = "DataRepo/widgets/bst_th.html"
+    td_template = "DataRepo/widgets/bst_td.html"
+    value_template = "DataRepo/widgets/bst_value.html"
 
-    def get_context(self, name, column, attrs=None):
-        # Called via DataRepo.views.models.base.BootstrapTableColumn.render_th(), which passes 'self' as the 'column'
-        # argument, but it's also called from Django internals where this 'column' argument is referred to as 'value',
-        # so all this is doing is it's taking that value and putting it in a context variable named "column" for
-        # convenience and readability in the template.  I could pass along that 'value' in the super call, in which
-        # case, you could access it in the template as 'widget.value'.
-        context = super().get_context(name, None, attrs)
-        context["column"] = column
+    def __init__(self, column, template_name=None):
+        super().__init__()
+        if template_name is not None:
+            self.template_name = template_name
+        self.column = column
+
+    def get_context(self, *args, **kwargs):
+        context = super().get_context(*args, **kwargs)
+        context["column"] = self.column
+        context["td_template"] = self.td_template
+        context["value_template"] = self.value_template
         return context
+
+    def render(self, *args, **kwargs):
+        return super().render(self.column.name, self.column.header)
 
 
 class BSTValue(Widget):
     # Template received context variables: 'object' (Model), 'value', and 'column' (BSTColumn)
-    default_template = "DataRepo/widgets/bst_td.html"
+    template_name = "DataRepo/widgets/bst_td.html"
+    value_template = "DataRepo/widgets/bst_value.html"
 
-    def __init__(self, template_name=default_template):
-        self.template_name = template_name
+    def __init__(self, column, value_template=None, template_name=None):
+        if template_name is not None:
+            self.template_name = template_name
+        if value_template is not None:
+            self.value_template = value_template
         super().__init__()
+        self.column = column
 
-    def get_context(self, name, value: dict, attrs=None):
-        # Called via DataRepo.views.models.base.BootstrapTableColumn.td(), which passes 'self' as the 'column' argument,
-        # but it's also called from Django internals where this 'column' argument is referred to as 'value', so all this
-        # is doing is it's taking that value and putting it in a context variable named "column" for convenience and
-        # readability in the template.  I could pass along that 'value' in the super call, in which case, you could
-        # access it in the template as 'widget.value'.
-        context = super().get_context(name, None, attrs)
-        context.update(value)
+    def get_context(self, *args, **kwargs):
+        context = super().get_context(*args, **kwargs)
+        context["column"] = self.column
+        context["value_template"] = self.value_template
         return context
+
+    def get_nested_template(self):
+        return Template(f'{{% include "{self.template_name}" %}}')
+
+    def render(self, context, *args, **kwargs):
+        # return super().render(self.column.name, self.column.header)
+        # context = self.get_context(self.column.name, None, context)
+        # template = Template(f'{{% dynamic_include "{self.template_name}" with object="object" %}}').render(Context(context))
+        template = Template(f'{{% include "{self.template_name}" %}}')
+        # print(f"RENDERED TEMPLATE: {template}\n\nCONTEXT: {context}")
+        return template

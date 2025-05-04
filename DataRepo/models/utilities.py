@@ -139,36 +139,6 @@ def get_field_from_model_path(model: Type[Model], path: Union[str, List[str]]) -
     return get_field_from_model_path(next_model, path[1:])
 
 
-# def field_path_to_model_path(model: Type[Model], path: Union[str, List[str]], _output: str = "") -> Optional[str]:
-#     """Recursive method to take a root model and a dunderscore-delimited path and return the path to the model at the
-#     end of the path (excluding the field).  The utility here is to be able to supply all related models to
-#     prefetch_related."""
-#     if len(path) == 0:
-#         raise ValueError("path string/list must have a non-zero length.")
-#     if isinstance(path, str):
-#         return field_path_to_model_path(model, path.split("__"))
-#     new_output = path[0] if _output == "" else f"{_output}__{path[0]}"
-#     if len(path) == 1:
-#         if hasattr(model, path[0]):
-#             tail = getattr(model, path[0])
-#             if tail.__class__.__name__ in ["DeferredAttribute", "ForwardManyToOneDescriptor", "ManyToManyDescriptor", "ReverseManyToOneDescriptor", "ReverseManyToManyDescriptor"]:
-#                 tail = tail.field
-#             try:
-#                 if tail.is_relation:
-#                     return new_output
-#                 else:
-#                     return _output if _output != "" else None
-#             except AttributeError as ae:
-#                 print(f"{tail.__class__.__name__} ATTRIBUTES: {dir(tail)}")
-#                 raise ae
-#         raise ValueError(f"MODEL: {model} DOES NOT HAVE ATTRIBUTE: {path[0]}")
-#     attr = getattr(model, path[0])
-#     many_related = attr.field.one_to_many or attr.field.many_to_many or ((attr.field.one_to_one or attr.field.many_to_one) and model == attr.field.related_model)
-#     next_model = attr.field.model if many_related else attr.field.related_model
-#     print(f"ATTR: {attr} PATH: {path[0]} FIELD: {attr.field} 1:M?: {attr.field.one_to_many} M:M?: {attr.field.many_to_many} 1:1?: {attr.field.one_to_one} M:1?: {attr.field.many_to_one} MODEL: {attr.field.model} RELATED MODEL: {attr.field.related_model}")
-#     return field_path_to_model_path(next_model, path[1:], new_output)
-
-
 def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type[Model]:
     """Recursive method to take a root model and a dunderscore-delimited path and return the model class at the end of
     the path."""

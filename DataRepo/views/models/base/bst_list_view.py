@@ -13,7 +13,7 @@ import _csv
 
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, AutoField, CharField, Field, ForeignKey, Prefetch
+from django.db.models import F, Max, Min, Model, Q, QuerySet, Count, Field
 from django.db.models.functions import Coalesce, Lower
 from django.template import loader
 from django.utils.functional import classproperty
@@ -951,7 +951,7 @@ class BootstrapTableListView(ListView):
             None
         Returns:
             q_exp (Q): A Q expression that can be used in a django ORM filter
-            search_fields (List[str]): A list if database fields that are being queried
+            search_fields (List[str]): A list of database fields that are being queried
         """
 
         q_exp = Q()

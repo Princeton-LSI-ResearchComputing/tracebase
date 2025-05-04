@@ -109,7 +109,9 @@ class BootstrapTableColumn:
         strict_select: Optional[bool] = None,
         # Tell BSTListView to link the column's values the detail page via object.get_absolute_url
         link_to_detail: Optional[bool] = None,
+        th_template: Optional[str] = "DataRepo/widgets/bst_th.html",  # The template gets context variables "column": self, "object": model record, and "related_objects": dict of {object.pk: {column.name: list}}
         td_template: Optional[str] = "DataRepo/widgets/bst_td.html",  # The template gets context variables "column": self, "object": model record, and "related_objects": dict of {object.pk: {column.name: list}}
+        value_template: Optional[str] = "DataRepo/widgets/bst_value.html",  # The template gets context variables "column": self, "object": model record, and "related_objects": dict of {object.pk: {column.name: list}}
     ):
         """Defines options used to populate the bootstrap table columns for a BootstrapListView and a single reference
         model.
@@ -140,7 +142,7 @@ class BootstrapTableColumn:
                 column.  You can render whatever you link in the column, but to have each page sorted correctly by
                 bootstrap, you should set the annotated value as a hidden element.  The overall DB sort in the query
                 will be based on the annotated value.  Ideally, that value would be a joined string of all of the
-                related values, but all thos functions are postgres-specific. Example for AnimalListView:
+                related values, but all those functions are postgres-specific. Example for AnimalListView:
                     BootstrapTableColumn("study", field="studies__name", many_related=True) If an animal belongs to
                     multiple studies and the user selects to do an ascending sort on the study column, the "study" field
                     will be defined as and the order_by in the query will look like:
@@ -177,7 +179,8 @@ class BootstrapTableColumn:
                 via relations to that model, but there must be no many-to-many relations occurring in the field's path
                 after that model.  Every field that should sort the same way must also have the same value for
                 related_model_path.  E.g. if you have these 3 fields:
-                    animal__infusate__tracer_links__tracer__name animal__infusate__tracer_links__tracer__compound__id
+                    animal__infusate__tracer_links__tracer__name
+                    animal__infusate__tracer_links__tracer__compound__id
                     animal__infusate__tracer_links__concentration
                 and you want their delimited values to sort the same way, you can supply
                     related_model_path="animal__infusate__tracer_links"
@@ -253,9 +256,12 @@ class BootstrapTableColumn:
         # Export/display
         self.exported = exported
         self.visible = "true" if visible else "false"
-        self.header_widget = BSTHeader()
-        self.cell_widget = BSTValue()
+        # DEBUG: Experimenting with sending the column to the widget's constructor to see if it is updated
+        self.header_widget = BSTHeader(self)
+        self.cell_widget = BSTValue(self)
         # TODO: Change this to a value_template, defaulting to DataRepo/widgets/bst_value.html
+        self.th_template = th_template
+        self.value_template = value_template
         self.td_template = td_template
         self.link_to_detail = link_to_detail
 
@@ -287,18 +293,28 @@ class BootstrapTableColumn:
         self.mm_count = mm_count_annot_name
 
     def __str__(self):
-        return self.render_th()
+        return self.th
+        # return self.render_th()
 
     def render_th(self, attrs=None):
-        return self.header_widget.render(
-            f"{self.name}_header",
-            self,
-            attrs=attrs,
-        )
+        return self.header_widget.render()
+        # return self.header_widget.render(
+        #     f"{self.name}_header",
+        #     self,
+        #     attrs=attrs,
+        # )
+
+    @property
+    def th(self):
+        print(f"Rendering th for {self.name}")
+        th = self.header_widget.render()
+        print(f"GOT: {th}")
+        return self.header_widget.render()
 
     @property
     def td(self):
         return self.td_template
+        # return self.cell_widget.render()
 
     def init_related(self):
         """Initializes attributes related to the field for the column being many-related to the base table or when the

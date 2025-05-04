@@ -1,3 +1,6 @@
+{% load customtags %}
+
+{% log "value_template: " column.value_template "object: " object %}
 <td class="table-cell">
-    {% include "DataRepo/widgets/bst_value.html" %}
+    {% include column.value_template %}
 </td>

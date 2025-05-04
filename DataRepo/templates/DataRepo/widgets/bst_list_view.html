@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}{{ table_name }}{% endblock %}
 
@@ -30,7 +31,7 @@
             <thead>
                 <tr>
                     {% for column in columns %}
-                        {{ column }}
+                        {{ column.th }}
                     {% endfor %}
                 </tr>
             </thead>
@@ -38,7 +39,7 @@
                 {% for object in object_list %}
                     <tr>
                         {% for column in columns %}
-                            {% include column.td %}
+                            {% include column.td_template %}
                         {% endfor %}
                     </tr>
                 {% endfor %}
