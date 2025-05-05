@@ -332,11 +332,14 @@ class RequiredValueErrors(Exception):
                         [r.rownum for r in missing_dict[filesheet][colname]["rves"]]
                     )
                 )
-                message += (
-                    f"\t\tField: [{missing_dict[filesheet][colname]['fld']}] "
-                    f"Column: [{colname}] "
-                    f"on row(s): {deets}\n"
-                )
+                message += f"\t\tColumn: [{colname}] on row(s): {deets}\n"
+
+        # Append a suggestion
+        message += (
+            "Errors like this only happen when related data failed to load and is evidenced by the fact that the "
+            "indicated column/rows have values.  Fixing errors above this will fix this error."
+        )
+
         super().__init__(message)
         self.required_value_errors = required_value_errors
 
@@ -358,6 +361,14 @@ class RequiredValueError(InfileError, SummarizableError):
             message = f"Value required for '{field_name}' in %s."
             if rownum is not None:
                 message += f"  Record extracted from row: {rownum}."
+
+        if "suggestion" not in kwargs.keys():
+            suggestion = (
+                "This error only happens when related data failed to load.  Fixing errors above this one will fix this "
+                "error."
+            )
+            kwargs["suggestion"] = suggestion
+
         super().__init__(message, **kwargs)
         self.column = column
         self.rownum = rownum
