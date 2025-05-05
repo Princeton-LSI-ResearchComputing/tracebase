@@ -50,7 +50,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     RollbackException,
-    UnexpectedLabels,
+    UnexpectedLabel,
     UnexpectedSamples,
     UnskippedBlanks,
     generate_file_location_string,
@@ -1407,7 +1407,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             label_observations = parse_isotope_label(
                 isotope_label, possible_isotope_observations
             )
-        except UnexpectedLabels as olnp:
+        except UnexpectedLabel as olnp:
             suggestion = None
             if pgrec is not None:
                 suggestion = (
@@ -1551,7 +1551,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         """
         # Extract exceptions about missing Sample records
         sample_dnes = self.aggregated_errors_object.remove_matching_exceptions(
-            RecordDoesNotExist, "model", Sample
+            RecordDoesNotExist, "model", Sample, is_error=True
         )
 
         # Separate the exceptions based on whether they appear to be blanks or not
@@ -1580,18 +1580,38 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             )
 
             if num_found_samples == 0:
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     NoSamples(
                         likely_missing_dnes,
                         suggestion=self.missing_msrs_suggestion,
-                    )
+                    ),
+                    is_error=any(
+                        e.is_error
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_error")
+                    ),
+                    is_fatal=any(
+                        e.is_fatal
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_fatal")
+                    ),
                 )
             else:
-                self.aggregated_errors_object.buffer_error(
+                self.aggregated_errors_object.buffer_exception(
                     MissingSamples(
                         likely_missing_dnes,
                         suggestion=self.missing_msrs_suggestion,
-                    )
+                    ),
+                    is_error=any(
+                        e.is_error
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_error")
+                    ),
+                    is_fatal=any(
+                        e.is_fatal
+                        for e in likely_missing_dnes
+                        if hasattr(e, "is_fatal")
+                    ),
                 )
 
         if len(possible_blank_dnes) > 0:

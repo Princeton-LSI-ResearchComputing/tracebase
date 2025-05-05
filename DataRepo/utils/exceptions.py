@@ -1853,6 +1853,7 @@ class AggregatedErrors(Exception):
         modify=True,
         attr_name=None,
         attr_val=None,
+        is_error=None,
     ):
         """
         This method is provided to retrieve exceptions (if they exist in the exceptions list) from this object and
@@ -1864,20 +1865,27 @@ class AggregatedErrors(Exception):
             modify (boolean): Whether the convert a removed exception to a warning
             attr_name (str): An attribute required to be in the exception in order to match
             attr_val (object): The value of attr_name required to match in the exception
+            is_error (Optional[bool]): The exceptions' is_error attribute must have this value (if not None)
+        Exceptions:
+            None
         Returns:
             matched_exceptions (List[Exception]): Exceptions from self.exception that matched the search criteria
         """
         matched_exceptions = []
         unmatched_exceptions = []
-        is_fatal = False
-        is_error = False
+        final_is_fatal = False
+        final_is_error = False
         num_errors = 0
         num_warnings = 0
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if self.exception_matches(
-                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+                exception,
+                exception_class,
+                attr_name=attr_name,
+                attr_val=attr_val,
+                is_error=is_error,
             ):
                 if remove and modify:
                     # Change every removed exception to a non-fatal warning
@@ -1891,16 +1899,16 @@ class AggregatedErrors(Exception):
                 else:
                     num_warnings += 1
                 if exception.is_fatal:
-                    is_fatal = True
+                    final_is_fatal = True
                 if exception.is_error:
-                    is_error = True
+                    final_is_error = True
                 unmatched_exceptions.append(exception)
 
         if remove:
             self.num_errors = num_errors
             self.num_warnings = num_warnings
-            self.is_fatal = is_fatal
-            self.is_error = is_error
+            self.is_fatal = final_is_fatal
+            self.is_error = final_is_error
 
             # Reinitialize this object
             self.exceptions = unmatched_exceptions
@@ -1932,7 +1940,8 @@ class AggregatedErrors(Exception):
         Args:
             exception_class (Exception): The class of exceptions to modify
             is_fatal (bool): Change matching exceptions' is_fatal attribute to this value
-            is_error (bool): Change matching exceptions' is_error attribute to this value
+            is_error (bool): Change matching exceptions' is_error attribute to this value (but only match the exception
+                if it is NOT is_error [os is_error is None])
             status_message (str): Change matching exceptions' aes_status_message attribute to this value
             attr_name (str): An attribute required to be in the exception in order to match
             attr_val (object): The value of attr_name required to match in the exception
@@ -1948,7 +1957,11 @@ class AggregatedErrors(Exception):
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
             if self.exception_matches(
-                exception, exception_class, attr_name=attr_name, attr_val=attr_val
+                exception,
+                exception_class,
+                attr_name=attr_name,
+                attr_val=attr_val,
+                is_error=(is_error if is_error is None else not is_error),
             ):
                 if is_error is not None:
                     exception.is_error = is_error
@@ -2042,7 +2055,7 @@ class AggregatedErrors(Exception):
         if not self.custom_message:
             super().__init__(self.get_default_message())
 
-    def remove_exception_type(self, exception_class, modify=True):
+    def remove_exception_type(self, exception_class, modify=True, is_error=None):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
@@ -2051,8 +2064,15 @@ class AggregatedErrors(Exception):
         Args:
             exception_class (Exception): The class of exceptions to remove
             modify (boolean): Whether to convert the removed exception to a warning
+            is_error (Optional[bool]): Restricts the summarized exceptions to errors or warnings (or either when None)
+        Exceptions:
+            None
+        Returns:
+            (List[Exception])
         """
-        return self.get_exception_type(exception_class, remove=True, modify=modify)
+        return self.get_exception_type(
+            exception_class, remove=True, modify=modify, is_error=is_error
+        )
 
     def get_default_message(self):
         should_raise_message = (
@@ -2283,25 +2303,45 @@ class AggregatedErrors(Exception):
     def exception_type_exists(self, exc_cls):
         return exc_cls in [type(exc) for exc in self.exceptions]
 
-    def exception_matches(self, exception, cls, attr_name=None, attr_val=None):
+    def exception_matches(
+        self, exception, cls, attr_name=None, attr_val=None, is_error=None
+    ):
+        """Returns whether the supplied exception matches the supplied class, has an attribute with a specific value and
+        is an error or warning.
+
+        Args:
+            exception (Exception)
+            cls (Type[Exception]): The exception's type must exactly match this class.
+            attr_name (Optional[str]): The exception must have this attribute (if not None)
+            attr_val (Optional[Any]): The exceptions attribute must have this value (if the attr_name is not None)
+            is_error (Optional[bool]): The exception's is_error attribute must have this value (if not None)
+        Exceptions:
+            None
+        Returns:
+            (bool)
+        """
         # Intentionally looks for exact type (not isinstance).  isinstance is not what we want here, because I cannot
         # separate MissingSamples exceptions from NoSamples exceptions (because NoSamples is a subclass of
         # MissingSamples))
-        return type(exception).__name__ == cls.__name__ and (
-            attr_name is None
-            or (
-                hasattr(exception, attr_name)
-                and (
-                    (
-                        not type(attr_val).__name__ == "function"
-                        and getattr(exception, attr_name) == attr_val
-                    )
-                    or (
-                        type(attr_val).__name__ == "function"
-                        and attr_val(getattr(exception, attr_name))
+        return (
+            type(exception).__name__ == cls.__name__
+            and (
+                attr_name is None
+                or (
+                    hasattr(exception, attr_name)
+                    and (
+                        (
+                            not type(attr_val).__name__ == "function"
+                            and getattr(exception, attr_name) == attr_val
+                        )
+                        or (
+                            type(attr_val).__name__ == "function"
+                            and attr_val(getattr(exception, attr_name))
+                        )
                     )
                 )
             )
+            and (is_error is None or exception.is_error == is_error)
         )
 
     def exception_exists(self, cls, attr_name, attr_val):
@@ -2322,7 +2362,7 @@ class AggregatedErrors(Exception):
                 return True
         return False
 
-    def remove_matching_exceptions(self, cls, attr_name, attr_val):
+    def remove_matching_exceptions(self, cls, attr_name, attr_val, is_error=None):
         """
         To support consolidation of errors across files (like MissingCompounds, MissingSamples, etc), this method
         is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
@@ -2333,6 +2373,7 @@ class AggregatedErrors(Exception):
             attr_name (str): An attribute the buffered exception class has.
             attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
                 must take a single argument (the value of the attribute) and return a boolean.
+            is_error (Optional[bool]): Only match when the exception is or is not an error(/warning).
         Exceptions:
             None
         Returns (List[Exception]): A list of exceptions of the supplied type, and containing the supplied attribute with
@@ -2340,14 +2381,16 @@ class AggregatedErrors(Exception):
         """
         matched_exceptions = []
         unmatched_exceptions = []
-        is_fatal = False
-        is_error = False
+        final_is_fatal = False
+        final_is_error = False
         num_errors = 0
         num_warnings = 0
 
         # Look for exceptions to remove and recompute new object values
         for exception in self.exceptions:
-            if self.exception_matches(exception, cls, attr_name, attr_val):
+            if (
+                is_error is None or exception.is_error == is_error
+            ) and self.exception_matches(exception, cls, attr_name, attr_val):
                 matched_exceptions.append(exception)
             else:
                 if exception.is_error:
@@ -2355,15 +2398,15 @@ class AggregatedErrors(Exception):
                 else:
                     num_warnings += 1
                 if exception.is_fatal:
-                    is_fatal = True
+                    final_is_fatal = True
                 if exception.is_error:
-                    is_error = True
+                    final_is_error = True
                 unmatched_exceptions.append(exception)
 
         self.num_errors = num_errors
         self.num_warnings = num_warnings
-        self.is_fatal = is_fatal
-        self.is_error = is_error
+        self.is_fatal = final_is_fatal
+        self.is_error = final_is_error
 
         # Reinitialize this object
         self.exceptions = unmatched_exceptions
@@ -2855,11 +2898,50 @@ class ObservedIsotopeUnbalancedError(ObservedIsotopeParsingError):
         self.label = label
 
 
-class UnexpectedLabels(InfileError):
+class AllUnexpectedLabels(Exception):
+    def __init__(self, exceptions: List[UnexpectedLabel]):
+        counts: Dict[str, dict] = defaultdict(lambda: {"files": [], "observations": 0})
+        for exc in exceptions:
+            for element in exc.unexpected:
+                if exc.file not in counts[element]["files"]:
+                    counts[element]["files"].append(exc.file)
+                counts[element]["observations"] += 1
+        message = "The following peak label observations were not among the label(s) in the tracer(s):\n"
+        for element, stats in counts.items():
+            message += (
+                f"\t{element}: observed {stats['observations']} times across {len(stats['files'])} peak annotation "
+                "files\n"
+            )
+        message += "There may be contamination."
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.counts = counts
+
+
+class UnexpectedLabels(Exception):
+    def __init__(self, exceptions: List[UnexpectedLabel]):
+        counts: Dict[str, int] = defaultdict(int)
+        for exc in exceptions:
+            for element in exc.unexpected:
+                counts[element] += 1
+        message = "The following peak label observations were not among the label(s) in the tracer(s):\n"
+        for element, count in counts.items():
+            message += f"\t{element}: observed {count} times\n"
+        message += "There may be contamination."
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.counts = counts
+
+
+class UnexpectedLabel(InfileError, SummarizableError):
+    SummarizerExceptionClass = UnexpectedLabels
+
     def __init__(self, unexpected, possible, **kwargs):
         message = (
-            f"Observed peak label(s) {unexpected} were not among the labels in the tracer(s): {possible}.  There may "
-            "be contamination."
+            f"One or more observed peak labels were not among the label(s) in the tracer(s):\n"
+            f"\tObserved: {unexpected}\n"
+            f"\tExpected: {possible}\n"
+            "There may be contamination.  (Note, the reported observed are only the unexpected labels.)"
         )
         super().__init__(message, **kwargs)
         self.possible = possible
@@ -3279,6 +3361,138 @@ class MzxmlSampleHeaderMismatch(InfileError):
         self.header = header
         self.mzxml_basename = mzxml_basename
         self.mzxml_file = mzxml_file
+
+
+class AssumedMzxmlSampleMatches(Exception):
+    """Takes a list of AssumedMzxmlSampleMatch exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions: List[AssumedMzxmlSampleMatch], message=None):
+        if message is None:
+            message = (
+                "Assuming the following imperfect (but unique) mzXML to sample name matches are due to peak annotation "
+                "file header edits, and that they are correctly mapped:\n"
+            )
+            matches_by_annot_file = defaultdict(list)
+            exc: AssumedMzxmlSampleMatch
+            for exc in exceptions:
+                loc = generate_file_location_string(
+                    file=exc.file,
+                    sheet=exc.sheet,
+                )
+                matches_by_annot_file[loc].append(exc)
+            for loc, exc_list in sorted(
+                matches_by_annot_file.items(), key=lambda tpl: tpl[0]
+            ):
+                message += f"\t{loc}\n"
+                for exc in sorted(exc_list, key=lambda e: e.mzxml_name):
+                    message += f"\t\t'{exc.sample_name}' <- '{exc.mzxml_name}' ('{exc.mzxml_file}')\n"
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AssumedMzxmlSampleMatch(InfileError, SummarizableError):
+    SummarizerExceptionClass = AssumedMzxmlSampleMatches
+
+    def __init__(self, sample_name, mzxml_file, **kwargs):
+        mzxml_name, _ = os.path.splitext(os.path.basename(mzxml_file))
+        message = (
+            "Sample uniquely but imprecisely matches the mzXML filename in %s:\n"
+            f"\tSample: [{sample_name}]\n"
+            f"\tmzXML:  [{mzxml_name}] (path: [{mzxml_file}])\n"
+            "Assuming that the sample header was modified and that this is the intended sample."
+        )
+        super().__init__(message, **kwargs)
+        self.sample_name = sample_name
+        self.mzxml_name = mzxml_name
+        self.mzxml_file = mzxml_file
+
+
+class UnmatchedMzXMLs(Exception):
+    """Takes a list of UnmatchedMzXML exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions: List[UnmatchedMzXML]):
+        # Assumes that the file/sheet/column are all the same and that there is at least 1 exception
+        loc = generate_file_location_string(
+            file=exceptions[0].file,
+            sheet=exceptions[0].sheet,
+            column=exceptions[0].column,
+        )
+        message = f"{len(exceptions)} mzXMLs could not be mapped to a {exceptions[0].sample_header_col}:\n"
+        for exc in exceptions:
+            message += f"\t{exc.mzxml_name} (file: '{exc.mzxml_file}')\n"
+        message += (
+            "Either these files were not included in any peak annotation analysis or the sample headers were modified "
+            f"and could not be automatically matched to existing sample headers in {loc}.\n"
+            "Either update rows to include these files or if any are unanalyzed mzXMLs, add a row and fill in the "
+            f"'{exceptions[0].skip_col}' column."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class UnmatchedMzXML(InfileError, SummarizableError):
+    SummarizerExceptionClass = UnmatchedMzXMLs
+
+    def __init__(
+        self, mzxml_file: str, sample_header_col: str, skip_col: str, **kwargs
+    ):
+        mzxml_name = os.path.splitext(os.path.basename(mzxml_file))[0]
+        message = (
+            f"mzXML name '{mzxml_name}' (from file '{mzxml_file}') could not be mapped to a {sample_header_col}.\n"
+            "Either this file was not included in a peak annotation analysis or the sample header was modified and "
+            "could not be automatically matched.\n"
+            f"Either update a row that includes '{mzxml_file}' or if this is an unanalyzed mzXML, add a row and fill "
+            f"in the '{skip_col}' column, including %s to resolve this."
+        )
+        super().__init__(message, **kwargs)
+        self.skip_col = skip_col
+        self.mzxml_name = mzxml_name
+        self.mzxml_file = mzxml_file
+        self.sample_header_col = sample_header_col
+
+
+class UnmatchedBlankMzXMLs(Exception):
+    """Takes a list of UnmatchedMzXML exceptions and summarizes them in a single exception."""
+
+    def __init__(self, exceptions: List[UnmatchedBlankMzXML]):
+        # Assumes that the file/sheet/column are all the same and that there is at least 1 exception
+        loc = generate_file_location_string(
+            file=exceptions[0].file,
+            sheet=exceptions[0].sheet,
+            column=exceptions[0].column,
+        )
+        message = f"{len(exceptions)} mzXMLs could not be mapped to a {exceptions[0].sample_header_col}:\n"
+        for exc in exceptions:
+            message += f"\t{exc.mzxml_name} (file: '{exc.mzxml_file}')\n"
+        message += (
+            "These mzXML files, that appear to be for blank samples, could not be automatically matched to existing "
+            f"skipped blank sample headers in {loc}.\n"
+            f"Either update or add rows and fill in the '{exceptions[0].column}' and '{exceptions[0].skip_col}' "
+            "columns for each file."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class UnmatchedBlankMzXML(InfileError, SummarizableError):
+    SummarizerExceptionClass = UnmatchedBlankMzXMLs
+
+    def __init__(
+        self, mzxml_file: str, sample_header_col: str, skip_col: str, **kwargs
+    ):
+        mzxml_name = os.path.splitext(os.path.basename(mzxml_file))[0]
+        message = (
+            f"mzXML name '{mzxml_name}' (from file '{mzxml_file}'), that appears to be for a blank sample, could not "
+            f"be mapped to a {sample_header_col}.\n"
+            "The file could not be automatically matched to an existing skipped blank sample header.\n"
+            f"Either update a row that includes '{mzxml_name}' or add a row and fill in the '{skip_col}' column, "
+            "including %s to resolve this."
+        )
+        super().__init__(message, **kwargs)
+        self.skip_col = skip_col
+        self.mzxml_name = mzxml_name
+        self.mzxml_file = mzxml_file
+        self.sample_header_col = sample_header_col
 
 
 class InvalidHeaders(InfileError, ValidationError):
@@ -3754,7 +3968,7 @@ class MultiplePeakGroupRepresentation(SummarizableError):
         return self.message
 
 
-class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
+class PossibleDuplicateSamples(SummarizedInfileError, Exception):
     """Summary of all PossibleDuplicateSamples errors
 
     Attributes:
@@ -3763,13 +3977,13 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
 
     def __init__(
         self,
-        exceptions: list[PossibleDuplicateSamples],
+        exceptions: list[PossibleDuplicateSample],
         suggestion=None,
     ):
         SummarizedInfileError.__init__(self, exceptions)
         headers_str = ""
         include_loc = len(self.file_dict.keys()) > 1
-        exc: PossibleDuplicateSamples
+        exc: PossibleDuplicateSample
         for loc, exc_list in self.file_dict.items():
             if include_loc:
                 headers_str += f"\t{loc}\n"
@@ -3778,7 +3992,7 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
                     headers_str += "\t"
                 rowlist = summarize_int_list(exc.rownum)
                 rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
-                headers_str += f"\t{exc.sample_header}: {exc.sample_names}{rowstr}\n"
+                headers_str += f"\theader '{exc.sample_header}' maps to samples: {exc.sample_names}{rowstr}\n"
         loc = ""
         if not include_loc:
             loc = " in " + list(self.file_dict.keys())[0]
@@ -3793,8 +4007,8 @@ class PossibleDuplicateSamplesError(SummarizedInfileError, Exception):
         Exception.__init__(self, message)
 
 
-class PossibleDuplicateSamples(InfileError, SummarizableError):
-    SummarizerExceptionClass = PossibleDuplicateSamplesError
+class PossibleDuplicateSample(InfileError, SummarizableError):
+    SummarizerExceptionClass = PossibleDuplicateSamples
 
     def __init__(self, sample_header: str, sample_names: List[str], **kwargs):
         nlt = "\n\t"

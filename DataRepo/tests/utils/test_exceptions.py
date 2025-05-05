@@ -40,8 +40,8 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ObservedIsotopeUnbalancedError,
     OptionsNotAvailable,
+    PossibleDuplicateSample,
     PossibleDuplicateSamples,
-    PossibleDuplicateSamplesError,
     RecordDoesNotExist,
     RequiredArgument,
     RequiredColumnValue,
@@ -54,7 +54,7 @@ from DataRepo.utils.exceptions import (
     SummarizableError,
     SummarizedInfileError,
     UnequalColumnGroups,
-    UnexpectedLabels,
+    UnexpectedLabel,
     UnexpectedSamples,
     UnknownHeader,
     UnskippedBlanks,
@@ -1098,11 +1098,14 @@ class ExceptionTests(TracebaseTestCase):
         )
 
     def test_UnexpectedLabels(self):
-        exc = UnexpectedLabels(["D"], ["C", "N"])
+        exc = UnexpectedLabel(["D"], ["C", "N"])
         self.assertIn(
-            "label(s) ['D'] were not among the labels in the tracer(s): ['C', 'N']",
+            "One or more observed peak labels were not among the label(s) in the tracer(s)",
             str(exc),
         )
+        self.assertIn("Observed: ['D']", str(exc))
+        self.assertIn("Expected: ['C', 'N']", str(exc))
+        self.assertIn("There may be contamination", str(exc))
 
     def test_MzxmlSampleHeaderMismatch(self):
         exc = MzxmlSampleHeaderMismatch("sample", "location/sample_neg.mzXML")
@@ -1330,13 +1333,13 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("neglect to include the C12 PARENT peak", str(mcpp))
 
     def test_PossibleDuplicateSamplesError(self):
-        pds = PossibleDuplicateSamples("s1", ["s1_pos", "s1_neg"])
-        pdse = PossibleDuplicateSamplesError([pds])
+        pds = PossibleDuplicateSample("s1", ["s1_pos", "s1_neg"])
+        pdse = PossibleDuplicateSamples([pds])
         # Check problem described
         self.assertIn(
             "same name that are associated with different database samples", str(pdse)
         )
         # Check data included
-        self.assertIn("s1: ['s1_pos', 's1_neg']", str(pdse))
+        self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))

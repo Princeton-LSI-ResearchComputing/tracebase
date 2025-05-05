@@ -58,6 +58,7 @@ class LoadIsocorrFilesCommandTests(TracebaseTestCase):
         call_command(
             "load_peak_annotation_files",
             infile="DataRepo/data/tests/singly_labeled_isocorr/small_cor_peak_annot_files.tsv",
+            debug=True,
         )
         post_pg_load_count = PeakGroup.objects.count()
         self.assertGreater(post_pg_load_count, pre_pg_load_count)

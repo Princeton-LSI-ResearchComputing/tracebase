@@ -6,13 +6,7 @@ from django.db import transaction
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
 from DataRepo.loaders.base.table_loader import TableLoader
-from DataRepo.loaders.peak_annotations_loader import (
-    AccucorLoader,
-    IsoautocorrLoader,
-    IsocorrLoader,
-    PeakAnnotationsLoader,
-    UnicorrLoader,
-)
+from DataRepo.loaders.peak_annotations_loader import PeakAnnotationsLoader
 from DataRepo.loaders.peak_group_conflicts import PeakGroupConflicts
 from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
@@ -496,14 +490,14 @@ class PeakAnnotationFilesLoader(TableLoader):
             )
             return
 
-        if format_code == AccucorLoader.format_code:
-            peak_annot_loader_class = AccucorLoader
-        elif format_code == IsocorrLoader.format_code:
-            peak_annot_loader_class = IsocorrLoader
-        elif format_code == IsoautocorrLoader.format_code:
-            peak_annot_loader_class = IsoautocorrLoader
-        elif format_code == UnicorrLoader.format_code:
-            peak_annot_loader_class = UnicorrLoader
+        for subcls in PeakAnnotationsLoader.__subclasses__():
+            if format_code == subcls.format_code:
+                peak_annot_loader_class = subcls
+                break
+        else:
+            raise NotImplementedError(
+                f"format_code: {format_code} is not one of {PeakAnnotationsLoader.get_supported_formats()}"
+            )
 
         # Get the peak annotation details
         peak_annotation_details_file = None
@@ -569,6 +563,7 @@ class PeakAnnotationFilesLoader(TableLoader):
             # Pass-alongs
             _validate=self.validate,
             defer_rollback=self.defer_rollback,
+            debug=self.debug,
         )
 
         try:
