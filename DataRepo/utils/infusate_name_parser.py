@@ -8,13 +8,14 @@ import regex
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.utils.exceptions import (
+    MultiLoadStatus,
     InfusateParsingError,
     IsotopeParsingError,
     IsotopeStringDupe,
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
     TracerParsingError,
-    UnexpectedLabel,
+    UnexpectedLabels,
 )
 
 KNOWN_ISOTOPES = "".join(ElementLabel.labeled_elements_list())
@@ -269,15 +270,29 @@ def parse_tracer_with_conc_string(tracer_string: str) -> Tuple[TracerData, float
 
 
 def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
+
     if not isotopes_string:
         raise IsotopeParsingError("parse_isotope_string requires a defined string.")
 
     isotope_data = list()
     isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
-    if len(isotopes) < 1:
-        raise IsotopeParsingError(
-            f"Encoded isotopes: [{isotopes_string}] cannot be parsed."
-        )
+ 
+    load_status_data = MultiLoadStatus()
+
+    try:
+        if len(isotopes) < 1:
+            raise IsotopeParsingError(
+                f"Encoded isotopes: [{isotopes_string}] cannot be parsed."
+            )
+                
+    except IsotopeParsingError as Err:
+        load_status_data.set_load_exception(
+            Err,
+            "Autofill Note",
+            top=False,
+            default_is_error=True,
+            default_is_fatal=True,
+            )
 
     parsed_string = None
     for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
@@ -304,14 +319,28 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
         )
 
     # Ignoring whitespace and case differences
-    if (
-        str(parsed_string).replace(" ", "").lower()
-        != str(isotopes_string).replace(" ", "").lower()
-    ):
-        raise IsotopeParsingError(
-            f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
-            f"parsed: [{parsed_string}]."
-        )
+ 
+    try: 
+        if (
+            str(parsed_string).replace(" ", "").lower()
+            != str(isotopes_string).replace(" ", "").lower()
+        ):
+            raise IsotopeParsingError(
+                f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
+                f"parsed: [{parsed_string}]."
+            )
+    except IsotopeParsingError as Err:
+        load_status_data.set_load_exception(
+            Err,
+            "Autofill Note",
+            top=False,
+            default_is_error=True,
+            default_is_fatal=True,
+            )
+        # print("Error is:", Err)
+    # print("load_status_data is:", load_status_data.statuses.items())
+    # print("load_status_data is:", load_status_data.statuses['Autofill Note']['aggregated_errors'])
+    # print("load status key", load_status_data.get_ordered_status_keys())
 
     return isotope_data
 
@@ -418,7 +447,9 @@ def parse_isotope_label(
                         if element not in parent_elements:
                             unexpected_observations.append(element)
                     if len(unexpected_observations) > 0:
-                        raise UnexpectedLabel(unexpected_observations, parent_elements)
+                        raise UnexpectedLabels(
+                            unexpected_observations, possible_observations
+                        )
 
                 if len(dupe_indexes) > 0:
                     # If there are multiple isotope measurements that match the same parent tracer labeled element
