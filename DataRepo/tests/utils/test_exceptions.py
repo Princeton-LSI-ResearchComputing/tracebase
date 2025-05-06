@@ -800,12 +800,16 @@ class ExceptionTests(TracebaseTestCase):
             ),
         ]
         rve = RequiredValueErrors(rves)
-        expected = (
-            "Required values found missing during loading:\n"
-            "\tsheet [tissues] in tissues.tsv:\n"
-            "\t\tField: [Tissue.name] Column: [Tissue Name] on row(s): 3-4\n"
+        self.assertIn("Required values found missing", str(rve))
+        self.assertIn("sheet [tissues] in tissues.tsv", str(rve))
+        self.assertIn("Column: [Tissue Name] on row(s): 3-4", str(rve))
+        self.assertIn(
+            "Errors like this only happen when related data failed to load", str(rve)
         )
-        self.assertEqual(expected, str(rve))
+        self.assertIn(
+            "evidenced by the fact that the indicated column/rows have values", str(rve)
+        )
+        self.assertIn("Fixing errors above this will fix this error.", str(rve))
 
     def test_ExcelSheetsNotFound(self):
         esnf = ExcelSheetsNotFound(

@@ -2962,14 +2962,27 @@ class TableLoader(ABC):
                 if match:
                     fldname = match.group("fldname")
                     colname = fldname
+                    altfldname = (
+                        fldname.replace("_id", "")
+                        if fldname.endswith("_id")
+                        else fldname
+                    )
+
                     # Convert the database column name to the file column header, if available
                     if (
                         self.FieldToHeader is not None
-                        and colname in self.FieldToHeader[model.__name__].keys()
+                        and fldname in self.FieldToHeader[model.__name__].keys()
                     ):
                         colname = self.FieldToHeader[model.__name__][fldname]
+                    elif (
+                        self.FieldToHeader is not None
+                        and altfldname in self.FieldToHeader[model.__name__].keys()
+                    ):
+                        colname = self.FieldToHeader[model.__name__][altfldname]
+                        fldname = altfldname
                     elif columns is not None:
                         colname += f" ({columns})"
+
                     self.aggregated_errors_object.buffer_exception(
                         RequiredValueError(
                             column=colname,

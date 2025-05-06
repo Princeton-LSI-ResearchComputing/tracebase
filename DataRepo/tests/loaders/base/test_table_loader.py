@@ -195,8 +195,16 @@ class TableLoaderTests(TracebaseTestCase):
         self.assertEqual(
             RequiredValueError, type(tl.aggregated_errors_object.exceptions[0])
         )
-        self.assertEqual(
+        self.assertIn(
             "Value required for 'name' in the load file data.  Record extracted from row: 2.",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "This error only happens when related data failed to load",
+            str(tl.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "Fixing errors above this one will fix this error",
             str(tl.aggregated_errors_object.exceptions[0]),
         )
 
@@ -991,14 +999,21 @@ class TableLoaderTests(TracebaseTestCase):
         # The 2 exceptions should be summarized as 1
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(RequiredValueErrors, type(aes.exceptions[0]))
-        self.assertEqual(
-            (
-                "Required values found missing during loading:\n"
-                "\tthe load file data:\n"
-                "\t\tField: [TestModel.name] Column: [Name] on row(s): 2\n"
-                "\t\tField: [TestModel.choice] Column: [Choice] on row(s): 3\n"
-            ),
+        self.assertIn(
+            "Required values found missing during loading", str(aes.exceptions[0])
+        )
+        self.assertIn("Column: [Name] on row(s): 2", str(aes.exceptions[0]))
+        self.assertIn("Column: [Choice] on row(s): 3", str(aes.exceptions[0]))
+        self.assertIn(
+            "Errors like this only happen when related data failed to load",
             str(aes.exceptions[0]),
+        )
+        self.assertIn(
+            "evidenced by the fact that the indicated column/rows have values",
+            str(aes.exceptions[0]),
+        )
+        self.assertIn(
+            "Fixing errors above this will fix this error", str(aes.exceptions[0])
         )
 
     def test_load_wrapper_summarizes_DuplicateValueErrors(self):
