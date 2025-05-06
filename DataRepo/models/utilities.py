@@ -607,8 +607,8 @@ def get_distinct_fields(model: Type[Model], field_path: Optional[str] = None):
             either just the field_path supplied or a series of field_paths from the related model's ordering,
             (if the field at the end of the path is a foreign key).
     """
-    distinct_fields = []
     if field_path is None:
+        distinct_fields = []
         if "ordering" in model._meta.ordering:
             for obf_exp in model._meta.ordering:
                 obf = resolve_field_path(obf_exp)
