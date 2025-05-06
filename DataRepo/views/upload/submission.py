@@ -62,6 +62,7 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeDict,
     InvalidPeakAnnotationFileFormat,
     InvalidStudyDocVersion,
+    IsotopeParsingError,
     MissingDataAdded,
     MultiLoadStatus,
     MultiplePeakAnnotationFileFormats,
@@ -69,7 +70,6 @@ from DataRepo.utils.exceptions import (
     NoSamples,
     UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
-    IsotopeParsingError,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 from DataRepo.utils.infusate_name_parser import (
