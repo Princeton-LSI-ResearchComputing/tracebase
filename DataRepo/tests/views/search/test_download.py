@@ -136,24 +136,25 @@ class AdvancedSearchDownloadViewTests(BaseAdvancedSearchDownloadViewTests):
             "Infusion Rate (ul/min/g)\tStudies\n"
         ).encode()
         expected_content = (
-            "zl4_sp\tspleen\t150.0\talanine\talanine\talanine/L-alanine/ala\tC3H7NO2\tC\txzl4_sp.mzXML\t"
-            "19638321.41044186\t0.18878668492773729\t3707453.596622725\t1.177783652743335\talafasted_cor.xlsx\txzl4\tWT"
-            "\t27.5\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\t"
-            "alanine-[13C3,15N1]\talanine\t180.0\t0.1\ttest v3 study\nxzl4_sp\tspleen\t150.0\talanine\talanine\t"
-            "alanine/L-alanine/ala\tC3H7NO2\tN\txzl4_sp.mzXML\t19638321.41044186\t0.23467986399113755\t"
-            "4608718.5976167405\t1.117954714164765\talafasted_cor.xlsx\txzl4\tWT\t27.5\t14.0\tM\tPicoLab Rodent 20 5053"
-            "\tfasted\tno treatment\talanine-[13C3,15N1][180]\talanine-[13C3,15N1]\talanine\t180.0\t0.1\ttest v3 study"
-            "\nxzl4_t\tserum_plasma_tail\t150.0\talanine\talanine\talanine/L-alanine/ala\tC3H7NO2\tC\txzl4_t.mzXML\t"
-            "10779143.674823906\t0.1602897819884057\t1727786.5896592264\t1.0\talafasted_cor.xlsx\txzl4\tWT\t27.5\t14.0"
-            "\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\talanine-[13C3,15N1]\talanine"
-            "\t180.0\t0.1\ttest v3 study\nxzl4_t\tserum_plasma_tail\t150.0\talanine\talanine\talanine/L-alanine/ala\t"
-            "C3H7NO2\tN\txzl4_t.mzXML\t10779143.674823906\t0.20991893590830213\t2262746.3702217396\t1.0\t"
-            "alafasted_cor.xlsx\txzl4\tWT\t27.5\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\t"
-            "alanine-[13C3,15N1][180]\talanine-[13C3,15N1]\talanine\t180.0\t0.1\ttest v3 study\nxzl5_panc\tpancreas\t"
-            "150.0\talanine\talanine\talanine/L-alanine/ala\tC3H7NO2\tC\txzl5_panc.mzXML\t43695995.42306948\t"
-            "0.06929539990964839\t3027931.477291765\t0.31001266740429617\talafasted_cor.xlsx\txzl5\tWT\t27.5\t14.0\tM\t"
-            "PicoLab Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\talanine-[13C3,15N1]\talanine\t"
-            "180.0\t0.1\ttest v3 study\nxzl5_panc\tpancreas\t150.0"  # A portion of the file
+            "xzl1_brain\tbrain\t150.0\tglutamine\tglutamine\tglutamine/gln\tC5H10N2O3\tC\txzl1_brain.mzXML\t"
+            "66443429.298358865\t0.020587090360701568\t1367876.8828401999\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t"
+            "14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\t"
+            "glutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain\t150.0\tglutamine\tglutamine\tglutamine/gln\t"
+            "C5H10N2O3\tN\txzl1_brain.mzXML\t66443429.298358865\t0.033253605355009624\t2209483.5763211097\tNone\t"
+            "glnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\t"
+            "glutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain"
+            "\t150.0\tserine\tserine\tserine/ser\tC3H7NO3\tC\txzl1_brain.mzXML\t3683190.721911725\t"
+            "0.00004820032977290798\t177.53100741266016\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\t"
+            "PicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine"
+            "\t200.0\t0.1\ttest v3 study\nxzl1_brain\tbrain\t150.0\tserine\tserine\tserine/ser\tC3H7NO3\tN\t"
+            "xzl1_brain.mzXML\t3683190.721911725\t0.007010304615747614\t25820.288918496553\tNone\tglnfasted1_cor.xlsx\t"
+            "xzl1\tWT\t26.4\t14.0\tM\tPicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\t"
+            "glutamine-[13C5,15N2]\tglutamine\t200.0\t0.1\ttest v3 study\nxzl1_brownFat\tbrown_adipose_tissue\t150.0\t"
+            "glutamine\tglutamine\tglutamine/gln\tC5H10N2O3\tC\txzl1_brownFat.mzXML\t22616674.701348945\t"
+            "0.14624710984003733\t3307623.309264573\tNone\tglnfasted1_cor.xlsx\txzl1\tWT\t26.4\t14.0\tM\t"
+            "PicoLab Rodent 20 5053\tfasted\tno treatment\tglutamine-[13C5,15N2][200]\tglutamine-[13C5,15N2]\tglutamine"
+            "\t200.0\t0.1\ttest v3 study\nxzl1_brownFat\tbrown_adipose_tissue\t150.0\tglutamine\tglutamine\tglutamine/"
+            # A portion of the file
         ).encode()
         content = str(response.getvalue())
         # `[2:-1]` removes the "b'" and last "'" from the beginning and end of the converted bytes to string
@@ -203,28 +204,28 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         row = pgtmt.msrun_sample_rec_to_row(self.res.first().msrun_sample)
         self.assertEqual(
             [
-                "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
+                "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
                 "positive",
                 1.0,
                 502.9,
-                "xzl4_sp",
-                "spleen",
-                "2020-07-22",
+                "xzl1_brain",
+                "brain",
+                "2021-06-08",
                 150.0,
                 "Xianfeng Zeng",
-                "xzl4",
+                "xzl1",
                 14.0,
                 "M",
                 "WT",
-                27.5,
+                26.4,
                 "PicoLab Rodent 20 5053",
                 "fasted",
                 "no treatment",
-                "alanine-[13C3,15N1][180]",
+                "glutamine-[13C5,15N2][200]",
                 "Xianfeng Zeng",
                 "QE2",
                 "polar-HILIC-25-min",
-                "2020-07-22",
+                "2021-06-08",
             ],
             row,
         )
@@ -236,28 +237,28 @@ class RecordToMzxmlTSVTests(BaseAdvancedSearchDownloadViewTests):
         self.assertEqual(
             [
                 [
-                    "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
+                    "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
                     "positive",
                     1.0,
                     502.9,
-                    "xzl4_sp",
-                    "spleen",
-                    "2020-07-22",
+                    "xzl1_brain",
+                    "brain",
+                    "2021-06-08",
                     150.0,
                     "Xianfeng Zeng",
-                    "xzl4",
+                    "xzl1",
                     14.0,
                     "M",
                     "WT",
-                    27.5,
+                    26.4,
                     "PicoLab Rodent 20 5053",
                     "fasted",
                     "no treatment",
-                    "alanine-[13C3,15N1][180]",
+                    "glutamine-[13C5,15N2][200]",
                     "Xianfeng Zeng",
                     "QE2",
                     "polar-HILIC-25-min",
-                    "2020-07-22",
+                    "2021-06-08",
                 ],
             ],
             rows,
@@ -313,15 +314,13 @@ class AdvancedSearchDownloadMzxmlTSVViewTests(BaseAdvancedSearchDownloadViewTest
         assert_StreamingHttpResponse(self, response, "PeakGroups_", "application/text")
         expected1 = "# Download Time: ".encode()
         expected2 = (
-            "mzXML File\tPolarity\tMZ Min\tMZ Max\tSample\tTissue\tDate Collected\tCollection Time (m)\tHandler\tAnimal"
-            "\tAge\tSex\tGenotype\tWeight (g)\tDiet\tFeeding Status\tTreatment\tInfusate\tOperator\tInstrument\t"
-            "LC Protocol\tDate\r\n2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML\t"
-            "positive\t1.0\t502.9\txzl4_sp\tspleen\t2020-07-22\t150.0\tXianfeng Zeng\txzl4\t14.0\tM\tWT\t27.5\tPicoLab "
-            "Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\tpolar-HILIC-25-min\t"
-            "2020-07-22\r\n2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_t.mzXML\tpositive\t1.0\t"
-            "502.9\txzl4_t\tserum_plasma_tail\t2020-07-22\t150.0\tXianfeng Zeng\txzl4\t14.0\tM\tWT\t27.5\tPicoLab "
-            "Rodent 20 5053\tfasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\tpolar-HILIC-25-min\t"
-            "2020-07-22\r\n"  # There is more, but this is sufficient
+            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML\tpositive\t1.0\t502.9\t"
+            "xzl4_sp\tspleen\t2020-07-22\t150.0\tXianfeng Zeng\txzl4\t14.0\tM\tWT\t27.5\tPicoLab Rodent 20 5053\tfasted"
+            "\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\tpolar-HILIC-25-min\t2020-07-22\r\n2020-07-22"
+            "/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_t.mzXML\tpositive\t1.0\t502.9\txzl4_t\t"
+            "serum_plasma_tail\t2020-07-22\t150.0\tXianfeng Zeng\txzl4\t14.0\tM\tWT\t27.5\tPicoLab Rodent 20 5053\t"
+            "fasted\tno treatment\talanine-[13C3,15N1][180]\tXianfeng Zeng\tQE2\tpolar-HILIC-25-min\t2020-07-22\r\n"
+            # There is more, but this is sufficient
         ).encode()
         content = str(response.getvalue())
         # `[2:-1]` removes the "b'" and last "'" from the beginning and end of the converted bytes to string
@@ -342,7 +341,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             self.res.first().msrun_sample
         )
         self.assertEqual(
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp.mzXML",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain.mzXML",
             export_path,
         )
         self.assertIn(
@@ -350,7 +349,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             file_obj.name,
         )
         self.assertIn(
-            "/ms_data/xzl4_sp",
+            "/ms_data/xzl1_brain",
             file_obj.name,
         )
         self.assertIn(
@@ -369,7 +368,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
         # Slicing the queryset to make the expected test data more manageable
         file_tuples = list(pgtmt.queryset_to_files_iterator(self.res[0:1]))
         self.assertIn(
-            "2020-07-22/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl4_sp",
+            "2021-06-08/Xianfeng Zeng/QE2/polar-HILIC-25-min/positive/1-503/xzl1_brain",
             file_tuples[0][0],
         )
         self.assertIn(
@@ -381,7 +380,7 @@ class RecordToMzxmlZIPTests(BaseAdvancedSearchDownloadViewTests):
             file_tuples[0][1].name,
         )
         self.assertIn(
-            "/ms_data/xzl4_sp",
+            "/ms_data/xzl1_brain",
             file_tuples[0][1].name,
         )
         self.assertIn(
