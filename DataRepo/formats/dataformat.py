@@ -1008,7 +1008,7 @@ class Format:
         # Get a model object
         mdl = get_model_by_name(mdl_nm)
 
-        # Retreive any custom ordering
+        # Retrieve any custom ordering
         if "ordering" in mdl._meta.__dict__:
             return get_distinct_fields(mdl)
 
