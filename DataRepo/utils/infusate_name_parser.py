@@ -8,7 +8,6 @@ import regex
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.utils.exceptions import (
-    MultiLoadStatus,
     InfusateParsingError,
     IsotopeParsingError,
     IsotopeStringDupe,
@@ -270,18 +269,16 @@ def parse_tracer_with_conc_string(tracer_string: str) -> Tuple[TracerData, float
 
 
 def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
-
     if not isotopes_string:
         raise IsotopeParsingError("parse_isotope_string requires a defined string.")
 
     isotope_data = list()
     isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
- 
     if len(isotopes) < 1:
         raise IsotopeParsingError(
             f"Encoded isotopes: [{isotopes_string}] cannot be parsed."
         )
-                
+
     parsed_string = None
     for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
         mass_number = int(isotope.group("mass_number"))
@@ -307,11 +304,10 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
         )
 
     # Ignoring whitespace and case differences
- 
     if (
         str(parsed_string).replace(" ", "").lower()
         != str(isotopes_string).replace(" ", "").lower()
-        ):
+    ):
         raise IsotopeParsingError(
             f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
             f"parsed: [{parsed_string}]."
