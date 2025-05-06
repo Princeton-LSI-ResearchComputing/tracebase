@@ -243,8 +243,30 @@ function addSearchFieldForm (myDiv, query, templateId) {
   }
 
   // Initialize the ncmp choices
-  ncmpClone.value = ncmpInitVal
   updateNcmpChoices(fldInitVal, ncmpClone, templateId)
+  // We need to update the selected ncmp selection to what was previously selected, but upon the initial load of the
+  // advanced search, the initial ncmp choices are those of the selected template.  Those choices are updated by
+  // updateNcmpChoices, but the ncmpInitVal is NOT.  There is VERY likely a better solution than this check to see if
+  // ncmpInitVal is valid, but for now, this is the fix.
+  // TODO: Figure out how to select an ncmpInitVal that is specific to the template without having to do this loop.
+  // Notes: The above "ncmpInitVal = ncmpClone[0].value" assignment is wrong for the fctemplate, because the default
+  // ncmp choices are based on the selected template, which by default is for PeakGroup Age (a number), which gets the
+  // "is" ncmp value of "exact".  The first field in the FCirc template is Animal (a string), which gets the "is" ncmp
+  // value of "iexact".  This is the problem that the loop below solves: it determines that "exact" isn't among the
+  // choices and defaults to the first choice "iexact".
+  const initFldType = fldTypes[templateId][fldInitVal].type
+  const initChoices = ncmpChoices[initFldType]
+  let initMatch = false
+  for (let i = 0; i < initChoices.length; i++) {
+    if (ncmpInitVal === initChoices[i][0]) {
+      initMatch = true
+      break
+    }
+  }
+  if (!initMatch) {
+    ncmpInitVal = initChoices[0][0]
+  }
+  ncmpClone.value = ncmpInitVal
 
   // Initialize the units choices
   unitsClone.value = unitsInitVal
