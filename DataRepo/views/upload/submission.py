@@ -69,6 +69,7 @@ from DataRepo.utils.exceptions import (
     NoSamples,
     UnknownPeakAnnotationFileFormat,
     UnknownStudyDocVersion,
+    IsotopeParsingError,
 )
 from DataRepo.utils.file_utils import get_sheet_names, is_excel, read_from_file
 from DataRepo.utils.infusate_name_parser import (
@@ -2719,11 +2720,20 @@ class BuildSubmissionView(FormView):
         # Create a list of all the tracer record IDs present in the Tracers sheet
         tracer_ids = []
         for tn in tracer_names.keys():
-            td = parse_tracer_string(tn)
-            trcr = Tracer.objects.get_tracer(td)
-            if trcr is not None:
-                tracer_ids.append(trcr.pk)
-
+            try:
+                td = parse_tracer_string(tn)
+                trcr = Tracer.objects.get_tracer(td)
+                if trcr is not None:
+                    tracer_ids.append(trcr.pk)
+            except IsotopeParsingError as Err:
+                self.load_status_data.set_load_exception(
+                Err,
+                "Autofill Note",
+                top=False,
+                default_is_error=True,
+                default_is_fatal=True,
+                )
+            
         # Create a dict of infusates keyed on name
         recs_dict = dict(
             (itl_rec.infusate._name(), itl_rec.infusate)

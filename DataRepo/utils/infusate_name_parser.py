@@ -277,23 +277,11 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
     isotope_data = list()
     isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
  
-    load_status_data = MultiLoadStatus()
-
-    try:
-        if len(isotopes) < 1:
-            raise IsotopeParsingError(
-                f"Encoded isotopes: [{isotopes_string}] cannot be parsed."
-            )
+    if len(isotopes) < 1:
+        raise IsotopeParsingError(
+            f"Encoded isotopes: [{isotopes_string}] cannot be parsed."
+        )
                 
-    except IsotopeParsingError as Err:
-        load_status_data.set_load_exception(
-            Err,
-            "Autofill Note",
-            top=False,
-            default_is_error=True,
-            default_is_fatal=True,
-            )
-
     parsed_string = None
     for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
         mass_number = int(isotope.group("mass_number"))
@@ -320,27 +308,14 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
 
     # Ignoring whitespace and case differences
  
-    try: 
-        if (
-            str(parsed_string).replace(" ", "").lower()
-            != str(isotopes_string).replace(" ", "").lower()
+    if (
+        str(parsed_string).replace(" ", "").lower()
+        != str(isotopes_string).replace(" ", "").lower()
         ):
-            raise IsotopeParsingError(
-                f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
-                f"parsed: [{parsed_string}]."
-            )
-    except IsotopeParsingError as Err:
-        load_status_data.set_load_exception(
-            Err,
-            "Autofill Note",
-            top=False,
-            default_is_error=True,
-            default_is_fatal=True,
-            )
-        # print("Error is:", Err)
-    # print("load_status_data is:", load_status_data.statuses.items())
-    # print("load_status_data is:", load_status_data.statuses['Autofill Note']['aggregated_errors'])
-    # print("load status key", load_status_data.get_ordered_status_keys())
+        raise IsotopeParsingError(
+            f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
+            f"parsed: [{parsed_string}]."
+        )
 
     return isotope_data
 
