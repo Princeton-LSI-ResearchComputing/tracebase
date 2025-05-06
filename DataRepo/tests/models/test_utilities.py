@@ -10,6 +10,7 @@ from django.db.models import (
     FloatField,
     ManyToManyField,
     Min,
+    Value,
 )
 from django.db.models.functions import Concat, Lower, Upper
 from django.db.models.query_utils import DeferredAttribute
@@ -21,24 +22,33 @@ from DataRepo.models import (
     DataFormat,
     LCMethod,
     PeakData,
+    PeakDataLabel,
     PeakGroup,
     Study,
+    Tracer,
+    TracerLabel,
 )
 from DataRepo.models.utilities import (
+    MultipleFields,
+    NoFields,
     dereference_field,
     field_path_to_field,
     field_path_to_model_path,
     get_all_models,
+    get_distinct_fields,
     get_model_by_name,
     get_next_model,
     is_many_related,
+    is_many_related_to_parent,
     is_many_related_to_root,
     is_number_field,
+    is_related,
     is_string_field,
     is_unique_field,
     model_path_to_model,
     resolve_field,
     resolve_field_path,
+    select_representative_field,
     update_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
@@ -138,22 +148,52 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertIsInstance(ArchiveFile.filename, DeferredAttribute)
         self.assertIsInstance(resolve_field(ArchiveFile.filename), Field)
 
+    def test_is_related(self):
+        self.assertFalse(is_related("filename", ArchiveFile))
+        self.assertTrue(is_related("data_format", ArchiveFile))
+        self.assertTrue(is_related("peak_groups", ArchiveFile))
+        self.assertTrue(
+            is_related("msrun_sample__sample__animal__studies__name", PeakGroup)
+        )
+        self.assertTrue(is_related("msrun_sample__sample__animal__name", PeakGroup))
+        self.assertTrue(is_related("msrun_sample", PeakGroup))
+        self.assertFalse(is_related("name", PeakGroup))
+
     def test_is_many_related(self):
         # "many related" means many to many or many to one
         # ArchiveFile.filename is not a foreign key field, so it can't be many related
-        self.assertFalse(is_many_related(ArchiveFile.filename.field))
+        self.assertFalse(
+            is_many_related(ArchiveFile.filename.field)  # pylint: disable=no-member
+        )
         # The default is based on where the foreign key is defined (i.e. in ArchiveFile), so this is one to many, not
         # many to ...
-        self.assertFalse(is_many_related(ArchiveFile.data_format.field))
-        # From the perspective of DataFormat, it is a many to ... relationship
-        self.assertTrue(is_many_related(ArchiveFile.data_format.field, DataFormat))
+        self.assertFalse(
+            is_many_related(ArchiveFile.data_format.field)  # pylint: disable=no-member
+        )
+        # From the perspective of DataFormat, it is many-related to ArchiveFile.  ArchiveFile.data_format describes its
+        # field as one_to_many, so from the perspective of the DataFormat model, this relationship is a many_to_one.
+        self.assertTrue(
+            is_many_related(
+                ArchiveFile.data_format.field, DataFormat  # pylint: disable=no-member
+            )
+        )
         # The link from PeakGroup to ArchiveFile is one to many, but this asks if the link from the source model
         # (PeakGroup) to ArchiveFile is many to ...
-        self.assertFalse(is_many_related(ArchiveFile.peak_groups.field, PeakGroup))
+        self.assertFalse(
+            is_many_related(
+                ArchiveFile.peak_groups.field, PeakGroup  # pylint: disable=no-member
+            )
+        )
         # The default is based on where the foreign key is defined (i.e. in PeakGroup)
-        self.assertFalse(is_many_related(ArchiveFile.peak_groups.field))
+        self.assertFalse(
+            is_many_related(ArchiveFile.peak_groups.field)  # pylint: disable=no-member
+        )
         # But if we're asking from the perspective of ArchiveFile, it is many to ...
-        self.assertTrue(is_many_related(ArchiveFile.peak_groups.field, ArchiveFile))
+        self.assertTrue(
+            is_many_related(
+                ArchiveFile.peak_groups.field, ArchiveFile  # pylint: disable=no-member
+            )
+        )
 
     def test_is_many_related_to_root(self):
         self.assertFalse(is_many_related_to_root("filename", ArchiveFile))
@@ -168,6 +208,37 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
             is_many_related_to_root("msrun_sample__sample__animal__name", PeakGroup)
         )
         self.assertFalse(is_many_related_to_root("description", Study))
+
+    def test_is_many_related_to_parent(self):
+        self.assertFalse(is_many_related_to_parent("data_format", ArchiveFile))
+        self.assertTrue(is_many_related_to_parent("peak_groups", ArchiveFile))
+        self.assertTrue(
+            is_many_related_to_parent(
+                "msrun_sample__sample__animal__studies", PeakGroup
+            )
+        )
+        self.assertFalse(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal", ArchiveFile
+            )
+        )
+        # Works when ends in non-relation
+        self.assertFalse(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__name", ArchiveFile
+            )
+        )
+        self.assertTrue(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__studies", ArchiveFile
+            )
+        )
+        # Works when ends in non-relation
+        self.assertTrue(
+            is_many_related_to_parent(
+                "peak_groups__msrun_sample__sample__animal__studies__name", ArchiveFile
+            )
+        )
 
     def test_field_path_to_field(self):
         ra_field = field_path_to_field(
@@ -226,21 +297,33 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_is_string_field(self):
         self.assertFalse(is_string_field(PeakData.raw_abundance))
-        self.assertFalse(is_string_field(PeakData.raw_abundance.field))
+        self.assertFalse(
+            is_string_field(PeakData.raw_abundance.field)  # pylint: disable=no-member
+        )
         self.assertTrue(is_string_field(PeakGroup.name))
-        self.assertTrue(is_string_field(PeakGroup.name.field))
+        self.assertTrue(
+            is_string_field(PeakGroup.name.field)  # pylint: disable=no-member
+        )
 
     def test_is_number_field(self):
         self.assertTrue(is_number_field(PeakData.raw_abundance))
-        self.assertTrue(is_number_field(PeakData.raw_abundance.field))
+        self.assertTrue(
+            is_number_field(PeakData.raw_abundance.field)  # pylint: disable=no-member
+        )
         self.assertFalse(is_number_field(PeakGroup.name))
-        self.assertFalse(is_number_field(PeakGroup.name.field))
+        self.assertFalse(
+            is_number_field(PeakGroup.name.field)  # pylint: disable=no-member
+        )
 
     def test_is_unique_field(self):
         self.assertFalse(is_unique_field(ArchiveFile.filename))
-        self.assertFalse(is_unique_field(ArchiveFile.filename.field))
+        self.assertFalse(
+            is_unique_field(ArchiveFile.filename.field)  # pylint: disable=no-member
+        )
         self.assertTrue(is_unique_field(ArchiveFile.checksum))
-        self.assertTrue(is_unique_field(ArchiveFile.checksum.field))
+        self.assertTrue(
+            is_unique_field(ArchiveFile.checksum.field)  # pylint: disable=no-member
+        )
 
     def test_resolve_field_path(self):
         # Assumed base model = Sample
@@ -255,15 +338,68 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual("sex", resolve_field_path(Animal.sex))
         self.assertEqual("sex", resolve_field_path(CharField(name="sex")))
         # Unsupported
-        with self.assertRaises(ValueError) as ar:
+        with self.assertRaises(NoFields) as ar:
+            resolve_field_path(Value(0))
+        self.assertEqual(
+            "No field name in field representation.",
+            str(ar.exception),
+        )
+        with self.assertRaises(MultipleFields) as ar:
             resolve_field_path(Concat(F("animal__sex"), F("animal__body_weight")))
         self.assertEqual(
-            "Not one field name in field representation ['animal__sex', 'animal__body_weight'].",
+            "Multiple field names in field representation ['animal__sex', 'animal__body_weight'].",
             str(ar.exception),
         )
         with self.assertRaises(ProgrammingError) as ar:
-            print(resolve_field_path(1))
+            resolve_field_path(1)
         self.assertEqual(
             "Unexpected field_or_expression type: 'int'.",
             str(ar.exception),
         )
+
+    def test_get_distinct_fields_nonkeyfield(self):
+        self.assertEqual(["name"], get_distinct_fields(Tracer, "name"))
+
+    def test_get_distinct_fields_keyfield_with_expression(self):
+        # Tracer has 'Lower' in its meta ordering
+        self.assertEqual(["tracer__name"], get_distinct_fields(TracerLabel, "tracer"))
+
+    def test_get_distinct_fields_recursive_keyfield_with_negation(self):
+        # PeakData has "-corrected_abundance" - ensure the "-" is stripped
+        # PeakDataLabel links to PeakData, which links to PeakGroup via their orderings
+        self.assertEqual(
+            ["peak_data__peak_group__name", "peak_data__corrected_abundance"],
+            get_distinct_fields(PeakDataLabel, "peak_data"),
+        )
+
+    def test_select_representative_field(self):
+        self.assertEqual("name", select_representative_field(Animal))
+        self.assertEqual("checksum", select_representative_field(ArchiveFile))
+        self.assertEqual("code", select_representative_field(DataFormat))
+        self.assertEqual("name", select_representative_field(LCMethod))
+        self.assertEqual("name", select_representative_field(PeakGroup))
+        self.assertEqual("name", select_representative_field(Study))
+        self.assertEqual("name", select_representative_field(Tracer))
+
+        # No suitable field in these models (no single order-by and no unique that are not key fields whose values are
+        # not guaranteed from load-to-load)
+        self.assertIsNone(select_representative_field(PeakData))
+        self.assertIsNone(select_representative_field(PeakDataLabel))
+        self.assertIsNone(select_representative_field(TracerLabel))
+
+        # When there's no suitable field, you can force it...
+        self.assertEqual(
+            "raw_abundance", select_representative_field(PeakData, force=True)
+        )
+        self.assertEqual(
+            "element", select_representative_field(PeakDataLabel, force=True)
+        )
+        self.assertEqual("name", select_representative_field(TracerLabel, force=True))
+
+    def test_model_title(self):
+        # TODO: Implement test
+        pass
+
+    def test_model_title_plural(self):
+        # TODO: Implement test
+        pass
