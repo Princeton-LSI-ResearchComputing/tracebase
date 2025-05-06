@@ -588,22 +588,35 @@ def model_path_to_model(model: Type[Model], path: Union[str, List[str]]) -> Type
     return model_path_to_model(get_next_model(model, path[0]), path[1:])
 
 
-def get_distinct_fields(model: Type[Model], field_path: str):
-    """Collects all of the order-by fields associated with self.field_path.  For non-foreign-key fields, it just
-    returns a single-member list containing self.field_path.  Otherwise, it returns all of the fields in the related
-    model's Meta.ordering.  It calls a recursive helper method in case any related model's meta ordering also contains a
-    foreign key field.
+def get_distinct_fields(model: Type[Model], field_path: Optional[str] = None):
+    """Collects all of the order-by fields associated with the model.
+
+    If a field_path is supplied, it does one of 2 things, depending on the type of field at the end of the field_path.
+
+    1. For non-foreign-key fields, it just returns a single-member list containing field_path.
+    2. For foreign keys, it returns all of the fields in the related model's Meta.ordering.  It calls a recursive helper
+       method in order to traverse the field_path to get to the related model/field at the end.
 
     Args:
         model (Type[Model])
-        field_path (str)
+        field_path (Optional[str]): Restricts the returned fields to the specific field at the end of the field_path
     Exceptions:
         None
     Returns:
-        distinct_fields (List[str]): A list of field_paths from the provided field_path that are either just the
-            field_path supplied or a series of field_paths from the related model's ordering, if the field at the end of
-            the path is a foreign key.
+        distinct_fields (List[str]): A list of field_paths from the provided model (or optional field_path) that are
+            either just the field_path supplied or a series of field_paths from the related model's ordering,
+            (if the field at the end of the path is a foreign key).
     """
+    distinct_fields = []
+    if field_path is None:
+        if "ordering" in model._meta.ordering:
+            for obf_exp in model._meta.ordering:
+                obf = resolve_field_path(obf_exp)
+                obf_path = f"{field_path}__{obf}"
+                distinct_fields.extend(_get_distinct_fields_helper(model, obf_path))
+        else:
+            distinct_fields.append("pk")
+        return distinct_fields
     return _get_distinct_fields_helper(model, field_path)
 
 

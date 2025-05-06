@@ -25,7 +25,11 @@ from DataRepo.formats.dataformat_group_query import (
     splitCommon,
     splitPathName,
 )
-from DataRepo.models.utilities import dereference_field, get_model_by_name
+from DataRepo.models.utilities import (
+    dereference_field,
+    get_distinct_fields,
+    get_model_by_name,
+)
 
 
 class Format:
@@ -1006,33 +1010,8 @@ class Format:
 
         # Retreive any custom ordering
         if "ordering" in mdl._meta.__dict__:
-            # The fields defined in the model's meta ordering - potentially containing non-database field references
-            ordering = mdl._meta.__dict__["ordering"]
-            # We will save the db-only field names here (i.e. no non-DB field references to model objects)
-            db_field_ordering = []
-            # For each order-by field reference
-            for ob_field_val in ordering:
-                ob_field = self.orderByFieldToName(ob_field_val)
-                add_flds = []
-                fld = getattr(mdl, ob_field)
-                # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
-                if fld.field.__class__.__name__ == "ForeignKey":
-                    # Get the model name of the linked model
-                    linked_model = self.getFKModelName(mdl, ob_field)
-                    # Recursively get that model's ordering fields
-                    add_flds = self.getOrderByFields(model_name=linked_model)
-                    if len(add_flds) == 0:
-                        # Default when the linking model says to order by an FK that has no custom ordering is to order
-                        # by that model's primary key
-                        db_field_ordering.append(ob_field + "__pk")
-                    else:
-                        # Append each field to the list with the link name prepended
-                        for add_fld in add_flds:
-                            db_field_ordering.append(ob_field + "__" + add_fld)
-                else:
-                    # If it's not a foreign key, just append the field as-is
-                    db_field_ordering.append(ob_field)
-            return db_field_ordering
+            return get_distinct_fields(mdl)
+
         return []
 
     @classmethod
