@@ -1832,7 +1832,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         occurrence of strings like " (1)".
 
         Args:
-            compound (stOptional[str]r)
+            compound (Optional[str])
             pattern (str): A regex.
         Exceptions:
             None
