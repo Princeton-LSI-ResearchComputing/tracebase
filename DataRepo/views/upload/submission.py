@@ -2080,9 +2080,12 @@ class BuildSubmissionView(FormView):
             # Extracting compounds - using vectorized access of the dataframe because it's faster and we don't need
             # error tracking per line of the input file.
             print("EXTRACTING COMPOUNDS")
-            pgname_strs = peak_annot_loader.df[
-                peak_annot_loader.headers.COMPOUND
-            ].to_list()
+            pgname_strs = [
+                peak_annot_loader.fix_elmaven_compound(c)
+                for c in peak_annot_loader.df[
+                    peak_annot_loader.headers.COMPOUND
+                ].to_list()
+            ]
             if peak_annot_loader.headers.FORMULA in peak_annot_loader.df.columns:
                 formulas = peak_annot_loader.df[
                     peak_annot_loader.headers.FORMULA
