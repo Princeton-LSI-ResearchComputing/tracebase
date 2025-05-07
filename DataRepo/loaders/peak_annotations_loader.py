@@ -1,4 +1,5 @@
 import os
+import re
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Dict, List, Optional
@@ -671,7 +672,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return rec, created
 
     def get_peak_group_compounds_dict(
-        self, row=None, names_str=None, buffer_errors=True
+        self, row=None, names_str=None, buffer_errors=True, fix_elmaven_compounds=True
     ) -> Dict[str, Optional[Compound]]:
         """Retrieve the peak group name and compound records.
 
@@ -681,6 +682,8 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                 method from outside of a load process and do not have a row.
             buffer_errors (bool): Set this to False if you do not need errors to attach to cells of the excel
                 spreadsheet, because skipping error buffering is faster.
+            fix_elmaven_compounds (bool) [True]: Call fix_elmaven_compound on each row/names_str compound to remove
+                version strings that ELMaven appends, e.g. " (1)".
         Exceptions:
             None
         Returns:
@@ -696,6 +699,9 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
 
         if names_str is None:
             names_str = self.get_row_val(row, self.headers.COMPOUND)
+
+        if fix_elmaven_compounds:
+            names_str = self.fix_elmaven_compound(names_str)
 
         # If the names_str is still None
         if names_str is None:
@@ -1817,6 +1823,23 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         return [
             str(subcls.format_code) for subcls in PeakAnnotationsLoader.__subclasses__()
         ]
+
+    @classmethod
+    def fix_elmaven_compound(
+        cls, compound: Optional[str], pattern=r" \([1-9]+[0-9]*\)$"
+    ):
+        """Takes a compound name originating from EL-Maven and by default (based on the pattern argument), removes 1
+        occurrence of strings like " (1)".
+
+        Args:
+            compound (Optional[str])
+            pattern (str): A regex.
+        Exceptions:
+            None
+        Returns:
+            (Optional[str]): A string with pattern removed, if present.
+        """
+        return re.sub(pattern, "", compound, count=1) if compound is not None else None
 
 
 class IsocorrLoader(PeakAnnotationsLoader):

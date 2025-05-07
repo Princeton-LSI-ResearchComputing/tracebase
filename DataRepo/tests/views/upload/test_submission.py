@@ -872,6 +872,63 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
             "WARNING", vo.load_status_data.statuses["Autofill Note"]["state"]
         )
 
+    def get_expected_autofill_dict(self, annotf_name: str):
+        return {
+            "Compounds": {
+                "Glycine": {
+                    "Compound": "Glycine",
+                    "Formula": "C2H5NO2",
+                },
+                "Serine": {
+                    "Compound": "Serine",
+                    "Formula": "C3H7NO3",
+                },
+            },
+            "Animals": {},
+            "Samples": {
+                "072920_XXX1_1_TS1": {"Sample": "072920_XXX1_1_TS1"},
+                "072920_XXX1_2_bra": {"Sample": "072920_XXX1_2_bra"},
+            },
+            "Tissues": {},
+            "Treatments": {},
+            "Study": {},
+            "Tracers": {},
+            "Infusates": {},
+            "LC Protocols": {},
+            "Sequences": {},
+            "Peak Annotation Details": {
+                f"072920_XXX1_1_TS1__DELIM__{annotf_name}": {
+                    "Peak Annotation File Name": annotf_name,
+                    "Sample Data Header": "072920_XXX1_1_TS1",
+                    "Sample Name": "072920_XXX1_1_TS1",
+                    "Sequence": None,
+                    "Skip": None,
+                },
+                f"072920_XXX1_2_bra__DELIM__{annotf_name}": {
+                    "Peak Annotation File Name": annotf_name,
+                    "Sample Data Header": "072920_XXX1_2_bra",
+                    "Sample Name": "072920_XXX1_2_bra",
+                    "Sequence": None,
+                    "Skip": None,
+                },
+                f"blank_1_404020__DELIM__{annotf_name}": {
+                    "Peak Annotation File Name": annotf_name,
+                    "Sample Data Header": "blank_1_404020",
+                    "Sample Name": "blank_1_404020",
+                    "Sequence": None,
+                    "Skip": "skip",
+                },
+            },
+            "Peak Annotation Files": {
+                annotf_name: {
+                    "File Format": "accucor",
+                    "Peak Annotation File": annotf_name,
+                    "Default Sequence": None,
+                },
+            },
+            "Peak Group Conflicts": {},
+        }
+
     def test_extract_autofill_from_peak_annotation_files(self):
         dvv = BuildSubmissionView()
         dvv.set_files(
@@ -879,61 +936,24 @@ class BuildSubmissionViewTests1(TracebaseTransactionTestCase):
         )
         dvv.extract_autofill_from_peak_annotation_files_forms()
         self.assertDictEqual(
-            {
-                "Compounds": {
-                    "Glycine": {
-                        "Compound": "Glycine",
-                        "Formula": "C2H5NO2",
-                    },
-                    "Serine": {
-                        "Compound": "Serine",
-                        "Formula": "C3H7NO3",
-                    },
-                },
-                "Animals": {},
-                "Samples": {
-                    "072920_XXX1_1_TS1": {"Sample": "072920_XXX1_1_TS1"},
-                    "072920_XXX1_2_bra": {"Sample": "072920_XXX1_2_bra"},
-                },
-                "Tissues": {},
-                "Treatments": {},
-                "Study": {},
-                "Tracers": {},
-                "Infusates": {},
-                "LC Protocols": {},
-                "Sequences": {},
-                "Peak Annotation Details": {
-                    "072920_XXX1_1_TS1__DELIM__accucor1.xlsx": {
-                        "Peak Annotation File Name": "accucor1.xlsx",
-                        "Sample Data Header": "072920_XXX1_1_TS1",
-                        "Sample Name": "072920_XXX1_1_TS1",
-                        "Sequence": None,
-                        "Skip": None,
-                    },
-                    "072920_XXX1_2_bra__DELIM__accucor1.xlsx": {
-                        "Peak Annotation File Name": "accucor1.xlsx",
-                        "Sample Data Header": "072920_XXX1_2_bra",
-                        "Sample Name": "072920_XXX1_2_bra",
-                        "Sequence": None,
-                        "Skip": None,
-                    },
-                    "blank_1_404020__DELIM__accucor1.xlsx": {
-                        "Peak Annotation File Name": "accucor1.xlsx",
-                        "Sample Data Header": "blank_1_404020",
-                        "Sample Name": "blank_1_404020",
-                        "Sequence": None,
-                        "Skip": "skip",
-                    },
-                },
-                "Peak Annotation Files": {
-                    "accucor1.xlsx": {
-                        "File Format": "accucor",
-                        "Peak Annotation File": "accucor1.xlsx",
-                        "Default Sequence": None,
-                    },
-                },
-                "Peak Group Conflicts": {},
-            },
+            self.get_expected_autofill_dict("accucor1.xlsx"), dvv.autofill_dict
+        )
+
+    def test_extract_autofill_from_peak_annotation_file_with_elmaven_modified_compounds(
+        self,
+    ):
+        """Tests that the autofill dict has the " (1)" strings removed"""
+        dvv = BuildSubmissionView()
+        dvv.set_files(
+            peak_annot_files=[
+                "DataRepo/data/tests/data_submission/accucor3_with_elmaven_compound_numbers.xlsx"
+            ]
+        )
+        dvv.extract_autofill_from_peak_annotation_files_forms()
+        self.assertDictEqual(
+            self.get_expected_autofill_dict(
+                "accucor3_with_elmaven_compound_numbers.xlsx"
+            ),
             dvv.autofill_dict,
         )
 
