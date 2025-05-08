@@ -1808,20 +1808,25 @@ class MSRunsLoader(TableLoader):
                             return rec
 
                 if Sample.is_a_blank(sample_name):
-                    self.aggregated_errors_object.buffer_warning(
-                        UnmatchedBlankMzXML(
-                            from_mzxml,
-                            self.headers.SAMPLEHEADER,
-                            self.headers.SKIP,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                            column=self.headers.MZXMLNAME,
-                            rownum="no row - sample name was derived from an mzXML filename",
-                            suggestion="This file will not be linked to any sample.",
-                        ),
-                        is_fatal=self.validate,
-                        orig_exception=dne,
-                    )
+                    # This warning may already exist from the check_mzxml_files method.  This is different from the
+                    # errors buffered below.  (Errors stop the load so that they are not encountered twice.)
+                    if not self.aggregated_errors_object.exception_exists(
+                        UnmatchedBlankMzXML, "mzxml_file", from_mzxml
+                    ):
+                        self.aggregated_errors_object.buffer_warning(
+                            UnmatchedBlankMzXML(
+                                from_mzxml,
+                                self.headers.SAMPLEHEADER,
+                                self.headers.SKIP,
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                column=self.headers.MZXMLNAME,
+                                rownum="no row - sample name was derived from an mzXML filename",
+                                suggestion="This file will not be linked to any sample.",
+                            ),
+                            is_fatal=self.validate,
+                            orig_exception=dne,
+                        )
                 else:
                     self.aggregated_errors_object.buffer_error(
                         UnmatchedMzXML(
