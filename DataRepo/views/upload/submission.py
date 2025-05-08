@@ -2746,7 +2746,7 @@ class BuildSubmissionView(FormView):
 
         # Convenience shortcut
         cols = self.dfs_dict[InfusatesLoader.DataSheetName]
-    
+
         # Determine the index of the next empty row and the next infusate row group number
         next_row_idx = self.get_next_row_index(InfusatesLoader.DataSheetName)
 
