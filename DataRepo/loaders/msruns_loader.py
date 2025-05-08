@@ -931,6 +931,7 @@ class MSRunsLoader(TableLoader):
                 die = True
 
         if die:
+            print("There were mzXML files that could not be mapped to samples.  Skipping expensive mzXML ArchiveFile load and dying early.")
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
@@ -1781,7 +1782,7 @@ class MSRunsLoader(TableLoader):
                     finally:
                         if rec is not None:
 
-                            # Buffer an error that says that we're going to proceed assuming the found sample is a
+                            # Buffer a warning that says that we're going to proceed assuming the found sample is a
                             # match
                             self.aggregated_errors_object.buffer_warning(
                                 AssumedMzxmlSampleMatch(
