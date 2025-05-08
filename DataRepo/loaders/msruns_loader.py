@@ -920,7 +920,7 @@ class MSRunsLoader(TableLoader):
                     # NOTE: We only need one such example (for the error) among multiple files with the same name
                     unexpected_sample_headers[modded_sh] = actual_rel_file
 
-        die = False
+        unmapped_samples = []
         for unexpected_sample_header in unexpected_sample_headers.keys():
             guessed_name = self.guess_sample_name(unexpected_sample_header)
             rec = self.get_sample_by_name(
@@ -928,10 +928,10 @@ class MSRunsLoader(TableLoader):
                 from_mzxml=unexpected_sample_headers[unexpected_sample_header],
             )
             if rec is None:
-                die = True
+                unmapped_samples.append(unexpected_sample_header)
 
-        if die:
-            print("There were mzXML files that could not be mapped to samples.  Skipping expensive mzXML ArchiveFile load and dying early.")
+        if len(unmapped_samples) > 0:
+            print(f"There were mzXML files that could not be mapped to samples.  Skipping expensive mzXML ArchiveFile load and dying early.  {unmapped_samples}")
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
