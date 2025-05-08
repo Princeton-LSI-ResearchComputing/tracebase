@@ -418,7 +418,9 @@ def parse_isotope_label(
                         if element not in parent_elements:
                             unexpected_observations.append(element)
                     if len(unexpected_observations) > 0:
-                        raise UnexpectedLabel(unexpected_observations, parent_elements)
+                        raise UnexpectedLabel(
+                            unexpected_observations, possible_observations
+                        )
 
                 if len(dupe_indexes) > 0:
                     # If there are multiple isotope measurements that match the same parent tracer labeled element

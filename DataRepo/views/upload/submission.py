@@ -62,6 +62,7 @@ from DataRepo.utils.exceptions import (
     InvalidDtypeDict,
     InvalidPeakAnnotationFileFormat,
     InvalidStudyDocVersion,
+    IsotopeParsingError,
     MissingDataAdded,
     MultiLoadStatus,
     MultiplePeakAnnotationFileFormats,
@@ -2721,8 +2722,19 @@ class BuildSubmissionView(FormView):
 
         # Create a list of all the tracer record IDs present in the Tracers sheet
         tracer_ids = []
+
         for tn in tracer_names.keys():
-            td = parse_tracer_string(tn)
+            try:
+                td = parse_tracer_string(tn)
+            except IsotopeParsingError as ipe:
+                self.load_status_data.set_load_exception(
+                    ipe,
+                    "Autofill Note",
+                    top=False,
+                    default_is_error=True,
+                    default_is_fatal=True,
+                )
+                continue
             trcr = Tracer.objects.get_tracer(td)
             if trcr is not None:
                 tracer_ids.append(trcr.pk)
