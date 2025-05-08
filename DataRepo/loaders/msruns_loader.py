@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import xmltodict
-from django.db import transaction
+from django.db import ProgrammingError, transaction
 from django.db.models import Max, Min, Q
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
@@ -927,11 +927,19 @@ class MSRunsLoader(TableLoader):
                 guessed_name,
                 from_mzxml=unexpected_sample_headers[unexpected_sample_header],
             )
-            if rec is None:
+            # We're going to ignore unmapped samples that appear to be blanks.  Warnings would have already been
+            # buffered about these.
+            if rec is None and not Sample.is_a_blank(unexpected_sample_header):
                 unmapped_samples.append(unexpected_sample_header)
 
         if len(unmapped_samples) > 0:
-            print(f"There were mzXML files that could not be mapped to samples.  Skipping expensive mzXML ArchiveFile load and dying early.  {unmapped_samples}")
+            if not self.aggregated_errors_object.should_raise():
+                self.aggregated_errors_object.buffer_error(
+                    ProgrammingError(
+                        "Unexpected failure.  There were no errors, but samples matching the following were not "
+                        f"found: {unmapped_samples}."
+                    )
+                )
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
