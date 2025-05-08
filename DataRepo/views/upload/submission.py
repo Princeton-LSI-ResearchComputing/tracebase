@@ -2746,12 +2746,15 @@ class BuildSubmissionView(FormView):
 
         # Convenience shortcut
         cols = self.dfs_dict[InfusatesLoader.DataSheetName]
+    
         # Determine the index of the next empty row and the next infusate row group number
         next_row_idx = self.get_next_row_index(InfusatesLoader.DataSheetName)
 
         infusate_rec: Infusate
         for name, infusate_rec in recs_dict.items():
+
             if name not in cols[InfusatesLoader.DataHeaders.NAME].values():
+
                 # Only add the current infusate if all its tracers are in the tracers sheet
                 all_tracers_present = True
                 for itl in infusate_rec.tracer_links.all():
