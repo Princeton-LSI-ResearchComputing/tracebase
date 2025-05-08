@@ -2719,20 +2719,22 @@ class BuildSubmissionView(FormView):
 
         # Create a list of all the tracer record IDs present in the Tracers sheet
         tracer_ids = []
+        trcr = None
+
         for tn in tracer_names.keys():
             try:
                 td = parse_tracer_string(tn)
                 trcr = Tracer.objects.get_tracer(td)
-                if trcr is not None:
-                    tracer_ids.append(trcr.pk)
-            except IsotopeParsingError as Err:
+            except IsotopeParsingError as ipe:
                 self.load_status_data.set_load_exception(
-                    Err,
+                    ipe,
                     "Autofill Note",
                     top=False,
                     default_is_error=True,
                     default_is_fatal=True,
                 )
+            if trcr is not None:
+                tracer_ids.append(trcr.pk)
 
         # Create a dict of infusates keyed on name
         recs_dict = dict(
@@ -2744,15 +2746,12 @@ class BuildSubmissionView(FormView):
 
         # Convenience shortcut
         cols = self.dfs_dict[InfusatesLoader.DataSheetName]
-
         # Determine the index of the next empty row and the next infusate row group number
         next_row_idx = self.get_next_row_index(InfusatesLoader.DataSheetName)
 
         infusate_rec: Infusate
         for name, infusate_rec in recs_dict.items():
-
             if name not in cols[InfusatesLoader.DataHeaders.NAME].values():
-
                 # Only add the current infusate if all its tracers are in the tracers sheet
                 all_tracers_present = True
                 for itl in infusate_rec.tracer_links.all():
