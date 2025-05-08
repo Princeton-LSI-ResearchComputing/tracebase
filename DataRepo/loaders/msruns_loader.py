@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import xmltodict
-from django.db import transaction
+from django.db import ProgrammingError, transaction
 from django.db.models import Max, Min, Q
 
 from DataRepo.loaders.base.table_column import ColumnReference, TableColumn
@@ -920,17 +920,26 @@ class MSRunsLoader(TableLoader):
                     # NOTE: We only need one such example (for the error) among multiple files with the same name
                     unexpected_sample_headers[modded_sh] = actual_rel_file
 
-        die = False
+        unmapped_samples = []
         for unexpected_sample_header in unexpected_sample_headers.keys():
             guessed_name = self.guess_sample_name(unexpected_sample_header)
             rec = self.get_sample_by_name(
                 guessed_name,
                 from_mzxml=unexpected_sample_headers[unexpected_sample_header],
             )
-            if rec is None:
-                die = True
+            # We're going to ignore unmapped samples that appear to be blanks.  Warnings would have already been
+            # buffered about these.
+            if rec is None and not Sample.is_a_blank(unexpected_sample_header):
+                unmapped_samples.append(unexpected_sample_header)
 
-        if die:
+        if len(unmapped_samples) > 0:
+            if not self.aggregated_errors_object.should_raise():
+                self.aggregated_errors_object.buffer_error(
+                    ProgrammingError(
+                        "Unexpected failure.  There were no errors, but samples matching the following were not "
+                        f"found: {unmapped_samples}."
+                    )
+                )
             # Give up looking for more errors and exit early, because loading mzXML files is too expensive.
             raise self.aggregated_errors_object
 
@@ -1781,7 +1790,7 @@ class MSRunsLoader(TableLoader):
                     finally:
                         if rec is not None:
 
-                            # Buffer an error that says that we're going to proceed assuming the found sample is a
+                            # Buffer a warning that says that we're going to proceed assuming the found sample is a
                             # match
                             self.aggregated_errors_object.buffer_warning(
                                 AssumedMzxmlSampleMatch(
@@ -1799,20 +1808,25 @@ class MSRunsLoader(TableLoader):
                             return rec
 
                 if Sample.is_a_blank(sample_name):
-                    self.aggregated_errors_object.buffer_warning(
-                        UnmatchedBlankMzXML(
-                            from_mzxml,
-                            self.headers.SAMPLEHEADER,
-                            self.headers.SKIP,
-                            file=self.friendly_file,
-                            sheet=self.sheet,
-                            column=self.headers.MZXMLNAME,
-                            rownum="no row - sample name was derived from an mzXML filename",
-                            suggestion="This file will not be linked to any sample.",
-                        ),
-                        is_fatal=self.validate,
-                        orig_exception=dne,
-                    )
+                    # This warning may already exist from the check_mzxml_files method.  This is different from the
+                    # errors buffered below.  (Errors stop the load so that they are not encountered twice.)
+                    if not self.aggregated_errors_object.exception_exists(
+                        UnmatchedBlankMzXML, "mzxml_file", from_mzxml
+                    ):
+                        self.aggregated_errors_object.buffer_warning(
+                            UnmatchedBlankMzXML(
+                                from_mzxml,
+                                self.headers.SAMPLEHEADER,
+                                self.headers.SKIP,
+                                file=self.friendly_file,
+                                sheet=self.sheet,
+                                column=self.headers.MZXMLNAME,
+                                rownum="no row - sample name was derived from an mzXML filename",
+                                suggestion="This file will not be linked to any sample.",
+                            ),
+                            is_fatal=self.validate,
+                            orig_exception=dne,
+                        )
                 else:
                     self.aggregated_errors_object.buffer_error(
                         UnmatchedMzXML(
