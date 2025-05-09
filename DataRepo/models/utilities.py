@@ -452,7 +452,9 @@ def field_path_to_model_path(
     )
 
 
-def select_representative_field(model: Type[Model], force=False) -> Optional[str]:
+def select_representative_field(
+    model: Type[Model], force=False, include_expression=False
+) -> Optional[Union[str, Expression]]:
     """(Arbitrarily) select the best single field to represent a model.
 
     A field is chosen based on the following criteria, in order of precedence:
@@ -471,6 +473,8 @@ def select_representative_field(model: Type[Model], force=False) -> Optional[str
         model (Type[Model])
         force (bool) [False]: Force a field to be selected as a representative when there is no single ordering field
             and there are no unique fields that are not the arbitrary primary key or foreign keys.
+        include_expression (bool) [False]: If a suitable single field is selected from the model's ordering, return it
+            as-is, instead of just returning a string version of the field name.
     Exceptions:
         None
     Returns:
@@ -478,6 +482,8 @@ def select_representative_field(model: Type[Model], force=False) -> Optional[str
     """
     if len(model._meta.ordering) == 1:
         # If there's only 1 ordering field, use it
+        if include_expression:
+            return model._meta.ordering[0]
         return resolve_field_path(model._meta.ordering[0])
 
     all_fields = model._meta.get_fields()
@@ -853,6 +859,58 @@ def update_rec(rec: Model, rec_dict: dict):
 
 def get_detail_url_name(model_object: Model):
     return resolve(model_object.get_absolute_url()).url_name
+
+
+def model_title(model: Type[Model]) -> str:
+    """Creates a title-case string from the supplied model, accounting for potentially set verbose settings.  Pays
+    particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
+    title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+    MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+
+    Args:
+        model (Type[Model])
+    Exceptions:
+        None
+    Returns:
+        (str): The title-case version of the model name.
+    """
+    from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
+
+    try:
+        vname: str = model._meta.__dict__["verbose_name"]
+        sanitized = vname.replace(" ", "")
+        sanitized = sanitized.replace("_", "")
+        if any([c.isupper() for c in vname]) and model.__name__.lower() == sanitized:
+            return underscored_to_title(vname)
+        else:
+            return camel_to_title(model.__name__)
+    except Exception:
+        return camel_to_title(model.__name__)
+
+
+def model_title_plural(model: Type[Model]) -> str:
+    """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
+    particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
+    title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+    MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+
+    Args:
+        model (Type[Model])
+    Exceptions:
+        None
+    Returns:
+        (str): The title-case version of the model name.
+    """
+    from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
+
+    try:
+        vname: str = model._meta.__dict__["verbose_name_plural"]
+        if any([c.isupper() for c in vname]):
+            return underscored_to_title(vname)
+        else:
+            return f"{camel_to_title(model.__name__)}s"
+    except Exception:
+        return f"{camel_to_title(model.__name__)}s"
 
 
 # TODO: Figure out a way to move these exception classes to exceptions.py without hitting a circular import

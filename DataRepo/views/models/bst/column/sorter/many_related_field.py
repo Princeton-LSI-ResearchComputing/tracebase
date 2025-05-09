@@ -1,8 +1,9 @@
 from warnings import warn
 
 from django.conf import settings
-from django.db.models import Field, Max, Min
+from django.db.models import F, Field, Max, Min
 from django.db.models.aggregates import Aggregate
+from django.db.models.expressions import Expression
 
 from DataRepo.models.utilities import is_many_related_to_root
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -59,7 +60,14 @@ class BSTManyRelatedSorter(BSTSorter):
                 "column, use BSTAnnotColumn instead.",
                 DeveloperWarning,
             )
+            self.many_expression = self.SERVER_SORTERS.NONE(self.field_path)
         elif not isinstance(self.expression, Aggregate):
+            if isinstance(self.expression, (Expression, F)):
+                self.many_expression = self.expression
+            else:
+                raise NotImplementedError(
+                    f"self.expression type '{type(self.expression).__name__}' not supported."
+                )
             self.expression = agg(self.expression)
 
         if isinstance(self.field, Field) and not is_many_related_to_root(
@@ -68,3 +76,14 @@ class BSTManyRelatedSorter(BSTSorter):
             raise ValueError(
                 f"field_path '{self.field_path}' must be many-related with the model '{self.model.__name__}'."
             )
+
+    @property
+    def many_order_by(self):
+        """Returns an expression that can be supplied to a Django order_by() call."""
+        if isinstance(self.expression, (Expression, F)):
+            if self.asc:
+                return self.many_expression.asc(nulls_first=True)
+            return self.many_expression.desc(nulls_last=True)
+        raise NotImplementedError(
+            f"self.many_expression type '{type(self.many_expression).__name__}' not supported."
+        )

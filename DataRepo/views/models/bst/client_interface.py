@@ -30,6 +30,7 @@ class BSTClientInterface(ListView):
         Returns:
             None
         """
+        self.kwargs = kwargs
 
         super().__init__(**kwargs)
 
