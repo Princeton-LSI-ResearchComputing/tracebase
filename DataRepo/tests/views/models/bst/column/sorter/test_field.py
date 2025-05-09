@@ -135,3 +135,7 @@ class BSTSorterTests(TracebaseTestCase):
             str(Lower(F("name")).asc(nulls_first=True)),
             str(BSTSorter(CharField(name="name"), BSTSTestModel).order_by),
         )
+
+    def test_get_server_sorter_matching_expression(self):
+        # TODO: Implement test
+        pass
