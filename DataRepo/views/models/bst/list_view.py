@@ -83,6 +83,7 @@ class BSTListView(BSTBaseListView):
 
     def get_queryset(self):
         """An extension of the superclass method intended to only set total and raw_total instance attributes."""
+        print("STARTING get_queryset")
 
         qs = super().get_queryset()
 
@@ -148,6 +149,7 @@ class BSTListView(BSTBaseListView):
         Returns:
             qs (QuerySet)
         """
+        print("STARTING get_user_queryset")
         if len(self.prefetches) > 0:
             qs = qs.prefetch_related(*self.prefetches)
 
@@ -182,27 +184,40 @@ class BSTListView(BSTBaseListView):
             object_list (QuerySet)
             is_paginated (bool)
         """
+        print("STARTING paginate_queryset SUPER")
         paginator, page, object_list, is_paginated = super().paginate_queryset(
             *args, **kwargs
         )
 
-        # For each record on this page, compile all of the many-related records and save them in an attribute off the
-        # root model.
-        for rec in object_list:
+        # If there are any many-related columns
+        print("CHECKING paginate_queryset object_list LOOP NECESSITY")
+        if any(isinstance(c, BSTManyRelatedColumn) for c in self.columns.values()):
+            print("STARTING paginate_queryset object_list LOOP")
+            # For each record on this page, compile all of the many-related records and save them in an attribute off
+            # the root model.
+            # NOTE: Each iteration is at least 1 db query.  A subsequent query is issues for many-related prefetches
+            for rec in object_list:
 
-            # For each column object (order doesn't matter)
-            for column in self.columns.values():
+                print("STARTING paginate_queryset columns LOOP")
+                # For each column object (order doesn't matter)
+                for column in self.columns.values():
 
-                # If this is a many-related column
-                if isinstance(column, BSTManyRelatedColumn):
+                    print(f"{column} ITER")
+                    # If this is a many-related column
+                    if isinstance(column, BSTManyRelatedColumn):
 
-                    # grab the related values based on the strategy indicated in QUERY_MODE
-                    # TODO: Once we have settled on a strategy, remove the conditional
-                    if QUERY_MODE:
-                        subrecs = self.get_many_related_rec_val_by_subquery(rec, column)
-                    else:
-                        subrecs = self.get_rec_val_by_iteration(rec, column)
-                    self.set_many_related_records_list(rec, column, subrecs)
+                        # grab the related values based on the strategy indicated in QUERY_MODE
+                        # TODO: Once we have settled on a strategy, remove the conditional
+                        print("STARTING MANYRELATED QUERIES")
+                        if QUERY_MODE:
+                            subrecs = self.get_many_related_rec_val_by_subquery(
+                                rec, column
+                            )
+                        else:
+                            print("MANYRELATED ITER")
+                            subrecs = self.get_rec_val_by_iteration(rec, column)
+                        print("END MANYRELATED QUERIES")
+                        self.set_many_related_records_list(rec, column, subrecs)
 
         return paginator, page, object_list, is_paginated
 
@@ -252,6 +267,9 @@ class BSTListView(BSTBaseListView):
         NOTE: self.limit was already set in the constructor based on both the URL param and cookie, but if it is 0
         (meaning "all"), we are going to update it based on the queryset.
 
+        Assumptions:
+            1. qs was obtained from get_queryset (or get_user_queryset).  This is for efficiency - to not issue a
+               count() query.  In fact, I'm not sure why this method requires a queryset input.
         Args:
             qs (QuerySet)
         Exceptions:
@@ -263,8 +281,16 @@ class BSTListView(BSTBaseListView):
         # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
         # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
         # adding an odd value to the rows per page select list and instead selecting "all".
-        if self.limit == 0 or self.limit > qs.count():
-            self.limit = qs.count()
+        if (
+            self.limit == 0
+            or (self.total > 0 and self.limit > self.total)
+            or (self.total == 0 and self.limit > qs.count())
+        ):
+            if self.total > 0:
+                # This avoids the count query, if self.total is already set
+                self.limit = self.total
+            else:
+                self.limit = qs.count()
 
         return self.limit
 
@@ -470,6 +496,9 @@ class BSTListView(BSTBaseListView):
         Returns:
             (Union[Any, List[Any]]): Column value or values (if many-related).
         """
+        print(
+            f"STARTING get_rec_val_by_iteration for model {rec.__class__.__name__} column {col}"
+        )
         # Defaults (which do not matter if this is not a BSTManyRelatedColumn, but allow us to make a single call)
         limit = 5
         sort_field_path = None
@@ -479,6 +508,14 @@ class BSTListView(BSTBaseListView):
             # all of them.  All records should have been prefetched, so even though we are getting all, it should
             # proceed expeditiously.  If the count annotation is absent from the rec, we go with the limit, even though
             # that could mean we don't get fully ordered results.
+
+            # TODO: The above is apparently not true.  The mr_qs.all() in _recursive_many_rec_iterator() does perform a
+            # query, so it would likely be faster to use an order_by in _recursive_many_rec_iterator and
+            # _last_many_rec_iterator and set the related_limit here to 1 + the limit in the column object, instead of
+            # to getattr(rec, col.count_attr_name).
+            # Besides, it looks like it sorts anyway, given the model's ordering, based on the SQL output of
+            # test__last_many_rec_iterator
+
             # We add 1 to col.limit so that we can display an ellipsis if more exist
             limit = getattr(rec, col.count_attr_name, -1)
             if limit == -1:
@@ -779,8 +816,9 @@ class BSTListView(BSTBaseListView):
             _sort_val = sort_val
 
         if len(field_path) == 1:
-            if mr_qs.count() == 0:
-                return []
+            # print("_get_rec_val_by_iteration_many_helper exists 1")
+            # if not mr_qs.exists():
+            #     return []
 
             uniq_vals = reduceuntil(
                 lambda ulst, val: ulst + [val] if val not in ulst else ulst,
@@ -791,22 +829,23 @@ class BSTListView(BSTBaseListView):
 
             return uniq_vals
 
-        if mr_qs.exists() > 0:
-            uniq_vals = reduceuntil(
-                lambda ulst, val: ulst + [val] if val not in ulst else ulst,
-                lambda val: related_limit is not None and len(val) >= related_limit,
-                self._recursive_many_rec_iterator(
-                    mr_qs,
-                    field_path[1:],
-                    next_sort_field_path,
-                    related_limit,
-                    _sort_val,
-                ),
-                [],
-            )
-            return uniq_vals
+        # print("_get_rec_val_by_iteration_many_helper exists 2")
+        # if mr_qs.exists():
+        uniq_vals = reduceuntil(
+            lambda ulst, val: ulst + [val] if val not in ulst else ulst,
+            lambda val: related_limit is not None and len(val) >= related_limit,
+            self._recursive_many_rec_iterator(
+                mr_qs,
+                field_path[1:],
+                next_sort_field_path,
+                related_limit,
+                _sort_val,
+            ),
+            [],
+        )
+        return uniq_vals
 
-        return []
+        # return []
 
     def _last_many_rec_iterator(
         self,
@@ -831,7 +870,9 @@ class BSTListView(BSTBaseListView):
             (Tuple[Any, Any, Any]): The value, sort-value, and primary key of the many-related model
         """
         mr_rec: Model
+        print("_last_many_rec_iterator all STARTING")
         for mr_rec in mr_qs.all():
+            print("_last_many_rec_iterator all iterating")
             yield (
                 # Model object is the value returned
                 mr_rec,
@@ -877,7 +918,9 @@ class BSTListView(BSTBaseListView):
             (Tuple[Any, Any, Any]): The value, sort-value, and primary key of the many-related model
         """
         mr_rec: Model
+        print("_recursive_many_rec_iterator all STARTING")
         for mr_rec in mr_qs.all():
+            print("_recursive_many_rec_iterator all iterating")
             val = self._get_rec_val_by_iteration_helper(
                 mr_rec,
                 next_field_path,

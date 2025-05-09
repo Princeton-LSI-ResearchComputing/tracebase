@@ -235,9 +235,16 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_get_queryset(self):
         alv = AnimalWithMultipleStudyColsLV()
+        with self.assertNumQueries(2):
+            # get_queryset doesn't return records, but it makes 2 queries:
+            # 1. Count of model records (without any filtering/searching)
+            # 2. Count of model records (with filtering/searching)
+            qs = alv.get_queryset()
         self.assertQuerySetEqual(
-            BSTLVAnimalTestModel.objects.distinct(), alv.get_queryset(), ordered=False
+            BSTLVAnimalTestModel.objects.distinct(), qs, ordered=False
         )
+        self.assertEqual(2, alv.raw_total)
+        self.assertEqual(2, alv.total)
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_user_queryset(self):
@@ -253,11 +260,13 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         alv1 = AnimalWithMultipleStudyColsLV(request=request)
+        with self.assertNumQueries(2):
+            qs1 = alv1.get_queryset()
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.filter(studies__name__icontains="s")
             .order_by("-name")
             .distinct(),
-            alv1.get_queryset(),
+            qs1,
         )
 
         request.COOKIES.update(
@@ -269,11 +278,13 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         alv2 = AnimalWithMultipleStudyColsLV(request=request)
+        with self.assertNumQueries(2):
+            qs2 = alv2.get_queryset()
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.filter(studies__name__icontains="2")
             .order_by("name")
             .distinct(),
-            alv2.get_queryset(),
+            qs2,
         )
 
         request.COOKIES = {
@@ -281,11 +292,13 @@ class BSTListViewTests(TracebaseTestCase):
             f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-treatment": "ball",
         }
         alv3 = AnimalWithMultipleStudyColsLV(request=request)
+        with self.assertNumQueries(2):
+            qs3 = alv3.get_queryset()
         self.assertQuerySetEqual(
             BSTLVAnimalTestModel.objects.filter(
                 treatment__name__icontains="ball"
             ).distinct(),
-            alv3.get_queryset(),
+            qs3,
         )
 
     @TracebaseTestCase.assertNotWarns()
@@ -433,38 +446,49 @@ class BSTListViewTests(TracebaseTestCase):
 
         slv1 = StudyLV()
         qs = slv1.get_queryset()
-        self.assertEqual(slv1.paginate_by, slv1.get_paginate_by(qs))
+        with self.assertNumQueries(0):
+            self.assertEqual(slv1.paginate_by, slv1.get_paginate_by(qs))
 
         request = HttpRequest()
 
         # Sets to the cookie value
         request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "30"}
         slv2 = StudyLV(request=request)
-        self.assertEqual(30, slv2.get_paginate_by(qs))
+        with self.assertNumQueries(1):
+            # There is a count query if get_queryset hasn't been called, because slv2.total is 0
+            self.assertEqual(30, slv2.get_paginate_by(qs))
 
         # Defaults to paginate_by if cookie limit is 0
         request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "0"}
         slv2 = StudyLV(request=request)
         qs = slv2.get_queryset()
-        self.assertEqual(slv1.paginate_by, slv2.get_paginate_by(qs))
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(slv1.paginate_by, slv2.get_paginate_by(qs))
 
         # Sets to the param value
         request.GET = {"limit": "20"}
         slv3 = StudyLV(request=request)
         qs = slv3.get_queryset()
-        self.assertEqual(20, slv3.get_paginate_by(qs))
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(20, slv3.get_paginate_by(qs))
 
         # Defaults to count if param limit is 0
         request.GET = {"limit": "0"}
         slv4 = StudyLV(request=request)
         qs = slv4.get_queryset()
-        self.assertEqual(52, slv4.get_paginate_by(qs))
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(52, slv4.get_paginate_by(qs))
 
         # Defaults to count if limit is greater than count
         request.GET = {"limit": "60"}
         slv5 = StudyLV(request=request)
         qs = slv5.get_queryset()
-        self.assertEqual(52, slv5.get_paginate_by(qs))
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(52, slv5.get_paginate_by(qs))
 
     @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset(self):
@@ -473,7 +497,20 @@ class BSTListViewTests(TracebaseTestCase):
         qs = BSTLVStudyTestModel.objects.all()
         slv = StudyLV(request=request)
         qs = slv.get_queryset()
-        paginator, page, object_list, is_paginated = slv.paginate_queryset(qs, 1)
+
+        with self.assertNumQueries(3):
+            # The 3 queries:
+            # 1. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvstudytestmodel"."name" AS "col1", ...
+            #    This comes from the super().paginate_queryset call.
+            #    The rest come from the get_rec_val_by_iteration loop for the many-related record compilation
+            # 2. SELECT DISTINCT "loader_bstlvstudytestmodel"."name", ...
+            #    This comes from the single iteration of "for rec in object_list"
+            # 3. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvstudytestmodel_id") AS "_prefetch_related_val_...
+            #    This comes from the single iteration of "for rec in object_list" (when there is a many-related column)
+            paginator, page, object_list, is_paginated = slv.paginate_queryset(qs, 1)
+
+        self.assertEqual(2, slv.raw_total)
+        self.assertEqual(2, slv.total)
         self.assertIsInstance(paginator, GracefulPaginator)
         self.assertIsInstance(page, Page)
         self.assertEqual("<Page 1 of 2>", str(page))
@@ -484,7 +521,8 @@ class BSTListViewTests(TracebaseTestCase):
     def test_set_many_related_records_list(self):
         alv1 = AnimalDefaultLV()
         studycol: BSTManyRelatedColumn = alv1.columns["studies"]
-        alv1.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+        with self.assertNumQueries(0):
+            alv1.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
         self.assertTrue(hasattr(self.a2, studycol.list_attr_name))
         self.assertEqual([self.s1, self.s2], getattr(self.a2, studycol.list_attr_name))
 
@@ -495,7 +533,8 @@ class BSTListViewTests(TracebaseTestCase):
         alv2 = AnimalDefaultLV()
         studycol: BSTManyRelatedColumn = alv2.columns["studies"]
         studycol.limit = 1
-        alv2.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+        with self.assertNumQueries(0):
+            alv2.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
         # We also haven't added the count annotation, so just a plain ellipsis...
         self.assertEqual([self.s1, "..."], getattr(self.a2, studycol.list_attr_name))
 
@@ -505,7 +544,8 @@ class BSTListViewTests(TracebaseTestCase):
         alv3 = AnimalDefaultLV()
         studycol: BSTManyRelatedColumn = alv3.columns["studies"]
         studycol.limit = 1
-        alv3.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+        with self.assertNumQueries(0):
+            alv3.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
         # We also haven't added the count annotation, so just a plain ellipsis...
         self.assertEqual(
             [self.s1, "... (+1 more)"], getattr(self.a2, studycol.list_attr_name)
@@ -522,7 +562,17 @@ class BSTListViewTests(TracebaseTestCase):
         studydesccol: BSTManyRelatedColumn = alv4.columns["studies__desc"]
         studydesccol.limit = 1
         qs = alv4.get_queryset()
-        _, _, object_list, _ = alv4.paginate_queryset(qs, 1)
+        with self.assertNumQueries(4):
+            # 1. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvanimaltestmodel"."name" AS "col1", ...
+            #    From super().paginate_queryset
+            #    All subsequent calls are from a single iteration of object_list
+            # 2. SELECT DISTINCT "loader_bstlvanimaltestmodel"."name", ...
+            #    From query to get the record from the root model
+            # 3. SELECT "loader_bstlvtreatmenttestmodel"."name", ...
+            #    From query to get the related treatment model record prefetch
+            # 4. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvanimaltestmodel_id") AS "_prefetch_related_val_...
+            #    From query to get the many-related animal model records prefetch
+            _, _, object_list, _ = alv4.paginate_queryset(qs, 1)
         # The model's ordering is "-name"
         a2 = object_list[0]
         # The study *name* order is ascending by default (even though the excluded studies column is descending
@@ -557,10 +607,19 @@ class BSTListViewTests(TracebaseTestCase):
             sorter="numericSorter",
         )
         rec1 = qs1.first()
-        self.assertEqual("A1", alv1.get_rec_val_by_iteration(rec1, namecol))
-        self.assertEqual("t1", alv1.get_rec_val_by_iteration(rec1, trtdsccol))
-        self.assertEqual(1, alv1.get_rec_val_by_iteration(rec1, stdycntcol))
-        self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
+        with self.assertNumQueries(0):
+            # There's no need to query, because the field is in an attribute of the record
+            self.assertEqual("A1", alv1.get_rec_val_by_iteration(rec1, namecol))
+        with self.assertNumQueries(1):
+            # The related model record wasn't prefetched in qs1
+            self.assertEqual("t1", alv1.get_rec_val_by_iteration(rec1, trtdsccol))
+        with self.assertNumQueries(0):
+            # The annotation is in an attribute on the rec, so no query needed
+            self.assertEqual(1, alv1.get_rec_val_by_iteration(rec1, stdycntcol))
+        with self.assertNumQueries(1):
+            # 1. SELECT "loader_bstlvstudytestmodel"."name", ...
+            #    From "for mr_rec in mr_qs.all()" in _recursive_many_rec_iterator
+            self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_rec_val_by_iteration_annot_excluded(self):
@@ -569,7 +628,8 @@ class BSTListViewTests(TracebaseTestCase):
         stdynmcol = BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel)
         rec1 = qs1.first()
         with self.assertWarns(DeveloperWarning) as aw:
-            self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
+            with self.assertNumQueries(1):
+                self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
         self.assertEqual(1, len(aw.warnings))
         self.assertIn(
             "The count annotation for column studies__name is absent",
@@ -583,11 +643,13 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test__get_rec_val_by_iteration_helper(self):
         alv1 = AnimalDefaultLV()
-        val, sval, id = alv1._get_rec_val_by_iteration_helper(
-            self.a1,
-            ["treatment"],
-            sort_field_path=["treatment", "name"],
-        )
+        with self.assertNumQueries(0):
+            # NOTE: Not sure yet why this performs no queries
+            val, sval, id = alv1._get_rec_val_by_iteration_helper(
+                self.a1,
+                ["treatment"],
+                sort_field_path=["treatment", "name"],
+            )
         self.assertEqual(self.t1, val)
         # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
         # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
@@ -596,12 +658,13 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertIsInstance(id, int)
 
         alv2 = AnimalDefaultLV()
-        vals = alv2._get_rec_val_by_iteration_helper(
-            self.a2,
-            ["studies"],
-            related_limit=2,
-            sort_field_path=["studies", "name"],
-        )
+        with self.assertNumQueries(1):
+            vals = alv2._get_rec_val_by_iteration_helper(
+                self.a2,
+                ["studies"],
+                related_limit=2,
+                sort_field_path=["studies", "name"],
+            )
         expected1 = set([self.s2, self.s1])
         expected2 = set(["s1", "s2"])
         vals1 = set([v[0] for v in vals])
@@ -614,11 +677,13 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test__get_rec_val_by_iteration_single_helper(self):
         alv = AnimalDefaultLV()
-        val, sval, id = alv._get_rec_val_by_iteration_single_helper(
-            self.a1,
-            ["treatment"],
-            sort_field_path=["treatment", "name"],
-        )
+        with self.assertNumQueries(0):
+            # NOTE: Not sure yet why this performs no queries
+            val, sval, id = alv._get_rec_val_by_iteration_single_helper(
+                self.a1,
+                ["treatment"],
+                sort_field_path=["treatment", "name"],
+            )
         self.assertEqual(self.t1, val)
         # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
         # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
@@ -629,12 +694,13 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test__get_rec_val_by_iteration_many_helper(self):
         alv = AnimalDefaultLV()
-        vals = alv._get_rec_val_by_iteration_many_helper(
-            self.a2,
-            ["studies"],
-            related_limit=2,
-            sort_field_path=["studies", "name"],
-        )
+        with self.assertNumQueries(1):
+            vals = alv._get_rec_val_by_iteration_many_helper(
+                self.a2,
+                ["studies"],
+                related_limit=2,
+                sort_field_path=["studies", "name"],
+            )
         expected2 = set(["s1", "s2"])
         expected1 = set([self.s2, self.s1])
         vals1 = set([v[0] for v in vals])
@@ -652,8 +718,11 @@ class BSTListViewTests(TracebaseTestCase):
         expected1 = set([self.s2, self.s1])
         # The names are lower-cased
         expected2 = set(["s1", "s2"])
-        val1 = next(iterator)
-        val2 = next(iterator)
+        with self.assertNumQueries(1):
+            val1 = next(iterator)
+        with self.assertNumQueries(0):
+            # NOTE: I don't understand yet why this performs no query
+            val2 = next(iterator)
         vals1 = set([val1[0], val2[0]])
         vals2 = set([val1[1], val2[1]])
         vals3 = set([val1[2], val2[2]])
@@ -671,12 +740,12 @@ class BSTListViewTests(TracebaseTestCase):
             alv._recursive_many_rec_iterator(mr_qs, ["name"], ["name"], 2, None)
         )
         expected = set([("S2", "S2", "S2"), ("S1", "S1", "S1")])
-        vals = set(
-            [
-                next(iterator),
-                next(iterator),
-            ]
-        )
+        with self.assertNumQueries(1):
+            r1 = next(iterator)
+        with self.assertNumQueries(0):
+            # NOTE: I don't understand yet why this performs no query
+            r2 = next(iterator)
+        vals = set([r1, r2])
         self.assertEqual(expected, vals)
         with self.assertRaises(StopIteration):
             next(iterator)
