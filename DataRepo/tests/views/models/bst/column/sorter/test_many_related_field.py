@@ -198,3 +198,7 @@ class BSTManyRelatedSorterTests(TracebaseTestCase):
         self.assertEqual(
             "OrderBy(Upper(F(children__name)), descending=False)", str(s.many_order_by)
         )
+
+    def test_get_server_sorter_matching_expression(self):
+        # TODO: Implement test
+        pass
