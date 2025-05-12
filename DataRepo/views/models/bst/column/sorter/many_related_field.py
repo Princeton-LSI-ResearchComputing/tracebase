@@ -60,9 +60,13 @@ class BSTManyRelatedSorter(BSTSorter):
                 "column, use BSTAnnotColumn instead.",
                 DeveloperWarning,
             )
+            # TODO: REFACTOR: self.many_expression should be made to be relative to the many-related model, not the root
+            # model
             self.many_expression = self.SERVER_SORTERS.NONE(self.field_path)
         elif not isinstance(self.expression, Aggregate):
             if isinstance(self.expression, (Expression, F)):
+                # TODO: REFACTOR: self.many_expression should be made to be relative to the many-related model, not the
+                # root model
                 self.many_expression = self.expression
             else:
                 raise NotImplementedError(
@@ -77,6 +81,10 @@ class BSTManyRelatedSorter(BSTSorter):
                 f"field_path '{self.field_path}' must be many-related with the model '{self.model.__name__}'."
             )
 
+    # TODO: REFACTOR: 1. There should be a way to retrieve an annotation name and the many_expression value and 2. This
+    # should be refactored to create order_by arguments that use the name of the annotation int he returned order_by.
+    # It might be a good idea to have a way to just retrieve the annotation name.  THIS SHOULD BE SEPARATE FROM ANOTHER
+    # METHOD TO RETRIEVE ALL ORDER_BYS (the method that should be moved from BSTManyRelatedColumn).
     @property
     def many_order_by(self):
         """Returns an expression that can be supplied to a Django order_by() call."""
@@ -87,3 +95,6 @@ class BSTManyRelatedSorter(BSTSorter):
         raise NotImplementedError(
             f"self.many_expression type '{type(self.many_expression).__name__}' not supported."
         )
+
+    # TODO: REFACTOR: There needs to be a way to retrieve the distinct fields, if making the field values distinct is
+    # desired.
