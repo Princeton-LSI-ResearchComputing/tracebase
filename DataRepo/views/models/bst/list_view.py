@@ -1,13 +1,13 @@
 import traceback
-from functools import reduce
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from warnings import warn
 
 from django.conf import settings
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import Model, Q, QuerySet, Value
+from django.db.models import F, Model, Q, QuerySet, Value
 from django.db.models.expressions import Combinable
+from django.db.models.functions import Lower
 
 from DataRepo.models.utilities import is_many_related_to_parent
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -64,22 +64,30 @@ class BSTListView(BSTBaseListView):
         self.raw_total = 0
 
         self.prefetches: List[str] = self.get_prefetches()
+
         self.filters = self.get_filters()
-        (
-            self.prefilter_annots,
-            self.postfilter_annots,
-        ) = self.get_annotations()
 
         # Update the many-related sort settings in self.columns, based on self.groups, if the sort col is in a group.
         # NOTE: These are used for sorting delimited values the same in the many-related columns that are in a group
         # (i.e. from the same many-related model).
+        # NOTE: This must be done BEFORE fetching the annotations, because if there is a sort column selected, the sort
+        # will get an annotation (e.g. for lower-case).  It is not technically necessary for the regular sort, because
+        # the only reason an annotation is necessary is to be able to supply it in a call to distinct, which is not done
+        # for the row-sort, but it is for the delimited many-related columns' values sort (because the field path could
+        # go through multiple many-related models).
         if self.ordered:
+            # TODO: REFACTOR: Set a default order-by
             for group in [
                 g for g in self.groups.values() if self.sort_col.name in g.columns
             ]:
                 group.set_sorters(self.sort_col.name, self.asc)
             else:
                 self.sort_col.sorter = self.sort_col.create_sorter(asc=self.asc)
+
+        (
+            self.prefilter_annots,
+            self.postfilter_annots,
+        ) = self.get_annotations()
 
     def get_queryset(self):
         """An extension of the superclass method intended to only set total and raw_total instance attributes."""
@@ -423,6 +431,12 @@ class BSTListView(BSTBaseListView):
                     annotations_after_filter[column.name] = column.converter
                 else:
                     annotations_before_filter[column.name] = column.converter
+            if column.name == self.sort_col.name:
+                annotations_before_filter[column.sorter.annot_name] = (
+                    column.sorter.expression
+                )
+            # NOTE: The many-related sorter annot_name and many_expression are not added here.  They are added in a
+            # subquery.
 
         return annotations_before_filter, annotations_after_filter
 
@@ -563,7 +577,7 @@ class BSTListView(BSTBaseListView):
         # Convert empty strings in the tuple's return value to None
         return val[0] if not isinstance(val[0], str) or val[0] != "" else None
 
-    # TODO: Fix this broken strategy
+    # TODO: REFACTOR: Fix this broken strategy
     def get_many_related_rec_val_by_subquery(
         self, rec: Model, col: BSTManyRelatedColumn
     ) -> list:
@@ -586,15 +600,10 @@ class BSTListView(BSTBaseListView):
         if count is not None and count == 0:
             return []
 
-        # Set a limit to the retrieved records (count or supplied limit: whichever is lesser and not 0 [i.e. all])
-        related_limit = col.limit + 1 if col.limit > 0 else 0
-        if isinstance(count, int) and (related_limit == 0 or count < related_limit):
-            related_limit = count
-
         return self._get_many_related_rec_val_by_subquery_helper(
             rec,
             col,
-            related_limit=related_limit,
+            count=count,
         )
 
     def _get_rec_val_by_iteration_helper(
@@ -652,7 +661,7 @@ class BSTListView(BSTBaseListView):
 
         if is_many_related_to_parent(field_path[0], type(rec)):
             # This method handles only fields that are many-related to their immediate parent
-            return self._get_rec_val_by_iteration_many_helper(
+            return self._get_rec_val_by_iteration_manyrelated_helper(
                 rec,
                 field_path,
                 related_limit=related_limit,
@@ -661,7 +670,7 @@ class BSTListView(BSTBaseListView):
             )
 
         # This method handles only fields that are singly related to their immediate parent
-        return self._get_rec_val_by_iteration_single_helper(
+        return self._get_rec_val_by_iteration_onerelated_helper(
             rec,
             field_path,
             related_limit=related_limit,
@@ -669,7 +678,7 @@ class BSTListView(BSTBaseListView):
             _sort_val=_sort_val,
         )
 
-    def _get_rec_val_by_iteration_single_helper(
+    def _get_rec_val_by_iteration_onerelated_helper(
         self,
         rec: Model,
         field_path: List[str],
@@ -677,8 +686,9 @@ class BSTListView(BSTBaseListView):
         sort_field_path: Optional[List[str]] = None,
         _sort_val: Optional[List[str]] = None,
     ):
-        """Private recursive method that takes a record and a path and traverses the record along the path to return
-        whatever ORM object's field value is at the end of the path.
+        """Private recursive method that takes a field_path and a record (that is 1:1 related with the first element in
+        the remaining field_path) and traverses the record along the path to return whatever ORM object's field value is
+        at the end of the path.
 
         NOTE: Recursive calls go to _get_rec_val_by_iteration_helper, which calls this method or the companion method
         (_get_rec_val_by_iteration_many_helper) for many-related portions of the field_path.
@@ -719,21 +729,14 @@ class BSTListView(BSTBaseListView):
                 or len(field_path) == 1
             )
         ):
+            # NOTE: Limiting to 2, because we only expect 1 and will raise ProgrammingError if multiple returned
             sort_val, _, _ = self._get_rec_val_by_iteration_helper(
                 rec, sort_field_path, related_limit=2
             )
             if isinstance(sort_val, list):
-                uniq_vals: List[Any] = reduce(
-                    lambda lst, val: lst + [val] if val not in lst else lst,
-                    sort_val,
-                    [],
+                raise ProgrammingError(
+                    "The sort value must not be many-related with the value for the column"
                 )
-                if len(uniq_vals) > 1:
-                    raise ValueError("Multiple values returned")
-                elif len(uniq_vals) == 1:
-                    self._lower(uniq_vals[0])
-                else:
-                    sort_val = None
             next_sort_field_path = None
             _sort_val = sort_val
 
@@ -741,6 +744,7 @@ class BSTListView(BSTBaseListView):
             uniq_val = val_or_rec
             if isinstance(val_or_rec, Model):
                 uniq_val = val_or_rec.pk
+            # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
             return val_or_rec, _sort_val, uniq_val
 
         return self._get_rec_val_by_iteration_helper(
@@ -751,7 +755,7 @@ class BSTListView(BSTBaseListView):
             _sort_val=_sort_val,
         )
 
-    def _get_rec_val_by_iteration_many_helper(
+    def _get_rec_val_by_iteration_manyrelated_helper(
         self,
         rec: Model,
         field_path: List[str],
@@ -759,8 +763,9 @@ class BSTListView(BSTBaseListView):
         sort_field_path: Optional[List[str]] = None,
         _sort_val: Optional[List[str]] = None,
     ):
-        """Private recursive method that takes a record and a path and traverses the record along the path to return
-        values found at the end of the field_path.
+        """Private recursive method that takes a field_path and a record (that is many:1_or_many related with the first
+        element in the remaining field_path) and traverses the record along the path to return values found at the end
+        of the field_path.
 
         NOTE: Recursive calls go to _get_rec_val_by_iteration_helper, which calls this method or the companion method
         (_get_rec_val_by_iteration_single_helper) for singly-related portions of the field_path.
@@ -878,6 +883,8 @@ class BSTListView(BSTBaseListView):
                 mr_rec,
                 # Each rec gets its own sort value.
                 (
+                    # TODO: REFACTOR: See if this loop always causes a query.  If it does, then this iteration strategy
+                    # may not be as efficient as I'd hoped and should be entirely removed, as should the _lower() method
                     self._lower(
                         self._get_rec_val_by_iteration_helper(
                             mr_rec, next_sort_field_path
@@ -940,15 +947,14 @@ class BSTListView(BSTBaseListView):
         self,
         rec: Model,
         col: BSTManyRelatedColumn,
-        related_limit: int = 5,
+        count: Optional[int] = None,
     ) -> list:
         """
 
         Args:
             rec (Model): A Model object.
-            field (str): A path from the rec object to a field/column value, delimited by dunderscores.
-            sort_field (str): A path from the rec object to a sort field, delimited by dunderscores.
-            reverse (bool) [False]: Whether the many-related values should be reverse sorted.
+            col (BSTManyRelatedColumn)
+            count (Optional[int]): Total number of unique records available, if known.
         Exceptions:
             ProgrammingError when an exception occurs during the sorting of the value received from _get_rec_val_helper.
         Returns:
@@ -960,6 +966,14 @@ class BSTListView(BSTBaseListView):
                 "This conditional is here to assure mypy that col.sorter is indeed a BSTManyRelatedSorter."
             )
 
+        # Set a limit to the retrieved records (count or supplied limit: whichever is lesser and not 0 [i.e. all])
+        related_limit = col.limit + 1 if col.limit > 0 else 0
+        if isinstance(count, int) and (related_limit == 0 or count < related_limit):
+            related_limit = count
+
+        # # THIS ONE errors with "AttributeError: 'OrderBy' object has no attribute 'split'"
+        # # DIAGNOSIS: OrderBy objects (as is returned by the .asc() call) is not supported as an argument to .distinct
+        # # SOLUTION: Only call .asc() in the .order_by() call
         # qs = (
         #     rec.__class__.objects.filter(pk=rec.pk)
         #     .order_by(Lower(col.sorter.field_path).asc(nulls_first=True))
@@ -968,26 +982,126 @@ class BSTListView(BSTBaseListView):
         #     # 'SELECT DISTINCT ON expressions must match initial ORDER BY expressions'
         #     .distinct(Lower(col.sorter.field_path).asc(nulls_first=True))
         # )
+
+        # # THIS ONE errors with "'Lower' object has no attribute 'split'"
+        # # DIAGNOSIS: Transform objects (as is returned by the Lower() call) is not supported as an argument to
+        #              .distinct
+        # # SOLUTION: Just provide the field_path to .distinct()
+        # qs = (
+        #     rec.__class__.objects.filter(pk=rec.pk)
+        #     .order_by(Lower(col.sorter.field_path).asc(nulls_first=True))
+        #     # The distinct fields must match the order-by, even with the expressions, otherwise, you get an error
+        #     # like:
+        #     # 'SELECT DISTINCT ON expressions must match initial ORDER BY expressions'
+        #     .distinct(Lower(col.sorter.field_path))
+        # )
+
+        # # THIS ONE errors with "SELECT DISTINCT ON expressions must match initial ORDER BY expressions"
+        # # DIAGNOSIS: As with the test below, I think that the discrepancy is that the distinct field is unmodified
+        # #            (i.e. not lower-cased) and the order-by is modified (i.e. lower-cased), thus the "fields" are not
+        # #            the same.
+        # # SOLUTION: BOTH ORDERBY AND DISTINCT MUST INCLUDE BOTH THE MODIFIED AND UNMODIFIED VERSIONS
+        # qs = (
+        #     rec.__class__.objects.filter(pk=rec.pk)
+        #     .order_by(Lower(col.sorter.field_path).asc(nulls_first=True))
+        #     # The distinct fields must match the order-by, even with the expressions, otherwise, you get an error
+        #     # like:
+        #     # 'SELECT DISTINCT ON expressions must match initial ORDER BY expressions'
+        #     .distinct(col.sorter.field_path)
+        # )
+
+        # # THIS ONE errors with "django.db.utils.ProgrammingError: SELECT DISTINCT ON expressions must match initial
+        # # ORDER BY expressions" even though the fields are the same:
+        # #   ORDER_BY: [OrderBy(Lower(F(studies__name)), descending=False)]
+        # #   DISTINCT: ['studies__name']
+        # # Oh, but wait... maybe it's the repeated field in the distinct:
+        # #   SELECT DISTINCT ON ("loader_bstlvstudytestmodel"."name") "loader_bstlvstudytestmodel"."name" FROM
+        # #   "loader_bstlvanimaltestmodel" LEFT OUTER JOIN
+        # # When the order by is just 1:
+        # #   ORDER BY LOWER("loader_bstlvstudytestmodel"."name") ASC NULLS FIRST
+        # # NOPE: There's only 1.  Don't know why there's a dupe field in parens in the query
+        # # DIAGNOSIS: I think that the discrepancy is that the distinct field is unmodified (i.e. not lower-cased) and
+        # #            the order-by is modified (i.e. lower-cased), thus the "fields" are not the same.
+        # # SOLUTION: BOTH ORDERBY AND DISTINCT MUST INCLUDE BOTH THE MODIFIED AND UNMODIFIED VERSIONS
+        # qs = (
+        #     rec.__class__.objects.filter(pk=rec.pk)
+        #     .order_by(*col.many_order_bys)
+        #     # The distinct fields must match the orderby, even with the expressions, otherwise, you get an error like:
+        #     # 'SELECT DISTINCT ON expressions must match initial ORDER BY expressions'
+        #     .distinct(*col.distinct_fields)
+        # )
+
+        # # THIS WORKS, BUT IS MISSING THE NULLS FIRST AND LOWER-CASING
+        # qs = (
+        #     rec.__class__.objects.filter(pk=rec.pk)
+        #     .order_by(col.sorter.field_path)
+        #     # The distinct fields must match the order-by, even with the expressions, otherwise, you get an error
+        #     # like:
+        #     # 'SELECT DISTINCT ON expressions must match initial ORDER BY expressions'
+        #     .distinct(col.sorter.field_path)
+        # )
+
+        # CORRECTION: This runs without error - just not with .values() or .values_list() - as I had expected it would!
+        # THIS ONE errors with "Cannot resolve keyword 'fp_ob' into field"
+        # Tried updating my local django install from 4.2.11 to 4.2.20 (from the reqs), but still same error
         qs = (
-            rec.__class__.objects.filter(pk=rec.pk).order_by(*col.many_order_bys)
-            # The distinct fields must match the order-by, even with the expressions, otherwise, you get an error like:
-            # 'SELECT DISTINCT ON expressions must match initial ORDER BY expressions'
-            .distinct(*col.distinct_fields)
+            rec.__class__.objects.filter(pk=rec.pk)
+            # TODO: REFACTOR: Retrieve annotation name and expression from the sorter
+            .annotate(fp_ob=Lower(col.sorter.field_path))
+            # TODO: REFACTOR: Retrieve the order-bys from the sorter
+            .order_by(F("fp_ob").asc(nulls_first=True), col.sorter.field_path)
+            # TODO: REFACTOR: Retrieve the distinct fields from the sorter
+            .distinct("fp_ob", col.sorter.field_path)
         )
+
+        # # THIS WORKS, BUT YOU HAVE TO CREATE 2 ANNOTATIONS.  HOWEVER, there were 2 loops below: 1 was using .all()
+        # # (which works) and one using either .values() or .values_list() (neither of which worked - meaning this
+        # # version produced the same errors as listed above, only from the subsequent loop).  This means that one of
+        # # the above may have actually worked, but I didn't realize it, due to not realizing there was a second loop.
+        # # So I am not going to go back and retry the attempts above after fixing that second loop...
+        # qs = (
+        #     rec.__class__.objects
+        #     .filter(pk=rec.pk)
+        #     .annotate(
+        #         fp_ob=Lower(col.sorter.field_path),
+        #         fp_ob_in=Case(
+        #             When(**{f"{col.sorter.field_path}__isnull": True}, then=Value(0)),
+        #             default=Value(1),
+        #         ),
+        #     )
+        #     .order_by("fp_ob_in", "fp_ob", col.sorter.field_path)
+        #     .distinct("fp_ob_in", "fp_ob", col.sorter.field_path)
+        # )
+
         print(
             f"MODEL: '{rec.__class__.__name__}'\nORDER_BY: {col.many_order_bys}\nDISTINCT: {col.distinct_fields}\n"
-            f"SQL: {qs.query}"
+            f"FIELD PATH: {col.sorter.field_path}\nSQL: {qs.query}"
         )
 
         print(f"col.field_path: {col.field_path}")
-        tmp_vals_list = list(qs.values_list(col.field_path, flat=True)[0:related_limit])
-        for val in tmp_vals_list:
-            print(f"VAL: {val}")
+        # tmp_vals_list = list(qs.values_list(col.field_path, flat=True)[0:related_limit])
+        # tmp_vals_list = list(v for v in qs.values(col.field_path)[0:related_limit])
+        # tmp_vals_list = list(v for v in qs.all()[0:related_limit])
+        # for val in tmp_vals_list:
+        #     print(f"VAL: {val}")
 
         vals_list = [
             # Return an object, like an actual queryset does, if val is a foreign key field
             col.related_model.objects.get(pk=val) if col.is_fk else val
-            for val in list(qs.values_list(col.field_path, flat=True)[0:related_limit])
+            # Cannot resolve keyword 'fp_ob_in' into field
+            # for val in list(qs.values_list(col.field_path, flat=True)[0:related_limit])
+            # Cannot resolve keyword 'fp_ob_in' into field
+            # for val in list(v for v in qs.values(col.field_path)[0:related_limit])
+            # 'BSTLVAnimalTestModel' object has no attribute 'studies__name'
+            # for val in list(getattr(v, col.sorter.field_path) for v in qs.all()[0:related_limit])
+            # TODO: REFACTOR: Call get_rec_val_by_iteration here.  The current getattr call is only for debugging.  (I
+            # need a recursive method to follow the field_path.  This only gets the value from a path that is 2 elements
+            # in length, not x elements)
+            for val in list(
+                getattr(v, col.field_path.split("__")[1])
+                for v in qs.all()[0:related_limit]
+            )
+            # TODO: REFACTOR: Nones should be let through
             if val is not None
         ]
 

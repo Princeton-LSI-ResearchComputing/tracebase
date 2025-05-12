@@ -131,9 +131,15 @@ class BSTSorterTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_order_by(self):
+        sorter = BSTSorter(CharField(name="name"), BSTSTestModel)
         self.assertEqual(
-            str(Lower(F("name")).asc(nulls_first=True)),
-            str(BSTSorter(CharField(name="name"), BSTSTestModel).order_by),
+            "OrderBy(F(name_bstrowsort), descending=False)",
+            str(sorter.order_by),
+        )
+        # Make sure the expression the annotation refers to is correct
+        self.assertEqual(
+            "Lower(F(name))",
+            str(sorter.expression),
         )
 
     def test_get_server_sorter_matching_expression(self):

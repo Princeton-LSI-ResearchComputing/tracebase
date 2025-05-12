@@ -224,6 +224,9 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
 
         return BSTManyRelatedSorter(field_expression, self.model, **kwargs)
 
+    # TODO: REFACTOR: Move this into the sorter class and have it use annotation names instead of the
+    # self.sorter.many_order_by expression and the field_paths in self.distinct_fields.  In all cases, paths should be
+    # relative to the related model.
     @property
     def many_order_bys(self):
         """Returns a list of expressions that can be supplied to a Django order_by() call in conjunction with a followup
@@ -250,6 +253,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 obs.append(df)
         return obs
 
+    # TODO: REFACTOR: Move this into the sorter class and have it include both the annotation field and the underlying
+    # field.  In all cases, paths should be relative to the related model.
     @property
     def many_distinct_fields(self):
         self.sorter: BSTManyRelatedSorter
