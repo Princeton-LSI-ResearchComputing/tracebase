@@ -198,13 +198,17 @@ class BSTAnnotSorterTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_order_by(self):
+        sorter = BSTAnnotSorter(
+            Lower("children__name", output_field=CharField()), asc=False
+        )
         self.assertEqual(
-            "OrderBy(Lower(F(children__name)), descending=True)",
-            str(
-                BSTAnnotSorter(
-                    Lower("children__name", output_field=CharField()), asc=False
-                ).order_by
-            ),
+            "OrderBy(F(children__name_bstrowsort), descending=True)",
+            str(sorter.order_by),
+        )
+        # Make sure the annotation expression is as expected
+        self.assertEqual(
+            "Lower(F(children__name))",
+            str(sorter.expression),
         )
 
     @TracebaseTestCase.assertNotWarns()
