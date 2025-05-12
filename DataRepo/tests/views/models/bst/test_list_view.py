@@ -2,6 +2,7 @@ from django.core.paginator import Page
 from django.db.models import (
     CASCADE,
     CharField,
+    F,
     ForeignKey,
     IntegerField,
     ManyToManyField,
@@ -139,7 +140,10 @@ class BSTListViewTests(TracebaseTestCase):
             },
             slv.postfilter_annots,
         )
-        self.assertEqual(0, len(slv.prefilter_annots.keys()))
+        self.assertDictEquivalent(
+            {"name_bstrowsort": Lower("name")},
+            slv.prefilter_annots,
+        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_search_cookie(self):
@@ -153,6 +157,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(q, slv.filters)
         self.assertDictEquivalent(
             {
+                "name_bstrowsort": Lower("name"),
                 "animals_mm_count": Count("animals", output_field=IntegerField()),
                 "description": Upper("desc", output_field=CharField()),
             },
@@ -166,7 +171,10 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES.update({f"StudyLV-{StudyLV.filter_cookie_name}-name": "test"})
         slv = StudyLV(request=request)
         q = Q(**{"name__icontains": "test"})
-        self.assertEqual(0, len(slv.prefilter_annots.keys()))
+        self.assertDictEquivalent(
+            {"name_bstrowsort": Lower("name")},
+            slv.prefilter_annots,
+        )
         self.assertEqual(q, slv.filters)
         self.assertDictEquivalent(
             {
@@ -187,7 +195,10 @@ class BSTListViewTests(TracebaseTestCase):
         )
         slv = StudyLV(request=request)
         self.assertEqual(Q(), slv.filters)
-        self.assertEqual(0, len(slv.prefilter_annots.keys()))
+        self.assertDictEquivalent(
+            {"name_bstrowsort": Lower("name")},
+            slv.prefilter_annots,
+        )
         self.assertDictEquivalent(
             {
                 "animals_mm_count": Count("animals", output_field=IntegerField()),
@@ -196,8 +207,13 @@ class BSTListViewTests(TracebaseTestCase):
             slv.postfilter_annots,
         )
         self.assertEqual(
-            Lower("name").desc(nulls_last=True),
+            F("name_bstrowsort").desc(nulls_last=True),
             slv.columns[slv.sort_name].sorter.order_by,
+        )
+        # Make sure the expression referred to in the annotation is correct
+        self.assertEqual(
+            Lower("name"),
+            slv.columns[slv.sort_name].sorter.expression,
         )
 
     @TracebaseTestCase.assertNotWarns()
@@ -214,8 +230,12 @@ class BSTListViewTests(TracebaseTestCase):
         alv = AnimalWithMultipleStudyColsLV(request=request)
         self.assertEqual(Q(), alv.filters)
         self.assertEqual(
-            Max(Lower("studies__desc")).desc(nulls_last=True),
+            F("studies__desc_bstrowsort").desc(nulls_last=True),
             alv.columns[alv.sort_name].sorter.order_by,
+        )
+        self.assertEqual(
+            Max(Lower("studies__desc")),
+            alv.columns[alv.sort_name].sorter.expression,
         )
 
         # The user sorted based on the "studies__desc" column, which means that the sorter for both the "studies__desc"
@@ -345,7 +365,6 @@ class BSTListViewTests(TracebaseTestCase):
         # No search or filter
         alv1 = StudyLV()
         before, after = alv1.get_annotations()
-        self.assertDictEqual({}, before)
         self.assertDictEquivalent(
             {
                 "animals_mm_count": Count("animals", output_field=IntegerField()),
@@ -353,6 +372,7 @@ class BSTListViewTests(TracebaseTestCase):
             },
             after,
         )
+        self.assertDictEquivalent({"name_bstrowsort": Lower("name")}, before)
 
         # Search
         request = HttpRequest()
@@ -361,6 +381,7 @@ class BSTListViewTests(TracebaseTestCase):
         before, after = alv2.get_annotations()
         self.assertDictEquivalent(
             {
+                "name_bstrowsort": Lower("name"),
                 "animals_mm_count": Count("animals", output_field=IntegerField()),
                 "description": Upper("desc", output_field=CharField()),
             },
@@ -373,7 +394,11 @@ class BSTListViewTests(TracebaseTestCase):
         alv3 = StudyLV(request=request)
         before, after = alv3.get_annotations()
         self.assertDictEquivalent(
-            {"description": Upper("desc", output_field=CharField())}, before
+            {
+                "name_bstrowsort": Lower("name"),
+                "description": Upper("desc", output_field=CharField()),
+            },
+            before,
         )
         self.assertDictEquivalent(
             {"animals_mm_count": Count("animals", output_field=IntegerField())}, after
@@ -383,7 +408,7 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES = {"StudyLV-asc": "false"}
         alv4 = StudyLV(request=request)
         before, after = alv4.get_annotations()
-        self.assertDictEqual({}, before)
+        self.assertDictEquivalent({"name_bstrowsort": Lower("name")}, before)
         self.assertDictEquivalent(
             {
                 "animals_mm_count": Count("animals", output_field=IntegerField()),
@@ -679,7 +704,7 @@ class BSTListViewTests(TracebaseTestCase):
         alv = AnimalDefaultLV()
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
-            val, sval, id = alv._get_rec_val_by_iteration_single_helper(
+            val, sval, id = alv._get_rec_val_by_iteration_onerelated_helper(
                 self.a1,
                 ["treatment"],
                 sort_field_path=["treatment", "name"],
@@ -695,7 +720,7 @@ class BSTListViewTests(TracebaseTestCase):
     def test__get_rec_val_by_iteration_many_helper(self):
         alv = AnimalDefaultLV()
         with self.assertNumQueries(1):
-            vals = alv._get_rec_val_by_iteration_many_helper(
+            vals = alv._get_rec_val_by_iteration_manyrelated_helper(
                 self.a2,
                 ["studies"],
                 related_limit=2,
@@ -752,9 +777,11 @@ class BSTListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_rec_val_by_subquery(self):
-        # TODO: Implement test
-        # BUG: CURRENTLY BROKEN
-        pass
+        alv = AnimalWithMultipleStudyColsLV()
+        qs = alv.get_queryset()
+        rec = qs.first()
+        studynamecol: BSTManyRelatedColumn = alv.columns["studies__name"]
+        alv.get_many_related_rec_val_by_subquery(rec, studynamecol)
 
     @TracebaseTestCase.assertNotWarns()
     def test__get_many_related_rec_val_by_subquery_helper(self):

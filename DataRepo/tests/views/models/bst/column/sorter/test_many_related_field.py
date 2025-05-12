@@ -177,13 +177,17 @@ class BSTManyRelatedSorterTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test_order_by(self):
+        sorter = BSTManyRelatedSorter(
+            F("children__name"), BSTMRSMiddleTestModel, asc=False
+        )
         self.assertEqual(
-            "OrderBy(Max(Lower(F(children__name))), descending=True)",
-            str(
-                BSTManyRelatedSorter(
-                    F("children__name"), BSTMRSMiddleTestModel, asc=False
-                ).order_by
-            ),
+            "OrderBy(F(children__name_bstrowsort), descending=True)",
+            str(sorter.order_by),
+        )
+        # Make sure the expression referred to in the annotation is correct
+        self.assertEqual(
+            "Max(Lower(F(children__name)))",
+            str(sorter.expression),
         )
 
     @TracebaseTestCase.assertNotWarns()
