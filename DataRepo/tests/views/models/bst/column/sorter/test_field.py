@@ -143,5 +143,16 @@ class BSTSorterTests(TracebaseTestCase):
         )
 
     def test_get_server_sorter_matching_expression(self):
-        # TODO: Implement test
-        pass
+        self.assertEqual(
+            BSTSorter.SERVER_SORTERS.ALPHANUMERIC,
+            BSTSorter.get_server_sorter_matching_expression(
+                Lower("test", output_field=CharField())
+            ),
+        )
+        self.assertEqual(
+            BSTSorter.SERVER_SORTERS.NUMERIC,
+            BSTSorter.get_server_sorter_matching_expression(
+                Lower("test", output_field=IntegerField())
+            ),
+        )
+        self.assertEqual(F, BSTSorter.get_server_sorter_matching_expression(F("test")))

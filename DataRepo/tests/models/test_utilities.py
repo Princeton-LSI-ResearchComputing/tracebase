@@ -46,6 +46,8 @@ from DataRepo.models.utilities import (
     is_string_field,
     is_unique_field,
     model_path_to_model,
+    model_title,
+    model_title_plural,
     resolve_field,
     resolve_field_path,
     select_representative_field,
@@ -402,9 +404,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual("name", select_representative_field(TracerLabel, force=True))
 
     def test_model_title(self):
-        # TODO: Implement test
-        pass
+        self.assertEqual("Peak Data Label", model_title(PeakDataLabel))
 
     def test_model_title_plural(self):
-        # TODO: Implement test
-        pass
+        self.assertEqual("Peak Data Labels", model_title_plural(PeakDataLabel))
