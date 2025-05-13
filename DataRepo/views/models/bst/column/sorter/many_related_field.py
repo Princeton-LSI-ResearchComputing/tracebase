@@ -4,11 +4,7 @@ from django.conf import settings
 from django.db.models import F, Field, Max, Min
 from django.db.models.aggregates import Aggregate
 
-from DataRepo.models.utilities import (
-    field_path_to_model_path,
-    is_many_related_to_root,
-    model_path_to_model,
-)
+from DataRepo.models.utilities import is_many_related_to_root
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 
@@ -55,13 +51,6 @@ class BSTManyRelatedSorter(BSTSorter):
                 f"field_path '{self.field_path}' must be many-related with the model '{self.model.__name__}'."
             )
 
-        self.many_related_model_path = field_path_to_model_path(
-            self.model, self.field_path, many_related=True
-        )
-        self.many_related_model = model_path_to_model(
-            self.model, self.many_related_model_path
-        )
-
         self.many_annot_name = "_".join(self.field_path.split("__")) + "_bstcellsort"
 
         if isinstance(self.expression, Aggregate):
@@ -83,9 +72,8 @@ class BSTManyRelatedSorter(BSTSorter):
             self.many_expression = self._server_sorter(self.field_path)
             self.expression = agg(self.expression)
 
-    def get_many_order_bys(self, per_record=True):
-        """Returns a list of OrderBy objects containing the annotation, the field path (relative to the root model), and
-        the primary key of the many-related model.
+    def get_many_order_bys(self):
+        """Returns a list of OrderBy objects containing the annotation.
 
         Purpose:
             1. To be able to be used in conjunction with self.many_distinct_fields()
@@ -95,65 +83,36 @@ class BSTManyRelatedSorter(BSTSorter):
                _meta.ordering.
             2. The caller has added the annotation whose name is stored in self.many_annot_name.
         Args:
-            per_record (bool) [True]: Whether to include the many-related model's primary key.  Intended for use with
-                distinct, so that columns of a column group each show the same number of values.
+            None
         Exceptions:
             None
         Returns:
-            obs (List[OrderBy])
+            (List[OrderBy])
         """
         if self.asc:
-            obs = [
+            return [
                 # Order by the expression first
                 F(self.many_annot_name).asc(nulls_first=True),
-                # Then order by the contained field path
-                F(self.field_path).asc(nulls_first=True),
             ]
 
-            if per_record:
-                # Then order by the primary key of the many-related model (in order to support applying distinct)
-                obs.append(
-                    F(f"{self.many_related_model_path}__pk").asc(nulls_first=True)
-                )
-
-            return obs
-
-        obs = [
+        return [
             # Order by the expression first
             F(self.many_annot_name).desc(nulls_last=True),
-            # Then order by the contained field path (this is only here to allow distinct to be called.
-            # See: many_distinct_fields())
-            F(self.field_path).desc(nulls_last=True),
         ]
 
-        if per_record:
-            # Then order by the primary key of the many-related model (in order to support applying distinct)
-            obs.append(F(f"{self.many_related_model_path}__pk").desc(nulls_last=True))
-
-        return obs
-
-    def get_many_distinct_fields(self, per_record=True):
-        """Returns a list of field names containing the annotation and field path relative to the many-related model.
+    def get_many_distinct_fields(self):
+        """Returns a list of field names containing the annotation.
 
         Assumptions:
             1. The caller has added the annotation whose name is stored in self.many_annot_name.
         Args:
-            per_record (bool) [True]: Whether to include the many-related model's primary key, so that columns of a
-                column group each show the same number of values.
+            None
         Exceptions:
             None
         Returns:
-            dfs (List[str])
+            (List[str])
         """
-        dfs = [
-            self.many_annot_name,
-            self.field_path,
-        ]
-
-        if per_record:
-            dfs.append(f"{self.many_related_model_path}__pk")
-
-        return dfs
+        return [self.many_annot_name]
 
     def get_many_annotations(self):
         """Returns a dict containing the annotation name and expression.
