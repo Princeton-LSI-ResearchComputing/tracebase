@@ -118,20 +118,7 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
             model, field_path, many_related=True
         )
 
-        self.relative_many_related_field_path = field_path
-        self.relative_many_related_field_path = (
-            self.relative_many_related_field_path.replace(
-                self.many_related_model_path, ""
-            )
-        )
-        if self.many_related_model_path == field_path:
-            self.is_many_fk = True
-            self.relative_many_related_field_path = "pk"
-        else:
-            self.is_many_fk = False
-            self.relative_many_related_field_path = (
-                self.relative_many_related_field_path.replace("__", "", 1)
-            )
+        self.is_many_fk = self.many_related_model_path == field_path
 
         # Create attribute names to use to assign a list of related model objects and their count to the root model
         if list_attr_name is None or count_attr_name is None:
