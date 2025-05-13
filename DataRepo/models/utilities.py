@@ -380,7 +380,7 @@ def field_path_to_model_path(
     many_related: bool = False,
     _output: str = "",
     _mr_output: str = "",
-) -> Optional[str]:
+) -> str:
     """Recursive method to take a root model and a dunderscore-delimited path and return the path to the last foreign
     key (treated here as "a model", because a queryset constructed using this field path results in a model object (or
     related manager, if it is many-related)).  If the last element in the field path is not a foreign key, it is
@@ -401,8 +401,8 @@ def field_path_to_model_path(
         ValueError if the field path is too short, a model is missing a field in the field path, or if a many-related
             model was requested and none was found.
     Returns:
-        _output (Optional[str]): The path to the last foreign key ("model") in the supplied path or None if there are no
-            foreign keys in the path (i.e. it's just a field name).
+        _output (str): The path to the last foreign key ("model") in the supplied path or None if there are no foreign
+            keys in the path (i.e. it's just a field name).
     """
     if len(path) == 0:
         raise ValueError("path string/list must have a non-zero length.")
@@ -436,8 +436,12 @@ def field_path_to_model_path(
             tail = resolve_field(getattr(model, path[0]))
             if tail.is_relation:
                 return new_output
+            elif _output == "":
+                raise ValueError(
+                    "The path provided must have at least 1 foreign key to extract the related model path."
+                )
             else:
-                return _output if _output != "" else None
+                return _output
         raise ValueError(
             f"Model: '{model.__name__}' does not have a field attribute named: '{path[0]}'."
         )

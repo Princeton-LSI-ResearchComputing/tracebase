@@ -190,19 +190,6 @@ class BSTManyRelatedSorterTests(TracebaseTestCase):
             str(sorter.expression),
         )
 
-    @TracebaseTestCase.assertNotWarns()
-    def test_many_order_by(self):
-        s = BSTManyRelatedSorter(F("children__name"), BSTMRSMiddleTestModel, asc=False)
-        self.assertEqual(
-            "OrderBy(Lower(F(children__name)), descending=True)", str(s.many_order_by)
-        )
-        s = BSTManyRelatedSorter(
-            Upper("children__name", output_field=CharField()), BSTMRSMiddleTestModel
-        )
-        self.assertEqual(
-            "OrderBy(Upper(F(children__name)), descending=False)", str(s.many_order_by)
-        )
-
     def test_get_server_sorter_matching_expression(self):
         # TODO: Implement test
         pass

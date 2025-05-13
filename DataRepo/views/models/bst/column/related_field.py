@@ -86,13 +86,14 @@ class BSTRelatedColumn(BSTColumn):
             )
 
         # Used to supply to prefetch
-        self.related_model_path = field_path_to_model_path(model, field_path)
-        if isinstance(self.related_model_path, str):
-            self.related_model = model_path_to_model(model, self.related_model_path)
-        else:
+        try:
+            self.related_model_path = field_path_to_model_path(model, field_path)
+        except ValueError as ve:
             raise ValueError(
                 "field_path must contain a foreign key to be used in a BSTRelatedColumn object."
-            )
+            ).with_traceback(ve.__traceback__)
+
+        self.related_model = model_path_to_model(model, self.related_model_path)
 
         if self.display_field_path is None:
             self.display_field_path = self.get_default_display_field(field_path, model)
