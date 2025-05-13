@@ -99,6 +99,11 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         self.limit = limit
         self.sort_expression = sort_expression
         self.asc = asc if asc is not None else self.ascending
+        self._in_group = False  # Changed by BSTColumnGroup
+
+        # True if the field is a foreign key to the many-related model.  This is different from self.is_fk, which can
+        # concurrently be True or False, as it relates to the field at the very end of the path.
+        self.is_many_fk: bool  # Set below
 
         # Get the required superclass constructor arguments we need for checks
         field_path: str = cast(str, args[0])
@@ -109,17 +114,24 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 f"field_path '{field_path}' must be many-related to model '{model.__name__}'."
             )
 
-        # We are guaranteed to get a path/str
-        self.many_related_model_path: str = cast(
-            str, field_path_to_model_path(model, field_path, many_related=True)
+        self.many_related_model_path = field_path_to_model_path(
+            model, field_path, many_related=True
         )
 
         self.relative_many_related_field_path = field_path
-        self.relative_many_related_field_path.replace(self.many_related_model_path, "")
+        self.relative_many_related_field_path = (
+            self.relative_many_related_field_path.replace(
+                self.many_related_model_path, ""
+            )
+        )
         if self.many_related_model_path == field_path:
+            self.is_many_fk = True
             self.relative_many_related_field_path = "pk"
         else:
-            self.relative_many_related_field_path.replace("__", "", 1)
+            self.is_many_fk = False
+            self.relative_many_related_field_path = (
+                self.relative_many_related_field_path.replace("__", "", 1)
+            )
 
         # Create attribute names to use to assign a list of related model objects and their count to the root model
         if list_attr_name is None or count_attr_name is None:
@@ -142,6 +154,9 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         if self.sort_expression is None:
             self.sort_expression = self.display_field_path
 
+        # Apply specific type to self.sorter (which was initialized via super().__init__)
+        self.sorter = cast(BSTManyRelatedSorter, self.sorter)
+
     @classmethod
     def get_attr_stub(cls, path: str, model: Type[Model]) -> str:
         """Creates the unique portion of an attribute name to be applied to the model objects of the root model in a
@@ -155,8 +170,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         Returns:
             stub (str)
         """
-        many_related_model_path: str = cast(
-            str, field_path_to_model_path(model, path, many_related=True)
+        many_related_model_path = field_path_to_model_path(
+            model, path, many_related=True
         )
 
         # Create attribute names for many-related values and a many-related count
@@ -223,43 +238,3 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
         )
 
         return BSTManyRelatedSorter(field_expression, self.model, **kwargs)
-
-    # TODO: REFACTOR: Move this into the sorter class and have it use annotation names instead of the
-    # self.sorter.many_order_by expression and the field_paths in self.distinct_fields.  In all cases, paths should be
-    # relative to the related model.
-    @property
-    def many_order_bys(self):
-        """Returns a list of expressions that can be supplied to a Django order_by() call in conjunction with a followup
-        call to .distinct().
-
-        NOTE: This is necessary because Django automatically adds Model._meta.ordering fields, recursively, in those
-        fields are foreign-keys, and it will error with an error reading something like 'SELECT DISTINCT ON expressions
-        must match initial ORDER BY expressions' if any ordering includes a foreign key.
-
-        Assumptions:
-            1. self.sorter.many_order_by does not contain a foreign key.  This is by design.  The sorter is created
-               intentionally with a non-foreign-key field.
-        Args:
-            None
-        Exceptions:
-            None
-        Returns:
-            obs (List[OrderBy])
-        """
-        self.sorter: BSTManyRelatedSorter
-        obs = [self.sorter.many_order_by]
-        for df in self.distinct_fields:
-            if df != self.sorter.field_path:
-                obs.append(df)
-        return obs
-
-    # TODO: REFACTOR: Move this into the sorter class and have it include both the annotation field and the underlying
-    # field.  In all cases, paths should be relative to the related model.
-    @property
-    def many_distinct_fields(self):
-        self.sorter: BSTManyRelatedSorter
-        obs = [self.sorter.many_expression]
-        for df in self.distinct_fields:
-            if df != self.sorter.field_path:
-                obs.append(df)
-        return obs
