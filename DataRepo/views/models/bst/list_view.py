@@ -5,9 +5,8 @@ from warnings import warn
 from django.conf import settings
 from django.core.exceptions import FieldError
 from django.db import ProgrammingError
-from django.db.models import F, Model, Q, QuerySet, Value
+from django.db.models import Model, Q, QuerySet, Value
 from django.db.models.expressions import Combinable
-from django.db.models.functions import Lower
 
 from DataRepo.models.utilities import is_many_related_to_parent
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -76,7 +75,7 @@ class BSTListView(BSTBaseListView):
         # for the row-sort, but it is for the delimited many-related columns' values sort (because the field path could
         # go through multiple many-related models).
         if self.ordered:
-            # TODO: REFACTOR: Set a default order-by
+            # TODO: Set a default order-by
             for group in [
                 g for g in self.groups.values() if self.sort_col.name in g.columns
             ]:
@@ -302,12 +301,12 @@ class BSTListView(BSTBaseListView):
 
         return self.limit
 
-    def get_prefetches(self):
+    def get_prefetches(self, along_path: Optional[str] = None):
         """Generate a list of strings that can be provided to Django's .prefetch_related() method, to speed up database
         interactions by reducing the number of queries necessary.
 
         Args:
-            None
+            along_path (Optional[str]): Only include paths in or after this path.
         Exceptions:
             None
         Returns:
@@ -333,7 +332,11 @@ class BSTListView(BSTBaseListView):
                     if remainder == "" or remainder.startswith("__"):
                         contained = True
                         break
-            if not contained:
+            if not contained and (
+                along_path is None
+                or model_path.startswith(along_path)
+                or along_path.startswith(model_path)
+            ):
                 prefetches.append(model_path)
 
             # # TODO: Test to see if using Prefetch() for many-related models speeds up ArchiveFileListView
@@ -540,7 +543,12 @@ class BSTListView(BSTBaseListView):
                         f"Cannot guarantee the top {col.limit} records will include the the min/max sorted records.",
                         DeveloperWarning,
                     )
-            sort_field_path = col.sorter.field_path.split("__")
+            if isinstance(col.sorter, BSTManyRelatedSorter):
+                sort_field_path = col.sorter.field_path.split("__")
+            else:
+                raise ProgrammingError(
+                    "BSTManyRelatedColumn encountered without a BSTManyRelatedSorter"
+                )
             asc = col.asc
         elif isinstance(col, BSTAnnotColumn):
             return getattr(rec, col.name)
@@ -577,7 +585,6 @@ class BSTListView(BSTBaseListView):
         # Convert empty strings in the tuple's return value to None
         return val[0] if not isinstance(val[0], str) or val[0] != "" else None
 
-    # TODO: REFACTOR: Fix this broken strategy
     def get_many_related_rec_val_by_subquery(
         self, rec: Model, col: BSTManyRelatedColumn
     ) -> list:
@@ -660,6 +667,7 @@ class BSTListView(BSTBaseListView):
             return None
 
         if is_many_related_to_parent(field_path[0], type(rec)):
+            print(f"MANY RELATED FIELD PATH: {type(rec).__name__}: {field_path}")
             # This method handles only fields that are many-related to their immediate parent
             return self._get_rec_val_by_iteration_manyrelated_helper(
                 rec,
@@ -669,6 +677,10 @@ class BSTListView(BSTBaseListView):
                 _sort_val=_sort_val,
             )
 
+        print(
+            f"_get_rec_val_by_iteration_onerelated_helper({rec}, {field_path}, related_limit={related_limit}, "
+            f"sort_field_path={sort_field_path}, _sort_val={_sort_val})"
+        )
         # This method handles only fields that are singly related to their immediate parent
         return self._get_rec_val_by_iteration_onerelated_helper(
             rec,
@@ -722,6 +734,7 @@ class BSTListView(BSTBaseListView):
         # If we're at the end of the field path, we need to issue a separate recursive call to get the sort value
         if (
             sort_field_path is not None
+            and len(sort_field_path) > 0
             and _sort_val is None
             and (
                 sort_field_path[0] != field_path[0]
@@ -745,8 +758,10 @@ class BSTListView(BSTBaseListView):
             if isinstance(val_or_rec, Model):
                 uniq_val = val_or_rec.pk
             # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
+            print("RETURNING ONE TUPLE")
             return val_or_rec, _sort_val, uniq_val
 
+        print("RETURNING ONE RECURSIVE CALL")
         return self._get_rec_val_by_iteration_helper(
             val_or_rec,
             field_path[1:],
@@ -832,6 +847,7 @@ class BSTListView(BSTBaseListView):
                 [],
             )
 
+            print("RETURNING MANY UNIQUED FK")
             return uniq_vals
 
         # print("_get_rec_val_by_iteration_many_helper exists 2")
@@ -848,6 +864,7 @@ class BSTListView(BSTBaseListView):
             ),
             [],
         )
+        print("RETURNING MANY RECURSIVE CALL")
         return uniq_vals
 
         # return []
@@ -883,8 +900,8 @@ class BSTListView(BSTBaseListView):
                 mr_rec,
                 # Each rec gets its own sort value.
                 (
-                    # TODO: REFACTOR: See if this loop always causes a query.  If it does, then this iteration strategy
-                    # may not be as efficient as I'd hoped and should be entirely removed, as should the _lower() method
+                    # TODO: See if this loop always causes a query.  If it does, then this iteration strategy may not be
+                    # as efficient as I'd hoped and should be entirely removed, as should the _lower() method
                     self._lower(
                         self._get_rec_val_by_iteration_helper(
                             mr_rec, next_sort_field_path
@@ -942,7 +959,6 @@ class BSTListView(BSTBaseListView):
                 for tpl in val:
                     yield tpl
 
-    # TODO: Fix this broken strategy
     def _get_many_related_rec_val_by_subquery_helper(
         self,
         rec: Model,
@@ -1041,18 +1057,18 @@ class BSTListView(BSTBaseListView):
         #     .distinct(col.sorter.field_path)
         # )
 
-        # CORRECTION: This runs without error - just not with .values() or .values_list() - as I had expected it would!
-        # THIS ONE errors with "Cannot resolve keyword 'fp_ob' into field"
-        # Tried updating my local django install from 4.2.11 to 4.2.20 (from the reqs), but still same error
-        qs = (
-            rec.__class__.objects.filter(pk=rec.pk)
-            # TODO: REFACTOR: Retrieve annotation name and expression from the sorter
-            .annotate(fp_ob=Lower(col.sorter.field_path))
-            # TODO: REFACTOR: Retrieve the order-bys from the sorter
-            .order_by(F("fp_ob").asc(nulls_first=True), col.sorter.field_path)
-            # TODO: REFACTOR: Retrieve the distinct fields from the sorter
-            .distinct("fp_ob", col.sorter.field_path)
-        )
+        # # CORRECTION: This runs without error - just not with .values() or .values_list() - as I had expected!
+        # # THIS ONE errors with "Cannot resolve keyword 'fp_ob' into field"
+        # # Tried updating my local django install from 4.2.11 to 4.2.20 (from the reqs), but still same error
+        # qs = (
+        #     rec.__class__.objects.filter(pk=rec.pk)
+        #     # TODO: REFACTOR: Retrieve annotation name and expression from the sorter
+        #     .annotate(fp_ob=Lower(col.sorter.field_path))
+        #     # TODO: REFACTOR: Retrieve the order-bys from the sorter
+        #     .order_by(F("fp_ob").asc(nulls_first=True), col.sorter.field_path)
+        #     # TODO: REFACTOR: Retrieve the distinct fields from the sorter
+        #     .distinct("fp_ob", col.sorter.field_path)
+        # )
 
         # # THIS WORKS, BUT YOU HAVE TO CREATE 2 ANNOTATIONS.  HOWEVER, there were 2 loops below: 1 was using .all()
         # # (which works) and one using either .values() or .values_list() (neither of which worked - meaning this
@@ -1073,36 +1089,41 @@ class BSTListView(BSTBaseListView):
         #     .distinct("fp_ob_in", "fp_ob", col.sorter.field_path)
         # )
 
+        annotations = col.sorter.get_many_annotations()
+        order_bys = col.sorter.get_many_order_bys(per_record=col._in_group)
+        distincts = col.sorter.get_many_distinct_fields(per_record=col._in_group)
+
+        # We re-perform (essentially) the same query that generated the table, but for one root-table record, and with
+        # all of the many-related values joined in to "split" the row, but we're only going to keep those many-related
+        # values.  We can/will get repeated values if the field is not unique in the many-related model, but they each
+        # will represent a unique many-related model record.  Furthermore, if the column is in a column group, the
+        # order-bys will by based on the same field expression, because BSTColumnGroup modifies col.sorter.
+        qs = (
+            # TODO: Make this faster by operating on col.many_related_model.  To do this, the path to the pk of the root
+            # model must be reversed in order to use the filter below.
+            rec.__class__.objects.filter(pk=rec.pk)
+            # # Adding this prefetch_related reduced the number of queries in DataRepo.tests.views.models.bst
+            # # .test_list_view.BSTListViewTests.test_get_many_related_rec_val_by_subquery from 3 to 2.
+            # .prefetch_related(*self.get_prefetches(along_path=col.many_related_model_path))
+            .annotate(**annotations).order_by(*order_bys)
+            # NOTE: We don't use the return of col.sorter.get_many_distinct_fields(per_record=col._in_group) in the
+            # arguments to distinct because it appears to be incompatible with .values_list below, as it complains that
+            # the annotation doesn't exist.  .distinct() applies to everything (including the annotation).
+            .distinct()
+        )
+
         print(
-            f"MODEL: '{rec.__class__.__name__}'\nORDER_BY: {col.many_order_bys}\nDISTINCT: {col.distinct_fields}\n"
-            f"FIELD PATH: {col.sorter.field_path}\nSQL: {qs.query}"
+            f"MODEL: '{rec.__class__.__name__}'\nANNOTATIONS: {annotations}\nORDER_BY: {order_bys}\n"
+            f"DISTINCT: {distincts}\nFIELD PATH: {col.sorter.field_path}\nRELATIVE FIELD PATH: "
+            f"{col.relative_many_related_field_path}\nSQL: {qs.query}"
         )
 
         print(f"col.field_path: {col.field_path}")
-        # tmp_vals_list = list(qs.values_list(col.field_path, flat=True)[0:related_limit])
-        # tmp_vals_list = list(v for v in qs.values(col.field_path)[0:related_limit])
-        # tmp_vals_list = list(v for v in qs.all()[0:related_limit])
-        # for val in tmp_vals_list:
-        #     print(f"VAL: {val}")
 
         vals_list = [
             # Return an object, like an actual queryset does, if val is a foreign key field
             col.related_model.objects.get(pk=val) if col.is_fk else val
-            # Cannot resolve keyword 'fp_ob_in' into field
-            # for val in list(qs.values_list(col.field_path, flat=True)[0:related_limit])
-            # Cannot resolve keyword 'fp_ob_in' into field
-            # for val in list(v for v in qs.values(col.field_path)[0:related_limit])
-            # 'BSTLVAnimalTestModel' object has no attribute 'studies__name'
-            # for val in list(getattr(v, col.sorter.field_path) for v in qs.all()[0:related_limit])
-            # TODO: REFACTOR: Call get_rec_val_by_iteration here.  The current getattr call is only for debugging.  (I
-            # need a recursive method to follow the field_path.  This only gets the value from a path that is 2 elements
-            # in length, not x elements)
-            for val in list(
-                getattr(v, col.field_path.split("__")[1])
-                for v in qs.all()[0:related_limit]
-            )
-            # TODO: REFACTOR: Nones should be let through
-            if val is not None
+            for val in list(qs.values_list(col.field_path, flat=True)[0:related_limit])
         ]
 
         return vals_list

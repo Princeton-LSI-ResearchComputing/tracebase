@@ -781,7 +781,18 @@ class BSTListViewTests(TracebaseTestCase):
         qs = alv.get_queryset()
         rec = qs.first()
         studynamecol: BSTManyRelatedColumn = alv.columns["studies__name"]
-        alv.get_many_related_rec_val_by_subquery(rec, studynamecol)
+        self.assertEqual(3, studynamecol.limit)
+        with self.assertNumQueries(1):
+            # V1: This was reduced from 3 to 2 queries by adding a prefetch_related
+            # Of the 2 queries, one query is the many-related distinct query and the other is the prefetch
+            # This could be a single query if the many-related model was the one being queried.
+            # V2: This was reduced from 2 to 1 query by using .values_list with .distinct with no arguments (since
+            # distinct with args causes an error about the annotation not existing)
+            val = alv.get_many_related_rec_val_by_subquery(rec, studynamecol)
+        # NOTE: NONE OF THIS MATTERS: The animal model is sorted by descending animal name ("-name") [although, we're
+        # explicitly supplying animal A2 as rec] and the study model is sorted by descending lower-cased study name.
+        # THIS DOESN'T MATTER BECAUSE THE DEFAULT ASC FOR studynamecol IS TRUE, so the EXPECTED RESULT IS ["S1", "S2"]
+        self.assertEqual(["S1", "S2"], val)
 
     @TracebaseTestCase.assertNotWarns()
     def test__get_many_related_rec_val_by_subquery_helper(self):

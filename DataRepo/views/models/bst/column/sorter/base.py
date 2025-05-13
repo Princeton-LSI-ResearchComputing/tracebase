@@ -202,6 +202,8 @@ class BSTBaseSorter(ABC):
                     f"due to '{type(fe).__name__}' error: {fe}.)"
                 )
 
+        self.annot_name = f"{self.name}_bstrowsort"
+
         # Set the default client_sorter to match the server sorter
         if client_sorter is None:
             # Base the default client_sorter on the server sorter
@@ -359,10 +361,6 @@ class BSTBaseSorter(ABC):
         else:
             client_sort_key = "UNKNOWN"
         return server_sort_key != client_sort_key
-
-    @property
-    def annot_name(self):
-        return f"{self.name}_bstrowsort"
 
     @property
     def script(self) -> str:
