@@ -1090,8 +1090,22 @@ class BSTListView(BSTBaseListView):
         # )
 
         annotations = col.sorter.get_many_annotations()
-        order_bys = col.sorter.get_many_order_bys(per_record=col._in_group)
-        distincts = col.sorter.get_many_distinct_fields(per_record=col._in_group)
+
+        order_bys = col.sorter.get_many_order_bys()
+        # Append the actual field from the column (which may differ from the sort's field [c.i.p. as happens in column
+        # groups])
+        order_bys.append(col.field_path)
+        # Append the many-related model's primary key in order to force a value for each distinct record
+        order_bys.append(f"{col.many_related_model_path}__pk")
+
+        distincts = col.sorter.get_many_distinct_fields()
+        # Prepend the actual field from the column (which may differ from the sort).  We put it first so we can easily
+        # extract it in the values_list.  This is necessary because Django's combination of annotate, distinct, and
+        # values_list have some quirks that prevent an intuitive usage of just flattening with the one value you want.
+        # I tried many different versions of this before figuring this out.
+        distincts.insert(0, col.field_path)
+        # Append the many-related model's primary key in order to force a value for each distinct record
+        distincts.append(f"{col.many_related_model_path}__pk")
 
         # We re-perform (essentially) the same query that generated the table, but for one root-table record, and with
         # all of the many-related values joined in to "split" the row, but we're only going to keep those many-related
@@ -1106,10 +1120,9 @@ class BSTListView(BSTBaseListView):
             # # .test_list_view.BSTListViewTests.test_get_many_related_rec_val_by_subquery from 3 to 2.
             # .prefetch_related(*self.get_prefetches(along_path=col.many_related_model_path))
             .annotate(**annotations).order_by(*order_bys)
-            # NOTE: We don't use the return of col.sorter.get_many_distinct_fields(per_record=col._in_group) in the
-            # arguments to distinct because it appears to be incompatible with .values_list below, as it complains that
-            # the annotation doesn't exist.  .distinct() applies to everything (including the annotation).
-            .distinct()
+            # NOTE: This makes it distinct per the target many-related model record, even if there exist multiple many-
+            # related models in the field path.
+            .distinct(*distincts)
         )
 
         print(
@@ -1123,7 +1136,7 @@ class BSTListView(BSTBaseListView):
         vals_list = [
             # Return an object, like an actual queryset does, if val is a foreign key field
             col.related_model.objects.get(pk=val) if col.is_fk else val
-            for val in list(qs.values_list(col.field_path, flat=True)[0:related_limit])
+            for val in list(v[0] for v in qs.values_list(*distincts)[0:related_limit])
         ]
 
         return vals_list
