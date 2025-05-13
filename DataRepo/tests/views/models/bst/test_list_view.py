@@ -796,6 +796,13 @@ class BSTListViewTests(TracebaseTestCase):
 
     @TracebaseTestCase.assertNotWarns()
     def test__get_many_related_rec_val_by_subquery_helper(self):
-        # TODO: Implement test
-        # BUG: CURRENTLY BROKEN
-        pass
+        """This test is the same as test_get_many_related_rec_val_by_subquery, only it adds the count keyword arg."""
+        alv = AnimalWithMultipleStudyColsLV()
+        qs = alv.get_queryset()
+        rec = qs.first()
+        studynamecol: BSTManyRelatedColumn = alv.columns["studies__name"]
+        with self.assertNumQueries(1):
+            val = alv._get_many_related_rec_val_by_subquery_helper(
+                rec, studynamecol, count=2
+            )
+        self.assertEqual(["S1", "S2"], val)
