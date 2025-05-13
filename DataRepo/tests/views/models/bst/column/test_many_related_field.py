@@ -252,11 +252,3 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
                 "samples__animal__body_weight", BSTMRCTissueTestModel
             ),
         )
-
-    def test_many_order_bys(self):
-        # TODO: Implement test
-        pass
-
-    def test_many_distinct_fields(self):
-        # TODO: Implement test
-        pass

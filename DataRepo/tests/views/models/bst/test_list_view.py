@@ -700,7 +700,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
 
     @TracebaseTestCase.assertNotWarns()
-    def test__get_rec_val_by_iteration_single_helper(self):
+    def test__get_rec_val_by_iteration_onerelated_helper(self):
         alv = AnimalDefaultLV()
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
@@ -717,7 +717,7 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertIsInstance(id, int)
 
     @TracebaseTestCase.assertNotWarns()
-    def test__get_rec_val_by_iteration_many_helper(self):
+    def test__get_rec_val_by_iteration_manyrelated_helper(self):
         alv = AnimalDefaultLV()
         with self.assertNumQueries(1):
             vals = alv._get_rec_val_by_iteration_manyrelated_helper(
