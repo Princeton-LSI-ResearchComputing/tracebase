@@ -251,25 +251,11 @@ class BSTBaseSorter(ABC):
 
     @property
     def order_by(self):
-        """Returns an expression that can be supplied to a Django order_by() call."""
+        """Returns an OrderBy object using the annotation field name, which can be supplied to a Django order_by()
+        call."""
         if self.asc:
             return F(self.annot_name).asc(nulls_first=True)
         return F(self.annot_name).desc(nulls_last=True)
-
-        # DEBUG: Replaced the code below with an expression using the annot_name.  This requires that the annotation
-        # have been created (which this class does not do).  Make sure this works, then delete the code below.
-
-        # if isinstance(self.expression, Expression):
-        #     if self.asc:
-        #         return self.expression.asc(nulls_first=True)
-        #     return self.expression.desc(nulls_last=True)
-        # elif isinstance(self.expression, F):
-        #     if self.asc:
-        #         return self.expression.asc(nulls_first=True)
-        #     return self.expression.desc(nulls_last=True)
-        # raise NotImplementedError(
-        #     f"self.expression type '{type(self.expression).__name__}' not supported."
-        # )
 
     def set_client_mode(self, enabled: bool = True):
         self.client_mode = enabled
