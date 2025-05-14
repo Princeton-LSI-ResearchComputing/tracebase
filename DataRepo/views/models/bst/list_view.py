@@ -1,4 +1,5 @@
 import traceback
+from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from warnings import warn
 
@@ -8,7 +9,11 @@ from django.db import ProgrammingError
 from django.db.models import Model, Q, QuerySet, Value
 from django.db.models.expressions import Combinable
 
-from DataRepo.models.utilities import is_many_related_to_parent
+from DataRepo.models.utilities import (
+    field_path_to_model_path,
+    is_many_related_to_parent,
+    model_path_to_model,
+)
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.base import BSTBaseListView
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
@@ -22,11 +27,12 @@ from DataRepo.views.models.bst.column.sorter.many_related_field import (
 )
 from DataRepo.views.utils import reduceuntil
 
-# from django.db.models.functions import Lower
 
+class QueryMode(Enum):
+    """This defines the query modes used to populate the many-related field values of a page of results"""
 
-# TODO: After performance testing, remove this global variable and any methods deemed to be inferior
-QUERY_MODE = False
+    iterate = 1
+    subquery = 2
 
 
 class BSTListView(BSTBaseListView):
@@ -56,7 +62,11 @@ class BSTListView(BSTBaseListView):
                 super().__init__(columns)
     """
 
-    def __init__(self, *args, **kwargs):
+    QueryModes = ["iterate", "subquery"]
+
+    def __init__(self, *args, query_mode: QueryMode = QueryMode.iterate, **kwargs):
+        self.query_mode = query_mode
+
         super().__init__(*args, **kwargs)
 
         self.total = 0
@@ -207,14 +217,16 @@ class BSTListView(BSTBaseListView):
                     # If this is a many-related column
                     if isinstance(column, BSTManyRelatedColumn):
 
-                        # Grab the related values based on the strategy indicated in QUERY_MODE
-                        # TODO: Once we have settled on a strategy, remove the conditional
-                        if QUERY_MODE:
-                            subrecs = self.get_many_related_rec_val_by_subquery(
+                        if self.query_mode == QueryMode.subquery:
+                            subrecs = self.get_many_related_column_val_by_subquery(
                                 rec, column
                             )
+                        elif self.query_mode == QueryMode.iterate:
+                            subrecs = self.get_column_val_by_iteration(rec, column)
                         else:
-                            subrecs = self.get_rec_val_by_iteration(rec, column)
+                            raise NotImplementedError(
+                                f"QueryMode {self.query_mode} not implemented."
+                            )
 
                         self.set_many_related_records_list(rec, column, subrecs)
 
@@ -392,8 +404,7 @@ class BSTListView(BSTBaseListView):
 
         for column in self.columns.values():
             if column.searchable:
-                # TODO: Consider making it possible to use icontains even if the input method is select (for the search
-                # field)
+                # TODO: Consider making it possible to use icontains when the input method is select (for search field)
                 q_exp |= column.filterer.filter(self.search_term)
 
         return q_exp
@@ -489,11 +500,11 @@ class BSTListView(BSTBaseListView):
             self.reset_filter_cookies()
         return qs
 
-    def get_rec_val_by_iteration(self, rec: Model, col: BSTBaseColumn):
+    def get_column_val_by_iteration(self, rec: Model, col: BSTBaseColumn):
         """Given a model record, i.e. row-data, e.g. from a queryset, and a column, return the column value(s).
 
-        This method exists primarily to convert the column into arguments to the _get_rec_val_by_iteration_helper
-        method.  _get_rec_val_by_iteration_helper returns either a single value
+        This method exists primarily to convert the column into arguments to the get_field_val_by_iteration
+        method.  get_field_val_by_iteration returns either a single value or a list of values.
 
         Args:
             rec (Model)
@@ -543,7 +554,7 @@ class BSTListView(BSTBaseListView):
 
         # This method handles both singly-related and many-related column values and returns either a tuple (singly-
         # related) or a list of tuples (many-related)
-        val = self._get_rec_val_by_iteration_helper(
+        val = self.get_field_val_by_iteration(
             rec,
             col.name.split("__"),
             related_limit=limit,
@@ -573,7 +584,7 @@ class BSTListView(BSTBaseListView):
         # Convert empty strings in the tuple's return value to None
         return val[0] if not isinstance(val[0], str) or val[0] != "" else None
 
-    def get_many_related_rec_val_by_subquery(
+    def get_many_related_column_val_by_subquery(
         self, rec: Model, col: BSTManyRelatedColumn
     ) -> list:
         """Method to improve performance by grabbing the annotated value first and if it is not None, does an exhaustive
@@ -583,6 +594,7 @@ class BSTListView(BSTBaseListView):
             rec (Model)
             col (BSTColumn)
         Exceptions:
+            ProgrammingError when the supplied column's sorter is not many-related.  This is mainly to satisfy mypy.
             TypeError when col is not a BSTManyRelatedColumn.
         Returns:
             (list): Sorted unique (to the many-related model) values.
@@ -595,13 +607,30 @@ class BSTListView(BSTBaseListView):
         if count is not None and count == 0:
             return []
 
-        return self._get_many_related_rec_val_by_subquery_helper(
+        if not isinstance(col.sorter, BSTManyRelatedSorter):
+            raise ProgrammingError(
+                f"Column '{col}' sorter must be a BSTManyRelatedSorter, not '{type(col.sorter).__name__}'."
+            )
+
+        # Set a limit to the retrieved records (count or supplied limit: whichever is lesser and not 0 [i.e. all])
+        related_limit = col.limit + 1 if col.limit > 0 else 0
+        if isinstance(count, int) and (related_limit == 0 or count < related_limit):
+            related_limit = count
+
+        annotations = col.sorter.get_many_annotations()
+        order_bys = col.sorter.get_many_order_bys()
+        distincts = col.sorter.get_many_distinct_fields()
+
+        return self.get_many_related_field_val_by_subquery(
             rec,
-            col,
-            count=count,
+            col.field_path,
+            related_limit=related_limit,
+            annotations=annotations,
+            order_bys=order_bys,
+            distincts=distincts,
         )
 
-    def _get_rec_val_by_iteration_helper(
+    def get_field_val_by_iteration(
         self,
         rec: Model,
         field_path: List[str],
@@ -617,20 +646,20 @@ class BSTListView(BSTBaseListView):
         (i.e. not an integer), but a model object (or objects).
 
         NOTE: The recursive calls are made via the supporting methods:
-        - _get_rec_val_by_iteration_single_helper - Handles passing through singly-related foreign keys along the
+        - _get_field_val_by_iteration_onerelated_helper - Handles passing through singly-related foreign keys along the
           field_path
-        - _get_rec_val_by_iteration_many_helper - Handles passing through many-related foreign keys along the
+        - _get_field_val_by_iteration_manyrelated_helper - Handles passing through many-related foreign keys along the
           field_path
 
-        The way this works is, _get_rec_val_by_iteration_many_helper is called at any point along the field_path
-        (possibly multiple points), where the foreign key being passed through is many-related.  Anytime a foreign key
-        (of the end-value) along the field path is 1-related to its parent, it calls
-        _get_rec_val_by_iteration_single_helper.  _get_rec_val_by_iteration_single_helper returns a 3-member tuple.  As
-        those values are being passed back through the call stack, when they pass through the many-related step, those
-        tuples are collected into a list of tuples.  The end result will either be a tuple (if there are no many-related
-        relations along the path), or a list of tuples.  Each tuple is the value itself, a sort value, and a primary
-        key.  In the case of there being no many-related component in the field_path, the second 2 values in the tuple
-        are meaningless.
+        The way this works is, _get_field_val_by_iteration_manyrelated_helper is called at any point along the
+        field_path (possibly multiple points), where the foreign key being passed through is many-related.  Anytime a
+        foreign key (of the end-value) along the field path is 1-related to its parent, it calls
+        _get_field_val_by_iteration_onerelated_helper.  _get_field_val_by_iteration_onerelated_helper returns a 3-member
+        tuple.  As those values are being passed back through the call stack, when they pass through the many-related
+        step, those tuples are collected into a list of tuples.  The end result will either be a tuple (if there are no
+        many-related relations along the path), or a list of tuples.  Each tuple is the value itself, a sort value, and
+        a primary key.  In the case of there being no many-related component in the field_path, the second 2 values in
+        the tuple are meaningless.
 
         Assumptions:
             1. The sort_field_path value will be a field under the associated column's related_model_path
@@ -656,7 +685,7 @@ class BSTListView(BSTBaseListView):
 
         if is_many_related_to_parent(field_path[0], type(rec)):
             # This method handles only fields that are many-related to their immediate parent
-            return self._get_rec_val_by_iteration_manyrelated_helper(
+            return self._get_field_val_by_iteration_manyrelated_helper(
                 rec,
                 field_path,
                 related_limit=related_limit,
@@ -665,7 +694,7 @@ class BSTListView(BSTBaseListView):
             )
 
         # This method handles only fields that are singly related to their immediate parent
-        return self._get_rec_val_by_iteration_onerelated_helper(
+        return self._get_field_val_by_iteration_onerelated_helper(
             rec,
             field_path,
             related_limit=related_limit,
@@ -673,7 +702,7 @@ class BSTListView(BSTBaseListView):
             _sort_val=_sort_val,
         )
 
-    def _get_rec_val_by_iteration_onerelated_helper(
+    def _get_field_val_by_iteration_onerelated_helper(
         self,
         rec: Model,
         field_path: List[str],
@@ -685,8 +714,8 @@ class BSTListView(BSTBaseListView):
         the remaining field_path) and traverses the record along the path to return whatever ORM object's field value is
         at the end of the path.
 
-        NOTE: Recursive calls go to _get_rec_val_by_iteration_helper, which calls this method or the companion method
-        (_get_rec_val_by_iteration_many_helper) for many-related portions of the field_path.
+        NOTE: Recursive calls go to get_field_val_by_iteration, which calls this method or the companion method
+        (_get_field_val_by_iteration_manyrelated_helper) for many-related portions of the field_path.
 
         Assumptions:
             1. The related_sort_fld value will be a field under the related_model_path
@@ -706,7 +735,7 @@ class BSTListView(BSTBaseListView):
         """
         if is_many_related_to_parent(field_path[0], type(rec)):
             raise TypeError(
-                "_get_rec_val_by_iteration_single_helper called with a many-related field"
+                "_get_field_val_by_iteration_onerelated_helper called with a many-related field"
             )
 
         val_or_rec = getattr(rec, field_path[0])
@@ -726,7 +755,7 @@ class BSTListView(BSTBaseListView):
             )
         ):
             # NOTE: Limiting to 2, because we only expect 1 and will raise ProgrammingError if multiple returned
-            sort_val, _, _ = self._get_rec_val_by_iteration_helper(
+            sort_val, _, _ = self.get_field_val_by_iteration(
                 rec, sort_field_path, related_limit=2
             )
             if isinstance(sort_val, list):
@@ -743,7 +772,7 @@ class BSTListView(BSTBaseListView):
             # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
             return val_or_rec, _sort_val, uniq_val
 
-        return self._get_rec_val_by_iteration_helper(
+        return self.get_field_val_by_iteration(
             val_or_rec,
             field_path[1:],
             related_limit=related_limit,
@@ -751,7 +780,7 @@ class BSTListView(BSTBaseListView):
             _sort_val=_sort_val,
         )
 
-    def _get_rec_val_by_iteration_manyrelated_helper(
+    def _get_field_val_by_iteration_manyrelated_helper(
         self,
         rec: Model,
         field_path: List[str],
@@ -763,10 +792,10 @@ class BSTListView(BSTBaseListView):
         element in the remaining field_path) and traverses the record along the path to return values found at the end
         of the field_path.
 
-        NOTE: Recursive calls go to _get_rec_val_by_iteration_helper, which calls this method or the companion method
-        (_get_rec_val_by_iteration_single_helper) for singly-related portions of the field_path.
+        NOTE: Recursive calls go to get_field_val_by_iteration, which calls this method or the companion method
+        (_get_field_val_by_iteration_single_helper) for singly-related portions of the field_path.
 
-        NOTE: The recursive calls to _get_rec_val_by_iteration_helper come from the 2 supporting methods:
+        NOTE: The recursive calls to get_field_val_by_iteration come from the 2 supporting methods:
         - _last_many_rec_iterator
         - _recursive_many_rec_iterator
 
@@ -792,7 +821,7 @@ class BSTListView(BSTBaseListView):
 
         if not is_many_related_to_parent([field_path[0]], type(rec)):
             raise TypeError(
-                "_get_rec_val_by_iteration_many_related_helper called without a many-related field"
+                "_get_field_val_by_iteration_many_related_helper called without a many-related field"
             )
 
         mr_qs: QuerySet = getattr(rec, field_path[0])
@@ -802,7 +831,7 @@ class BSTListView(BSTBaseListView):
         )
         # If the sort_field_path has diverged from the field_path, retrieve its value
         if sort_field_path is not None and sort_field_path[0] != field_path[0]:
-            sort_val, _, _ = self._get_rec_val_by_iteration_helper(
+            sort_val, _, _ = self.get_field_val_by_iteration(
                 rec,
                 sort_field_path,
                 # We only expect 1 value and are going to assume that the sort field was properly checked/generated to
@@ -847,7 +876,7 @@ class BSTListView(BSTBaseListView):
         mr_qs: QuerySet,
         next_sort_field_path: List[str],
     ):
-        """Private iterator to help _get_rec_val_by_iteration_many_related_helper.  It iterates through the queryset,
+        """Private iterator to help _get_field_val_by_iteration_many_related_helper.  It iterates through the queryset,
         converting the many-related records to tuples of the record, the sort value, and the primary key.  This allows
         the caller to stop when it reaches its goal.  This is called when we're at the end of the field_path.  I.e. the
         end of the field_path is a foreign key to a many-related model.  It will make a recursive call if the
@@ -858,7 +887,7 @@ class BSTListView(BSTBaseListView):
         Args:
             mr_qs: (QuerySet): A queryset of values that are many-related to self.model.
             next_sort_field_path (Optional[List[str]]): The next sort_field_path that can be supplied directly to
-                recursive calls to _get_rec_val_by_iteration_helper without slicing it.
+                recursive calls to get_field_val_by_iteration without slicing it.
         Exceptions:
             None
         Returns:
@@ -874,9 +903,7 @@ class BSTListView(BSTBaseListView):
                     # TODO: See if this loop always causes a query.  If it does, then this iteration strategy may not be
                     # as efficient as I'd hoped and should be entirely removed, as should the _lower() method
                     self._lower(
-                        self._get_rec_val_by_iteration_helper(
-                            mr_rec, next_sort_field_path
-                        )[0]
+                        self.get_field_val_by_iteration(mr_rec, next_sort_field_path)[0]
                     )
                     if len(next_sort_field_path) > 0
                     # Lower-case the string version of the many-related model object
@@ -894,7 +921,7 @@ class BSTListView(BSTBaseListView):
         related_limit: int,
         _sort_val,
     ):
-        """Private iterator to help _get_rec_val_by_iteration_many_related_helper.  It iterates through the queryset,
+        """Private iterator to help _get_field_val_by_iteration_many_related_helper.  It iterates through the queryset,
         retrieving the values at the end of the path using recursive calls.  This allows the caller to stop when it
         reaches its goal.  This is called when a many-related model is encountered before we're at the end of the
         field_path.
@@ -914,7 +941,7 @@ class BSTListView(BSTBaseListView):
         """
         mr_rec: Model
         for mr_rec in mr_qs.all():
-            val = self._get_rec_val_by_iteration_helper(
+            val = self.get_field_val_by_iteration(
                 mr_rec,
                 next_field_path,
                 related_limit=related_limit,
@@ -928,51 +955,59 @@ class BSTListView(BSTBaseListView):
                 for tpl in val:
                     yield tpl
 
-    def _get_many_related_rec_val_by_subquery_helper(
+    def get_many_related_field_val_by_subquery(
         self,
         rec: Model,
-        col: BSTManyRelatedColumn,
-        count: Optional[int] = None,
+        field_path: str,
+        related_limit: int = 5,
+        annotations: dict = {},
+        order_bys: list = [],
+        distincts: list = [],
     ) -> list:
         """
 
         Args:
-            rec (Model): A Model object.
-            col (BSTManyRelatedColumn)
-            count (Optional[int]): Total number of unique records available, if known.
+            rec (Model): A Model object whose Model corresponds to the start of the field_path.
+            field_path (str): A dunderscore delimited field path whose starting field is a field of the rec's model.
+            related_limit (int) [5]: Limit the size of the list returned to this many field values.
+            annotations (dict) [{}]: Any annotations that need to be created.  Primarily, this is to support what is
+                provided in the order_by list.
+            order_bys (List[Union[str, OrderBy]]) [[]]: A list of OrderBy values (object or str).  This will be
+                automatically appended to with the field_path and the primary key of the last many-related model foreign
+                key in the field_path.
+            distincts (List[str]) [[]]: A list of field paths.  Must match the fields contained in the order_bys list.
+                This will be prepended with the field_path and appended with the primary key of the last many-related
+                model foreign key in the field_path.
         Exceptions:
-            ProgrammingError when an exception occurs during the sorting of the value received from _get_rec_val_helper.
+            None
         Returns:
             vals_list (list): A unique list of values from the many-related model at the end of the field path.
         """
+        # This is used to ensure that the last many-related model is what is made distinct (not any other one-related
+        # model that could be later in the field_path after the many-related model)
+        many_related_model_path = field_path_to_model_path(
+            rec.__class__, field_path, many_related=True
+        )
 
-        if not isinstance(col.sorter, BSTManyRelatedSorter):
-            raise ProgrammingError(
-                "This conditional is here to assure mypy that col.sorter is indeed a BSTManyRelatedSorter."
-            )
+        # If the field in the field_path is a foreign key (whether it is to the many-related model or another model that
+        # is one-related with the many-related model), the primary key value returned is converted into model objects.
+        related_model_path = field_path_to_model_path(rec.__class__, field_path)
+        related_model = model_path_to_model(rec.__class__, related_model_path)
+        is_fk = related_model_path == field_path
 
-        # Set a limit to the retrieved records (count or supplied limit: whichever is lesser and not 0 [i.e. all])
-        related_limit = col.limit + 1 if col.limit > 0 else 0
-        if isinstance(count, int) and (related_limit == 0 or count < related_limit):
-            related_limit = count
-
-        annotations = col.sorter.get_many_annotations()
-
-        order_bys = col.sorter.get_many_order_bys()
         # Append the actual field from the column (which may differ from the sort's field [c.i.p. as happens in column
         # groups])
-        order_bys.append(col.field_path)
+        order_bys.append(field_path)
         # Append the many-related model's primary key in order to force a value for each distinct record
-        order_bys.append(f"{col.many_related_model_path}__pk")
+        order_bys.append(f"{many_related_model_path}__pk")
 
-        distincts = col.sorter.get_many_distinct_fields()
         # Prepend the actual field from the column (which may differ from the sort).  We put it first so we can easily
         # extract it in the values_list.  This is necessary because Django's combination of annotate, distinct, and
         # values_list have some quirks that prevent an intuitive usage of just flattening with the one value you want.
         # I tried many different versions of this before figuring this out.
-        distincts.insert(0, col.field_path)
+        distincts.insert(0, field_path)
         # Append the many-related model's primary key in order to force a value for each distinct record
-        distincts.append(f"{col.many_related_model_path}__pk")
+        distincts.append(f"{many_related_model_path}__pk")
 
         # We re-perform (essentially) the same query that generated the table, but for one root-table record, and with
         # all of the many-related values joined in to "split" the row, but we're only going to keep those many-related
@@ -996,7 +1031,7 @@ class BSTListView(BSTBaseListView):
 
         vals_list = [
             # Return an object, like an actual queryset does, if val is a foreign key field
-            col.related_model.objects.get(pk=val) if col.is_fk else val
+            related_model.objects.get(pk=val) if is_fk else val
             for val in list(v[0] for v in qs.values_list(*distincts)[0:related_limit])
         ]
 

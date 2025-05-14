@@ -527,7 +527,7 @@ class BSTListViewTests(TracebaseTestCase):
             # The 3 queries:
             # 1. SELECT COUNT(*) FROM (SELECT DISTINCT "loader_bstlvstudytestmodel"."name" AS "col1", ...
             #    This comes from the super().paginate_queryset call.
-            #    The rest come from the get_rec_val_by_iteration loop for the many-related record compilation
+            #    The rest come from the get_column_val_by_iteration loop for the many-related record compilation
             # 2. SELECT DISTINCT "loader_bstlvstudytestmodel"."name", ...
             #    This comes from the single iteration of "for rec in object_list"
             # 3. SELECT ("loader_bstlvanimaltestmodel_studies"."bstlvstudytestmodel_id") AS "_prefetch_related_val_...
@@ -614,7 +614,7 @@ class BSTListViewTests(TracebaseTestCase):
         delattr(self.a2, studycol.count_attr_name)
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_rec_val_by_iteration_with_annot(self):
+    def test_get_column_val_by_iteration_with_annot(self):
         alv1 = AnimalDefaultLV()
         qs1 = BSTLVAnimalTestModel.objects.annotate(
             studies_mm_count=Count(
@@ -634,27 +634,29 @@ class BSTListViewTests(TracebaseTestCase):
         rec1 = qs1.first()
         with self.assertNumQueries(0):
             # There's no need to query, because the field is in an attribute of the record
-            self.assertEqual("A1", alv1.get_rec_val_by_iteration(rec1, namecol))
+            self.assertEqual("A1", alv1.get_column_val_by_iteration(rec1, namecol))
         with self.assertNumQueries(1):
             # The related model record wasn't prefetched in qs1
-            self.assertEqual("t1", alv1.get_rec_val_by_iteration(rec1, trtdsccol))
+            self.assertEqual("t1", alv1.get_column_val_by_iteration(rec1, trtdsccol))
         with self.assertNumQueries(0):
             # The annotation is in an attribute on the rec, so no query needed
-            self.assertEqual(1, alv1.get_rec_val_by_iteration(rec1, stdycntcol))
+            self.assertEqual(1, alv1.get_column_val_by_iteration(rec1, stdycntcol))
         with self.assertNumQueries(1):
             # 1. SELECT "loader_bstlvstudytestmodel"."name", ...
             #    From "for mr_rec in mr_qs.all()" in _recursive_many_rec_iterator
-            self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
+            self.assertEqual(["S1"], alv1.get_column_val_by_iteration(rec1, stdynmcol))
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_rec_val_by_iteration_annot_excluded(self):
+    def test_get_column_val_by_iteration_annot_excluded(self):
         alv1 = AnimalDefaultLV()
         qs1 = BSTLVAnimalTestModel.objects.order_by("name")
         stdynmcol = BSTManyRelatedColumn("studies__name", BSTLVAnimalTestModel)
         rec1 = qs1.first()
         with self.assertWarns(DeveloperWarning) as aw:
             with self.assertNumQueries(1):
-                self.assertEqual(["S1"], alv1.get_rec_val_by_iteration(rec1, stdynmcol))
+                self.assertEqual(
+                    ["S1"], alv1.get_column_val_by_iteration(rec1, stdynmcol)
+                )
         self.assertEqual(1, len(aw.warnings))
         self.assertIn(
             "The count annotation for column studies__name is absent",
@@ -666,11 +668,11 @@ class BSTListViewTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test__get_rec_val_by_iteration_helper(self):
+    def test_get_field_val_by_iteration(self):
         alv1 = AnimalDefaultLV()
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
-            val, sval, id = alv1._get_rec_val_by_iteration_helper(
+            val, sval, id = alv1.get_field_val_by_iteration(
                 self.a1,
                 ["treatment"],
                 sort_field_path=["treatment", "name"],
@@ -684,7 +686,7 @@ class BSTListViewTests(TracebaseTestCase):
 
         alv2 = AnimalDefaultLV()
         with self.assertNumQueries(1):
-            vals = alv2._get_rec_val_by_iteration_helper(
+            vals = alv2.get_field_val_by_iteration(
                 self.a2,
                 ["studies"],
                 related_limit=2,
@@ -700,11 +702,11 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
 
     @TracebaseTestCase.assertNotWarns()
-    def test__get_rec_val_by_iteration_onerelated_helper(self):
+    def test__get_field_val_by_iteration_onerelated_helper(self):
         alv = AnimalDefaultLV()
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
-            val, sval, id = alv._get_rec_val_by_iteration_onerelated_helper(
+            val, sval, id = alv._get_field_val_by_iteration_onerelated_helper(
                 self.a1,
                 ["treatment"],
                 sort_field_path=["treatment", "name"],
@@ -717,10 +719,10 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertIsInstance(id, int)
 
     @TracebaseTestCase.assertNotWarns()
-    def test__get_rec_val_by_iteration_manyrelated_helper(self):
+    def test__get_field_val_by_iteration_manyrelated_helper(self):
         alv = AnimalDefaultLV()
         with self.assertNumQueries(1):
-            vals = alv._get_rec_val_by_iteration_manyrelated_helper(
+            vals = alv._get_field_val_by_iteration_manyrelated_helper(
                 self.a2,
                 ["studies"],
                 related_limit=2,
@@ -776,7 +778,7 @@ class BSTListViewTests(TracebaseTestCase):
             next(iterator)
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_many_related_rec_val_by_subquery(self):
+    def test_get_many_related_column_val_by_subquery(self):
         alv = AnimalWithMultipleStudyColsLV()
         qs = alv.get_queryset()
         rec = qs.first()
@@ -788,21 +790,30 @@ class BSTListViewTests(TracebaseTestCase):
             # This could be a single query if the many-related model was the one being queried.
             # V2: This was reduced from 2 to 1 query by using .values_list with .distinct with no arguments (since
             # distinct with args causes an error about the annotation not existing)
-            val = alv.get_many_related_rec_val_by_subquery(rec, studynamecol)
+            val = alv.get_many_related_column_val_by_subquery(rec, studynamecol)
         # NOTE: NONE OF THIS MATTERS: The animal model is sorted by descending animal name ("-name") [although, we're
         # explicitly supplying animal A2 as rec] and the study model is sorted by descending lower-cased study name.
         # THIS DOESN'T MATTER BECAUSE THE DEFAULT ASC FOR studynamecol IS TRUE, so the EXPECTED RESULT IS ["S1", "S2"]
         self.assertEqual(["S1", "S2"], val)
 
     @TracebaseTestCase.assertNotWarns()
-    def test__get_many_related_rec_val_by_subquery_helper(self):
+    def test_get_many_related_field_val_by_subquery(self):
         """This test is the same as test_get_many_related_rec_val_by_subquery, only it adds the count keyword arg."""
         alv = AnimalWithMultipleStudyColsLV()
         qs = alv.get_queryset()
+
         rec = qs.first()
         studynamecol: BSTManyRelatedColumn = alv.columns["studies__name"]
+        sorter: BSTManyRelatedSorter = studynamecol.sorter
+
         with self.assertNumQueries(1):
-            val = alv._get_many_related_rec_val_by_subquery_helper(
-                rec, studynamecol, count=2
+            val = alv.get_many_related_field_val_by_subquery(
+                rec,
+                studynamecol.field_path,
+                related_limit=2,
+                annotations=sorter.get_many_annotations(),
+                order_bys=sorter.get_many_order_bys(),
+                distincts=sorter.get_many_distinct_fields(),
             )
+
         self.assertEqual(["S1", "S2"], val)
