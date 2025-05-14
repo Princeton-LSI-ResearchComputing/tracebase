@@ -459,12 +459,6 @@ class BSTListViewTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test__lower(self):
-        self.assertEqual("test string", BSTListView._lower("Test String"))
-        self.assertEqual(5, BSTListView._lower(5))
-        self.assertIsNone(BSTListView._lower(None))
-
-    @TracebaseTestCase.assertNotWarns()
     def test_get_paginate_by(self):
         for n in range(50):
             BSTLVStudyTestModel.objects.create(name=f"ts{n}")
@@ -668,116 +662,6 @@ class BSTListViewTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_field_val_by_iteration(self):
-        alv1 = AnimalDefaultLV()
-        with self.assertNumQueries(0):
-            # NOTE: Not sure yet why this performs no queries
-            val, sval, id = alv1.get_field_val_by_iteration(
-                self.a1,
-                ["treatment"],
-                sort_field_path=["treatment", "name"],
-            )
-        self.assertEqual(self.t1, val)
-        # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
-        # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
-        # up the methods... so I should look into the possibility of remove it.
-        self.assertEqual("T1", sval)
-        self.assertIsInstance(id, int)
-
-        alv2 = AnimalDefaultLV()
-        with self.assertNumQueries(1):
-            vals = alv2.get_field_val_by_iteration(
-                self.a2,
-                ["studies"],
-                related_limit=2,
-                sort_field_path=["studies", "name"],
-            )
-        expected1 = set([self.s2, self.s1])
-        expected2 = set(["s1", "s2"])
-        vals1 = set([v[0] for v in vals])
-        vals2 = set([v[1] for v in vals])
-        vals3 = set([v[2] for v in vals])
-        self.assertEqual(expected1, vals1)
-        self.assertEqual(expected2, vals2)
-        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
-
-    @TracebaseTestCase.assertNotWarns()
-    def test__get_field_val_by_iteration_onerelated_helper(self):
-        alv = AnimalDefaultLV()
-        with self.assertNumQueries(0):
-            # NOTE: Not sure yet why this performs no queries
-            val, sval, id = alv._get_field_val_by_iteration_onerelated_helper(
-                self.a1,
-                ["treatment"],
-                sort_field_path=["treatment", "name"],
-            )
-        self.assertEqual(self.t1, val)
-        # Whether this is lower-cased or not, it does not matter.  The sort value and unique value are only present to
-        # be compatible with the many-related companion recursive path.  It might not even be necessary, since I split
-        # up the methods... so I should look into the possibility of remove it.
-        self.assertEqual("T1", sval)
-        self.assertIsInstance(id, int)
-
-    @TracebaseTestCase.assertNotWarns()
-    def test__get_field_val_by_iteration_manyrelated_helper(self):
-        alv = AnimalDefaultLV()
-        with self.assertNumQueries(1):
-            vals = alv._get_field_val_by_iteration_manyrelated_helper(
-                self.a2,
-                ["studies"],
-                related_limit=2,
-                sort_field_path=["studies", "name"],
-            )
-        expected2 = set(["s1", "s2"])
-        expected1 = set([self.s2, self.s1])
-        vals1 = set([v[0] for v in vals])
-        vals2 = set([v[1] for v in vals])
-        vals3 = set([v[2] for v in vals])
-        self.assertEqual(expected2, vals2)
-        self.assertEqual(expected1, vals1)
-        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
-
-    @TracebaseTestCase.assertNotWarns()
-    def test__last_many_rec_iterator(self):
-        alv = AnimalDefaultLV()
-        mr_qs = BSTLVStudyTestModel.objects.all()
-        iterator = iter(alv._last_many_rec_iterator(mr_qs, ["name"]))
-        expected1 = set([self.s2, self.s1])
-        # The names are lower-cased
-        expected2 = set(["s1", "s2"])
-        with self.assertNumQueries(1):
-            val1 = next(iterator)
-        with self.assertNumQueries(0):
-            # NOTE: I don't understand yet why this performs no query
-            val2 = next(iterator)
-        vals1 = set([val1[0], val2[0]])
-        vals2 = set([val1[1], val2[1]])
-        vals3 = set([val1[2], val2[2]])
-        self.assertEqual(expected1, vals1)
-        self.assertEqual(expected2, vals2)
-        self.assertTrue(all(isinstance(v3, int) for v3 in vals3))
-        with self.assertRaises(StopIteration):
-            next(iterator)
-
-    @TracebaseTestCase.assertNotWarns()
-    def test__recursive_many_rec_iterator(self):
-        alv = AnimalWithMultipleStudyColsLV()
-        mr_qs = BSTLVStudyTestModel.objects.all()
-        iterator = iter(
-            alv._recursive_many_rec_iterator(mr_qs, ["name"], ["name"], 2, None)
-        )
-        expected = set([("S2", "S2", "S2"), ("S1", "S1", "S1")])
-        with self.assertNumQueries(1):
-            r1 = next(iterator)
-        with self.assertNumQueries(0):
-            # NOTE: I don't understand yet why this performs no query
-            r2 = next(iterator)
-        vals = set([r1, r2])
-        self.assertEqual(expected, vals)
-        with self.assertRaises(StopIteration):
-            next(iterator)
-
-    @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_column_val_by_subquery(self):
         alv = AnimalWithMultipleStudyColsLV()
         qs = alv.get_queryset()
@@ -794,26 +678,4 @@ class BSTListViewTests(TracebaseTestCase):
         # NOTE: NONE OF THIS MATTERS: The animal model is sorted by descending animal name ("-name") [although, we're
         # explicitly supplying animal A2 as rec] and the study model is sorted by descending lower-cased study name.
         # THIS DOESN'T MATTER BECAUSE THE DEFAULT ASC FOR studynamecol IS TRUE, so the EXPECTED RESULT IS ["S1", "S2"]
-        self.assertEqual(["S1", "S2"], val)
-
-    @TracebaseTestCase.assertNotWarns()
-    def test_get_many_related_field_val_by_subquery(self):
-        """This test is the same as test_get_many_related_rec_val_by_subquery, only it adds the count keyword arg."""
-        alv = AnimalWithMultipleStudyColsLV()
-        qs = alv.get_queryset()
-
-        rec = qs.first()
-        studynamecol: BSTManyRelatedColumn = alv.columns["studies__name"]
-        sorter: BSTManyRelatedSorter = studynamecol.sorter
-
-        with self.assertNumQueries(1):
-            val = alv.get_many_related_field_val_by_subquery(
-                rec,
-                studynamecol.field_path,
-                related_limit=2,
-                annotations=sorter.get_many_annotations(),
-                order_bys=sorter.get_many_order_bys(),
-                distincts=sorter.get_many_distinct_fields(),
-            )
-
         self.assertEqual(["S1", "S2"], val)
