@@ -86,7 +86,14 @@ class BSTRelatedColumn(BSTColumn):
             )
 
         # Used to supply to prefetch
-        self.related_model_path = field_path_to_model_path(model, field_path)
+        try:
+            self.related_model_path = field_path_to_model_path(model, field_path)
+        except ValueError as ve:
+            raise ValueError(
+                "field_path must contain a foreign key to be used in a BSTRelatedColumn object."
+            ).with_traceback(ve.__traceback__)
+
+        self.related_model = model_path_to_model(model, self.related_model_path)
 
         if self.display_field_path is None:
             self.display_field_path = self.get_default_display_field(field_path, model)
@@ -130,6 +137,17 @@ class BSTRelatedColumn(BSTColumn):
         self.display_field = field_path_to_field(model, self.display_field_path)
 
         super().__init__(*args, **kwargs)
+
+        if self.is_fk:
+            # To use .distinct(), you need the ordering fields from the related model, otherwise you get an exception
+            # about the order_by and distinct fields being different
+            # TODO: REFACTOR: This needs to be recursive.  Create/call a method in DataRepo.models.utilities and move
+            # this code/call into the sorter class
+            self.distinct_fields = [
+                f"{self.field_path}__{f}" for f in self.related_model._meta.ordering
+            ]
+        else:
+            self.distinct_fields = [self.field_path]
 
     def get_default_display_field(self, field_path: str, model: Type[Model]):
         """Select the best display field.

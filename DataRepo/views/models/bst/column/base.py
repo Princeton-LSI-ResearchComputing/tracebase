@@ -50,7 +50,8 @@ class BSTBaseColumn(ABC):
         """Defines options used to customize bootstrap table columns.
 
         Args:
-            name (str): The column name (used for identifying the correct sorter object).
+            name (str): The column name used by Bootstrap Table to uniquely identify a column, particularly for sorting
+                and filtering operations.
             header (Optional[str]) [auto]: The column header to display in the template.  Will be automatically
                 generated using the title case conversion of the last (2, if present) dunderscore-delimited name values.
 
@@ -70,9 +71,9 @@ class BSTBaseColumn(ABC):
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
 
             sorter (Optional[Union[str, BSTBaseSorter]]) [auto]: If the value is a str, must be in
-                BSTBaseSorter.SORTERS.  Default will be based on the name and the sorter (if it is a str).
-            filterer (Optional[Union[str, BSTbaseFilterer]]) [auto]: If the value is a str, must be in
-                BSTbaseFilterer.FILTERERS.  Default will be based on the name and the filterer (if it is a str).
+                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).
+            filterer (Optional[Union[str, BSTBaseFilterer]]) [auto]: If the value is a str, must be in
+                BSTBaseFilterer.CLIENT_FILTERERS.  Default will be based on the name and the filterer (if it is a str).
 
             th_template (str) ["models/bst/th.html"]: Template path to an html file used to render the th
                 element for the column header.  This must handle the initial sort field, search term, and filter term.
@@ -215,11 +216,11 @@ class BSTBaseColumn(ABC):
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, field=None, **kwargs) -> BSTBaseSorter:
-        """Derived classes must define this method to set self.sorter"""
+    def create_sorter(self, field=None, **kwargs):
+        """Derived classes must define this method to set self.sorter to a BSTBaseSorter"""
         pass
 
     @abstractmethod
-    def create_filterer(self, field=None, **kwargs) -> BSTBaseFilterer:
-        """Derived classes must define this method to set self.filterer"""
+    def create_filterer(self, field=None, **kwargs):
+        """Derived classes must define this method to set self.filterer to a BSTBaseFilterer"""
         pass

@@ -3,16 +3,20 @@ from warnings import warn
 
 from django.conf import settings
 from django.db import ProgrammingError
+from django.db.models import IntegerField
+from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
 from django.utils.functional import classproperty
 
 from DataRepo.models.utilities import (
     is_many_related_to_root,
     is_related,
+    model_title,
+    model_title_plural,
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
-from DataRepo.utils.text_utils import camel_to_title, underscored_to_title
+from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.client_interface import BSTClientInterface
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
@@ -105,9 +109,25 @@ class BSTBaseListView(BSTClientInterface):
         # users to supply groups by column name and/or settings
         super().__init__(**kwargs)
 
-        # This is an override of ListView.ordering, defined here to silence Django Warnings.  It specifies the default
-        # *row* ordering of the model objects, which is already set in the model.
-        self.ordering = self.model._meta.ordering if self.model is not None else []
+        # This is an override of ListView.ordering, defined here to silence this warning from Django:
+        #   Pagination may yield inconsistent results with an unordered object_list:
+        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
+        # It specifies the default *row* ordering of the model objects, which is already set in the model.
+        self.ordering: Optional[list]
+        has_ordering = (
+            hasattr(self, "ordering")
+            and self.ordering is not None
+            and len(self.ordering) > 0
+        )
+        if self.model is not None and not has_ordering:
+            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
+            # way to apply that ordering by the user.  It is just the default initial ordering.
+            ordering_field = select_representative_field(
+                self.model, force=True, include_expression=True
+            )
+            self.ordering = [ordering_field]
+        elif not has_ordering:
+            self.ordering = ["id"]
 
         # Initialize the values obtained from cookies
         self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
@@ -243,6 +263,10 @@ class BSTBaseListView(BSTClientInterface):
             raise TypeError(
                 f"Invalid columns type: '{type(columns).__name__}'.  Must be a dict or list."
             )
+
+        # Add some complementary metadata columns for any many-related columns present
+        if self.model is not None:
+            self.add_default_many_related_column_settings()
 
     def get_column_name(
         self,
@@ -393,6 +417,66 @@ class BSTBaseListView(BSTClientInterface):
                 # type]
                 self.init_column_settings(colobj.columns)  # type: ignore[arg-type]
 
+    def add_default_many_related_column_settings(self):
+        """Adds an automatically generated count column to complement each many-related column (if that column is not
+        excluded).
+
+        Assumptions:
+            1. If a column already exists with the generated annotation name, assume it contains a distinct count.
+        Args:
+            None:
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        mmfields = [
+            f
+            for f in self.model._meta.get_fields()
+            if is_many_related_to_root(f.name, self.model)
+        ]
+        for fld in mmfields:
+            count_annot_name = BSTManyRelatedColumn.get_count_name(fld.name, self.model)
+
+            if (
+                (
+                    fld.name not in self.exclude
+                    or self.many_related_columns_exist(fld.name)
+                )
+                and count_annot_name not in self.exclude
+                and count_annot_name not in self.column_settings.keys()
+            ):
+                self.column_settings[count_annot_name] = BSTAnnotColumn(
+                    count_annot_name,
+                    Count(fld.name, output_field=IntegerField()),
+                    header=underscored_to_title(
+                        BSTManyRelatedColumn.get_attr_stub(fld.name, self.model)
+                    )
+                    + " Count",
+                    filterer="strictFilterer",
+                    sorter="numericSorter",
+                )
+
+    def many_related_columns_exist(self, mr_model_path: str):
+        """Checks if a supplied many-related model path is the parent of any field among the column_settings keys or
+        column_ordering field paths.
+
+        Assumptions:
+            1. mr_model_path ends in a foreign key field
+            2. The self.column_settings have been initialized
+        Args:
+            mr_model_path (str): A dunderscore-delimited path to a foreign key that is many-related to the root model.
+        Exceptions:
+            None
+        Returns:
+            (bool): True if any field defined among the column_settings or column_ordering starts with the mr_model_path
+        """
+        return any(
+            f.startswith(f"{mr_model_path}__") for f in self.column_ordering
+        ) or any(
+            f.startswith(f"{mr_model_path}__") for f in self.column_settings.keys()
+        )
+
     def prepare_column_kwargs(
         self, column_settings: dict, settings_name: Optional[str] = None
     ) -> str:
@@ -456,14 +540,7 @@ class BSTBaseListView(BSTClientInterface):
         title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
         MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
         """
-        try:
-            vname: str = cls.model._meta.__dict__["verbose_name_plural"]
-            if any([c.isupper() for c in vname]):
-                return underscored_to_title(vname)
-            else:
-                return f"{camel_to_title(cls.model.__name__)}s"
-        except Exception:
-            return f"{camel_to_title(cls.model.__name__)}s"
+        return model_title_plural(cls.model)
 
     @classproperty
     def model_title(cls):  # pylint: disable=no-self-argument
@@ -472,19 +549,7 @@ class BSTBaseListView(BSTClientInterface):
         title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
         MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
         """
-        try:
-            vname: str = cls.model._meta.__dict__["verbose_name"]
-            sanitized = vname.replace(" ", "")
-            sanitized = sanitized.replace("_", "")
-            if (
-                any([c.isupper() for c in vname])
-                and cls.model.__name__.lower() == sanitized
-            ):
-                return underscored_to_title(vname)
-            else:
-                return camel_to_title(cls.model.__name__)
-        except Exception:
-            return camel_to_title(cls.model.__name__)
+        return model_title(cls.model)
 
     def init_column_ordering(self):
         """Initializes self.column_ordering.  It first filters the class attribute (if set) based on the excludes, then
@@ -512,10 +577,21 @@ class BSTBaseListView(BSTClientInterface):
         # Supporting the model being None to mimmick Django's ListView
         if self.model is not None:
             # Add the defaults
-            for fld in sorted(
-                self.model._meta.get_fields(),
-                key=lambda f: is_many_related_to_root(f.name, self.model) is True,
+
+            for fld, many_related in sorted(
+                [
+                    (f, is_many_related_to_root(f.name, self.model))
+                    for f in self.model._meta.get_fields()
+                ],
+                key=lambda tpl: tpl[1] is True,
             ):
+                if many_related is True:
+                    # Add an automatically generated count column to complement many-related columns
+                    count_annot_name = BSTManyRelatedColumn.get_count_name(
+                        fld.name, self.model
+                    )
+                    if fld.name not in self.exclude:
+                        self.add_to_column_ordering(count_annot_name, _warn=False)
                 self.add_to_column_ordering(fld.name, _warn=False)
 
         # Add from the annotations
@@ -613,12 +689,14 @@ class BSTBaseListView(BSTClientInterface):
             converter = kwargs.pop("converter")
             self.columns[colname] = BSTAnnotColumn(colname, converter, **kwargs)
 
-        else:
-
+        elif isinstance(self, BSTColumn):
             raise ValueError(
-                f"Unable to determine column type for initialization of column named '{colname}'.  Either the name is "
-                "not a field_path, the name is a field_path and the first field in the field_path is not an attribute "
-                f"of model '{self.model.__name__}', or the name is an annotation and no 'converter' was provided in "
+                f"Unable to determine column type for column '{colname}'.  The first field '{first_field}' in the "
+                f"field_path '{self.field_path}' is not a field in the model '{self.model.__name__}'."
+            )
+        else:
+            raise ValueError(
+                f"Unable to determine column type for column '{colname}'.  There was no 'converter' provided in the "
                 f"kwargs: {kwargs}."
             )
 
