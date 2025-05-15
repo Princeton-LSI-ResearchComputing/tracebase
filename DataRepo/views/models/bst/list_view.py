@@ -62,16 +62,19 @@ class BSTListView(BSTBaseListView):
 
     QueryModes = ["iterate", "subquery"]
 
-    def __init__(self, *args, query_mode: QueryMode = QueryMode.iterate, **kwargs):
-        self.query_mode = query_mode
+    raw_total_var_name = "raw_total"
+    total_var_name = "total"
 
+    def __init__(self, *args, query_mode: QueryMode = QueryMode.iterate, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Used for the pagination control (and updated in get_queryset)
         self.total = 0
         self.raw_total = 0
 
+        # The remainder are used in constructing the query
+        self.query_mode = query_mode
         self.prefetches: List[str] = self.get_prefetches()
-
         self.filters = self.get_filters()
 
         # Update the many-related sort settings in self.columns, based on self.groups, if the sort col is in a group.
@@ -628,3 +631,33 @@ class BSTListView(BSTBaseListView):
             order_bys=order_bys,
             distincts=distincts,
         )
+
+    def get_context_data(self, **kwargs):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+
+        # context = super().get_context_data(**kwargs)
+        context = super().get_context_data()
+
+        # 1. Set context variables for initial defaults based on user-selections saved in cookies
+
+        context.update(
+            {
+                self.raw_total_var_name: self.raw_total,  # Total before filtering
+                self.total_var_name: self.total,
+            }
+        )
+
+        # This context variable determines whether the BST code on the pagination template will render
+        if self.total == 0:
+            # Django does not supply a page_obj when there are no results, but the pagination.html template is where the
+            # table controlling code (integrated with pagination) is loaded, so we need a page_obj context variable with
+            # this minimal information necessary to operate the table, so that a user can clear their search term that
+            # resulted in no matches.
+            context["page_obj"] = {
+                "number": 1,
+                "has_other_pages": False,
+                "paginator": {"per_page": self.limit},
+            }
+
+        return context
