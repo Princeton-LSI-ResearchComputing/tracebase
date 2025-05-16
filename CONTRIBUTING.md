@@ -182,6 +182,9 @@ editor. Some linters that may be useful to install locally include:
 - Markdown
   - [markdownlint](https://github.com/igorshubovych/markdownlint-cli#readme)
   - [textlint](https://github.com/textlint/textlint)
+    - `npm install --save-dev textlint`
+    - `npm install --save-dev textlint-rule-terminology`
+    - Example: `npx textlint -c .textlintrc.json CHANGELOG.md`
 - Config
   - [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
 

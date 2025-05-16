@@ -6,13 +6,95 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [v3.1.5-beta] - 2025-05-15
 
 ### Fixed
 
+- Fixed 500 server errors
+  - Fixed an internal server error resulting from attempts to access field attributes before checking that the field was not null.
+  - Fixed Mzxml download server errors when there were no mzXML files in the search results.
+  - Fixed a bug that caused ordering advanced search results by some columns to encounter a 500 server error.
+  - Fixed a minor JavaScript bug in the hierarchical formsets that prevented the FCirc comparator select list from having a default selection, which upon submission (if not manually selected), would cause a 500 server error.
+  - Fixed a validation/loading bug where when the Label Positions column in the Tracers sheet contained only a single digit, an exception would be raised due to a type error.
+  - Gracefully handled a tracer name parsing error that was causing a 500 server error when the label count was missing during validation.
+  - Changed 500 error in read-only mode to a 403 forbidden error
+- Fixed loading bugs
+  - MaintainedModel
+    - Fixed a ValueError by adding a try/except block that infers that when there is no existing link from a reverse relation, there is no need to propagate changes through it, so it is skipped.
+    - Fixed an issue in get_all_maintained_field_values where it was supplying too many arguments to values_list by breaking it up into a loop to call one at a time.  This was the first time it had ever received multiple values to retrieve (due to recently added maintained fields).
+  - Fixed a type-checking error when column headers are custom.
+  - Fixed an issue where missing blanks (which should have been ignored) were preventing the MSRunsLoader from proceeding, despite there being no errors.
+- Fixed validation page bugs
+  - Fixed minor MissingSamples bug that caused the originating column to not be identified, due to an inability to map database foreign key fields from IntegrityErrors to the column in the study doc.
+- Added a graceful paginator class to not cause a 500 server error when the requested page number is out of bounds.
+
 ### Added
 
+- Added label_combo fields to models: Animal through Tracer.
+- Added a number of convenient database utilities for handling database fields, their paths, their relationship type, and general field type (number, string, and foreign key).
+- Dependencies
+  - Added a package to the dev requirements that allows pylint to be more compatible with django, specifically when running it on the command-line.
+  - Added the django debug toolbar as a dev dependency
+  - Added an init file for pylint.
+    - Upped the pylint dependency due to an exception regarding init files that is gracefully handled in the newer versions and easier to figure out.
+- Added groundwork code for improving list view performance, (unfinished).
+
 ### Changed
+
+- Load/validation error handling improvements
+  - General Exception improvements
+    - Removed the database field name from RequiredColumnValue errors, as it is irrelevant/cryptic to the end user.
+    - Added summarizable exception classes:
+      - UnmatchedBlankMzXML
+      - UnmatchedMzXML
+      - AssumedMzxmlSampleMatch
+    - Added these summarizer exception classes:
+      - UnmatchedBlankMzXMLs
+      - UnmatchedMzXMLs
+      - AssumedMzxmlSampleMatches
+    - Also added a summarization class for UnexpectedLabels: AllUnexpectedLabels
+    - Exception wording improvements.
+  - AggregatedErrors
+    - Added the ability to handle errors and warnings separately so that the important issue can be more easily identified.
+    - Changed a number of methods to be able to match the error/warning state, and report them separately
+  - TableLoader
+    - Added the ability to handle errors and warnings separately so that a blocking data issue can be more easily identified.
+  - MSRunsLoader
+    - Added the ability to distinguish between RecordDoesNotExist and MultipleRecordsReturned exceptions to clarify the reason for a "missing sample"
+    - Changed missing sample errors related to unmatched mzXML files into mzXML-specific errors to add clarity to why a sample is "missing".  This adds scan label context to distinguish apparently identical missing sample errors.
+    - Improved the ability to identify mzXMLs for likely blank samples.
+  - PeakAnnotationsLoader
+    - Renamed UnexpectedLabels to UnexpectedLabel
+    - Renamed AllUnexpectedLabels to UnexpectedLabels
+    - Created AllUnexpectedLabels (to summarize unexpected labels across files).
+  - StudyLoader
+    - Made UnexpectedSamples a warning if all unexpected samples are skipped.
+    - Added a compilation of AllUnexpectedLabels with the load key "ContaminationCheck" to the StudyLoader.
+    - Added the ability to catch and report errors from pandas' file reading.
+- Database backend improvements
+  - Added cache warnings when cache operations fail and fallback to just calling the method each time
+    - This happens when the default value for a cached field is None.
+    - This allows developers to be able to identify performance issues due to specific data problems.
+  - Mitigated concurrent validation database row locking by changing the database isolation level to SERIALIZABLE.  Notes:
+    - 2 concurrent validations can still block one another if they are touching the same record.
+    - This change makes it less likely to encounter a gateway timeout during validation by limiting the opportunities that 2 validations try to modify the same data to only those existing at the start of a validation (as opposed to them arising concurrently).
+    - There is a plan in place to queue all validation jobs to run serially to prevent gateway timeouts that arise from row locking.
+  - Made some model record orderings case insensitive.
+  - Maintained field improvements (autoupdate behavior changes)
+    - Made lazy autoupdates lazier, improving loading performance by not triggering caching updates.
+    - Improved the autoupdate message to differentiate between changed and unchanged values.
+    - Prevented auto-update propagation if the source of the save trigger was a select.
+- Improved security settings.
+- Testing improvements
+  - Improved the type hinting for the test case class factory
+  - Made an assertNotWarns decorator in the tracebase test case classes.
+  - Created a simple way to create test models on the fly.
+- Loading improvements
+  - Improved matching of mzXMLs that start with a number to a sample name.
+  - Passed the --debug flag to the peak annotations loader.
+  - PeakAnnotationsLoader
+    - Made the peak annotation file format detection more robust by replacing static checks into a loop based on existing subclasses.
+    - Added the ability to remove the compound version numbers that ELMaven appends to compounds sometimes.
 
 ## [v3.1.4-beta] - 2025-02-04
 
@@ -336,7 +418,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Massive refactor to the validation interface
   - load_study (called in --validate mode) is now used for validation
   - Isocorr files now have a separate file field
-  - A loading yaml is now automatically created
+  - A loading YAML is now automatically created
   - Exceptions are now all now presented in chronological order (errors and warnings)
   - Many exceptions are now multi-indented-lines
 - Improvements in loading exceptions
