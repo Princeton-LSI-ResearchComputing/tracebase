@@ -4639,6 +4639,87 @@ class MissingFCircCalculationValue(SummarizableError, InfileError):
         super().__init__(message, **kwargs)
 
 
+class ProhibitedCompoundNames(SummarizedInfileError, Exception):
+    def __init__(
+        self,
+        exceptions: List[ProhibitedCompoundName],
+    ):
+        SummarizedInfileError.__init__(self, exceptions)
+        exc: ProhibitedCompoundName
+        data: dict = defaultdict(lambda: defaultdict(list))
+        for loc, exc_list in self.file_dict.items():
+            for exc in exc_list:
+                for found in exc.found:
+                    data[loc][exc.found].append(exc.rownum)
+        message = "Prohibited substrings encountered:\n"
+        for loc in sorted(data.keys()):
+            message += f"\t{loc}:\n"
+            for char in sorted(data[loc].keys()):
+                rowlist = summarize_int_list(data[loc][char])
+                message += f"\t\t'{char}' on row(s): {rowlist}\n"
+        Exception.__init__(self, message)
+        self.exceptions = exceptions
+
+
+class ProhibitedStringValue(Exception):
+    def __init__(
+        self,
+        found: List[str],
+        disallowed: Optional[List[str]] = None,
+        value: Optional[str] = None,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        if disallowed is None or len(disallowed) == 0:
+            disallowed = found
+        if message is None:
+            valstr = f" (in '{value}')" if value is not None else ""
+            message = (
+                f"Prohibited character(s) {found} encountered{valstr}.\n"
+                f"None of the following substrings are allowed: {disallowed}."
+            )
+        super().__init__(message, **kwargs)
+        self.found = found
+        self.value = value
+        self.disallowed = disallowed
+
+
+class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableError):
+    SummarizerExceptionClass = ProhibitedCompoundNames
+
+    def __init__(
+        self,
+        found: List[str],
+        value: Optional[str] = None,
+        fixed: Optional[str] = None,
+        disallowed: Optional[List[str]] = None,
+        message: Optional[str] = None,
+        **kwargs,
+    ):
+        try:
+            column = kwargs.pop("column")
+        except KeyError:
+            raise RequiredArgument("column", ProhibitedCompoundName.__name__)
+        if disallowed is None or len(disallowed) == 0:
+            disallowed = found
+        if message is None:
+            valstr = f" (in '{value}')" if value is not None else ""
+            message = (
+                f"Prohibited compound name substring(s) {found} encountered{valstr} in %s.\n"
+                f"Column '{column}' values do not allow any of the following substrings: {disallowed}."
+            )
+        suggestion = kwargs.get("suggestion")
+        if fixed is not None:
+            message += f"The compound name was automatically repaired to be '{fixed}'."
+        elif suggestion is None:
+            kwargs["suggestion"] = "Please remove or replace the prohibited substrings."
+        ProhibitedStringValue.__init__(
+            self, found, disallowed=disallowed, value=value, message=message
+        )
+        InfileError.__init__(self, message, **kwargs)
+        self.fixed = fixed
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:

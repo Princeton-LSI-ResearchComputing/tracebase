@@ -10,6 +10,8 @@ from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,
     DuplicateValues,
+    ProhibitedCompoundName,
+    ProhibitedStringValue,
     RollbackException,
     SynonymExistsAsMismatchedCompound,
 )
@@ -26,7 +28,7 @@ class CompoundsLoader(TableLoader):
     FORMULA_KEY = "FORMULA"
     SYNONYMS_KEY = "SYNONYMS"
 
-    SYNONYMS_DELIMITER = ";"
+    SYNONYMS_DELIMITER = Compound.delimiter
 
     DataSheetName = "Compounds"
 
@@ -100,7 +102,7 @@ class CompoundsLoader(TableLoader):
             name=DataHeaders.SYNONYMS,
             header_required=True,
             value_required=False,
-            format="Semicolon-delimited list of synonym names.",
+            format=f"List of compound synonyms delimited by '{SYNONYMS_DELIMITER}'.",
         ),
     )
 
@@ -211,6 +213,22 @@ class CompoundsLoader(TableLoader):
             name = self.get_row_val(row, self.headers.NAME)
             formula = self.get_row_val(row, self.headers.FORMULA)
             hmdb_id = self.get_row_val(row, self.headers.HMDB_ID)
+
+            try:
+                Compound.validate_compound_name(name)
+            except ProhibitedStringValue as pc:
+                name = Compound.validate_compound_name(name, fix=True)
+                self.aggregated_errors_object.buffer_warning(
+                    ProhibitedCompoundName(
+                        pc.found,
+                        value=pc.value,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                        column=self.headers.NAME,
+                        rownum=self.rownum,
+                    ),
+                    is_fatal=self.validate,
+                )
 
             rec_dict = {
                 "name": name,
