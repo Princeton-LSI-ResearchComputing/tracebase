@@ -4893,13 +4893,13 @@ class ProhibitedCompoundNames(SummarizedInfileError, Exception):
         for loc, exc_list in self.file_dict.items():
             for exc in exc_list:
                 for found in exc.found:
-                    data[loc][exc.found].append(exc.rownum)
+                    data[loc][found].append(exc.rownum)
         message = "Prohibited substrings encountered:\n"
         for loc in sorted(data.keys()):
             message += f"\t{loc}:\n"
-            for char in sorted(data[loc].keys()):
-                rowlist = summarize_int_list(data[loc][char])
-                message += f"\t\t'{char}' on row(s): {rowlist}\n"
+            for substr in sorted(data[loc].keys()):
+                rowlist = summarize_int_list(data[loc][substr])
+                message += f"\t\t'{substr}' on row(s): {rowlist}\n"
         Exception.__init__(self, message)
         self.exceptions = exceptions
 
@@ -4919,7 +4919,7 @@ class ProhibitedStringValue(Exception):
             valstr = f" (in '{value}')" if value is not None else ""
             message = (
                 f"Prohibited character(s) {found} encountered{valstr}.\n"
-                f"None of the following substrings are allowed: {disallowed}."
+                f"None of the following reserved substrings are allowed: {disallowed}."
             )
         super().__init__(message, **kwargs)
         self.found = found
@@ -4946,20 +4946,22 @@ class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableErr
         if disallowed is None or len(disallowed) == 0:
             disallowed = found
         if message is None:
-            valstr = f" (in '{value}')" if value is not None else ""
+            valstr = f" (in compound name '{value}')" if value is not None else ""
             message = (
                 f"Prohibited compound name substring(s) {found} encountered{valstr} in %s.\n"
-                f"Column '{column}' values do not allow any of the following substrings: {disallowed}."
+                f"Column '{column}' values may not have any of the following reserved substrings: {disallowed}."
             )
         suggestion = kwargs.get("suggestion")
         if fixed is not None:
-            message += f"The compound name was automatically repaired to be '{fixed}'."
+            message += (
+                f"\n\nThe compound name was automatically repaired to be '{fixed}'."
+            )
         elif suggestion is None:
             kwargs["suggestion"] = "Please remove or replace the prohibited substrings."
         ProhibitedStringValue.__init__(
             self, found, disallowed=disallowed, value=value, message=message
         )
-        InfileError.__init__(self, message, **kwargs)
+        InfileError.__init__(self, message, column=column, **kwargs)
         self.fixed = fixed
 
 

@@ -1,7 +1,4 @@
-import re
-
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 from django.forms.models import model_to_dict
@@ -21,7 +18,7 @@ class Compound(models.Model):
     # All disallowed strings in compound names
     disallowed = [delimiter, secondary_delimiter]
     # Default replacement character when a delimiter is encountered in a compound name
-    replacement = "_"
+    replacement = "-"
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -32,12 +29,6 @@ class Compound(models.Model):
             "The compound name that is commonly used in the laboratory (e.g. 'glucose', 'C16:0', etc.).  Disallowed "
             f"substrings: {disallowed}."
         ),
-        validators=[
-            RegexValidator(
-                r"{" + r",".join([re.escape(s) for s in disallowed]) + r"}",
-                inverse_match=True,
-            )
-        ],
     )
     formula = models.CharField(
         max_length=256,
@@ -103,6 +94,7 @@ class Compound(models.Model):
             raise CompoundExistsAsMismatchedSynonym(
                 self.name, compound_dict, sqs.first()
             )
+        Compound.validate_compound_name(self.name)
 
     @classmethod
     def compound_matching_name_or_synonym(cls, name):
@@ -185,12 +177,6 @@ class CompoundSynonym(models.Model):
             "'hexadecanoic acid', 'C16', and 'palmitate' as synonyms for 'C16:0').  Disallowed substrings: "
             f"['{Compound.delimiter}']."
         ),
-        validators=[
-            RegexValidator(
-                r"{" + r",".join([re.escape(s) for s in Compound.disallowed]) + r"}",
-                inverse_match=True,
-            )
-        ],
     )
     compound = models.ForeignKey(
         Compound, related_name="synonyms", on_delete=models.CASCADE
@@ -221,3 +207,4 @@ class CompoundSynonym(models.Model):
             raise SynonymExistsAsMismatchedCompound(
                 self.name, self.compound, cqs.first()
             )
+        Compound.validate_compound_name(self.name)

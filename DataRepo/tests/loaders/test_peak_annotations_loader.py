@@ -38,6 +38,7 @@ from DataRepo.utils.exceptions import (
     MissingCompounds,
     MissingSamples,
     NoSamples,
+    ProhibitedCompoundName,
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     UnexpectedSamples,
@@ -413,6 +414,18 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         al = AccucorLoader()
         recs = al.get_peak_group_compounds_dict(row=row)
         self.assertDictEqual({"ser": self.SERINE}, recs)
+
+    def test_prohibited_delimiters(self):
+        """Tests that prohibited delimiters are automatically replaced with dashes and a warning is buffered."""
+        CompoundSynonym.objects.create(name="ser-2", compound=self.SERINE)
+        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser;2"})
+        al = AccucorLoader()
+        recs = al.get_peak_group_compounds_dict(row=row)
+        self.assertDictEqual({"ser-2": self.SERINE}, recs)
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(ProhibitedCompoundName)
+        )
 
     def test_get_or_create_peak_group_rec(self):
         row = pd.Series(

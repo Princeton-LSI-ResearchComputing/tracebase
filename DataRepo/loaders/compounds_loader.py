@@ -228,6 +228,7 @@ class CompoundsLoader(TableLoader):
                         rownum=self.rownum,
                     ),
                     is_fatal=self.validate,
+                    orig_exception=pc,
                 )
 
             rec_dict = {
@@ -325,11 +326,27 @@ class CompoundsLoader(TableLoader):
             return []
         synonyms = []
         if synonyms_string:
-            synonyms = [
-                synonym.strip()
-                for synonym in synonyms_string.split(self.synonyms_delimiter)
-                if synonym.strip() != ""
-            ]
+            for synonym in synonyms_string.split(self.synonyms_delimiter):
+                try:
+                    Compound.validate_compound_name(synonym)
+                except ProhibitedStringValue as pc:
+                    synonym = Compound.validate_compound_name(synonym, fix=True)
+                    self.aggregated_errors_object.buffer_warning(
+                        ProhibitedCompoundName(
+                            pc.found,
+                            value=pc.value,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            column=self.headers.SYNONYMS,
+                            rownum=self.rownum,
+                        ),
+                        is_fatal=self.validate,
+                        orig_exception=pc,
+                    )
+                synonym = synonym.strip()
+                if synonym != "":
+                    synonyms.append(synonym)
+
         return synonyms
 
     def check_for_cross_column_name_duplicates(self):
