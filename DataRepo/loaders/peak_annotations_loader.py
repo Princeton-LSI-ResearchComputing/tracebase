@@ -729,6 +729,7 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                         rownum=self.rownum,
                     ),
                     is_fatal=self.validate,
+                    orig_exception=pc,
                 )
             pgnames.append(name)
 
