@@ -48,6 +48,8 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ObservedIsotopeParsingError,
     ObservedIsotopeUnbalancedError,
+    ProhibitedCompoundName,
+    ProhibitedStringValue,
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     RollbackException,
@@ -709,7 +711,26 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
             # avoid an exception from the code below, which assumes non-None
             return recs
 
-        pgnames = [ns.strip() for ns in names_str.split(PeakGroup.NAME_DELIM)]
+        pgnames = []
+        for ns in names_str.split(PeakGroup.NAME_DELIM):
+            name = ns.strip()
+            try:
+                Compound.validate_compound_name(name)
+            except ProhibitedStringValue as pc:
+                name = Compound.validate_compound_name(name, fix=True)
+                self.aggregated_errors_object.buffer_warning(
+                    ProhibitedCompoundName(
+                        pc.found,
+                        value=pc.value,
+                        fixed=name,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                        column=self.headers.COMPOUND,
+                        rownum=self.rownum,
+                    ),
+                    is_fatal=self.validate,
+                )
+            pgnames.append(name)
 
         for compound_synonym in pgnames:
             recs[compound_synonym] = self.get_compound(
