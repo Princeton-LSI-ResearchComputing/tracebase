@@ -11,7 +11,7 @@ from django.db.models import (
 from django.db.models.aggregates import Count, Max
 from django.db.models.functions import Lower, Upper
 from django.http import HttpRequest
-from django.test import override_settings
+from django.test import RequestFactory, override_settings
 
 from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
@@ -679,3 +679,65 @@ class BSTListViewTests(TracebaseTestCase):
         # explicitly supplying animal A2 as rec] and the study model is sorted by descending lower-cased study name.
         # THIS DOESN'T MATTER BECAUSE THE DEFAULT ASC FOR studynamecol IS TRUE, so the EXPECTED RESULT IS ["S1", "S2"]
         self.assertEqual(["S1", "S2"], val)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_context_data(self):
+        # This creates a GET request.  The URL argument doesn't matter.  We just want the request object, with a little
+        # bit of setup.
+        request = RequestFactory().get("/")
+
+        # Add the cookie we want.
+        request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-name": "2"}
+
+        # The cookies are handled in the constructor.
+        slv = StudyLV(request=request)
+
+        # To test individual methods in Django's class based views, there can be some things you have to setup manually.
+        slv.object_list = slv.get_queryset()[:]
+
+        # This is the method we are testing.
+        context = slv.get_context_data()
+
+        self.assertEqual(
+            set(
+                [
+                    # From grandparent class
+                    "object_list",
+                    "page_obj",
+                    "cookie_prefix",
+                    "clear_cookies",
+                    "is_paginated",
+                    "cookie_resets",
+                    "paginator",
+                    "model",
+                    "view",
+                    # From ListView
+                    "bstlvstudytestmodel_list",  # Same as "object_list"
+                    # From parent class
+                    "table_id",
+                    "table_name",
+                    # Query/pagination
+                    "sortcol",
+                    "asc",
+                    "search",
+                    "limit",
+                    "limit_default",
+                    # Problems encountered
+                    "warnings",
+                    # Column metadata (including column order)
+                    "columns",
+                    # The remainder are from this class
+                    "raw_total",
+                    "total",
+                ]
+            ),
+            set(context.keys()),
+        )
+        # There are 2 study records possible to retrieve.
+        self.assertEqual(2, context["raw_total"])
+
+        # The cookie said to search for studies whose name contains "2".  There's only 1 of those.
+        self.assertEqual(1, context["total"])
+
+        # Finally, assure there were no warnings.
+        self.assertEqual([], context["warnings"])

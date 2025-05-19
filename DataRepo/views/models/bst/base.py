@@ -71,13 +71,20 @@ class BSTBaseListView(BSTClientInterface):
 
     template_name = "DataRepo/templates/models/bst/base.html"
 
-    # Cookie names
+    # Cookie names (also used as context variables)
     search_cookie_name = "search"
     filter_cookie_name = "filter"
     visible_cookie_name = "visible"
     sortcol_cookie_name = "sortcol"
     asc_cookie_name = "asc"
-    limit_cookie_name = "limit"
+    limit_cookie_name = "limit"  # Also a URL param name
+
+    # Context variable names
+    limit_default_var_name = "limit_default"
+    warnings_var_name = "warnings"
+    columns_var_name = "columns"
+    table_id_var_name = "table_id"
+    title_var_name = "table_name"
 
     def __init__(
         self,
@@ -707,3 +714,33 @@ class BSTBaseListView(BSTClientInterface):
 
     def reset_search_cookie(self):
         self.reset_cookie(self.search_cookie_name)
+
+    def get_context_data(self, **kwargs):
+        """An override of the superclass method to provide context variables to the page.  All of the values are
+        specific to pagination and BST operations."""
+
+        # context = super().get_context_data(**kwargs)
+        context = super().get_context_data()
+
+        # 1. Set context variables for initial defaults based on user-selections saved in cookies
+
+        context.update(
+            {
+                self.search_cookie_name: self.search_term,
+                self.sortcol_cookie_name: self.sort_name,
+                self.asc_cookie_name: self.asc,
+                self.limit_cookie_name: self.limit,
+                self.limit_default_var_name: self.paginate_by,
+                # The column objects contain the initial filter values, visible values, filter select list choices, and
+                # all other column details
+                self.columns_var_name: self.columns,
+                # TODO: Creating a context variable for the columns provides access to the filter select lists, but
+                # converting that into a javascript variable is not yet worked out.  The prototype constructed a
+                # variable here that is passed to the template.  I need to figure out how I want to do that.
+                self.table_id_var_name: type(self).__name__,
+                self.title_var_name: self.model_title_plural,
+                self.warnings_var_name: self.warnings,
+            }
+        )
+
+        return context

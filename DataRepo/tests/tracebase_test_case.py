@@ -155,13 +155,34 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                 return
             primitives = (bool, str, int, float, type(None))
             if isinstance(o1, primitives):
-                self.assertEqual(o1, o2, **kwargs)
+                try:
+                    self.assertEqual(o1, o2, **kwargs)
+                except AssertionError as ae:
+                    if _path is None:
+                        raise ae
+                    raise AssertionError(
+                        f"Object path: {_path} difference: {ae}"
+                    ).with_traceback(ae.__traceback__)
             elif type(o1).__name__ == "function":
-                self.assertEqual(o1, o2, **kwargs)
+                try:
+                    self.assertEqual(o1, o2, **kwargs)
+                except AssertionError as ae:
+                    if _path is None:
+                        raise ae
+                    raise AssertionError(
+                        f"Object path: {_path} difference: {ae}"
+                    ).with_traceback(ae.__traceback__)
             else:
                 self.assertIsInstance(o2, type(o1), **kwargs)
                 if isinstance(o1, (list, tuple)) and isinstance(o2, (list, tuple)):
-                    self.assertEqual(len(o1), len(o2), **kwargs)
+                    try:
+                        self.assertEqual(len(o1), len(o2), **kwargs)
+                    except AssertionError as ae:
+                        if _path is None:
+                            raise ae
+                        raise AssertionError(
+                            f"Object path: {_path} difference: {ae}"
+                        ).with_traceback(ae.__traceback__)
                     for i in range(len(o1)):
                         self.assertEquivalent(
                             o1[i],
@@ -188,7 +209,14 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
                         **kwargs,
                     )
                 else:
-                    self.assertEqual(o1, o2, **kwargs)
+                    try:
+                        self.assertEqual(o1, o2, **kwargs)
+                    except AssertionError as ae:
+                        if _path is None:
+                            raise ae
+                        raise AssertionError(
+                            f"Object path: {_path} difference: {ae}"
+                        ).with_traceback(ae.__traceback__)
 
         @staticmethod
         def assertNotWarns(unexpected_warning=Warning):
