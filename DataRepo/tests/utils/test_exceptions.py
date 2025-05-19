@@ -42,6 +42,9 @@ from DataRepo.utils.exceptions import (
     OptionsNotAvailable,
     PossibleDuplicateSample,
     PossibleDuplicateSamples,
+    ProhibitedCompoundName,
+    ProhibitedCompoundNames,
+    ProhibitedStringValue,
     RecordDoesNotExist,
     RequiredArgument,
     RequiredColumnValue,
@@ -1347,3 +1350,55 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_ProhibitedCompoundNames(self):
+        pcn1 = ProhibitedCompoundName(
+            [";", "/"], file="file.txt", column="Compound", rownum=2
+        )
+        pcn2 = ProhibitedCompoundName(
+            [";"], file="file.txt", column="Compound", rownum=5
+        )
+        pcn3 = ProhibitedCompoundName(
+            ["/"], file="file.txt", column="Compound", rownum=16
+        )
+        e = ProhibitedCompoundNames(exceptions=[pcn1, pcn2, pcn3])
+        self.assertIn("Prohibited substrings encountered", str(e))
+        self.assertIn("column [Compound] in file.txt", str(e))
+        self.assertIn("'/' on row(s): ['2', '16']", str(e))
+        self.assertIn("';' on row(s): ['2', '5']", str(e))
+
+    def test_ProhibitedStringValue(self):
+        e = ProhibitedStringValue([";"], disallowed=[";", "/"], value="test;1")
+        self.assertIn("Prohibited character(s) [';'] encountered", str(e))
+        self.assertIn("(in 'test;1')", str(e))
+        self.assertIn(
+            "None of the following reserved substrings are allowed: [';', '/']", str(e)
+        )
+
+    def test_ProhibitedCompoundName(self):
+        with self.assertRaises(RequiredArgument):
+            ProhibitedCompoundName(
+                [";", "/"], value="compound;test/name;/", fixed="compound_test_name__"
+            )
+        e = ProhibitedCompoundName(
+            [";", "/"],
+            value="compound;test/name;/",
+            fixed="compound_test_name__",
+            column="Compound",
+            sheet="Compounds",
+        )
+        self.assertIn(
+            "Prohibited compound name substring(s) [';', '/'] encountered", str(e)
+        )
+        self.assertIn("(in compound name 'compound;test/name;/')", str(e))
+        self.assertIn(
+            "in column [Compound] of sheet [Compounds] in the load file data", str(e)
+        )
+        self.assertIn(
+            "Column 'Compound' values may not have any of the following reserved substrings: [';', '/'].",
+            str(e),
+        )
+        self.assertIn(
+            "The compound name was automatically repaired to be 'compound_test_name__'",
+            str(e),
+        )
