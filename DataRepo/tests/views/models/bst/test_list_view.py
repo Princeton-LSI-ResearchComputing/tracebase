@@ -692,7 +692,8 @@ class BSTListViewTests(TracebaseTestCase):
         # The cookies are handled in the constructor.
         slv = StudyLV(request=request)
 
-        # To test individual methods in Django's class based views, there can be some things you have to setup manually.
+        # Perform some manual setup.  slv.object_list would otherwise be set when slv.get(request) is called, but we
+        # want to call it directly (for this unit test).
         slv.object_list = slv.get_queryset()[:]
 
         # This is the method we are testing.
