@@ -1,8 +1,9 @@
-var dropArea = null // eslint-disable-line no-var
-var fileFunc = null // eslint-disable-line no-var
-var postDropFunc = null // eslint-disable-line no-var
-const allFiles = [] // eslint-disable-line no-unused-vars
-const newFiles = [] // eslint-disable-line no-unused-vars
+// A dictionary of dropArea info, e.g. dropAreas["dropAreakKey"] = {
+//     "dropArea": dropArea,
+//     "fileFunc": fileFunc,
+//     "postDropFunc": postDropFunc,
+// }
+var dropAreas = {} // eslint-disable-line no-unused-vars
 
 // This code is based on the following article:
 // https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/
@@ -21,24 +22,32 @@ function initDropArea (dropArea, fileFunc, postDropFunc) { // eslint-disable-lin
   })
 
   ;['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, highlight, false)
+    dropArea.addEventListener(eventName, highlight, false,)
   })
 
   ;['dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, unhighlight, false)
   })
 
-  dropArea.addEventListener('drop', handleDrop, false)
+  let dropAreaKey = dropArea.id;
 
-  globalThis.dropArea = dropArea
-  globalThis.fileFunc = fileFunc
-  if (typeof postDropFunc !== 'undefined' && postDropFunc) {
-    globalThis.postDropFunc = postDropFunc
-  } else {
-    globalThis.postDropFunc = null
+  globalThis.dropAreas[dropAreaKey] = {
+    "dropArea": dropArea,
+    "fileFunc": null,
+    "postDropFunc": null,
   }
 
-  handleFiles(null)
+  if (typeof fileFunc !== 'undefined' && fileFunc) {
+    globalThis.dropAreas[dropAreaKey]["fileFunc"] = fileFunc
+  }
+
+  if (typeof postDropFunc !== 'undefined' && postDropFunc) {
+    globalThis.dropAreas[dropAreaKey]["postDropFunc"] = postDropFunc
+  }
+
+  // dropArea.addEventListener('drop', function (e) {handleDrop(e, dropAreaKey)}, false)
+  console.log("Attaching drop area listener to:", dropArea)
+  dropArea.addEventListener('drop', function(e) {onDropItems(e, dropArea)}, false)
 }
 
 function preventDefaults (e) { // eslint-disable-line no-unused-vars
@@ -47,65 +56,218 @@ function preventDefaults (e) { // eslint-disable-line no-unused-vars
 }
 
 function highlight (e) {
-  dropArea.classList.add('highlight')
+  this.classList.add('highlight')
 }
 
 function unhighlight (e) {
-  dropArea.classList.remove('highlight')
+  this.classList.remove('highlight')
 }
 
-function handleDrop (e) {
-  const dt = e.dataTransfer
+function handleDrop (event, dropAreaKey) {
+  console.log("Trying this out")
+  // See: https://web.dev/patterns/files/drag-and-drop-directories#js
+  const fileHandlesPromises = [...event.dataTransfer.items]
+    .filter((item) => item.kind === "file")
+    .map((item) =>
+      supportsFileSystemAccessAPI
+        ? item.getAsFileSystemHandle()
+        : supportsWebkitGetAsEntry
+        ? item.webkitGetAsEntry()
+        : item.getAsFile()
+    );
+
+  console.log("promises:", fileHandlesPromises)
+
+  for (const handle of fileHandlesPromises) {
+    if (handle.kind === "directory" || handle.isDirectory) {
+      console.log(`Directory: ${handle.name}`);
+      console.log("handle:", handle)
+
+      // See: https://udn.realityripple.com/docs/Web/API/FileSystemDirectoryReader/readEntries
+      // let directoryReader = handle.createReader();
+      // console.log("directoryReader:", directoryReader)
+      // files = directoryReader.readEntries(function(entries) {
+      //     entries.forEach(function(entry) {
+      //       scanFiles(entry, directoryContainer);
+      //   });
+      // });
+      let files = [];
+      scanFiles(handle, files);
+      console.log("files from reading dir:", files)
+      // debug.textContent += `Directory: ${handle.name}\n`;
+    } else {
+      console.log(`File: ${handle.name}`);
+      // debug.textContent += `File: ${handle.name}\n`;
+    }
+  }
+
+  // for await (const handle of fileHandlesPromises) {
+  //   if (handle.kind === "directory" || handle.isDirectory) {
+  //     console.log(`Directory: ${handle.name}`);
+  //     // debug.textContent += `Directory: ${handle.name}\n`;
+  //   } else {
+  //     console.log(`File: ${handle.name}`);
+  //     // debug.textContent += `File: ${handle.name}\n`;
+  //   }
+  // }
+
+
+  const dt = event.dataTransfer
   const files = dt.files
-  handleFiles(files)
+  handleFiles(files, dropAreaKey)
+}
+
+// See: https://udn.realityripple.com/docs/Web/API/FileSystemDirectoryReader/readEntries
+function scanFiles(item, container) {
+  if (item.isDirectory) {
+    console.log("directory:", item.fullPath)
+    let directoryReader = item.createReader();
+    directoryReader.readEntries(function(entries) {
+      entries.forEach(function(entry) {
+        scanFiles(entry, container);
+      });
+    });
+  } else {
+    console.log("file:", item.fullPath)
+    container.push(item)
+  }
+}
+
+const supportsFileSystemAccessAPI = "getAsFileSystemHandle" in DataTransferItem.prototype;
+const supportsWebkitGetAsEntry = "webkitGetAsEntry" in DataTransferItem.prototype;
+
+// See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
+// This is an experiment to see if I can handle both drag and drop directories and input file directory selection
+const onDropItems = async (e, dropArea) => {
+  // Prevent navigation.
+  e.preventDefault();
+
+  // Check for file system access capabilities
+  if (!supportsFileSystemAccessAPI && !supportsWebkitGetAsEntry) {
+    // Cannot handle directories.
+    alert("Your browser does not support folder relative path access.")
+    return;
+  }
+
+  const files = await getAllFileEntries(e.dataTransfer.items);
+  const flattenFiles = files.reduce((acc, val) => acc.concat(val), []);
+  console.log("Results here dude!!! : ", flattenFiles);
+  console.log("Here is 'e':", e)
+  // Added "this" to refer to the drop-area.  We use its id as a key to the dropAreas data structure.
+  setResults(flattenFiles, dropArea);
+};
+
+// See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
+// Supports onDropItems
+const getAllFileEntries = async (dataTransferItemList) => {
+  let fileEntries = [];
+  // Use BFS to traverse entire directory/file structure
+  let queue = [];
+  // Unfortunately dataTransferItemList is not iterable i.e. no forEach
+  for (let i = 0; i < dataTransferItemList.length; i++) {
+    queue.push(dataTransferItemList[i].webkitGetAsEntry());
+  }
+  while (queue.length > 0) {
+    let entry = queue.shift();
+    if (entry.isFile) {
+      fileEntries.push(entry);
+    } else if (entry.isDirectory) {
+      let reader = entry.createReader();
+      queue.push(...(await readAllDirectoryEntries(reader)));
+    }
+  }
+  // return fileEntries;
+  return Promise.all(
+    fileEntries.map((entry) => readEntryContentAsync(entry))
+  );
+};
+
+// See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
+// Supports onDropItems
+// Get all the entries (files or sub-directories) in a directory by calling readEntries until it returns empty array
+const readAllDirectoryEntries = async (directoryReader) => {
+  let entries = [];
+  let readEntries = await readEntriesPromise(directoryReader);
+  while (readEntries.length > 0) {
+    entries.push(...readEntries);
+    readEntries = await readEntriesPromise(directoryReader);
+  }
+  return entries;
+};
+
+// See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
+// Supports onDropItems
+// Wrap readEntries in a promise to make working with readEntries easier
+const readEntriesPromise = async (directoryReader) => {
+  try {
+    return await new Promise((resolve, reject) => {
+      directoryReader.readEntries(resolve, reject);
+    });
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+// See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
+// Supports onDropItems
+const readEntryContentAsync = async (entry) => {
+  return new Promise((resolve, reject) => {
+    let reading = 0;
+    const contents = [];
+
+    reading++;
+    entry.file(async (file) => {
+      reading--;
+      const rawFile = file;
+      rawFile.path = entry.fullPath;
+      contents.push(rawFile);
+
+      if (reading === 0) {
+        resolve(contents);
+      }
+    });
+  });
+};
+
+// See: https://mikeyland.netlify.app/post/multi-file-upload-made-easy-how-to-drag-and-drop-directories-in-your-web-app
+// Supports onDropItems
+function setResults(files, dropArea) {
+  console.log("setResults dropArea:", dropArea)
+  handleFiles(files, dropArea.id);
 }
 
 /**
- * This method initializes and maintains a global list of all and new files and creates a DataTransfer object for every
- * individual dropped/picked file and calls the fileFunc that was initialized by the initDropArea function.
- * @param {*} files - An optional array of file objects.  If null, the global lists are emptied.
+ * This method calls the fileFunc that was initialized by the initDropArea function on each file and then calls the
+ * postDropFunc, passing all files.
+ * @param {*} files - An optional array of file objects.
+ * @param {*} dropAreaKey - A string identifying the specific drop area
  */
-function handleFiles (files) { // eslint-disable-line no-unused-vars
-  if (typeof files === 'undefined' || !files) {
-    globalThis.allFiles = []
-    globalThis.newFiles = []
-  } else {
-    globalThis.newFiles = files
-    for (let i = 0; i < files.length; ++i) {
-      globalThis.allFiles.push(files.item(i))
+function handleFiles (files, dropAreaKey) { // eslint-disable-line no-unused-vars
+
+  console.log("key:", dropAreaKey, "files", files, "dropAreas[dropAreaKey]:", dropAreas[dropAreaKey]);
+
+  try {
+    fileFunc = dropAreas[dropAreaKey]["fileFunc"];
+    postDropFunc = dropAreas[dropAreaKey]["postDropFunc"];
+  } catch (error) {
+    console.error(error);
+    console.log("dropAreaKey", dropAreaKey, "dropAreas", dropAreas);
+    alert("Your browser appears to be busy and is not ready to handle new files.  Please try again.");
+    return;
+  }
+
+  if (typeof files !== 'undefined' && files) {
+    if (typeof fileFunc !== 'undefined' && fileFunc) {
+      for (let i = 0; i < files.length; ++i) {
       // See: https://stackoverflow.com/questions/8006715/
       const dT = new DataTransfer() // eslint-disable-line no-undef
-      dT.items.add(files.item(i))
-      fileFunc(dT)
+      dT.items.add(files[i])
+        fileFunc(dT)
+      }
     }
     if (typeof postDropFunc !== 'undefined' && postDropFunc) {
-      postDropFunc()
+      // This small delay should allow the processing message to update the page
+      setTimeout(function() { postDropFunc(files) }, 1);
     }
   }
-}
-
-/**
- * This takes a FileList object and creates a string of all the file names for display.
- * @param {*} files [FileList]
- * @param {*} curstring [string]
- * @returns fileNamesString [string]
- */
-function getFileNamesString (files, curstring) { // eslint-disable-line no-unused-vars
-  let fileNamesString = ''
-  let cumulativeFileList = []
-  // If the current string is populated and we're not clearing the file list
-  if (typeof curstring !== 'undefined' && curstring && files.length > 0) {
-    cumulativeFileList = curstring.split('\n')
-  }
-  for (let i = 0; i < files.length; ++i) {
-    cumulativeFileList.push(files.item(i).name)
-  }
-  fileNamesString = cumulativeFileList.sort((a, b) => {
-    const itemA = a.toUpperCase() // ignore case
-    const itemB = b.toUpperCase()
-    if (itemA < itemB) { return -1 }
-    if (itemA > itemB) { return 1 }
-    return 0
-  }).join('\n')
-  return fileNamesString
 }
