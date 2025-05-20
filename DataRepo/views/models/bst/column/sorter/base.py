@@ -68,7 +68,7 @@ class BSTBaseSorter(ABC):
         UNKNOWN=UnknownServerSorter,
     )
 
-    script_name = "js/bst_list_view/sorter.js"
+    script_name = "js/bst/sorter.js"
 
     is_annotation = False
     ascending: bool = True
@@ -358,7 +358,7 @@ class BSTBaseSorter(ABC):
             # Template
                 {{ sorter.script }}
             # Template result (assuming settings.STATIC_URL = "static/")
-                <script src='static/js/bst_list_view/sorter.js'></script>
+                <script src='static/js/bst/sorter.js'></script>
         """
         return mark_safe(f"<script src='{static(self.script_name)}'></script>")
 
