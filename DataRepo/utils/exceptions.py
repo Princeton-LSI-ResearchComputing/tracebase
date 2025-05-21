@@ -4657,6 +4657,10 @@ class ProhibitedCompoundNames(SummarizedInfileError, Exception):
             for substr in sorted(data[loc].keys()):
                 rowlist = summarize_int_list(data[loc][substr])
                 message += f"\t\t'{substr}' on row(s): {rowlist}\n"
+        message += (
+            "You may manually edit the compound names to address this issue with whatever replacement characters you "
+            "wish, but be sure to do so in both the study doc's Compounds sheet AND in all peak annotation files."
+        )
         Exception.__init__(self, message)
         self.exceptions = exceptions
 

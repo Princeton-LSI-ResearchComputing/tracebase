@@ -13,12 +13,14 @@ class Compound(models.Model):
 
     # String used for delimiting compound and synonym names in imports/exports
     delimiter = ";"
+    # Default replacement character when a delimiter is encountered in a compound name
+    replacement = ":"
     # The secondary delimiter string is used for PeakGroup names, when 2 compounds cannot be distinguished by mass spec
     secondary_delimiter = "/"
+    # Default replacement character when a delimiter is encountered in a compound name
+    secondary_replacement = "\\"
     # All disallowed strings in compound names
     disallowed = [delimiter, secondary_delimiter]
-    # Default replacement character when a delimiter is encountered in a compound name
-    replacement = "-"
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -138,14 +140,20 @@ class Compound(models.Model):
 
     @classmethod
     def validate_compound_name(
-        cls, name: str, replacement: str = replacement, fix=False
+        cls,
+        name: str,
+        replacement: str = replacement,
+        secondary_replacement: str = secondary_replacement,
+        fix=False,
     ):
-        """Validate a compound or compound synonym name.  It basically disallows the names to contain the delimiter that
-        is used in import/export.
+        """Validate a compound or compound synonym name.  It basically disallows the names to contain the delimiters
+        that are used in import/export and in PeakGroup names.
 
         Args:
             name (str): Compound or compound synonym name.
-            replacement (str) [Compound.replacement]: A character to replace disallowed characters with.
+            replacement (str) [Compound.replacement]: A character to replace delimiter characters with.
+            secondary_replacement (str) [Compound.secondary_replacement]: A character to replace secondary delimiter
+                characters with.
             fix (bool) [False]
         Exceptions:
             ProhibitedCharacter
@@ -162,7 +170,7 @@ class Compound(models.Model):
                 found.append(cls.secondary_delimiter)
             raise ProhibitedStringValue(found, cls.disallowed, value=name)
         return name.replace(cls.delimiter, replacement).replace(
-            cls.secondary_delimiter, replacement
+            cls.secondary_delimiter, secondary_replacement
         )
 
 

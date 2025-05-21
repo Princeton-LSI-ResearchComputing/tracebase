@@ -232,6 +232,12 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
         PeakGroupCompound,
     ]
 
+    name_fix_suggestion = (
+        f"You may choose to manually edit the automatically fixed compound name in the peak annotation file, but be "
+        f"sure to also fix any occurrences in the '{CompoundsLoader.DataHeaders.NAME}' and/or "
+        f"'{CompoundsLoader.DataHeaders.SYNONYMS}' columns of the '{CompoundsLoader.DataSheetName}' sheet as well."
+    )
+
     def __init__(self, *args, multrep_suggestion=None, **kwargs):
         """Constructor.
 
@@ -722,11 +728,13 @@ class PeakAnnotationsLoader(ConvertedTableLoader, ABC):
                     ProhibitedCompoundName(
                         pc.found,
                         value=pc.value,
+                        disallowed=pc.disallowed,
                         fixed=name,
                         file=self.friendly_file,
                         sheet=self.sheet,
                         column=self.headers.COMPOUND,
                         rownum=self.rownum,
+                        suggestion=self.name_fix_suggestion,
                     ),
                     is_fatal=self.validate,
                     orig_exception=pc,

@@ -52,7 +52,7 @@ class CompoundTests(TracebaseTestCase):
         with self.assertRaises(ProhibitedStringValue):
             Compound.validate_compound_name("bad;name")
         self.assertEqual(
-            "bad-name", Compound.validate_compound_name("bad;name", fix=True)
+            "bad:name", Compound.validate_compound_name("bad;name", fix=True)
         )
 
     def test_prohibited_delimiters(self):
