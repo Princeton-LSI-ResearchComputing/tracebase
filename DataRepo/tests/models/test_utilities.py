@@ -34,6 +34,7 @@ from DataRepo.models import (
 from DataRepo.models.utilities import (
     MultipleFields,
     NoFields,
+    _get_field_val_by_iteration_helper,
     _get_field_val_by_iteration_manyrelated_helper,
     _get_field_val_by_iteration_onerelated_helper,
     _last_many_rec_iterator,
@@ -44,7 +45,6 @@ from DataRepo.models.utilities import (
     field_path_to_model_path,
     get_all_models,
     get_distinct_fields,
-    get_field_val_by_iteration,
     get_many_related_field_val_by_subquery,
     get_model_by_name,
     get_next_model,
@@ -491,7 +491,7 @@ class ModelUtilityQueryTests(TracebaseTestCase):
     def test_get_field_val_by_iteration(self):
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
-            val, sval, id = get_field_val_by_iteration(
+            val, sval, id = _get_field_val_by_iteration_helper(
                 self.a1,
                 ["treatment"],
                 sort_field_path=["treatment", "name"],
@@ -504,7 +504,7 @@ class ModelUtilityQueryTests(TracebaseTestCase):
         self.assertIsInstance(id, int)
 
         with self.assertNumQueries(1):
-            vals = get_field_val_by_iteration(
+            vals = _get_field_val_by_iteration_helper(
                 self.a2,
                 ["studies"],
                 related_limit=2,

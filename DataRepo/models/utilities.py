@@ -310,6 +310,11 @@ def is_many_related_to_parent(
     if isinstance(field_path, str):
         return is_many_related_to_parent(field_path.split("__"), source_model)
     if len(field_path) == 1:
+        # Annotations are not attributes of the model class (only the instance), so field_path[0] can only be
+        # many_related if the model class has it as an attribute.
+        if not hasattr(source_model, field_path[0]):
+            # Assume it is an annotation
+            return False
         field = resolve_field(getattr(source_model, field_path[0]))
         return is_many_related(field, source_model=source_model)
     elif len(field_path) == 2:
@@ -935,6 +940,51 @@ def get_field_val_by_iteration(
     field_path: List[str],
     related_limit: int = 5,
     sort_field_path: Optional[List[str]] = None,
+    asc: bool = True,
+):
+    """User-facing interface to _get_field_val_by_iteration_helper, which returns either a tuple or list of tuples,
+    where each tuple contains the value of interest, the sort value, and a unique value (e.g. primary key).
+
+    Args:
+        rec (Model): A Model object.
+        field_path (List[str]): A path from the rec object to a field/column value, that has been split by
+            dunderscores.
+        related_limit (int) [5]: Truncate/stop at this many (many-related) records.
+        sort_field_path (Optional[List[str]]): A path from the rec object to a sort field, that has been split by
+            dunderscores.  Only relevant if the field path traverses through a many-related model.
+        asc (bool) [True]: Sort is ascending.  Only relevant if the field path traverses through a many-related model.
+    Exceptions:
+        None
+    Returns:
+        (Any): Either a field value or a list of field values.
+    """
+    val = _get_field_val_by_iteration_helper(
+        rec, field_path, related_limit=related_limit, sort_field_path=sort_field_path
+    )
+
+    # Many-related columns should return lists
+    if isinstance(val, list) and all(isinstance(v, tuple) and len(v) == 3 for v in val):
+        return [
+            # Returning the first value of the tuple - converting empty strings to None
+            tpl[0] if not isinstance(tpl[0], str) or tpl[0] != "" else None
+            # Sort based on the the sort value in the tuple (the second value at index 1)
+            for tpl in sorted(val, key=lambda t: t[1], reverse=not asc)
+        ]
+
+    if not isinstance(val, tuple) or len(val) != 3:
+        raise ProgrammingError(
+            f"3-member tuple not returned from _get_field_val_by_iteration_helper '{type(val).__name__}': {val}."
+        )
+
+    # Convert empty strings in the tuple's return value to None
+    return val[0] if not isinstance(val[0], str) or val[0] != "" else None
+
+
+def _get_field_val_by_iteration_helper(
+    rec: Model,
+    field_path: List[str],
+    related_limit: int = 5,
+    sort_field_path: Optional[List[str]] = None,
     _sort_val: Optional[List[str]] = None,
 ):
     """Private recursive method that takes a record and a path and traverses the record along the path to return
@@ -1013,7 +1063,7 @@ def _get_field_val_by_iteration_onerelated_helper(
     the remaining field_path) and traverses the record along the path to return whatever ORM object's field value is
     at the end of the path.
 
-    NOTE: Recursive calls go to get_field_val_by_iteration, which calls this method or the companion method
+    NOTE: Recursive calls go to _get_field_val_by_iteration_helper, which calls this method or the companion method
     (_get_field_val_by_iteration_manyrelated_helper) for many-related portions of the field_path.
 
     Assumptions:
@@ -1052,7 +1102,7 @@ def _get_field_val_by_iteration_onerelated_helper(
         )
     ):
         # NOTE: Limiting to 2, because we only expect 1 and will raise ProgrammingError if multiple returned
-        sort_val, _, _ = get_field_val_by_iteration(
+        sort_val, _, _ = _get_field_val_by_iteration_helper(
             rec, sort_field_path, related_limit=2
         )
         if isinstance(sort_val, list):
@@ -1069,7 +1119,7 @@ def _get_field_val_by_iteration_onerelated_helper(
         # NOTE: Returning the value, a value to sort by, and a value that makes it unique per record (or field)
         return val_or_rec, _sort_val, uniq_val
 
-    return get_field_val_by_iteration(
+    return _get_field_val_by_iteration_helper(
         val_or_rec,
         field_path[1:],
         related_limit=related_limit,
@@ -1089,10 +1139,10 @@ def _get_field_val_by_iteration_manyrelated_helper(
     element in the remaining field_path) and traverses the record along the path to return values found at the end
     of the field_path.
 
-    NOTE: Recursive calls go to get_field_val_by_iteration, which calls this method or the companion method
+    NOTE: Recursive calls go to _get_field_val_by_iteration_helper, which calls this method or the companion method
     (_get_field_val_by_iteration_single_helper) for singly-related portions of the field_path.
 
-    NOTE: The recursive calls to get_field_val_by_iteration come from the 2 supporting methods:
+    NOTE: The recursive calls to _get_field_val_by_iteration_helper come from the 2 supporting methods:
     - _last_many_rec_iterator
     - _recursive_many_rec_iterator
 
@@ -1128,7 +1178,7 @@ def _get_field_val_by_iteration_manyrelated_helper(
     next_sort_field_path = sort_field_path[1:] if sort_field_path is not None else []
     # If the sort_field_path has diverged from the field_path, retrieve its value
     if sort_field_path is not None and sort_field_path[0] != field_path[0]:
-        sort_val, _, _ = get_field_val_by_iteration(
+        sort_val, _, _ = _get_field_val_by_iteration_helper(
             rec,
             sort_field_path,
             # We only expect 1 value and are going to assume that the sort field was properly checked/generated to
@@ -1184,7 +1234,7 @@ def _last_many_rec_iterator(
     Args:
         mr_qs: (QuerySet): A queryset of values that are many-related to self.model.
         next_sort_field_path (Optional[List[str]]): The next sort_field_path that can be supplied directly to
-            recursive calls to get_field_val_by_iteration without slicing it.
+            recursive calls to _get_field_val_by_iteration_helper without slicing it.
     Exceptions:
         None
     Returns:
@@ -1199,7 +1249,9 @@ def _last_many_rec_iterator(
             (
                 # TODO: See if this loop always causes a query.  If it does, then this iteration strategy may not be
                 # as efficient as I'd hoped and should be entirely removed, as should the _lower() method
-                _lower(get_field_val_by_iteration(mr_rec, next_sort_field_path)[0])
+                _lower(
+                    _get_field_val_by_iteration_helper(mr_rec, next_sort_field_path)[0]
+                )
                 if len(next_sort_field_path) > 0
                 # Lower-case the string version of the many-related model object
                 else str(mr_rec).lower()
@@ -1236,7 +1288,7 @@ def _recursive_many_rec_iterator(
     """
     mr_rec: Model
     for mr_rec in mr_qs.all():
-        val = get_field_val_by_iteration(
+        val = _get_field_val_by_iteration_helper(
             mr_rec,
             next_field_path,
             related_limit=related_limit,

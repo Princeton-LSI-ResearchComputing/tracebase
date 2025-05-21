@@ -1,7 +1,7 @@
 from django.db.models import CharField
 from django.urls import reverse
 
-from DataRepo.templatetags.bst import (
+from DataRepo.templatetags.bsttags import (
     get_absolute_url,
     get_attr,
     has_attr,
