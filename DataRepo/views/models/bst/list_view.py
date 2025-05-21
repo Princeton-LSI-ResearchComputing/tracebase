@@ -229,7 +229,7 @@ class BSTListView(BSTBaseListView):
                                 f"QueryMode {self.query_mode} not implemented."
                             )
 
-                        self.set_many_related_records_list(rec, column, subrecs)
+                        column.set_list_attr(rec, subrecs)
 
         return paginator, page, object_list, is_paginated
 
@@ -556,35 +556,13 @@ class BSTListView(BSTBaseListView):
 
         # This method handles both singly-related and many-related column values and returns either a tuple (singly-
         # related) or a list of tuples (many-related)
-        val = get_field_val_by_iteration(
+        return get_field_val_by_iteration(
             rec,
             col.name.split("__"),
             related_limit=limit,
             sort_field_path=sort_field_path,
+            asc=asc,
         )
-
-        # Many-related columns should return lists
-        if isinstance(val, list) and all(
-            isinstance(v, tuple) and len(v) == 3 for v in val
-        ):
-            return [
-                # Returning the first value of the tuple - converting empty strings to None
-                tpl[0] if not isinstance(tpl[0], str) or tpl[0] != "" else None
-                # Sort based on the the sort value in the tuple (the second value at index 1)
-                for tpl in sorted(val, key=lambda t: t[1], reverse=not asc)
-            ]
-
-        if isinstance(col, BSTManyRelatedColumn):
-            raise ProgrammingError(
-                f"List of 3-member tuples not returned for column '{col}'.  Got a '{type(val).__name__}': {val}."
-            )
-        elif not isinstance(val, tuple) or len(val) != 3:
-            raise ProgrammingError(
-                f"3-member tuple not returned for column '{col}'.  Got a '{type(val).__name__}': {val}."
-            )
-
-        # Convert empty strings in the tuple's return value to None
-        return val[0] if not isinstance(val[0], str) or val[0] != "" else None
 
     def get_many_related_column_val_by_subquery(
         self, rec: Model, col: BSTManyRelatedColumn

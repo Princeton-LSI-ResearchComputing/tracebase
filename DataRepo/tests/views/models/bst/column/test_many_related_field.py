@@ -87,10 +87,10 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         # self.limit
         c = BSTManyRelatedColumn("studies__name", BSTMRCAnimalTestModel)
         self.assertEqual(
-            f"studies_name{BSTManyRelatedColumn.list_attr_tail}", c.list_attr_name
+            f"studies_name{BSTManyRelatedColumn._list_attr_tail}", c.list_attr_name
         )
         self.assertEqual(
-            f"studies{BSTManyRelatedColumn.count_attr_tail}", c.count_attr_name
+            f"studies{BSTManyRelatedColumn._count_attr_tail}", c.count_attr_name
         )
         self.assertEqual(BSTManyRelatedColumn.delimiter, c.delim)
         self.assertEqual(BSTManyRelatedColumn.limit, c.limit)
@@ -100,10 +100,10 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
     def test_init_fk_field_attrs(self):
         c = BSTManyRelatedColumn("studies", BSTMRCAnimalTestModel)
         self.assertEqual(
-            f"studies{BSTManyRelatedColumn.list_attr_tail}", c.list_attr_name
+            f"studies{BSTManyRelatedColumn._list_attr_tail}", c.list_attr_name
         )
         self.assertEqual(
-            f"studies{BSTManyRelatedColumn.count_attr_tail}", c.count_attr_name
+            f"studies{BSTManyRelatedColumn._count_attr_tail}", c.count_attr_name
         )
 
     @TracebaseTestCase.assertNotWarns()
@@ -229,7 +229,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
 
     def test_get_count_name(self):
         self.assertEqual(
-            f"samples{BSTManyRelatedColumn.count_attr_tail}",
+            f"samples{BSTManyRelatedColumn._count_attr_tail}",
             BSTManyRelatedColumn.get_count_name("samples", BSTMRCTissueTestModel),
         )
         with self.assertRaises(ProgrammingError) as ar:
@@ -247,7 +247,7 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
 
     def test_get_list_name(self):
         self.assertEqual(
-            f"animal_body_weight{BSTManyRelatedColumn.list_attr_tail}",
+            f"animal_body_weight{BSTManyRelatedColumn._list_attr_tail}",
             BSTManyRelatedColumn.get_list_name(
                 "samples__animal__body_weight", BSTMRCTissueTestModel
             ),
