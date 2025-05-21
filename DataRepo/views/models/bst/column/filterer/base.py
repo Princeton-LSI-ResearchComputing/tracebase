@@ -158,7 +158,7 @@ class BSTBaseFilterer(ABC):
         UNKNOWN=CustomLookup(),
     )
 
-    script_name = "js/bst_list_view/filterers.js"
+    script_name = "js/bst/filterers.js"
 
     is_annotation = False
 
