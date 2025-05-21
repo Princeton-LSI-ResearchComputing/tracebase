@@ -4585,6 +4585,58 @@ class MultipleStudyDocVersions(StudyDocVersionException):
         self.matching_version_numbers = matching_version_numbers
 
 
+class MissingFCircCalculationValues(Exception):
+    def __init__(
+        self,
+        exceptions: List[MissingFCircCalculationValue],
+    ):
+        message = (
+            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+            "the infusion rate, and the animal weight.  The following values are missing:\n"
+        )
+        err_dict: dict = defaultdict(lambda: defaultdict(list))
+        for exc in exceptions:
+            loc = generate_file_location_string(file=exc.file, sheet=exc.sheet)
+            err_dict[loc][exc.column].append(exc.rownum)
+
+        for loc, data in sorted(err_dict.items(), key=lambda tpl: tpl[0]):
+            message += f"\t{loc}\n"
+            for col, rownums in sorted(data.items(), key=lambda tpl: tpl[0]):
+                message += (
+                    f"\t\t'{col}' on row(s): " + str(summarize_int_list(rownums)) + "\n"
+                )
+
+        super().__init__(message)
+
+
+class MissingFCircCalculationValue(SummarizableError, InfileError):
+    SummarizerExceptionClass = PossibleDuplicateSamples
+
+    def __init__(self, message: Optional[str] = None, **kwargs):
+        if (
+            ("file" not in kwargs.keys() and "sheet" not in kwargs.keys())
+            or "column" not in kwargs.keys()
+            or "rownum" not in kwargs.keys()
+        ):
+            # Needed for the summary class.  Left off the outer single quotes on purpose to hack in multiple args.
+            raise RequiredArgument(
+                "rownum', 'column', and 'file' or 'sheet",
+                methodname=MissingFCircCalculationValue.__name__,
+            )
+        if message is None:
+            message = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  This value is missing:\n\t%s"
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "You can load data into tracebase without these values, but the FCirc values will either be missing "
+                "(when there is no animal weight or infusion rate) or potentially inaccurate (if the sample collection "
+                "time is missing and the arbitrarily selected 'last' serum sample is not the actual last sample)."
+            )
+        super().__init__(message, **kwargs)
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
