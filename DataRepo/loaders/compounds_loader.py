@@ -109,6 +109,12 @@ class CompoundsLoader(TableLoader):
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Compound, CompoundSynonym]
 
+    name_fix_suggestion = (
+        f"You may choose to manually edit the automatically fixed compound name in the '{DataHeaders.NAME}' and/or "
+        f"'{DataHeaders.SYNONYMS}' columns of the '{DataSheetName}' sheet, but be sure to also fix any occurrences in "
+        "any peak annotation files as well."
+    )
+
     def __init__(self, *args, **kwargs):
         """Constructor.
 
@@ -226,6 +232,7 @@ class CompoundsLoader(TableLoader):
                         sheet=self.sheet,
                         column=self.headers.NAME,
                         rownum=self.rownum,
+                        suggestion=self.name_fix_suggestion,
                     ),
                     is_fatal=self.validate,
                     orig_exception=pc,
@@ -339,6 +346,7 @@ class CompoundsLoader(TableLoader):
                             sheet=self.sheet,
                             column=self.headers.SYNONYMS,
                             rownum=self.rownum,
+                            suggestion=self.name_fix_suggestion,
                         ),
                         is_fatal=self.validate,
                         orig_exception=pc,
