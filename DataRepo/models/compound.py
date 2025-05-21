@@ -11,18 +11,30 @@ class Compound(models.Model):
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
     detail_name = "compound_detail"
 
+    # String used for delimiting compound and synonym names in imports/exports
+    delimiter = ";"
+    # Default replacement character when a delimiter is encountered in a compound name
+    replacement = ":"
+    # The secondary delimiter string is used for PeakGroup names, when 2 compounds cannot be distinguished by mass spec
+    secondary_delimiter = "/"
+    # Default replacement character when a delimiter is encountered in a compound name
+    secondary_replacement = "\\"
+    # All disallowed strings in compound names
+    disallowed = [delimiter, secondary_delimiter]
+
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
         unique=True,
-        help_text="The compound name that is commonly used in the laboratory "
-        '(e.g. "glucose", "C16:0", etc.).',
+        help_text=(
+            "The compound name that is commonly used in the laboratory (e.g. 'glucose', 'C16:0', etc.).  Disallowed "
+            f"substrings: {disallowed}."
+        ),
     )
     formula = models.CharField(
         max_length=256,
-        help_text="The molecular formula of the compound "
-        '(e.g. "C6H12O6", "C16H32O2", etc.).',
+        help_text="The molecular formula of the compound (e.g. 'C6H12O6', 'C16H32O2', etc.).",
     )
 
     # ID to serve as an external link to record using HMDB_CPD_URL
@@ -36,12 +48,11 @@ class Compound(models.Model):
 
     @property  # type: ignore
     def hmdb_url(self):
-        "Returns the url to the compound's hmdb record"
+        """Returns the url to the compound's hmdb record"""
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
 
     def atom_count(self, atom):
-        """
-        Takes element symbol (e.g. "C") or element name (e.g. "Carbon") and returns the count of that element in the
+        """Takes element symbol (e.g. "C") or element name (e.g. "Carbon") and returns the count of that element in the
         compound
         """
         return atom_count_in_formula(self.formula, atom)
@@ -55,10 +66,8 @@ class Compound(models.Model):
         return (compound_synonym, created)
 
     def save(self, *args, **kwargs):
-        """
-        Call the "real" save() method first, to generate the compound_id,
-        because the compound_id is intrinsic to the compound_synonym(s) which we
-        are auto-creating afterwards
+        """Call the "real" save() method first, to generate the compound_id, because the compound_id is intrinsic to the
+        compound_synonym(s) which we are auto-creating afterwards.
         """
         super().save(*args, **kwargs)
         (_primary_synonym, created) = self.get_or_create_synonym()
@@ -66,8 +75,7 @@ class Compound(models.Model):
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
     def clean(self, *args, **kwargs):
-        """
-        super.clean will raise an error about existing compounds, if this entire record already exists.
+        """super.clean will raise an error about existing compounds, if this entire record already exists.
 
         But we also need to ensure that the compound name doesn't already exist as a synonym of a different compound.
 
@@ -88,15 +96,13 @@ class Compound(models.Model):
             raise CompoundExistsAsMismatchedSynonym(
                 self.name, compound_dict, sqs.first()
             )
+        Compound.validate_compound_name(self.name)
 
     @classmethod
     def compound_matching_name_or_synonym(cls, name):
-        """
-        compound_matching_name_or_synonym is a class method that takes a string (name or
-        synonym) and retrieves a distinct compound that matches it
-        (case-insensitive), if any. Because we must enforce unique
-        names, synonyms, and compound linkages, if more than 1 compound is found
-        matching the query, an error is thrown.
+        """compound_matching_name_or_synonym is a class method that takes a string (name or synonym) and retrieves a
+        distinct compound that matches it (case-insensitive), if any. Because we must enforce unique names, synonyms,
+        and compound linkages, if more than 1 compound is found matching the query, an error is thrown.
         """
 
         # find the distinct union of these queries
@@ -132,6 +138,41 @@ class Compound(models.Model):
 
         return reverse(self.detail_name, kwargs={"pk": self.pk})
 
+    @classmethod
+    def validate_compound_name(
+        cls,
+        name: str,
+        replacement: str = replacement,
+        secondary_replacement: str = secondary_replacement,
+        fix=False,
+    ):
+        """Validate a compound or compound synonym name.  It basically disallows the names to contain the delimiters
+        that are used in import/export and in PeakGroup names.
+
+        Args:
+            name (str): Compound or compound synonym name.
+            replacement (str) [Compound.replacement]: A character to replace delimiter characters with.
+            secondary_replacement (str) [Compound.secondary_replacement]: A character to replace secondary delimiter
+                characters with.
+            fix (bool) [False]
+        Exceptions:
+            ProhibitedCharacter
+        Returns:
+            name (str)
+        """
+        from DataRepo.utils.exceptions import ProhibitedStringValue
+
+        if (cls.delimiter in name or cls.secondary_delimiter in name) and not fix:
+            found = []
+            if cls.delimiter in name:
+                found.append(cls.delimiter)
+            if cls.secondary_delimiter in name:
+                found.append(cls.secondary_delimiter)
+            raise ProhibitedStringValue(found, cls.disallowed, value=name)
+        return name.replace(cls.delimiter, replacement).replace(
+            cls.secondary_delimiter, secondary_replacement
+        )
+
 
 class CompoundSynonym(models.Model):
     # Instance / model fields
@@ -139,9 +180,11 @@ class CompoundSynonym(models.Model):
         primary_key=True,
         max_length=256,
         unique=True,
-        help_text="A synonymous name for a compound that is commonly used within the laboratory. "
-        '(e.g. "palmitic acid", "hexadecanoic acid", "C16", and "palmitate" '
-        'might also be synonyms for "C16:0").',
+        help_text=(
+            "A synonymous name for a compound that is commonly used within the laboratory (e.g. 'palmitic acid', "
+            "'hexadecanoic acid', 'C16', and 'palmitate' as synonyms for 'C16:0').  Disallowed substrings: "
+            f"['{Compound.delimiter}']."
+        ),
     )
     compound = models.ForeignKey(
         Compound, related_name="synonyms", on_delete=models.CASCADE
@@ -156,8 +199,7 @@ class CompoundSynonym(models.Model):
         return str(self.name)
 
     def clean(self, *args, **kwargs):
-        """
-        super.clean will raise an error about existing synonyms.
+        """super.clean will raise an error about existing synonyms.
 
         But we also need to ensure that this synonym doesn't already exist as a compound name for a different compound.
 
@@ -173,3 +215,4 @@ class CompoundSynonym(models.Model):
             raise SynonymExistsAsMismatchedCompound(
                 self.name, self.compound, cqs.first()
             )
+        Compound.validate_compound_name(self.name)

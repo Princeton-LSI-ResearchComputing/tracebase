@@ -38,6 +38,7 @@ from DataRepo.utils.exceptions import (
     MissingCompounds,
     MissingSamples,
     NoSamples,
+    ProhibitedCompoundName,
     RecordDoesNotExist,
     ReplacingPeakGroupRepresentation,
     UnexpectedSamples,
@@ -413,6 +414,49 @@ class PeakAnnotationsLoaderTests(DerivedPeakAnnotationsLoaderTestCase):
         al = AccucorLoader()
         recs = al.get_peak_group_compounds_dict(row=row)
         self.assertDictEqual({"ser": self.SERINE}, recs)
+
+    def test_prohibited_delimiters(self):
+        """Tests that prohibited delimiters are automatically replaced with dashes and a warning is buffered.
+
+        This test assumes that the compound record was previously created with the same replacement and that when
+        reading a peak annotation file with the unedited name, it makes the same replacement to find the edited compound
+        record created using the Compounds sheet in the study doc.  NOTE: If the user manually edits that sheet and does
+        not also edit the peak annotation file, the compound will not be found.  Thus, the warning is checked for that
+        explanation.
+        """
+        CompoundSynonym.objects.create(name="ser:2", compound=self.SERINE)
+        row = pd.Series({AccucorLoader.DataHeaders.COMPOUND: "ser;2"})
+        al = AccucorLoader()
+        recs = al.get_peak_group_compounds_dict(row=row)
+        self.assertDictEqual({"ser:2": self.SERINE}, recs)
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertTrue(
+            al.aggregated_errors_object.exception_type_exists(ProhibitedCompoundName)
+        )
+        self.assertIn(
+            "You may choose to manually edit",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "automatically fixed compound name",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "in the peak annotation file",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "be sure to also fix any occurrences",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "in the 'Compound' and/or 'Synonyms' columns",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "of the 'Compounds' sheet as well",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
 
     def test_get_or_create_peak_group_rec(self):
         row = pd.Series(

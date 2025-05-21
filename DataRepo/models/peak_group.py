@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.db import models
+from django.db import ProgrammingError, models
 from django.db.models import Max, Min, Sum
 from django.utils.functional import cached_property
 
@@ -20,7 +20,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
 
     detail_name = "peakgroup_detail"
 
-    NAME_DELIM = "/"
+    NAME_DELIM = "/"  # Compound.secondary_delimiter - cannot import yet
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -29,8 +29,10 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         blank=False,
         help_text=(
             f"Peak group name, composed of 1 or more compound synonyms, delimited by '{NAME_DELIM}', e.g. 'citrate"
-            f"{NAME_DELIM}isocitrate'.  (Note, synonym(s) may confer information about the compound that is not "
-            "recorded in the compound record, such as a specific stereoisomer.)"
+            f"{NAME_DELIM}isocitrate'.  Note, synonyms of the same compound are considered distinct peak groups.  I.e. "
+            "they may confer information about the compound that is not recorded in the compound record, such as a "
+            "specific stereoisomer.  Peak group names are subject to the same character restrictions as compound "
+            f"names, aside from the delimiter ({NAME_DELIM})."
         ),
     )
     formula = models.CharField(
@@ -60,6 +62,16 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         related_name="peak_groups",
         help_text="The data file from which this PeakGroup was imported.",
     )
+
+    def __init__(self, *args, **kwargs):
+        from DataRepo.models.compound import Compound
+
+        if self.NAME_DELIM != Compound.secondary_delimiter:
+            raise ProgrammingError(
+                f"NAME_DELIM ({self.NAME_DELIM}) must be equal to Compound.secondary_delimiter "
+                f"({Compound.secondary_delimiter}).  It has to be synched because importing would be circular."
+            )
+        super().__init__(*args, **kwargs)
 
     # @cached_function is *slower* than uncached
     @cached_property

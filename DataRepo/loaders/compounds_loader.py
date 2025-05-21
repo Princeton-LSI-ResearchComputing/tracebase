@@ -10,6 +10,8 @@ from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.utils.exceptions import (
     CompoundExistsAsMismatchedSynonym,
     DuplicateValues,
+    ProhibitedCompoundName,
+    ProhibitedStringValue,
     RollbackException,
     SynonymExistsAsMismatchedCompound,
 )
@@ -26,7 +28,7 @@ class CompoundsLoader(TableLoader):
     FORMULA_KEY = "FORMULA"
     SYNONYMS_KEY = "SYNONYMS"
 
-    SYNONYMS_DELIMITER = ";"
+    SYNONYMS_DELIMITER = Compound.delimiter
 
     DataSheetName = "Compounds"
 
@@ -100,12 +102,18 @@ class CompoundsLoader(TableLoader):
             name=DataHeaders.SYNONYMS,
             header_required=True,
             value_required=False,
-            format="Semicolon-delimited list of synonym names.",
+            format=f"List of compound synonyms delimited by '{SYNONYMS_DELIMITER}'.",
         ),
     )
 
     # List of model classes that the loader enters records into.  Used for summarized results & some exception handling
     Models = [Compound, CompoundSynonym]
+
+    name_fix_suggestion = (
+        f"You may choose to manually edit the automatically fixed compound name in the '{DataHeaders.NAME}' and/or "
+        f"'{DataHeaders.SYNONYMS}' columns of the '{DataSheetName}' sheet, but be sure to also fix any occurrences in "
+        "any peak annotation files as well."
+    )
 
     def __init__(self, *args, **kwargs):
         """Constructor.
@@ -212,6 +220,24 @@ class CompoundsLoader(TableLoader):
             formula = self.get_row_val(row, self.headers.FORMULA)
             hmdb_id = self.get_row_val(row, self.headers.HMDB_ID)
 
+            try:
+                Compound.validate_compound_name(name)
+            except ProhibitedStringValue as pc:
+                name = Compound.validate_compound_name(name, fix=True)
+                self.aggregated_errors_object.buffer_warning(
+                    ProhibitedCompoundName(
+                        pc.found,
+                        value=pc.value,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                        column=self.headers.NAME,
+                        rownum=self.rownum,
+                        suggestion=self.name_fix_suggestion,
+                    ),
+                    is_fatal=self.validate,
+                    orig_exception=pc,
+                )
+
             rec_dict = {
                 "name": name,
                 "formula": formula,
@@ -307,11 +333,28 @@ class CompoundsLoader(TableLoader):
             return []
         synonyms = []
         if synonyms_string:
-            synonyms = [
-                synonym.strip()
-                for synonym in synonyms_string.split(self.synonyms_delimiter)
-                if synonym.strip() != ""
-            ]
+            for synonym in synonyms_string.split(self.synonyms_delimiter):
+                try:
+                    Compound.validate_compound_name(synonym)
+                except ProhibitedStringValue as pc:
+                    synonym = Compound.validate_compound_name(synonym, fix=True)
+                    self.aggregated_errors_object.buffer_warning(
+                        ProhibitedCompoundName(
+                            pc.found,
+                            value=pc.value,
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            column=self.headers.SYNONYMS,
+                            rownum=self.rownum,
+                            suggestion=self.name_fix_suggestion,
+                        ),
+                        is_fatal=self.validate,
+                        orig_exception=pc,
+                    )
+                synonym = synonym.strip()
+                if synonym != "":
+                    synonyms.append(synonym)
+
         return synonyms
 
     def check_for_cross_column_name_duplicates(self):
