@@ -32,6 +32,11 @@ class BSTBaseColumn(ABC):
     is_many_related: bool = False
     # See: BSTManyRelatedColumn (For rendering a many-related foreign key using the related object)
 
+    # Default templates
+    th_template: str = "models/bst/th.html"
+    td_template: str = "models/bst/td.html"
+    value_template: str = "models/bst/value.html"
+
     def __init__(
         self,
         name: str,
@@ -43,9 +48,9 @@ class BSTBaseColumn(ABC):
         linked: bool = False,
         sorter: Optional[Union[str, BSTBaseSorter]] = None,
         filterer: Optional[Union[str, BSTBaseFilterer]] = None,
-        th_template: str = "models/bst/th.html",
-        td_template: str = "models/bst/bst_td.html",
-        value_template: str = "models/bst/bst_value.html",
+        th_template: str = th_template,
+        td_template: str = td_template,
+        value_template: str = value_template,
     ):
         """Defines options used to customize bootstrap table columns.
 

@@ -537,11 +537,12 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertTrue(is_paginated)
 
     @TracebaseTestCase.assertNotWarns()
-    def test_set_many_related_records_list(self):
+    def test_set_list_attr(self):
+        # TODO: Move this test to the BSTManyRelatedColumn tests
         alv1 = AnimalDefaultLV()
         studycol: BSTManyRelatedColumn = alv1.columns["studies"]
         with self.assertNumQueries(0):
-            alv1.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+            studycol.set_list_attr(self.a2, [self.s1, self.s2])
         self.assertTrue(hasattr(self.a2, studycol.list_attr_name))
         self.assertEqual([self.s1, self.s2], getattr(self.a2, studycol.list_attr_name))
 
@@ -553,7 +554,7 @@ class BSTListViewTests(TracebaseTestCase):
         studycol: BSTManyRelatedColumn = alv2.columns["studies"]
         studycol.limit = 1
         with self.assertNumQueries(0):
-            alv2.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+            studycol.set_list_attr(self.a2, [self.s1, self.s2])
         # We also haven't added the count annotation, so just a plain ellipsis...
         self.assertEqual([self.s1, "..."], getattr(self.a2, studycol.list_attr_name))
 
@@ -564,7 +565,7 @@ class BSTListViewTests(TracebaseTestCase):
         studycol: BSTManyRelatedColumn = alv3.columns["studies"]
         studycol.limit = 1
         with self.assertNumQueries(0):
-            alv3.set_many_related_records_list(self.a2, studycol, [self.s1, self.s2])
+            studycol.set_list_attr(self.a2, [self.s1, self.s2])
         # We also haven't added the count annotation, so just a plain ellipsis...
         self.assertEqual(
             [self.s1, "... (+1 more)"], getattr(self.a2, studycol.list_attr_name)

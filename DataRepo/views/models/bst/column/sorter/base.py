@@ -388,8 +388,8 @@ class BSTBaseSorter(ABC):
             except AttributeError as ae:
                 raise AttributeError(
                     f"Missing required output_field in expression '{expression}'.\nPlease supply the 'output_field' "
-                    f"argument with a Field instance to the expression.  [Original error: {ae}]"
-                )
+                    f"argument with a Field instance to the expression.\nOriginal error: {ae}"
+                ).with_traceback(ae.__traceback__)
 
             if not is_number_field(output_field):
                 _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
