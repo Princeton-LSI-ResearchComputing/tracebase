@@ -4001,7 +4001,7 @@ class PossibleDuplicateSamples(SummarizedInfileError, Exception):
             for exc in exc_list:
                 if include_loc:
                     headers_str += "\t"
-                if not isinstance(exc.rownum, list):
+                if exc.rownum is not None and not isinstance(exc.rownum, list):
                     raise ProgrammingError("rownum is expected to be a list here.")
                 rowlist = summarize_int_list(exc.rownum)
                 rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
