@@ -4001,6 +4001,8 @@ class PossibleDuplicateSamples(SummarizedInfileError, Exception):
             for exc in exc_list:
                 if include_loc:
                     headers_str += "\t"
+                if not isinstance(exc.rownum, list):
+                    raise ProgrammingError("rownum is expected to be a list here.")
                 rowlist = summarize_int_list(exc.rownum)
                 rowstr = "" if len(rowlist) == 0 else f" on rows: {rowlist}"
                 headers_str += f"\theader '{exc.sample_header}' maps to samples: {exc.sample_names}{rowstr}\n"
@@ -4029,6 +4031,8 @@ class PossibleDuplicateSample(InfileError, SummarizableError):
             "Are you sure these are different samples?  If they are not, they should all be associated with the same "
             "tracebase sample."
         )
+        if "rownum" not in kwargs.keys() or not isinstance(kwargs["rownum"], list):
+            raise ProgrammingError("rownum is required and expected to be a list.")
         super().__init__(message, **kwargs)
         self.sample_header = sample_header
         self.sample_names = sample_names
@@ -4610,7 +4614,7 @@ class MissingFCircCalculationValues(Exception):
 
 
 class MissingFCircCalculationValue(SummarizableError, InfileError):
-    SummarizerExceptionClass = PossibleDuplicateSamples
+    SummarizerExceptionClass = MissingFCircCalculationValues
 
     def __init__(self, message: Optional[str] = None, **kwargs):
         if (
