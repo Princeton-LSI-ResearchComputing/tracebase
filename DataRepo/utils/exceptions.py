@@ -4120,8 +4120,6 @@ class PossibleDuplicateSample(InfileError, SummarizableError):
             "Are you sure these are different samples?  If they are not, they should all be associated with the same "
             "tracebase sample."
         )
-        if "rownum" not in kwargs.keys() or not isinstance(kwargs["rownum"], list):
-            raise ProgrammingError("rownum is required and expected to be a list.")
         super().__init__(message, **kwargs)
         self.sample_header = sample_header
         self.sample_names = sample_names
