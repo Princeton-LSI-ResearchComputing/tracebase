@@ -151,10 +151,10 @@ class AnimalsLoader(TableLoader):
             field=Animal.infusion_rate,
             format="Units: ul/min/g (microliters/min/gram)",
             guidance=(
-                "While an infusion rate is optional, it is required for use in TraceBase's standardized FCirc "
-                "calculations.  If not supplied, TraceBase will be unable to provide FCirc values and warnings/errors "
-                "will be associated with the serum sample(s), tracers, and labeled elements on the advanced search "
-                "FCirc page."
+                f"While '{DataHeaders.INFUSIONRATE}' is an optional column, it is required for use in TraceBase's "
+                "standardized FCirc calculations.  If not supplied, TraceBase will be unable to provide FCirc values "
+                "and warnings/errors will be associated with the serum sample(s), tracer(s), and labeled element(s) on "
+                "the advanced search FCirc page."
             ),
         ),
         GENOTYPE=TableColumn.init_flat(
@@ -165,10 +165,10 @@ class AnimalsLoader(TableLoader):
             field=Animal.body_weight,
             format="Units: grams.",
             guidance=(
-                "While weight is an optional column, it is currently required for use in all of TraceBase's "
-                "standardized FCirc calculations.  If not supplied, TraceBase will be unable to provide FCirc values "
-                "and warnings/errors will be associated with the serum sample(s), tracers, and labeled elements on the "
-                "advanced search FCirc page."
+                f"While '{DataHeaders.WEIGHT}' is an optional column, it is currently required for use in all of "
+                "TraceBase's standardized FCirc calculations.  If not supplied, TraceBase will be unable to provide "
+                "FCirc values and warnings/errors will be associated with the serum sample(s), tracer(s), and labeled "
+                "element(s) on the advanced search FCirc page."
             ),
         ),
         AGE=TableColumn.init_flat(
