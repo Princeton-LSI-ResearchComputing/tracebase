@@ -24,6 +24,8 @@ from DataRepo.utils.exceptions import (
     MissingColumnGroup,
     MissingCompounds,
     MissingDataAdded,
+    MissingFCircCalculationValue,
+    MissingFCircCalculationValues,
     MissingRecords,
     MissingSamples,
     MultiLoadStatus,
@@ -1347,3 +1349,59 @@ class ExceptionTests(TracebaseTestCase):
         self.assertIn("header 's1' maps to samples: ['s1_pos', 's1_neg']", str(pdse))
         # Check suggestion exists
         self.assertIn("associated with the same tracebase sample", str(pdse))
+
+    def test_MissingFCircCalculationValues(self):
+        mfcv = MissingFCircCalculationValues(
+            [
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Animals",
+                    column="Infusion Rate",
+                    rownum=5,
+                ),
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Animals",
+                    column="Weight",
+                    rownum=5,
+                ),
+                MissingFCircCalculationValue(
+                    file="myfile",
+                    sheet="Samples",
+                    column="Collection Time",
+                    rownum=20,
+                ),
+            ]
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(mfcv))
+        self.assertIn("tracer peak group(s) from the last serum sample", str(mfcv))
+        self.assertIn("infusion rate, and the animal weight", str(mfcv))
+        self.assertIn("values are missing", str(mfcv))
+        self.assertIn("sheet [Animals] in myfile", str(mfcv))
+        self.assertIn("'Infusion Rate' on row(s): ['5']", str(mfcv))
+        self.assertIn("'Weight' on row(s): ['5']", str(mfcv))
+        self.assertIn("sheet [Samples] in myfile", str(mfcv))
+        self.assertIn("'Collection Time' on row(s): ['20']", str(mfcv))
+
+    def test_MissingFCircCalculationValue(self):
+        mfcv = MissingFCircCalculationValue(
+            file="myfile",
+            sheet="mysheet",
+            column="Infusion Rate",
+            rownum=5,
+        )
+        self.assertIn("FCirc calculations on TraceBase are done using", str(mfcv))
+        self.assertIn("tracer peak group(s) from the last serum sample", str(mfcv))
+        self.assertIn("infusion rate, and the animal weight", str(mfcv))
+        self.assertIn("This value is missing", str(mfcv))
+        self.assertIn(
+            "column [Infusion Rate] on row [5] of sheet [mysheet] in myfile", str(mfcv)
+        )
+        self.assertIn(
+            "You can load data into tracebase without these values", str(mfcv)
+        )
+        self.assertIn(
+            "FCirc values will either be missing (when there is no animal weight or infusion rate",
+            str(mfcv),
+        )
+        self.assertIn("inaccurate (if the sample collection time is missing", str(mfcv))

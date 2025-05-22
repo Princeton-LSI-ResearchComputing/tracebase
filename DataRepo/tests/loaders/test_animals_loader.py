@@ -8,6 +8,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     InfileError,
+    MissingFCircCalculationValues,
     MissingRecords,
     MissingTreatments,
     RecordDoesNotExist,
@@ -242,7 +243,20 @@ class AnimalsLoaderTests(TracebaseTestCase):
         )
         al = AnimalsLoader(df=df)
         al.load_data()
-        self.assertEqual(0, len(al.aggregated_errors_object.exceptions))
+
+        # Piggy-backed test about FCirc Warning
+        self.assertEqual(1, len(al.aggregated_errors_object.exceptions))
+        self.assertFalse(al.aggregated_errors_object.exceptions[0].is_error)
+        self.assertIsInstance(
+            al.aggregated_errors_object.exceptions[0], MissingFCircCalculationValues
+        )
+        self.assertIn(
+            "'Infusion Rate' on row(s): ['2']",
+            str(al.aggregated_errors_object.exceptions[0]),
+        )
+        self.assertIn(
+            "'Weight' on row(s): ['2']", str(al.aggregated_errors_object.exceptions[0])
+        )
 
         # Now get the infusate using the Infusate.CONCENTRATION_SIGNIFICANT_FIGURES (3), i.e. 149
         rec = al.get_infusate("Leucine-[13C6][149]")

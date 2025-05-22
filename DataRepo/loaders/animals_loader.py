@@ -20,6 +20,7 @@ from DataRepo.models import (
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils.exceptions import (
     DuplicateValues,
+    MissingFCircCalculationValue,
     MissingStudies,
     MissingTreatments,
     RecordDoesNotExist,
@@ -149,6 +150,12 @@ class AnimalsLoader(TableLoader):
             name=DataHeaders.INFUSIONRATE,
             field=Animal.infusion_rate,
             format="Units: ul/min/g (microliters/min/gram)",
+            guidance=(
+                f"While '{DataHeaders.INFUSIONRATE}' is an optional column, it is required for use in TraceBase's "
+                "standardized FCirc calculations.  If not supplied, TraceBase will be unable to provide FCirc values "
+                "and warnings/errors will be associated with the serum sample(s), tracer(s), and labeled element(s) on "
+                "the advanced search FCirc page."
+            ),
         ),
         GENOTYPE=TableColumn.init_flat(
             name=DataHeaders.GENOTYPE, field=Animal.genotype, current_choices=True
@@ -157,6 +164,12 @@ class AnimalsLoader(TableLoader):
             name=DataHeaders.WEIGHT,
             field=Animal.body_weight,
             format="Units: grams.",
+            guidance=(
+                f"While '{DataHeaders.WEIGHT}' is an optional column, it is currently required for use in all of "
+                "TraceBase's standardized FCirc calculations.  If not supplied, TraceBase will be unable to provide "
+                "FCirc values and warnings/errors will be associated with the serum sample(s), tracer(s), and labeled "
+                "element(s) on the advanced search FCirc page."
+            ),
         ),
         AGE=TableColumn.init_flat(
             name=DataHeaders.AGE,
@@ -246,6 +259,7 @@ class AnimalsLoader(TableLoader):
         Returns:
             None
         """
+        self.infusate_supplied = False
         self.study_delimiter = kwargs.pop("study_delimiter", self.StudyDelimiter)
         super().__init__(*args, **kwargs)
 
@@ -265,6 +279,7 @@ class AnimalsLoader(TableLoader):
 
             # Get the existing infusate and treatment
             infusate_name = self.get_row_val(row, self.headers.INFUSATE)
+            self.infusate_supplied = infusate_name is not None
             infusate = self.get_infusate(infusate_name)
             treatment = self.get_treatment(row)
 
@@ -337,6 +352,25 @@ class AnimalsLoader(TableLoader):
         sex = self.get_row_val(row, self.headers.SEX)
         diet = self.get_row_val(row, self.headers.DIET)
         feeding_status = self.get_row_val(row, self.headers.FEEDINGSTATUS)
+
+        # Before we skip the row (likely because *required* data is missing), let's also check some optional, but
+        # strongly encouraged columns:
+        if self.infusate_supplied:
+            fcirc_vals = [
+                (infusion_rate, self.headers.INFUSIONRATE),
+                (weight, self.headers.WEIGHT),
+            ]
+            for fcirc_val, col in fcirc_vals:
+                if fcirc_val is None:
+                    self.aggregated_errors_object.buffer_warning(
+                        MissingFCircCalculationValue(
+                            file=self.friendly_file,
+                            sheet=self.sheet,
+                            column=col,
+                            rownum=self.rownum,
+                        ),
+                        is_fatal=self.validate,
+                    )
 
         if self.is_skip_row():
             self.skipped(Animal.__name__)
