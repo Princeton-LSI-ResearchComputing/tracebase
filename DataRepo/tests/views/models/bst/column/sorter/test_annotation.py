@@ -1,6 +1,5 @@
 from django.db.models import CharField, F, IntegerField
 from django.db.models.functions import Lower, Upper
-from django.templatetags.static import static
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -162,15 +161,6 @@ class BSTAnnotSorterTests(TracebaseTestCase):
             BSTAnnotSorter(
                 Upper("name"), client_sorter="upperSorter", client_mode=True
             ).sorter,
-        )
-
-    def test_script(self):
-        s = BSTAnnotSorter(
-            "name", _server_sorter=BSTAnnotSorter.SERVER_SORTERS.ALPHANUMERIC
-        )
-        self.assertEqual(
-            f"<script src='{static(BSTAnnotSorter.script_name)}'></script>",
-            s.script,
         )
 
     @TracebaseTestCase.assertNotWarns()

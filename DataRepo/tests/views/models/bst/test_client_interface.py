@@ -257,6 +257,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
                     "paginator",
                     "model",
                     "view",
+                    "scripts",
                 ]
             ),
             set(context.keys()),
