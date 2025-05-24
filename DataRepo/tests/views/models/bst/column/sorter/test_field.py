@@ -1,6 +1,5 @@
 from django.db.models import CharField, F, IntegerField
 from django.db.models.functions import Lower, Upper
-from django.templatetags.static import static
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import (
@@ -103,13 +102,6 @@ class BSTSorterTests(TracebaseTestCase):
         self.assertEqual(
             BSTSorter.CLIENT_SORTERS.NONE,
             str(BSTSorter(CharField(name="name"), BSTSTestModel)),
-        )
-
-    def test_script(self):
-        s = BSTSorter(CharField(name="name"), BSTSTestModel)
-        self.assertEqual(
-            f"<script src='{static(BSTSorter.script_name)}'></script>",
-            s.script,
         )
 
     @TracebaseTestCase.assertNotWarns()
