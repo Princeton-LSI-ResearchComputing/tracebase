@@ -62,6 +62,8 @@ class BSTColumn(BSTBaseColumn):
         context rendered value (as appears in the template) does not exactly match the database's text version of the
         value, should be converted to a simple string or number annotation that is the same as seen in the rendered
         template and in the database.  See BSTAnnotColumn.
+
+    See the BSTBaseColumn docstring for examples on how to customize filtering and sorting behavior.
     """
 
     def __init__(

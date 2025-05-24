@@ -713,6 +713,7 @@ class BSTListViewTests(TracebaseTestCase):
                     "paginator",
                     "model",
                     "view",
+                    "scripts",
                     # From ListView
                     "bstlvstudytestmodel_list",  # Same as "object_list"
                     # From parent class
