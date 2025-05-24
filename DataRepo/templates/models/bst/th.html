@@ -1,16 +1,18 @@
 <th data-field="{{ column.name }}"
+
+{% if column.searchable %}
+    data-filter-control="{{ column.filterer.input_method }}"
+    data-filter-custom-search="{{ column.filterer }}"
+    {# See: live.bootstrap-table.com/code/hepcat72/18815 #}
+    {% if column.filterer.input_method == column.filterer.INPUT_METHODS.SELECT %}data-filter-data="json:{{ column.filterer.choices_json }}"{% endif %}
+    {% if column.filterer.initial %}data-filter-default="{{ column.filterer.initial }}"{% endif %}{% endif %}
+
+{% if column.sortable %}
+    data-sortable="{{ column.sortable|lower }}"
+    data-sorter="{{ column.sorter }}"{% endif %}
+
     data-valign="top"
-    {% if column.searchable %}
-        data-filter-control="{{ column.filterer.input_method }}"
-        data-filter-custom-search="{{ column.filterer }}"
-        {% if column.filterer.initial %}
-            data-filter-default="{{ column.filterer.initial }}"
-        {% endif %}
-    {% endif %}
-    {% if column.sortable %}
-        data-sortable="{{ column.sortable|lower }}"
-        data-sorter="{{ column.sorter }}"
-    {% endif %}
-    data-visible="{{ column.visible }}">
+    data-visible="{{ column.visible|lower }}">
     {{ column.header }}
+
 </th>

@@ -1,9 +1,22 @@
-{% extends "base.html" %}
+{% extends "base/base.html" %}
 {% load customtags %}
 
 {% block title %}{{ table_name }}{% endblock %}
 
 {% block content %}
+
+    {# Script imports #}
+
+    {# Variables needed for the scripts #}
+    {{ warnings|json_script:"warnings" }}
+    {{ cookie_resets|json_script:"cookie_resets" }}
+
+    {# The scripts #}
+    {% for script in scripts %}<script src="{{ script }}"></script>
+    {% endfor %}
+
+    {# The table/page #}
+
     <h4>{{ table_name }}</h4>
     <br>
     <div>
@@ -19,10 +32,14 @@
             data-search="true"
             data-search-align="left"
             data-search-on-enter-key="true"
-            data-search-text="{{ search_term }}"
-            data-sort-name="{{ sortcol }}"
-            data-sort-order="{% if asc %}asc{% else %}desc{% endif %}"
+            {% if search %}
+                data-search-text="{{ search }}"
+            {% endif %}
             data-show-search-clear-button="true"
+            {% if sortcol %}
+                data-sort-name="{{ sortcol }}"
+                data-sort-order="{% if asc %}asc{% else %}desc{% endif %}"
+            {% endif %}
             data-show-multi-sort="true"
             data-show-columns="true"
             data-show-columns-toggle-all="true"
@@ -30,7 +47,7 @@
             data-show-export="false">
             <thead>
                 <tr>
-                    {% for column in columns %}
+                    {% for column in columns.values %}
                         {% include column.th_template %}
                     {% endfor %}
                 </tr>
@@ -38,7 +55,7 @@
             <tbody>
                 {% for object in object_list %}
                     <tr>
-                        {% for column in columns %}
+                        {% for column in columns.values %}
                             {% include column.td_template %}
                         {% endfor %}
                     </tr>
