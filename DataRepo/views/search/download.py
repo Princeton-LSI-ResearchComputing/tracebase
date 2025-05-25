@@ -9,7 +9,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import _csv
 from django.conf import settings
 from django.db.models.fields.files import FieldFile
-from django.http import Http404, StreamingHttpResponse
+from django.http import Http404, HttpResponseNotAllowed, StreamingHttpResponse
 from django.shortcuts import render
 from django.template import loader
 from django.views.generic.edit import FormView
@@ -78,6 +78,10 @@ class AdvancedSearchDownloadView(FormView):
             )
 
         return res, tot, stats
+
+    def get(self, _):
+        """No support for GET.  This sets the status as 405.  Only POST is permitted."""
+        return HttpResponseNotAllowed(["POST"])
 
     def form_invalid(self, form):
         # TODO: I could not figure out how to redirect to /DataRepo/advanced_search, but this is better than the
@@ -408,6 +412,10 @@ class AdvancedSearchDownloadMzxmlTSVView(AdvancedSearchDownloadView):
         for row in self.converter.queryset_to_rows_iterator(self.res):
             yield writer.writerow(row)
 
+    def get(self, _):
+        """No support for GET.  This sets the status as 405.  Only POST is permitted."""
+        return HttpResponseNotAllowed(["POST"])
+
 
 class RecordToMzxmlZIP(ABC):
     """This class defines a download format and type.  In this instance, it is a tsv file format that defines a file of
@@ -591,3 +599,7 @@ class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
                     yield buffer.take()
 
         yield buffer.end()
+
+    def get(self, _):
+        """No support for GET.  This sets the status as 405.  Only POST is permitted."""
+        return HttpResponseNotAllowed(["POST"])
