@@ -464,41 +464,41 @@ class AdvancedSearchView(MultiFormsView):
             download_form_tuples (List[Tuple[str, AdvSearchDownloadForm, str, bool, str]]): A list of tuples, each tuple
                 containing: button name, form object, form action, and enabled boolean
         """
-        enabled = True
         asdf_kwargs = {} if qry is None else {"initial": {"qryjson": json.dumps(qry)}}
-        # Handle the always-present default format
-        download_form_tuples = [
-            (
-                "TSV",  # Button name
-                AdvSearchDownloadForm(**asdf_kwargs),  # Download form
-                "/DataRepo/search_advanced_tsv/",  # Form action
-                enabled,
-            )
-        ]
 
+        # Handle the always-present default format
+        button_name = "TSV"
+        download_form = AdvSearchDownloadForm(**asdf_kwargs)
+        form_action = "/DataRepo/search_advanced_tsv/"
+        enabled = True
+        download_form_tuples = [(button_name, download_form, form_action, enabled)]
+
+        # Handle the variable forms
         selected_template = qry["selectedtemplate"]
         templates_with_mzxmls = ["pgtemplate", "pdtemplate"]
         if selected_template in templates_with_mzxmls:
-            enabled = False
-            fld = ""
-
             # Create a temporary ammended the query to check if any mzXML files are in the results
             # We need the field path of the mzXML file record.  performQuery is limited to non-key fields, because I
             # wrote it when I was still learning Django, but if there is a filename, then there is a file.
+            fld = ""
             if selected_template == "pgtemplate":
                 fld = "msrun_sample__sample__msrun_samples__ms_data_file__filename"
             else:
                 fld = "peak_group__msrun_sample__sample__msrun_samples__ms_data_file__filename"
+
             # Copy the query
             mzcheck_qry = deepcopy(qry)
+
             # Save the original query
             orig_group = mzcheck_qry["searches"][selected_template]["tree"]
             # Create a new root to the query
             new_group = createFilterGroup(all=True)
+
             # If the qry was populated (i.e. not "browse all")
             if isValidQryObjPopulated(qry):
                 # Append the original query
                 new_group = appendFilterToGroup(new_group, orig_group)
+
             # Append isnull=False to the qry so we can check if the mzxml download button should be enabled
             new_group = appendFilterToGroup(
                 new_group,
@@ -506,22 +506,17 @@ class AdvancedSearchView(MultiFormsView):
             )
             # Now reset the new qry that includes the mzxml isnull=False
             mzcheck_qry["searches"][selected_template]["tree"] = new_group
-            print(f"TMPQRY: {mzcheck_qry}")
+
             # Do the query and just save the count
             _, cnt, _ = self.basv_metadata.performQuery(qry=mzcheck_qry)
-
-            # Now, with the count, we can determine oif there are any files to return
-            enabled = cnt > 0
+            # Now, with the count, we can determine if there are any files to return
 
             button_name = f"mzXMLs ({cnt})"
-
+            download_form = AdvSearchDownloadForm(**asdf_kwargs)
+            form_action = "/DataRepo/search_advanced_mzxml/"
+            enabled = cnt > 0
             download_form_tuples.append(
-                (
-                    button_name,
-                    AdvSearchDownloadForm(**asdf_kwargs),  # Download form
-                    "/DataRepo/search_advanced_mzxml/",  # Form action
-                    enabled,
-                )
+                (button_name, download_form, form_action, enabled)
             )
 
         return download_form_tuples
