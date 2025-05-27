@@ -13,6 +13,7 @@ from DataRepo.models.fcirc import FCirc
 from DataRepo.utils.exceptions import (
     DateParseError,
     DurationError,
+    MissingFCircCalculationValue,
     MissingTissues,
     NewResearcher,
     NoTracers,
@@ -74,7 +75,6 @@ class SamplesLoader(TableLoader):
         DATE_KEY,
         HANDLER_KEY,
         TISSUE_KEY,
-        # DAYS_INFUSED_KEY,  # Not required in model
         ANIMAL_KEY,
     ]
 
@@ -134,6 +134,13 @@ class SamplesLoader(TableLoader):
             name=DataHeaders.DAYS_INFUSED,
             field=Sample.time_collected,
             format="Units: minutes.",
+            guidance=(
+                f"While '{DataHeaders.DAYS_INFUSED}' is an optional column, it is necessary for serum samples, in "
+                "order to know which tracer peak groups should be used for TraceBase's standardized FCirc "
+                "calculations.  Without it, TraceBase will be unable to accurately select the 'last' serum sample, and "
+                "as a result, FCirc calculations are likely to be inaccurate and warnings/errors will be associated "
+                "with the serum sample(s), tracer(s), and labeled element(s) on the advanced search FCirc page."
+            ),
         ),
         TISSUE=TableColumn.init_flat(
             name=DataHeaders.TISSUE,
@@ -346,6 +353,31 @@ class SamplesLoader(TableLoader):
                     column=self.headers.DAYS_INFUSED,
                     suggestion=f"Setting a default of {phv} minutes.",
                 ),
+            )
+
+        # Before we skip the row (likely because *required* data is missing), let's also check some optional, but
+        # strongly encouraged columns:
+        if (
+            animal is not None
+            and animal.infusate is not None
+            and time_collected_str is None
+            and tissue is not None
+            and tissue.is_serum()
+        ):
+            self.aggregated_errors_object.buffer_warning(
+                MissingFCircCalculationValue(
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                    column=self.headers.DAYS_INFUSED,
+                    rownum=self.rownum,
+                    suggestion=(
+                        f"You can load data into tracebase without a '{self.headers.DAYS_INFUSED}' value, but the "
+                        f"FCirc calculations may be inaccurate as a result, and they will be labeled with a warning on "
+                        f"the advanced search's FCirc page.  '{self.headers.DAYS_INFUSED}' is necessary to select the "
+                        "'last' serum sample to base FCirc on."
+                    ),
+                ),
+                is_fatal=self.validate,
             )
 
         if animal is None or tissue is None or self.is_skip_row():
