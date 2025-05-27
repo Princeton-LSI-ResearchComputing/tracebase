@@ -24,6 +24,7 @@ class BSTClientInterface(ListView):
     cookie_resets_var_name = "cookie_resets"
     clear_cookies_var_name = "clear_cookies"
     model_var_name = "model"
+    scripts_var_name = "scripts"
 
     def __init__(self, **kwargs):
         """An extension of the ListView constructor intended to initialize the javascript and cookie interface.  It
@@ -41,6 +42,7 @@ class BSTClientInterface(ListView):
 
         super().__init__(**kwargs)
 
+        self.javascripts = []
         self.cookie_prefix = f"{self.__class__.__name__}-"
         self.cookie_warnings = []
         self.cookie_resets = []
@@ -297,6 +299,8 @@ class BSTClientInterface(ListView):
                 self.cookie_prefix_var_name: self.cookie_prefix,
                 self.cookie_resets_var_name: self.cookie_resets,
                 self.clear_cookies_var_name: self.clear_cookies,
+                # A unique set of javascripts needed for the BST interface
+                self.scripts_var_name: self.javascripts,
             }
         )
 

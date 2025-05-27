@@ -30,11 +30,13 @@ from DataRepo.views.utils import GracefulPaginator
 
 
 class BSTBaseListView(BSTClientInterface):
-    """Generic class-based view for a Model record list to make pages load faster, using server-side behavior for
-    pagination.  This "base" class (which inherits the client interface and Django ListView) is responsible for all of
-    the automatic initialization of the columns in the Bootstrap Table, based on the model (set by a derivation of this
+    """This "base" class (which inherits the client interface and Django ListView) is responsible for all of the
+    automatic initialization of the columns in the Bootstrap Table, based on the model (set by a derivation of this
     class).  It uses the client interface to set the values that will be used in BSTListView to perform queries and
     serve results.
+
+    Generally, this is a generic class-based view for a Model record list to make pages load faster, using server-side
+    behavior for pagination.
 
     Class Attributes:
         column_ordering (List[str]) [[]]: This is a list of column names (which can be a field_path, an annotation name,
@@ -54,8 +56,7 @@ class BSTBaseListView(BSTClientInterface):
             rows.
         paginator_class (Paginator) [GracefulPaginator]: The paginator class set for the ListView super (super) class.
         paginate_by (int) [15]: The default number of rows per page.
-        template_name (str) ["DataRepo/templates/models/bst/base.html"]: The template used to render the Bootstrap
-            Table.
+        template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
     """
 
     column_ordering: List[str] = []
@@ -69,7 +70,7 @@ class BSTBaseListView(BSTClientInterface):
     paginator_class = GracefulPaginator
     paginate_by = 15
 
-    template_name = "DataRepo/templates/models/bst/base.html"
+    template_name = "models/bst/list_view.html"
 
     # Cookie names (also used as context variables)
     search_cookie_name = "search"
@@ -651,7 +652,7 @@ class BSTBaseListView(BSTClientInterface):
             self.init_column(colname)
 
     def init_column(self, colname: str):
-        """Takes a column name, creates a BSTBaseColumn object, and adds it to self.columns.
+        """Takes a column name, creates a derived instance of the BSTBaseColumn class, and adds it to self.columns.
 
         Assumptions:
             1. The legnth of the colname string is greater than 0.
@@ -665,17 +666,17 @@ class BSTBaseListView(BSTClientInterface):
         # Initialize kwargs (or add a column object to self.columns and return if settings exist with an object already)
         kwargs = {}
         if colname in self.column_settings.keys():
-            column_object = self.column_settings.get(colname)
-            if isinstance(column_object, BSTColumnGroup):
+            column_kwargs_or_obj = self.column_settings.get(colname)
+            if isinstance(column_kwargs_or_obj, BSTColumnGroup):
                 # A group's columns are individually added to self.column_settings
-                self.groups[colname] = column_object
+                self.groups[colname] = column_kwargs_or_obj
                 return
-            elif isinstance(column_object, BSTBaseColumn):
-                self.columns[colname] = column_object
+            elif isinstance(column_kwargs_or_obj, BSTBaseColumn):
+                self.columns[colname] = column_kwargs_or_obj
                 return
-            elif isinstance(column_object, dict):
+            elif isinstance(column_kwargs_or_obj, dict):
                 # Copy, because we pop the converter if it's an annot field below
-                kwargs = column_object.copy()
+                kwargs = column_kwargs_or_obj.copy()
             # else: All default kwargs (i.e. empty kwargs)
 
         # Determine if this is a model field or annotation, and initialize a column object and add it to self.columns
@@ -696,16 +697,22 @@ class BSTBaseListView(BSTClientInterface):
             converter = kwargs.pop("converter")
             self.columns[colname] = BSTAnnotColumn(colname, converter, **kwargs)
 
-        elif isinstance(self, BSTColumn):
+        elif len(kwargs.keys()) > 0 and not hasattr(self.model, first_field):
             raise ValueError(
-                f"Unable to determine column type for column '{colname}'.  The first field '{first_field}' in the "
-                f"field_path '{self.field_path}' is not a field in the model '{self.model.__name__}'."
+                f"Unable to determine column type for column '{colname}'.  The column name does not appear to be a "
+                "field path (no occurrences of '__') or annotation (no converter[/expression] in the column settings) "
+                f"and '{first_field}' is not a field in the model '{self.model.__name__}'."
             )
         else:
             raise ValueError(
                 f"Unable to determine column type for column '{colname}'.  There was no 'converter' provided in the "
                 f"kwargs: {kwargs}."
             )
+
+        # Collect a unique set of javascripts needed by the columns
+        for script in self.columns[colname].javascripts:
+            if script not in self.javascripts:
+                self.javascripts.append(script)
 
     def reset_filter_cookies(self):
         self.reset_column_cookies(
@@ -719,27 +726,24 @@ class BSTBaseListView(BSTClientInterface):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
 
-        # context = super().get_context_data(**kwargs)
         context = super().get_context_data()
 
         # 1. Set context variables for initial defaults based on user-selections saved in cookies
 
         context.update(
             {
+                # General table details
+                self.table_id_var_name: type(self).__name__,
+                self.title_var_name: self.model_title_plural,
+                self.warnings_var_name: self.warnings,
+                self.limit_default_var_name: self.paginate_by,
+                # Table content controls
                 self.search_cookie_name: self.search_term,
                 self.sortcol_cookie_name: self.sort_name,
                 self.asc_cookie_name: self.asc,
                 self.limit_cookie_name: self.limit,
-                self.limit_default_var_name: self.paginate_by,
-                # The column objects contain the initial filter values, visible values, filter select list choices, and
-                # all other column details
+                # The column objects contain all of the column details
                 self.columns_var_name: self.columns,
-                # TODO: Creating a context variable for the columns provides access to the filter select lists, but
-                # converting that into a javascript variable is not yet worked out.  The prototype constructed a
-                # variable here that is passed to the template.  I need to figure out how I want to do that.
-                self.table_id_var_name: type(self).__name__,
-                self.title_var_name: self.model_title_plural,
-                self.warnings_var_name: self.warnings,
             }
         )
 

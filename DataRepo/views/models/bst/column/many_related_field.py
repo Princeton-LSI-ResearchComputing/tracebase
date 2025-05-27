@@ -45,6 +45,8 @@ class BSTManyRelatedColumn(BSTRelatedColumn):
                 <a href="{{ study|get_detail_url }}">{{ study }}</a>{% if not forloop.last %}{{ studycol.delim }}<br>
                 {% endif %}
             {% endfor %}
+
+    See the BSTBaseColumn docstring for examples on how to customize filtering and sorting behavior.
     """
 
     is_many_related: bool = True
