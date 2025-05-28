@@ -33,6 +33,8 @@ from DataRepo.utils.exceptions import (
     AggregatedErrorsSet,
     AllMissingSamples,
     AllMissingTissues,
+    AnimalsWithoutSamples,
+    AnimalsWithoutSerumSamples,
     MissingTissues,
     MissingTreatments,
     NoSamples,
@@ -183,6 +185,20 @@ class StudyLoaderTests(TracebaseTestCase):
             aess.aggregated_errors_dict[
                 "study_missing_data.xlsx"
             ].exception_type_exists(NoSamples)
+        )
+
+        # This essentially tests that failed sample loads of serum samples prevent AnimalsWithoutSerumSamples warnings,
+        # as the file has a serum sample that failed to load.
+        self.assertFalse(
+            aess.aggregated_errors_dict[
+                "study_missing_data.xlsx"
+            ].exception_type_exists(AnimalsWithoutSerumSamples)
+        )
+        # Likewise for the AnimalsWithoutSamples warning
+        self.assertFalse(
+            aess.aggregated_errors_dict[
+                "study_missing_data.xlsx"
+            ].exception_type_exists(AnimalsWithoutSamples)
         )
 
         self.assertEqual(
