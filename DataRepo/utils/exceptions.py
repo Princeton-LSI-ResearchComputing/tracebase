@@ -834,7 +834,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         """General use DoesNotExist exception constructor for errors retrieving Model records.
 
         Args:
-            model: (Model)
+            model: (Type[Model])
             query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
             message (Optional[str])
             suggestion (str): An addendum as to how to possibly fix this issue.
@@ -2355,7 +2355,9 @@ class AggregatedErrors(Exception):
             and (is_error is None or exception.is_error == is_error)
         )
 
-    def exception_exists(self, cls, attr_name, attr_val):
+    def exception_exists(
+        self, cls, attr_name, attr_val, is_error: Optional[bool] = None
+    ):
         """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
 
         Args:
@@ -2363,13 +2365,16 @@ class AggregatedErrors(Exception):
             attr_name (str): An attribute the buffered exception class has.
             attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
                 must take a single argument (the value of the attribute) and return a boolean.
+            is_error (Optional[bool])
         Exceptions:
             None
         Returns:
             bool
         """
         for exc in self.exceptions:
-            if self.exception_matches(exc, cls, attr_name, attr_val):
+            if self.exception_matches(exc, cls, attr_name, attr_val) and (
+                is_error is None or is_error == exc.is_error
+            ):
                 return True
         return False
 
