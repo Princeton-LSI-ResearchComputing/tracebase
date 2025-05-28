@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import timedelta
 
 import pandas as pd
+from django.core.management import call_command
 
 from DataRepo.loaders.samples_loader import SamplesLoader
 from DataRepo.models import Animal, Compound, Infusate
@@ -10,6 +11,8 @@ from DataRepo.models.sample import Sample
 from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    AnimalsWithoutSerumSamples,
     ConflictingValueError,
     InfileError,
     MissingTissues,
@@ -17,7 +20,7 @@ from DataRepo.utils.exceptions import (
     RecordDoesNotExist,
     RollbackException,
 )
-from DataRepo.utils.file_utils import string_to_date
+from DataRepo.utils.file_utils import read_from_file, string_to_date
 from DataRepo.utils.infusate_name_parser import parse_infusate_name_with_concs
 
 
@@ -321,3 +324,31 @@ class SamplesLoaderTests(TracebaseTestCase):
         counts = deepcopy(self.rec_counts)
         counts[FCirc.__name__]["created"] = 1
         self.assertDictEqual(counts, sl.record_counts)
+
+    def test_no_serum_samples_warning(self):
+        file = "DataRepo/data/tests/no_serum_samples/study.xlsx"
+
+        # Load prerequisite data
+        call_command(
+            "load_study",
+            infile=file,
+            exclude_sheets=["Samples"],
+        )
+
+        # Create a loader instance
+        sl = SamplesLoader(
+            df=read_from_file(file, sheet="Samples"),
+            file=file,
+            _validate=True,
+        )
+
+        # It should raise, since _validate is True
+        with self.assertRaises(AggregatedErrors):
+            sl.load_data()
+        # We don't need to save the raised exception, because we have it in the loader object
+
+        # There should be 1 exception (AnimalsWithoutSerumSamples)
+        self.assertEqual(1, len(sl.aggregated_errors_object.exceptions))
+        self.assertIsInstance(
+            sl.aggregated_errors_object.exceptions[0], AnimalsWithoutSerumSamples
+        )

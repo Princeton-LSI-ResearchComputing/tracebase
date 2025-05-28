@@ -761,7 +761,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
     def perform_checks(self, loaders: dict):
         self.check_animals(
-            loaders.get(self.Loaders.ANIMALS), loaders.get(self.Loaders.SAMPLES)
+            loaders.get(self.ANIMALS_SHEET), loaders.get(self.SAMPLES_SHEET)
         )
 
     def check_animals(
@@ -864,18 +864,37 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
                     # If there was a samples sheet (inferred by the samples loader being in the loaders dict), this
                     # animal wasn't already reported as not having serum samples, and there are no missing sample errors
-                    if (
-                        isinstance(samples_loader, SamplesLoader)
-                        and not samples_loader.aggregated_errors_object.exception_exists(
-                            AnimalWithoutSerumSamples, "animal", animal
+                    if isinstance(samples_loader, SamplesLoader):
+                        # Get the animals without serum samples exception(s) from the samples loader
+                        sl_no_serum_exceptions: List[AnimalsWithoutSerumSamples] = (
+                            samples_loader.aggregated_errors_object.get_exception_type(
+                                AnimalsWithoutSerumSamples,
+                                remove=False,
+                                modify=False,
+                                is_error=False,
+                            )
                         )
-                        and not samples_loader.aggregated_errors_object.exception_exists(
-                            RecordDoesNotExist, "model", Sample, is_error=True
-                        )
-                    ):
-                        # Filter out animals that were already warned about by the sample loader
-                        more_animals_without_serum_exceptions.append(awss)
-                    elif not isinstance(samples_loader, SamplesLoader):
+
+                        if (
+                            # This isn't an animal that has NO samples
+                            animal not in animals_without_samples
+                            and (
+                                # Either the samples sheet had no missing serum sample exceptions
+                                len(sl_no_serum_exceptions) == 0
+                                # Or it did and this animal was not one of them
+                                or (
+                                    len(sl_no_serum_exceptions) > 0
+                                    and animal not in sl_no_serum_exceptions[0].animals
+                                )
+                            )
+                            # The sample doesn't exist simply because the samples load encountered an error
+                            and not samples_loader.aggregated_errors_object.exception_exists(
+                                RecordDoesNotExist, "model", Sample, is_error=True
+                            )
+                        ):
+                            # Filter out animals that were already warned about by the sample loader
+                            more_animals_without_serum_exceptions.append(awss)
+                    else:
                         more_animals_without_serum_exceptions.append(awss)
 
                 # If there are any previously loaded animals, that are still in the animals sheet that still have no

@@ -1,5 +1,6 @@
 from typing import Dict, Type
 
+from django.core.management import call_command
 from django.db.models import Model
 
 from DataRepo.loaders.animals_loader import AnimalsLoader
@@ -30,6 +31,7 @@ from DataRepo.models import (
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AggregatedErrorsSet,
     AllMissingSamples,
     AllMissingTissues,
@@ -37,6 +39,7 @@ from DataRepo.utils.exceptions import (
     AnimalsWithoutSerumSamples,
     MissingTissues,
     MissingTreatments,
+    MultiLoadStatus,
     NoSamples,
     RecordDoesNotExist,
 )
@@ -371,6 +374,47 @@ class StudyLoaderTests(TracebaseTestCase):
             },
             sl.record_counts,
         )
+
+    def test_no_samples_no_serum_warnings(self):
+        file = "DataRepo/data/tests/animal_without_samples/study.xlsx"
+
+        # Load prerequisite data - entire study containing animal with no
+        call_command(
+            "load_study",
+            infile="DataRepo/data/tests/no_serum_samples/study.xlsx",
+        )
+
+        # Create a loader instance
+        sl = StudyV3Loader(
+            df=read_from_file(file, sheet=None),
+            file=file,
+            # _validate=True causes raise of MultiLoadStatus when there is a warning, of which there should be 2
+            _validate=True,
+        )
+
+        # It should raise, since _validate is True
+        with self.assertRaises(MultiLoadStatus) as ar:
+            sl.load_data()
+
+        self.assertIn("study.xlsx", ar.exception.statuses.keys())
+        study_doc_aes: AggregatedErrors = ar.exception.statuses["study.xlsx"][
+            "aggregated_errors"
+        ]
+        # There should be 1 exception (AnimalsWithoutSerumSamples) that came from the SamplesLoader, evidenced by the
+        # fact that it is under the study doc load key
+        self.assertEqual(1, len(study_doc_aes.exceptions))
+        self.assertIsInstance(study_doc_aes.exceptions[0], AnimalsWithoutSerumSamples)
+        self.assertEqual(["xz971"], study_doc_aes.exceptions[0].animals)
+
+        self.assertIn("Animals Check", ar.exception.statuses.keys())
+        animal_check_aes: AggregatedErrors = ar.exception.statuses["Animals Check"][
+            "aggregated_errors"
+        ]
+        # There should be 1 exception (AnimalsWithoutSamples).  The serum exception should not happen, because it should
+        # be filtered by the presence of the samples sheet exception.
+        self.assertEqual(1, len(animal_check_aes.exceptions))
+        self.assertIsInstance(animal_check_aes.exceptions[0], AnimalsWithoutSamples)
+        self.assertEqual(["xz972"], animal_check_aes.exceptions[0].animals)
 
 
 class StudyV3LoaderTests(TracebaseTestCase):
