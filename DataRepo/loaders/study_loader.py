@@ -797,12 +797,16 @@ class StudyLoader(ConvertedTableLoader, ABC):
             )
 
             # First, see if there are any animals without samples (accounting for previously loaded animals with no
-            # samples)
+            # samples).
             animals_without_samples = Animal.get_animals_without_samples(
                 animals_to_check
             )
-            if len(animals_without_samples) > 0 and isinstance(
-                animals_loader, AnimalsLoader
+            # Only report animals without samples if the samples sheet has been loaded.  If the user is only loading
+            # animals, we don't expect them to have any samples.
+            if (
+                len(animals_without_samples) > 0
+                and isinstance(animals_loader, AnimalsLoader)
+                and isinstance(samples_loader, SamplesLoader)
             ):
                 # We are not going to buffer these individually.  Can't think of a reason to do so.
                 animals_without_samples_exceptions: List[AnimalWithoutSamples] = []
@@ -887,10 +891,9 @@ class StudyLoader(ConvertedTableLoader, ABC):
                                     and animal not in sl_no_serum_exceptions[0].animals
                                 )
                             )
-                            # The sample doesn't exist simply because the samples load encountered an error
-                            and not samples_loader.aggregated_errors_object.exception_exists(
-                                RecordDoesNotExist, "model", Sample, is_error=True
-                            )
+                            # Only add the animal if the sample doesn't exist simply potentially because the samples
+                            # load encountered an error.
+                            and not self.sample_errors_exist()
                         ):
                             # Filter out animals that were already warned about by the sample loader
                             more_animals_without_serum_exceptions.append(awss)
@@ -914,6 +917,16 @@ class StudyLoader(ConvertedTableLoader, ABC):
                         default_is_error=False,
                         default_is_fatal=self.validate,
                     )
+
+    def sample_errors_exist(self):
+        # TODO: This should be done better.  What I'd wanted to check was the existence of RecordDoesNotExist for the
+        # Sample model, but at the point where this is called, all of those exceptions have been extracted and errors
+        # covered in checks were made into warnings.  There must be a better way to do this.
+        return any(
+            d["aggregated_errors"].exception_type_exists(NoSamples)
+            or d["aggregated_errors"].exception_type_exists(MissingSamples)
+            for d in self.load_statuses.statuses.values()
+        )
 
     def package_group_exceptions(self, exception):
         """Repackages an exception for consolidated reporting.
