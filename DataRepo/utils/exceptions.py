@@ -4969,6 +4969,70 @@ class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableErr
         self.fixed = fixed
 
 
+class AnimalsWithoutSamples(Exception):
+
+    def __init__(
+        self, exceptions: List[AnimalWithoutSamples], message: Optional[str] = None
+    ):
+        if message is None:
+            nlt = "\n\t"
+            message = (
+                "The following animals do not have any samples:\n\t"
+                f"{nlt.join(sorted([e.animal for e in exceptions]))}"
+            )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AnimalWithoutSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = AnimalsWithoutSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = f"Animal '{animal}' does not have any samples in %s."
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class AnimalsWithoutSerumSamples(Exception):
+
+    def __init__(
+        self, exceptions: List[AnimalWithoutSerumSamples], message: Optional[str] = None
+    ):
+        if message is None:
+            nlt = "\n\t"
+            message = (
+                "The following animals do not have the necessary serum samples to perform FCirc calculations:\n"
+                f"\t{nlt.join(sorted([e.animal for e in exceptions]))}\n"
+            )
+        message += (
+            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, the "
+            "infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, but the "
+            "FCirc values will be missing."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+
+
+class AnimalWithoutSerumSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = AnimalsWithoutSerumSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = (
+                f"Animal '{animal}' does not have the necessary serum samples to perform FCirc calculations in "
+                "%s."
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, "
+                "but the FCirc values will be missing."
+            )
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:

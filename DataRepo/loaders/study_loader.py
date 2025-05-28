@@ -46,6 +46,7 @@ from DataRepo.loaders.sequences_loader import SequencesLoader
 from DataRepo.loaders.studies_loader import StudiesLoader
 from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.loaders.tracers_loader import TracersLoader
+from DataRepo.models.animal import Animal
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_updates,
@@ -65,6 +66,10 @@ from DataRepo.utils.exceptions import (
     AllMissingTreatments,
     AllMultiplePeakGroupRepresentations,
     AllUnexpectedLabels,
+    AnimalsWithoutSamples,
+    AnimalsWithoutSerumSamples,
+    AnimalWithoutSamples,
+    AnimalWithoutSerumSamples,
     BlankRemoved,
     BlanksRemoved,
     ConditionallyRequiredArgs,
@@ -487,7 +492,12 @@ class StudyLoader(ConvertedTableLoader, ABC):
         # sheets.  The conversion (e.g. v2 to v3) will add sheets, so we must get the sheets from the df_dict object.
 
         file_sheets = list(self.df_dict.keys())
-        loaders = self.get_loader_instances(sheets_to_make=file_sheets)
+        sheets_to_make = []
+        for file_sheet in file_sheets:
+            # Skip loads that the user has excluded, based on a match of the class attribute DataSheetName
+            if file_sheet not in self.exclude_sheets:
+                sheets_to_make.append(file_sheet)
+        loaders = self.get_loader_instances(sheets_to_make=sheets_to_make)
 
         if (
             len(self.annot_files_dict.keys()) > 0
@@ -520,16 +530,14 @@ class StudyLoader(ConvertedTableLoader, ABC):
 
             loader: TableLoader = loaders[loader_key]
 
-            # Skip loads that the user has excluded, based on a match of the class attribute DataSheetName
-            if loader.DataSheetName in self.exclude_sheets:
-                continue
-
             try:
                 loader.load_data()
             except Exception as e:
                 self.package_group_exceptions(e)
             finally:
                 self.update_load_stats(loader.get_load_stats())
+
+        self.perform_checks(loaders)
 
         enable_caching_updates()
 
@@ -750,6 +758,138 @@ class StudyLoader(ConvertedTableLoader, ABC):
                 )
 
         return display_order_spec
+
+    def perform_checks(self, loaders: dict):
+        self.check_animals(
+            loaders.get(self.Loaders.ANIMALS), loaders.get(self.Loaders.SAMPLES)
+        )
+
+    def check_animals(
+        self,
+        animals_loader: Optional[AnimalsLoader],
+        samples_loader: Optional[SamplesLoader],
+    ):
+        # Grab all the animals from the animals sheet (dataframe), if the animals loader is not None
+        animals_from_animalssheet = (
+            []
+            if animals_loader is None
+            else animals_loader.df[animals_loader.headers.NAME].to_list()
+        )
+
+        # If there were animals in the animals sheet
+        if (
+            isinstance(animals_loader, AnimalsLoader)
+            and len(animals_from_animalssheet) > 0
+        ):
+            # Grab all the animals from the *samples* sheet (dataframe), if the samples loader is not None
+            animals_from_samplessheet = (
+                []
+                if samples_loader is None
+                else samples_loader.df[samples_loader.headers.ANIMAL].to_list()
+            )
+
+            # Now get the difference (animals in the animals sheet that were not in the samples sheet)
+            # (We don't need to check animals that have samples in the samples sheet.  Their load may have failed, and
+            #  we don't need to report them being missing because the reason they are missing will be in an error from
+            #  the samples loader.)
+            animals_to_check = list(
+                set(animals_from_animalssheet) - set(animals_from_samplessheet)
+            )
+
+            # First, see if there are any animals without samples (accounting for previously loaded animals with no
+            # samples)
+            animals_without_samples = Animal.get_animals_without_samples(
+                animals_to_check
+            )
+            if len(animals_without_samples) > 0 and isinstance(
+                animals_loader, AnimalsLoader
+            ):
+                # We are not going to buffer these individually.  Can't think of a reason to do so.
+                animals_without_samples_exceptions: List[AnimalWithoutSamples] = []
+                for animal in animals_without_samples:
+                    aws = AnimalWithoutSamples(
+                        animal,
+                        file=animals_loader.friendly_file,
+                        sheet=animals_loader.sheet,
+                        message=f"Previously loaded animal '{animal}' still has no samples.",
+                    )
+                    # Superficially set it as a warning, as if it came from an AggregatedErrors object buffer_warning
+                    # method
+                    setattr(aws, "is_error", False)
+                    setattr(aws, "is_fatal", self.validate)
+                    animals_without_samples_exceptions.append(aws)
+
+                self.load_statuses.set_load_exception(
+                    AnimalsWithoutSamples(animals_without_samples_exceptions),
+                    "Animals Check",
+                )
+
+            # Only check for additional missing serum samples if samples are being loaded or if samples already have
+            # been loaded
+            if (
+                samples_loader is not None
+                or Animal.objects.filter(
+                    name__in=animals_to_check, samples__isnull=False
+                ).exists()
+            ):
+                # It is possible that a previously loaded animal in the current animals sheet, with no samples in the
+                # current samples sheet, had previously loaded without serum samples.  We take this opportunity to
+                # double-check that the user has recitfied this situation.  If they have not, we remind them that an
+                # animal in the animals sheet still has no serum samples.  But we filter out any that were already
+                # reported by the sample loader.
+
+                animals_without_serum_samples = (
+                    Animal.get_animals_without_serum_samples(animals_from_animalssheet)
+                )
+
+                # We are not going to buffer these individually.  Can't think of a reason to do so.
+                more_animals_without_serum_exceptions: List[
+                    AnimalWithoutSerumSamples
+                ] = []
+                for animal in animals_without_serum_samples:
+                    # Create an individual exception, so we can add it to the summary exception
+                    awss = AnimalWithoutSerumSamples(
+                        animal,
+                        file=animals_loader.friendly_file,
+                        sheet=animals_loader.sheet,
+                        message=(
+                            f"Previously loaded animal '{animal}' still has no serum samples necessary to "
+                            "perform FCirc calculations."
+                        ),
+                    )
+                    # Superficially set it as a warning, as if it came from an AggregatedErrors object buffer_warning
+                    # method
+                    setattr(awss, "is_error", False)
+                    setattr(awss, "is_fatal", self.validate)
+
+                    # If there was a samples sheet (inferred by the samples loader being in the loaders dict)
+                    if isinstance(
+                        samples_loader, SamplesLoader
+                    ) and not samples_loader.aggregated_errors_object.exception_exists(
+                        AnimalWithoutSerumSamples, "animal", animal
+                    ):
+                        # Filter out animals that were already warned about by the sample loader
+                        more_animals_without_serum_exceptions.append(awss)
+                    else:
+                        more_animals_without_serum_exceptions.append(awss)
+
+                # If there are any previously loaded animals, that are still in the animals sheet that still have no
+                # serum samples, buffer a warning that they still have no serum samples.
+                if len(more_animals_without_serum_exceptions) > 0:
+                    nlt = "\n\t"
+                    self.load_statuses.set_load_exception(
+                        AnimalsWithoutSerumSamples(
+                            more_animals_without_serum_exceptions,
+                            message=(
+                                "The following previously loaded animals still do not have the necessary serum samples "
+                                "to perform FCirc calculations:\n"
+                                f"\t{nlt.join(sorted([e.animal for e in more_animals_without_serum_exceptions]))}\n"
+                            ),
+                        ),
+                        "Animals Check",
+                        default_is_error=False,
+                        default_is_fatal=self.validate,
+                    )
 
     def package_group_exceptions(self, exception):
         """Repackages an exception for consolidated reporting.

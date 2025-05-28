@@ -11,6 +11,7 @@ from DataRepo.loaders.tissues_loader import TissuesLoader
 from DataRepo.models import Animal, MaintainedModel, Researcher, Sample, Tissue
 from DataRepo.models.fcirc import FCirc
 from DataRepo.utils.exceptions import (
+    AnimalWithoutSerumSamples,
     DateParseError,
     DurationError,
     MissingFCircCalculationValue,
@@ -210,11 +211,15 @@ class SamplesLoader(TableLoader):
         Returns:
             None
         """
+        animals = []
         for _, row in self.df.iterrows():
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
             sample = None
+
+            if animal is not None and animal.name not in animals:
+                animals.append(animal.name)
 
             # Get or create the animal record
             try:
@@ -254,6 +259,18 @@ class SamplesLoader(TableLoader):
                             )
                         )
                     )
+
+        for animal_without_serum_samples in Animal.get_animals_without_serum_samples(
+            animals
+        ):
+            # Buffering each individually makes it easier to summarize the same errors from multiple sheets
+            self.aggregated_errors_object.buffer_warning(
+                AnimalWithoutSerumSamples(
+                    animal_without_serum_samples,
+                    file=self.friendly_file,
+                    sheet=self.sheet,
+                )
+            )
 
         self.repackage_exceptions()
 
