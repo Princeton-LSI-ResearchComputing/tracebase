@@ -320,7 +320,7 @@ class Animal(MaintainedModel, HierCachedModel):
 
     @classmethod
     def get_animals_without_serum_samples(cls, animal_names: List[str]):
-        """Take a list of animal names and return a list of those that have no serum sample records.
+        """Take a list of animal names and return a list of those (with infusates) that have no serum sample records.
 
         Limitations:
             1. This will not return animals that do not exist, nor raise an exception that they do not exist.
@@ -341,6 +341,6 @@ class Animal(MaintainedModel, HierCachedModel):
                     ),
                 )
             )
-            .filter(name__in=animal_names, num_serum_samples=0)
+            .filter(name__in=animal_names, infusate__isnull=False, num_serum_samples=0)
             .values_list("name", flat=True)
         )

@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from datetime import date, timedelta
 from typing import Dict
 
@@ -212,10 +212,13 @@ class SamplesLoader(TableLoader):
             None
         """
         animals = []
+        failed_samples = defaultdict(list)
         for _, row in self.df.iterrows():
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
+            sample_name = self.get_row_val(row, self.headers.SAMPLE)
+
             sample = None
 
             if animal is not None and animal.name not in animals:
@@ -223,14 +226,14 @@ class SamplesLoader(TableLoader):
 
             # Get or create the animal record
             try:
-                sample, _ = self.get_or_create_sample(row, animal, tissue)
+                sample, _ = self.get_or_create_sample(row, sample_name, animal, tissue)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
                 pass
 
             if (
-                sample is not None
+                isinstance(sample, Sample)
                 and sample._is_serum_sample()
                 and sample.animal.infusate is not None
             ):
@@ -259,23 +262,32 @@ class SamplesLoader(TableLoader):
                             )
                         )
                     )
+            elif isinstance(animal, Animal):
+                failed_samples[animal.name].append(sample_name)
 
+        # Look for any animal (with an infusate) in the samples sheet that does not have a serum sample
         for animal_without_serum_samples in Animal.get_animals_without_serum_samples(
             animals
         ):
-            # Buffering each individually makes it easier to summarize the same errors from multiple sheets
-            self.aggregated_errors_object.buffer_warning(
-                AnimalWithoutSerumSamples(
-                    animal_without_serum_samples,
-                    file=self.friendly_file,
-                    sheet=self.sheet,
+            # If there is not a failed serum sample belonging to this animal
+            if animal_without_serum_samples not in failed_samples.keys() or any(
+                Tissue.SERUM_TISSUE_PREFIX in s
+                for s in failed_samples[animal_without_serum_samples]
+            ):
+                # Buffering each individually makes it easier to summarize the same errors from multiple sheets
+                self.aggregated_errors_object.buffer_warning(
+                    AnimalWithoutSerumSamples(
+                        animal_without_serum_samples,
+                        file=self.friendly_file,
+                        sheet=self.sheet,
+                    ),
+                    is_fatal=self.validate,
                 )
-            )
 
         self.repackage_exceptions()
 
     @transaction.atomic
-    def get_or_create_sample(self, row, animal: Animal, tissue: Tissue):
+    def get_or_create_sample(self, row, name: str, animal: Animal, tissue: Tissue):
         """Get or create a Sample record.
 
         Args:
@@ -293,8 +305,6 @@ class SamplesLoader(TableLoader):
         """
         created = False
         rec = None
-
-        name = self.get_row_val(row, self.headers.SAMPLE)
 
         researcher = self.get_row_val(row, self.headers.HANDLER)
         if researcher is not None and Researcher.could_be_variant_researcher(
