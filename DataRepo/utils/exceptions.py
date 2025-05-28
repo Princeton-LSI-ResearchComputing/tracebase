@@ -4744,6 +4744,7 @@ class AnimalsWithoutSamples(Exception):
             )
         super().__init__(message)
         self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
 
 
 class AnimalWithoutSamples(InfileError, SummarizableError):
@@ -4774,6 +4775,7 @@ class AnimalsWithoutSerumSamples(Exception):
         )
         super().__init__(message)
         self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
 
 
 class AnimalWithoutSerumSamples(InfileError, SummarizableError):
