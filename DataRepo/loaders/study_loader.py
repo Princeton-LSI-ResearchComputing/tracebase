@@ -871,15 +871,20 @@ class StudyLoader(ConvertedTableLoader, ABC):
                     setattr(awss, "is_error", False)
                     setattr(awss, "is_fatal", self.validate)
 
-                    # If there was a samples sheet (inferred by the samples loader being in the loaders dict)
-                    if isinstance(
-                        samples_loader, SamplesLoader
-                    ) and not samples_loader.aggregated_errors_object.exception_exists(
-                        AnimalWithoutSerumSamples, "animal", animal
+                    # If there was a samples sheet (inferred by the samples loader being in the loaders dict), this
+                    # animal wasn't already reported as not having serum samples, and there are no missing sample errors
+                    if (
+                        isinstance(samples_loader, SamplesLoader)
+                        and not samples_loader.aggregated_errors_object.exception_exists(
+                            AnimalWithoutSerumSamples, "animal", animal
+                        )
+                        and not samples_loader.aggregated_errors_object.exception_exists(
+                            RecordDoesNotExist, "model", Sample, is_error=True
+                        )
                     ):
                         # Filter out animals that were already warned about by the sample loader
                         more_animals_without_serum_exceptions.append(awss)
-                    else:
+                    elif not isinstance(samples_loader, SamplesLoader):
                         more_animals_without_serum_exceptions.append(awss)
 
                 # If there are any previously loaded animals, that are still in the animals sheet that still have no
