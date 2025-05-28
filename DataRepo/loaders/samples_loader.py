@@ -268,7 +268,7 @@ class SamplesLoader(TableLoader):
         ):
             # If there is not a failed serum sample belonging to this animal
             if animal_without_serum_samples not in self.failed_samples.keys() or any(
-                Tissue.SERUM_TISSUE_PREFIX in s
+                Tissue.name_is_serum(s)
                 for s in self.failed_samples[animal_without_serum_samples]
             ):
                 # Buffering each individually makes it easier to summarize the same errors from multiple sheets

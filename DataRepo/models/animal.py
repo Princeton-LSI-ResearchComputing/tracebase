@@ -160,7 +160,7 @@ class Animal(MaintainedModel, HierCachedModel):
         # Create an is_null field for time_collected to be able to sort them
         (extra_args, is_null_field) = create_is_null_field("time_collected")
         last_serum_sample = (
-            self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+            self.samples.filter(Tissue.serum_q_expression("tissue__name"))
             .extra(**extra_args)
             .order_by(f"-{is_null_field}", "time_collected")
             .last()
@@ -206,9 +206,7 @@ class Animal(MaintainedModel, HierCachedModel):
                     msrun_sample__sample__animal__id__exact=self.id
                 )
                 .filter(compounds__id__exact=tracer.compound.id)
-                .filter(
-                    msrun_sample__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
-                )
+                .filter(Tissue.serum_q_expression("msrun_sample__sample__tissue__name"))
                 .extra(**tc_extra_args)
                 .order_by(
                     f"-{tc_is_null_field}",
@@ -336,9 +334,7 @@ class Animal(MaintainedModel, HierCachedModel):
             Animal.objects.annotate(
                 num_serum_samples=Count(
                     "samples",
-                    filter=Q(
-                        samples__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
-                    ),
+                    filter=Q(Tissue.serum_q_expression("samples__tissue__name")),
                 )
             )
             .filter(name__in=animal_names, infusate__isnull=False, num_serum_samples=0)
