@@ -197,7 +197,12 @@ class SamplesLoader(TableLoader):
         Returns:
             None
         """
+        # These instance members will help us assure that every animal (with an infusate) has at least 1 serum sample
+        self.animals = []
+        self.failed_samples = defaultdict(list)
+
         self.known_researchers = Researcher.get_researchers()
+
         super().__init__(*args, **kwargs)
 
     @MaintainedModel.defer_autoupdates()
@@ -211,22 +216,16 @@ class SamplesLoader(TableLoader):
         Returns:
             None
         """
-        animals = []
-        failed_samples = defaultdict(list)
         for _, row in self.df.iterrows():
             # Get the existing animal and tissue
             animal = self.get_animal(row)
             tissue = self.get_tissue(row)
-            sample_name = self.get_row_val(row, self.headers.SAMPLE)
 
             sample = None
 
-            if animal is not None and animal.name not in animals:
-                animals.append(animal.name)
-
             # Get or create the animal record
             try:
-                sample, _ = self.get_or_create_sample(row, sample_name, animal, tissue)
+                sample, _ = self.get_or_create_sample(row, animal, tissue)
             except RollbackException:
                 # Exception handling was handled in get_or_create_*
                 # Continue processing rows to find more errors
@@ -262,17 +261,15 @@ class SamplesLoader(TableLoader):
                             )
                         )
                     )
-            elif isinstance(animal, Animal):
-                failed_samples[animal.name].append(sample_name)
 
         # Look for any animal (with an infusate) in the samples sheet that does not have a serum sample
         for animal_without_serum_samples in Animal.get_animals_without_serum_samples(
-            animals
+            self.animals
         ):
             # If there is not a failed serum sample belonging to this animal
-            if animal_without_serum_samples not in failed_samples.keys() or any(
+            if animal_without_serum_samples not in self.failed_samples.keys() or any(
                 Tissue.SERUM_TISSUE_PREFIX in s
-                for s in failed_samples[animal_without_serum_samples]
+                for s in self.failed_samples[animal_without_serum_samples]
             ):
                 # Buffering each individually makes it easier to summarize the same errors from multiple sheets
                 self.aggregated_errors_object.buffer_warning(
@@ -287,7 +284,7 @@ class SamplesLoader(TableLoader):
         self.repackage_exceptions()
 
     @transaction.atomic
-    def get_or_create_sample(self, row, name: str, animal: Animal, tissue: Tissue):
+    def get_or_create_sample(self, row, animal: Animal, tissue: Tissue):
         """Get or create a Sample record.
 
         Args:
@@ -300,11 +297,13 @@ class SamplesLoader(TableLoader):
             Buffers:
                 None
         Returns:
-            rec (Sample)
+            rec (Optional[Sample])
             created (boolean)
         """
         created = False
         rec = None
+
+        name = self.get_row_val(row, self.headers.SAMPLE)
 
         researcher = self.get_row_val(row, self.headers.HANDLER)
         if researcher is not None and Researcher.could_be_variant_researcher(
@@ -410,6 +409,16 @@ class SamplesLoader(TableLoader):
         if animal is None or tissue is None or self.is_skip_row():
             # An animal or tissue being None would have already buffered a required value error
             self.skipped(Sample.__name__)
+
+            # Add this sample name to the failed samples for this animal.  This is so we can later check for animals
+            # that have no serum samples, and if so, issue a warning (unless the sample is present, but just had an
+            # error upon attempting to load).
+            if name is not None:
+                if isinstance(animal, Animal):
+                    self.failed_samples[animal.name].append(name)
+                elif len(self.animals) > 0:
+                    self.failed_samples[self.animals[-1]].append(name)
+
             return rec, created
 
         # Required fields
@@ -430,6 +439,11 @@ class SamplesLoader(TableLoader):
             else:
                 self.existed(Sample.__name__)
         except Exception as e:
+            # Add this sample name to the failed samples for this animal.  This is so we can later check for animals
+            # that have no serum samples, and if so, issue a warning (unless the sample is present, but just had an
+            # error upon attempting to load).
+            if name is not None:
+                self.failed_samples[animal.name].append(name)
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
             self.handle_load_db_errors(e, Sample, rec_dict)
@@ -460,6 +474,8 @@ class SamplesLoader(TableLoader):
 
         try:
             rec = Animal.objects.get(**query_dict)
+            if rec is not None and rec.name not in self.animals:
+                self.animals.append(rec.name)
         except Exception as e:
             # Package errors (like IntegrityError and ValidationError) with relevant details
             # This also updates the skip row indexes
