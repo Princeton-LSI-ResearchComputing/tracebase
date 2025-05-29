@@ -524,6 +524,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
         disable_caching_updates()
 
         # This cycles through the loaders in the order in which they were defined in the namedtuple
+        all_aggregated_errors = []
         for loader_key in self.Loaders._fields:
             if loader_key not in loaders.keys():
                 continue
@@ -533,11 +534,22 @@ class StudyLoader(ConvertedTableLoader, ABC):
             try:
                 loader.load_data()
             except Exception as e:
-                self.package_group_exceptions(e)
-            finally:
-                self.update_load_stats(loader.get_load_stats())
+                all_aggregated_errors.append(e)
 
+        # Perform cross-loader checks
         self.perform_checks(loaders)
+
+        # Package up all of the exceptions.  This changes the error states of the various loaders, to emphasis the
+        # summaries and deemphasize (and/or remove) potentially repeated errors.
+        for aes in all_aggregated_errors:
+            self.package_group_exceptions(aes)
+
+        # Now update the load statuses
+        for loader_key in self.Loaders._fields:
+            if loader_key not in loaders.keys():
+                continue
+            loader: TableLoader = loaders[loader_key]
+            self.update_load_stats(loader.get_load_stats())
 
         enable_caching_updates()
 
@@ -893,7 +905,7 @@ class StudyLoader(ConvertedTableLoader, ABC):
                             )
                             # Only add the animal if the sample doesn't exist simply potentially because the samples
                             # load encountered an error.
-                            and not self.sample_errors_exist()
+                            and not samples_loader.aggregated_errors_object.is_error
                         ):
                             # Filter out animals that were already warned about by the sample loader
                             more_animals_without_serum_exceptions.append(awss)
@@ -917,16 +929,6 @@ class StudyLoader(ConvertedTableLoader, ABC):
                         default_is_error=False,
                         default_is_fatal=self.validate,
                     )
-
-    def sample_errors_exist(self):
-        # TODO: This should be done better.  What I'd wanted to check was the existence of RecordDoesNotExist for the
-        # Sample model, but at the point where this is called, all of those exceptions have been extracted and errors
-        # covered in checks were made into warnings.  There must be a better way to do this.
-        return any(
-            d["aggregated_errors"].exception_type_exists(NoSamples)
-            or d["aggregated_errors"].exception_type_exists(MissingSamples)
-            for d in self.load_statuses.statuses.values()
-        )
 
     def package_group_exceptions(self, exception):
         """Repackages an exception for consolidated reporting.
