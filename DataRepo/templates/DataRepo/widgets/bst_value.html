@@ -11,9 +11,9 @@
                 <span class="text-muted">{{ subrec }}</span>
             {% elif subrec|has_detail_url %}
                 {# Render model object in string context for the link's display value #}
-                <a href="{{ subrec|get_detail_url }}">{{ subrec }}</a>{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
+                <a href="{{ subrec|get_detail_url }}">{{ subrec }}</a>{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap">{% endif %}
             {% else %}
-                {{ subrec }}{% if not forloop.last %}{{ column.delim }}<br>{% endif %}
+                {{ subrec }}{% if not forloop.last %}{{ column.delim }}<br class="cell-wrap">{% endif %}
             {% endif %}
         {% empty %}
             <span class="text-muted">None</span>

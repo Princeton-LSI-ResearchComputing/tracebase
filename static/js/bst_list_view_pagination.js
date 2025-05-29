@@ -275,6 +275,12 @@ function setCollapse(collapse) {
         if (collapse) cellElem.classList.add('nobr');
         else cellElem.classList.remove('nobr');
     }
+    const wrapElems = document.getElementsByClassName("cell-wrap");
+    for (let i = 0; i < wrapElems.length; i++) {
+        let wrapElem = wrapElems[i];
+        if (collapse) wrapElem.classList.add('d-none');
+        else wrapElem.classList.remove('d-none');
+    }
 }
 
 /**
