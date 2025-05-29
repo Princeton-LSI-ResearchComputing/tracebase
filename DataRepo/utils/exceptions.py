@@ -834,7 +834,7 @@ class RecordDoesNotExist(InfileError, ObjectDoesNotExist, SummarizableError):
         """General use DoesNotExist exception constructor for errors retrieving Model records.
 
         Args:
-            model: (Model)
+            model: (Type[Model])
             query_obj (dict or Q): A representation of the query parameters, to provide context for the user.
             message (Optional[str])
             suggestion (str): An addendum as to how to possibly fix this issue.
@@ -2355,7 +2355,9 @@ class AggregatedErrors(Exception):
             and (is_error is None or exception.is_error == is_error)
         )
 
-    def exception_exists(self, cls, attr_name, attr_val):
+    def exception_exists(
+        self, cls, attr_name, attr_val, is_error: Optional[bool] = None
+    ):
         """Returns True if an exception of type cls, containing an attribute with the supplied value has been buffered.
 
         Args:
@@ -2363,13 +2365,16 @@ class AggregatedErrors(Exception):
             attr_name (str): An attribute the buffered exception class has.
             attr_val (object): The value of the attribute the buffered exception class has.  If this is a function, it
                 must take a single argument (the value of the attribute) and return a boolean.
+            is_error (Optional[bool])
         Exceptions:
             None
         Returns:
             bool
         """
         for exc in self.exceptions:
-            if self.exception_matches(exc, cls, attr_name, attr_val):
+            if self.exception_matches(exc, cls, attr_name, attr_val) and (
+                is_error is None or is_error == exc.is_error
+            ):
                 return True
         return False
 
@@ -4724,6 +4729,72 @@ class ProhibitedCompoundName(ProhibitedStringValue, InfileError, SummarizableErr
         )
         InfileError.__init__(self, message, column=column, **kwargs)
         self.fixed = fixed
+
+
+class AnimalsWithoutSamples(Exception):
+
+    def __init__(
+        self, exceptions: List[AnimalWithoutSamples], message: Optional[str] = None
+    ):
+        if message is None:
+            nlt = "\n\t"
+            message = (
+                "The following animals do not have any samples:\n\t"
+                f"{nlt.join(sorted([e.animal for e in exceptions]))}"
+            )
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
+
+
+class AnimalWithoutSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = AnimalsWithoutSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = f"Animal '{animal}' does not have any samples in %s."
+        super().__init__(message, **kwargs)
+        self.animal = animal
+
+
+class AnimalsWithoutSerumSamples(Exception):
+
+    def __init__(
+        self, exceptions: List[AnimalWithoutSerumSamples], message: Optional[str] = None
+    ):
+        if message is None:
+            nlt = "\n\t"
+            message = (
+                "The following animals do not have the necessary serum samples to perform FCirc calculations:\n"
+                f"\t{nlt.join(sorted([e.animal for e in exceptions]))}\n"
+            )
+        message += (
+            "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, the "
+            "infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, but the "
+            "FCirc values will be missing."
+        )
+        super().__init__(message)
+        self.exceptions = exceptions
+        self.animals = [e.animal for e in exceptions]
+
+
+class AnimalWithoutSerumSamples(InfileError, SummarizableError):
+    SummarizerExceptionClass = AnimalsWithoutSerumSamples
+
+    def __init__(self, animal: str, message: Optional[str] = None, **kwargs):
+        if message is None:
+            message = (
+                f"Animal '{animal}' does not have the necessary serum samples to perform FCirc calculations in "
+                "%s."
+            )
+        if "suggestion" not in kwargs.keys() or kwargs["suggestion"] is None:
+            kwargs["suggestion"] = (
+                "FCirc calculations on TraceBase are done using the tracer peak group(s) from the last serum sample, "
+                "the infusion rate, and the animal weight.  You can load data into TraceBase without serum samples, "
+                "but the FCirc values will be missing."
+            )
+        super().__init__(message, **kwargs)
+        self.animal = animal
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
