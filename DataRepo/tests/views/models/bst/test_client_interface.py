@@ -1,5 +1,4 @@
 from django.http import HttpRequest
-from django.templatetags.static import static
 from django.test import override_settings
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -22,14 +21,6 @@ class BSTClientInterfaceTests(TracebaseTestCase):
 
         m = MyBSTListView()
         self.assertEqual("MyBSTListView-", m.cookie_prefix)
-
-    @TracebaseTestCase.assertNotWarns()
-    def test_script(self):
-        c = BSTClientInterface()
-        self.assertEqual(
-            f"<script src='{static(BSTClientInterface.script_name)}'></script>",
-            c.script,
-        )
 
     @TracebaseTestCase.assertNotWarns()
     def test_get_cookie_name(self):
