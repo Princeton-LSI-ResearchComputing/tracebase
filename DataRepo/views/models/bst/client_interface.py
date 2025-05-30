@@ -2,8 +2,6 @@ from typing import Dict, List, Optional, Union
 from warnings import warn
 
 from django.conf import settings
-from django.templatetags.static import static
-from django.utils.safestring import mark_safe
 from django.views.generic import ListView
 
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -17,7 +15,10 @@ class BSTClientInterface(ListView):
     intended to inherit from this class).  This is not intended to be used on its own.
     """
 
-    script_name = "DataRepo/static/js/bst/base.js"
+    scripts = [
+        "DataRepo/static/js/bst/cookies.js",
+        "DataRepo/static/js/bst/list_view.js",
+    ]
 
     # Template variable names
     cookie_prefix_var_name = "cookie_prefix"
@@ -42,25 +43,16 @@ class BSTClientInterface(ListView):
 
         super().__init__(**kwargs)
 
-        self.javascripts = []
+        self.javascripts: List[str]
+        if hasattr(self, "javascripts") and isinstance(self.javascripts, list):
+            self.javascripts.insert(0, BSTClientInterface.scripts)
+        else:
+            self.javascripts = [*BSTClientInterface.scripts]
+
         self.cookie_prefix = f"{self.__class__.__name__}-"
         self.cookie_warnings = []
         self.cookie_resets = []
         self.clear_cookies = False
-
-    @property
-    def script(self) -> str:
-        """Returns an HTML script tag whose source points to self.script_name.
-
-        Example:
-            # BSTClientInterface.get_context_data
-                context["bst_object"] = self
-            # Template
-                {{ bst_object.script }}
-            # Template result (assuming settings.STATIC_URL = "static/")
-                <script src='static/js/bst/base.js'></script>
-        """
-        return mark_safe(f"<script src='{static(self.script_name)}'></script>")
 
     def get_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
         """Retrieves a URL parameter.
