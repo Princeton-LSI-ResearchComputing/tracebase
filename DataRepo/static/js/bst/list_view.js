@@ -12,6 +12,21 @@ var djangoRawTotal = 0 // {{ raw_total }} eslint-disable-line no-var
 var djangoTotal = djangoRawTotal // {{ total }} eslint-disable-line no-var
 
 /**
+ * This function exists solely for testing purposes
+ */
+function initGlobalDefaults() {
+  globalThis.djangoCurrentURL = window.location.href.split('?')[0];
+  globalThis.djangoTableID = 'bstlistviewtable';
+  globalThis.jqTableID =  '#' + djangoTableID;
+  globalThis.djangoLimitDefault = 15;
+  globalThis.djangoLimit = djangoLimitDefault;
+  globalThis.djangoPerPage = djangoLimitDefault;
+  globalThis.djangoPageNumber = 1;
+  globalThis.djangoRawTotal = 0;
+  globalThis.djangoTotal = djangoRawTotal;
+}
+
+/**
  * Initializes the bootstrap table functionality.
  * @param {*} limit Number of rows per page when the page loaded.
  * @param {*} limitDefault Default number of rows per page, prescribed by the view.
@@ -23,6 +38,8 @@ var djangoTotal = djangoRawTotal // {{ total }} eslint-disable-line no-var
  * @param {*} rawTotal The total unfiltered number of results.
  * @param {*} currentURL The current URL of the page.
  * @param {*} warnings A list of warnings from django.
+ * @param {*} cookieResets A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
+ * @param {*} clearCookies A boolean represented as a string, e.g. 'false'.
  */
 function initBST(
   limit,
@@ -51,29 +68,31 @@ function initBST(
   // Initialize the cookies (basically just the prefix)
   initViewCookies(cookiePrefix)
   if (parseBool(clearCookies)) {
-    resetTable();
-  }
-  if (typeof cookieResets !== "undefined" && cookieResets && cookieResets.length > 0) {
-    deleteCookies(cookieResets);
+    deleteViewCookies();
+  } else if (typeof cookieResets !== "undefined" && cookieResets && cookieResets.length > 0) {
+    deleteViewCookies(cookieResets);
   }
 
   // Set cookies for the current page and limit that comes from the context and is sent via url params.
   // Everything else is saved in cookies.
   const limitParam = urlParams.get('limit');
-  const limitCookie = parseInt(getViewCookie('limit', djangoLimit));
+  const limitCookie = getViewCookie('limit', djangoLimit);
   if (limitParam) {
-      setViewCookie('limit', limitParam);
-  } else if (limitCookie === 0) {
-    // If no limit param was sent and the cookie limit value is 0, set the cookie limit to the default.
-    // I.e. only set to unlimited by the URL parameter.
+    // The 'limit' URL parameter overrides cookie and context versions
+    setViewCookie('limit', limitParam);
+  } else if (typeof limitCookie !== 'undefined' && parseInt(limitCookie) === 0) {
+    // The 'limit' is never allowed to be set to 0 (i.e. 'unlimited') by a cookie.
+    // This is so that if the user requests too many rows per page and hits a timeout, they don't get locked out.
     setViewCookie('limit', djangoLimitDefault);
   } else {
+    // Finally, if there's no URL param and no cookie, set the 'limit' from the context
     setViewCookie('limit', djangoLimit);
   }
   setViewCookie('page', djangoPageNumber);
 
-  let collapse = getViewCookie('collapsed', false);
-  if (collapse) setCollapse(collapse);
+  // TODO: Add collapsed and collapsedDefault as arguments and only call setCollapse if they differ
+  let collapse = getViewCookie('collapsed', true);
+  setCollapse(collapse);
 
   // Display any warnings received from the server
   displayWarnings(warnings);
@@ -152,7 +171,7 @@ function initBST(
  * @param {*} warningsArray Array of warning strings.
  */
 function displayWarnings(warningsArray) {
-  if (warningsArray.length > 0) {
+  if (typeof warningsArray !== 'undefined' && warningsArray.length > 0) {
     let warningText = "Please note the following warnings that occurred:\n\n";
     for (i=0; i < warningsArray.length; i++) {
       num = i + 1;
@@ -163,17 +182,17 @@ function displayWarnings(warningsArray) {
 }
 
 /**
- * Retrieves a list of column names.
+ * Retrieves a list of column names (obtained from the data-field attribute of every th element).
+ * Bootstrap table provides alternate methods of retrieving the fields, but they are not in order and are limited to
+ * only either the visible or hidden ones.
  * @returns Column names.
  */
 function getColumnNames() {
   let columnNames = [];
-  $(jqTableID).bootstrapTable('getVisibleColumns').map(function (col) {
-    columnNames.push(col.field)
-  });
-  $(jqTableID).bootstrapTable('getHiddenColumns').map(function (col) {
-    columnNames.push(col.field)
-  });
+  const headerCells = document.querySelectorAll(`${jqTableID} th`);
+  for (let i=0; i < headerCells.length; i++) {
+    columnNames.push(headerCells[i].dataset.field);
+  }
   return columnNames
 }
 
@@ -310,34 +329,34 @@ function parseBool (boolval, def) {
 }
 
 /**
- * Updates column visibility.
+ * Updates column visibility in the cookies.  Bootstrap table handles the actual visibility of the column, but setting
+ * the cookie here assures that the visibility is remembered for the next server (e.g. page) request.
  * @param {*} visible The visible state of the column.
- * @param {*} columnName The column name.
+ * @param {*} columnName Optional column name.  When not provided, every column's visibility is set to visible.
  * @returns Nothing.
  */
 function updateVisible(visible, columnName) {
   let columnNames = getColumnNames();
   if (typeof columnName !== "undefined" && columnName) {
     if (columnNames.includes(columnName)) {
-      columnNames = [columnName];
+      setViewColumnCookie(columnName, 'visible', visible);
     } else if (columnNames.length === 0) {
-      console.error(
-        "No data-field values could be found.  The table's th tags must have data-field attributes.  ",
-        "If they are defined, there must be a problem with the getColumnNames function."
-      );
+      console.error("No th data-field attributes found.");
       alert("Error: Unable to save your column visibility selection");
       return
     } else {
       console.error(
-        "updateVisible called with invalid data-field:", columnName, "The second argument must match a ",
-        "data-field value defined in the table's th tags.  Current data-fields:", columnNames
+        "Column '" + columnName.toString() + "' not found.  The second argument must match a th data-field attribute.  "
+        + "Current data-fields: [" + columnNames.toString() + ']'
       );
       alert("Error: Unable to save your column visibility selection");
       return
     }
-  }
-  for (let i=0; i < columnNames.length; i++) {
-    setViewColumnCookie(columnNames[i], 'visible', visible);
+  } else {
+    // When a columnName is not provided, set all columns' visibility
+    for (let i=0; i < columnNames.length; i++) {
+      setViewColumnCookie(columnNames[i], 'visible', visible);
+    }
   }
 }
 
