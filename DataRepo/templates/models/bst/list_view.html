@@ -11,9 +11,29 @@
     {{ warnings|json_script:"warnings" }}
     {{ cookie_resets|json_script:"cookie_resets" }}
 
-    {# The scripts #}
+    {# The script imports #}
     {% for script in scripts %}<script src="{{ script }}"></script>
     {% endfor %}
+
+    {# Script initialization #}
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            initBST(
+                '{{ limit }}',
+                '{{ limit_default }}',
+                '{{ table_id }}',
+                '{{ cookie_prefix }}',
+                '{{ page_obj.number }}',
+                '{{ page_obj.paginator.per_page }}',
+                '{{ total }}',
+                '{{ raw_total }}',
+                '{% url request.resolver_match.url_name %}',
+                warnings,
+                cookieResets,
+                '{{ clear_cookies }}',
+            )
+        });
+    </script>
 
     {# The table/page #}
 
@@ -63,4 +83,5 @@
             </tbody>
         </table>
     </div>
+    {% include 'somethinggoeshere' %}
 {% endblock %}

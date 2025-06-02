@@ -204,4 +204,24 @@ QUnit.test('customButtonsFunction', function (assert) {
   assert.true(buttonsObj.btnCollapse.attributes.title.includes('line-wrap'))
 })
 
+// Initialization tests
+
+// Override the alert function so that tests will work...
+// See: https://stackoverflow.com/a/41369753
+var alertBackup = window.alert;
+var alerts = [];
+window.alert = function(args) {
+  // Record the message args
+  message = ''
+  for (let i=0; i < arguments.length; i++){
+    message += arguments[i].toString()
+  }
+  globalThis.alerts.append(message)
+};
+
+
+
+// See: https://stackoverflow.com/a/41369753
+window.alert = alertBackup;
+
 /* eslint-enable no-undef */
