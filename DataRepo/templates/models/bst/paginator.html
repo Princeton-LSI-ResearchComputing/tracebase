@@ -1,0 +1,79 @@
+<!-- Model list view built-in Pagination -->
+<!-- Allow user to reduce the number of rows per page and see the number of results -->
+{% if total > 0 %}
+    <br>
+    <div style="float: left;">
+        <!-- Generate the "Showing N to M of T rows," message -->
+        {% if page_obj.number|intmultiply:page_obj.paginator.per_page > total %}
+            <!-- Different calculations for the last page -->
+            {% define total as last_row %}
+        {% else %}
+            {% define page_obj.number|intmultiply:page_obj.paginator.per_page as last_row %}
+        {% endif %}
+        Showing {{ page_obj.number|add:-1|intmultiply:page_obj.paginator.per_page|add:1 }} to {{ last_row }} of <span title="Unfiltered: {{ raw_total }}">{{ total }}</span> rows,
+
+        <!-- Generate the rows per page select list -->
+        {% define '5 10 15 20 25 50 100 200 500 1000 0' as per_page_opts_str %}
+        {% filter_page_size_list per_page_opts_str.split total page_obj.paginator.per_page as per_page_opts %}
+        {% if page_obj.paginator.per_page >= total %}
+            {% get_rows_per_page_select_list per_page_opts "paginate_by" 0 %}
+        {% else %}
+            {% get_rows_per_page_select_list per_page_opts "paginate_by" page_obj.paginator.per_page %}
+        {% endif %}
+        rows per page
+    </div>
+{% endif %}
+<!-- Actually paginate when there's more than 1 page of results -->
+{% if page_obj.has_other_pages %}
+    <div style="float: right;" class="btn-group" role="group">
+        {% with 3 as flank %}  <!-- flank = the number of pages to link to the left and right of the current page -->
+            <!-- Generate the "<"/previous button -->
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline-primary">&laquo;</a>
+            {% endif %}
+
+            <!-- Generate the "1" button if the current page is more than flank-size away and the left side ellipsis button if there are pages between 1 and the pages close to the current page -->
+            {% if 1 <= flank|multiply:-1|add:page_obj.number %}
+                <a href="?page=1&limit={{ limit }}" class="btn btn-outline-primary">
+                    1
+                </a>
+                {% if 1 <= flank|add:1|multiply:-1|add:page_obj.number %}
+                    <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                        &hellip;
+                    </button>
+                {% endif %}
+            {% endif %}
+
+            <!-- Generate pagination buttons for pages close to the current page.  This includes a "selected" button for the current page. -->
+            {% for page_number in page_obj.paginator.page_range %}
+                {% if page_obj.number == page_number %}
+                    <button class="btn btn-outline-primary active">
+                        <span>{{ page_number }} <span class="sr-only">(current)</span></span>
+                    </button>
+                {% elif page_number > flank|multiply:-1|add:page_obj.number and page_number < page_obj.number|add:flank %}
+                    <a href="?page={{ page_number }}&limit={{ limit }}" class="btn btn-outline-primary">
+                        {{ page_number }}
+                    </a>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Generate the right side ellipsis button if there are pages between the pages close to the current page and the last page, and a button for the last page if the current page is more than flank-size away -->
+            {% if page_obj.paginator.num_pages >= page_obj.number|add:flank %}
+                {% if page_obj.paginator.num_pages >= page_obj.number|add:flank|add:-1 %}
+                    <button class="btn btn-outline-primary" onclick="askForPage({{ page_obj.number }}, {{ page_obj.paginator.num_pages }})">
+                        &hellip;
+                    </button>
+                {% endif %}
+                <a href="?page={{ page_obj.paginator.num_pages }}&limit={{ limit }}" class="btn btn-outline-primary">
+                    {{ page_obj.paginator.num_pages }}
+                </a>
+            {% endif %}
+
+            <!-- Generate the ">"/next button -->
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&limit={{ limit }}" class="btn btn-outline-primary">&raquo;</a>
+            {% endif %}
+        {% endwith %}
+    </div>
+{% endif %}
+<br><br>
