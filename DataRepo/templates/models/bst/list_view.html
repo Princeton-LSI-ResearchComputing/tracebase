@@ -11,9 +11,36 @@
     {{ warnings|json_script:"warnings" }}
     {{ cookie_resets|json_script:"cookie_resets" }}
 
-    {# The scripts #}
+    {# The script imports #}
     {% for script in scripts %}<script src="{{ script }}"></script>
     {% endfor %}
+
+    {# Script initialization #}
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            initBST(
+                '{{ limit }}',
+                '{{ limit_default }}',
+                '{{ table_id }}',
+                '{{ cookie_prefix }}',
+                '{{ page_obj.number }}',
+                '{{ page_obj.paginator.per_page }}',
+                '{{ total }}',
+                '{{ raw_total }}',
+                window.location.href.split('?')[0],
+                {% comment %}
+                TODO: Fix this so that request.resolver_match.url_name can be used.
+                The following does not work in the BSTListView tests because it does not have a url, but the above works
+                - it is the javascript equivalent and the python test does not do anything with it.  To fix it, I need
+                to create a proper concrete view for BSTListView in the tests, with a url and everything.
+                {% endcomment %}
+                {% comment %} '{% url request.resolver_match.url_name %}', {% endcomment %}
+                warnings,
+                cookieResets,
+                '{{ clear_cookies }}',
+            )
+        });
+    </script>
 
     {# The table/page #}
 

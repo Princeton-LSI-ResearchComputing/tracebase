@@ -86,11 +86,22 @@ function getViewCookieNames () { // eslint-disable-line no-unused-vars
 }
 
 /**
- * Deletes all cookies of a view.
+ * Deletes all or supplied cookies of a view.
+ * @param {*} viewNames The names of cookies in a view (without the prefix - but must contain the column portion of a
+ * cookie name, as this method calls deleteViewCookie, not deleteViewColumnCookie).  But note that all view cookies
+ * (including column cookies are deleted if viewnames is not supplied or is empty).
  * @returns A list of the names of the deleted cookies.
  */
-function deleteViewCookies () { // eslint-disable-line no-unused-vars
-  const cookieNames = getViewCookieNames()
-  deleteCookies(cookieNames) // eslint-disable-line no-undef
+function deleteViewCookies (viewNames) { // eslint-disable-line no-unused-vars
+  let cookieNames = []
+  if (typeof viewNames !== 'undefined' && viewNames.length > 0) {
+    for (let i = 0; i < viewNames.length; i++) {
+      deleteViewCookie(viewNames[i])
+      cookieNames.push(globalThis.cookieViewPrefix + viewNames[i])
+    }
+  } else {
+    cookieNames = getViewCookieNames()
+    deleteCookies(cookieNames) // eslint-disable-line no-undef
+  }
   return cookieNames
 }

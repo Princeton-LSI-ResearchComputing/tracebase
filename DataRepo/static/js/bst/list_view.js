@@ -1,8 +1,200 @@
+const urlParams = new URLSearchParams(window.location.search)
+const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
+
 // The defaults only exist for unit testing purposes
+const djangoTableID = 'bstlistviewtable' // {{ table_id }} eslint-disable-line no-var
+const jqTableID = '#' + djangoTableID
+const djangoPageNumber = 1 // {{ page_obj.number }} eslint-disable-line no-var
 const djangoLimitDefault = 15 // {{ limit_default }} eslint-disable-line no-var
 const djangoLimit = djangoLimitDefault // {{ limit }} eslint-disable-line no-var
 const djangoPerPage = djangoLimitDefault // {{ page_obj.paginator.per_page }} eslint-disable-line no-var
-const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
+const djangoRawTotal = 0 // {{ raw_total }} eslint-disable-line no-var
+const djangoTotal = djangoRawTotal // {{ total }} eslint-disable-line no-var
+
+/**
+ * This function exists solely for testing purposes
+ */
+function initGlobalDefaults () { // eslint-disable-line no-unused-vars
+  globalThis.djangoCurrentURL = window.location.href.split('?')[0]
+  globalThis.djangoTableID = 'bstlistviewtable'
+  globalThis.jqTableID = '#' + djangoTableID
+  globalThis.djangoLimitDefault = 15
+  globalThis.djangoLimit = djangoLimitDefault
+  globalThis.djangoPerPage = djangoLimitDefault
+  globalThis.djangoPageNumber = 1
+  globalThis.djangoRawTotal = 0
+  globalThis.djangoTotal = djangoRawTotal
+}
+
+/**
+ * Initializes the bootstrap table functionality.
+ * @param {*} limit Number of rows per page when the page loaded.
+ * @param {*} limitDefault Default number of rows per page, prescribed by the view.
+ * @param {*} tableID ID of the table element that is a bootstrap table.
+ * @param {*} cookiePrefix Prefix of cookie names specific to the page.
+ * @param {*} pageNumber The current page number.
+ * @param {*} perPage Number of rows per page when the page loaded.  TODO: delete & replace with limit.
+ * @param {*} total The total number of results/rows given the current searc/filter.
+ * @param {*} rawTotal The total unfiltered number of results.
+ * @param {*} currentURL The current URL of the page.
+ * @param {*} warnings A list of warnings from django.
+ * @param {*} cookieResets A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
+ * @param {*} clearCookies A boolean represented as a string, e.g. 'false'.
+ */
+function initBST ( // eslint-disable-line no-unused-vars
+  limit,
+  limitDefault,
+  tableID,
+  cookiePrefix,
+  pageNumber,
+  perPage,
+  total,
+  rawTotal,
+  currentURL,
+  warnings,
+  cookieResets,
+  clearCookies
+) {
+  globalThis.djangoCurrentURL = currentURL
+  globalThis.djangoTableID = tableID
+  globalThis.jqTableID = '#' + tableID
+  globalThis.djangoLimitDefault = limitDefault
+  globalThis.djangoLimit = limit
+  globalThis.djangoPerPage = perPage
+  globalThis.djangoPageNumber = pageNumber
+  globalThis.djangoTotal = total
+  globalThis.djangoRawTotal = rawTotal
+
+  // Initialize the cookies (basically just the prefix)
+  initViewCookies(cookiePrefix) // eslint-disable-line no-undef
+  if (parseBool(clearCookies)) {
+    deleteViewCookies() // eslint-disable-line no-undef
+  } else if (typeof cookieResets !== 'undefined' && cookieResets && cookieResets.length > 0) {
+    deleteViewCookies(cookieResets) // eslint-disable-line no-undef
+  }
+
+  // Set cookies for the current page and limit that comes from the context and is sent via url params.
+  // Everything else is saved in cookies.
+  const limitParam = urlParams.get('limit')
+  const limitCookie = getViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
+  if (limitParam) {
+    // The 'limit' URL parameter overrides cookie and context versions
+    setViewCookie('limit', limitParam) // eslint-disable-line no-undef
+  } else if (typeof limitCookie !== 'undefined' && parseInt(limitCookie) === 0) {
+    // The 'limit' is never allowed to be set to 0 (i.e. 'unlimited') by a cookie.
+    // This is so that if the user requests too many rows per page and hits a timeout, they don't get locked out.
+    setViewCookie('limit', djangoLimitDefault) // eslint-disable-line no-undef
+  } else {
+    // Finally, if there's no URL param and no cookie, set the 'limit' from the context
+    setViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
+  }
+  setViewCookie('page', djangoPageNumber) // eslint-disable-line no-undef
+
+  // TODO: Add collapsed and collapsedDefault as arguments and only call setCollapse if they differ
+  const collapse = getViewCookie('collapsed', true) // eslint-disable-line no-undef
+  setCollapse(collapse)
+
+  // Display any warnings received from the server
+  displayWarnings(warnings)
+
+  // Set a variable to be able to forgo events from BST during init
+  let loading = true
+  $(jqTableID).bootstrapTable({ // eslint-disable-line no-undef
+    onSort: function (orderBy, orderDir) {
+      // Sort is just a click, and it appears that sort is not called for each column on load like onColumnSearch
+      // is, so we're not going to check 'loading' here.  I was encountering issues with the sort not happening.
+      setViewCookie('order-by', orderBy) // eslint-disable-line no-undef
+      setViewCookie('order-dir', orderDir) // eslint-disable-line no-undef
+      // BST sorting has 2 issues...
+      // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
+      // 2. BST sort completely fails when the number of rows is very large
+      // ...so we will always let the sort hit the server to be on the safe side.
+      console.log('Sorting by ' + orderBy + ', ' + orderDir)
+      updatePage(1)
+    },
+    onSearch: function (searchTerm) {
+      if (!loading) {
+        // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything
+        // changed before triggering a page update.
+        const oldTerm = getViewCookie('search') // eslint-disable-line no-undef
+        const oldTermDefined = typeof oldTerm === 'undefined' || !oldTerm
+        const newTermDefined = typeof searchTerm === 'undefined' || !searchTerm
+        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+          setViewCookie('search', searchTerm) // eslint-disable-line no-undef
+          // No need to hit the server if we're displaying all results. Just let BST do it.
+          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+            updatePage(1)
+          }
+        }
+      }
+    },
+    onColumnSearch: function (columnName, searchTerm) {
+      console.log('Filtering column ' + columnName + ' with term: ' + searchTerm)
+      if (!loading) {
+        // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything
+        // changed before triggering a page update.
+        const oldTerm = getViewColumnCookie(columnName, 'filter') // eslint-disable-line no-undef
+        const oldTermDefined = typeof oldTerm !== 'undefined' && oldTerm
+        const newTermDefined = typeof searchTerm !== 'undefined' && searchTerm
+        if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
+          setViewColumnCookie(columnName, 'filter', searchTerm) // eslint-disable-line no-undef
+          // No need to hit the server if we're displaying all results. Just let BST do it.
+          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+            updatePage(1)
+          }
+        }
+      }
+    },
+    onColumnSwitch: function (columnName, visible) {
+      updateVisible(visible, columnName)
+    },
+    onColumnSwitchAll: function (visible) {
+      updateVisible(visible)
+    },
+    onLoadError: function (status, jqXHR) {
+      console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
+    }
+  })
+  // Add click listeners on the rows-per-page-option select list items.
+  // See DataRepo.widgets.ListViewRowsPerPageSelectWidget.
+  const rowsPerPageOptionElems = document.getElementsByName('rows-per-page-option')
+  for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
+    rowsPerPageOptionElems[i].addEventListener('click', function (event) {
+      onRowsPerPageChange($(this).data('value')) // eslint-disable-line no-undef
+    })
+  }
+  setTimeout(function () { loading = false }, 2000)
+}
+
+/**
+ * Displays any warnings from django.
+ * @param {*} warningsArray Array of warning strings.
+ */
+function displayWarnings (warningsArray) {
+  if (typeof warningsArray !== 'undefined' && warningsArray.length > 0) {
+    let warningText = 'Please note the following warnings that occurred:\n\n'
+    for (let i = 0; i < warningsArray.length; i++) {
+      const num = i + 1
+      warningText += num + '. ' + warningsArray[i] + '\n'
+    }
+    alert(warningText) // eslint-disable-line no-undef
+  }
+}
+
+/**
+ * Retrieves a list of column names (obtained from the data-field attribute of every th element).
+ * Bootstrap table provides alternate methods of retrieving the fields, but they are not in order and are limited to
+ * only either the visible or hidden ones.
+ * @returns Column names.
+ */
+function getColumnNames () {
+  const columnNames = []
+  const headerCells = document.querySelectorAll(`${jqTableID} th`)
+  for (let i = 0; i < headerCells.length; i++) {
+    columnNames.push(headerCells[i].dataset.field)
+  }
+  return columnNames
+}
 
 // TODO: Add support for multiple tables on the same page.
 // See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1577
@@ -152,6 +344,36 @@ function parseBool (boolval, def) {
     }
   }
   return boolval
+}
+
+/**
+ * Updates column visibility in the cookies.  Bootstrap table handles the actual visibility of the column, but setting
+ * the cookie here assures that the visibility is remembered for the next server (e.g. page) request.
+ * @param {*} visible The visible state of the column.
+ * @param {*} columnName Optional column name.  When not provided, every column's visibility is set to visible.
+ * @returns Nothing.
+ */
+function updateVisible (visible, columnName) {
+  const columnNames = getColumnNames()
+  if (typeof columnName !== 'undefined' && columnName) {
+    if (columnNames.includes(columnName)) {
+      setViewColumnCookie(columnName, 'visible', visible) // eslint-disable-line no-undef
+    } else if (columnNames.length === 0) {
+      console.error('No th data-field attributes found.')
+      alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
+    } else {
+      console.error(
+        "Column '" + columnName.toString() + "' not found.  The second argument must match a th data-field attribute.  " +
+        'Current data-fields: [' + columnNames.toString() + ']'
+      )
+      alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
+    }
+  } else {
+    // When a columnName is not provided, set all columns' visibility
+    for (let i = 0; i < columnNames.length; i++) {
+      setViewColumnCookie(columnNames[i], 'visible', visible) // eslint-disable-line no-undef
+    }
+  }
 }
 
 /**
