@@ -112,7 +112,7 @@ class BSTColumnTests(TracebaseTestCase):
             BSTColumn("studies__name", model=BSTCAnimalTestModel)
         self.assertIn("must not be many-related", str(ar.exception))
         self.assertIn(
-            "use BSTAnnotColumn to create an annotation or BSTManyRelatedColumn",
+            "use BSTManyRelatedColumn to create a delimited-value column",
             str(ar.exception),
         )
 
@@ -185,6 +185,13 @@ class BSTColumnTests(TracebaseTestCase):
             "filterer must be a str or a BSTBaseFilterer, not a 'int'",
             str(ar.exception),
         )
+
+    def test_init_is_fk(self):
+        self.assertTrue(BSTColumn("animal", model=BSTCSampleTestModel).is_fk)
+        self.assertFalse(BSTColumn("name", model=BSTCSampleTestModel).is_fk)
+        # TODO: Put this test in the tests for BSTRelatedColumn
+        # self.assertTrue(BSTColumn("animal__studies", model=BSTCSampleTestModel).is_fk)
+        # self.assertFalse(BSTColumn("animal__studies__name", model=BSTCSampleTestModel).is_fk)
 
     def test_eq(self):
         # Test __eq__ works when other val is string
