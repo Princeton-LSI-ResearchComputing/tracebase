@@ -4,6 +4,9 @@ const djangoLimit = djangoLimitDefault // {{ limit }} eslint-disable-line no-var
 const djangoPerPage = djangoLimitDefault // {{ page_obj.paginator.per_page }} eslint-disable-line no-var
 const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
 
+// TODO: Add support for multiple tables on the same page.
+// See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1577
+
 /**
  * Requests a new page from the server based on the values passed in (or the cookies as defaults).
  * @param {*} page Page number.
@@ -132,8 +135,23 @@ function resetTableCookies () { // eslint-disable-line no-unused-vars
  * @returns The boolean equivalent of the parsed boolval (or the default if undefined).
  */
 function parseBool (boolval, def) {
-  def = typeof def === 'boolean' ? def : (typeof def === 'undefined' ? false : def.toLowerCase() === 'true')
-  return typeof boolval === 'boolean' ? boolval : (typeof boolval === 'undefined' || boolval === '' ? def : boolval.toLowerCase() === 'true')
+  if (typeof def !== 'boolean') {
+    if (typeof def === 'undefined') {
+      def = false
+    } else {
+      // The default default is false (e.g. an empty string would make this set false)
+      def = def.toLowerCase() === 'true'
+    }
+  }
+  if (typeof boolval !== 'boolean') {
+    // If the type is undefined or the string is empty (which is the value of an "undefined cookie"), set the default
+    if (typeof boolval === 'undefined' || boolval === '') {
+      boolval = def
+    } else {
+      boolval = boolval.toLowerCase() === 'true'
+    }
+  }
+  return boolval
 }
 
 /**
@@ -186,6 +204,8 @@ function setCollapseIcon (collapse) {
 
   // Get the collapse button icon
   const iconElem = document.querySelectorAll("button[name='btnCollapse'] > .bi")[0]
+  // TODO: The custom button name is not table-specific, which means this does not support multiple table toolbars on
+  // the same page.  See https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/1577
 
   // Replace the previous icon with the current one
   iconElem.classList.remove(removeIconName)
