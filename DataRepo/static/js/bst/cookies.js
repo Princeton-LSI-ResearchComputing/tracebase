@@ -93,7 +93,7 @@ function getViewCookieNames () { // eslint-disable-line no-unused-vars
  * @returns A list of the names of the deleted cookies.
  */
 function deleteViewCookies (viewNames) { // eslint-disable-line no-unused-vars
-  var cookieNames = []
+  let cookieNames = []
   if (typeof viewNames !== 'undefined' && viewNames.length > 0) {
     for (let i = 0; i < viewNames.length; i++) {
       deleteViewCookie(viewNames[i])

@@ -1,29 +1,29 @@
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = new URLSearchParams(window.location.search)
 const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
 
 // The defaults only exist for unit testing purposes
-var djangoTableID = 'bstlistviewtable' // {{ table_id }} eslint-disable-line no-var
-var jqTableID = '#' + djangoTableID
-var djangoPageNumber = 1 // {{ page_obj.number }} eslint-disable-line no-var
-var djangoLimitDefault = 15 // {{ limit_default }} eslint-disable-line no-var
-var djangoLimit = djangoLimitDefault // {{ limit }} eslint-disable-line no-var
-var djangoPerPage = djangoLimitDefault // {{ page_obj.paginator.per_page }} eslint-disable-line no-var
-var djangoRawTotal = 0 // {{ raw_total }} eslint-disable-line no-var
-var djangoTotal = djangoRawTotal // {{ total }} eslint-disable-line no-var
+const djangoTableID = 'bstlistviewtable' // {{ table_id }} eslint-disable-line no-var
+const jqTableID = '#' + djangoTableID
+const djangoPageNumber = 1 // {{ page_obj.number }} eslint-disable-line no-var
+const djangoLimitDefault = 15 // {{ limit_default }} eslint-disable-line no-var
+const djangoLimit = djangoLimitDefault // {{ limit }} eslint-disable-line no-var
+const djangoPerPage = djangoLimitDefault // {{ page_obj.paginator.per_page }} eslint-disable-line no-var
+const djangoRawTotal = 0 // {{ raw_total }} eslint-disable-line no-var
+const djangoTotal = djangoRawTotal // {{ total }} eslint-disable-line no-var
 
 /**
  * This function exists solely for testing purposes
  */
-function initGlobalDefaults() {
-  globalThis.djangoCurrentURL = window.location.href.split('?')[0];
-  globalThis.djangoTableID = 'bstlistviewtable';
-  globalThis.jqTableID =  '#' + djangoTableID;
-  globalThis.djangoLimitDefault = 15;
-  globalThis.djangoLimit = djangoLimitDefault;
-  globalThis.djangoPerPage = djangoLimitDefault;
-  globalThis.djangoPageNumber = 1;
-  globalThis.djangoRawTotal = 0;
-  globalThis.djangoTotal = djangoRawTotal;
+function initGlobalDefaults () { // eslint-disable-line no-unused-vars
+  globalThis.djangoCurrentURL = window.location.href.split('?')[0]
+  globalThis.djangoTableID = 'bstlistviewtable'
+  globalThis.jqTableID = '#' + djangoTableID
+  globalThis.djangoLimitDefault = 15
+  globalThis.djangoLimit = djangoLimitDefault
+  globalThis.djangoPerPage = djangoLimitDefault
+  globalThis.djangoPageNumber = 1
+  globalThis.djangoRawTotal = 0
+  globalThis.djangoTotal = djangoRawTotal
 }
 
 /**
@@ -41,7 +41,7 @@ function initGlobalDefaults() {
  * @param {*} cookieResets A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
  * @param {*} clearCookies A boolean represented as a string, e.g. 'false'.
  */
-function initBST(
+function initBST ( // eslint-disable-line no-unused-vars
   limit,
   limitDefault,
   tableID,
@@ -53,131 +53,131 @@ function initBST(
   currentURL,
   warnings,
   cookieResets,
-  clearCookies,
-){
-  globalThis.djangoCurrentURL = currentURL;
-  globalThis.djangoTableID = tableID;
-  globalThis.jqTableID = '#' + tableID;
-  globalThis.djangoLimitDefault = limitDefault;
-  globalThis.djangoLimit = limit;
-  globalThis.djangoPerPage = perPage;
-  globalThis.djangoPageNumber = pageNumber;
-  globalThis.djangoTotal = total;
-  globalThis.djangoRawTotal = rawTotal;
+  clearCookies
+) {
+  globalThis.djangoCurrentURL = currentURL
+  globalThis.djangoTableID = tableID
+  globalThis.jqTableID = '#' + tableID
+  globalThis.djangoLimitDefault = limitDefault
+  globalThis.djangoLimit = limit
+  globalThis.djangoPerPage = perPage
+  globalThis.djangoPageNumber = pageNumber
+  globalThis.djangoTotal = total
+  globalThis.djangoRawTotal = rawTotal
 
   // Initialize the cookies (basically just the prefix)
-  initViewCookies(cookiePrefix)
+  initViewCookies(cookiePrefix) // eslint-disable-line no-undef
   if (parseBool(clearCookies)) {
-    deleteViewCookies();
-  } else if (typeof cookieResets !== "undefined" && cookieResets && cookieResets.length > 0) {
-    deleteViewCookies(cookieResets);
+    deleteViewCookies() // eslint-disable-line no-undef
+  } else if (typeof cookieResets !== 'undefined' && cookieResets && cookieResets.length > 0) {
+    deleteViewCookies(cookieResets) // eslint-disable-line no-undef
   }
 
   // Set cookies for the current page and limit that comes from the context and is sent via url params.
   // Everything else is saved in cookies.
-  const limitParam = urlParams.get('limit');
-  const limitCookie = getViewCookie('limit', djangoLimit);
+  const limitParam = urlParams.get('limit')
+  const limitCookie = getViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
   if (limitParam) {
     // The 'limit' URL parameter overrides cookie and context versions
-    setViewCookie('limit', limitParam);
+    setViewCookie('limit', limitParam) // eslint-disable-line no-undef
   } else if (typeof limitCookie !== 'undefined' && parseInt(limitCookie) === 0) {
     // The 'limit' is never allowed to be set to 0 (i.e. 'unlimited') by a cookie.
     // This is so that if the user requests too many rows per page and hits a timeout, they don't get locked out.
-    setViewCookie('limit', djangoLimitDefault);
+    setViewCookie('limit', djangoLimitDefault) // eslint-disable-line no-undef
   } else {
     // Finally, if there's no URL param and no cookie, set the 'limit' from the context
-    setViewCookie('limit', djangoLimit);
+    setViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
   }
-  setViewCookie('page', djangoPageNumber);
+  setViewCookie('page', djangoPageNumber) // eslint-disable-line no-undef
 
   // TODO: Add collapsed and collapsedDefault as arguments and only call setCollapse if they differ
-  let collapse = getViewCookie('collapsed', true);
-  setCollapse(collapse);
+  const collapse = getViewCookie('collapsed', true) // eslint-disable-line no-undef
+  setCollapse(collapse)
 
   // Display any warnings received from the server
-  displayWarnings(warnings);
+  displayWarnings(warnings)
 
   // Set a variable to be able to forgo events from BST during init
-  var loading = true;
-  $(jqTableID).bootstrapTable({
+  let loading = true
+  $(jqTableID).bootstrapTable({ // eslint-disable-line no-undef
     onSort: function (orderBy, orderDir) {
       // Sort is just a click, and it appears that sort is not called for each column on load like onColumnSearch
       // is, so we're not going to check 'loading' here.  I was encountering issues with the sort not happening.
-      setViewCookie('order-by', orderBy);
-      setViewCookie('order-dir', orderDir);
+      setViewCookie('order-by', orderBy) // eslint-disable-line no-undef
+      setViewCookie('order-dir', orderDir) // eslint-disable-line no-undef
       // BST sorting has 2 issues...
       // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
       // 2. BST sort completely fails when the number of rows is very large
       // ...so we will always let the sort hit the server to be on the safe side.
-      console.log("Sorting by " + orderBy + ", " + orderDir)
-      updatePage(1);
+      console.log('Sorting by ' + orderBy + ', ' + orderDir)
+      updatePage(1)
     },
     onSearch: function (searchTerm) {
       if (!loading) {
         // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything
         // changed before triggering a page update.
-        let oldTerm = getViewCookie('search');
-        let oldTermDefined = typeof oldTerm === "undefined" || !oldTerm;
-        let newTermDefined = typeof searchTerm === "undefined" || !searchTerm;
+        const oldTerm = getViewCookie('search') // eslint-disable-line no-undef
+        const oldTermDefined = typeof oldTerm === 'undefined' || !oldTerm
+        const newTermDefined = typeof searchTerm === 'undefined' || !searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          setViewCookie('search', searchTerm);
+          setViewCookie('search', searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
-          if (djangoLimit > 0 && djangoLimit < djangoTotal || djangoTotal < djangoRawTotal) {
-            updatePage(1);
+          if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
+            updatePage(1)
           }
         }
       }
     },
     onColumnSearch: function (columnName, searchTerm) {
-      console.log("Filtering column " + columnName + " with term: " + searchTerm)
+      console.log('Filtering column ' + columnName + ' with term: ' + searchTerm)
       if (!loading) {
         // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything
         // changed before triggering a page update.
-        let oldTerm = getViewColumnCookie(columnName, 'filter');
-        let oldTermDefined = typeof oldTerm !== "undefined" && oldTerm;
-        let newTermDefined = typeof searchTerm !== "undefined" && searchTerm;
+        const oldTerm = getViewColumnCookie(columnName, 'filter') // eslint-disable-line no-undef
+        const oldTermDefined = typeof oldTerm !== 'undefined' && oldTerm
+        const newTermDefined = typeof searchTerm !== 'undefined' && searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          setViewColumnCookie(columnName, 'filter', searchTerm);
+          setViewColumnCookie(columnName, 'filter', searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
           if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
-            updatePage(1);
+            updatePage(1)
           }
         }
       }
     },
     onColumnSwitch: function (columnName, visible) {
-      updateVisible(visible, columnName);
+      updateVisible(visible, columnName)
     },
     onColumnSwitchAll: function (visible) {
-      updateVisible(visible);
+      updateVisible(visible)
     },
     onLoadError: function (status, jqXHR) {
-      console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR);
-    },
-  });
+      console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
+    }
+  })
   // Add click listeners on the rows-per-page-option select list items.
   // See DataRepo.widgets.ListViewRowsPerPageSelectWidget.
-  let rowsPerPageOptionElems = document.getElementsByName("rows-per-page-option");
+  const rowsPerPageOptionElems = document.getElementsByName('rows-per-page-option')
   for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
-    rowsPerPageOptionElems[i].addEventListener("click", function (event) {
-      onRowsPerPageChange($(this).data("value"));
+    rowsPerPageOptionElems[i].addEventListener('click', function (event) {
+      onRowsPerPageChange($(this).data('value')) // eslint-disable-line no-undef
     })
   }
-  setTimeout(function () {loading = false}, 2000);
+  setTimeout(function () { loading = false }, 2000)
 }
 
 /**
  * Displays any warnings from django.
  * @param {*} warningsArray Array of warning strings.
  */
-function displayWarnings(warningsArray) {
+function displayWarnings (warningsArray) {
   if (typeof warningsArray !== 'undefined' && warningsArray.length > 0) {
-    let warningText = "Please note the following warnings that occurred:\n\n";
-    for (i=0; i < warningsArray.length; i++) {
-      num = i + 1;
-      warningText += num + ". " + warningsArray[i] + "\n"
+    let warningText = 'Please note the following warnings that occurred:\n\n'
+    for (let i = 0; i < warningsArray.length; i++) {
+      const num = i + 1
+      warningText += num + '. ' + warningsArray[i] + '\n'
     }
-    alert(warningText);
+    alert(warningText) // eslint-disable-line no-undef
   }
 }
 
@@ -187,11 +187,11 @@ function displayWarnings(warningsArray) {
  * only either the visible or hidden ones.
  * @returns Column names.
  */
-function getColumnNames() {
-  let columnNames = [];
-  const headerCells = document.querySelectorAll(`${jqTableID} th`);
-  for (let i=0; i < headerCells.length; i++) {
-    columnNames.push(headerCells[i].dataset.field);
+function getColumnNames () {
+  const columnNames = []
+  const headerCells = document.querySelectorAll(`${jqTableID} th`)
+  for (let i = 0; i < headerCells.length; i++) {
+    columnNames.push(headerCells[i].dataset.field)
   }
   return columnNames
 }
@@ -335,27 +335,25 @@ function parseBool (boolval, def) {
  * @param {*} columnName Optional column name.  When not provided, every column's visibility is set to visible.
  * @returns Nothing.
  */
-function updateVisible(visible, columnName) {
-  let columnNames = getColumnNames();
-  if (typeof columnName !== "undefined" && columnName) {
+function updateVisible (visible, columnName) {
+  const columnNames = getColumnNames()
+  if (typeof columnName !== 'undefined' && columnName) {
     if (columnNames.includes(columnName)) {
-      setViewColumnCookie(columnName, 'visible', visible);
+      setViewColumnCookie(columnName, 'visible', visible) // eslint-disable-line no-undef
     } else if (columnNames.length === 0) {
-      console.error("No th data-field attributes found.");
-      alert("Error: Unable to save your column visibility selection");
-      return
+      console.error('No th data-field attributes found.')
+      alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
     } else {
       console.error(
-        "Column '" + columnName.toString() + "' not found.  The second argument must match a th data-field attribute.  "
-        + "Current data-fields: [" + columnNames.toString() + ']'
-      );
-      alert("Error: Unable to save your column visibility selection");
-      return
+        "Column '" + columnName.toString() + "' not found.  The second argument must match a th data-field attribute.  " +
+        'Current data-fields: [' + columnNames.toString() + ']'
+      )
+      alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
     }
   } else {
     // When a columnName is not provided, set all columns' visibility
-    for (let i=0; i < columnNames.length; i++) {
-      setViewColumnCookie(columnNames[i], 'visible', visible);
+    for (let i = 0; i < columnNames.length; i++) {
+      setViewColumnCookie(columnNames[i], 'visible', visible) // eslint-disable-line no-undef
     }
   }
 }

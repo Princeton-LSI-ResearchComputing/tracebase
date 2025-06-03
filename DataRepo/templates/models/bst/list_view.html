@@ -27,7 +27,14 @@
                 '{{ page_obj.paginator.per_page }}',
                 '{{ total }}',
                 '{{ raw_total }}',
-                '{% url request.resolver_match.url_name %}',
+                window.location.href.split('?')[0],
+                {% comment %}
+                TODO: Fix this so that request.resolver_match.url_name can be used.
+                The following does not work in the BSTListView tests because it does not have a url, but the above works
+                - it is the javascript equivalent and the python test does not do anything with it.  To fix it, I need
+                to create a proper concrete view for BSTListView in the tests, with a url and everything.
+                {% endcomment %}
+                {% comment %} '{% url request.resolver_match.url_name %}', {% endcomment %}
                 warnings,
                 cookieResets,
                 '{{ clear_cookies }}',
@@ -83,5 +90,4 @@
             </tbody>
         </table>
     </div>
-    {% include 'somethinggoeshere' %}
 {% endblock %}
