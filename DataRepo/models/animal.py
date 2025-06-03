@@ -1,9 +1,20 @@
 import warnings
 from datetime import timedelta
+from typing import List
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db.models import (
+    RESTRICT,
+    SET_NULL,
+    AutoField,
+    CharField,
+    Count,
+    DurationField,
+    FloatField,
+    ForeignKey,
+    ManyToManyField,
+)
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
@@ -25,16 +36,16 @@ class Animal(MaintainedModel, HierCachedModel):
     detail_name = "animal_detail"
 
     # Instance / model fields
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(
+    id = AutoField(primary_key=True)
+    name = CharField(
         max_length=256,
         unique=True,
         null=False,
         help_text="A unique name or lab identifier of the source animal for a series of studied samples.",
     )
-    infusate = models.ForeignKey(
+    infusate = ForeignKey(
         to="DataRepo.Infusate",
-        on_delete=models.RESTRICT,
+        on_delete=RESTRICT,
         null=True,
         blank=True,
         related_name="animals",
@@ -43,7 +54,7 @@ class Animal(MaintainedModel, HierCachedModel):
             "concentrations."
         ),
     )
-    infusion_rate = models.FloatField(
+    infusion_rate = FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
@@ -53,36 +64,36 @@ class Animal(MaintainedModel, HierCachedModel):
         ),
         verbose_name="Infusion Rate (ul/min/g)",
     )
-    genotype = models.CharField(
+    genotype = CharField(
         max_length=256, help_text="The laboratory standardized genotype of the animal."
     )
-    body_weight = models.FloatField(
+    body_weight = FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
         help_text="The weight (in grams) of the animal at the time of sample collection.",
         verbose_name="Weight (g)",
     )
-    age = models.DurationField(
+    age = DurationField(
         null=True,
         blank=True,
         validators=[MinValueValidator(timedelta(seconds=0))],
         help_text="The age of the animal at the time of sample collection.",
     )
-    sex = models.CharField(
+    sex = CharField(
         max_length=1,
         null=True,
         blank=True,
         choices=SEX_CHOICES,
         help_text='The sex of the animal ("male" or "female").',
     )
-    diet = models.CharField(
+    diet = CharField(
         max_length=256,
         null=True,
         blank=True,
         help_text='The feeding descriptor for the animal [e.g. "LabDiet Rodent 5001"].',
     )
-    feeding_status = models.CharField(
+    feeding_status = CharField(
         max_length=256,
         null=True,
         blank=True,
@@ -91,30 +102,30 @@ class Animal(MaintainedModel, HierCachedModel):
             "'fasted')."
         ),
     )
-    studies = models.ManyToManyField(
+    studies = ManyToManyField(
         to="DataRepo.Study",
         related_name="animals",
         help_text="The experimental study(ies) the the animal is associated with.",
     )
-    treatment = models.ForeignKey(
+    treatment = ForeignKey(
         to="DataRepo.Protocol",
-        on_delete=models.RESTRICT,
+        on_delete=RESTRICT,
         null=True,
         blank=True,
         related_name="animals",
         limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
-    last_serum_sample = models.ForeignKey(
+    last_serum_sample = ForeignKey(
         to="DataRepo.Sample",
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=SET_NULL,
         db_column="last_serum_sample_id",  # Necessary because of Sample's link to Animal
         related_name="animals",
         help_text="Automatically maintained field.  Shortcut to the last serum sample.",
     )
-    label_combo = models.CharField(
+    label_combo = CharField(
         max_length=32,  # Max of 8, 2-letter element combos in 2 tracers
         null=True,
         editable=False,
@@ -148,7 +159,7 @@ class Animal(MaintainedModel, HierCachedModel):
         # Create an is_null field for time_collected to be able to sort them
         (extra_args, is_null_field) = create_is_null_field("time_collected")
         last_serum_sample = (
-            self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+            self.samples.filter(Tissue.serum_q_expression("tissue__name"))
             .extra(**extra_args)
             .order_by(f"-{is_null_field}", "time_collected")
             .last()
@@ -194,9 +205,7 @@ class Animal(MaintainedModel, HierCachedModel):
                     msrun_sample__sample__animal__id__exact=self.id
                 )
                 .filter(compounds__id__exact=tracer.compound.id)
-                .filter(
-                    msrun_sample__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
-                )
+                .filter(Tissue.serum_q_expression("msrun_sample__sample__tissue__name"))
                 .extra(**tc_extra_args)
                 .order_by(
                     f"-{tc_is_null_field}",
@@ -285,3 +294,48 @@ class Animal(MaintainedModel, HierCachedModel):
         from django.urls import reverse
 
         return reverse(self.detail_name, kwargs={"pk": self.pk})
+
+    @classmethod
+    def get_animals_without_samples(cls, animal_names: List[str]):
+        """Take a list of animal names and return a list of those that have no sample records.
+
+        Limitations:
+            1. This will not return animals that do not exist, nor raise an exception that they do not exist.
+            2. This does not check if the animal names are accurate.
+        Args:
+            animal_names (List[str]): A list of exact correct animal names in the database.
+        Exceptions:
+            None
+        Returns:
+            (List[str]): A list of animal names that have no sample records linked to them.
+        """
+        return list(
+            Animal.objects.filter(
+                name__in=animal_names, samples__isnull=True
+            ).values_list("name", flat=True)
+        )
+
+    @classmethod
+    def get_animals_without_serum_samples(cls, animal_names: List[str]):
+        """Take a list of animal names and return a list of those (with infusates) that have no serum sample records.
+
+        Limitations:
+            1. This will not return animals that do not exist, nor raise an exception that they do not exist.
+            2. This does not check if the animal names are accurate.
+        Args:
+            animal_names (List[str]): A list of exact correct animal names in the database.
+        Exceptions:
+            None
+        Returns:
+            (List[str]): A list of animal names that have no serum sample records linked to them.
+        """
+        return list(
+            Animal.objects.annotate(
+                num_serum_samples=Count(
+                    "samples",
+                    filter=Tissue.serum_q_expression("samples__tissue__name"),
+                )
+            )
+            .filter(name__in=animal_names, infusate__isnull=False, num_serum_samples=0)
+            .values_list("name", flat=True)
+        )
