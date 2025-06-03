@@ -15,17 +15,13 @@ from DataRepo.views.models.bst.column.many_related_field import (
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
 
-class ValueTemplateTests(BaseTemplateTests):
+class TdTemplateTests(BaseTemplateTests):
     """Test that BST value template renders correctly."""
 
-    value_template = "models/bst/value.html"
-    value_list_template = "models/bst/value_list.html"
+    td_template = "models/bst/td.html"
 
-    def render_value_template(self, context):
-        return render_to_string(self.value_template, context)
-
-    def render_value_list_template(self, context):
-        return render_to_string(self.value_list_template, context)
+    def render_td_template(self, context):
+        return render_to_string(self.td_template, context)
 
     def test_bst_annot_column(self):
         lowtreatcol = BSTAnnotColumn(
@@ -38,8 +34,9 @@ class ValueTemplateTests(BaseTemplateTests):
             "object": rec,
         }
         # Ignoring leading/trailing whitespace characters from the template code...
-        html = self.render_value_template(context).strip()
-        self.assertEqual("t1", html)
+        html = self.render_td_template(context).strip()
+        self.assertIn('<td class="table-cell">', html)
+        self.assertIn("t1", html)
 
     def test_bst_column_field(self):
         namecol = BSTColumn("name", BTTAnimalTestModel)
@@ -49,8 +46,9 @@ class ValueTemplateTests(BaseTemplateTests):
             "object": rec,
         }
         # Ignoring leading/trailing whitespace characters from the template code...
-        html = self.render_value_template(context).strip()
-        self.assertEqual("A1", html)
+        html = self.render_td_template(context).strip()
+        self.assertIn('<td class="table-cell">', html)
+        self.assertIn("A1", html)
 
     def test_bst_column_object(self):
         namecol = BSTColumn("treatment", BTTAnimalTestModel)
@@ -60,8 +58,9 @@ class ValueTemplateTests(BaseTemplateTests):
             "object": rec,
         }
         # Ignoring leading/trailing whitespace characters from the template code...
-        html = self.render_value_template(context).strip()
-        self.assertEqual('<a href="thisisaurl">T1</a>', html)
+        html = self.render_td_template(context).strip()
+        self.assertIn('<a href="thisisaurl">T1</a>', html)
+        self.assertIn('<td class="table-cell">', html)
 
     def test_bst_related_column_field(self):
         treatdesccol = BSTRelatedColumn("treatment__desc", BTTAnimalTestModel)
@@ -71,8 +70,9 @@ class ValueTemplateTests(BaseTemplateTests):
             "object": rec,
         }
         # Ignoring leading/trailing whitespace characters from the template code...
-        html = self.render_value_template(context).strip()
-        self.assertEqual("t1", html)
+        html = self.render_td_template(context).strip()
+        self.assertIn('<td class="table-cell">', html)
+        self.assertIn("t1", html)
 
     def test_bst_related_column_object(self):
         treatcol = BSTRelatedColumn("treatment", BTTAnimalTestModel)
@@ -82,8 +82,9 @@ class ValueTemplateTests(BaseTemplateTests):
             "object": rec,
         }
         # Ignoring leading/trailing whitespace characters from the template code...
-        html = self.render_value_template(context).strip()
-        self.assertEqual('<a href="thisisaurl">T1</a>', html)
+        html = self.render_td_template(context).strip()
+        self.assertIn('<td class="table-cell">', html)
+        self.assertIn('<a href="thisisaurl">T1</a>', html)
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_field(self):
@@ -94,16 +95,15 @@ class ValueTemplateTests(BaseTemplateTests):
             "column": studydesccol,
             "object": rec,
         }
+        self.assertEqual("models/bst/value_list.html", studydesccol.value_template)
         # Ignoring whitespace from the template code...
         html = (
-            self.render_value_list_template(context)
-            .strip()
-            .replace("\n", "")
-            .replace("  ", "")
+            self.render_td_template(context).strip().replace("\n", "").replace("  ", "")
         )
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
-        self.assertEqual('s2; <br class="cell-wrap">s1', html)
+        self.assertIn('<td class="table-cell">', html)
+        self.assertIn('s2; <br class="cell-wrap">s1', html)
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_object(self):
@@ -114,13 +114,14 @@ class ValueTemplateTests(BaseTemplateTests):
             "column": studycol,
             "object": rec,
         }
+        self.assertEqual("models/bst/value_list.html", studycol.value_template)
         # Ignoring whitespace from the template code...
         html = (
-            self.render_value_list_template(context)
-            .strip()
-            .replace("\n", "")
-            .replace("  ", "")
+            self.render_td_template(context).strip().replace("\n", "").replace("  ", "")
         )
+        # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
+        # In BSTListView, applying the column's ordering happens via the get_user_queryset.
+        self.assertIn('<td class="table-cell">', html)
         # This avoids matching the primary key, which is not durable from test to test
         self.assertIn("BTTStudyTestModel object (", html)
         self.assertIn('); <br class="cell-wrap">BTTStudyTestModel object (', html)

@@ -371,7 +371,7 @@ class BSTListView(BSTBaseListView):
         # Add individual filters, if any are defined
         for colname, filter_term in self.filter_terms.items():
             if colname in self.columns.keys():
-                q_exp &= self.columns[colname].filterer.filter(filter_term)
+                q_exp &= self.columns[colname].filterer.create_q_exp(filter_term)
             else:
                 msg = f"Column '{colname}' filter '{filter_term}' failed.  Column not found.  Resetting filter cookie."
                 self.warnings.append(msg)
@@ -406,7 +406,7 @@ class BSTListView(BSTBaseListView):
         for column in self.columns.values():
             if column.searchable:
                 # TODO: Consider making it possible to use icontains when the input method is select (for search field)
-                q_exp |= column.filterer.filter(self.search_term)
+                q_exp |= column.filterer.create_q_exp(self.search_term)
 
         return q_exp
 

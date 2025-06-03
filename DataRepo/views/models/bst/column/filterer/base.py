@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Dict, List, NamedTuple, Optional, Union
@@ -7,8 +8,6 @@ from warnings import warn
 
 from django.conf import settings
 from django.db.models import Q
-from django.templatetags.static import static
-from django.utils.safestring import mark_safe
 
 from DataRepo.utils.exceptions import DeveloperWarning
 
@@ -170,12 +169,16 @@ class BSTBaseFilterer(ABC):
         client_filterer: Optional[str] = None,
         _server_filterer: Optional[Union[ServerLookup, str]] = None,
         initial: Optional[str] = None,
-        client_mode: bool = False,
     ):
         """Constructor.
 
         Args:
-            name (str): A model field path or annotation field name, which is basically the same as BSTBaseColumn.name.
+            name (str): A model field path or annotation field name, which is usually the same as BSTBaseColumn.name,
+                however can be different, if the field on which filtering is based is different from BSTBaseColumn.name.
+                For example, if the column is for a foreign key, what the user sees is not the integer value of the key,
+                but some representative field as defined in the related model's __str__ method.  That value is
+                explicitly set in BSTRelatedColumn in the `display_field`, and in that case, that is what should be
+                supplied to this argument.
             input_method (Optional[str]) [auto]: The string to set the Bootstrap Table data-filter-control attribute.
                 The default is "select" if choices is not None.  Otherwise it is "input".
                 TODO: "datepicker" is not yet supported.
@@ -190,7 +193,6 @@ class BSTBaseFilterer(ABC):
                 "select".
                 NOTE: Supplying this value will automatically set the input_method to "select".
                 TODO: choices could be used for auto-complete in the text input method.
-            client_mode (bool): Set to True if the page queryset is the same size as the total unfiltered queryset.
             initial (Optional[str]): Initial filter search term.
         Exceptions:
             ValueError when an argument is invalid.
@@ -202,7 +204,6 @@ class BSTBaseFilterer(ABC):
         self.name = name
         self.input_method = input_method
         self.client_filterer = client_filterer
-        self.client_mode = client_mode
         self.initial = initial
         self.choices: Optional[Dict[str, str]]
         self._server_filterer: ServerLookup
@@ -268,7 +269,9 @@ class BSTBaseFilterer(ABC):
 
     @property
     def filterer(self):
-        return self.client_filterer if self.client_mode else self.CLIENT_FILTERERS.NONE
+        # TODO: Implement the client-mode concept just in javascript, then this method can go away.  See #1561
+        # return self.client_filterer if self.client_mode else self.CLIENT_FILTERERS.NONE
+        return self.CLIENT_FILTERERS.NONE
 
     @classmethod
     def _process_server_filterer(
@@ -420,21 +423,27 @@ class BSTBaseFilterer(ABC):
         else:
             self._server_filterer = _server_filterer
 
-    def filter(self, term: str) -> Q:
-        """Returns a Q expression that can be supplied to a Django filter() call."""
+    def create_q_exp(self, term: str) -> Q:
+        """Returns a Q expression that can be supplied to a Django filter() call.
+
+        Args:
+            term (str): The term supplied by the user via the self.input_method.
+        Exceptions:
+            None
+        Returns:
+            (Q): A Q expression using the server filterer lookup expression.
+        """
         # NOTE: self._server_filterer is guaranteed to be not None, even though we don't know the field type.
         # The DB (or Django?) does a conversion.  It clearly works for numeric fields and date fields, so what
         # BSTAnnotSorter does (without knowing the field type), is it infers whether to use icontains or iexact based on
         # the input method.
         return Q(**{f"{self.name}__{self._server_filterer.lookup}": term})
 
-    def set_client_mode(self, enabled: bool = True):
-        self.client_mode = enabled
-
-    def set_server_mode(self, enabled: bool = True):
-        self.client_mode = not enabled
-
     @property
-    def script(self) -> str:
-        """Returns an HTML script tag whose source points to self.script_name."""
-        return mark_safe(f"<script src='{static(self.script_name)}'></script>")
+    def choices_json(self):
+        """Returns the json to supply to Bootstrap Table's data-filter-data attribute (which must be preceded by
+        "json:").  See: https://bootstrap-table.com/docs/extensions/filter-control/#filterdata
+        """
+        if settings.DEBUG:
+            warn("choices_json called when choices is None")
+        return "" if self.choices is None else json.dumps(self.choices)
