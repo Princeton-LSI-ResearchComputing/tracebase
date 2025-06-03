@@ -34,9 +34,8 @@ class BSTAnnotColumn(BSTBaseColumn):
     You can make the searching and sorting behavior consistent by supplying a function using the converter argument in
     the constructor, like this:
 
-        BSTColumn(
+        BSTAnnotColumn(
             "imported_timestamp_str",
-            field="imported_timestamp",
             converter=Func(
                 F("imported_timestamp"),
                 Value("YYYY-MM-DD HH:MI a.m."),
@@ -44,6 +43,8 @@ class BSTAnnotColumn(BSTBaseColumn):
                 function="to_char",
             ),
         )
+
+    See the BSTBaseColumn docstring for examples on how to customize filtering and sorting behavior.
 
     The BSTSorter and BSTFilterer provided by the base class will use the annotation field for their operations.
     """

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import List, Optional, Union
 from warnings import warn
 
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -21,6 +21,30 @@ class BSTBaseColumn(ABC):
         BSTAnnotColumn (for an annotation attached to the root Model object)
         BSTColumnGroup (used to control the sort of delimited values in multiple BSTManyRelatedColumns from the same
             related model)
+
+    Examples:
+
+        1. Customizing filtering behavior using built-in client filterers:
+
+            BSTBaseColumn(
+                "field_name",  # An annotation name or field path
+                filterer=BSTBaseFilterer.CLIENT_FILTERERS.CONTAINS,  # See BSTBaseFilterer.CLIENT_FILTERERS
+            )
+
+        2. Customizing filtering behavior using a BSTBaseFilterer object:
+
+            BSTBaseColumn(
+                "field_name",  # An annotation name or field path
+                filterer=BSTBaseFilterer(
+                    # The first arg is usually the same as the column's field_name, but can differ.  It is essentially
+                    # the resulting column object's display_field.
+                    "filter_field_name",
+                    input_method=,
+                    choices=,
+                    client_filterer=,
+                    initial=,
+                ),
+            )
     """
 
     is_annotation: bool = False
@@ -31,6 +55,11 @@ class BSTBaseColumn(ABC):
 
     is_many_related: bool = False
     # See: BSTManyRelatedColumn (For rendering a many-related foreign key using the related object)
+
+    # Default templates
+    th_template: str = "models/bst/th.html"
+    td_template: str = "models/bst/td.html"
+    value_template: str = "models/bst/value.html"
 
     def __init__(
         self,
@@ -43,9 +72,9 @@ class BSTBaseColumn(ABC):
         linked: bool = False,
         sorter: Optional[Union[str, BSTBaseSorter]] = None,
         filterer: Optional[Union[str, BSTBaseFilterer]] = None,
-        th_template: str = "models/bst/th.html",
-        td_template: str = "models/bst/bst_td.html",
-        value_template: str = "models/bst/bst_value.html",
+        th_template: Optional[str] = None,
+        td_template: Optional[str] = None,
+        value_template: Optional[str] = None,
     ):
         """Defines options used to customize bootstrap table columns.
 
@@ -96,13 +125,22 @@ class BSTBaseColumn(ABC):
         self.visible = visible
         self.exported = exported
         self.linked = linked
-        self.th_template = th_template
-        self.td_template = td_template
-        self.value_template = value_template
+        self.th_template = (
+            th_template if isinstance(th_template, str) else self.th_template
+        )
+        self.td_template = (
+            td_template if isinstance(td_template, str) else self.td_template
+        )
+        self.value_template = (
+            value_template if isinstance(value_template, str) else self.value_template
+        )
 
         # Initialized below
         self.sorter: BSTBaseSorter
         self.filterer: BSTBaseFilterer
+
+        # Collect scripts of contained classes
+        self.javascripts: List[str] = []
 
         # Modified by BSTColumnGroup
         self._in_group = False
@@ -153,7 +191,6 @@ class BSTBaseColumn(ABC):
         if self.header is None:
             self.header = self.generate_header()
 
-        # NOTE: self.name will be either a field_path or an annotation field.
         # NOTE: We set a sorter even if the field is not sortable.
         if sorter is None:
             self.sorter = self.create_sorter()
@@ -166,11 +203,16 @@ class BSTBaseColumn(ABC):
                 f"sorter must be a str or a BSTBaseSorter, not a '{type(sorter).__name__}'."
             )
 
-        # NOTE: self.name will be either a field_path or an annotation field.
+        # Collect scripts of contained classes
+        if self.sorter.script_name not in self.javascripts:
+            self.javascripts.append(self.sorter.script_name)
+
         # NOTE: We set a filterer even if the field is not searchable.
         if filterer is None:
+            # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
             self.filterer = self.create_filterer()
         elif isinstance(filterer, str):
+            # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
             self.filterer = self.create_filterer(client_filterer=filterer)
         elif isinstance(filterer, BSTBaseFilterer):
             self.filterer = filterer
@@ -178,6 +220,10 @@ class BSTBaseColumn(ABC):
             raise TypeError(
                 f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'."
             )
+
+        # Collect scripts of contained classes
+        if self.filterer.script_name not in self.javascripts:
+            self.javascripts.append(self.filterer.script_name)
 
     def __str__(self):
         return self.name

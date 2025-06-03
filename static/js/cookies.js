@@ -36,28 +36,34 @@ function getCookie (name, defval) { // eslint-disable-line no-unused-vars
  * accessible on every page.
  * @param {*} name Name of the cookie, e.g. "my_cookie"
  * @param {*} val The value associated with the cookie to save.
+ * @return Cookie value.
  */
 function setCookie (name, val) { // eslint-disable-line no-unused-vars
   document.cookie = name + '=' + encodeURIComponent(val) + '; path=/'
+  return val
 }
 
 /**
  * Delete a cookie
  * @param {*} name The name of the cookie to delete
+ * @return Cookie value.
  */
 function deleteCookie (name) { // eslint-disable-line no-unused-vars
   const curval = getCookie(name)
   if (typeof curval !== 'undefined' && curval) {
     document.cookie = name + '=; path=/'
   }
+  return curval
 }
 
 /**
- * Delete a cookie
+ * Delete a list of cookies.
  * @param {*} name The name of the cookie to delete
+ * @return The number of cookies deleted.
  */
 function deleteCookies (names) { // eslint-disable-line no-unused-vars
   for (let i = 0; i < names.length; i++) {
     deleteCookie(names[i])
   }
+  return names.length
 }

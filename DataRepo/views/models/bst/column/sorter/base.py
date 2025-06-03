@@ -7,8 +7,6 @@ from django.db import ProgrammingError
 from django.db.models import F, Field
 from django.db.models.expressions import Combinable, Expression
 from django.db.models.functions import Lower
-from django.templatetags.static import static
-from django.utils.safestring import mark_safe
 
 from DataRepo.models.utilities import (
     MultipleFields,
@@ -68,7 +66,7 @@ class BSTBaseSorter(ABC):
         UNKNOWN=UnknownServerSorter,
     )
 
-    script_name = "js/bst_list_view/sorter.js"
+    script_name = "js/bst/sorter.js"
 
     is_annotation = False
     ascending: bool = True
@@ -348,20 +346,6 @@ class BSTBaseSorter(ABC):
             client_sort_key = "UNKNOWN"
         return server_sort_key != client_sort_key
 
-    @property
-    def script(self) -> str:
-        """Returns an HTML script tag whose source points to self.script_name.
-
-        Example:
-            # In the view's get_context_data
-                context["sorter"] = BSTSorter(field=Model.name.field)  # name is a CharField
-            # Template
-                {{ sorter.script }}
-            # Template result (assuming settings.STATIC_URL = "static/")
-                <script src='static/js/bst_list_view/sorter.js'></script>
-        """
-        return mark_safe(f"<script src='{static(self.script_name)}'></script>")
-
     @classmethod
     def get_server_sorter_matching_expression(cls, expression: Combinable):
         """Takes an expression and tries to match it with a supporter server sorter.
@@ -388,8 +372,8 @@ class BSTBaseSorter(ABC):
             except AttributeError as ae:
                 raise AttributeError(
                     f"Missing required output_field in expression '{expression}'.\nPlease supply the 'output_field' "
-                    f"argument with a Field instance to the expression.  [Original error: {ae}]"
-                )
+                    f"argument with a Field instance to the expression.\nOriginal error: {ae}"
+                ).with_traceback(ae.__traceback__)
 
             if not is_number_field(output_field):
                 _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC

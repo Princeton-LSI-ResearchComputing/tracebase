@@ -41,6 +41,8 @@ class BSTRelatedColumn(BSTColumn):
 
             Data Format
             Data Type Name
+
+    See the BSTBaseColumn docstring for examples on how to customize filtering and sorting behavior.
     """
 
     is_related: bool = True
