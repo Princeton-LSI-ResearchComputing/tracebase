@@ -249,11 +249,11 @@ QUnit.test('customButtonsFunction', function (assert) {
  * @param {*} alerts A javascript array to which to append alert messages.
  * @returns A function to use to set window.alert.  Remember to restore the original alert function when done.
  */
-function alertOverride(alerts) {
-  function testAlert() {
+function alertOverride (alerts) {
+  function testAlert () {
     // Record the message args
     message = ''
-    for (let i=0; i < arguments.length; i++){
+    for (let i = 0; i < arguments.length; i++) {
       message += arguments[i].toString()
     }
     alerts.push(message)
@@ -268,11 +268,11 @@ function alertOverride(alerts) {
  * @param {*} errors A javascript array to which to append error messages.
  * @returns A function to use to set console.error.  Remember to restore the original error function when done.
  */
-function errorOverride(errors) {
-  function testError() {
+function errorOverride (errors) {
+  function testError () {
     // Record the message args
     message = ''
-    for (let i=0; i < arguments.length; i++){
+    for (let i = 0; i < arguments.length; i++) {
       message += arguments[i].toString()
     }
     errors.push(message)
@@ -283,9 +283,9 @@ function errorOverride(errors) {
 QUnit.test('displayWarnings', function (assert) {
   // Override the alert function to capture alerts for testing
   // See: https://stackoverflow.com/a/41369753
-  var alertBackup = window.alert;
-  var alerts = [];
-  window.alert = alertOverride(alerts);
+  const alertBackup = window.alert
+  const alerts = []
+  window.alert = alertOverride(alerts)
 
   // Test no alert when warnings is empty
   displayWarnings()
@@ -295,7 +295,7 @@ QUnit.test('displayWarnings', function (assert) {
   displayWarnings(['This is a test of displayWarnings.', 'Warning2.'])
 
   // Restore the original alert function
-  window.alert = alertBackup;
+  window.alert = alertBackup
 
   // All warnings are listed in a single message
   assert.equal(alerts.length, 1)
@@ -304,69 +304,69 @@ QUnit.test('displayWarnings', function (assert) {
 })
 
 QUnit.test('getColumnNames', function (assert) {
-  createTestTable();
-  let result = getColumnNames();
+  createTestTable()
+  const result = getColumnNames()
   // 'testfield' is the data-field attribute of the single 'th' element added to the table in createTestTable
-  assert.deepEqual(result, ['testfield']);
+  assert.deepEqual(result, ['testfield'])
 })
 
 QUnit.test('updateVisible', function (assert) {
   // Override the alert and error functions to capture messages for testing
   // See: https://stackoverflow.com/a/41369753
-  var alerts = [];
-  var errors = [];
-  var alertBackup = window.alert;
-  var errorBackup = console.error;
-  window.alert = alertOverride(alerts);
-  console.error = errorOverride(errors);
+  const alerts = []
+  const errors = []
+  const alertBackup = window.alert
+  const errorBackup = console.error
+  window.alert = alertOverride(alerts)
+  console.error = errorOverride(errors)
 
   initViewCookies('testcookieprefix')
 
   // Test before table is created to assert the error about no th data-field attributes
-  updateVisible('false', 'anyname');
-  assert.equal(errors.length, 1);
+  updateVisible('false', 'anyname')
+  assert.equal(errors.length, 1)
   assert.equal(errors[0], 'No th data-field attributes found.')
-  assert.equal(alerts.length, 1);
+  assert.equal(alerts.length, 1)
   assert.equal(alerts[0], 'Error: Unable to save your column visibility selection')
 
   // Create the table
-  createTestTable();
+  createTestTable()
 
   // Empty the arrays for the next test
-  alerts.splice(0, alerts.length);
-  errors.splice(0, errors.length);
+  alerts.splice(0, alerts.length)
+  errors.splice(0, errors.length)
 
-  updateVisible('false', 'testfield');
-  assert.equal(alerts.length, 0);
-  assert.equal(errors.length, 0);
-  assert.equal(getViewColumnCookie('testfield', 'visible'), 'false');
-  updateVisible('true', 'testfield');
-  assert.equal(alerts.length, 0);
-  assert.equal(errors.length, 0);
-  assert.equal(getViewColumnCookie('testfield', 'visible'), 'true');
+  updateVisible('false', 'testfield')
+  assert.equal(alerts.length, 0)
+  assert.equal(errors.length, 0)
+  assert.equal(getViewColumnCookie('testfield', 'visible'), 'false')
+  updateVisible('true', 'testfield')
+  assert.equal(alerts.length, 0)
+  assert.equal(errors.length, 0)
+  assert.equal(getViewColumnCookie('testfield', 'visible'), 'true')
 
   // Now test for an invalid column
-  updateVisible('false', 'wrongname');
-  assert.equal(errors.length, 1);
+  updateVisible('false', 'wrongname')
+  assert.equal(errors.length, 1)
   assert.equal(
     errors[0],
     "Column 'wrongname' not found.  The second argument must match a th data-field attribute.  " +
-    "Current data-fields: [testfield]"
+    'Current data-fields: [testfield]'
   )
-  assert.equal(alerts.length, 1);
+  assert.equal(alerts.length, 1)
   assert.equal(alerts[0], 'Error: Unable to save your column visibility selection')
 
   // Restore the original functions
-  window.alert = alertBackup;
-  console.error = errorBackup;
+  window.alert = alertBackup
+  console.error = errorBackup
 })
 
 QUnit.test('initBST', function (assert) {
   // Override the alert function to capture alerts for testing
   // See: https://stackoverflow.com/a/41369753
-  var alerts = [];
-  var alertBackup = window.alert;
-  window.alert = alertOverride(alerts);
+  const alerts = []
+  const alertBackup = window.alert
+  window.alert = alertOverride(alerts)
 
   // Set a test cookie to ensure it gets deleted.  Do so without setting the view cookie prefix & providing it manually,
   // because we also want to test that initBST sets the cookie prefix.
@@ -375,22 +375,22 @@ QUnit.test('initBST', function (assert) {
   deleteCookies(['PFX-limit', 'PFX-page', 'PFX-collapsed'])
 
   // Create the table
-  createTestTable();
+  createTestTable()
 
   // First call - this satisfies most of the tests
   initBST(
-    10,       // limit,
-    15,       // limitDefault,
-    'TTID',   // tableID,
-    'PFX-',   // cookiePrefix,
-    2,        // pageNumber,
-    10,       // perPage,
-    100,      // total,
-    120,      // rawTotal,
-    window.location.href.split('?')[0],  // currentURL,
-    ['WX'],   // warnings,
-    ['TC'],   // cookieResets,
-    'false',  // clearCookies,
+    10, // limit,
+    15, // limitDefault,
+    'TTID', // tableID,
+    'PFX-', // cookiePrefix,
+    2, // pageNumber,
+    10, // perPage,
+    100, // total,
+    120, // rawTotal,
+    window.location.href.split('?')[0], // currentURL,
+    ['WX'], // warnings,
+    ['TC'], // cookieResets,
+    'false' // clearCookies,
   )
 
   // NOTE: No need to test that cookiePrefix is set.  If it is not, none of the cookie tests would work.
@@ -408,23 +408,23 @@ QUnit.test('initBST', function (assert) {
   // Test that displayWarnings(warnings) is called
   assert.equal(alerts.length, 1)
   // Reset the alerts
-  alerts.splice(0, alerts.length);
+  alerts.splice(0, alerts.length)
 
   // Second call - this satisfies the tests for the limit being 0 and the clearCookies test
   setViewCookie('TC', 'xx')
   initBST(
-    0,        // limit,
-    15,       // limitDefault,
-    'TTID',   // tableID,
-    'PFX-',   // cookiePrefix,
-    2,        // pageNumber,
-    10,       // perPage,
-    100,      // total,
-    120,      // rawTotal,
-    window.location.href.split('?')[0],  // currentURL,
-    [],       // warnings,
-    [],       // cookieResets,
-    'true',   // clearCookies,
+    0, // limit,
+    15, // limitDefault,
+    'TTID', // tableID,
+    'PFX-', // cookiePrefix,
+    2, // pageNumber,
+    10, // perPage,
+    100, // total,
+    120, // rawTotal,
+    window.location.href.split('?')[0], // currentURL,
+    [], // warnings,
+    [], // cookieResets,
+    'true' // clearCookies,
   )
   // A limit of 0 is allowed when there is no URL parameter override and it's not coming from a cookie.
   assert.equal(getViewCookie('limit'), '0')
@@ -437,19 +437,19 @@ QUnit.test('initBST', function (assert) {
   // out.
   setViewCookie('limit', '0')
   initBST(
-    10,       // limit,
-    15,       // limitDefault,
+    10, // limit,
+    15, // limitDefault,
     // The rest of the parameters don't matter for this test, but they are required.
-    'TTID',   // tableID,
-    'PFX-',   // cookiePrefix,
-    2,        // pageNumber,
-    10,       // perPage,
-    100,      // total,
-    120,      // rawTotal,
-    window.location.href.split('?')[0],  // currentURL,
-    [],       // warnings,
-    [],       // cookieResets,
-    'false',  // clearCookies,
+    'TTID', // tableID,
+    'PFX-', // cookiePrefix,
+    2, // pageNumber,
+    10, // perPage,
+    100, // total,
+    120, // rawTotal,
+    window.location.href.split('?')[0], // currentURL,
+    [], // warnings,
+    [], // cookieResets,
+    'false' // clearCookies,
   )
   // A limit of 0 is allowed when there is no URL parameter override.
   assert.equal(getViewCookie('limit'), '15')
@@ -466,7 +466,7 @@ QUnit.test('initBST', function (assert) {
   // TODO: Add tests for onRowsPerPageChange events
 
   // Restore the original alert function
-  window.alert = alertBackup;
+  window.alert = alertBackup
 })
 
 /* eslint-enable no-undef */
