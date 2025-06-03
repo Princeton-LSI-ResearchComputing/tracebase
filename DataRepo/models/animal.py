@@ -14,7 +14,6 @@ from django.db.models import (
     FloatField,
     ForeignKey,
     ManyToManyField,
-    Q,
 )
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
@@ -334,7 +333,7 @@ class Animal(MaintainedModel, HierCachedModel):
             Animal.objects.annotate(
                 num_serum_samples=Count(
                     "samples",
-                    filter=Q(Tissue.serum_q_expression("samples__tissue__name")),
+                    filter=Tissue.serum_q_expression("samples__tissue__name"),
                 )
             )
             .filter(name__in=animal_names, infusate__isnull=False, num_serum_samples=0)
