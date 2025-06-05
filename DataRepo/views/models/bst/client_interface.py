@@ -12,6 +12,7 @@ from DataRepo.models.utilities import (
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.text_utils import camel_to_title
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
 from DataRepo.views.utils import GracefulPaginator, get_cookie, get_cookie_dict
 
@@ -171,7 +172,7 @@ class BSTClientInterface(ListView):
         self.total = 0
         self.raw_total = 0
 
-    def get_paginate_by(self, qs: QuerySet):
+    def get_paginate_by(self, qs: Optional[Union[list, QuerySet]]):
         """An override of the superclass method to allow the user to change the rows per page.
 
         Assumptions:
@@ -180,28 +181,41 @@ class BSTClientInterface(ListView):
             2. self.limit was already set based on both the URL param and cookie, but if it is 0 (meaning "all"), we are
                going to update it based on the queryset.
         Args:
-            qs (QuerySet)
+            qs (Optional[Union[list, QuerySet]]): super().get_context_data() can call this method using either a
+                queryset or list (e.g. object_list).
         Exceptions:
             None
         Returns:
             self.limit (int): The number of table rows per page.
         """
 
+        count = self.total
+        if count == 0 and qs is not None:
+            if isinstance(qs, QuerySet):
+                count = qs.count()
+            elif isinstance(qs, list):
+                count = len(qs)
+
         # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
         # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
         # adding an odd value to the rows per page select list and instead selecting "all".
-        if (
-            self.limit == 0
-            or (self.total > 0 and self.limit > self.total)
-            or (self.total == 0 and self.limit > qs.count())
-        ):
-            if self.total > 0:
-                # This avoids the count query, if self.total is already set
-                self.limit = self.total
-            else:
-                self.limit = qs.count()
+        if count > 0 and (self.limit == 0 or self.limit > count):
+            self.limit = count
+        elif self.limit == 0:
+            self.limit = self.paginate_by
 
         return self.limit
+
+    def get_queryset(self):
+        """An extension of the superclass method intended to only set total and raw_total instance attributes.  total is
+        expected to be overridden by a derived version of this method."""
+
+        qs = super().get_queryset()
+
+        self.raw_total = qs.count()
+        self.total = self.raw_total
+
+        return qs
 
     def get_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
         """Retrieves a URL parameter.
@@ -435,21 +449,31 @@ class BSTClientInterface(ListView):
 
     @classproperty
     def model_title_plural(cls):  # pylint: disable=no-self-argument
-        """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
-        particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
-        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
-        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+        """Creates a title-case string from self.model (if defined), accounting for potentially set verbose settings.
+        Pays particular attention to pre-capitalized values in the model name, and ignores the potentially poorly
+        automated title-casing in existing verbose values of the model so as to not lower-case acronyms in the model
+        name, e.g. MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run
+        Sample).  If cls.model is not defined, the class name is used as a default.
         """
-        return model_title_plural(cls.model)
+        return (
+            model_title_plural(cls.model)
+            if cls.model is not None
+            else f"{camel_to_title(cls.__name__)}s"
+        )
 
     @classproperty
     def model_title(cls):  # pylint: disable=no-self-argument
-        """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
-        particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
-        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
-        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+        """Creates a title-case string from self.model (if defined), accounting for potentially set verbose settings.
+        Pays particular attention to pre-capitalized values in the model name, and ignores the potentially poorly
+        automated title-casing in existing verbose values of the model so as to not lower-case acronyms in the model
+        name, e.g. MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run
+        Sample).  If cls.model is not defined, the class name is used as a default.
         """
-        return model_title(cls.model)
+        return (
+            model_title(cls.model)
+            if cls.model is not None
+            else camel_to_title(cls.__name__)
+        )
 
     def get_context_data(self, **kwargs):
         """An override of the superclass method to provide context variables to the page.  All of the values are
