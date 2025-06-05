@@ -3,31 +3,96 @@ from warnings import warn
 
 from django.conf import settings
 from django.db.models import QuerySet
+from django.utils.functional import classproperty
 from django.views.generic import ListView
 
+from DataRepo.models.utilities import (
+    model_title,
+    model_title_plural,
+    select_representative_field,
+)
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
-from DataRepo.views.utils import get_cookie, get_cookie_dict
+from DataRepo.views.utils import GracefulPaginator, get_cookie, get_cookie_dict
 
 
 class BSTClientInterface(ListView):
     """This is a server-side interface to the Bootstrap Table javascript and cookies in the client's browser.  It
     encapsulates the javascript and cookie structure/functions and is tightly integrated with BSTListView (which is
     intended to inherit from this class).  This is not intended to be used on its own.
+
+    Class Attributes:
+        Templates:
+            template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
+            scripts (List[str]) ["DataRepo/static/js/bst/cookies.js", "DataRepo/static/js/bst/list_view.js"]
+        Pagination:
+            PER_PAGE_CHOICES (List[int]) [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]: The rows per page select list
+                will be populated by these increments (up to the number of rows among the results).  A value of 0 means
+                "ALL" rows.
+            paginator_class (Paginator) [GracefulPaginator]: The paginator class set for the ListView (super) class.
+            paginate_by (int) [15]: The default number of rows per page.
+        Context variable names:
+            search_cookie_name (str) ["search"]
+            filter_cookie_name (str) ["filter"]
+            visible_cookie_name (str) ["visible"]
+            sortcol_cookie_name (str) ["sortcol"]
+            asc_cookie_name (str) ["asc"]
+            limit_cookie_name (str) ["limit"]
+            cookie_prefix_var_name (str) ["cookie_prefix"]
+            cookie_resets_var_name (str) ["cookie_resets"]
+            clear_cookies_var_name (str) ["clear_cookies"]
+            model_var_name (str) ["model"]
+            table_id_var_name (str) ["table_id"]
+            title_var_name (str) ["table_name"]
+            columns_var_name (str) ["columns"]
+            scripts_var_name (str) ["scripts"]
+            limit_default_var_name (str) ["limit_default"]
+            warnings_var_name (str) ["warnings"]
+            raw_total_var_name (str) ["raw_total"]
+            total_var_name (str) ["total"]
     """
+
+    template_name = "models/bst/list_view.html"
 
     scripts = [
         "DataRepo/static/js/bst/cookies.js",
         "DataRepo/static/js/bst/list_view.js",
     ]
 
-    # Template variable names
+    # Pagination
+    paginator_class = GracefulPaginator
+    PER_PAGE_CHOICES: List[int] = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]
+    paginate_by = 15
+
+    # Context variable names
+
+    # Cookie names (also used in browser cookies)
+    search_cookie_name = "search"
+    filter_cookie_name = "filter"
+    visible_cookie_name = "visible"
+    sortcol_cookie_name = "sortcol"
+    asc_cookie_name = "asc"
+    limit_cookie_name = "limit"  # Also a URL param name
+
+    # Cookie operations
     cookie_prefix_var_name = "cookie_prefix"
     cookie_resets_var_name = "cookie_resets"
     clear_cookies_var_name = "clear_cookies"
+
+    # Table/column/page related
     model_var_name = "model"
+    table_id_var_name = "table_id"
+    title_var_name = "table_name"
+    columns_var_name = "columns"
+
+    # JavaScript
     scripts_var_name = "scripts"
 
+    # Basics
+    limit_default_var_name = "limit_default"
+    warnings_var_name = "warnings"
+
+    # QuerySet metadata
     raw_total_var_name = "raw_total"
     total_var_name = "total"
 
@@ -47,19 +112,60 @@ class BSTClientInterface(ListView):
 
         super().__init__(**kwargs)
 
+        # Allow derived classes to *add* scripts for import
         self.javascripts: List[str]
         if hasattr(self, "javascripts") and isinstance(self.javascripts, list):
             self.javascripts.insert(0, BSTClientInterface.scripts)
         else:
             self.javascripts = [*BSTClientInterface.scripts]
 
+        # Cookie controls
         self.cookie_prefix = f"{self.__class__.__name__}-"
-        self.cookie_warnings = []
         self.cookie_resets = []
         self.clear_cookies = False
 
-        # TODO: Init limit using paginate_by
-        self.limit = 0
+        self.warnings = []
+
+        # Initialize the values obtained from cookies
+        self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
+        self.filter_terms = self.get_column_cookie_dict(self.filter_cookie_name)
+        self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
+        self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
+        self.ordered = self.sort_name is not None
+        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
+
+        # This is an override of ListView.ordering, defined here to silence this warning from Django:
+        #   Pagination may yield inconsistent results with an unordered object_list:
+        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
+        # It specifies the default *row* ordering of the model objects, which is already set in the model.
+        self.ordering: Optional[list]
+        has_ordering = (
+            hasattr(self, "ordering")
+            and self.ordering is not None
+            and len(self.ordering) > 0
+        )
+        if self.model is not None and not has_ordering:
+            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
+            # way to apply that ordering by the user.  It is just the default initial ordering.
+            ordering_field = select_representative_field(
+                self.model, force=True, include_expression=True
+            )
+            self.ordering = [ordering_field]
+        elif not has_ordering:
+            self.ordering = ["id"]
+
+        # Initialize values obtained from URL parameters (or cookies)
+        limit_param = self.get_param(self.limit_cookie_name)
+        if limit_param is None:
+            cookie_limit = self.get_cookie(self.limit_cookie_name)
+            # Never set limit to 0 from a cookie, because if the page times out, the users will never be able to load it
+            # without deleting their browser cookie.
+            if cookie_limit is not None and int(cookie_limit) != 0:
+                self.limit = int(cookie_limit)
+            else:
+                self.limit = self.paginate_by
+        else:
+            self.limit = int(limit_param)
 
         # Used for the pagination control (be sure to update in get_queryset)
         self.total = 0
@@ -170,7 +276,7 @@ class BSTClientInterface(ListView):
         if cookie_name not in self.cookie_resets:
             self.cookie_resets.append(cookie_name)
             warning = f"Invalid '{name}' value encountered: '{boolstr}'.  Clearing cookie '{cookie_name}'."
-            self.cookie_warnings.append(warning)
+            self.warnings.append(warning)
             if settings.DEBUG:
                 warn(warning, DeveloperWarning)
 
@@ -242,7 +348,7 @@ class BSTClientInterface(ListView):
                         f"Invalid '{name}' cookie value encountered for column '{colname}': '{boolstr}'.  "
                         f"Clearing cookie '{cookie_name}'."
                     )
-                    self.cookie_warnings.append(warning)
+                    self.warnings.append(warning)
                     if settings.DEBUG:
                         warn(warning, DeveloperWarning)
         return bools_dict
@@ -319,6 +425,32 @@ class BSTClientInterface(ListView):
         if cookie_name not in self.cookie_resets:
             self.cookie_resets.append(cookie_name)
 
+    def reset_filter_cookies(self):
+        self.reset_column_cookies(
+            list(self.filter_terms.keys()), self.filter_cookie_name
+        )
+
+    def reset_search_cookie(self):
+        self.reset_cookie(self.search_cookie_name)
+
+    @classproperty
+    def model_title_plural(cls):  # pylint: disable=no-self-argument
+        """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
+        particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
+        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+        """
+        return model_title_plural(cls.model)
+
+    @classproperty
+    def model_title(cls):  # pylint: disable=no-self-argument
+        """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
+        particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
+        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
+        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
+        """
+        return model_title(cls.model)
+
     def get_context_data(self, **kwargs):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
@@ -336,7 +468,17 @@ class BSTClientInterface(ListView):
                 self.clear_cookies_var_name: self.clear_cookies,
                 # A unique set of javascripts needed for the BST interface
                 self.scripts_var_name: self.javascripts,
-                # Queryset metadata
+                # General table details
+                self.table_id_var_name: type(self).__name__,
+                self.title_var_name: self.model_title_plural,
+                self.warnings_var_name: self.warnings,
+                self.limit_default_var_name: self.paginate_by,
+                # Table content controls
+                self.search_cookie_name: self.search_term,
+                self.sortcol_cookie_name: self.sort_name,
+                self.asc_cookie_name: self.asc,
+                self.limit_cookie_name: self.limit,
+                # Queryset metadata (initialized in derived class that handles queries, e.g. the BSTListView class)
                 self.raw_total_var_name: self.raw_total,  # Total before filtering
                 self.total_var_name: self.total,
             }
