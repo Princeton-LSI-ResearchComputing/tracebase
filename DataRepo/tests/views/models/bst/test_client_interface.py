@@ -12,7 +12,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_init(self):
         c = BSTClientInterface()
         self.assertEqual("BSTClientInterface-", c.cookie_prefix)
-        self.assertEqual([], c.cookie_warnings)
+        self.assertEqual([], c.warnings)
         self.assertEqual([], c.cookie_resets)
         self.assertFalse(c.clear_cookies)
 
@@ -84,17 +84,17 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             str(aw.warnings[0].message),
         )
         self.assertFalse(val)
-        self.assertEqual(1, len(c.cookie_warnings))
+        self.assertEqual(1, len(c.warnings))
         self.assertEqual(1, len(c.cookie_resets))
-        self.assertEqual(str(aw.warnings[0].message), c.cookie_warnings[0])
+        self.assertEqual(str(aw.warnings[0].message), c.warnings[0])
         self.assertEqual(f"BSTClientInterface-{view_cookie_name}", c.cookie_resets[0])
 
         # second occurrence does not warn
         val = c.get_boolean_cookie(view_cookie_name, default=True)
         self.assertTrue(val)
         # The rest has not changed...
-        self.assertEqual(1, len(c.cookie_warnings))
-        self.assertEqual(str(aw.warnings[0].message), c.cookie_warnings[0])
+        self.assertEqual(1, len(c.warnings))
+        self.assertEqual(str(aw.warnings[0].message), c.warnings[0])
         self.assertEqual(1, len(c.cookie_resets))
         self.assertEqual(f"BSTClientInterface-{view_cookie_name}", c.cookie_resets[0])
 
@@ -149,7 +149,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         with self.assertWarns(DeveloperWarning) as aw:
             c.get_boolean_column_cookie_dict("filter")
         self.assertEqual(2, len(aw.warnings))
-        self.assertEqual(2, len(c.cookie_warnings))
+        self.assertEqual(2, len(c.warnings))
         self.assertEqual(2, len(c.cookie_resets))
         self.assertIn("BSTClientInterface-filter-column1", c.cookie_resets)
         self.assertIn("BSTClientInterface-filter-column2", c.cookie_resets)

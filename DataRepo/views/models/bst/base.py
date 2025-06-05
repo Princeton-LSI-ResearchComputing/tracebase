@@ -6,13 +6,10 @@ from django.db import ProgrammingError
 from django.db.models import IntegerField
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
-from django.utils.functional import classproperty
 
 from DataRepo.models.utilities import (
     is_many_related_to_root,
     is_related,
-    model_title,
-    model_title_plural,
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -26,7 +23,6 @@ from DataRepo.views.models.bst.column.many_related_field import (
 )
 from DataRepo.views.models.bst.column.many_related_group import BSTColumnGroup
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
-from DataRepo.views.utils import GracefulPaginator
 
 
 class BSTBaseListView(BSTClientInterface):
@@ -51,41 +47,12 @@ class BSTBaseListView(BSTClientInterface):
             may be in column_ordering and the value can be overridden by what is provided to the constructor.
         exclude (List[str]) ["id"]: This is a list of column names (which can be either a field_path or annotation
             name).  And column name added here will cause a matching value in the column_rdering to be skipped.
-        PER_PAGE_CHOICES (List[int]) [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]: The rows per page select list will
-            be populated by these increments (up to the number of rows among the results).  A value of 0 means "ALL"
-            rows.
-        paginator_class (Paginator) [GracefulPaginator]: The paginator class set for the ListView super (super) class.
-        paginate_by (int) [15]: The default number of rows per page.
-        template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
     """
 
     column_ordering: List[str] = []
     annotations: Dict[str, Combinable] = {}
     # column_ordering default comes from: self.model._meta.get_fields()
     exclude: List[str] = ["id"]
-
-    # 0 = "ALL"
-    PER_PAGE_CHOICES: List[int] = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]
-
-    paginator_class = GracefulPaginator
-    paginate_by = 15
-
-    template_name = "models/bst/list_view.html"
-
-    # Cookie names (also used as context variables)
-    search_cookie_name = "search"
-    filter_cookie_name = "filter"
-    visible_cookie_name = "visible"
-    sortcol_cookie_name = "sortcol"
-    asc_cookie_name = "asc"
-    limit_cookie_name = "limit"  # Also a URL param name
-
-    # Context variable names
-    limit_default_var_name = "limit_default"
-    warnings_var_name = "warnings"
-    columns_var_name = "columns"
-    table_id_var_name = "table_id"
-    title_var_name = "table_name"
 
     def __init__(
         self,
@@ -117,50 +84,6 @@ class BSTBaseListView(BSTClientInterface):
         # users to supply groups by column name and/or settings
         super().__init__(**kwargs)
 
-        # This is an override of ListView.ordering, defined here to silence this warning from Django:
-        #   Pagination may yield inconsistent results with an unordered object_list:
-        #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
-        # It specifies the default *row* ordering of the model objects, which is already set in the model.
-        self.ordering: Optional[list]
-        has_ordering = (
-            hasattr(self, "ordering")
-            and self.ordering is not None
-            and len(self.ordering) > 0
-        )
-        if self.model is not None and not has_ordering:
-            # Bootstrap Table only supports a single ordering column.  The model can provide multiple, but there is no
-            # way to apply that ordering by the user.  It is just the default initial ordering.
-            ordering_field = select_representative_field(
-                self.model, force=True, include_expression=True
-            )
-            self.ordering = [ordering_field]
-        elif not has_ordering:
-            self.ordering = ["id"]
-
-        # Initialize the values obtained from cookies
-        self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
-        self.filter_terms = self.get_column_cookie_dict(self.filter_cookie_name)
-        self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
-        self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
-        self.ordered = self.sort_name is not None
-        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
-
-        # Initialize values obtained from URL parameters (or cookies)
-        limit_param = self.get_param(self.limit_cookie_name)
-        if limit_param is None:
-            cookie_limit = self.get_cookie(self.limit_cookie_name)
-            # Never set limit to 0 from a cookie, because if the page times out, the users will never be able to load it
-            # without deleting their browser cookie.
-            if cookie_limit is not None and int(cookie_limit) != 0:
-                self.limit = int(cookie_limit)
-            else:
-                self.limit = self.paginate_by
-        else:
-            self.limit = int(limit_param)
-
-        # Basics
-        self.warnings = self.cookie_warnings.copy()
-
         # Initialize column settings
         self.column_settings: Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]] = {}
         self.init_column_settings(columns)
@@ -174,6 +97,7 @@ class BSTBaseListView(BSTClientInterface):
         self.groups: Dict[str, BSTColumnGroup] = {}
         self.init_columns()
 
+        # Initialize a sort column (sort_col) based on the saved sort cookie (sort_name)
         self.searchcols: List[str] = [
             c.name for c in self.columns.values() if c.searchable
         ]
@@ -541,24 +465,6 @@ class BSTBaseListView(BSTClientInterface):
 
         return cast(str, settings_name)
 
-    @classproperty
-    def model_title_plural(cls):  # pylint: disable=no-self-argument
-        """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
-        particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
-        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
-        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
-        """
-        return model_title_plural(cls.model)
-
-    @classproperty
-    def model_title(cls):  # pylint: disable=no-self-argument
-        """Creates a title-case string from self.model, accounting for potentially set verbose settings.  Pays
-        particular attention to pre-capitalized values in the model name, and ignores the potentially poorly automated
-        title-casing in existing verbose values of the model so as to not lower-case acronyms in the model name, e.g.
-        MSRunSample (which automatically gets converted to Msrun Sample instead of the preferred MS Run Sample).
-        """
-        return model_title(cls.model)
-
     def init_column_ordering(self):
         """Initializes self.column_ordering.  It first filters the class attribute (if set) based on the excludes, then
         adds defaults from the model in the order they were defined (but putting many-related at the end), and finally
@@ -714,37 +620,13 @@ class BSTBaseListView(BSTClientInterface):
             if script not in self.javascripts:
                 self.javascripts.append(script)
 
-    def reset_filter_cookies(self):
-        self.reset_column_cookies(
-            list(self.filter_terms.keys()), self.filter_cookie_name
-        )
-
-    def reset_search_cookie(self):
-        self.reset_cookie(self.search_cookie_name)
-
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **_):
         """An override of the superclass method to provide context variables to the page.  All of the values are
         specific to pagination and BST operations."""
 
         context = super().get_context_data()
 
-        # 1. Set context variables for initial defaults based on user-selections saved in cookies
-
-        context.update(
-            {
-                # General table details
-                self.table_id_var_name: type(self).__name__,
-                self.title_var_name: self.model_title_plural,
-                self.warnings_var_name: self.warnings,
-                self.limit_default_var_name: self.paginate_by,
-                # Table content controls
-                self.search_cookie_name: self.search_term,
-                self.sortcol_cookie_name: self.sort_name,
-                self.asc_cookie_name: self.asc,
-                self.limit_cookie_name: self.limit,
-                # The column objects contain all of the column details
-                self.columns_var_name: self.columns,
-            }
-        )
+        # The column objects contain all of the column details
+        context.update({self.columns_var_name: self.columns})
 
         return context
