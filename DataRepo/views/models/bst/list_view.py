@@ -93,17 +93,14 @@ class BSTListView(BSTBaseListView):
         ) = self.get_annotations()
 
     def get_queryset(self):
-        """An extension of the superclass method intended to only set total and raw_total instance attributes."""
+        """An extension of the superclass method intended to only set the total instance attribute.  raw_total is set by
+        the superclass (which also initializes total to raw_total)."""
 
         qs = super().get_queryset()
 
-        self.raw_total = qs.count()
-
         try:
             qs = self.get_user_queryset(qs)
-
             self.total = qs.count()
-
         except Exception as e:
             if settings.DEBUG:
                 tb = "".join(traceback.format_tb(e.__traceback__))
