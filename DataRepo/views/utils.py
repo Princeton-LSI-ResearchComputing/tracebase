@@ -73,7 +73,7 @@ class ZipBuffer:
 
 class GracefulPaginator(Paginator):
     """This derived class of Paginator prevents page not found errors by defaulting to page 1 when the page is not a
-    number or the last lage if it is out of range."""
+    number or the last page if it is out of range."""
 
     # See: https://forum.djangoproject.com/t/letting-listview-gracefully-handle-out-of-range-page-numbers/23037/4
     def page(self, num):
