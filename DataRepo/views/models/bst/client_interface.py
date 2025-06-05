@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Union
 from warnings import warn
 
 from django.conf import settings
+from django.db.models import QuerySet
 from django.views.generic import ListView
 
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -26,6 +27,9 @@ class BSTClientInterface(ListView):
     clear_cookies_var_name = "clear_cookies"
     model_var_name = "model"
     scripts_var_name = "scripts"
+
+    raw_total_var_name = "raw_total"
+    total_var_name = "total"
 
     def __init__(self, **kwargs):
         """An extension of the ListView constructor intended to initialize the javascript and cookie interface.  It
@@ -53,6 +57,45 @@ class BSTClientInterface(ListView):
         self.cookie_warnings = []
         self.cookie_resets = []
         self.clear_cookies = False
+
+        # TODO: Init limit using paginate_by
+        self.limit = 0
+
+        # Used for the pagination control (be sure to update in get_queryset)
+        self.total = 0
+        self.raw_total = 0
+
+    def get_paginate_by(self, qs: QuerySet):
+        """An override of the superclass method to allow the user to change the rows per page.
+
+        Assumptions:
+            1. qs was obtained from get_queryset (or get_user_queryset).  This is for efficiency - to not issue a
+               count() query.  In fact, I'm not sure why this method requires a queryset input.
+            2. self.limit was already set based on both the URL param and cookie, but if it is 0 (meaning "all"), we are
+               going to update it based on the queryset.
+        Args:
+            qs (QuerySet)
+        Exceptions:
+            None
+        Returns:
+            self.limit (int): The number of table rows per page.
+        """
+
+        # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
+        # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
+        # adding an odd value to the rows per page select list and instead selecting "all".
+        if (
+            self.limit == 0
+            or (self.total > 0 and self.limit > self.total)
+            or (self.total == 0 and self.limit > qs.count())
+        ):
+            if self.total > 0:
+                # This avoids the count query, if self.total is already set
+                self.limit = self.total
+            else:
+                self.limit = qs.count()
+
+        return self.limit
 
     def get_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
         """Retrieves a URL parameter.
@@ -293,7 +336,22 @@ class BSTClientInterface(ListView):
                 self.clear_cookies_var_name: self.clear_cookies,
                 # A unique set of javascripts needed for the BST interface
                 self.scripts_var_name: self.javascripts,
+                # Queryset metadata
+                self.raw_total_var_name: self.raw_total,  # Total before filtering
+                self.total_var_name: self.total,
             }
         )
+
+        # This context variable determines whether the BST code on the pagination template will render
+        if self.total == 0:
+            # Django does not supply a page_obj when there are no results, but the list_view.html template is where the
+            # table controlling code (integrated with pagination) is loaded, so we need a page_obj context variable with
+            # this minimal information necessary to operate the table, so that a user can clear their search term that
+            # resulted in no matches.
+            context["page_obj"] = {
+                "number": 1,
+                "has_other_pages": False,
+                "paginator": {"per_page": self.limit},
+            }
 
         return context

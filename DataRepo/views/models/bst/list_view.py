@@ -62,15 +62,8 @@ class BSTListView(BSTBaseListView):
 
     QueryModes = ["iterate", "subquery"]
 
-    raw_total_var_name = "raw_total"
-    total_var_name = "total"
-
     def __init__(self, *args, query_mode: QueryMode = QueryMode.iterate, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # Used for the pagination control (and updated in get_queryset)
-        self.total = 0
-        self.raw_total = 0
 
         # The remainder are used in constructing the query
         self.query_mode = query_mode
@@ -272,39 +265,6 @@ class BSTListView(BSTBaseListView):
             )
 
         setattr(rec, column.list_attr_name, limited_subrecs)
-
-    def get_paginate_by(self, qs: QuerySet):
-        """An override of the superclass method to allow the user to change the rows per page.
-
-        NOTE: self.limit was already set in the constructor based on both the URL param and cookie, but if it is 0
-        (meaning "all"), we are going to update it based on the queryset.
-
-        Assumptions:
-            1. qs was obtained from get_queryset (or get_user_queryset).  This is for efficiency - to not issue a
-               count() query.  In fact, I'm not sure why this method requires a queryset input.
-        Args:
-            qs (QuerySet)
-        Exceptions:
-            None
-        Returns:
-            self.limit (int): The number of table rows per page.
-        """
-
-        # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
-        # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
-        # adding an odd value to the rows per page select list and instead selecting "all".
-        if (
-            self.limit == 0
-            or (self.total > 0 and self.limit > self.total)
-            or (self.total == 0 and self.limit > qs.count())
-        ):
-            if self.total > 0:
-                # This avoids the count query, if self.total is already set
-                self.limit = self.total
-            else:
-                self.limit = qs.count()
-
-        return self.limit
 
     def get_prefetches(self, along_path: Optional[str] = None):
         """Generate a list of strings that can be provided to Django's .prefetch_related() method, to speed up database
@@ -609,33 +569,3 @@ class BSTListView(BSTBaseListView):
             order_bys=order_bys,
             distincts=distincts,
         )
-
-    def get_context_data(self, **kwargs):
-        """An override of the superclass method to provide context variables to the page.  All of the values are
-        specific to pagination and BST operations."""
-
-        # context = super().get_context_data(**kwargs)
-        context = super().get_context_data()
-
-        # 1. Set context variables for initial defaults based on user-selections saved in cookies
-
-        context.update(
-            {
-                self.raw_total_var_name: self.raw_total,  # Total before filtering
-                self.total_var_name: self.total,
-            }
-        )
-
-        # This context variable determines whether the BST code on the pagination template will render
-        if self.total == 0:
-            # Django does not supply a page_obj when there are no results, but the pagination.html template is where the
-            # table controlling code (integrated with pagination) is loaded, so we need a page_obj context variable with
-            # this minimal information necessary to operate the table, so that a user can clear their search term that
-            # resulted in no matches.
-            context["page_obj"] = {
-                "number": 1,
-                "has_other_pages": False,
-                "paginator": {"per_page": self.limit},
-            }
-
-        return context
