@@ -1,9 +1,33 @@
+from django.db.models import CharField
+from django.db.models.functions import Lower
 from django.http import HttpRequest
 from django.test import override_settings
 
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
+    create_test_model,
+)
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.client_interface import BSTClientInterface
+
+BCIStudyTestModel = create_test_model(
+    "BCIStudyTestModel",
+    {
+        "name": CharField(max_length=255, unique=True),
+        "desc": CharField(max_length=255),
+    },
+    attrs={
+        "Meta": type(
+            "Meta",
+            (),
+            {"app_label": "loader", "ordering": [Lower("name").desc()]},
+        ),
+    },
+)
+
+
+class StudyBCI(BSTClientInterface):
+    model = BCIStudyTestModel
 
 
 @override_settings(DEBUG=True)
@@ -115,7 +139,16 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             "BSTClientInterface-visible-column2": "c",
             "BSTClientInterface-filter-column2": "d",
         }
-        c = BSTClientInterface(request=request)
+        with self.assertWarns(DeveloperWarning) as aw:
+            c = BSTClientInterface(request=request)
+        self.assertIn(
+            "Invalid 'visible' cookie value encountered for column 'column1': 'a'",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn(
+            "Invalid 'visible' cookie value encountered for column 'column2': 'c'",
+            str(aw.warnings[1].message),
+        )
         self.assertDictEqual(
             {"column1": "a", "column2": "c"},
             c.get_column_cookie_dict("visible"),
@@ -231,9 +264,55 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(["BSTClientInterface-sortcol"], bci.cookie_resets)
 
+    def test_model_title_plural(self):
+        self.assertEqual("BCI Study Test Models", StudyBCI.model_title_plural)
+
+    def test_model_title(self):
+        self.assertEqual("BCI Study Test Model", StudyBCI.model_title)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_reset_filter_cookies(self):
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "StudyBCI-visible-name": "true",
+                "StudyBCI-visible-desc": "false",
+                "StudyBCI-filter-name": "",
+                "StudyBCI-filter-desc": "description",
+                "StudyBCI-search": "",
+                "StudyBCI-sortcol": "name",
+                "StudyBCI-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        slv = StudyBCI(request=request)
+        slv.reset_filter_cookies()
+        # Only deletes the ones that are "set" (and empty string is eval'ed as None)
+        self.assertEqual(["StudyBCI-filter-desc"], slv.cookie_resets)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_reset_search_cookie(self):
+        request = HttpRequest()
+        request.COOKIES.update(
+            {
+                "StudyBCI-visible-name": "true",
+                "StudyBCI-visible-desc": "false",
+                "StudyBCI-filter-name": "",
+                "StudyBCI-filter-desc": "description",
+                "StudyBCI-search": "term",
+                "StudyBCI-sortcol": "name",
+                "StudyBCI-asc": "false",
+            }
+        )
+        request.GET.update({"limit": "20"})
+        slv = StudyBCI(request=request)
+        slv.reset_search_cookie()
+        self.assertEqual(["StudyBCI-search"], slv.cookie_resets)
+
     @TracebaseTestCase.assertNotWarns()
     def test_get_context_data(self):
-        bci = BSTClientInterface()
+        request = HttpRequest()
+        bci = BSTClientInterface(request=request)
         bci.object_list = []
         context = bci.get_context_data()
         self.assertEqual(
@@ -249,6 +328,16 @@ class BSTClientInterfaceTests(TracebaseTestCase):
                     "model",
                     "view",
                     "scripts",
+                    "search",
+                    "table_id",
+                    "warnings",
+                    "asc",
+                    "limit",
+                    "sortcol",
+                    "total",
+                    "raw_total",
+                    "limit_default",
+                    "table_name",
                 ]
             ),
             set(context.keys()),
@@ -257,3 +346,68 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertFalse(context["clear_cookies"])
         self.assertEqual([], context["cookie_resets"])
         self.assertIsNone(context["model"])
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_paginate_by(self):
+        for n in range(50):
+            BCIStudyTestModel.objects.create(name=f"ts{n}")
+
+        slv1 = StudyBCI()
+        qs = slv1.get_queryset()
+        with self.assertNumQueries(0):
+            self.assertEqual(slv1.paginate_by, slv1.get_paginate_by(qs))
+
+        request = HttpRequest()
+
+        # Sets to the cookie value
+        request.COOKIES = {f"StudyBCI-{StudyBCI.limit_cookie_name}": "30"}
+        slv2 = StudyBCI(request=request)
+        with self.assertNumQueries(1):
+            # There is a count query if get_queryset hasn't been called, because slv2.total is 0
+            self.assertEqual(30, slv2.get_paginate_by(qs))
+
+        # Defaults to paginate_by if cookie limit is 0
+        request.COOKIES = {f"StudyBCI-{StudyBCI.limit_cookie_name}": "0"}
+        slv2 = StudyBCI(request=request)
+        qs = slv2.get_queryset()
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(slv1.paginate_by, slv2.get_paginate_by(qs))
+
+        # Sets to the param value
+        request.GET = {"limit": "20"}
+        slv3 = StudyBCI(request=request)
+        qs = slv3.get_queryset()
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(20, slv3.get_paginate_by(qs))
+
+        # Defaults to count if param limit is 0
+        request.GET = {"limit": "0"}
+        slv4 = StudyBCI(request=request)
+        qs = slv4.get_queryset()
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(50, slv4.get_paginate_by(qs))
+
+        # Defaults to count if limit is greater than count
+        request.GET = {"limit": "60"}
+        slv5 = StudyBCI(request=request)
+        qs = slv5.get_queryset()
+        with self.assertNumQueries(0):
+            # There is no count query if get_queryset has been called, because slv2.total is >0
+            self.assertEqual(50, slv5.get_paginate_by(qs))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_queryset(self):
+        for n in range(2):
+            BCIStudyTestModel.objects.create(name=f"ts{n}")
+        alv = StudyBCI()
+        with self.assertNumQueries(1):
+            # The count query
+            qs = alv.get_queryset()
+        self.assertQuerySetEqual(
+            BCIStudyTestModel.objects.distinct(), qs, ordered=False
+        )
+        self.assertEqual(2, alv.raw_total)
+        self.assertEqual(2, alv.total)

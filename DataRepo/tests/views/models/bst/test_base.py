@@ -186,12 +186,6 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         self.assertEqual(["StudyBLV-visible-desc"], blv.cookie_resets)
 
-    def test_model_title_plural(self):
-        self.assertEqual("BSTBLV Study Test Models", StudyBLV.model_title_plural)
-
-    def test_model_title(self):
-        self.assertEqual("BSTBLV Study Test Model", StudyBLV.model_title)
-
     def test_init_column_settings_list_supplied_for_columns(self):
         blv = BSTBaseListView()
 
@@ -543,45 +537,6 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual(group.columns[0], alv.column_settings["animals__name"])
         self.assertEqual(group.columns[1], alv.column_settings["animals__desc"])
 
-    @TracebaseTestCase.assertNotWarns()
-    def test_reset_filter_cookies(self):
-        request = HttpRequest()
-        request.COOKIES.update(
-            {
-                "StudyBLV-visible-name": "true",
-                "StudyBLV-visible-desc": "false",
-                "StudyBLV-filter-name": "",
-                "StudyBLV-filter-desc": "description",
-                "StudyBLV-search": "",
-                "StudyBLV-sortcol": "name",
-                "StudyBLV-asc": "false",
-            }
-        )
-        request.GET.update({"limit": "20"})
-        slv = StudyBLV(request=request)
-        slv.reset_filter_cookies()
-        # Only deletes the ones that are "set" (and empty string is eval'ed as None)
-        self.assertEqual(["StudyBLV-filter-desc"], slv.cookie_resets)
-
-    @TracebaseTestCase.assertNotWarns()
-    def test_reset_search_cookie(self):
-        request = HttpRequest()
-        request.COOKIES.update(
-            {
-                "StudyBLV-visible-name": "true",
-                "StudyBLV-visible-desc": "false",
-                "StudyBLV-filter-name": "",
-                "StudyBLV-filter-desc": "description",
-                "StudyBLV-search": "term",
-                "StudyBLV-sortcol": "name",
-                "StudyBLV-asc": "false",
-            }
-        )
-        request.GET.update({"limit": "20"})
-        slv = StudyBLV(request=request)
-        slv.reset_search_cookie()
-        self.assertEqual(["StudyBLV-search"], slv.cookie_resets)
-
     def test_add_default_many_related_column_settings(self):
         slv = StudyBLV()
         slv.column_settings = {}
@@ -627,20 +582,18 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "model",
                     "view",
                     "scripts",
-                    # From ListView
                     "bstblvstudytestmodel_list",  # Same as "object_list"
-                    # The remainder are from this class
                     "table_id",
                     "table_name",
-                    # Query/pagination
                     "sortcol",
                     "asc",
                     "search",
                     "limit",
                     "limit_default",
-                    # Problems encountered
                     "warnings",
-                    # Column metadata (including column order)
+                    "raw_total",
+                    "total",
+                    # columns is from this class
                     "columns",
                 ]
             ),

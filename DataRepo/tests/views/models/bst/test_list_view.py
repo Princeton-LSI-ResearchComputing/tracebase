@@ -459,57 +459,6 @@ class BSTListViewTests(TracebaseTestCase):
         )
 
     @TracebaseTestCase.assertNotWarns()
-    def test_get_paginate_by(self):
-        for n in range(50):
-            BSTLVStudyTestModel.objects.create(name=f"ts{n}")
-
-        slv1 = StudyLV()
-        qs = slv1.get_queryset()
-        with self.assertNumQueries(0):
-            self.assertEqual(slv1.paginate_by, slv1.get_paginate_by(qs))
-
-        request = HttpRequest()
-
-        # Sets to the cookie value
-        request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "30"}
-        slv2 = StudyLV(request=request)
-        with self.assertNumQueries(1):
-            # There is a count query if get_queryset hasn't been called, because slv2.total is 0
-            self.assertEqual(30, slv2.get_paginate_by(qs))
-
-        # Defaults to paginate_by if cookie limit is 0
-        request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "0"}
-        slv2 = StudyLV(request=request)
-        qs = slv2.get_queryset()
-        with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
-            self.assertEqual(slv1.paginate_by, slv2.get_paginate_by(qs))
-
-        # Sets to the param value
-        request.GET = {"limit": "20"}
-        slv3 = StudyLV(request=request)
-        qs = slv3.get_queryset()
-        with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
-            self.assertEqual(20, slv3.get_paginate_by(qs))
-
-        # Defaults to count if param limit is 0
-        request.GET = {"limit": "0"}
-        slv4 = StudyLV(request=request)
-        qs = slv4.get_queryset()
-        with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
-            self.assertEqual(52, slv4.get_paginate_by(qs))
-
-        # Defaults to count if limit is greater than count
-        request.GET = {"limit": "60"}
-        slv5 = StudyLV(request=request)
-        qs = slv5.get_queryset()
-        with self.assertNumQueries(0):
-            # There is no count query if get_queryset has been called, because slv2.total is >0
-            self.assertEqual(52, slv5.get_paginate_by(qs))
-
-    @TracebaseTestCase.assertNotWarns()
     def test_paginate_queryset(self):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "1"}
@@ -700,42 +649,6 @@ class BSTListViewTests(TracebaseTestCase):
         # This is the method we are testing.
         context = slv.get_context_data()
 
-        self.assertEqual(
-            set(
-                [
-                    # From grandparent class
-                    "object_list",
-                    "page_obj",
-                    "cookie_prefix",
-                    "clear_cookies",
-                    "is_paginated",
-                    "cookie_resets",
-                    "paginator",
-                    "model",
-                    "view",
-                    "scripts",
-                    # From ListView
-                    "bstlvstudytestmodel_list",  # Same as "object_list"
-                    # From parent class
-                    "table_id",
-                    "table_name",
-                    # Query/pagination
-                    "sortcol",
-                    "asc",
-                    "search",
-                    "limit",
-                    "limit_default",
-                    # Problems encountered
-                    "warnings",
-                    # Column metadata (including column order)
-                    "columns",
-                    # The remainder are from this class
-                    "raw_total",
-                    "total",
-                ]
-            ),
-            set(context.keys()),
-        )
         # There are 2 study records possible to retrieve.
         self.assertEqual(2, context["raw_total"])
 
