@@ -1,15 +1,17 @@
+
 const urlParams = new URLSearchParams(window.location.search)
 const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
 
 // The defaults only exist for unit testing purposes
-const djangoTableID = 'bstlistviewtable' // {{ table_id }} eslint-disable-line no-var
-const jqTableID = '#' + djangoTableID
-const djangoPageNumber = 1 // {{ page_obj.number }} eslint-disable-line no-var
-const djangoLimitDefault = 15 // {{ limit_default }} eslint-disable-line no-var
-const djangoLimit = djangoLimitDefault // {{ limit }} eslint-disable-line no-var
-const djangoPerPage = djangoLimitDefault // {{ page_obj.paginator.per_page }} eslint-disable-line no-var
-const djangoRawTotal = 0 // {{ raw_total }} eslint-disable-line no-var
-const djangoTotal = djangoRawTotal // {{ total }} eslint-disable-line no-var
+// NOTE: These are intentionally `var`s, not `const`s.  Otherwise, the code will fail, because these must be able to change.
+var djangoTableID = 'bstlistviewtable' // eslint-disable-line no-var
+var jqTableID = '#' + djangoTableID // eslint-disable-line no-var
+var djangoPageNumber = 1 // eslint-disable-line no-var
+var djangoLimitDefault = 15 // eslint-disable-line no-var
+var djangoLimit = djangoLimitDefault // eslint-disable-line no-var
+var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
+var djangoRawTotal = 0 // eslint-disable-line no-var
+var djangoTotal = djangoRawTotal // eslint-disable-line no-var
 
 /**
  * This function exists solely for testing purposes
@@ -155,14 +157,9 @@ function initBST ( // eslint-disable-line no-unused-vars
       console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
     }
   })
-  // Add click listeners on the rows-per-page-option select list items.
-  // See DataRepo.widgets.ListViewRowsPerPageSelectWidget.
-  const rowsPerPageOptionElems = document.getElementsByName('rows-per-page-option')
-  for (let i = 0; i < rowsPerPageOptionElems.length; i++) {
-    rowsPerPageOptionElems[i].addEventListener('click', function (event) {
-      onRowsPerPageChange($(this).data('value')) // eslint-disable-line no-undef
-    })
-  }
+
+  initPaginator('rows-per-page-option', 'page', 'limit', djangoLimit) // eslint-disable-line no-undef
+
   setTimeout(function () { loading = false }, 2000)
 }
 
@@ -221,6 +218,7 @@ function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused
   // Get or set the page and limit cookies
   [page, limit] = updatePageCookies(page, limit)
   // Create the URL
+  // TODO: Add global variables for page, limit, and export URL parameter names, which are stored in variables in BSTClientInterface
   let url = djangoCurrentURL + '?page=' + page
   if (typeof limit !== 'undefined' && (limit === 0 || limit)) {
     url += '&limit=' + limit
@@ -282,24 +280,6 @@ function updateRowsPerPage (numRows) { // eslint-disable-line no-unused-vars
     // Reset the page
     setViewCookie('page', closestPage) // eslint-disable-line no-undef
   }
-}
-
-/**
- * Advances to a different page.
- * @param {*} page Page number.
- */
-function onPageChange (page) { // eslint-disable-line no-unused-vars
-  updatePageNum(page)
-  updatePage()
-}
-
-/**
- * Updates the cookies relating to a page change.
- * This is a supporting method for onPageChange, mainly for testing purposes.
- * @param {*} page Page number.
- */
-function updatePageNum (page) { // eslint-disable-line no-unused-vars
-  setViewCookie('page', page) // eslint-disable-line no-undef
 }
 
 /**
