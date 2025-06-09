@@ -9,6 +9,7 @@ from DataRepo.tests.tracebase_test_case import (
 )
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.client_interface import BSTClientInterface
+from DataRepo.views.models.bst.utils import SizedPaginator
 
 BCIStudyTestModel = create_test_model(
     "BCIStudyTestModel",
@@ -402,12 +403,21 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_get_queryset(self):
         for n in range(2):
             BCIStudyTestModel.objects.create(name=f"ts{n}")
-        alv = StudyBCI()
+        slv = StudyBCI()
         with self.assertNumQueries(1):
             # The count query
-            qs = alv.get_queryset()
+            qs = slv.get_queryset()
         self.assertQuerySetEqual(
             BCIStudyTestModel.objects.distinct(), qs, ordered=False
         )
-        self.assertEqual(2, alv.raw_total)
-        self.assertEqual(2, alv.total)
+        self.assertEqual(2, slv.raw_total)
+        self.assertEqual(2, slv.total)
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_paginator(self):
+        for n in range(10):
+            BCIStudyTestModel.objects.create(name=f"ts{n}")
+        slv = StudyBCI()
+        qs = slv.get_queryset()
+        pgntr = slv.get_paginator(qs, 5)
+        self.assertIsInstance(pgntr, SizedPaginator)
