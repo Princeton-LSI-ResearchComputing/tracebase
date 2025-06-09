@@ -33,22 +33,6 @@ QUnit.test('onRowsPerPageChange', function (assert) {
   assert.false(url.includes('export'))
 })
 
-QUnit.test('onPageChange', function (assert) {
-  // We have to reset the global variables and delete stale cookies
-  initGlobalDefaults()
-  deleteViewCookies()
-
-  setViewCookie('page', 5)
-  setViewCookie('limit', 25)
-  updatePageNum(3)
-  // Test indirectly by creating a URL based on the update
-  const url = getPageURL()
-  assert.true(url.includes('page=3'))
-  // limit doesn't change from cookie value
-  assert.true(url.includes('limit=25'))
-  assert.false(url.includes('export'))
-})
-
 QUnit.test('resetTable', function (assert) {
   // We have to reset the global variables and delete stale cookies
   initGlobalDefaults()

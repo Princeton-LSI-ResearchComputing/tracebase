@@ -14,7 +14,8 @@ from DataRepo.models.utilities import (
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import camel_to_title
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
-from DataRepo.views.utils import GracefulPaginator, get_cookie, get_cookie_dict
+from DataRepo.views.models.bst.utils import SizedPaginator
+from DataRepo.views.utils import get_cookie, get_cookie_dict
 
 
 class BSTClientInterface(ListView):
@@ -27,10 +28,7 @@ class BSTClientInterface(ListView):
             template_name (str) ["models/bst/list_view.html"]: The template used to render the Bootstrap Table.
             scripts (List[str]) ["DataRepo/static/js/bst/cookies.js", "DataRepo/static/js/bst/list_view.js"]
         Pagination:
-            PER_PAGE_CHOICES (List[int]) [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]: The rows per page select list
-                will be populated by these increments (up to the number of rows among the results).  A value of 0 means
-                "ALL" rows.
-            paginator_class (Paginator) [GracefulPaginator]: The paginator class set for the ListView (super) class.
+            paginator_class (Type[Paginator]) [SizedPaginator]: The paginator class set for the ListView (super) class.
             paginate_by (int) [15]: The default number of rows per page.
         Context variable names:
             search_cookie_name (str) ["search"]
@@ -39,6 +37,7 @@ class BSTClientInterface(ListView):
             sortcol_cookie_name (str) ["sortcol"]
             asc_cookie_name (str) ["asc"]
             limit_cookie_name (str) ["limit"]
+            page_var_name (str) ["page"]
             cookie_prefix_var_name (str) ["cookie_prefix"]
             cookie_resets_var_name (str) ["cookie_resets"]
             clear_cookies_var_name (str) ["clear_cookies"]
@@ -61,8 +60,7 @@ class BSTClientInterface(ListView):
     ]
 
     # Pagination
-    paginator_class = GracefulPaginator
-    PER_PAGE_CHOICES: List[int] = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]
+    paginator_class = SizedPaginator
     paginate_by = 15
 
     # Context variable names
@@ -90,6 +88,7 @@ class BSTClientInterface(ListView):
     scripts_var_name = "scripts"
 
     # Basics
+    page_var_name = "page"
     limit_default_var_name = "limit_default"
     warnings_var_name = "warnings"
 
@@ -156,6 +155,16 @@ class BSTClientInterface(ListView):
             self.ordering = ["id"]
 
         # Initialize values obtained from URL parameters (or cookies)
+        page_param = self.get_param(self.page_var_name)
+        if page_param is None:
+            self.page = 1
+        else:
+            try:
+                self.page = int(page_param)
+            except Exception:
+                if settings.DEBUG:
+                    warn(f"Invalid page: {page_param}", DeveloperWarning)
+                self.page = 1
         limit_param = self.get_param(self.limit_cookie_name)
         if limit_param is None:
             cookie_limit = self.get_cookie(self.limit_cookie_name)
@@ -205,6 +214,22 @@ class BSTClientInterface(ListView):
             self.limit = self.paginate_by
 
         return self.limit
+
+    def get_paginator(self, *args, **kwargs):
+        """Overrides superclass method to get a SizedPaginator.  Call it with arguments you would normally supply to
+        Django's Paginator.
+
+        NOTE: The superclass constructor needs positional arguments for QuerySet/object_list & number of rows per page.
+        """
+        return self.paginator_class(
+            self.total,
+            *args,
+            page=self.page,
+            raw_total=self.raw_total,
+            page_name=self.page_var_name,
+            limit_name=self.limit_cookie_name,
+            **kwargs,
+        )
 
     def get_queryset(self):
         """An extension of the superclass method intended to only set total and raw_total instance attributes.  total is

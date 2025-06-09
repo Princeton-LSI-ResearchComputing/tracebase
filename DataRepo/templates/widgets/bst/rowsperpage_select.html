@@ -1,0 +1,16 @@
+{# Based on .venv/lib/python3.9/site-packages/django/forms/templates/django/forms/widgets/select.html as a starting point template #}
+<div class="page-list" style="display: inline-block; white-space: nowrap;">
+    <div class="btn-group dropdown dropup">
+        <button id="rows-per-page-select-button" class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <span class="page-size">{{ widget.value.0 }}</span>
+            <span class="caret"></span>
+        </button>
+        <div class="dropdown-menu">
+            {% for group_name, group_choices, group_index in widget.optgroups %}
+                {% for option in group_choices %}
+                    {% include option.template_name with widget=option %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
