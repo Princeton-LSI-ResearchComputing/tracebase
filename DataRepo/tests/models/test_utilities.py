@@ -417,6 +417,23 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         )
         self.assertEqual("name", select_representative_field(TracerLabel, force=True))
 
+        # Test when a subset is supplied to select from - and no ideal choice, uses first non-relation, non-id of
+        # supplied order
+        self.assertEqual(
+            "med_mz",
+            select_representative_field(
+                PeakData,
+                force=True,
+                subset=[
+                    "id",
+                    "peak_group",
+                    "med_mz",
+                    "corrected_abundance",
+                    "med_rt",
+                ],
+            ),
+        )
+
     def test_model_title(self):
         self.assertEqual("Peak Data Label", model_title(PeakDataLabel))
 
