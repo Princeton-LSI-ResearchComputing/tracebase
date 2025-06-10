@@ -157,8 +157,6 @@ function initBST ( // eslint-disable-line no-unused-vars
     }
   })
 
-  initPaginator('rows-per-page-option', 'page', 'limit', djangoLimit) // eslint-disable-line no-undef
-
   setTimeout(function () { loading = false }, 2000)
 }
 
