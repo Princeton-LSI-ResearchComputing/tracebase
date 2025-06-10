@@ -1,4 +1,4 @@
-{% if page_obj.paginator.total > 0 %}
+{% if page_obj.paginator.raw_total > 0 %}
     <!-- Start BSTListView Pagination -->
     <div>
         <script src="{{ page_obj.paginator.script_name }}"></script>
@@ -16,12 +16,16 @@
         <br>
         <!-- Allow user to reduce the number of rows per page and see the number of results -->
         <div style="float: left;">
-            <!-- Generate the "Showing N to M of T rows," message -->
-            Showing {{ page_obj.paginator.first_row }}
-            to {{ page_obj.paginator.last_row }}
-            of <span title="Unfiltered: {{ page_obj.paginator.raw_total }}">{{ page_obj.paginator.total }}</span>
-            {# Don't show the size select list if the total is less than the smallest page size option #}
-            rows{% if page_obj.paginator.can_be_resized %}, with {{ page_obj.paginator.size_select_list }} rows per page{% endif %}
+            {% if page_obj.paginator.total > 0 %}
+                <!-- Generate the "Showing N to M of T rows," message -->
+                Showing {{ page_obj.paginator.first_row }}
+                to {{ page_obj.paginator.last_row }}
+                of <span title="Unfiltered: {{ page_obj.paginator.raw_total }}">{{ page_obj.paginator.total }}</span>
+                {# Don't show the size select list if the total is less than the smallest page size option #}
+                rows{% if page_obj.paginator.can_be_resized %}, with {{ page_obj.paginator.size_select_list }} rows per page{% endif %}
+            {% else %}
+                Search matched 0 out of {{ page_obj.paginator.raw_total }} total records.
+            {% endif %}
         </div>
 
         {% if page_obj.has_other_pages %}
