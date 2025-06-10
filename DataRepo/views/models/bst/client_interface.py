@@ -535,14 +535,9 @@ class BSTClientInterface(ListView):
 
         # This context variable determines whether the BST code on the pagination template will render
         if self.total == 0:
-            # Django does not supply a page_obj when there are no results, but the list_view.html template is where the
-            # table controlling code (integrated with pagination) is loaded, so we need a page_obj context variable with
-            # this minimal information necessary to operate the table, so that a user can clear their search term that
-            # resulted in no matches.
-            context["page_obj"] = {
-                "number": 1,
-                "has_other_pages": False,
-                "paginator": {"per_page": self.limit},
-            }
+            # Django does not supply a page_obj when there are no results, but the SizedPaginator also shows *raw* total
+            # results in the event that a user filtered or searched, resulting in 0 filtered results.  We need a
+            # page_obj in order for the user to be able to clear their search term that resulted in no matches.
+            context["page_obj"] = self.get_paginator([], self.limit).page(1)
 
         return context

@@ -45,7 +45,7 @@ class SizedPaginator(GracefulPaginator):
 
     template_name = "models/bst/paginator.html"
     script_name = "js/bst/paginator.js"
-    # Contains askForPage() and initRPPSelect()
+    # Contains askForPage(), initPaginator(), and validatePageNum()
 
     flank: int = 3
     # The number of pages to link to on either side of the current page
