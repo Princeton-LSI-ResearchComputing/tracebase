@@ -1,4 +1,3 @@
-
 const urlParams = new URLSearchParams(window.location.search)
 const djangoCurrentURL = window.location.href.split('?')[0] // {% url request.resolver_match.url_name %} eslint-disable-line no-var
 
