@@ -462,9 +462,12 @@ def field_path_to_model_path(
 
 
 def select_representative_field(
-    model: Type[Model], force=False, include_expression=False
+    model: Type[Model],
+    force=False,
+    include_expression=False,
+    subset: Optional[List[str]] = None,
 ) -> Optional[Union[str, Expression]]:
-    """(Arbitrarily) select the best single field to represent a model.
+    """(Arbitrarily) select the best single field to represent a model, optionally from a subset of fields.
 
     A field is chosen based on the following criteria, in order of precedence:
 
@@ -484,22 +487,36 @@ def select_representative_field(
             and there are no unique fields that are not the arbitrary primary key or foreign keys.
         include_expression (bool) [False]: If a suitable single field is selected from the model's ordering, return it
             as-is, instead of just returning a string version of the field name.
+        subset (Optional[List[str]]): A subset of field names belonging to model to select from.  Use this to restrict
+            the representative field selection to only the provided fields.  Note, if forced, and there is no ideal,
+            field the first field not belonging to a related model is chosen, but if all there are is fields from
+            related models, the first relation chosen, which could be problematic.
     Exceptions:
-        None
+        ProgrammingError when a supplied subset of fields has no suitable representative field (i.e. when all supplied
+            fields are from a many-related model).
     Returns:
         (Optional[str]): The name of the selected field to represent the model.
     """
-    if len(model._meta.ordering) == 1:
+    if subset is not None and len(subset) > 0:
+        all_fields = [field_path_to_field(model, fld) for fld in subset]
+        all_names = subset.copy()
+    else:
+        all_fields = model._meta.get_fields()
+        all_names = [f.name for f in all_fields]
+
+    if (
+        len(model._meta.ordering) == 1
+        and resolve_field_path(model._meta.ordering[0]) in all_names
+    ):
         # If there's only 1 ordering field, use it
         if include_expression:
             return model._meta.ordering[0]
         return resolve_field_path(model._meta.ordering[0])
 
-    all_fields = model._meta.get_fields()
-
     # Grab the first non-ID field from the related model that is unique, if one exists
     f: Field
     non_relations: List[Field] = []
+    one_relations: List[Field] = []
     for f in all_fields:
         related_field = resolve_field(f)
         if not related_field.is_relation and related_field.name != "id":
@@ -507,6 +524,12 @@ def select_representative_field(
                 return related_field.name
             else:
                 non_relations.append(related_field)
+        elif (
+            related_field.name != "id"
+            and related_field.is_relation
+            and not is_many_related_to_parent(related_field.name, model)
+        ):
+            one_relations.append(related_field)
 
     if len(non_relations) == 1:
         return non_relations[0].name
@@ -514,15 +537,25 @@ def select_representative_field(
     if not force:
         return None
 
-    fldname = "pk"
+    fldname = "pk" if subset is None or len(subset) == 0 else subset[0]
     if len(non_relations) > 0:
         fldname = non_relations[0].name
     elif "id" in all_fields:
         fldname = "id"
+    elif len(one_relations) > 0:
+        fldname = one_relations[0].name
+    elif subset is not None or (isinstance(subset, list) and len(subset) > 0):
+        raise ProgrammingError(
+            f"The subset of '{model.__name__}' fields supplied: {subset} has no suitable representative field.  "
+            f"Include a field name that is not many-related to model '{model.__name__}'."
+        )
 
     if settings.DEBUG:
+        from DataRepo.utils.exceptions import DeveloperWarning
+
         warn(
-            f"Unable to select a representative field for model '{model.__name__}'.  Defaulting to '{fldname}'."
+            f"Unable to select a representative field for model '{model.__name__}'.  Defaulting to '{fldname}'.",
+            DeveloperWarning,
         )
 
     return fldname
