@@ -445,8 +445,9 @@ class BSTListView(BSTBaseListView):
         try:
             qs = qs.filter(self.filters)
         except FieldError as fe:
-            fld_str = "\n\t".join(self.searchcols)
-            fld_msg = f"One or more of {len(self.searchcols)} fields is misconfigured:\n\n\t{fld_str}"
+            searchcols = [c.name for c in self.columns.values() if c.searchable]
+            fld_str = "\n\t".join(searchcols)
+            fld_msg = f"One or more of {len(searchcols)} fields is misconfigured:\n\n\t{fld_str}"
             warning = (
                 f"Your search could not be executed.  {fld_msg}\n\n"
                 "Please report this error to the site administrators."
