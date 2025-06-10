@@ -1,7 +1,11 @@
 from typing import Optional
 from urllib.parse import unquote
+from warnings import warn
 
+from django.conf import settings
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+
+from DataRepo.utils.exceptions import DeveloperWarning
 
 
 def get_cookie_dict(request, prefix: Optional[str] = None, exclude_empties=True):
@@ -80,7 +84,17 @@ class GracefulPaginator(Paginator):
         try:
             num = self.validate_number(num)
         except PageNotAnInteger:
+            if settings.DEBUG:
+                warn(
+                    f"Page {num} not an integer.  Gracefully falling back to 1.",
+                    DeveloperWarning,
+                )
             num = 1
         except EmptyPage:
+            if settings.DEBUG:
+                warn(
+                    f"Page {num} is empty.  Gracefully falling back to last page: {self.num_pages}.",
+                    DeveloperWarning,
+                )
             num = self.num_pages
         return super().page(num)

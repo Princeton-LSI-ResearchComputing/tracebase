@@ -59,7 +59,7 @@ class BSTListViewTests(BaseTemplateTests):
         return "".join(non_empty_lines)
 
     def assert_substrings(self, expected_substrings: list, template_str: str):
-        for i, expected in enumerate(expected_substrings):
+        for expected in expected_substrings:
             # assertIn has really ugly failure output.  assertTrue with msg set is better
             self.assertTrue(
                 expected in template_str,
@@ -282,3 +282,11 @@ class BSTListViewTests(BaseTemplateTests):
         self.assert_substrings(expected_substrings, template_str)
         expected_ordered_substrings = ["S1", "S2"]
         self.assert_substrings_in_order(expected_ordered_substrings, template_str)
+
+    def test_paginator_added(self):
+        request = HttpRequest()
+        slv1 = StudyLV(request=request)
+        template_str = self.get_massaged_template_str(
+            self.render_list_view_template(slv1)
+        )
+        self.assertIn("Start BSTListView Pagination", template_str)
