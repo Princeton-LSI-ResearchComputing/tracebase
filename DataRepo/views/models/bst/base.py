@@ -661,11 +661,13 @@ class BSTBaseListView(BSTClientInterface):
 
         cols_by_model: Dict[str, List[BSTManyRelatedColumn]] = defaultdict(list)
         for colname in self.column_ordering:
-            col = self.columns[colname]
-            # If this is a many-related column that has a field_path longer than 1 foreign key (i.e. ignore sole many-
-            # related foreign keys that the developer should have removed)
-            if isinstance(col, BSTManyRelatedColumn) and "__" in col.field_path:
-                cols_by_model[col.many_related_model_path].append(col)
+            # There can be group names in the column_rdering (to allow developers to shortcut its creation)
+            if colname not in self.groups.keys():
+                col = self.columns[colname]
+                # If this is a many-related column that has a field_path longer than 1 foreign key (i.e. ignore sole
+                # many-related foreign keys that the developer should have removed)
+                if isinstance(col, BSTManyRelatedColumn) and "__" in col.field_path:
+                    cols_by_model[col.many_related_model_path].append(col)
 
         # Loop through the automatically generated groups and if the group doesn't exist, create it.  If it does exist,
         # check it.
