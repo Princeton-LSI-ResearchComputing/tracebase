@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, List, Optional, Union, cast
 from warnings import warn
 
@@ -10,6 +11,7 @@ from django.db.models.expressions import Combinable
 from DataRepo.models.utilities import (
     is_many_related_to_root,
     is_related,
+    model_path_to_model,
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
@@ -47,6 +49,20 @@ class BSTBaseListView(BSTClientInterface):
             may be in column_ordering and the value can be overridden by what is provided to the constructor.
         exclude (List[str]) ["id"]: This is a list of column names (which can be either a field_path or annotation
             name).  And column name added here will cause a matching value in the column_rdering to be skipped.
+    Instance Attributes:
+        column_settings (Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]]): A dict, keyed on column or column group
+            name that contains settings for that column or column group.  Those settings are either in the form of a
+            dict of kwargs for the column or column group class's constructor, or an instance of that class.
+        column_ordering (List[str]): A list of column and/or column group names in the desired order they should appear.
+            It defaults to the class attribute version of this instance attribute of the same name.  If that is not
+            defined, it defaults to a list of fields from the model in the order they were defined with one exception:
+            many-related fields are moved to the end.  Additionally, all columns from many-related models trigger the
+            automatic inclusion of an annotation column for the count of those related records.
+        columns (Dict[str, BSTBaseColumn]): A dict of column objects keyed on column name.  This includes columns from
+            any/all column groups.
+        groups (Dict[str, BSTColumnGroup]): A dict of column groups keyed on column group name.  This is only used to
+            sort the delimited values of multiple many-related columns the same.
+        sort_col (BSTBaseColumn): A shortcut to the user-selected sort-column, found via cookie.
     """
 
     column_ordering: List[str] = []
@@ -98,9 +114,6 @@ class BSTBaseListView(BSTClientInterface):
         self.init_columns()
 
         # Initialize a sort column (sort_col) based on the saved sort cookie (sort_name)
-        self.searchcols: List[str] = [
-            c.name for c in self.columns.values() if c.searchable
-        ]
         if isinstance(self.sort_name, str):
             self.sort_col = self.columns[self.sort_name]
         elif self.model is not None:
@@ -114,6 +127,10 @@ class BSTBaseListView(BSTClientInterface):
         elif len(self.columns.keys()) > 0:
             # Arbitrary column - does not matter without a model
             self.sort_col = list(self.columns.values())[0]
+
+        # Go through the columns and make sure that multiple many-related columns from the same related model are in
+        # groups so that their delimited values sort together.
+        self.add_check_groups()
 
     def init_column_settings(
         self,
@@ -140,7 +157,7 @@ class BSTBaseListView(BSTClientInterface):
         ] = None,
         clear: bool = False,
     ):
-        """Initializes self.column_settings.
+        """Initializes self.column_settings.  Makes recursive calls with the columns from BSTColumnGroups.
 
         Args:
             columns (Optional[Union[
@@ -619,6 +636,113 @@ class BSTBaseListView(BSTClientInterface):
         for script in self.columns[colname].javascripts:
             if script not in self.javascripts:
                 self.javascripts.append(script)
+
+    def add_check_groups(self):
+        """Go through the columns and make sure that multiple columns from the same related model are in a column group
+        so that their delimited value sorts are synchronized.  Adds BSTColumnGroup objects to self.groups (if missing).
+
+        Assumptions:
+            1. Multiple groups from the same related model path do not exist.
+        Limitations:
+            1. Multiple groups from the same related model path are not supported.
+            2. This does not add new column groups to self.column_ordering
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # The column group object name can be chosen arbitrarily by the developer of the derived class, so we can't rely
+        # on the automatically generated column group name to equate groups.  We must use the related model.
+        existing_groups_by_model: Dict[str, BSTColumnGroup] = {}
+        for group in self.groups.values():
+            existing_groups_by_model[group.many_related_model_path] = group
+
+        cols_by_model: Dict[str, List[BSTManyRelatedColumn]] = defaultdict(list)
+        for colname in self.column_ordering:
+            col = self.columns[colname]
+            # If this is a many-related column that has a field_path longer than 1 foreign key (i.e. ignore sole many-
+            # related foreign keys that the developer should have removed)
+            if isinstance(col, BSTManyRelatedColumn) and "__" in col.field_path:
+                cols_by_model[col.many_related_model_path].append(col)
+
+        # Loop through the automatically generated groups and if the group doesn't exist, create it.  If it does exist,
+        # check it.
+        for mr_model_path, columns in cols_by_model.items():
+            if (
+                mr_model_path not in existing_groups_by_model.keys()
+                and len(columns) > 1
+            ):
+                group_name = BSTColumnGroup.get_or_fix_name(mr_model_path)
+
+                if group_name in self.groups.keys():
+                    raise ProgrammingError(
+                        f"Automatically generated group column name conflict: '{group_name}' for columns: {columns}"
+                    )
+
+                self.groups[group_name] = BSTColumnGroup(
+                    *columns,
+                    initial=self._get_group_representative(mr_model_path, columns),
+                )
+
+            elif settings.DEBUG and len(columns) > 1:
+                custom = set(
+                    [c.name for c in existing_groups_by_model[mr_model_path].columns]
+                )
+                expected = set([c.name for c in columns])
+
+                missing = expected - custom
+                unexpected = custom - expected
+
+                if len(missing) > 0 or len(unexpected) > 0:
+                    msg = ""
+                    if len(missing) > 0:
+                        msg += (
+                            f"  {len(missing)} column(s) that go through the same many-related model were not in the "
+                            f"group: {missing}.  Please add them."
+                        )
+                    if len(unexpected) > 0:
+                        msg += (
+                            f"  {len(unexpected)} column(s) were unexpected: {unexpected}.  There must be a bug.  "
+                            "Please report this warning."
+                        )
+                    warn(
+                        f"Manually created column group '{existing_groups_by_model[mr_model_path]}' for related model "
+                        f"'{mr_model_path}' is not as expected.{msg}",
+                        DeveloperWarning,
+                    )
+
+    def _get_group_representative(
+        self, mr_model_path: str, columns: List[BSTManyRelatedColumn]
+    ):
+        """Takes a many-related model path and a list of BSTManyRelatedColumns from that model path and returns a
+        selected representative field_path of one of the columns.  The field path will be the best for sorting the
+        delimited values in the columns."""
+        # Trim off the mr_model_path from the field_paths of each column
+        relative_subset = []
+        orig_subset_lookup = {}
+        for col in columns:
+            if col.field_path.startswith(f"{mr_model_path}__"):
+                relative_fld = col.field_path.replace(f"{mr_model_path}__", "", 1)
+                relative_subset.append(relative_fld)
+                orig_subset_lookup[relative_fld] = col.field_path
+            else:
+                raise ProgrammingError(
+                    f"The field path in column '{col}' does not have the expected length."
+                )
+
+        # use the relative field paths to select the best representative field in the group to sort its
+        # delimited values by
+        relative_representative = select_representative_field(
+            model_path_to_model(self.model, mr_model_path),
+            force=True,
+            subset=relative_subset,
+        )
+        # This assumes that there are not duplicate columns
+        representative = orig_subset_lookup[str(relative_representative)]
+
+        return representative
 
     def get_context_data(self, **_):
         """An override of the superclass method to provide context variables to the page.  All of the values are
