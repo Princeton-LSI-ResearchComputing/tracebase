@@ -8,7 +8,8 @@
                 initPaginator(
                     '{{ page_obj.paginator.page_name }}',
                     '{{ page_obj.paginator.limit_name }}',
-                    '{{ page_obj.paginator.size_select_list.option_name }}'
+                    '{{ page_obj.paginator.size_select_list.option_name }}',
+                    {{ page_obj.paginator.per_page }}
                 )
             });
         </script>
