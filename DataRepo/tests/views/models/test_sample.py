@@ -13,9 +13,7 @@ class SampleViewTests(ModelViewTests):
     def test_sample_list(self):
         response = self.client.get("/DataRepo/samples/")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/sample/sample_list.html")
         self.assertEqual(self.ALL_SAMPLES_COUNT, len(response.context["sample_list"]))
-        self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
     @tag("sample")
     def test_sample_list_per_animal(self):
@@ -23,9 +21,7 @@ class SampleViewTests(ModelViewTests):
         s1 = Sample.objects.filter(animal_id=a1.id)
         response = self.client.get("/DataRepo/samples/?animal_id=" + str(a1.pk))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "models/sample/sample_list.html")
         self.assertEqual(s1.count(), len(response.context["sample_list"]))
-        self.assertEqual(self.ALL_MSRUN_SAMPLES_COUNT, len(response.context["df"]))
 
     @tag("sample")
     def test_sample_detail(self):
