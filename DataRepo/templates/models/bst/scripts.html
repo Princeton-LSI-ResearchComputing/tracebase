@@ -1,9 +1,11 @@
+{% load static %}
+
 {# Variables needed for the scripts #}
 {{ warnings|json_script:"warnings" }}
-{{ cookie_resets|json_script:"cookie_resets" }}
+{{ cookie_resets|json_script:"cookieResets" }}
 
 {# The script imports #}
-{% for script in scripts %}<script src="{{ script }}"></script>
+{% for script in scripts %}<script src="{% static script %}"></script>
 {% endfor %}
 
 {# Script initialization #}
