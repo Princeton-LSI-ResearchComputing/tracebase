@@ -91,13 +91,6 @@ function initBST ( // eslint-disable-line no-unused-vars
   }
   setViewCookie('page', djangoPageNumber) // eslint-disable-line no-undef
 
-  // TODO: Add collapsed and collapsedDefault as arguments and only call setCollapse if they differ
-  const collapse = getViewCookie('collapsed', true) // eslint-disable-line no-undef
-  setCollapse(collapse)
-
-  // Display any warnings received from the server
-  displayWarnings(warnings)
-
   // Set a variable to be able to forgo events from BST during init
   let loading = true
   $(jqTableID).bootstrapTable({ // eslint-disable-line no-undef
@@ -156,6 +149,13 @@ function initBST ( // eslint-disable-line no-unused-vars
       console.error("BootstrapTable Error.  Status: '" + status + "' Data:", jqXHR)
     }
   })
+
+  // TODO: Add collapsed and collapsedDefault as arguments and only call setCollapse if they differ
+  const collapse = getViewCookie('collapsed', true) // eslint-disable-line no-undef
+  setCollapse(collapse)
+
+  // Display any warnings received from the server
+  displayWarnings(warnings)
 
   setTimeout(function () { loading = false }, 2000)
 }

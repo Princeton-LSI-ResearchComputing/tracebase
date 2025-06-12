@@ -55,8 +55,8 @@ class BSTClientInterface(ListView):
     template_name = "models/bst/list_view.html"
 
     scripts = [
-        "DataRepo/static/js/bst/cookies.js",
-        "DataRepo/static/js/bst/list_view.js",
+        "js/bst/cookies.js",
+        "js/bst/list_view.js",
     ]
 
     # Pagination
@@ -483,7 +483,7 @@ class BSTClientInterface(ListView):
         return (
             model_title_plural(cls.model)
             if cls.model is not None
-            else f"{camel_to_title(cls.__name__)}s"
+            else f"{camel_to_title(cls.__name__)}s"  # pylint: disable=no-member
         )
 
     @classproperty
@@ -497,7 +497,7 @@ class BSTClientInterface(ListView):
         return (
             model_title(cls.model)
             if cls.model is not None
-            else camel_to_title(cls.__name__)
+            else camel_to_title(cls.__name__)  # pylint: disable=no-member
         )
 
     def get_context_data(self, **kwargs):
