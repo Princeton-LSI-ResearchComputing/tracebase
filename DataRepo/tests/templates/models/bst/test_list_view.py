@@ -90,7 +90,7 @@ class BSTListViewTests(BaseTemplateTests):
             '<script id="warnings" type="application/json">[]</script>',
             '<script id="cookie_resets" type="application/json">[]</script>',
             '<script src="js/bst/sorter.js"></script>',
-            '<script src="js/bst/filterers.js"></script>',
+            '<script src="js/bst/filterer.js"></script>',
         ]
         self.assert_substrings(expected_substrings, template_str)
 
