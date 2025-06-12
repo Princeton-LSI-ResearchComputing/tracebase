@@ -8,6 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import _csv
 from django.conf import settings
+from django.db.models import QuerySet
 from django.db.models.fields.files import FieldFile
 from django.http import Http404, HttpResponseNotAllowed, StreamingHttpResponse
 from django.shortcuts import render
@@ -483,24 +484,24 @@ class PeakGroupsToMzxmlZIP(RecordToMzxmlZIP):
     # This format ID matches PeakGroupsFormat.id
     format_id = "pgtemplate"
 
-    def queryset_to_files_iterator(self, qs):
+    def queryset_to_files_iterator(self, qs: QuerySet):
         """Takes a queryset of PeakGroup records and returns a list of tuples of file data.
 
         Args:
-            qs (QuerySet[PeakGroup])
+            qs (QuerySet): A queryset of PeakGroup records.
         Exceptions:
             None
-        Returns:
-            rows (Tuple[str, File])
+        Yields:
+            (Tuple[str, File]): A file path relative to the zip directory and a File object.
         """
-        seen = {}
-        pgrec: PeakGroup
-        for pgrec in qs.all():
-            msrsrec: MSRunSample
-            for msrsrec in pgrec.msrun_sample.sample.msrun_samples.all():
-                if msrsrec.ms_data_file is not None and msrsrec.id not in seen.keys():
-                    yield self.msrun_sample_rec_to_file(msrsrec)
-                    seen[msrsrec.id] = True
+        for msrs_id in (
+            qs.filter(msrun_sample__sample__msrun_samples__ms_data_file__isnull=False)
+            .order_by("msrun_sample__sample__msrun_samples__ms_data_file__id")
+            .distinct("msrun_sample__sample__msrun_samples__ms_data_file__id")
+            .values_list("msrun_sample__sample__msrun_samples__id", flat=True)
+        ):
+            msrsrec = MSRunSample.objects.get(id=msrs_id)
+            yield self.msrun_sample_rec_to_file(msrsrec)
 
 
 class PeakDataToMzxmlZIP(RecordToMzxmlZIP):
@@ -510,24 +511,32 @@ class PeakDataToMzxmlZIP(RecordToMzxmlZIP):
     # This format ID matches PeakDataFormat.id
     format_id = "pdtemplate"
 
-    def queryset_to_files_iterator(self, qs):
+    def queryset_to_files_iterator(self, qs: QuerySet):
         """Takes a queryset of PeakData records and returns a list of tuples of file data.
 
         Args:
-            qs (QuerySet[PeakData])
+            qs (QuerySet): A queryset of PeakData records.
         Exceptions:
             None
-        Returns:
-            rows (Tuple[str, File])
+        Yields:
+            (Tuple[str, File]): A file path relative to the zip directory and a File object.
         """
-        seen = {}
-        pgrec: PeakData
-        for pgrec in qs.all():
-            msrsrec: MSRunSample
-            for msrsrec in pgrec.peak_group.msrun_sample.sample.msrun_samples.all():
-                if msrsrec.ms_data_file is not None and msrsrec.id not in seen.keys():
-                    yield self.msrun_sample_rec_to_file(msrsrec)
-                    seen[msrsrec.id] = True
+        for msrs_id in (
+            qs.filter(
+                peak_group__msrun_sample__sample__msrun_samples__ms_data_file__isnull=False
+            )
+            .order_by(
+                "peak_group__msrun_sample__sample__msrun_samples__ms_data_file__id"
+            )
+            .distinct(
+                "peak_group__msrun_sample__sample__msrun_samples__ms_data_file__id"
+            )
+            .values_list(
+                "peak_group__msrun_sample__sample__msrun_samples__id", flat=True
+            )
+        ):
+            msrsrec = MSRunSample.objects.get(id=msrs_id)
+            yield self.msrun_sample_rec_to_file(msrsrec)
 
 
 class AdvancedSearchDownloadMzxmlZIPView(AdvancedSearchDownloadView):
