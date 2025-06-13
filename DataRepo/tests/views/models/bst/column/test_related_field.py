@@ -13,6 +13,7 @@ from DataRepo.tests.tracebase_test_case import (
     create_test_model,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
 
 BSTRCStudyTestModel = create_test_model(
@@ -29,7 +30,7 @@ BSTRCStudyTestModel = create_test_model(
 BSTRCAnimalTestModel = create_test_model(
     "BSTRCAnimalTestModel",
     {
-        "name": CharField(max_length=255),
+        "name": CharField(max_length=255, unique=True),
         "sex": CharField(choices=[("F", "female"), ("M", "male")]),
         "body_weight": FloatField(verbose_name="Weight (g)"),
         "studies": ManyToManyField(
@@ -280,3 +281,15 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertIn(
             "Supply display_field_path to allow search/sort", str(ar.exception)
         )
+
+    def test_generate_header_related_model_name_field_to_fkey_name(self):
+        # Test when related model unique field, uses foreign key name when field is "name"
+        c = BSTRelatedColumn("animal__name", BSTRCSampleTestModel)
+        ah = c.generate_header()
+        self.assertEqual(underscored_to_title("animal"), ah)
+
+    def test_generate_header_related_model_uses_last_fkey(self):
+        # Test that every other field uses - underscored_to_title("_".join(path_tail))
+        c = BSTRelatedColumn("sample__animal__sex", BSTRCMSRunSampleTestModel)
+        sh = c.generate_header()
+        self.assertEqual(underscored_to_title("animal_sex"), sh)

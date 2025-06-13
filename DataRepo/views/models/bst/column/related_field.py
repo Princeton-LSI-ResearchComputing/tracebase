@@ -11,10 +11,12 @@ from DataRepo.models.utilities import (
     field_path_to_field,
     field_path_to_model_path,
     is_key_field,
+    is_unique_field,
     model_path_to_model,
     select_representative_field,
 )
 from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.field import BSTColumn
 from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
 from DataRepo.views.models.bst.column.sorter.field import BSTSorter
@@ -195,6 +197,34 @@ class BSTRelatedColumn(BSTColumn):
         full_rep_field = f"{field_path}__{rep_field}"
 
         return full_rep_field
+
+    def generate_header(self):
+        """Generate a column header from the field_path.  Overrides super().generate_header.  This explicitly does not
+        use the field's name or its verbose name because the related_name (set by the linking model) of the foreign key
+        provides context that the field name or the related model name does not provide.  E.g. Compound.name linked to
+        from Tracer or PeakGroup could be "measured compound" or "tracer compound".
+
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # Grab as many of the last 2 items from the field_path as is present
+        path_tail = self.field_path.split("__")[-2:]
+
+        # If the length is greater than 1, the last element is "name", and the field is unique, use the name of the
+        # foreign key to this model's field only.
+        if (
+            len(path_tail) == 2
+            and path_tail[1] == "name"
+            and is_unique_field(self.field)
+        ):
+            return underscored_to_title(path_tail[0])
+
+        # Otherwise, use the last 2 elements of the path
+        return underscored_to_title("_".join(path_tail))
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs

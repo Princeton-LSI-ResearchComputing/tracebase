@@ -84,12 +84,12 @@ class BSTColumnTests(TracebaseTestCase):
     def test_init_field_path_required(self):
         # Test ValueError - "field_path is required"
         with self.assertRaises(ValueError) as ar:
-            BSTColumn(None, model=BSTCStudyTestModel)
+            BSTColumn(None, BSTCStudyTestModel)
         self.assertIn("field_path is required", str(ar.exception))
 
     def test_init_suggest_annot(self):
         with self.assertRaises(AttributeError) as ar:
-            BSTColumn("annot", model=BSTCStudyTestModel)
+            BSTColumn("annot", BSTCStudyTestModel)
         self.assertIn("('annot') is not an attribute", str(ar.exception))
         self.assertIn("BSTAnnotColumn", str(ar.exception))
 
@@ -97,17 +97,17 @@ class BSTColumnTests(TracebaseTestCase):
         # Test self.name == self.field_path
         mdl = BSTCStudyTestModel
         fld = "name"
-        c = BSTColumn(fld, model=mdl)
+        c = BSTColumn(fld, mdl)
         self.assertEqual(fld, c.name)
-        # Test if sorter is None - self.sorter = BSTSorter(self.field_path, model=self.model)
-        self.assertEqual(BSTSorter(fld, model=mdl), c.sorter)
-        # Test if filterer is None - self.filterer = BSTFilterer(model=self.model, field_path=self.field_path)
-        self.assertEqual(BSTFilterer(field_path=fld, model=mdl), c.filterer)
+        # Test if sorter is None - self.sorter = BSTSorter(self.field_path, self.model)
+        self.assertEqual(BSTSorter(fld, mdl), c.sorter)
+        # Test if filterer is None - self.filterer = BSTFilterer(self.model, self.field_path)
+        self.assertEqual(BSTFilterer(fld, mdl), c.filterer)
 
     def test_init_no_many_related(self):
         # Test if is_many_related and not self.is_many_related and not self.is_annotation - ValueError
         with self.assertRaises(ValueError) as ar:
-            BSTColumn("studies__name", model=BSTCAnimalTestModel)
+            BSTColumn("studies__name", BSTCAnimalTestModel)
         self.assertIn("must not be many-related", str(ar.exception))
         self.assertIn(
             "use BSTManyRelatedColumn to create a delimited-value column",
@@ -117,7 +117,7 @@ class BSTColumnTests(TracebaseTestCase):
     def test_init_donot_link_related(self):
         # Test if self.link and "__" in self.field_path - ValueError
         with self.assertRaises(ValueError) as ar:
-            BSTColumn("animal__body_weight", model=BSTCSampleTestModel, linked=True)
+            BSTColumn("animal__body_weight", BSTCSampleTestModel, linked=True)
         self.assertIn(
             "'linked' must not be true when 'field_path' 'animal__body_weight' passes through a related model",
             str(ar.exception),
@@ -126,27 +126,27 @@ class BSTColumnTests(TracebaseTestCase):
     def test_init_link_needs_get_abs_url(self):
         # Test if self.link and no get_absolute_url - ValueError
         with self.assertRaises(ValueError) as ar:
-            BSTColumn("name", model=BSTCStudyTestModel, linked=True)
+            BSTColumn("name", BSTCStudyTestModel, linked=True)
         self.assertIn(
             "'linked' must not be true when model 'BSTCStudyTestModel' does not have a 'get_absolute_url'",
             str(ar.exception),
         )
         # No error = successful test:
-        BSTColumn("body_weight", model=BSTCAnimalTestModel, linked=True)
+        BSTColumn("body_weight", BSTCAnimalTestModel, linked=True)
 
     def test_init_sorter_filterer_str(self):
-        # Test if sorter is None - self.sorter = BSTSorter(self.field_path, model=self.model)
-        # Test if filterer is None - self.filterer = BSTFilterer(model=self.model, field_path=self.field_path)
+        # Test if sorter is None - self.sorter = BSTSorter(self.field_path, self.model)
+        # Test if filterer is None - self.filterer = BSTFilterer(self.model, self.field_path)
         mdl = BSTCStudyTestModel
         fld = "name"
         my_sorter = "mySorter"
         my_filterer = "myFilterer"
-        c = BSTColumn(fld, model=mdl, sorter=my_sorter, filterer=my_filterer)
+        c = BSTColumn(fld, mdl, sorter=my_sorter, filterer=my_filterer)
         self.assertEqual(
-            str(BSTSorter(fld, model=mdl, client_sorter=my_sorter)), str(c.sorter)
+            str(BSTSorter(fld, mdl, client_sorter=my_sorter)), str(c.sorter)
         )
         self.assertEqual(
-            str(BSTFilterer(field_path=fld, model=mdl, client_filterer=my_filterer)),
+            str(BSTFilterer(fld, mdl, client_filterer=my_filterer)),
             str(c.filterer),
         )
 
@@ -157,9 +157,9 @@ class BSTColumnTests(TracebaseTestCase):
         fld = "name"
         my_sorter = "mySorter"
         my_filterer = "myFilterer"
-        bsts = BSTSorter(fld, model=mdl, client_sorter=my_sorter)
-        bstf = BSTFilterer(field_path=fld, model=mdl, client_filterer=my_filterer)
-        c = BSTColumn(fld, model=mdl, sorter=bsts, filterer=bstf)
+        bsts = BSTSorter(fld, mdl, client_sorter=my_sorter)
+        bstf = BSTFilterer(fld, mdl, client_filterer=my_filterer)
+        c = BSTColumn(fld, mdl, sorter=bsts, filterer=bstf)
         self.assertEqual(bsts, c.sorter)
         self.assertEqual(bstf, c.filterer)
 
@@ -168,7 +168,7 @@ class BSTColumnTests(TracebaseTestCase):
         mdl = BSTCStudyTestModel
         fld = "name"
         with self.assertRaises(TypeError) as ar:
-            BSTColumn(fld, model=mdl, sorter=1)
+            BSTColumn(fld, mdl, sorter=1)
         self.assertIn(
             "sorter must be a str or a BSTBaseSorter, not a 'int'", str(ar.exception)
         )
@@ -178,26 +178,26 @@ class BSTColumnTests(TracebaseTestCase):
         mdl = BSTCStudyTestModel
         fld = "name"
         with self.assertRaises(TypeError) as ar:
-            BSTColumn(fld, model=mdl, filterer=1)
+            BSTColumn(fld, mdl, filterer=1)
         self.assertIn(
             "filterer must be a str or a BSTBaseFilterer, not a 'int'",
             str(ar.exception),
         )
 
     def test_init_is_fk(self):
-        self.assertTrue(BSTColumn("animal", model=BSTCSampleTestModel).is_fk)
-        self.assertFalse(BSTColumn("name", model=BSTCSampleTestModel).is_fk)
+        self.assertTrue(BSTColumn("animal", BSTCSampleTestModel).is_fk)
+        self.assertFalse(BSTColumn("name", BSTCSampleTestModel).is_fk)
         # TODO: Put this test in the tests for BSTRelatedColumn
-        # self.assertTrue(BSTColumn("animal__studies", model=BSTCSampleTestModel).is_fk)
-        # self.assertFalse(BSTColumn("animal__studies__name", model=BSTCSampleTestModel).is_fk)
+        # self.assertTrue(BSTColumn("animal__studies", BSTCSampleTestModel).is_fk)
+        # self.assertFalse(BSTColumn("animal__studies__name", BSTCSampleTestModel).is_fk)
 
     def test_eq(self):
         # Test __eq__ works when other val is string
         sexfldp = "sex"
         bwfldp = "body_weight"
-        sexcol = BSTColumn(sexfldp, model=BSTCAnimalTestModel)
-        sexcol2 = BSTColumn(sexfldp, model=BSTCAnimalTestModel)
-        bwcol = BSTColumn(bwfldp, model=BSTCAnimalTestModel)
+        sexcol = BSTColumn(sexfldp, BSTCAnimalTestModel)
+        sexcol2 = BSTColumn(sexfldp, BSTCAnimalTestModel)
+        bwcol = BSTColumn(bwfldp, BSTCAnimalTestModel)
         self.assertTrue(sexcol == sexfldp)
         self.assertFalse(sexcol == bwfldp)
         self.assertTrue(bwcol == bwfldp)
@@ -206,7 +206,7 @@ class BSTColumnTests(TracebaseTestCase):
 
     def test_generate_header_field_verbose_name(self):
         # Test if field has verbose name with caps - return field.verbose_name
-        c = BSTColumn("body_weight", model=BSTCAnimalTestModel)
+        c = BSTColumn("body_weight", BSTCAnimalTestModel)
         bwh = c.generate_header()
         self.assertEqual(
             BSTCAnimalTestModel.body_weight.field.verbose_name,  # pylint: disable=no-member
@@ -216,13 +216,13 @@ class BSTColumnTests(TracebaseTestCase):
 
     def test_generate_header_field_name_to_model_name(self):
         # Test if self.field_path == "name" and is_unique_field(field) - Use the model's name
-        c = BSTColumn("name", model=BSTCSampleTestModel)
+        c = BSTColumn("name", BSTCSampleTestModel)
         sh = c.generate_header()
         self.assertEqual(camel_to_title("BSTCSampleTestModel"), sh)
 
     def test_generate_header_field_name_to_model_cap_verbose_name(self):
         # Test caps model verbose_name used as-is
-        c = BSTColumn("name", model=BSTCStudyTestModel)
+        c = BSTColumn("name", BSTCStudyTestModel)
         sh = c.generate_header()
         self.assertEqual(
             BSTCStudyTestModel._meta.__dict__[  # pylint: disable=no-member
@@ -233,7 +233,7 @@ class BSTColumnTests(TracebaseTestCase):
 
     def test_generate_header_field_name_to_model_diff_verbose_name(self):
         # Test diff model verbose_name used as-is
-        c = BSTColumn("name", model=BSTCAnimalTestModel)
+        c = BSTColumn("name", BSTCAnimalTestModel)
         ah = c.generate_header()
         self.assertEqual(
             underscored_to_title(
@@ -246,18 +246,6 @@ class BSTColumnTests(TracebaseTestCase):
 
     def test_generate_header_field_name_not_unique_not_changed_to_model_name(self):
         # Test diff model verbose_name used as-is
-        c = BSTColumn("name", model=BSTCTissueTestModel)
+        c = BSTColumn("name", BSTCTissueTestModel)
         th = c.generate_header()
         self.assertEqual(underscored_to_title("name"), th)
-
-    def test_generate_header_related_model_name_field_to_fkey_name(self):
-        # Test when related model unique field, uses foreign key name when field is "name"
-        c = BSTColumn("animal__name", model=BSTCSampleTestModel)
-        ah = c.generate_header()
-        self.assertEqual(underscored_to_title("animal"), ah)
-
-    def test_generate_header_related_model_uses_last_fkey(self):
-        # Test that every other field uses - underscored_to_title("_".join(path_tail))
-        c = BSTColumn("sample__animal__sex", model=BSTCMSRunSampleTestModel)
-        sh = c.generate_header()
-        self.assertEqual(underscored_to_title("animal_sex"), sh)
