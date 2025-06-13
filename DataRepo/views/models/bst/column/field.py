@@ -141,8 +141,11 @@ class BSTColumn(BSTBaseColumn):
         super().__init__(name, *args, **kwargs)
 
     def generate_header(self):
-        """Generate a column header from the field_path, model name, or column name.
+        """Generate a column header from the field_path, field.name, or the field's verbose_name.
+        Overrides super().generate_header.
 
+        Assumptions:
+            1. self.field_path contains no dunderscores.  I.e. this is a field directly on self.model.
         Args:
             None
         Exceptions:
@@ -150,7 +153,7 @@ class BSTColumn(BSTBaseColumn):
         Returns:
             None
         """
-        # If the field has a verbose name different from name, use it
+        # If the field has a verbose name different from name (because it's automatically filled in with name), use it
         if self.field.name != self.field.verbose_name:
             if any(c.isupper() for c in self.field.verbose_name):
                 # If the field has a verbose name with caps, use it as-is
@@ -180,19 +183,8 @@ class BSTColumn(BSTBaseColumn):
                 # Use the model name
                 return camel_to_title(self.model.__name__)
 
-        # Grab as many of the last 2 items from the field_path as is present
-        path_tail = self.field_path.split("__")[-2:]
-
-        # If the length is 2, the last element is "name", and the field is unique, use the related model name
-        if (
-            len(path_tail) == 2
-            and path_tail[1] == "name"
-            and is_unique_field(self.field)
-        ):
-            return underscored_to_title(path_tail[0])
-
-        # Default is to use the last 2 elements of the path
-        return underscored_to_title("_".join(path_tail))
+        # Default is to use the field name, as saved in the field_path.  Assumed to not be dunderscored.
+        return underscored_to_title(self.field_path)
 
     def create_sorter(
         self, field: Optional[Union[Combinable, Field, str]] = None, **kwargs
