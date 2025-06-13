@@ -136,7 +136,7 @@ def test_case_class_factory(base_class: Type[T]) -> Type[T]:
             self.assertEqual(
                 set([k for k in d1.keys() if k not in ignores]),
                 set([k for k in d2.keys() if k not in ignores]),
-                msg="keys differ",
+                msg=f"Object path: {_path} difference: keys differ",
             )
             for key, v1 in d1.items():
                 if key in ignores:
