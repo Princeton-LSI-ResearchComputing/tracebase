@@ -12,6 +12,14 @@ var djangoPerPage = djangoLimitDefault // eslint-disable-line no-var
 var djangoRawTotal = 0 // eslint-disable-line no-var
 var djangoTotal = djangoRawTotal // eslint-disable-line no-var
 
+var sortCookieName = 'sort' // eslint-disable-line no-var, no-unused-vars
+var ascCookieName = 'asc' // eslint-disable-line no-var, no-unused-vars
+var searchCookieName = 'search' // eslint-disable-line no-var, no-unused-vars
+var filterCookieName = 'filter' // eslint-disable-line no-var, no-unused-vars
+var visibleCookieName = 'visible' // eslint-disable-line no-var
+var limitCookieName = 'limit' // eslint-disable-line no-var
+var pageCookieName = 'page' // eslint-disable-line no-var
+
 /**
  * This function exists solely for testing purposes
  */
@@ -25,6 +33,13 @@ function initGlobalDefaults () { // eslint-disable-line no-unused-vars
   globalThis.djangoPageNumber = 1
   globalThis.djangoRawTotal = 0
   globalThis.djangoTotal = djangoRawTotal
+  globalThis.sortCookieName = 'sort'
+  globalThis.ascCookieName = 'asc'
+  globalThis.searchCookieName = 'search'
+  globalThis.filterCookieName = 'filter'
+  globalThis.visibleCookieName = 'visible'
+  globalThis.limitCookieName = 'limit'
+  globalThis.pageCookieName = 'page'
 }
 
 /**
@@ -41,6 +56,13 @@ function initGlobalDefaults () { // eslint-disable-line no-unused-vars
  * @param {*} warnings A list of warnings from django.
  * @param {*} cookieResets A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
  * @param {*} clearCookies A boolean represented as a string, e.g. 'false'.
+ * @param {*} sortCookieName name of the sort cookie
+ * @param {*} ascCookieName name of the asc cookie
+ * @param {*} searchCookieName name of the search cookie
+ * @param {*} filterCookieName name of the filter cookie
+ * @param {*} visibleCookieName name of the visible cookie
+ * @param {*} limitCookieName name of the limit cookie
+ * @param {*} pageCookieName name of the page cookie
  */
 function initBST ( // eslint-disable-line no-unused-vars
   limit,
@@ -54,7 +76,14 @@ function initBST ( // eslint-disable-line no-unused-vars
   currentURL,
   warnings,
   cookieResets,
-  clearCookies
+  clearCookies,
+  sortCookieName,
+  ascCookieName,
+  searchCookieName,
+  filterCookieName,
+  visibleCookieName,
+  limitCookieName,
+  pageCookieName
 ) {
   globalThis.djangoCurrentURL = currentURL
   globalThis.djangoTableID = tableID
@@ -65,6 +94,13 @@ function initBST ( // eslint-disable-line no-unused-vars
   globalThis.djangoPageNumber = pageNumber
   globalThis.djangoTotal = total
   globalThis.djangoRawTotal = rawTotal
+  globalThis.sortCookieName = sortCookieName
+  globalThis.ascCookieName = ascCookieName
+  globalThis.searchCookieName = searchCookieName
+  globalThis.filterCookieName = filterCookieName
+  globalThis.visibleCookieName = visibleCookieName
+  globalThis.limitCookieName = limitCookieName
+  globalThis.pageCookieName = pageCookieName
 
   // Initialize the cookies (basically just the prefix)
   initViewCookies(cookiePrefix) // eslint-disable-line no-undef
@@ -76,20 +112,20 @@ function initBST ( // eslint-disable-line no-unused-vars
 
   // Set cookies for the current page and limit that comes from the context and is sent via url params.
   // Everything else is saved in cookies.
-  const limitParam = urlParams.get('limit')
-  const limitCookie = getViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
+  const limitParam = urlParams.get(limitCookieName)
+  const limitCookie = getViewCookie(limitCookieName, djangoLimit) // eslint-disable-line no-undef
   if (limitParam) {
     // The 'limit' URL parameter overrides cookie and context versions
-    setViewCookie('limit', limitParam) // eslint-disable-line no-undef
+    setViewCookie(limitCookieName, limitParam) // eslint-disable-line no-undef
   } else if (typeof limitCookie !== 'undefined' && parseInt(limitCookie) === 0) {
     // The 'limit' is never allowed to be set to 0 (i.e. 'unlimited') by a cookie.
     // This is so that if the user requests too many rows per page and hits a timeout, they don't get locked out.
-    setViewCookie('limit', djangoLimitDefault) // eslint-disable-line no-undef
+    setViewCookie(limitCookieName, djangoLimitDefault) // eslint-disable-line no-undef
   } else {
     // Finally, if there's no URL param and no cookie, set the 'limit' from the context
-    setViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
+    setViewCookie(limitCookieName, djangoLimit) // eslint-disable-line no-undef
   }
-  setViewCookie('page', djangoPageNumber) // eslint-disable-line no-undef
+  setViewCookie(pageCookieName, djangoPageNumber) // eslint-disable-line no-undef
 
   // Set a variable to be able to forgo events from BST during init
   let loading = true
@@ -97,8 +133,8 @@ function initBST ( // eslint-disable-line no-unused-vars
     onSort: function (orderBy, orderDir) {
       // Sort is just a click, and it appears that sort is not called for each column on load like onColumnSearch
       // is, so we're not going to check 'loading' here.  I was encountering issues with the sort not happening.
-      setViewCookie('order-by', orderBy) // eslint-disable-line no-undef
-      setViewCookie('order-dir', orderDir) // eslint-disable-line no-undef
+      setViewCookie(sortCookieName, orderBy) // eslint-disable-line no-undef
+      setViewCookie(ascCookieName, orderDir.toLowerCase().startsWith('a')) // eslint-disable-line no-undef
       // BST sorting has 2 issues...
       // 1. BST sort and server side sort sometimes sort differently (c.i.p. imported_timestamp)
       // 2. BST sort completely fails when the number of rows is very large
@@ -110,11 +146,11 @@ function initBST ( // eslint-disable-line no-unused-vars
       if (!loading) {
         // NOTE: Turns out that on page load, a global search event is triggered, so we check to see if anything
         // changed before triggering a page update.
-        const oldTerm = getViewCookie('search') // eslint-disable-line no-undef
+        const oldTerm = getViewCookie(searchCookieName) // eslint-disable-line no-undef
         const oldTermDefined = typeof oldTerm === 'undefined' || !oldTerm
         const newTermDefined = typeof searchTerm === 'undefined' || !searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          setViewCookie('search', searchTerm) // eslint-disable-line no-undef
+          setViewCookie(searchCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
           if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
             updatePage(1)
@@ -127,11 +163,11 @@ function initBST ( // eslint-disable-line no-unused-vars
       if (!loading) {
         // NOTE: Turns out that on page load, a column search event is triggered, so we check to see if anything
         // changed before triggering a page update.
-        const oldTerm = getViewColumnCookie(columnName, 'filter') // eslint-disable-line no-undef
+        const oldTerm = getViewColumnCookie(columnName, filterCookieName) // eslint-disable-line no-undef
         const oldTermDefined = typeof oldTerm !== 'undefined' && oldTerm
         const newTermDefined = typeof searchTerm !== 'undefined' && searchTerm
         if (oldTermDefined !== newTermDefined || (oldTermDefined && newTermDefined && oldTerm !== searchTerm)) {
-          setViewColumnCookie(columnName, 'filter', searchTerm) // eslint-disable-line no-undef
+          setViewColumnCookie(columnName, filterCookieName, searchTerm) // eslint-disable-line no-undef
           // No need to hit the server if we're displaying all results. Just let BST do it.
           if ((djangoLimit > 0 && djangoLimit < djangoTotal) || djangoTotal < djangoRawTotal) {
             updatePage(1)
@@ -212,10 +248,10 @@ function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused
   // Get or set the page and limit cookies
   [page, limit] = updatePageCookies(page, limit)
   // Create the URL
-  // TODO: Add global variables for page, limit, and export URL parameter names, which are stored in variables in BSTClientInterface
-  let url = djangoCurrentURL + '?page=' + page
+  // TODO: Add global variable for export URL parameter name, which is stored in a variable in BSTClientInterface
+  let url = djangoCurrentURL + '?' + pageCookieName + '=' + page
   if (typeof limit !== 'undefined' && (limit === 0 || limit)) {
-    url += '&limit=' + limit
+    url += '&' + limitCookieName + '=' + limit
   }
   // Add the export param, if supplied
   if (typeof exportType !== 'undefined' && exportType) {
@@ -234,11 +270,11 @@ function getPageURL (page, limit, exportType) { // eslint-disable-line no-unused
 function updatePageCookies (page, limit) { // eslint-disable-line no-unused-vars
   // Determine the limit
   if (typeof limit === 'undefined' || (limit !== 0 && !limit)) {
-    limit = getViewCookie('limit', djangoLimit) // eslint-disable-line no-undef
+    limit = getViewCookie(limitCookieName, djangoLimit) // eslint-disable-line no-undef
   }
   // Determine the page
   if (typeof page === 'undefined' || !page) {
-    page = getViewCookie('page', 1) // eslint-disable-line no-undef
+    page = getViewCookie(pageCookieName, 1) // eslint-disable-line no-undef
   }
   return [page, limit]
 }
@@ -258,21 +294,21 @@ function onRowsPerPageChange (numRows) { // eslint-disable-line no-unused-vars
  * @param {*} numRows Number of rows per page to request.
  */
 function updateRowsPerPage (numRows) { // eslint-disable-line no-unused-vars
-  let oldLimit = parseInt(getViewCookie('limit', djangoLimit)) // eslint-disable-line no-undef
+  let oldLimit = parseInt(getViewCookie(limitCookieName, djangoLimit)) // eslint-disable-line no-undef
   if (isNaN(oldLimit)) {
     oldLimit = djangoPerPage
   }
-  let curPage = parseInt(getViewCookie('page')) // eslint-disable-line no-undef
+  let curPage = parseInt(getViewCookie(pageCookieName)) // eslint-disable-line no-undef
   if (isNaN(curPage)) {
     curPage = 1
   }
   const curOffset = (curPage - 1) * oldLimit + 1
   let closestPage = curPage
-  setViewCookie('limit', numRows) // eslint-disable-line no-undef
+  setViewCookie(limitCookieName, numRows) // eslint-disable-line no-undef
   if (numRows !== 0) {
     closestPage = parseInt(curOffset / numRows) + 1
     // Reset the page
-    setViewCookie('page', closestPage) // eslint-disable-line no-undef
+    setViewCookie(pageCookieName, closestPage) // eslint-disable-line no-undef
   }
 }
 
@@ -316,7 +352,7 @@ function updateVisible (visible, columnName) {
   const columnNames = getColumnNames()
   if (typeof columnName !== 'undefined' && columnName) {
     if (columnNames.includes(columnName)) {
-      setViewColumnCookie(columnName, 'visible', visible) // eslint-disable-line no-undef
+      setViewColumnCookie(columnName, visibleCookieName, visible) // eslint-disable-line no-undef
     } else if (columnNames.length === 0) {
       console.error('No th data-field attributes found.')
       alert('Error: Unable to save your column visibility selection') // eslint-disable-line no-undef
@@ -330,7 +366,7 @@ function updateVisible (visible, columnName) {
   } else {
     // When a columnName is not provided, set all columns' visibility
     for (let i = 0; i < columnNames.length; i++) {
-      setViewColumnCookie(columnNames[i], 'visible', visible) // eslint-disable-line no-undef
+      setViewColumnCookie(columnNames[i], visibleCookieName, visible) // eslint-disable-line no-undef
     }
   }
 }

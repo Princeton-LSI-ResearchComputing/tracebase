@@ -126,14 +126,6 @@ class BSTClientInterface(ListView):
 
         self.warnings = []
 
-        # Initialize the values obtained from cookies
-        self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
-        self.filter_terms = self.get_column_cookie_dict(self.filter_cookie_name)
-        self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
-        self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
-        self.ordered = self.sort_name is not None
-        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
-
         # This is an override of ListView.ordering, defined here to silence this warning from Django:
         #   Pagination may yield inconsistent results with an unordered object_list:
         #   <class 'DataRepo.tests.tracebase_test_case.BSTLVAnimalTestModel'> QuerySet.
@@ -153,6 +145,49 @@ class BSTClientInterface(ListView):
             self.ordering = [ordering_field]
         elif not has_ordering:
             self.ordering = ["id"]
+
+        # Initialize default values that will be obtained from cookies
+        self.search_term: Optional[str] = None
+        self.filter_terms = {}
+        self.visibles: Dict[str, bool] = {}
+        self.sort_name: Optional[str] = None
+        self.ordered = False
+        self.asc: bool = True
+
+        # Initialize default values that will be obtained from URL parameters (or cookies)
+        self.page = 1
+        self.limit = self.paginate_by
+
+        # Used for the pagination control (be sure to update in get_queryset)
+        self.total = 0
+        self.raw_total = 0
+
+    def init_interface(self):
+        """Obtains cookie and URL parameter values to initialize instance members for sorting, filtering, searching, and
+        appearance.
+
+        Call this method after setting the class's request object in the get method, but before calling super().get().
+
+        Example:
+            class MyBSTListView(BSTListView):
+                def get(request, *args, **kwargs):
+                    self.request = request
+                    self.init_interface()
+                    return super().get(request, *args, **kwargs)
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            None
+        """
+        # Initialize the values obtained from cookies
+        self.search_term: Optional[str] = self.get_cookie(self.search_cookie_name)
+        self.filter_terms = self.get_column_cookie_dict(self.filter_cookie_name)
+        self.visibles = self.get_boolean_column_cookie_dict(self.visible_cookie_name)
+        self.sort_name: Optional[str] = self.get_cookie(self.sortcol_cookie_name)
+        self.ordered = self.sort_name is not None
+        self.asc: bool = self.get_boolean_cookie(self.asc_cookie_name, True)
 
         # Initialize values obtained from URL parameters (or cookies)
         page_param = self.get_param(self.page_var_name)
@@ -176,10 +211,6 @@ class BSTClientInterface(ListView):
                 self.limit = self.paginate_by
         else:
             self.limit = int(limit_param)
-
-        # Used for the pagination control (be sure to update in get_queryset)
-        self.total = 0
-        self.raw_total = 0
 
     def get_paginate_by(self, qs: Optional[Union[list, QuerySet]]):
         """An override of the superclass method to allow the user to change the rows per page.
@@ -314,10 +345,12 @@ class BSTClientInterface(ListView):
         cookie_name = self.get_cookie_name(name)
         if cookie_name not in self.cookie_resets:
             self.cookie_resets.append(cookie_name)
-            warning = f"Invalid '{name}' value encountered: '{boolstr}'.  Clearing cookie '{cookie_name}'."
+            warning = (
+                f"Invalid '{name}' value encountered: '{boolstr}'.  Resetting cookie."
+            )
             self.warnings.append(warning)
             if settings.DEBUG:
-                warn(warning, DeveloperWarning)
+                warn(warning + f"  '{cookie_name}'", DeveloperWarning)
 
         return default
 
@@ -385,11 +418,11 @@ class BSTClientInterface(ListView):
                     # TODO: Change the column name to the header
                     warning = (
                         f"Invalid '{name}' cookie value encountered for column '{colname}': '{boolstr}'.  "
-                        f"Clearing cookie '{cookie_name}'."
+                        f"Resetting cookie."
                     )
                     self.warnings.append(warning)
                     if settings.DEBUG:
-                        warn(warning, DeveloperWarning)
+                        warn(warning + f"  '{cookie_name}'", DeveloperWarning)
         return bools_dict
 
     def get_column_cookie(
@@ -530,6 +563,14 @@ class BSTClientInterface(ListView):
                 # Queryset metadata (initialized in derived class that handles queries, e.g. the BSTListView class)
                 self.raw_total_var_name: self.raw_total,  # Total before filtering
                 self.total_var_name: self.total,
+                # Tell the javascript what the cookie names are
+                "search_cookie_name": self.search_cookie_name,
+                "filter_cookie_name": self.filter_cookie_name,
+                "visible_cookie_name": self.visible_cookie_name,
+                "sort_cookie_name": self.sortcol_cookie_name,
+                "asc_cookie_name": self.asc_cookie_name,
+                "limit_cookie_name": self.limit_cookie_name,
+                "page_cookie_name": self.page_var_name,
             }
         )
 

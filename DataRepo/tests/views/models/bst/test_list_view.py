@@ -129,6 +129,7 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_init_no_cookies(self):
         slv = StudyLV()
+        slv.init_interface()
         self.assertEqual(0, slv.raw_total)
         self.assertEqual(0, slv.total)
         self.assertEqual(["animals"], slv.prefetches)
@@ -150,6 +151,7 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update({f"StudyLV-{StudyLV.search_cookie_name}": "test"})
         slv = StudyLV(request=request)
+        slv.init_interface()
         q = Q(**{"name__icontains": "test"})
         q |= Q(**{"animals_mm_count__iexact": "test"})
         q |= Q(**{"animals__name__icontains": "test"})
@@ -170,6 +172,7 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update({f"StudyLV-{StudyLV.filter_cookie_name}-name": "test"})
         slv = StudyLV(request=request)
+        slv.init_interface()
         q = Q(**{"name__icontains": "test"})
         self.assertDictEquivalent(
             {"name_bstrowsort": Lower("name")},
@@ -194,6 +197,7 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         slv = StudyLV(request=request)
+        slv.init_interface()
         self.assertEqual(Q(), slv.filters)
         self.assertDictEquivalent(
             {"name_bstrowsort": Lower("name")},
@@ -228,6 +232,7 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         alv = AnimalWithMultipleStudyColsLV(request=request)
+        alv.init_interface()
         self.assertEqual(Q(), alv.filters)
         self.assertEqual(
             F("studies__desc_bstrowsort").desc(nulls_last=True),
@@ -255,6 +260,7 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_get_queryset(self):
         alv = AnimalWithMultipleStudyColsLV()
+        alv.init_interface()
         with self.assertNumQueries(2):
             # get_queryset doesn't return records, but it makes 2 queries:
             # 1. Count of model records (without any filtering/searching)
@@ -280,6 +286,7 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         alv1 = AnimalWithMultipleStudyColsLV(request=request)
+        alv1.init_interface()
         with self.assertNumQueries(2):
             qs1 = alv1.get_queryset()
         self.assertQuerySetEqual(
@@ -298,6 +305,7 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         alv2 = AnimalWithMultipleStudyColsLV(request=request)
+        alv2.init_interface()
         with self.assertNumQueries(2):
             qs2 = alv2.get_queryset()
         self.assertQuerySetEqual(
@@ -312,6 +320,7 @@ class BSTListViewTests(TracebaseTestCase):
             f"{AnimalWithMultipleStudyColsLV.filter_cookie_name}-treatment": "ball",
         }
         alv3 = AnimalWithMultipleStudyColsLV(request=request)
+        alv3.init_interface()
         with self.assertNumQueries(2):
             qs3 = alv3.get_queryset()
         self.assertQuerySetEqual(
@@ -338,6 +347,7 @@ class BSTListViewTests(TracebaseTestCase):
             }
         )
         alv = AnimalWithMultipleStudyColsLV(request=request)
+        alv.init_interface()
         self.assertEqual(
             "(AND: ('studies__name__icontains', 'test1'), ('desc__icontains', 'test2'))",
             str(alv.get_filters()),
@@ -350,6 +360,7 @@ class BSTListViewTests(TracebaseTestCase):
             {f"{AnimalWithMultipleStudyColsLV.__name__}-search": "test1"}
         )
         alv = AnimalWithMultipleStudyColsLV(request=request)
+        alv.init_interface()
         self.assertEqual(
             "(OR: ('name__icontains', 'test1'), "
             "('desc__icontains', 'test1'), "
@@ -378,6 +389,7 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES.update({"StudyLV-search": "test1"})
         alv2 = StudyLV(request=request)
+        alv2.init_interface()
         before, after = alv2.get_annotations()
         self.assertDictEquivalent(
             {
@@ -392,6 +404,7 @@ class BSTListViewTests(TracebaseTestCase):
         # Filter
         request.COOKIES = {"StudyLV-filter-description": "test1"}
         alv3 = StudyLV(request=request)
+        alv3.init_interface()
         before, after = alv3.get_annotations()
         self.assertDictEquivalent(
             {
@@ -407,6 +420,7 @@ class BSTListViewTests(TracebaseTestCase):
         # No search or filter (but cookies)
         request.COOKIES = {"StudyLV-asc": "false"}
         alv4 = StudyLV(request=request)
+        alv4.init_interface()
         before, after = alv4.get_annotations()
         self.assertDictEquivalent({"name_bstrowsort": Lower("name")}, before)
         self.assertDictEquivalent(
@@ -431,6 +445,7 @@ class BSTListViewTests(TracebaseTestCase):
         request = HttpRequest()
         request.COOKIES = {f"StudyLV-{StudyLV.filter_cookie_name}-name": "2"}
         slv = StudyLV(request=request)
+        slv.init_interface()
         qs = BSTLVStudyTestModel.objects.all()
         fqs = slv.apply_filters(qs)
         self.assertQuerySetEqual(
@@ -445,11 +460,18 @@ class BSTListViewTests(TracebaseTestCase):
         qs = BSTLVStudyTestModel.objects.all()
         with self.assertWarns(DeveloperWarning) as aw:
             slv = StudyLV(request=request)
+            slv.init_interface()
             fqs = slv.apply_filters(qs)
-        self.assertEqual(1, len(aw.warnings))
-        self.assertIn("Column 'desc' filter '2' failed", str(aw.warnings[0].message))
-        self.assertIn("Column not found", str(aw.warnings[0].message))
+        self.assertEqual(
+            1,
+            len(aw.warnings),
+            msg=f"Expected 1 warning about the 'desc' filter.  Got: {[str(w.message) for w in aw.warnings]}",
+        )
+        self.assertIn(
+            "Invalid 'filter' column encountered: 'desc'", str(aw.warnings[0].message)
+        )
         self.assertIn("Resetting filter cookie", str(aw.warnings[0].message))
+        self.assertIn("'StudyLV-filter-desc'", str(aw.warnings[0].message))
         self.assertQuerySetEqual(
             BSTLVStudyTestModel.objects.all(),
             fqs,
@@ -464,6 +486,7 @@ class BSTListViewTests(TracebaseTestCase):
         request.COOKIES = {f"StudyLV-{StudyLV.limit_cookie_name}": "1"}
         qs = BSTLVStudyTestModel.objects.all()
         slv = StudyLV(request=request)
+        slv.init_interface()
         qs = slv.get_queryset()
 
         with self.assertNumQueries(3):
@@ -526,6 +549,7 @@ class BSTListViewTests(TracebaseTestCase):
             f"{AnimalWithMultipleStudyColsLV.__name__}-{AnimalWithMultipleStudyColsLV.limit_cookie_name}": "1"
         }
         alv4 = AnimalWithMultipleStudyColsLV(request=request)
+        alv4.init_interface()
         studynamecol: BSTManyRelatedColumn = alv4.columns["studies__name"]
         studynamecol.limit = 1
         studydesccol: BSTManyRelatedColumn = alv4.columns["studies__desc"]
@@ -614,6 +638,7 @@ class BSTListViewTests(TracebaseTestCase):
     @TracebaseTestCase.assertNotWarns()
     def test_get_many_related_column_val_by_subquery(self):
         alv = AnimalWithMultipleStudyColsLV()
+        alv.init_interface()
         qs = alv.get_queryset()
         rec = qs.first()
         studynamecol: BSTManyRelatedColumn = alv.columns["studies__name"]
@@ -641,6 +666,7 @@ class BSTListViewTests(TracebaseTestCase):
 
         # The cookies are handled in the constructor.
         slv = StudyLV(request=request)
+        slv.init_interface()
 
         # Perform some manual setup.  slv.object_list would otherwise be set when slv.get(request) is called, but we
         # want to call it directly (for this unit test).

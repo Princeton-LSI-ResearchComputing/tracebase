@@ -92,12 +92,10 @@ class BSTBaseListView(BSTClientInterface):
                 and/or self.model._meta.get_fields().
             kwargs (dict): Passed to ListView superclass constructor.
         Exceptions:
-            None
+            ProgrammingError the sort_col's representative field is invalid
         Returns:
             None
         """
-        # TODO: Automatically detect and create column groups based on many_related_model_path or otherwise allow
-        # users to supply groups by column name and/or settings
         super().__init__(**kwargs)
 
         # Initialize column settings
@@ -113,13 +111,12 @@ class BSTBaseListView(BSTClientInterface):
         self.groups: Dict[str, BSTColumnGroup] = {}
         self.init_columns()
 
-        # Initialize a sort column (sort_col) based on the saved sort cookie (sort_name)
-        if isinstance(self.sort_name, str):
-            self.sort_col = self.columns[self.sort_name]
-        elif self.model is not None:
+        # Default the sort_col to the best representative
+        if self.model is not None:
             rep_field = select_representative_field(self.model, force=True)
             if isinstance(rep_field, str):
                 self.sort_col = self.columns[rep_field]
+                self.ordered = True
             else:
                 raise ProgrammingError(
                     "Invalid return from select_representative_field"
@@ -127,10 +124,59 @@ class BSTBaseListView(BSTClientInterface):
         elif len(self.columns.keys()) > 0:
             # Arbitrary column - does not matter without a model
             self.sort_col = list(self.columns.values())[0]
+            self.ordered = True
 
         # Go through the columns and make sure that multiple many-related columns from the same related model are in
         # groups so that their delimited values sort together.
         self.add_check_groups()
+
+    def init_interface(self):
+        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col.
+
+        Call this method after setting the class's request object in the get method, but before calling super().get().
+
+        Example:
+            class MyBSTListView(BSTListView):
+                def get(request, *args, **kwargs):
+                    self.request = request
+                    self.init_interface()
+                    return super().get(request, *args, **kwargs)
+        Args:
+            None
+        Exceptions:
+            None
+        Returns:
+            response (HttpResponse)
+        """
+        super().init_interface()
+
+        # Initialize a sort column (sort_col) based on the saved sort cookie (sort_name)
+        if isinstance(self.sort_name, str):
+            self.sort_col = self.columns[self.sort_name]
+
+        # Set initial filter terms
+        bad_filter_entries = []
+        for colname, filter_term in self.filter_terms.items():
+            if colname not in self.columns.keys():
+                bad_filter_entries.append(colname)
+                self.reset_column_cookie(colname, self.filter_cookie_name)
+                warning = (
+                    f"Invalid '{self.filter_cookie_name}' column encountered: '{colname}'.  "
+                    "Resetting filter cookie."
+                )
+                self.warnings.append(warning)
+                if settings.DEBUG:
+                    warn(
+                        warning
+                        + f"  '{self.get_column_cookie_name(colname, self.filter_cookie_name)}'",
+                        DeveloperWarning,
+                    )
+            else:
+                self.columns[colname].filterer.initial = filter_term
+
+        # Delete any bad filter term so that it doesn't come up in BSTListView when creating a Q expression
+        for colname in bad_filter_entries:
+            del self.filter_terms[colname]
 
     def init_column_settings(
         self,

@@ -363,18 +363,25 @@ QUnit.test('initBST', function (assert) {
 
   // First call - this satisfies most of the tests
   initBST(
-    10, // limit,
-    15, // limitDefault,
-    'TTID', // tableID,
-    'PFX-', // cookiePrefix,
-    2, // pageNumber,
-    10, // perPage,
-    100, // total,
-    120, // rawTotal,
-    window.location.href.split('?')[0], // currentURL,
-    ['WX'], // warnings,
-    ['TC'], // cookieResets,
-    'false' // clearCookies,
+    10, // limit
+    15, // limitDefault
+    'TTID', // tableID
+    'PFX-', // cookiePrefix
+    2, // pageNumber
+    10, // perPage
+    100, // total
+    120, // rawTotal
+    window.location.href.split('?')[0], // currentURL
+    ['WX'], // warnings
+    ['TC'], // cookieResets
+    'false', // clearCookies
+    'sortcol', // sort cookie name
+    'asc', // asc cookie name
+    'search', // search cookie name
+    'filter', // filter cookie name
+    'visible', // visible cookie name
+    'limit', // limit cookie name
+    'page' // page cookie name
   )
 
   // NOTE: No need to test that cookiePrefix is set.  If it is not, none of the cookie tests would work.
@@ -397,18 +404,25 @@ QUnit.test('initBST', function (assert) {
   // Second call - this satisfies the tests for the limit being 0 and the clearCookies test
   setViewCookie('TC', 'xx')
   initBST(
-    0, // limit,
-    15, // limitDefault,
-    'TTID', // tableID,
-    'PFX-', // cookiePrefix,
-    2, // pageNumber,
-    10, // perPage,
-    100, // total,
-    120, // rawTotal,
-    window.location.href.split('?')[0], // currentURL,
-    [], // warnings,
-    [], // cookieResets,
-    'true' // clearCookies,
+    0, // limit
+    15, // limitDefault
+    'TTID', // tableID
+    'PFX-', // cookiePrefix
+    2, // pageNumber
+    10, // perPage
+    100, // total
+    120, // rawTotal
+    window.location.href.split('?')[0], // currentURL
+    [], // warnings
+    [], // cookieResets
+    'true', // clearCookies
+    'sortcol', // sort cookie name
+    'asc', // asc cookie name
+    'search', // search cookie name
+    'filter', // filter cookie name
+    'visible', // visible cookie name
+    'limit', // limit cookie name
+    'page' // page cookie name
   )
   // A limit of 0 is allowed when there is no URL parameter override and it's not coming from a cookie.
   assert.equal(getViewCookie('limit'), '0')
@@ -421,19 +435,26 @@ QUnit.test('initBST', function (assert) {
   // out.
   setViewCookie('limit', '0')
   initBST(
-    10, // limit,
-    15, // limitDefault,
+    10, // limit
+    15, // limitDefault
     // The rest of the parameters don't matter for this test, but they are required.
-    'TTID', // tableID,
-    'PFX-', // cookiePrefix,
-    2, // pageNumber,
-    10, // perPage,
-    100, // total,
-    120, // rawTotal,
-    window.location.href.split('?')[0], // currentURL,
-    [], // warnings,
-    [], // cookieResets,
-    'false' // clearCookies,
+    'TTID', // tableID
+    'PFX-', // cookiePrefix
+    2, // pageNumber
+    10, // perPage
+    100, // total
+    120, // rawTotal
+    window.location.href.split('?')[0], // currentURL
+    [], // warnings
+    [], // cookieResets
+    'false', // clearCookies,
+    'sortcol', // sort cookie name
+    'asc', // asc cookie name
+    'search', // search cookie name
+    'filter', // filter cookie name
+    'visible', // visible cookie name
+    'limit', // limit cookie name
+    'page' // page cookie name
   )
   // A limit of 0 is allowed when there is no URL parameter override.
   assert.equal(getViewCookie('limit'), '15')
