@@ -58,6 +58,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         view_cookie_name = "cname"
         request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "test_value"}
         c = BSTClientInterface(request=request)
+        c.init_interface()
         self.assertEqual("test_value", c.get_cookie(view_cookie_name))
         request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": ""}
         self.assertIsNone(c.get_cookie(view_cookie_name))
@@ -74,6 +75,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         view_cookie_name = "cname"
         request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "TRUE"}
         c = BSTClientInterface(request=request)
+        c.init_interface()
         self.assertTrue(c.get_boolean_cookie(view_cookie_name))
         request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "false"}
         self.assertFalse(c.get_boolean_cookie(view_cookie_name))
@@ -97,6 +99,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         view_cookie_name = "cname"
         request.COOKIES = {f"BSTClientInterface-{view_cookie_name}": "wrong"}
         c = BSTClientInterface(request=request)
+        c.init_interface()
         with self.assertWarns(DeveloperWarning) as aw:
             val = c.get_boolean_cookie(view_cookie_name)
         self.assertEqual(1, len(aw.warnings))
@@ -105,13 +108,16 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             str(aw.warnings[0].message),
         )
         self.assertIn(
-            f"Clearing cookie 'BSTClientInterface-{view_cookie_name}'.",
+            "Resetting cookie",
             str(aw.warnings[0].message),
         )
         self.assertFalse(val)
         self.assertEqual(1, len(c.warnings))
         self.assertEqual(1, len(c.cookie_resets))
-        self.assertEqual(str(aw.warnings[0].message), c.warnings[0])
+        # The warning message gives the full cookie name, which the user does not need to know.
+        self.assertEqual(
+            str(aw.warnings[0].message), c.warnings[0] + "  'BSTClientInterface-cname'"
+        )
         self.assertEqual(f"BSTClientInterface-{view_cookie_name}", c.cookie_resets[0])
 
         # second occurrence does not warn
@@ -119,7 +125,10 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         self.assertTrue(val)
         # The rest has not changed...
         self.assertEqual(1, len(c.warnings))
-        self.assertEqual(str(aw.warnings[0].message), c.warnings[0])
+        # The warning message gives the full cookie name, which the user does not need to know.
+        self.assertEqual(
+            str(aw.warnings[0].message), c.warnings[0] + "  'BSTClientInterface-cname'"
+        )
         self.assertEqual(1, len(c.cookie_resets))
         self.assertEqual(f"BSTClientInterface-{view_cookie_name}", c.cookie_resets[0])
 
@@ -142,6 +151,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         }
         with self.assertWarns(DeveloperWarning) as aw:
             c = BSTClientInterface(request=request)
+            c.init_interface()
         self.assertIn(
             "Invalid 'visible' cookie value encountered for column 'column1': 'a'",
             str(aw.warnings[0].message),
@@ -167,6 +177,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             "BSTClientInterface-visible-column2": "F",
         }
         c = BSTClientInterface(request=request)
+        c.init_interface()
         self.assertDictEqual(
             {"column1": True, "column2": False},
             c.get_boolean_column_cookie_dict("visible"),
@@ -180,6 +191,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             "BSTClientInterface-filter-column2": "d",
         }
         c = BSTClientInterface(request=request)
+        c.init_interface()
         with self.assertWarns(DeveloperWarning) as aw:
             c.get_boolean_column_cookie_dict("filter")
         self.assertEqual(2, len(aw.warnings))
@@ -197,6 +209,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             f"BSTClientInterface-{view_cookie_name}-{column_name}": "testval"
         }
         c = BSTClientInterface(request=request)
+        c.init_interface()
         self.assertIsNone(c.get_column_cookie("column2", view_cookie_name))
         self.assertEqual(
             "mydef", c.get_column_cookie("column2", view_cookie_name, default="mydef")
@@ -216,6 +229,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         request = HttpRequest()
         request.GET = {param_name: "x"}
         c = BSTClientInterface(request=request)
+        c.init_interface()
         self.assertEqual("x", c.get_param(param_name))
         self.assertEqual("mydef", c.get_param("notthere", default="mydef"))
         c.request.GET.update({"cname": ""})
@@ -238,6 +252,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         )
         request.GET.update({"limit": "20"})
         bci = BSTClientInterface(request=request)
+        bci.init_interface()
         bci.reset_column_cookies(["name", "desc"], "visible")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(
@@ -261,6 +276,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         )
         request.GET.update({"limit": "20"})
         bci = BSTClientInterface(request=request)
+        bci.init_interface()
         bci.reset_cookie("sortcol")
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(["BSTClientInterface-sortcol"], bci.cookie_resets)
@@ -287,6 +303,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         )
         request.GET.update({"limit": "20"})
         slv = StudyBCI(request=request)
+        slv.init_interface()
         slv.reset_filter_cookies()
         # Only deletes the ones that are "set" (and empty string is eval'ed as None)
         self.assertEqual(["StudyBCI-filter-desc"], slv.cookie_resets)
@@ -307,6 +324,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         )
         request.GET.update({"limit": "20"})
         slv = StudyBCI(request=request)
+        slv.init_interface()
         slv.reset_search_cookie()
         self.assertEqual(["StudyBCI-search"], slv.cookie_resets)
 
@@ -314,6 +332,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
     def test_get_context_data(self):
         request = HttpRequest()
         bci = BSTClientInterface(request=request)
+        bci.init_interface()
         bci.object_list = []
         context = bci.get_context_data()
         self.assertEqual(
@@ -339,6 +358,13 @@ class BSTClientInterfaceTests(TracebaseTestCase):
                     "raw_total",
                     "limit_default",
                     "table_name",
+                    "sort_cookie_name",
+                    "search_cookie_name",
+                    "filter_cookie_name",
+                    "asc_cookie_name",
+                    "limit_cookie_name",
+                    "page_cookie_name",
+                    "visible_cookie_name",
                 ]
             ),
             set(context.keys()),
@@ -363,6 +389,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Sets to the cookie value
         request.COOKIES = {f"StudyBCI-{StudyBCI.limit_cookie_name}": "30"}
         slv2 = StudyBCI(request=request)
+        slv2.init_interface()
         with self.assertNumQueries(1):
             # There is a count query if get_queryset hasn't been called, because slv2.total is 0
             self.assertEqual(30, slv2.get_paginate_by(qs))
@@ -370,6 +397,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Defaults to paginate_by if cookie limit is 0
         request.COOKIES = {f"StudyBCI-{StudyBCI.limit_cookie_name}": "0"}
         slv2 = StudyBCI(request=request)
+        slv2.init_interface()
         qs = slv2.get_queryset()
         with self.assertNumQueries(0):
             # There is no count query if get_queryset has been called, because slv2.total is >0
@@ -378,6 +406,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Sets to the param value
         request.GET = {"limit": "20"}
         slv3 = StudyBCI(request=request)
+        slv3.init_interface()
         qs = slv3.get_queryset()
         with self.assertNumQueries(0):
             # There is no count query if get_queryset has been called, because slv2.total is >0
@@ -386,6 +415,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Defaults to count if param limit is 0
         request.GET = {"limit": "0"}
         slv4 = StudyBCI(request=request)
+        slv4.init_interface()
         qs = slv4.get_queryset()
         with self.assertNumQueries(0):
             # There is no count query if get_queryset has been called, because slv2.total is >0
@@ -394,6 +424,7 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         # Defaults to count if limit is greater than count
         request.GET = {"limit": "60"}
         slv5 = StudyBCI(request=request)
+        slv5.init_interface()
         qs = slv5.get_queryset()
         with self.assertNumQueries(0):
             # There is no count query if get_queryset has been called, because slv2.total is >0

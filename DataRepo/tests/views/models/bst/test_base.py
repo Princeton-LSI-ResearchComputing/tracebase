@@ -18,6 +18,7 @@ from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.views.models.bst.base import BSTBaseListView
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.field import BSTColumn
+from DataRepo.views.models.bst.column.filterer.field import BSTFilterer
 from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
@@ -117,6 +118,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         request.GET.update({"limit": "20"})
         slv = StudyBLV(request=request)
+        slv.init_interface()
 
         self.assertEqual(
             "[OrderBy(Lower(F(name)), descending=True)]", str(slv.ordering)
@@ -144,7 +146,15 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertDictEquivalent(
             {
                 "name": BSTColumn("name", BSTBLVStudyTestModel),
-                "desc": BSTColumn("desc", BSTBLVStudyTestModel),
+                "desc": BSTColumn(
+                    "desc",
+                    BSTBLVStudyTestModel,
+                    # A filter was set for the 'desc' column.  The filter term was 'description', so we expect a
+                    # BSTFilterer object with that initial value
+                    filterer=BSTFilterer(
+                        "desc", BSTBLVStudyTestModel, initial="description"
+                    ),
+                ),
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
                     Count("animals", output_field=IntegerField()),
@@ -170,20 +180,24 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         with self.assertWarns(DeveloperWarning):
             blv = StudyBLV(request=request)
+            blv.init_interface()
 
-        self.assertEqual({"stale": "description"}, blv.filter_terms)
+        # "stale": "description" is removed from the filter_terms dict because it did not exist as a column.
+        self.assertEqual({}, blv.filter_terms)
         self.assertEqual({"name": True}, blv.visibles)
         self.assertTrue(blv.asc)
         self.assertFalse(blv.ordered)
         self.assertEqual(15, blv.limit)
         self.assertEqual(
             [
-                "Invalid 'visible' cookie value encountered for column 'desc': 'wrong'.  "
-                "Clearing cookie 'StudyBLV-visible-desc'."
+                "Invalid 'visible' cookie value encountered for column 'desc': 'wrong'.  Resetting cookie.",
+                "Invalid 'filter' column encountered: 'stale'.  Resetting filter cookie.",
             ],
             blv.warnings,
         )
-        self.assertEqual(["StudyBLV-visible-desc"], blv.cookie_resets)
+        self.assertEqual(
+            ["StudyBLV-visible-desc", "StudyBLV-filter-stale"], blv.cookie_resets
+        )
 
     def test_init_column_settings_list_supplied_for_columns(self):
         blv = BSTBaseListView()
@@ -592,6 +606,13 @@ class BSTBaseListViewTests(TracebaseTestCase):
                     "warnings",
                     "raw_total",
                     "total",
+                    "sort_cookie_name",
+                    "search_cookie_name",
+                    "filter_cookie_name",
+                    "asc_cookie_name",
+                    "limit_cookie_name",
+                    "page_cookie_name",
+                    "visible_cookie_name",
                     # columns is from this class
                     "columns",
                 ]

@@ -85,6 +85,7 @@ class BSTListViewTests(BaseTemplateTests):
     def test_script_imports(self):
         request = HttpRequest()
         slv = StudyLV(request=request)
+        slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected_substrings = [
             '<script id="warnings" type="application/json">[]</script>',
@@ -97,6 +98,7 @@ class BSTListViewTests(BaseTemplateTests):
     def test_warnings(self):
         request = HttpRequest()
         slv = StudyLV(request=request)
+        slv.init_interface()
         slv.warnings.append("THIS IS A WARNING")
         slv.warnings.append("THIS IS A SECOND WARNING")
         template_str = self.render_list_view_template(slv)
@@ -113,6 +115,7 @@ class BSTListViewTests(BaseTemplateTests):
     def test_cookie_resets(self):
         request = HttpRequest()
         slv = StudyLV(request=request)
+        slv.init_interface()
         slv.cookie_resets.append("test")
         template_str = self.render_list_view_template(slv)
         expected = '<script id="cookieResets" type="application/json">["test"]</script>'
@@ -124,6 +127,7 @@ class BSTListViewTests(BaseTemplateTests):
     def test_id_title(self):
         request = HttpRequest()
         slv = StudyLV(request=request)
+        slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected_substrings = [
             "<h4>BTT Study Test Models</h4>",
@@ -134,6 +138,7 @@ class BSTListViewTests(BaseTemplateTests):
     def test_default_table_attributes(self):
         request = HttpRequest()
         slv = StudyLV(request=request)
+        slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected_substrings = [
             '<table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"',
@@ -173,6 +178,7 @@ class BSTListViewTests(BaseTemplateTests):
             {f"{StudyLV.__name__}-{StudyLV.search_cookie_name}": "test"}
         )
         slv = StudyLV(request=request)
+        slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected = 'data-search-text="test"'
         # assertIn has really ugly failure output.  assertTrue with msg set is better
@@ -185,6 +191,7 @@ class BSTListViewTests(BaseTemplateTests):
         request = HttpRequest()
 
         slv = StudyLV(request=request)
+        slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected_ordered_substrings = [
             '<th data-field="name"',
@@ -227,6 +234,7 @@ class BSTListViewTests(BaseTemplateTests):
 
         # Default sort
         slv = StudyLV(request=request)
+        slv.init_interface()
         template_str = self.render_list_view_template(slv)
         expected_ordered_substrings = [
             # NOTE: The default order is determined by the model's ordering (which is descending)
@@ -243,6 +251,7 @@ class BSTListViewTests(BaseTemplateTests):
             }
         )
         slv1 = StudyLV(request=request)
+        slv1.init_interface()
         template_str = self.render_list_view_template(slv1)
         expected_substrings = [
             'data-sort-name="name"',
@@ -260,6 +269,7 @@ class BSTListViewTests(BaseTemplateTests):
             }
         )
         slv2 = StudyLV(request=request)
+        slv2.init_interface()
         template_str = self.render_list_view_template(slv2)
         expected_substrings = [
             'data-sort-name="name"',
@@ -272,6 +282,7 @@ class BSTListViewTests(BaseTemplateTests):
         # Default ascending sort (derived from the model's ordering?)
         request.COOKIES = {f"{StudyLV.__name__}-{StudyLV.sortcol_cookie_name}": "name"}
         slv3 = StudyLV(request=request)
+        slv3.init_interface()
         template_str = self.render_list_view_template(slv3)
         expected_substrings = [
             'data-sort-name="name"',
@@ -284,6 +295,7 @@ class BSTListViewTests(BaseTemplateTests):
     def test_paginator_added(self):
         request = HttpRequest()
         slv1 = StudyLV(request=request)
+        slv1.init_interface()
         template_str = self.get_massaged_template_str(
             self.render_list_view_template(slv1)
         )
