@@ -28,13 +28,14 @@ class BSTRowsPerPageSelect(Select):
     option_template_name = "widgets/bst/rowsperpage_select_option.html"
     all_page_sizes: List[int] = [5, 10, 15, 20, 25, 50, 100, 200, 500, 1000, 0]
     all_label = "ALL"
+    default_option_name = "rows-per-page-option"
 
     def __init__(
         self,
         total_rows: int,
         selected: Optional[int] = None,
         select_name: str = "paginate_by",
-        option_name: str = "rows-per-page-option",
+        option_name: Optional[str] = None,
     ):
         """Constructor
 
@@ -42,14 +43,16 @@ class BSTRowsPerPageSelect(Select):
             total_rows (int): Total rows across all pages
             selected (Optional[int]) [1]: The selected number of rows per page
             select_name (str) ["paginate_by"]: Name of the select list HTML element
-            option_name (str) ["rows-per-page-option"]: The common name of every select list option element.
+            option_name (str) [default_option_name]: The common name of every select list option element.
         Exceptions:
             None
         Returns:
             None
         """
         self.select_name = select_name
-        self.option_name = option_name
+        self.option_name = (
+            option_name if option_name is not None else self.default_option_name
+        )
         self.total_rows = total_rows
 
         # Filter the page sizes
@@ -93,5 +96,16 @@ class BSTRowsPerPageSelect(Select):
 
     def get_context(self, *args, **kwargs):
         context = super().get_context(*args, **kwargs)
+        # This cycles through each option element (index j) contained in "optgroups".  (I'm not sure what "optgroups"
+        # is, but my guess would be sub-select-lists.)  Each of those contains a 3-member tuple, the second of which (at
+        # index 1), is the list of option elements, to which we want to set the element name for use in the option's
+        # template.  This is needed to attach javascript listeners to be able to trigger page reloads when a user
+        # decides to change the rows per page.
+        for i, (_, group_choices, _) in enumerate(context["widget"]["optgroups"]):
+            for j in range(len(group_choices)):
+                context["widget"]["optgroups"][i][1][j][
+                    "option_name"
+                ] = self.option_name
+        # For convenience, we also assign the name at the first level of the widget's content dict.
         context["widget"]["option_name"] = self.option_name
         return context
