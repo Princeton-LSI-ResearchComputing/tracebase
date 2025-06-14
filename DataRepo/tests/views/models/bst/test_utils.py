@@ -82,3 +82,19 @@ class SizedPaginatorTests(TracebaseTestCase):
 
         self.assertTrue(sp.show_left_ellipsis)
         self.assertTrue(sp.show_right_ellipsis)
+
+    def test_custom_rows_per_page_option_name(self):
+        # Test default options
+        for n in range(10):
+            USPStudyTestModel.objects.create(name=f"ts{n}")
+        qs = USPStudyTestModel.objects.all()
+
+        sp = SizedPaginator(
+            10,  # total num records in queryset
+            qs,  # queryset needed by superclass
+            5,  # per_page needed by superclass
+            option_elem_name="rpp",
+        )
+
+        self.assertIsInstance(sp.size_select_list, BSTRowsPerPageSelect)
+        self.assertEqual("rpp", sp.size_select_list.option_name)

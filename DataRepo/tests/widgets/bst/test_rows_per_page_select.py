@@ -65,3 +65,26 @@ class BSTRowsPerPageSelectTests(TracebaseTestCase):
         context: Dict[str, dict] = rpps.get_context("select", 10, None)
         self.assertIn("option_name", context["widget"].keys())
         self.assertEqual("rows-per-page-option", context["widget"]["option_name"])
+        cnt = 0
+        for i, (_, group_choices, _) in enumerate(context["widget"]["optgroups"]):
+            for j in range(len(group_choices)):
+                cnt += 1
+                self.assertIn(
+                    "option_name", context["widget"]["optgroups"][i][1][j].keys()
+                )
+                self.assertEqual(
+                    "rows-per-page-option",
+                    context["widget"]["optgroups"][i][1][j]["option_name"],
+                )
+        # 5, 10, 15, 20, 25, 50, 0 -> 7 sizes
+        self.assertEqual(7, cnt)
+
+    def test_custom_opt_name(self):
+        rpps = BSTRowsPerPageSelect(60, option_name="rpp")
+        context: Dict[str, dict] = rpps.get_context("select", 10, None)
+        self.assertEqual("rpp", context["widget"]["option_name"])
+        for i, (_, group_choices, _) in enumerate(context["widget"]["optgroups"]):
+            for j in range(len(group_choices)):
+                self.assertEqual(
+                    "rpp", context["widget"]["optgroups"][i][1][j]["option_name"]
+                )
