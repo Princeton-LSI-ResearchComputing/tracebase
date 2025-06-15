@@ -452,3 +452,14 @@ class BSTClientInterfaceTests(TracebaseTestCase):
         qs = slv.get_queryset()
         pgntr = slv.get_paginator(qs, 5)
         self.assertIsInstance(pgntr, SizedPaginator)
+
+    def test_reset_all_cookies(self):
+        request = HttpRequest()
+        view_cookie_name = "cname"
+        request.COOKIES = {
+            f"StudyBCI-{view_cookie_name}": "TRUE",
+            "OtherView-cname": "value",
+        }
+        slv = StudyBCI(request=request)
+        slv.reset_all_cookies()
+        self.assertDictEqual({"OtherView-cname": "value"}, slv.request.COOKIES)
