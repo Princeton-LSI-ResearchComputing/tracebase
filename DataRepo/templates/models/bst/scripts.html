@@ -10,6 +10,13 @@
 
 {# Script initialization #}
 <script>
+    // warnings: A list of warnings from django.
+    const warningsElem = document.getElementById("warnings");
+    const warnings = JSON.parse(warningsElem.textContent);
+    // cookieResets: A list of cookie names to reset from django.  (Not the whole cookie name, just the last bit, e.g. 'sortcol'.)
+    const cookieResetsElem = document.getElementById("cookieResets");
+    const cookieResets = JSON.parse(cookieResetsElem.textContent);
+
     document.addEventListener("DOMContentLoaded", function() {
         initBST(
             '{{ limit }}',

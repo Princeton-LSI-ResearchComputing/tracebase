@@ -98,9 +98,33 @@ class BSTListView(BSTBaseListView):
         self.request = request
         self.init_interface()
 
-        # Now that the search criteria and other query elements are initialized from the cookies, this will trigger the
-        # query
-        return super().get(request, *args, **kwargs)
+        # Now that the search criteria and other query elements are initialized from the cookies, trigger the query
+        try:
+            response = super().get(request, *args, **kwargs)
+        except Exception as e:
+            # Try to gracefully recover from a problematic cookie
+            # Check to see if this is due to a cookie by clearing the cookies, reinitializing, and retrying the query
+            bad_cookies = self.reset_all_cookies()
+            # Reinitialize, but keep the clear_cookies state
+            self.__init__(clear_cookies=True)
+            self.init_interface()
+            try:
+                response = super().get(request, *args, **kwargs)
+                warning = (
+                    "A problem was encountered and your request could not be completed.\n"
+                    f"The following cookies have been reset: {list(bad_cookies.keys())}.\n\n"
+                    "Please report this error to the site administrators if it persists."
+                )
+                if settings.DEBUG:
+                    warn(
+                        f"{warning}\nCookies: {bad_cookies}\nException: {type(e).__name__}: {e}",
+                        DeveloperWarning,
+                    )
+                self.warnings.append(warning)
+            except Exception:
+                raise e
+
+        return response
 
     def init_interface(self):
         """An extension of the BSTBastListView init_interface method, used here to set the filters, sort, and
@@ -474,7 +498,7 @@ class BSTListView(BSTBaseListView):
                 self.columns[annot_name].sortable = False
                 msg = f"Annotation column '{annot_name}' has a problem: {type(e).__name__}: {e}"
                 if settings.DEBUG:
-                    warn(msg)
+                    warn(msg, DeveloperWarning)
                 self.warnings.append(msg)
         return qs
 
@@ -499,7 +523,9 @@ class BSTListView(BSTBaseListView):
                 "Please report this error to the site administrators."
             )
             if settings.DEBUG:
-                warn(f"{warning}\nException: {type(fe).__name__}: {fe}")
+                warn(
+                    f"{warning}\nException: {type(fe).__name__}: {fe}", DeveloperWarning
+                )
             self.warnings.append(warning)
             self.reset_search_cookie()
             self.reset_filter_cookies()

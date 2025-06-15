@@ -1,6 +1,13 @@
+from django.http import HttpRequest
+
 from DataRepo.models.study import Study
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.views.utils import GracefulPaginator, get_cookie_dict
+from DataRepo.views.utils import (
+    GracefulPaginator,
+    delete_cookie,
+    get_cookie,
+    get_cookie_dict,
+)
 
 
 class UtilsMainTests(TracebaseTestCase):
@@ -44,3 +51,20 @@ class UtilsMainTests(TracebaseTestCase):
         self.assertDictEqual(
             expected4, get_cookie_dict(request, prefix="ab", exclude_empties=False)
         )
+
+    def test_get_cookie(self):
+        request = HttpRequest()
+        request.COOKIES = {"cname": "value", "blank": ""}
+        self.assertEqual("value", get_cookie(request, "cname"))
+        self.assertEqual("def", get_cookie(request, "notset", "def"))
+        self.assertEqual("def", get_cookie(request, "blank", "def"))
+
+    def test_delete_cookie(self):
+        request = HttpRequest()
+        request.COOKIES = {"cname": "value", "blank": ""}
+        self.assertEqual("value", delete_cookie(request, "cname"))
+        self.assertDictEqual({"blank": ""}, request.COOKIES)
+        self.assertIsNone(delete_cookie(request, "notset"))
+        self.assertDictEqual({"blank": ""}, request.COOKIES)
+        self.assertIsNone(delete_cookie(request, "blank"))
+        self.assertDictEqual({}, request.COOKIES)
