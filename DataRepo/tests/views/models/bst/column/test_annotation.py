@@ -17,35 +17,32 @@ from DataRepo.views.models.bst.column.sorter.field import BSTSorter
 class BSTAnnotColumnTests(TracebaseTestCase):
 
     def test_init_sorter_filterer_defaults(self):
-        # Test if self.is_annotation is None - return underscored_to_title(self.name)
         ann = "meaning_of_life"
         c = BSTAnnotColumn(ann, Value(42))
         self.assertEqual(BSTAnnotSorter, type(c.sorter))
         self.assertEqual(BSTAnnotFilterer, type(c.filterer))
 
     def test_init_sorter_filterer_str(self):
-        # Test if self.is_annotation is None - return underscored_to_title(self.name)
         ann = "meaning_of_life"
         c = BSTAnnotColumn(ann, Value(42), sorter="mySorter", filterer="myFilterer")
         self.assertEqual(BSTAnnotSorter, type(c.sorter))
         self.assertEqual(BSTAnnotFilterer, type(c.filterer))
 
     def test_init_sorter_invalid(self):
-        # Test if self.is_annotation is None - return underscored_to_title(self.name)
         ann = "meaning_of_life"
-        sorter = BSTSorter("name", BSTCStudyTestModel)
+        sorter = BSTSorter("name", BSTCStudyTestModel, name=ann)
+        # Testing to make sure that BSTSorter, as a type, is caught as wrong.  Must be a BSTAnnotSorter.
         with self.assertRaises(TypeError):
             BSTAnnotColumn(ann, Value(42), sorter=sorter)
 
     def test_init_filterer_invalid(self):
-        # Test if self.is_annotation is None - return underscored_to_title(self.name)
         ann = "meaning_of_life"
         filterer = BSTFilterer("name", BSTCStudyTestModel)
+        # Testing to make sure that BSTFilterer, as a type, is caught as wrong.  Must be a BSTAnnotFilterer.
         with self.assertRaises(TypeError):
             BSTAnnotColumn(ann, Value(42), filterer=filterer)
 
     def test_generate_header_annotation(self):
-        # Test if self.is_annotation is None - return underscored_to_title(self.name)
         ann = "meaning_of_life"
         c = BSTAnnotColumn(ann, Value(42))
         an = c.generate_header()

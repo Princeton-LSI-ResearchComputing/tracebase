@@ -21,6 +21,7 @@ from DataRepo.views.models.bst.column.many_related_field import (
     BSTManyRelatedColumn,
 )
 from DataRepo.views.models.bst.column.related_field import BSTRelatedColumn
+from DataRepo.views.models.bst.column.sorter.base import BSTBaseSorter
 from DataRepo.views.models.bst.column.sorter.many_related_field import (
     BSTManyRelatedSorter,
 )
@@ -465,7 +466,7 @@ class BSTListView(BSTBaseListView):
                 else:
                     annotations_before_filter[column.name] = column.converter
             if column.name == self.sort_col.name:
-                annotations_before_filter[column.sorter.annot_name] = (
+                annotations_after_filter[column.sorter.annot_name] = (
                     column.sorter.expression
                 )
             # NOTE: The many-related sorter annot_name and many_expression are not added here.  They are added in a
@@ -490,13 +491,22 @@ class BSTListView(BSTBaseListView):
             try:
                 qs = qs.annotate(**{annot_name: expression})
             except Exception as e:
-                # Attempt to recover by filling in "ERROR".  This will raise an exception if the name is the problem
+                # Attempt to recover by filling in "ERROR".  This will raise an exception if the name is the problem.
                 qs = qs.annotate(**{annot_name: Value("ERROR")})
-                # The fallback is to have the template render the database values in the default manner.  Searching will
-                # disabled.  Sorting will be a string sort (which is not ideal, e.g. if the value is a datetime).
-                self.columns[annot_name].searchable = False
-                self.columns[annot_name].sortable = False
-                msg = f"Annotation column '{annot_name}' has a problem: {type(e).__name__}: {e}"
+
+                # Account for the fact that a sort annotation does not exist as a column object, but it does reference a
+                # real column.  We will use the annotation name to detect if this is a sort annotation and if so, derive
+                # the column name.
+                if BSTBaseSorter.is_sort_annotation(annot_name):
+                    colname = BSTBaseSorter.sort_annot_name_to_col_name(annot_name)
+                else:
+                    colname = annot_name
+
+                # Disable searching and sorting.
+                self.columns[colname].searchable = False
+                self.columns[colname].sortable = False
+
+                msg = f"Column '{colname}' has a problem: {type(e).__name__}: {e}"
                 if settings.DEBUG:
                     warn(msg, DeveloperWarning)
                 self.warnings.append(msg)
