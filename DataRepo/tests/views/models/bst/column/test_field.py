@@ -170,7 +170,7 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(TypeError) as ar:
             BSTColumn(fld, mdl, sorter=1)
         self.assertIn(
-            "sorter must be a str or a BSTBaseSorter, not a 'int'", str(ar.exception)
+            "sorter must be a str or a BSTSorter, not a 'int'", str(ar.exception)
         )
 
     def test_init_filterer_wrong_type(self):
@@ -180,7 +180,7 @@ class BSTColumnTests(TracebaseTestCase):
         with self.assertRaises(TypeError) as ar:
             BSTColumn(fld, mdl, filterer=1)
         self.assertIn(
-            "filterer must be a str or a BSTBaseFilterer, not a 'int'",
+            "filterer must be a str or a BSTFilterer, not a 'int'",
             str(ar.exception),
         )
 

@@ -59,21 +59,33 @@ def get_rec_val(rec: Model, column: BSTBaseColumn) -> Any:
         (Any): a field value or a list of field values (if the column is from a field in a many-related model)
     """
     if isinstance(column, BSTManyRelatedColumn):
-        default: list = []
+        list_default: list = []
         try:
             vals = getattr(rec, column.list_attr_name)
         except AttributeError as ae:
             if settings.DEBUG:
                 warn(
                     f"Attribute '{column.list_attr_name}' not found in '{type(rec).__name__}' record: '{rec}'.\n"
-                    f"Returning default '{default}'.\n"
+                    f"Returning default '{list_default}'.\n"
                     f"Original error: {type(ae).__name__}: {str(ae)}",
                     category=DeveloperWarning,
                     stacklevel=0,
                 )
-            vals = default
+            vals = list_default
         return vals
-    return get_field_val_by_iteration(rec, column.name.split("__"))
+
+    default = "ERROR"
+    try:
+        val = get_field_val_by_iteration(rec, column.name.split("__"))
+    except AttributeError as ae:
+        warning = (
+            f"A problem was encountered while processing {type(column).__name__} '{column}':\n"
+            f"Exception: {type(ae).__name__}: {ae}"
+        )
+        warn(warning, DeveloperWarning)
+        val = default
+
+    return val
 
 
 @register.filter

@@ -1,9 +1,11 @@
-from django.db.models import CharField
+from django.db.models import CharField, Value
+from django.test import override_settings
 from django.urls import reverse
 
 from DataRepo.templatetags.bsttags import (
     get_absolute_url,
     get_attr,
+    get_rec_val,
     has_attr,
     is_model_obj,
 )
@@ -11,6 +13,9 @@ from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
     create_test_model,
 )
+from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
+from DataRepo.views.models.bst.column.field import BSTColumn
 
 # Dynamically create models for these tests
 BSTLVStudy = create_test_model(
@@ -34,6 +39,7 @@ BSTLVCompoundSynonym = create_test_model(
 )
 
 
+@override_settings(DEBUG=True)
 class BSTListViewTagsTests(TracebaseTestCase):
 
     @classmethod
@@ -57,3 +63,24 @@ class BSTListViewTagsTests(TracebaseTestCase):
     def test_get_detail_url(self):
         s = BSTLVStudy.objects.first()
         self.assertEqual(f"/DataRepo/studies/{s.pk}/", get_absolute_url(s))
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_get_rec_val(self):
+        rec = BSTLVStudy.objects.first()
+        col = BSTColumn("name", BSTLVStudy)
+        self.assertEqual("a", get_rec_val(rec, col))
+
+        # Test error handling
+        badcol = BSTAnnotColumn("badname", Value(1))
+        with self.assertWarns(DeveloperWarning) as aw:
+            self.assertEqual("ERROR", get_rec_val(rec, badcol))
+        self.assertEqual(1, len(aw.warnings))
+        self.assertIn(
+            "problem was encountered while processing BSTAnnotColumn 'badname'",
+            str(aw.warnings[0].message),
+        )
+        self.assertIn("Exception: AttributeError", str(aw.warnings[0].message))
+        self.assertIn(
+            "'BSTLVStudy' object has no attribute 'badname'",
+            str(aw.warnings[0].message),
+        )
