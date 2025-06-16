@@ -70,6 +70,7 @@ class BSTBaseSorter(ABC):
 
     is_annotation = False
     ascending: bool = True
+    sort_annot_suffix = "_bstrowsort"
 
     def __init__(
         self,
@@ -92,7 +93,8 @@ class BSTBaseSorter(ABC):
                 numericSorter is set.
             client_mode (bool) [False]: Set to True if the initial table is not filtered and the page queryset is the
                 same size as the total queryset.
-            name (Optional[str]) [auto]: The name of the BSTColumn being sorted.  Will be inferred from expression.
+            name (Optional[str]) [auto]: The name of the BSTBaseColumn being sorted.  Will be derived from expression.
+                Must be a valid BSTBaseColumn name.
                 NOTE: Required if unable to unambiguously discern from expression.
             _server_sorter (Optional[Type[Combinable]]) [auto]: Explicitly set the server sorter to a Combinable
                 (see super().SERVER_SORTERS for the defaults).  Set this to override (or apply on top of) the value
@@ -105,7 +107,7 @@ class BSTBaseSorter(ABC):
             None
         """
         self.expression: Combinable
-        self.name = name
+        self.name: str
         self.asc = asc if asc is not None else self.ascending
         self.client_sorter = client_sorter
         self.client_mode = client_mode
@@ -191,7 +193,9 @@ class BSTBaseSorter(ABC):
             and self._server_sorter != self.SERVER_SORTERS.UNKNOWN
         )
 
-        if name is None:
+        if isinstance(name, str):
+            self.name = name
+        else:
             try:
                 self.name = resolve_field_path(expression)
             except (NoFields, MultipleFields) as fe:
@@ -200,7 +204,7 @@ class BSTBaseSorter(ABC):
                     f"due to '{type(fe).__name__}' error: {fe}.)"
                 )
 
-        self.annot_name = f"{self.name}_bstrowsort"
+        self.annot_name = self.name + self.sort_annot_suffix
 
         # Set the default client_sorter to match the server sorter
         if client_sorter is None:
@@ -236,6 +240,15 @@ class BSTBaseSorter(ABC):
             raise ValueError(
                 f"Conflicting client '{self.client_sorter}' and server '{self._server_sorter}' sorters."
             )
+
+    @classmethod
+    def is_sort_annotation(cls, annot_name: str):
+        return annot_name.endswith(cls.sort_annot_suffix)
+
+    @classmethod
+    def sort_annot_name_to_col_name(cls, annot_name: str):
+        """This converts the name of an annotation from a sort annotation name to a column name."""
+        return annot_name.replace(cls.sort_annot_suffix, "")
 
     def __str__(self) -> str:
         return self.sorter

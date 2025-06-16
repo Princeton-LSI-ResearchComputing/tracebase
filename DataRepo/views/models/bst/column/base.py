@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 from warnings import warn
 
+from django.db import ProgrammingError
+
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
 from DataRepo.views.models.bst.column.filterer.base import BSTBaseFilterer
@@ -197,10 +199,19 @@ class BSTBaseColumn(ABC):
         elif isinstance(sorter, str):
             self.sorter = self.create_sorter(client_sorter=sorter)
         elif isinstance(sorter, BSTBaseSorter):
+            # Make sure that the sorter's name matches the column name
+            if sorter.name != self.name:
+                raise ProgrammingError(
+                    f"Sorter name '{sorter.name}' must match the column name '{self.name}'."
+                )
+            elif not isinstance(sorter, type(self.create_sorter())):
+                raise TypeError(
+                    f"sorter must be a {type(self.create_sorter()).__name__}, not {type(sorter).__name__}"
+                )
             self.sorter = sorter
         else:
             raise TypeError(
-                f"sorter must be a str or a BSTBaseSorter, not a '{type(sorter).__name__}'."
+                f"sorter must be a str or a {type(self.create_sorter()).__name__}, not a '{type(sorter).__name__}'."
             )
 
         # Collect scripts of contained classes
@@ -215,10 +226,15 @@ class BSTBaseColumn(ABC):
             # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
             self.filterer = self.create_filterer(client_filterer=filterer)
         elif isinstance(filterer, BSTBaseFilterer):
+            if not isinstance(filterer, type(self.create_filterer())):
+                raise TypeError(
+                    f"filterer must be a {type(self.create_filterer()).__name__}, not {type(filterer).__name__}"
+                )
             self.filterer = filterer
         else:
             raise TypeError(
-                f"filterer must be a str or a BSTBaseFilterer, not a '{type(filterer).__name__}'."
+                f"filterer must be a str or a {type(self.create_filterer()).__name__}, not a "
+                f"'{type(filterer).__name__}'."
             )
 
         # Collect scripts of contained classes
@@ -262,7 +278,7 @@ class BSTBaseColumn(ABC):
         return underscored_to_title(self.name)
 
     @abstractmethod
-    def create_sorter(self, field=None, **kwargs):
+    def create_sorter(self, **kwargs):
         """Derived classes must define this method to set self.sorter to a BSTBaseSorter"""
         pass
 
