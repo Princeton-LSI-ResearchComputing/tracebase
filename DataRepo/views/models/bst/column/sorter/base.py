@@ -12,9 +12,10 @@ from DataRepo.models.utilities import (
     MultipleFields,
     NoFields,
     is_number_field,
+    is_string_field,
     resolve_field_path,
 )
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, RequiredArgument
 
 
 class ClientSorters(NamedTuple):
@@ -102,7 +103,10 @@ class BSTBaseSorter(ABC):
                 an output_field set, but note that BSTSorter (and its derived classes) automatically sets
                 _server_sorter.
         Exceptions:
-            ValueError when an argument is invalid.
+            ValueError when an argument is invalid or the client and server sorters are conflicting.
+            AttributeError when an expression's output_field attribute is invalid.
+            RequiredArgument when the expression argument is None.
+            ProgrammingError when the expression's field type cannot be derived.
         Returns:
             None
         """
@@ -151,26 +155,28 @@ class BSTBaseSorter(ABC):
                         f"from SERVER_SORTERS or a custom client_sorter to the constructor.",
                         DeveloperWarning,
                     )
+        elif expression is None:
+            raise RequiredArgument("expression", methodname=self.__class__.__name__)
 
         if _server_sorter is None:
             if isinstance(sort_field, Field):
-                if not is_number_field(sort_field):
-                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
-                elif is_number_field(sort_field):
+                if is_number_field(sort_field):
                     self._server_sorter = self.SERVER_SORTERS.NUMERIC
+                elif is_string_field(sort_field):
+                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
                 else:
                     self._server_sorter = (
                         type(expression)
                         if isinstance(expression, Combinable)
-                        else self.SERVER_SORTERS.UNKNOWN
+                        else self.SERVER_SORTERS.NONE  # Let the DB do its default sort behavior for the Field
                     )
             elif isinstance(expression, Expression) and hasattr(
                 expression, "output_field"
             ):
-                if not is_number_field(expression.output_field):
-                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
-                elif is_number_field(expression.output_field):
+                if is_number_field(expression.output_field):
                     self._server_sorter = self.SERVER_SORTERS.NUMERIC
+                elif is_string_field(expression.output_field):
+                    self._server_sorter = self.SERVER_SORTERS.ALPHANUMERIC
                 elif type(expression) in self.SERVER_SORTERS:
                     self._server_sorter = type(expression)
                 else:
@@ -181,7 +187,7 @@ class BSTBaseSorter(ABC):
             ):
                 self._server_sorter = type(expression)
             else:
-                self._server_sorter = self.SERVER_SORTERS.UNKNOWN
+                self._server_sorter = self.SERVER_SORTERS.UNKNOWN  # This is a problem
         else:
             self._server_sorter = _server_sorter
 
@@ -371,7 +377,7 @@ class BSTBaseSorter(ABC):
         Args:
             expression (Combinable): E.g. the converter of an annotation.
         Exceptions:
-            None
+            ProgrammingError when a Field cannot be resolved from the supplied expression
         Returns:
             _server_sorter (Type[Combinable])
         """
@@ -388,10 +394,16 @@ class BSTBaseSorter(ABC):
                     f"argument with a Field instance to the expression.\nOriginal error: {ae}"
                 ).with_traceback(ae.__traceback__)
 
-            if not is_number_field(output_field):
-                _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
-            elif is_number_field(output_field):
+            if is_number_field(output_field):
                 _server_sorter = cls.SERVER_SORTERS.NUMERIC
+            elif is_string_field(expression.output_field):
+                _server_sorter = cls.SERVER_SORTERS.ALPHANUMERIC
+            elif type(expression) in cls.SERVER_SORTERS:
+                _server_sorter = type(expression)
+            else:
+                raise ProgrammingError(
+                    f"Unable to resolve field type from expression '{expression}'."
+                )
         elif type(expression) in cls.SERVER_SORTERS:
             _server_sorter = type(expression)
         return _server_sorter
