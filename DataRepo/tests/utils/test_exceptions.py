@@ -65,6 +65,7 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanks,
     generate_file_location_string,
     summarize_int_list,
+    trace,
 )
 
 
@@ -1460,3 +1461,9 @@ class ExceptionTests(TracebaseTestCase):
             "The compound name was automatically repaired to be 'compound_test_name__'",
             str(e),
         )
+
+    def test_trace(self):
+        trc = trace()
+        self.assertIn("trc = trace()", trc, msg=f"trace() output:\n{trc}")
+        self.assertIn("test_exceptions.py", trc, msg=f"trace() output:\n{trc}")
+        self.assertNotIn("site-packages", trc, msg=f"trace() output:\n{trc}")
