@@ -118,7 +118,7 @@ class BSTListView(BSTBaseListView):
                 )
                 if settings.DEBUG:
                     warn(
-                        f"{warning}\nCookies: {bad_cookies}\nException: {type(e).__name__}: {e}",
+                        f"{trace(e)}\n{warning}\nCookies: {bad_cookies}\nException: {type(e).__name__}: {e}",
                         DeveloperWarning,
                     )
                 self.warnings.append(warning)

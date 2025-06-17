@@ -23,13 +23,13 @@
             '{{ limit_default }}',
             '{{ table_id }}',
             '{{ cookie_prefix }}',
-            '{{ page_obj.number }}',
-            '{{ page_obj.paginator.per_page }}',
-            '{{ total }}',
-            '{{ raw_total }}',
+            {{ page_obj.number }},
+            {{ page_obj.paginator.per_page }},
+            {{ total }},
+            {{ raw_total }},
             window.location.href.split('?')[0],
+            {# TODO: Fix this so that request.resolver_match.url_name can be used. #}
             {% comment %}
-            TODO: Fix this so that request.resolver_match.url_name can be used.
             The following does not work in the BSTListView tests because it does not have a url, but the above works
             - it is the javascript equivalent and the python test does not do anything with it.  To fix it, I need
             to create a proper concrete view for BSTListView in the tests, with a url and everything.
