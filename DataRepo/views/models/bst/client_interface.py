@@ -242,7 +242,7 @@ class BSTClientInterface(ListView):
         # Setting the limit to 0 means "all", but returning 0 here would mean we wouldn't get a page object sent to the
         # template, so we set it to the number of results.  The template will turn that back into 0 so that we're not
         # adding an odd value to the rows per page select list and instead selecting "all".
-        if count > 0 and (self.limit == 0 or self.limit > count):
+        if count > 0 and self.limit == 0:
             self.limit = count
         elif self.limit == 0:
             self.limit = self.paginate_by
