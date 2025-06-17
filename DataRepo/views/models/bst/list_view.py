@@ -13,7 +13,7 @@ from DataRepo.models.utilities import (
     get_field_val_by_iteration,
     get_many_related_field_val_by_subquery,
 )
-from DataRepo.utils.exceptions import DeveloperWarning
+from DataRepo.utils.exceptions import DeveloperWarning, trace
 from DataRepo.views.models.bst.base import BSTBaseListView
 from DataRepo.views.models.bst.column.annotation import BSTAnnotColumn
 from DataRepo.views.models.bst.column.base import BSTBaseColumn
@@ -506,9 +506,14 @@ class BSTListView(BSTBaseListView):
                 self.columns[colname].searchable = False
                 self.columns[colname].sortable = False
 
-                msg = f"Column '{colname}' has a problem: {type(e).__name__}: {e}"
+                if colname == annot_name:
+                    msg = f"The expression '{expression}' for the annotation column '{colname}' "
+                else:
+                    msg = f"The sort expression '{expression}' for column '{colname}' "
+                msg += f"has a problem: {type(e).__name__}: {e}"
+
                 if settings.DEBUG:
-                    warn(msg, DeveloperWarning)
+                    warn(trace() + msg, DeveloperWarning)
                 self.warnings.append(msg)
         return qs
 
