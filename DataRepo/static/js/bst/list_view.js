@@ -88,12 +88,12 @@ function initBST ( // eslint-disable-line no-unused-vars
   globalThis.djangoCurrentURL = currentURL
   globalThis.djangoTableID = tableID
   globalThis.jqTableID = '#' + tableID
-  globalThis.djangoLimitDefault = limitDefault
-  globalThis.djangoLimit = limit
-  globalThis.djangoPerPage = perPage
-  globalThis.djangoPageNumber = pageNumber
-  globalThis.djangoTotal = total
-  globalThis.djangoRawTotal = rawTotal
+  globalThis.djangoLimitDefault = parseInt(limitDefault)
+  globalThis.djangoLimit = parseInt(limit)
+  globalThis.djangoPerPage = parseInt(perPage)
+  globalThis.djangoPageNumber = parseInt(pageNumber)
+  globalThis.djangoTotal = parseInt(total)
+  globalThis.djangoRawTotal = parseInt(rawTotal)
   globalThis.sortCookieName = sortCookieName
   globalThis.ascCookieName = ascCookieName
   globalThis.searchCookieName = searchCookieName
@@ -320,7 +320,7 @@ function updateRowsPerPage (numRows) { // eslint-disable-line no-unused-vars
  */
 function resetTable () { // eslint-disable-line no-unused-vars
   deleteViewCookies() // eslint-disable-line no-undef
-  updatePage()
+  updatePage(1, djangoLimitDefault)
 }
 
 /**
