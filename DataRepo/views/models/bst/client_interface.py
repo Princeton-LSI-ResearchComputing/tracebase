@@ -592,6 +592,8 @@ class BSTClientInterface(ListView):
                 "asc_cookie_name": self.asc_cookie_name,
                 "limit_cookie_name": self.limit_cookie_name,
                 "page_cookie_name": self.page_var_name,
+                # Override Django's is_paginated to not trigger the base.html template from adding vanilla pagination
+                "is_paginated": None,
             }
         )
 

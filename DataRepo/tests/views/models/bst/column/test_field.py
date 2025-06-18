@@ -187,9 +187,6 @@ class BSTColumnTests(TracebaseTestCase):
     def test_init_is_fk(self):
         self.assertTrue(BSTColumn("animal", BSTCSampleTestModel).is_fk)
         self.assertFalse(BSTColumn("name", BSTCSampleTestModel).is_fk)
-        # TODO: Put this test in the tests for BSTRelatedColumn
-        # self.assertTrue(BSTColumn("animal__studies", BSTCSampleTestModel).is_fk)
-        # self.assertFalse(BSTColumn("animal__studies__name", BSTCSampleTestModel).is_fk)
 
     def test_eq(self):
         # Test __eq__ works when other val is string
