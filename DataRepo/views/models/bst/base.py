@@ -4,7 +4,7 @@ from warnings import warn
 
 from django.conf import settings
 from django.db import ProgrammingError
-from django.db.models import IntegerField
+from django.db.models import IntegerField, Value
 from django.db.models.aggregates import Count
 from django.db.models.expressions import Combinable
 
@@ -106,16 +106,19 @@ class BSTBaseListView(BSTClientInterface):
         self.column_ordering: List[str] = self.__class__.column_ordering.copy()
         self.init_column_ordering()
 
-        # Initialize columns
+        # Initialize columns (NOTE: This could add a Details BSTAnnotColumn)
+        self.representative_column: Optional[BSTBaseColumn] = None
         self.columns: Dict[str, BSTBaseColumn] = {}
         self.groups: Dict[str, BSTColumnGroup] = {}
         self.init_columns()
 
         # Default the sort_col to the best representative
         if self.model is not None:
-            rep_field = select_representative_field(self.model, force=True)
-            if isinstance(rep_field, str):
-                self.sort_col = self.columns[rep_field]
+            sort_field = select_representative_field(
+                self.model, force=True, subset=self.column_ordering
+            )
+            if isinstance(sort_field, str):
+                self.sort_col = self.columns[sort_field]
                 self.ordered = True
             else:
                 raise ProgrammingError(
@@ -626,8 +629,31 @@ class BSTBaseListView(BSTClientInterface):
         Returns:
             None
         """
+        details_link_exists = False
         for colname in self.column_ordering:
             self.init_column(colname)
+
+            # See if the derived class specified a linked column (to the row's details page)
+            if colname not in self.groups.keys() and self.columns[colname].linked:
+                details_link_exists = True
+                # Only make the first linked column the representative (if there are multiple)
+                if not details_link_exists:
+                    self.representative_column = self.columns[colname]
+
+        # If no representative exists and the model has a detail page, automatically set a representative
+        if not details_link_exists and BSTBaseColumn.has_detail(self.model):
+            rep_colname = select_representative_field(
+                self.model, subset=self.column_ordering
+            )
+            # If no representative could be chosen
+            if rep_colname is None:
+                # Append a details column containing only the linked text "details"
+                details = BSTAnnotColumn("details", Value("details"), linked=True)
+                self.column_ordering.append(details.name)
+                self.columns[details.name] = details
+            else:
+                self.columns[rep_colname].linked = True
+                self.representative_column = self.columns[rep_colname]
 
     def init_column(self, colname: str):
         """Takes a column name, creates a derived instance of the BSTBaseColumn class, and adds it to self.columns.

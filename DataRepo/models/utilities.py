@@ -487,10 +487,12 @@ def select_representative_field(
             and there are no unique fields that are not the arbitrary primary key or foreign keys.
         include_expression (bool) [False]: If a suitable single field is selected from the model's ordering, return it
             as-is, instead of just returning a string version of the field name.
-        subset (Optional[List[str]]): A subset of field names belonging to model to select from.  Use this to restrict
-            the representative field selection to only the provided fields.  Note, if forced, and there is no ideal,
-            field the first field not belonging to a related model is chosen, but if all there are is fields from
-            related models, the first relation chosen, which could be problematic.
+        subset (Optional[List[str]]): A subset of field names/paths to select from.  Use this to restrict the
+            representative field selection to only the provided fields.  Field paths to related fields can be supplied,
+            but they will be ignored and cannot be selected as a representiative.  Related fields can still be selected
+            as representatives, but only the foreign keys with a path length of 1 are considered (i.e. no field path
+            containing "__" is considered).  This will also ignore annotation fields.  Only fields that are attributes
+            of the model are considered.
     Exceptions:
         ProgrammingError when a supplied subset of fields has no suitable representative field (i.e. when all supplied
             fields are from a many-related model).
@@ -498,11 +500,18 @@ def select_representative_field(
         (Optional[str]): The name of the selected field to represent the model.
     """
     if subset is not None and len(subset) > 0:
-        all_fields = [field_path_to_field(model, fld) for fld in subset]
+        all_fields = [
+            field_path_to_field(model, fld)
+            for fld in subset
+            if "__" not in fld and hasattr(model, fld)
+        ]
         all_names = subset.copy()
     else:
         all_fields = model._meta.get_fields()
         all_names = [f.name for f in all_fields]
+
+    if len(all_fields) == 0:
+        return None
 
     if (
         len(model._meta.ordering) == 1

@@ -106,7 +106,7 @@ class BSTColumn(BSTBaseColumn):
             raise ValueError(
                 "model is required for non-annotation fields.  Use BSTAnnotColumn for annotation fields."
             )
-        elif linked and not hasattr(model, "get_absolute_url"):
+        elif linked and not self.has_detail():
             # NOTE: An annotation can link as well, but no need to force supplying a model just to check for
             # get_absolute_url.  It will be checked in the template.
             raise ValueError(
@@ -196,3 +196,7 @@ class BSTColumn(BSTBaseColumn):
     def create_filterer(self, field: Optional[str] = None, **kwargs) -> BSTFilterer:
         field_path = field if field is not None else self.name
         return BSTFilterer(field_path, self.model, **kwargs)
+
+    def has_detail(self):
+        """Override of superclass class method."""
+        return hasattr(self.model, "get_absolute_url")

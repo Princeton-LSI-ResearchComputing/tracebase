@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import List, Optional, Type, Union
 from warnings import warn
 
 from django.db import ProgrammingError
+from django.db.models import Model
 
 from DataRepo.utils.exceptions import DeveloperWarning
 from DataRepo.utils.text_utils import underscored_to_title
@@ -289,3 +290,7 @@ class BSTBaseColumn(ABC):
     def create_filterer(self, field=None, **kwargs):
         """Derived classes must define this method to set self.filterer to a BSTBaseFilterer"""
         pass
+
+    @classmethod
+    def has_detail(cls, model: Type[Model]):
+        return hasattr(model, "get_absolute_url")
