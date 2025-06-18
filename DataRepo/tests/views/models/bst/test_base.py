@@ -135,7 +135,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
             {
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
-                    Count("animals", output_field=IntegerField()),
+                    Count("animals", output_field=IntegerField(), distinct=True),
                     header="Animals Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
@@ -157,7 +157,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 ),
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
-                    Count("animals", output_field=IntegerField()),
+                    Count("animals", output_field=IntegerField(), distinct=True),
                     header="Animals Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
@@ -462,7 +462,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEquivalent(
             BSTAnnotColumn(
                 "studies_mm_count",
-                Count("studies", output_field=IntegerField()),
+                Count("studies", output_field=IntegerField(), distinct=True),
                 header="Studies Count",
                 filterer="strictFilterer",
                 sorter="numericSorter",
@@ -558,7 +558,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
             {
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
-                    Count("animals", output_field=IntegerField()),
+                    Count("animals", output_field=IntegerField(), distinct=True),
                     header="Animals Count",
                     filterer="strictFilterer",
                     sorter="numericSorter",
@@ -636,7 +636,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
                 "desc": BSTColumn("desc", BSTBLVStudyTestModel),
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
-                    Count("animals", output_field=IntegerField()),
+                    Count("animals", output_field=IntegerField(), distinct=True),
                     header="Animals Count",
                     filterer="strictFilterer",
                 ),
