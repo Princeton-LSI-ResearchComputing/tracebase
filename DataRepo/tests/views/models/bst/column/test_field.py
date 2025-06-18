@@ -246,3 +246,9 @@ class BSTColumnTests(TracebaseTestCase):
         c = BSTColumn("name", BSTCTissueTestModel)
         th = c.generate_header()
         self.assertEqual(underscored_to_title("name"), th)
+
+    def test_has_detail(self):
+        # Has unique field and a get_absolute_url method
+        self.assertTrue(BSTColumn("name", BSTCAnimalTestModel).has_detail())
+        # Has a unique field, but no get_absolute_url method
+        self.assertFalse(BSTColumn("name", BSTCStudyTestModel).has_detail())

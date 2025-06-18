@@ -32,6 +32,7 @@ BSTBLVStudyTestModel = create_test_model(
         "desc": CharField(max_length=255),
     },
     attrs={
+        "get_absolute_url": lambda self: f"/DataRepo/study/{self.pk}/",
         "Meta": type(
             "Meta",
             (),
@@ -101,6 +102,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual([], blv.warnings)
         self.assertEqual({}, blv.columns)
         self.assertEqual({}, blv.groups)
+        self.assertIsNone(blv.representative_column)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_success_cookies(self):
@@ -145,7 +147,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         )
         self.assertDictEquivalent(
             {
-                "name": BSTColumn("name", BSTBLVStudyTestModel),
+                "name": BSTColumn("name", BSTBLVStudyTestModel, linked=True),
                 "desc": BSTColumn(
                     "desc",
                     BSTBLVStudyTestModel,
@@ -167,6 +169,9 @@ class BSTBaseListViewTests(TracebaseTestCase):
             slv.columns,
         )
         self.assertEqual({}, slv.groups)
+        self.assertIsNotNone(slv.representative_column)
+        self.assertEqual("name", slv.representative_column.name)
+        self.assertTrue(slv.representative_column.linked)
 
     @TracebaseTestCase.assertNotWarns()
     def test_init_warnings(self):
@@ -632,7 +637,7 @@ class BSTBaseListViewTests(TracebaseTestCase):
         self.assertEqual([], context["warnings"])
         self.assertDictEquivalent(
             {
-                "name": BSTColumn("name", BSTBLVStudyTestModel),
+                "name": BSTColumn("name", BSTBLVStudyTestModel, linked=True),
                 "desc": BSTColumn("desc", BSTBLVStudyTestModel),
                 "animals_mm_count": BSTAnnotColumn(
                     "animals_mm_count",
@@ -731,3 +736,20 @@ class BSTBaseListViewTests(TracebaseTestCase):
             set(["animals__name", "animals__desc"]),
             set([c.name for c in swaac.groups["animals_group"].columns]),
         )
+
+    def test_init_no_representative(self):
+        """Test that a linked "details" column is added when there is no clear representative field"""
+        BSTBLVNoRepTestModel = create_test_model(
+            "BSTBLVNoRepTestModel",
+            {"name": CharField(), "desc": CharField()},
+            attrs={"get_absolute_url": lambda self: f"/DataRepo/norep/{self.pk}/"},
+        )
+
+        class NoRepBLV(BSTBaseListView):
+            model = BSTBLVNoRepTestModel
+
+        nrblv = NoRepBLV()
+        self.assertIsNone(nrblv.representative_column)
+        self.assertIn("details", nrblv.columns.keys())
+        self.assertIn("details", nrblv.column_ordering)
+        self.assertTrue(nrblv.columns["details"].linked)
