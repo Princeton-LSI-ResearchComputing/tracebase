@@ -69,6 +69,7 @@ class BSTRelatedColumn(BSTColumn):
             None
         """
         self.display_field_path = display_field_path
+        tooltip = kwargs.get("tooltip")
 
         # Get some superclass instance members we need for checks
         field_path: str = cast(str, args[0])
@@ -122,6 +123,12 @@ class BSTRelatedColumn(BSTColumn):
                         "display_field_path could not be determined.  Supply display_field_path to allow search/sort."
                     )
 
+                tooltip = "" if tooltip is None else tooltip + "  "
+                tooltip += (
+                    "Search and sort is disabled for this column because the displayed values do not exist in the "
+                    "database as a single field"
+                )
+
                 # Fall back to the actual foreign key as the display field.  This will end up rendering related objects
                 # in string context, which is what is not searchable/sortable.
                 self.display_field_path = field_path
@@ -130,6 +137,7 @@ class BSTRelatedColumn(BSTColumn):
                     {
                         "searchable": False,
                         "sortable": False,
+                        "tooltip": tooltip,
                     }
                 )
         elif not self.display_field_path.startswith(field_path):
