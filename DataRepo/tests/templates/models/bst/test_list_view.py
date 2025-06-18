@@ -220,7 +220,7 @@ class BSTListViewTests(BaseTemplateTests):
             "2",
             "</td>",
             '<td class="table-cell">',
-            'BTTAnimalTestModel object (1); <br class="cell-wrap">',
+            'BTTAnimalTestModel object (1); </span><br class="cell-wrap">',
             "BTTAnimalTestModel object (2)",
             "</td>",
             '<td class="table-cell">',

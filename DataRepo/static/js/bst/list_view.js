@@ -187,7 +187,7 @@ function initBST ( // eslint-disable-line no-unused-vars
   })
 
   // TODO: Add collapsed and collapsedDefault as arguments and only call setCollapse if they differ
-  const collapse = getViewCookie('collapsed', true) // eslint-disable-line no-undef
+  const collapse = parseBool(getViewCookie('collapsed', true)) // eslint-disable-line no-undef
   setCollapse(collapse)
 
   // Display any warnings received from the server

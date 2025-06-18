@@ -103,7 +103,7 @@ class TdTemplateTests(BaseTemplateTests):
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
         self.assertIn('<td class="table-cell">', html)
-        self.assertIn('s2; <br class="cell-wrap">s1', html)
+        self.assertIn('>s2; </span><br class="cell-wrap"><span class="nobr">s1', html)
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_object(self):
@@ -124,4 +124,7 @@ class TdTemplateTests(BaseTemplateTests):
         self.assertIn('<td class="table-cell">', html)
         # This avoids matching the primary key, which is not durable from test to test
         self.assertIn("BTTStudyTestModel object (", html)
-        self.assertIn('); <br class="cell-wrap">BTTStudyTestModel object (', html)
+        self.assertIn(
+            '); </span><br class="cell-wrap"><span class="nobr">BTTStudyTestModel object (',
+            html,
+        )
