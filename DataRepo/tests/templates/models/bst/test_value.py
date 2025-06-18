@@ -39,7 +39,7 @@ class ValueTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_value_template(context).strip()
-        self.assertEqual("t1", html)
+        self.assertEqual('<span class="nobr">t1</span>', html)
 
     def test_bst_column_field(self):
         namecol = BSTColumn("name", BTTAnimalTestModel)
@@ -50,7 +50,7 @@ class ValueTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_value_template(context).strip()
-        self.assertEqual("A1", html)
+        self.assertEqual('<span class="nobr">A1</span>', html)
 
     def test_bst_column_object(self):
         namecol = BSTColumn("treatment", BTTAnimalTestModel)
@@ -61,7 +61,7 @@ class ValueTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_value_template(context).strip()
-        self.assertEqual('<a href="thisisaurl">T1</a>', html)
+        self.assertEqual('<span class="nobr"><a href="thisisaurl">T1</a></span>', html)
 
     def test_bst_related_column_field(self):
         treatdesccol = BSTRelatedColumn("treatment__desc", BTTAnimalTestModel)
@@ -72,7 +72,7 @@ class ValueTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_value_template(context).strip()
-        self.assertEqual("t1", html)
+        self.assertEqual('<span class="nobr">t1</span>', html)
 
     def test_bst_related_column_object(self):
         treatcol = BSTRelatedColumn("treatment", BTTAnimalTestModel)
@@ -83,7 +83,7 @@ class ValueTemplateTests(BaseTemplateTests):
         }
         # Ignoring leading/trailing whitespace characters from the template code...
         html = self.render_value_template(context).strip()
-        self.assertEqual('<a href="thisisaurl">T1</a>', html)
+        self.assertEqual('<span class="nobr"><a href="thisisaurl">T1</a></span>', html)
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_field(self):
@@ -103,7 +103,10 @@ class ValueTemplateTests(BaseTemplateTests):
         )
         # NOTE: The descending order here is due to the manual subrecs query and the model's ordering.
         # In BSTListView, applying the column's ordering happens via the get_user_queryset.
-        self.assertEqual('s2; <br class="cell-wrap">s1', html)
+        self.assertEqual(
+            '<span class="nobr">s2; </span><br class="cell-wrap"><span class="nobr">s1</span>',
+            html,
+        )
 
     @override_settings(DEBUG=True)
     def test_bst_many_related_column_object(self):
@@ -123,4 +126,7 @@ class ValueTemplateTests(BaseTemplateTests):
         )
         # This avoids matching the primary key, which is not durable from test to test
         self.assertIn("BTTStudyTestModel object (", html)
-        self.assertIn('); <br class="cell-wrap">BTTStudyTestModel object (', html)
+        self.assertIn(
+            '); </span><br class="cell-wrap"><span class="nobr">BTTStudyTestModel object (',
+            html,
+        )
