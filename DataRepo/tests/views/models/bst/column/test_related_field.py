@@ -155,6 +155,54 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         self.assertTrue(c.sortable)
         self.assertTrue(c.searchable)
 
+    def test_no_representative(self):
+        """This tests that when a related model has no representative field, it is automatically not searchable or
+        sortable, and a tooltip is set"""
+        BSTRCNoRepTestModel = create_test_model(  # noqa: F841
+            "BSTRCNoRepTestModel",
+            {
+                # No unique field, i.e. no representative for display when a related model creates a column for the
+                # foreign key to this model
+                "value1": CharField(max_length=255),
+                "value2": CharField(max_length=255),
+            },
+        )
+        BSTRCMainTestModel = create_test_model(
+            "BSTRCMainTestModel",
+            {
+                "name": CharField(max_length=255, unique=True),
+                "norep": ForeignKey(
+                    to="loader.BSTRCNoRepTestModel",
+                    related_name="parent",
+                    on_delete=CASCADE,
+                ),
+            },
+        )
+        c = BSTRelatedColumn(
+            "norep",
+            BSTRCMainTestModel,
+        )
+        self.assertEqual(
+            (
+                "Search and sort is disabled for this column because the displayed values do not exist in the database "
+                "as a single field"
+            ),
+            c.tooltip,
+        )
+        self.assertFalse(c.searchable)
+        self.assertFalse(c.sortable)
+        self.assertEqual(
+            (
+                "Test tooltip.  Search and sort is disabled for this column because the displayed values do not exist "
+                "in the database as a single field"
+            ),
+            BSTRelatedColumn(
+                "norep",
+                BSTRCMainTestModel,
+                tooltip="Test tooltip.",
+            ).tooltip,
+        )
+
     @TracebaseTestCase.assertNotWarns()
     def test_init_display_field_nonfk(self):
         c = BSTRelatedColumn("sample__characteristic", BSTRCMSRunSampleTestModel)

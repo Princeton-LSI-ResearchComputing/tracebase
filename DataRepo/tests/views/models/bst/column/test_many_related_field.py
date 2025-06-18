@@ -259,3 +259,11 @@ class BSTManyRelatedColumnTests(TracebaseTestCase):
         c = BSTManyRelatedColumn("msrun_samples__name", BSTMRCSampleTestModel)
         sh = c.generate_header()
         self.assertEqual(underscored_to_title("msrun_samples"), sh)
+
+    def test_init_is_fk(self):
+        self.assertTrue(
+            BSTManyRelatedColumn("animal__studies", BSTMRCSampleTestModel).is_fk
+        )
+        self.assertFalse(
+            BSTManyRelatedColumn("animal__studies__name", BSTMRCSampleTestModel).is_fk
+        )

@@ -14,5 +14,6 @@
     data-valign="top"
     data-visible="{{ column.visible|lower }}">
     {{ column.header }}
+    {% if column.tooltip %}<sup class="bi-question-circle" title="{{ column.tooltip }}"></sup>{% endif %}
 
 </th>

@@ -369,6 +369,9 @@ class BSTClientInterfaceTests(TracebaseTestCase):
             ),
             set(context.keys()),
         )
+        # Not a standard Paginator.  Having is_paginated=None prevents the base.html template from rendering the vanilla
+        # paginator under the SizedPaginator
+        self.assertIsNone(context["is_paginated"])
         self.assertEqual("BSTClientInterface-", context["cookie_prefix"])
         self.assertFalse(context["clear_cookies"])
         self.assertEqual([], context["cookie_resets"])

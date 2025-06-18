@@ -416,6 +416,13 @@ class BSTBaseListView(BSTClientInterface):
         """Adds an automatically generated count column to complement each many-related column (if that column is not
         excluded).
 
+        NOTE: The count added here is distinct and results may not be what you might expect.  For example:
+        Animal.last_serum_sample links to Sample using ForeignKey.  You might think this is a 1:1 relationship, but that
+        is wrong.  When gathering many-related fields for the Sample model, "Animal.last_serum_sample's related name is
+        "Sample.animals".  There are other serum samples that are not the last that link to that animal and in turn,
+        link to the last serum sample record, making the Sample.animals relationship many to 1.  They all just happen to
+        link to the same animal.  This is why we supply distinct=True.
+
         Assumptions:
             1. If a column already exists with the generated annotation name, assume it contains a distinct count.
         Args:
@@ -443,11 +450,13 @@ class BSTBaseListView(BSTClientInterface):
             ):
                 self.column_settings[count_annot_name] = BSTAnnotColumn(
                     count_annot_name,
-                    Count(fld.name, output_field=IntegerField()),
-                    header=underscored_to_title(
-                        BSTManyRelatedColumn.get_attr_stub(fld.name, self.model)
-                    )
-                    + " Count",
+                    Count(fld.name, output_field=IntegerField(), distinct=True),
+                    header=(
+                        underscored_to_title(
+                            BSTManyRelatedColumn.get_attr_stub(fld.name, self.model)
+                        )
+                        + " Count"
+                    ),
                     filterer="strictFilterer",
                     sorter="numericSorter",
                 )

@@ -138,7 +138,9 @@ class BSTListViewTests(TracebaseTestCase):
             {
                 "name_bstrowsort": Lower("name"),
                 "description": Upper("desc", output_field=CharField()),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
             },
             slv.postfilter_annots,
         )
@@ -157,7 +159,9 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertEqual(q, slv.filters)
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             slv.prefilter_annots,
@@ -178,7 +182,9 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertDictEquivalent(
             {
                 "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             slv.postfilter_annots,
@@ -199,9 +205,11 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertDictEquivalent({}, slv.prefilter_annots)
         self.assertDictEquivalent(
             {
-                "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
                 "description": Upper("desc", output_field=CharField()),
+                "name_bstrowsort": Lower("name"),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
             },
             slv.postfilter_annots,
         )
@@ -374,7 +382,9 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertDictEquivalent(
             {
                 "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             after,
@@ -389,7 +399,9 @@ class BSTListViewTests(TracebaseTestCase):
         before, after = alv2.get_annotations()
         self.assertDictEquivalent(
             {
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             before,
@@ -408,7 +420,9 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertDictEquivalent(
             {
                 "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
             },
             after,
         )
@@ -422,7 +436,9 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertDictEquivalent(
             {
                 "name_bstrowsort": Lower("name"),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             after,
@@ -437,9 +453,11 @@ class BSTListViewTests(TracebaseTestCase):
         self.assertDictEquivalent(
             {
                 "animals_mm_count_bstrowsort": Count(
-                    "animals", output_field=IntegerField()
+                    "animals", output_field=IntegerField(), distinct=True
                 ),
-                "animals_mm_count": Count("animals", output_field=IntegerField()),
+                "animals_mm_count": Count(
+                    "animals", output_field=IntegerField(), distinct=True
+                ),
                 "description": Upper("desc", output_field=CharField()),
             },
             after,
