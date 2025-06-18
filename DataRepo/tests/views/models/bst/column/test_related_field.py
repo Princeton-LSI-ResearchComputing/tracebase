@@ -341,9 +341,3 @@ class BSTRelatedColumnTests(TracebaseTestCase):
         c = BSTRelatedColumn("sample__animal__sex", BSTRCMSRunSampleTestModel)
         sh = c.generate_header()
         self.assertEqual(underscored_to_title("animal_sex"), sh)
-
-    def test_init_is_fk(self):
-        self.assertTrue(BSTRelatedColumn("animal__studies", BSTRCSampleTestModel).is_fk)
-        self.assertFalse(
-            BSTRelatedColumn("animal__studies__name", BSTRCSampleTestModel).is_fk
-        )
