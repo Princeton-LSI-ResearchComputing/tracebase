@@ -74,8 +74,8 @@ class BSTBaseColumn(ABC):
         visible: bool = True,
         exported: bool = True,
         linked: bool = False,
-        sorter: Optional[Union[str, BSTBaseSorter]] = None,
-        filterer: Optional[Union[str, BSTBaseFilterer]] = None,
+        sorter: Optional[Union[str, BSTBaseSorter, dict]] = None,
+        filterer: Optional[Union[str, BSTBaseFilterer, dict]] = None,
         th_template: Optional[str] = None,
         td_template: Optional[str] = None,
         value_template: Optional[str] = None,
@@ -104,10 +104,14 @@ class BSTBaseColumn(ABC):
                 record the row represents.
                 NOTE: The model must have a "get_absolute_url" method.  Checked in the template.
 
-            sorter (Optional[Union[str, BSTBaseSorter]]) [auto]: If the value is a str, must be in
-                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).
-            filterer (Optional[Union[str, BSTBaseFilterer]]) [auto]: If the value is a str, must be in
+            sorter (Optional[Union[str, BSTBaseSorter, dict]]) [auto]: If the value is a str, must be in
+                BSTBaseSorter.CLIENT_SORTERS.  Default will be based on the name and the sorter (if it is a str).  If
+                the value is a dict, that dict will be supplied as the kwargs in the constructor call of a
+                BSTBaseSorter.
+            filterer (Optional[Union[str, BSTBaseFilterer, dict]]) [auto]: If the value is a str, must be in
                 BSTBaseFilterer.CLIENT_FILTERERS.  Default will be based on the name and the filterer (if it is a str).
+                If the value is a dict, that dict will be supplied as the kwargs in the constructor call of a
+                BSTBaseFilterer.
 
             th_template (str) ["models/bst/th.html"]: Template path to an html file used to render the th
                 element for the column header.  This must handle the initial sort field, search term, and filter term.
@@ -202,6 +206,8 @@ class BSTBaseColumn(ABC):
             self.sorter = self.create_sorter()
         elif isinstance(sorter, str):
             self.sorter = self.create_sorter(client_sorter=sorter)
+        elif isinstance(sorter, dict):
+            self.sorter = self.create_sorter(**sorter)
         elif isinstance(sorter, BSTBaseSorter):
             # Make sure that the sorter's name matches the column name
             if sorter.name != self.name:
@@ -229,6 +235,9 @@ class BSTBaseColumn(ABC):
         elif isinstance(filterer, str):
             # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
             self.filterer = self.create_filterer(client_filterer=filterer)
+        elif isinstance(filterer, dict):
+            # We explicitly do NOT supply the name, so that we can let the derived class's method decide it
+            self.filterer = self.create_filterer(**filterer)
         elif isinstance(filterer, BSTBaseFilterer):
             if not isinstance(filterer, type(self.create_filterer())):
                 raise TypeError(

@@ -204,6 +204,28 @@ class BSTBaseListViewTests(TracebaseTestCase):
             ["StudyBLV-visible-desc", "StudyBLV-filter-stale"], blv.cookie_resets
         )
 
+    def test_init_class_attr_column_settings(self):
+        """This tests that you can use the column_settings class attribute to avoid extending the constructor"""
+
+        class StudyBLVcs(BSTBaseListView):
+            model = BSTBLVStudyTestModel
+            column_settings = {"name": {"filterer": {"choices": ["1", "2"]}}}
+
+        sblvcs = StudyBLVcs()
+        self.assertIn("name", sblvcs.column_settings.keys())
+        self.assertEqual(
+            ["1", "2"], sblvcs.column_settings["name"]["filterer"]["choices"]
+        )
+        self.assertEquivalent(
+            BSTColumn(
+                "name",
+                BSTBLVStudyTestModel,
+                filterer=BSTFilterer("name", BSTBLVStudyTestModel, choices=["1", "2"]),
+                linked=True,
+            ),
+            sblvcs.columns["name"],
+        )
+
     def test_init_column_settings_list_supplied_for_columns(self):
         blv = BSTBaseListView()
 
