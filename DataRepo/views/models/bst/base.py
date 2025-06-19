@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 from typing import Dict, List, Optional, Union, cast
 from warnings import warn
 
@@ -36,6 +37,35 @@ class BSTBaseListView(BSTClientInterface):
     Generally, this is a generic class-based view for a Model record list to make pages load faster, using server-side
     behavior for pagination.
 
+    Examples:
+        Note that you should inherit from BSTListView, but this is here in this middle class because this is the class
+        that does the column setup.
+
+        Simplest fully working example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+
+        Custom column selection example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+
+        Fully customized example:
+
+            class SampleList(BSTBaseListView):
+                model = Sample
+                column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+                exclude = ["id", "msrun_samples"]
+                column_settings = {
+                    "handler": {
+                        "header": "Researcher",
+                        filterer: {"choices": get_researchers}
+                    }
+                }
+
     Class Attributes:
         column_ordering (List[str]) [[]]: This is a list of column names (which can be a field_path, an annotation name,
             or a column group name).  An instance attribute is created and initialized using a copy of this class
@@ -44,6 +74,10 @@ class BSTBaseListView(BSTClientInterface):
             list.  The default is an empty list, but the instance attribute automatically gets fields from self.model
             added in the order defined in the model class (except with many-related fields put at the end).  It is
             further appended to by columns supplied to the constructor (from the column_settings dict keys).
+        column_settings (Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]]): A dict keyed on column (or column
+            group) name.  The name will be either a field path or annotation name.  The value can either be a dict of
+            keyword arguments to the column or column group's constructor or an instance of BSTBaseColumn or
+            BSTColumnGroup.
         annotations (Dict[str, Combinable]) [{}]: The bare minumum definition of annotations defined by a dict where the
             keys are the annotation name and the values are Combinables, e.g. 'Lower("fieldname")'.  The annotation name
             may be in column_ordering and the value can be overridden by what is provided to the constructor.
@@ -65,9 +99,10 @@ class BSTBaseListView(BSTClientInterface):
         sort_col (BSTBaseColumn): A shortcut to the user-selected sort-column, found via cookie.
     """
 
-    column_ordering: List[str] = []
-    annotations: Dict[str, Combinable] = {}
     # column_ordering default comes from: self.model._meta.get_fields()
+    column_ordering: List[str] = []
+    column_settings: Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]] = {}
+    annotations: Dict[str, Combinable] = {}
     exclude: List[str] = ["id"]
 
     def __init__(
@@ -98,8 +133,9 @@ class BSTBaseListView(BSTClientInterface):
         """
         super().__init__(**kwargs)
 
+        # Copy what's in the class attribute to start
+        self.column_settings = deepcopy(self.__class__.column_settings)
         # Initialize column settings
-        self.column_settings: Dict[str, Union[dict, BSTBaseColumn, BSTColumnGroup]] = {}
         self.init_column_settings(columns)
 
         # Initialize column order
@@ -236,6 +272,11 @@ class BSTBaseListView(BSTClientInterface):
         # Add any annotations that were defined in the class attribute
         # NOTE: This could get overridden by what's in columns
         for annot_name, annot_expression in self.annotations.items():
+            if annot_name in self.column_settings.keys():
+                raise ProgrammingError(
+                    f"The annotation column '{annot_name}' has been defined twice: once in "
+                    f"{type(self).__name__}.column_settings and once in {type(self).__name__}.annotations."
+                )
             self.column_settings[annot_name] = {"converter": annot_expression}
 
         if isinstance(columns, list):
