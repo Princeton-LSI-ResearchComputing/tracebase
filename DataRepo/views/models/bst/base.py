@@ -134,12 +134,12 @@ class BSTBaseListView(BSTClientInterface):
         super().__init__(**kwargs)
 
         # Copy what's in the class attribute to start
-        self.column_settings = deepcopy(self.__class__.column_settings)
+        self.column_settings = deepcopy(type(self).column_settings)
         # Initialize column settings
         self.init_column_settings(columns)
 
         # Initialize column order
-        self.column_ordering: List[str] = self.__class__.column_ordering.copy()
+        self.column_ordering: List[str] = type(self).column_ordering.copy()
         self.init_column_ordering()
 
         # Initialize columns (NOTE: This could add a Details BSTAnnotColumn)
@@ -597,7 +597,7 @@ class BSTBaseListView(BSTClientInterface):
         """
         if self.column_ordering is None:
             # Initialize if None
-            self.column_ordering = self.__class__.column_ordering.copy()
+            self.column_ordering = type(self).column_ordering.copy()
         else:
             # Remove excludes
             self.column_ordering = [
