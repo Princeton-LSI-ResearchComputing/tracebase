@@ -59,6 +59,19 @@ class BSTListView(BSTBaseListView):
                 # All of the other model fields are auto-added
                 columns = {"field1": {"visible": False}}
                 super().__init__(columns)
+
+        # Customize the fields without extending the constructor
+        class SampleList(BSTBaseListView):
+            model = Sample
+            column_ordering = ["name", "tissue", "animal", "time_collected", "handler"]
+            exclude = ["id", "msrun_samples"]
+            column_settings = {
+                # You only need to include columns and their options when you want something other than the default
+                "handler": {
+                    "header": "Researcher",
+                    filterer: {"choices": get_researchers}  # BSTBaseFilterer.__init__'s choices arg takes a callable
+                }
+            }
     """
 
     QueryModes = ["iterate", "subquery"]
