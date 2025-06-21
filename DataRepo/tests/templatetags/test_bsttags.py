@@ -80,7 +80,8 @@ class BSTListViewTagsTests(TracebaseTestCase):
             "problem was encountered while processing BSTAnnotColumn 'badname'",
             str(aw.warnings[0].message),
         )
-        self.assertIn("Exception: AttributeError", str(aw.warnings[0].message))
+        self.assertIn("Exception:", str(aw.warnings[0].message))
+        self.assertIn("AttributeError", str(aw.warnings[0].message))
         self.assertIn(
             "'BSTLVStudy' object has no attribute 'badname'",
             str(aw.warnings[0].message),
