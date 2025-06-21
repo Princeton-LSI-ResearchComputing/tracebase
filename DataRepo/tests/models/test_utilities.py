@@ -759,6 +759,20 @@ class ModelUtilityQueryTests(TracebaseTestCase):
         self.assertEqual([], vals)
 
     @TracebaseTestCase.assertNotWarns()
+    def test_get_field_val_by_iteration_helper_manycheck(self):
+        """This test ensures that an empty list instead of None is returned when the field path doesn't make it to the
+        many-related portion of the path before hitting a None value.  E.g. Animal's field path:
+        infusate__tracers__name should return an empty list instead of None when no animal has an infusate.
+        """
+        vals = _get_field_val_by_iteration_helper(
+            self.a2,
+            ["infusate", "tracers", "name"],
+            related_limit=2,
+            sort_field_path=["name"],
+        )
+        self.assertEqual([], vals)
+
+    @TracebaseTestCase.assertNotWarns()
     def test__get_field_val_by_iteration_onerelated_helper(self):
         with self.assertNumQueries(0):
             # NOTE: Not sure yet why this performs no queries
