@@ -675,7 +675,7 @@ class BSTBaseListView(BSTClientInterface):
         for colname, obj in self.column_settings.items():
             self.add_to_column_ordering(colname)
             if isinstance(obj, BSTColumnGroup):
-                for col in obj.columns:
+                for col in obj.columns:  # pylint: disable=no-member
                     self.add_to_column_ordering(col.name)
 
     def add_to_column_ordering(self, colname: str, _warn=True):
