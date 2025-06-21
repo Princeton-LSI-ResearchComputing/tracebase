@@ -8,6 +8,7 @@ from DataRepo.templatetags.bsttags import (
     get_rec_val,
     has_attr,
     is_model_obj,
+    keys,
 )
 from DataRepo.tests.tracebase_test_case import (
     TracebaseTestCase,
@@ -84,3 +85,7 @@ class BSTListViewTagsTests(TracebaseTestCase):
             "'BSTLVStudy' object has no attribute 'badname'",
             str(aw.warnings[0].message),
         )
+
+    @TracebaseTestCase.assertNotWarns()
+    def test_keys(self):
+        self.assertEqual(["a", "b"], keys({"a": 1, "b": 2}))

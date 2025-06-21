@@ -170,7 +170,8 @@ class BSTBaseListView(BSTClientInterface):
         self.add_check_groups()
 
     def init_interface(self):
-        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col.
+        """An extension of the BSTClientInterface init_interface method, used here to set the sort_col, and check and
+        set the filter_terms and visibles that are a part of the user-controlled interface.
 
         Call this method after setting the class's request object in the get method, but before calling super().get().
 
@@ -216,6 +217,32 @@ class BSTBaseListView(BSTClientInterface):
         # Delete any bad filter term so that it doesn't come up in BSTListView when creating a Q expression
         for colname in bad_filter_entries:
             del self.filter_terms[colname]
+
+        # Set initial filter terms
+        bad_visibles_entries = []
+        for colname, visible in self.visibles.items():
+            if colname not in self.columns.keys():
+                bad_visibles_entries.append(colname)
+                self.reset_column_cookie(colname, self.visible_cookie_name)
+                warning = (
+                    f"Invalid '{self.visible_cookie_name}' column encountered: '{colname}'.  "
+                    "Resetting visible cookie."
+                )
+                self.warnings.append(warning)
+                if settings.DEBUG:
+                    warn(
+                        warning
+                        + f"  '{self.get_column_cookie_name(colname, self.visible_cookie_name)}'",
+                        DeveloperWarning,
+                    )
+            elif self.columns[colname].hidable:
+                self.columns[colname].visible = visible
+            else:
+                self.columns[colname].visible = True
+
+        # Delete any bad visible value
+        for colname in bad_visibles_entries:
+            del self.visibles[colname]
 
     def init_column_settings(
         self,
@@ -273,11 +300,21 @@ class BSTBaseListView(BSTClientInterface):
         # NOTE: This could get overridden by what's in columns
         for annot_name, annot_expression in self.annotations.items():
             if annot_name in self.column_settings.keys():
-                raise ProgrammingError(
-                    f"The annotation column '{annot_name}' has been defined twice: once in "
-                    f"{type(self).__name__}.column_settings and once in {type(self).__name__}.annotations."
-                )
-            self.column_settings[annot_name] = {"converter": annot_expression}
+                if isinstance(
+                    self.column_settings[annot_name], (BSTBaseColumn, BSTColumnGroup)
+                ) or (
+                    isinstance(self.column_settings[annot_name], dict)
+                    and "converter" in self.column_settings[annot_name].keys()  # type: ignore[union-attr]
+                ):
+                    raise ProgrammingError(
+                        f"The annotation column '{annot_name}' has been defined twice: once in "
+                        f"{type(self).__name__}.column_settings and once in {type(self).__name__}.annotations."
+                    )
+                # self.column_settings[annot_name] must be a dict (without a converter key) or an exception would have
+                # been raised above
+                self.column_settings[annot_name]["converter"] = annot_expression  # type: ignore[index]
+            else:
+                self.column_settings[annot_name] = {"converter": annot_expression}
 
         if isinstance(columns, list):
             # CASE 1: A list was supplied, potentially containing:
@@ -353,7 +390,8 @@ class BSTBaseListView(BSTClientInterface):
                 value of the "name" key, or in the case of a str, the value of the str).
         Exceptions:
             TypeError when a colobj type is not supported.
-            ValueError when a name does not match the colkey or when duplicate conflicting settings encountered.
+            ValueError when a name does not match the colkey.
+            ProgrammingError when duplicate conflicting settings encountered.
         Returns:
             None
         """
@@ -385,8 +423,8 @@ class BSTBaseListView(BSTClientInterface):
             if isinstance(colobj, str):
                 if settings.DEBUG:
                     warn(
-                        f"Ignoring duplicate column setting (with just the column name) for column {colkey}.  Silence "
-                        "this warning by removing the duplicate setting."
+                        f"Ignoring duplicate column setting (with just the column name) for column '{colkey}'.  "
+                        "Silence this warning by removing the duplicate setting."
                     )
             elif isinstance(colobj, dict):
                 if isinstance(self.column_settings[colkey], str):
@@ -395,7 +433,7 @@ class BSTBaseListView(BSTClientInterface):
                     if settings.DEBUG:
                         warn(
                             "Overwriting duplicate column settings (with just the column name) with the supplied dict "
-                            f"for column {colkey}.  Silence this warning by removing the duplicate setting."
+                            f"for column '{colkey}'.  Silence this warning by removing the duplicate setting."
                         )
                 if isinstance(self.column_settings[colkey], dict):
                     # If the settings are a supplied annotation and the only key in the settings is the converter
@@ -408,7 +446,7 @@ class BSTBaseListView(BSTClientInterface):
                         self.column_settings[colkey].keys()  # type: ignore[union-attr]
                     ) == ["converter"]:
                         if "converter" in colobj.keys():
-                            raise ValueError(
+                            raise ProgrammingError(
                                 f"Multiple BSTAnnotColumn converters defined.  "
                                 f"Class default: '{self.annotations[colkey]}'.  "
                                 f"Supplied via the constructor: '{colobj['converter']}'."
@@ -422,17 +460,22 @@ class BSTBaseListView(BSTClientInterface):
                         # attribute "update"  [union-attr]
                         self.column_settings[colkey].update(colobj)  # type: ignore[union-attr]
                     else:
-                        raise ValueError(
-                            f"Multiple column settings dicts defined for column {colkey}."
+                        raise ProgrammingError(
+                            f"Multiple column settings dicts defined for column '{colkey}'."
                         )
                 else:
-                    raise ValueError(
-                        f"Multiple column settings defined for column {colkey}.  A "
+                    raise ProgrammingError(
+                        f"Multiple column settings defined for column '{colkey}'.  A "
                         f"'{type(self.column_settings[colkey]).__name__}' and 'dict' were supplied."
                     )
+            elif colkey in self.annotations.keys():
+                raise ProgrammingError(
+                    f"Multiple column settings defined for annotation column '{colkey}'.  A "
+                    f"'{type(self.column_settings[colkey]).__name__}' and '{type(colobj).__name__}' were supplied."
+                )
             else:
-                raise ValueError(
-                    f"Multiple column settings defined for column {colkey}.  A "
+                raise ProgrammingError(
+                    f"Multiple column settings defined for column '{colkey}'.  A "
                     f"'{type(self.column_settings[colkey]).__name__}' and '{type(colobj).__name__}' were supplied."
                 )
         else:
@@ -676,10 +719,10 @@ class BSTBaseListView(BSTClientInterface):
 
             # See if the derived class specified a linked column (to the row's details page)
             if colname not in self.groups.keys() and self.columns[colname].linked:
-                details_link_exists = True
                 # Only make the first linked column the representative (if there are multiple)
                 if not details_link_exists:
                     self.representative_column = self.columns[colname]
+                details_link_exists = True
 
         # If no representative exists and the model has a detail page, automatically set a representative
         if not details_link_exists and BSTBaseColumn.has_detail(self.model):
@@ -696,8 +739,14 @@ class BSTBaseListView(BSTClientInterface):
                 self.columns[rep_colname].linked = True
                 self.representative_column = self.columns[rep_colname]
 
+        # The representative column is either the first linked column or the first column
+        # Allowing no model is purely for testing, since this isn't an abstract base class
+        if self.representative_column is None and self.model is not None:
+            self.representative_column = list(self.columns.values())[0]
+
     def init_column(self, colname: str):
-        """Takes a column name, creates a derived instance of the BSTBaseColumn class, and adds it to self.columns.
+        """Takes a column name and sets or creates a derived instance of the BSTBaseColumn class, adding it to
+        self.columns.
 
         Assumptions:
             1. The legnth of the colname string is greater than 0.
@@ -864,7 +913,11 @@ class BSTBaseListView(BSTClientInterface):
             subset=relative_subset,
         )
         # This assumes that there are not duplicate columns
-        representative = orig_subset_lookup[str(relative_representative)]
+        representative = (
+            orig_subset_lookup[str(relative_representative)]
+            if relative_representative is not None
+            else None
+        )
 
         return representative
 
